@@ -15,6 +15,7 @@ export const SETTINGS_ICON_PATHS = {
     gauge: '<path d="M4.5 16a7.5 7.5 0 1 1 15 0"/><path d="M12 16l3.5-4.5"/>',
     bell: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>',
     wrench: '<path d="M14.5 6.5a4 4 0 0 0 5 5L11 20a2.1 2.1 0 0 1-3-3l8.5-8.5a4 4 0 0 1-2-2z"/>',
+    keyboard: '<rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/>',
     code: '<path d="M9 7l-5 5 5 5M15 7l5 5-5 5"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     circle: '<circle cx="12" cy="12" r="7"/>',

@@ -16,6 +16,9 @@ import { buildExportEncoderChoices, ExportEncoder } from 'akari-shell-strip/lib/
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandContribution, CommandRegistry, CommandService, MessageService } from '@theia/core/lib/common';
+import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
+import { KeymapsService } from '@theia/keymaps/lib/browser/keymaps-service';
+import { KeyboardLayoutService } from '@theia/core/lib/browser/keyboard/keyboard-layout-service';
 import { formatLibraryBytes, libraryMoveCopy } from '../common/library-storage';
 import { PreferenceScope, PreferenceService, PreferenceSchemaService } from '@theia/core/lib/common/preferences';
 import { StoreConnectionFlowController, StoreConnectionFlowState } from 'akari-project/lib/common/store-connection-flow';
@@ -52,6 +55,7 @@ import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-t
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
 import { compareVersions } from '../common/update-feed';
 import { settingsIcon, SettingsIconName } from './settings/settings-icons';
+import { ShortcutsSettingsView } from './settings/shortcuts-settings';
 import {
     checkChips, choiceCards, dropdown, DropdownHandle, el, groupCard, segmentedControl, setPill, settingRow, settingsNote,
     statusPill, switchControl, textField
@@ -98,6 +102,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     /** Akari アカウント節の中身（アカウント帯 + AKARI Store のグループ）。renderStore が描き直す。 */
     protected readonly storeRow = element('div');
     protected readonly sections = new Map<SettingsSectionId, HTMLElement>();
+    protected shortcutsView?: ShortcutsSettingsView;
     protected readonly storeController: StoreConnectionFlowController;
     protected storeState: StoreConnectionFlowState = { connection: { connected: false }, connectionLoading: true, phase: 'idle' };
     protected storeReconnect = false;
@@ -128,11 +133,14 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly storeService: AkariProjectService,
         protected readonly windows: WindowService,
         protected readonly commands: CommandService,
-        protected readonly toolsService: AkariNewProjectService, protected readonly files: FileService, env: EnvVariablesServer,
+        protected readonly toolsService: AkariNewProjectService, protected readonly files: FileService, protected readonly env: EnvVariablesServer,
         protected readonly fileDialogs: FileDialogService, protected readonly maintenance: AkariSettingsMaintenanceService,
         protected readonly workspaceRoot: string | undefined, protected readonly widgetManager: WidgetManager,
         protected readonly shell: ApplicationShell, protected readonly pluginServer: PluginServer,
-        protected readonly narrationService: AkariNarrationEnginesService, initialSection?: SettingsSectionId
+        protected readonly narrationService: AkariNarrationEnginesService,
+        protected readonly keybindingRegistry: KeybindingRegistry, protected readonly commandRegistry: CommandRegistry,
+        protected readonly keymapsService: KeymapsService, protected readonly keyboardLayout: KeyboardLayoutService,
+        initialSection?: SettingsSectionId
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -336,6 +344,14 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         if (id === 'connections') { return; }
         const section = this.sections.get(id)!;
         section.replaceChildren(...this.sectionHeading(id));
+        if (id === 'shortcuts') {
+            this.shortcutsView?.dispose();
+            this.shortcutsView = new ShortcutsSettingsView(section, this.keybindingRegistry, this.commandRegistry,
+                this.keymapsService, this.keyboardLayout,
+                () => this.preferences.get<'code' | 'keyCode'>('keyboard.dispatch', 'code'),
+                this.files, this.env, this.maintenance, message => { this.notice.textContent = message; });
+            return;
+        }
         if (id === 'partner') { this.renderPartner(section); return; }
         if (id === 'storage') { this.renderStorageSection(section); return; }
         if (id === 'privacy') { this.renderPrivacy(section); return; }
@@ -1500,6 +1516,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 action('再読み込み', () => void this.renderGenerationDefaults(container), { small: true }));
         }
     }
+
+    override dispose(): void {
+        this.shortcutsView?.dispose();
+        super.dispose();
+    }
 }
 
 /** Embed the read-only first-run dialog's tool state; inherit its selection, install results
@@ -1641,6 +1662,10 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(AkariProjectService) protected readonly store!: AkariProjectService;
     @inject(WindowService) protected readonly windows!: WindowService;
     @inject(CommandService) protected readonly commands!: CommandService;
+    @inject(CommandRegistry) protected readonly commandRegistry!: CommandRegistry;
+    @inject(KeybindingRegistry) protected readonly keybindingRegistry!: KeybindingRegistry;
+    @inject(KeymapsService) protected readonly keymapsService!: KeymapsService;
+    @inject(KeyboardLayoutService) protected readonly keyboardLayout!: KeyboardLayoutService;
     @inject(AkariNewProjectService) protected readonly tools!: AkariNewProjectService;
     @inject(FileService) protected readonly files!: FileService;
     @inject(FileDialogService) protected readonly fileDialogs!: FileDialogService;
@@ -1771,7 +1796,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         await this.preferences.ready;
         this.maintenance ??= this.connectionsProvider.createProxy<AkariSettingsMaintenanceService>(AKARI_SETTINGS_MAINTENANCE_PATH);
         const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.requestedSection);
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, this.requestedSection);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {

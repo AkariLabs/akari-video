@@ -1,0 +1,68 @@
+{
+  "port": 58064,
+  "groups": {
+    "editing": 28,
+    "playback": 5,
+    "preview": 1,
+    "script": 5,
+    "panels": 8,
+    "partner": 4,
+    "other": 420
+  },
+  "filters": {
+    "all": 471,
+    "modified": 0,
+    "unassigned": 43,
+    "conflicts": 8
+  },
+  "checks": {
+    "timelineToolBefore": "select",
+    "rows": 471,
+    "razorInitiallyPresent": true,
+    "lightSelected": true,
+    "symbolSearch": true,
+    "textSearch": true,
+    "jump": 373.1484375,
+    "recording": true,
+    "escapeCanceled": true,
+    "remapped": [
+      {
+        "command": "akari.timeline.razorTool",
+        "keybinding": "alt+b",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      },
+      {
+        "command": "-akari.timeline.razorTool",
+        "keybinding": "b",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      }
+    ],
+    "keysAfterRemap": [
+      "alt+b",
+      "c"
+    ],
+    "modifiedAfterRemap": 1,
+    "beforeOptionB": "select",
+    "optionBTool": "razor",
+    "oldBTool": "select",
+    "cTool": "razor",
+    "disabled": [
+      {
+        "command": "-akari.timeline.razorTool",
+        "keybinding": "b",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      },
+      {
+        "command": "-akari.timeline.razorTool",
+        "keybinding": "c",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      }
+    ],
+    "disabledCTool": "select",
+    "disabledOptionBTool": "select",
+    "reset": [],
+    "defaultBTool": "razor",
+    "jsonOpenError": "",
+    "jsonPath": "/tmp/akari-shortcuts-l1-yraAiu/config/keymaps.json"
+  }
+}

@@ -281,5 +281,42 @@ ${S} .akari-set-about-release { display: flex; align-items: center; gap: 12px; p
 ${S} .akari-set-about-release > span { color: var(--akari-faint); }
 ${S} .akari-set-about-release > button { margin-left: auto; }
 ${S} .akari-set-diagnostic-excluded { color: var(--akari-faint); }
+/* shortcuts */
+${S} .akari-shortcuts-bar { position: sticky; top: -24px; z-index: 3; display: grid; gap: 8px; padding: 8px 0 10px; background: var(--akari-bg); }
+${S} .akari-shortcuts-controls { display: flex; gap: 8px; align-items: center; min-width: 0; flex-wrap: wrap; }
+${S} .akari-shortcuts-search { display: flex; align-items: center; flex: 1 1 220px; min-width: 190px; gap: 8px; border: 1px solid var(--akari-line); border-radius: 8px; padding: 0 10px; background: var(--akari-elevated); color: var(--akari-faint); }
+${S} .akari-shortcuts-search:focus-within { border-color: var(--akari-accent-light); }
+${S} .akari-shortcuts-search input.akari-set-input { width: 100%; border: 0; background: transparent; padding: 7px 0; }
+${S} .akari-shortcuts-controls .akari-set-seg-item { padding: 5px 8px; font-size: 11px; }
+${S} .akari-shortcuts-jump { display: flex; flex-wrap: wrap; gap: 6px; }
+${S} button.akari-shortcuts-chip { all: unset; box-sizing: border-box; cursor: pointer; border: 1px solid var(--akari-line); border-radius: 999px; padding: 3px 10px; color: var(--akari-muted); font-size: 11.5px; }
+${S} button.akari-shortcuts-chip:hover { color: var(--akari-ink); background: var(--akari-elevated); }
+${S} .akari-shortcuts-heading { scroll-margin-top: 95px; font-size: 11px; color: var(--akari-faint); letter-spacing: .04em; margin: 14px 0 7px; padding-left: 16px; font-weight: 500; }
+${S} .akari-shortcuts-card { margin-bottom: 6px; }
+${S} .akari-shortcuts-row { display: grid; grid-template-columns: minmax(130px, 1fr) minmax(95px, 140px) minmax(90px, auto) 25px; align-items: center; gap: 10px; padding: 8px 12px 8px 16px; border-top: 1px solid var(--akari-line-inner); font-size: 12.5px; }
+${S} .akari-shortcuts-row:first-child { border-top: 0; }
+${S} .akari-shortcuts-row:hover { background: var(--akari-card); }
+${S} .akari-shortcuts-name { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; font-weight: 500; }
+${S} .akari-shortcuts-when { color: var(--akari-faint); font-size: 11px; overflow-wrap: anywhere; }
+${S} .akari-shortcuts-keys { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 3px; min-width: 0; }
+${S} button.akari-shortcuts-key { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; min-height: 28px; padding: 3px 6px; border: 1px solid transparent; border-radius: 7px; }
+${S} button.akari-shortcuts-key:hover { border-color: var(--akari-line); background: var(--akari-bg); }
+${S} button.akari-shortcuts-key[data-recording="true"] { border-color: var(--akari-accent); background: color-mix(in srgb, var(--akari-accent) 12%, var(--akari-bg)); }
+${S} .akari-shortcuts-record-label { color: var(--akari-accent-light); font-size: 11px; white-space: nowrap; }
+${S} .akari-shortcuts-key kbd { min-width: 19px; box-sizing: border-box; text-align: center; font: 11.5px var(--theia-code-font-family, ui-monospace, monospace); color: var(--akari-ink); background: var(--akari-bg); border: 1px solid var(--akari-line); border-bottom-color: var(--akari-line-inner); border-radius: 5px; padding: 1px 5px; }
+${S} .akari-shortcuts-unassigned { color: var(--akari-faint); font-size: 11px; white-space: nowrap; }
+${S} .akari-shortcuts-chord { color: var(--akari-faint); font-size: 10px; }
+${S} .akari-shortcuts-conflict { font-size: 10px; color: var(--theia-editorWarning-foreground, var(--akari-accent-light)); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; }
+${S} .akari-shortcuts-menu { position: relative; }
+${S} button.akari-shortcuts-more { all: unset; box-sizing: border-box; cursor: pointer; display: grid; place-items: center; width: 25px; height: 25px; color: var(--akari-faint); border-radius: 5px; font-size: 18px; line-height: 1; }
+${S} button.akari-shortcuts-more:hover { background: var(--akari-bg); color: var(--akari-ink); }
+${S} .akari-shortcuts-menu-items { position: absolute; right: 0; top: 100%; z-index: 6; width: 126px; padding: 4px; border: 1px solid var(--akari-line); border-radius: 8px; background: var(--akari-elevated); box-shadow: 0 8px 24px color-mix(in srgb, var(--akari-bg) 70%, transparent); }
+${S} .akari-shortcuts-menu-items[hidden] { display: none; }
+${S} button.akari-shortcuts-menu-action { all: unset; box-sizing: border-box; cursor: pointer; display: block; width: 100%; padding: 7px 8px; border-radius: 5px; font-size: 12px; }
+${S} button.akari-shortcuts-menu-action:hover:not(:disabled) { background: var(--akari-card); }
+${S} button.akari-shortcuts-menu-action:disabled { color: var(--akari-faint); cursor: default; opacity: .55; }
+${S} .akari-shortcuts-empty { color: var(--akari-faint); font-size: 12px; padding: 16px; }
+${S} [data-akari-settings-section="shortcuts"] button:focus-visible { outline: 1px solid var(--akari-accent-light); outline-offset: 1px; }
+@media (max-width: 850px) { ${S} .akari-shortcuts-row { grid-template-columns: minmax(110px, 1fr) minmax(80px, 1fr) 25px; } ${S} .akari-shortcuts-when { grid-column: 1 / 2; grid-row: 2; } ${S} .akari-shortcuts-keys { grid-column: 2; grid-row: 1 / 3; } ${S} .akari-shortcuts-menu { grid-column: 3; grid-row: 1 / 3; } }
 @media (prefers-reduced-motion: reduce) { ${S} .akari-set-seg[data-ready="true"] .akari-set-seg-thumb, ${S} button.akari-set-switch, ${S} .akari-set-switch-knob, ${S} button.akari-set-card { transition: none !important; } }
 `;

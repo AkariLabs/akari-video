@@ -80,7 +80,11 @@ function loadDialogModule() {
         '@theia/core/lib/browser': { CommonCommands: { OPEN_PREFERENCES: { id: 'preferences' } }, WebSocketConnectionProvider: class {}, WidgetManager: class {}, ApplicationShell: class {} },
         '@theia/workspace/lib/browser/workspace-service': { WorkspaceService: class {} },
         '@theia/core/lib/browser/window/window-service': { WindowService: Symbol('WindowService') },
-        '@theia/core/lib/common': { CommandService: Symbol('CommandService') },
+        '@theia/core/lib/common': { CommandService: Symbol('CommandService'), CommandRegistry: Symbol('CommandRegistry') },
+        '@theia/core/lib/browser/keybinding': { KeybindingRegistry: Symbol('KeybindingRegistry') },
+        '@theia/core/lib/browser/keyboard/keyboard-layout-service': { KeyboardLayoutService: Symbol('KeyboardLayoutService') },
+        '@theia/keymaps/lib/browser/keymaps-service': { KeymapsService: Symbol('KeymapsService') },
+        './settings/shortcuts-settings': { ShortcutsSettingsView: class {} },
         '@theia/filesystem/lib/browser': { FileDialogService: Symbol('FileDialogService') },
         '@theia/filesystem/lib/browser/file-service': { FileService: Symbol('FileService') },
         '@theia/core/lib/common/env-variables': { EnvVariablesServer: Symbol('EnvVariablesServer') },
@@ -110,7 +114,7 @@ function makeDialog(values = {}, extra = {}) {
 test('(a) ナビは Akari アカウント先頭・外観を新設し、開発者モードだけが開発者グループ', () => {
     const { SETTINGS_SECTIONS, SECTION_PREFERENCE_KEYS, resolveSettingsSectionId, sectionForPreferenceKey } = require('../../lib/common/settings-sections.js');
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
+        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ショートカット', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
     assert.deepEqual(SETTINGS_SECTIONS.filter(section => section.group === 'developer').map(section => section.id), ['developer']);
     const { SETTINGS_ICON_PATHS } = require('../../lib/browser/settings/settings-icons.js');
     for (const section of SETTINGS_SECTIONS) { assert.ok(section.icon in SETTINGS_ICON_PATHS, section.id); }

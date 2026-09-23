@@ -14,6 +14,7 @@ export const SETTINGS_SECTIONS = [
     { id: 'quality', label: 'プレビュー品質', group: 'main', icon: 'gauge' },
     { id: 'notifications', label: '通知', group: 'main', icon: 'bell' },
     { id: 'tools', label: '道具', group: 'main', icon: 'wrench' },
+    { id: 'shortcuts', label: 'ショートカット', group: 'main', icon: 'keyboard', badge: '新' },
     { id: 'storage', label: 'ストレージ', group: 'data', icon: 'disk', badge: '新' },
     { id: 'privacy', label: 'プライバシーとアクセス許可', group: 'data', icon: 'shield', badge: '新' },
     { id: 'statistics', label: '統計と利用状況', group: 'data', icon: 'chart', badge: '準備中' },
@@ -41,6 +42,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     quality: 'プレビューの描き方を選びます。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
     tools: '動画づくりに必要な道具の状態を確認し、セットアップします。',
+    shortcuts: 'キーを押すと変えられます。右端のメニューから無効にする・既定に戻す。',
     developer: '開発者向けの表示を設定します。'
 };
 
@@ -109,6 +111,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
     quality: [AKARI_QUALITY_TIER, AKARI_TIMELINE_VISUAL_THUMBNAILS],
     notifications: [AKARI_AGENT_TURN_END_NOTIFICATION],
     tools: [AKARI_CATALOG_ROOT],
+    shortcuts: [],
     storage: [], privacy: [], statistics: [], help: [], about: [],
     developer: [AKARI_DEVELOPER_MODE]
 };

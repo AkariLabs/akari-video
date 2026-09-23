@@ -1,0 +1,410 @@
+{
+  "electronPid": 33231,
+  "beforeChange": {
+    "b": {
+      "key": "b",
+      "before": "select",
+      "after": "razor"
+    },
+    "c": {
+      "key": "c",
+      "before": "select",
+      "after": "razor"
+    },
+    "altShiftB": {
+      "key": "⌥⇧B",
+      "before": "select",
+      "after": "select"
+    }
+  },
+  "theme": {
+    "dark": "dark",
+    "light": "light"
+  },
+  "list": {
+    "total": 471,
+    "groups": [
+      {
+        "id": "editing",
+        "heading": "編集・タイムライン · 28",
+        "rows": 28
+      },
+      {
+        "id": "playback",
+        "heading": "再生 · 5",
+        "rows": 5
+      },
+      {
+        "id": "preview",
+        "heading": "プレビュー · 1",
+        "rows": 1
+      },
+      {
+        "id": "script",
+        "heading": "台本・字幕 · 5",
+        "rows": 5
+      },
+      {
+        "id": "panels",
+        "heading": "パネル・画面 · 8",
+        "rows": 8
+      },
+      {
+        "id": "partner",
+        "heading": "パートナー · 4",
+        "rows": 4
+      },
+      {
+        "id": "other",
+        "heading": "そのほか · 420",
+        "rows": 420
+      }
+    ],
+    "chips": [
+      "編集・タイムライン",
+      "再生",
+      "プレビュー",
+      "台本・字幕",
+      "パネル・画面",
+      "パートナー",
+      "そのほか"
+    ],
+    "rawButtons": 0,
+    "razorRow": "分割ツール タイムライン C B …",
+    "firstRows": [
+      "元に戻す !akariHistoryEditableFocus ⌘ Z …",
+      "やり直す !akariHistoryEditableFocus ⌘ ⇧ Z …",
+      "選択ツール タイムライン A V …",
+      "分割ツール タイムライン C B …",
+      "仮枠ツール タイムライン F …"
+    ]
+  },
+  "rowText": {
+    "akari.timeline.undo": {
+      "text": "元に戻す !akariHistoryEditableFocus ⌘ Z …",
+      "keys": [
+        "元に戻す のキー ⌘ Z を変更"
+      ]
+    },
+    "akari.timeline.moveTrackUp": {
+      "text": "1 つ上のトラックへ タイムライン ] …",
+      "keys": [
+        "1 つ上のトラックへ のキー ] を変更"
+      ]
+    },
+    "akari.timeline.moveTrackDown": {
+      "text": "1 つ下のトラックへ タイムライン [ …",
+      "keys": [
+        "1 つ下のトラックへ のキー [ を変更"
+      ]
+    },
+    "akari.timeline.selectParent": {
+      "text": "親を選ぶ タイムライン \\ …",
+      "keys": [
+        "親を選ぶ のキー \\ を変更"
+      ]
+    },
+    "akari.timeline.selectChild": {
+      "text": "子を選ぶ タイムライン ↩ …",
+      "keys": [
+        "子を選ぶ のキー ↩ を変更"
+      ]
+    },
+    "akari.timeline.delete": {
+      "text": "削除 タイムライン ⌫ ⌦ …",
+      "keys": [
+        "削除 のキー ⌫ を変更",
+        "削除 のキー ⌦ を変更"
+      ]
+    },
+    "akari.timeline.clearSelection": {
+      "text": "選択を外す タイムライン Esc …",
+      "keys": [
+        "選択を外す のキー Esc を変更"
+      ]
+    },
+    "akari.timeline.togglePlayback": {
+      "text": "再生 / 停止 タイムライン Space …",
+      "keys": [
+        "再生 / 停止 のキー Space を変更"
+      ]
+    },
+    "akari.inspector.clearSolo": {
+      "text": "インスペクターのソロを外す インスペクター Esc …",
+      "keys": [
+        "インスペクターのソロを外す のキー Esc を変更"
+      ]
+    },
+    "akari.daihon.selectAllRows": {
+      "text": "行をすべて選ぶ 台本の一覧 ⌘ A …",
+      "keys": [
+        "行をすべて選ぶ のキー ⌘ A を変更"
+      ]
+    },
+    "editingOrder": [
+      "元に戻す",
+      "やり直す",
+      "選択ツール",
+      "分割ツール",
+      "仮枠ツール",
+      "スナップの切り替え",
+      "文字を置く",
+      "削除"
+    ]
+  },
+  "search": {
+    "⌘B": {
+      "value": "⌘B",
+      "count": 2,
+      "rows": [
+        "akari.timeline.razorTool",
+        "editor.action.setSelectionAnchor"
+      ]
+    },
+    "文字": {
+      "value": "文字",
+      "count": 3,
+      "rows": [
+        "akari.caption.placeText",
+        "akari.transcript.open",
+        "akari.transcribe.openDialog"
+      ]
+    }
+  },
+  "filtersBefore": {
+    "all": {
+      "count": 471,
+      "sample": [
+        "akari.timeline.undo",
+        "akari.timeline.redo",
+        "akari.timeline.selectTool",
+        "akari.timeline.razorTool",
+        "akari.timeline.frameTool",
+        "akari.timeline.toggleSnap"
+      ]
+    },
+    "modified": {
+      "count": 0,
+      "sample": []
+    },
+    "unassigned": {
+      "count": 43,
+      "sample": [
+        "akari.preview.openAudioMeter",
+        "akari.daihon.open",
+        "akari.caption.readAloud",
+        "akari.transcript.open",
+        "akari.settings.open",
+        "akari.inspector.open"
+      ]
+    },
+    "conflicts": {
+      "count": 8,
+      "sample": [
+        "akari.home.newWindow",
+        "terminal:new:active:workspace",
+        "editor.action.selectAll",
+        "workbench.action.newWindow",
+        "search.action.replace",
+        "search.action.replaceAll"
+      ]
+    }
+  },
+  "jump": {
+    "script": {
+      "headingTopBefore": 1992,
+      "headingTopAfter": 245,
+      "stickyBarBottom": 234
+    },
+    "panels": {
+      "headingTopBefore": 509,
+      "headingTopAfter": 245,
+      "stickyBarBottom": 234
+    },
+    "editing": {
+      "headingTopBefore": -1669,
+      "headingTopAfter": 245,
+      "stickyBarBottom": 234
+    }
+  },
+  "record": {
+    "razorKeysBefore": [
+      "C",
+      "B"
+    ],
+    "recordingShown": "キーを押す…",
+    "afterEsc": {
+      "recording": false,
+      "dialogOpen": true,
+      "keymaps": "<ENOENT>"
+    },
+    "targetKeyLabel": "分割ツール のキー B を変更",
+    "keymapsAfter": [
+      {
+        "command": "akari.timeline.razorTool",
+        "keybinding": "shift+alt+b",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      },
+      {
+        "command": "-akari.timeline.razorTool",
+        "keybinding": "b",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      }
+    ],
+    "registryAfter": [
+      {
+        "keybinding": "shift+alt+b",
+        "scope": 1,
+        "accelerator": "⌥⇧B"
+      },
+      {
+        "keybinding": "c",
+        "scope": 0,
+        "accelerator": "C"
+      }
+    ],
+    "razorRowAfter": "分割ツール タイムライン ⇧ ⌥ B C …",
+    "afterChange": {
+      "b": {
+        "key": "b",
+        "before": "select",
+        "after": "select"
+      },
+      "c": {
+        "key": "c",
+        "before": "select",
+        "after": "razor"
+      },
+      "altShiftB": {
+        "key": "⌥⇧B",
+        "before": "select",
+        "after": "razor"
+      }
+    }
+  },
+  "filtersAfterChange": {
+    "all": {
+      "count": 471,
+      "sample": [
+        "akari.timeline.undo",
+        "akari.timeline.redo",
+        "akari.timeline.selectTool",
+        "akari.timeline.razorTool",
+        "akari.timeline.frameTool",
+        "akari.timeline.toggleSnap"
+      ]
+    },
+    "modified": {
+      "count": 1,
+      "sample": [
+        "akari.timeline.razorTool"
+      ]
+    },
+    "unassigned": {
+      "count": 43,
+      "sample": [
+        "akari.preview.openAudioMeter",
+        "akari.daihon.open",
+        "akari.caption.readAloud",
+        "akari.transcript.open",
+        "akari.settings.open",
+        "akari.inspector.open"
+      ]
+    },
+    "conflicts": {
+      "count": 8,
+      "sample": [
+        "akari.home.newWindow",
+        "terminal:new:active:workspace",
+        "editor.action.selectAll",
+        "workbench.action.newWindow",
+        "search.action.replace",
+        "search.action.replaceAll"
+      ]
+    }
+  },
+  "conflictMark": {
+    "frameRow": "仮枠ツール 重なり タイムライン V …",
+    "frameConflict": true,
+    "selectConflict": true,
+    "conflictRows": [
+      "akari.timeline.selectTool",
+      "akari.timeline.frameTool",
+      "akari.home.newWindow",
+      "terminal:new:active:workspace",
+      "editor.action.selectAll",
+      "workbench.action.newWindow",
+      "search.action.replace",
+      "search.action.replaceAll",
+      "core.selectAll",
+      "workbench.action.terminal.toggleTerminal"
+    ]
+  },
+  "disable": {
+    "keymaps": [
+      {
+        "command": "-akari.timeline.razorTool",
+        "keybinding": "b",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      },
+      {
+        "command": "-akari.timeline.razorTool",
+        "keybinding": "c",
+        "when": "akariTimelineVisible && !akariModalOpen && !akariEditableFocus && !akariImeComposing"
+      }
+    ],
+    "row": "分割ツール タイムライン 未割り当て …",
+    "inUnassigned": true,
+    "keys": {
+      "b": {
+        "key": "b",
+        "before": "select",
+        "after": "select"
+      },
+      "c": {
+        "key": "c",
+        "before": "select",
+        "after": "select"
+      },
+      "altShiftB": {
+        "key": "⌥⇧B",
+        "before": "select",
+        "after": "select"
+      }
+    }
+  },
+  "reset": {
+    "keymaps": [],
+    "keys": {
+      "b": {
+        "key": "b",
+        "before": "select",
+        "after": "razor"
+      },
+      "c": {
+        "key": "c",
+        "before": "select",
+        "after": "razor"
+      },
+      "altShiftB": {
+        "key": "⌥⇧B",
+        "before": "select",
+        "after": "select"
+      }
+    }
+  },
+  "openJson": {
+    "calls": [
+      {
+        "path": "<TMP>/config/keymaps.json",
+        "result": "resolved"
+      }
+    ],
+    "expectedPath": "<TMP>/config/keymaps.json",
+    "created": true,
+    "content": "[]\n",
+    "notice": ""
+  },
+  "pass": true,
+  "orphans": 0
+}
