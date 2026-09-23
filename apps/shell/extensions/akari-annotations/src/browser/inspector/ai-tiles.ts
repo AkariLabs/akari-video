@@ -28,7 +28,7 @@ export function aiTabViewFor(options: {
 }): AiTabView {
     if (options.forcePanel) return 'video';
     if (options.clipKey === options.previousClipKey && options.previousView) return options.previousView;
-    return options.generationDone || ['generating', 'failed', 'stale', 'done'].includes(options.generationState ?? '')
+    return options.generationDone || ['generating', 'failed', 'stale'].includes(options.generationState ?? '')
         ? 'video' : 'tiles';
 }
 

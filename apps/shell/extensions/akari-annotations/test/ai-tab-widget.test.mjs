@@ -69,7 +69,7 @@ function fixture(options = {}) {
   instance.generationStates = new Map([[clip.itemId, options.state ?? 'none']]);
   instance.generationDone = new Map(options.done ? [[clip.itemId, { sourcePath: clip.sourcePath, meta: {} }]] : []);
   instance.generationLoads = new Set([clip.itemId]);
-  instance.generationTabMeta = new Map();
+  instance.generationTabMeta = new Map(options.nextPlanned ? [[clip.itemId, { next: { status: 'planned' } }]] : []);
   instance.generationTabLoads = new Set();
   instance.generationTabDrafts = new Map();
   instance.generationDrafts = new Map();
@@ -120,6 +120,23 @@ test('widget: planned の空の枠は一覧で開く', () => withDom(() => {
   instance.render();
   assert.ok(aiTile(instance.body));
   assert.equal(panel(instance.body), undefined);
+}));
+
+test('widget: status done の静止画は一覧で開く', () => withDom(() => {
+  const instance = fixture({ state: 'done' });
+  instance.render();
+  assert.ok(aiTile(instance.body));
+  assert.equal(panel(instance.body), undefined);
+  assert.equal(find(instance.body, byClass('akari-inspector-ai-back')), undefined);
+}));
+
+test('widget: status done の静止画 + next planned は一覧で開く', () => withDom(() => {
+  const instance = fixture({ state: 'done', nextPlanned: true });
+  instance.render();
+  assert.deepEqual(instance.generationTabMeta.get('cut-1'), { next: { status: 'planned' } });
+  assert.ok(aiTile(instance.body));
+  assert.equal(panel(instance.body), undefined);
+  assert.equal(find(instance.body, byClass('akari-inspector-ai-back')), undefined);
 }));
 
 for (const [name, options] of [

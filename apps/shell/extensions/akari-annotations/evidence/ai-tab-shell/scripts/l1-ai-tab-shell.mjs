@@ -19,7 +19,10 @@ const PROJECT = path.join(ROOT, 'fixture/project');
 const PORT = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice(7) ?? 22223);
 const ISO = await mkdtemp(path.join(os.tmpdir(), 'akari-ai-tab-l1-'));
 const S = JSON.stringify;
-const results = { status: 'running', step: 'initializing', port: PORT, checks: [], screenshots: [], scenarios: [] };
+const results = { status: 'running', step: 'initializing', port: PORT, checks: [], clicks: [], settles: [],
+  measurements: { tileImageRatio: null, titleReasonIntersect: null, disabledFilter: null,
+    enabledTileBackground: null, enabledTileBorder: null, backClickable: false },
+  screenshots: [], scenarios: [] };
 export const sanitizeText = value => {
   let text = String(value);
   text = text.replaceAll(REPO, '<WORKTREE>');
@@ -40,7 +43,7 @@ function check(name, pass, measured) {
   results.checks.push({ name, pass: Boolean(pass), measured });
   if (!pass) throw new Error(`${name}: ${JSON.stringify(measured)}`);
 }
-async function waitEval(cdp, expression, name, timeout = 90_000) {
+async function waitEval(cdp, expression, name, timeout = 30_000) {
   const until = Date.now() + timeout;
   while (Date.now() < until) {
     const value = await evalOn(cdp, expression).catch(() => undefined);
@@ -65,10 +68,40 @@ async function click(cdp, selector) {
     const r=e.getBoundingClientRect();return r.width&&r.height?{x:r.left+r.width/2,y:r.top+r.height/2}:null})()`, selector);
   await realClick(cdp, point.x, point.y);
 }
+async function settle(cdp) {
+  const settled = await evalOn(cdp, `(()=>new Promise(resolve=>{
+    const roots=['[data-akari-ui="panel:inspector"]','[data-akari-ui="panel:timeline"]']
+      .map(selector=>document.querySelector(selector)).filter(Boolean);
+    if(!roots.length){resolve({timedOut:false,observed:0});return}
+    let quietTimer,limitTimer;
+    const observers=roots.map(root=>{const observer=new MutationObserver(reset);
+      observer.observe(root,{subtree:true,childList:true,attributes:true,characterData:true});return observer});
+    function finish(timedOut){clearTimeout(quietTimer);clearTimeout(limitTimer);
+      observers.forEach(observer=>observer.disconnect());resolve({timedOut,observed:roots.length})}
+    function reset(){clearTimeout(quietTimer);quietTimer=setTimeout(()=>finish(false),500)}
+    limitTimer=setTimeout(()=>finish(true),30000);reset()
+  }))()`);
+  results.settles.push({ step: results.step, ...settled });
+  return settled;
+}
+async function clickUntil(cdp, selector, expectExpression, name) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await settle(cdp);
+    try {
+      await click(cdp, selector);
+      await waitEval(cdp, expectExpression, name, 5_000);
+      results.clicks.push({ name, selector, attempt, passed: true });
+      return;
+    } catch (error) {
+      results.clicks.push({ name, selector, attempt, passed: false, error: sanitizeText(error?.message ?? error) });
+      if (attempt === 3) throw new Error(`${name}: failed after 3 clicks`, { cause: error });
+    }
+  }
+}
 async function selectCut(cdp, index) {
   const selector = `[data-akari-ui="timeline:cut:${index}"]`;
-  await click(cdp, selector);
-  await waitEval(cdp, `document.querySelector(${S(selector)})?.classList.contains('akari-annotations-selected')`, `cut ${index}`);
+  await clickUntil(cdp, selector,
+    `document.querySelector(${S(selector)})?.classList.contains('akari-annotations-selected')`, `cut ${index}`);
 }
 const tab = '[data-akari-ui="tab:inspector-generation"]';
 const tile = '[data-akari-inspector-ai-tile="video"]';
@@ -76,10 +109,12 @@ const back = '.akari-inspector-ai-back';
 const section = '[data-akari-ui="section:inspector-generation"]';
 async function openAi(cdp) {
   await waitEval(cdp, `(()=>{const t=document.querySelector(${S(tab)});return t&&!t.disabled})()`, 'AI tab enabled');
+  await settle(cdp);
   const state = await evalOn(cdp, `(()=>{const t=document.querySelector(${S(tab)});return{text:t.textContent.trim(),id:t.getAttribute('data-akari-ui'),enabled:!t.disabled}})()`);
   check('AI tab label and id', state.text === 'AI' && state.id === 'tab:inspector-generation' && state.enabled, state);
-  if (await evalOn(cdp, `document.querySelector(${S(tab)})?.getAttribute('aria-selected')!=='true'`)) await click(cdp, tab);
-  await waitEval(cdp, `document.querySelector(${S(tab)})?.getAttribute('aria-selected')==='true'`, 'AI tab selected');
+  const selected = `document.querySelector(${S(tab)})?.getAttribute('aria-selected')==='true'`;
+  if (!await evalOn(cdp, selected)) await clickUntil(cdp, tab, selected, 'AI tab selected');
+  else await waitEval(cdp, selected, 'AI tab selected');
 }
 async function shot(cdp, name) {
   const rect = await waitEval(cdp, `(()=>{const e=document.querySelector('[data-akari-ui="panel:inspector"]');if(!e)return null;
@@ -103,16 +138,22 @@ async function inspectTile(cdp, disabled) {
       borderStyle:style.borderTopStyle,ariaDisabled:e.getAttribute('aria-disabled')}})()`);
   check('tile artwork loads', measured?.complete && measured.natural.width === 320 && measured.natural.height === 180, measured);
   const ratio = measured.image.width / measured.image.height;
+  results.measurements.tileImageRatio = ratio;
   check('tile artwork rectangle 16:9', Math.abs(ratio - 16 / 9) <= 0.02, { ratio, rect: measured.image });
-  check('title and reason rectangles do not intersect', !measured.reason ||
-    measured.title.bottom <= measured.reason.top || measured.reason.bottom <= measured.title.top,
+  const titleReasonIntersect = !!measured.reason && !(measured.title.bottom <= measured.reason.top ||
+    measured.reason.bottom <= measured.title.top);
+  results.measurements.titleReasonIntersect = titleReasonIntersect;
+  check('title and reason rectangles do not intersect', !titleReasonIntersect,
     { title: measured.title, reason: measured.reason });
   check('tile enabled state', measured.ariaDisabled === String(disabled), measured);
   if (disabled) {
+    results.measurements.disabledFilter = measured.filter;
     check('disabled artwork grayscale', measured.filter.includes('grayscale'), { filter: measured.filter });
     check('disabled reason one line', measured.reasonText === '静止画か空の枠で使えます' &&
       measured.reason.height <= 20, { reason: measured.reasonText, rect: measured.reason });
   } else {
+    results.measurements.enabledTileBackground = measured.background;
+    results.measurements.enabledTileBorder = { width: measured.borderWidth, style: measured.borderStyle };
     check('enabled tile has background or border',
       !['transparent', 'rgba(0, 0, 0, 0)'].includes(measured.background) ||
       (Number.parseFloat(measured.borderWidth) > 0 && measured.borderStyle !== 'none'),
@@ -195,8 +236,8 @@ try {
   await shot(cdp, '01-still-list.png');
 
   await stage('02 video action panel');
-  await click(cdp, tile);
-  await waitEval(cdp, `Boolean(document.querySelector(${S(back)})&&document.querySelector(${S(section)}))`, 'video panel');
+  await clickUntil(cdp, tile,
+    `Boolean(document.querySelector(${S(back)})&&document.querySelector(${S(section)}))`, 'video panel');
   const form = await evalOn(cdp, `(()=>{const s=document.querySelector(${S(section)});return{back:document.querySelector(${S(back)})?.textContent,
     title:document.querySelector('.akari-inspector-ai-panel-title')?.textContent,
     model:!!s?.querySelector('[data-akari-ui="field:inspector-generation-model"]'),
@@ -207,9 +248,10 @@ try {
   await shot(cdp, '02-video-panel.png');
 
   await stage('03 return to AI list');
-  await click(cdp, back);
-  await waitEval(cdp, `Boolean(document.querySelector(${S(tile)}))`, 'back to tiles');
-  check('← AI is clickable and returns to list', true, { tilePresent: true });
+  await clickUntil(cdp, back,
+    `Boolean(document.querySelector(${S(tile)})&&!document.querySelector(${S(back)}))`, 'back to tiles');
+  results.measurements.backClickable = true;
+  check('← AI is clickable and returns to list', results.measurements.backClickable, { tilePresent: true, backPresent: false });
   await shot(cdp, '03-back-to-list.png');
 
   await stage('04 ordinary video disabled tile');
@@ -227,16 +269,29 @@ try {
     { list: true, panel: false });
   await shot(cdp, '05-planned-slot.png');
 
+  await stage('05b done still list');
+  await selectCut(cdp, 2); // Generated still image, without a next job.
+  await openAi(cdp);
+  const doneStillList = await waitEval(cdp,
+    `Boolean(document.querySelector(${S(tile)})&&!document.querySelector(${S(back)})&&!document.querySelector(${S(section)}))`,
+    'done still list');
+  check('done still opens list', doneStillList, { tilePresent: true, panelPresent: false });
+  await shot(cdp, '05b-done-still.png');
+
   await stage('06 planned video form');
   await selectCut(cdp, 0); // Video-planned still with a fake runnable next job.
   await openAi(cdp);
-  await waitEval(cdp, `Boolean(document.querySelector(${S(tile)}))`, 'generation input list');
-  await click(cdp, tile);
-  await waitEval(cdp, `Boolean(document.querySelector(${S(section)}))`, 'planned slot form');
+  const nextPlannedList = await waitEval(cdp,
+    `Boolean(document.querySelector(${S(tile)})&&!document.querySelector(${S(back)})&&!document.querySelector(${S(section)}))`,
+    'done still with next planned list');
+  check('done still with next planned opens list', nextPlannedList, { tilePresent: true, panelPresent: false });
+  await clickUntil(cdp, tile,
+    `Boolean(document.querySelector(${S(back)})&&document.querySelector(${S(section)}))`, 'planned slot form');
   await shot(cdp, '06-before-fake-generate.png');
   await stage('07 fake generation progress');
-  await click(cdp, '[data-akari-generation-action="generate"]');
-  await waitEval(cdp, `Boolean([...document.querySelectorAll('.dialogBlock')].find(e=>e.textContent.includes('費用承認')))`, 'cost approval');
+  await clickUntil(cdp, '[data-akari-generation-action="generate"]',
+    `Boolean([...document.querySelectorAll('.dialogBlock')].find(e=>e.textContent.includes('費用承認')))`,
+    'cost approval');
   await evalOn(cdp, `(()=>{const d=[...document.querySelectorAll('.dialogBlock')].find(e=>e.textContent.includes('費用承認'));
     const b=[...d.querySelectorAll('button')].find(e=>e.textContent.includes('費用承認する'));if(!b)throw new Error('approval button missing');b.click()})()`);
   const meta = await waitSidecarStatus('generating');
@@ -255,12 +310,30 @@ try {
     reselected.progress && !reselected.tilePresent, reselected);
   await shot(cdp, '08-reselect-generating.png');
   results.scenarios = ['still list', 'video form', 'back', 'ordinary video disabled',
-    'planned slot list', 'fake generating', 'reselect generating'];
+    'planned slot list', 'done still list', 'done still with next planned list', 'fake generating', 'reselect generating'];
   results.status = 'PASS';
 } catch (error) {
   results.status = 'FAIL';
   results.failedStep = results.step;
   results.error = sanitizeText(error?.stack ?? error);
+  results.failureState = { unavailable: 'CDP connection was not established' };
+  if (cdp) {
+    try {
+      const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      const bytes = Buffer.from(data, 'base64');
+      await writeFile(path.join(ROOT, 'error-full.png'), bytes);
+      results.errorScreenshot = { file: 'error-full.png', bytes: bytes.length };
+    } catch (captureError) { results.errorScreenshotError = sanitizeText(captureError?.message ?? captureError); }
+    try {
+      results.failureState = await evalOn(cdp, `(()=>({
+        tabs:[...document.querySelectorAll('[data-akari-ui^="tab:inspector-"]')].map(e=>({
+          id:e.getAttribute('data-akari-ui'),selected:e.getAttribute('aria-selected')})),
+        tile:!!document.querySelector(${S(tile)}),back:!!document.querySelector(${S(back)}),
+        selectedCut:[...document.querySelectorAll('[data-akari-ui^="timeline:cut:"]')]
+          .filter(e=>e.classList.contains('akari-annotations-selected'))
+          .map(e=>e.getAttribute('data-akari-ui'))}))()`);
+    } catch (stateError) { results.failureState = { error: sanitizeText(stateError?.message ?? stateError) }; }
+  }
 } finally {
   results.step = 'cleanup';
   try { cdp?.close(); } catch (error) { results.cleanupError = sanitizeText(error?.stack ?? error); }

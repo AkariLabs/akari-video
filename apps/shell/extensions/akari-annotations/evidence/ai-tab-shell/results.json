@@ -11,9 +11,718 @@
         "id": "tab:inspector-generation",
         "enabled": true
       }
+    },
+    {
+      "name": "still list shows only 作る",
+      "pass": true,
+      "measured": [
+        "作る"
+      ]
+    },
+    {
+      "name": "tile artwork loads",
+      "pass": true,
+      "measured": {
+        "image": {
+          "left": 646,
+          "right": 847.5,
+          "top": 195.5,
+          "bottom": 308.84375,
+          "width": 201.5,
+          "height": 113.34375
+        },
+        "natural": {
+          "width": 320,
+          "height": 180
+        },
+        "complete": true,
+        "title": {
+          "left": 654,
+          "right": 839.5,
+          "top": 315.84375,
+          "bottom": 332.0390625,
+          "width": 185.5,
+          "height": 16.1953125
+        },
+        "reason": null,
+        "reasonText": null,
+        "filter": "none",
+        "background": "rgb(26, 26, 26)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "ariaDisabled": "false"
+      }
+    },
+    {
+      "name": "tile artwork rectangle 16:9",
+      "pass": true,
+      "measured": {
+        "ratio": 1.7777777777777777,
+        "rect": {
+          "left": 646,
+          "right": 847.5,
+          "top": 195.5,
+          "bottom": 308.84375,
+          "width": 201.5,
+          "height": 113.34375
+        }
+      }
+    },
+    {
+      "name": "title and reason rectangles do not intersect",
+      "pass": true,
+      "measured": {
+        "title": {
+          "left": 654,
+          "right": 839.5,
+          "top": 315.84375,
+          "bottom": 332.0390625,
+          "width": 185.5,
+          "height": 16.1953125
+        },
+        "reason": null
+      }
+    },
+    {
+      "name": "tile enabled state",
+      "pass": true,
+      "measured": {
+        "image": {
+          "left": 646,
+          "right": 847.5,
+          "top": 195.5,
+          "bottom": 308.84375,
+          "width": 201.5,
+          "height": 113.34375
+        },
+        "natural": {
+          "width": 320,
+          "height": 180
+        },
+        "complete": true,
+        "title": {
+          "left": 654,
+          "right": 839.5,
+          "top": 315.84375,
+          "bottom": 332.0390625,
+          "width": 185.5,
+          "height": 16.1953125
+        },
+        "reason": null,
+        "reasonText": null,
+        "filter": "none",
+        "background": "rgb(26, 26, 26)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "ariaDisabled": "false"
+      }
+    },
+    {
+      "name": "enabled tile has background or border",
+      "pass": true,
+      "measured": {
+        "background": "rgb(26, 26, 26)",
+        "borderWidth": "1px",
+        "borderStyle": "solid"
+      }
+    },
+    {
+      "name": "01-still-list.png: readable inspector width",
+      "pass": true,
+      "measured": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    {
+      "name": "01-still-list.png: screenshot under 500KB",
+      "pass": true,
+      "measured": {
+        "bytes": 122880
+      }
+    },
+    {
+      "name": "existing video form inside panel",
+      "pass": true,
+      "measured": {
+        "back": "← AI",
+        "title": "動画にする",
+        "model": true,
+        "prompt": true,
+        "estimate": true,
+        "generate": true
+      }
+    },
+    {
+      "name": "02-video-panel.png: readable inspector width",
+      "pass": true,
+      "measured": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    {
+      "name": "02-video-panel.png: screenshot under 500KB",
+      "pass": true,
+      "measured": {
+        "bytes": 100186
+      }
+    },
+    {
+      "name": "← AI is clickable and returns to list",
+      "pass": true,
+      "measured": {
+        "tilePresent": true,
+        "backPresent": false
+      }
+    },
+    {
+      "name": "03-back-to-list.png: readable inspector width",
+      "pass": true,
+      "measured": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    {
+      "name": "03-back-to-list.png: screenshot under 500KB",
+      "pass": true,
+      "measured": {
+        "bytes": 122865
+      }
+    },
+    {
+      "name": "AI tab label and id",
+      "pass": true,
+      "measured": {
+        "text": "AI",
+        "id": "tab:inspector-generation",
+        "enabled": true
+      }
+    },
+    {
+      "name": "tile artwork loads",
+      "pass": true,
+      "measured": {
+        "image": {
+          "left": 646,
+          "right": 847.5,
+          "top": 195.5,
+          "bottom": 308.84375,
+          "width": 201.5,
+          "height": 113.34375
+        },
+        "natural": {
+          "width": 320,
+          "height": 180
+        },
+        "complete": true,
+        "title": {
+          "left": 654,
+          "right": 839.5,
+          "top": 315.84375,
+          "bottom": 332.0390625,
+          "width": 185.5,
+          "height": 16.1953125
+        },
+        "reason": {
+          "left": 654,
+          "right": 839.5,
+          "top": 336.0390625,
+          "bottom": 349.5390625,
+          "width": 185.5,
+          "height": 13.5
+        },
+        "reasonText": "静止画か空の枠で使えます",
+        "filter": "grayscale(1)",
+        "background": "rgb(26, 26, 26)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "ariaDisabled": "true"
+      }
+    },
+    {
+      "name": "tile artwork rectangle 16:9",
+      "pass": true,
+      "measured": {
+        "ratio": 1.7777777777777777,
+        "rect": {
+          "left": 646,
+          "right": 847.5,
+          "top": 195.5,
+          "bottom": 308.84375,
+          "width": 201.5,
+          "height": 113.34375
+        }
+      }
+    },
+    {
+      "name": "title and reason rectangles do not intersect",
+      "pass": true,
+      "measured": {
+        "title": {
+          "left": 654,
+          "right": 839.5,
+          "top": 315.84375,
+          "bottom": 332.0390625,
+          "width": 185.5,
+          "height": 16.1953125
+        },
+        "reason": {
+          "left": 654,
+          "right": 839.5,
+          "top": 336.0390625,
+          "bottom": 349.5390625,
+          "width": 185.5,
+          "height": 13.5
+        }
+      }
+    },
+    {
+      "name": "tile enabled state",
+      "pass": true,
+      "measured": {
+        "image": {
+          "left": 646,
+          "right": 847.5,
+          "top": 195.5,
+          "bottom": 308.84375,
+          "width": 201.5,
+          "height": 113.34375
+        },
+        "natural": {
+          "width": 320,
+          "height": 180
+        },
+        "complete": true,
+        "title": {
+          "left": 654,
+          "right": 839.5,
+          "top": 315.84375,
+          "bottom": 332.0390625,
+          "width": 185.5,
+          "height": 16.1953125
+        },
+        "reason": {
+          "left": 654,
+          "right": 839.5,
+          "top": 336.0390625,
+          "bottom": 349.5390625,
+          "width": 185.5,
+          "height": 13.5
+        },
+        "reasonText": "静止画か空の枠で使えます",
+        "filter": "grayscale(1)",
+        "background": "rgb(26, 26, 26)",
+        "borderWidth": "1px",
+        "borderStyle": "solid",
+        "ariaDisabled": "true"
+      }
+    },
+    {
+      "name": "disabled artwork grayscale",
+      "pass": true,
+      "measured": {
+        "filter": "grayscale(1)"
+      }
+    },
+    {
+      "name": "disabled reason one line",
+      "pass": true,
+      "measured": {
+        "reason": "静止画か空の枠で使えます",
+        "rect": {
+          "left": 654,
+          "right": 839.5,
+          "top": 336.0390625,
+          "bottom": 349.5390625,
+          "width": 185.5,
+          "height": 13.5
+        }
+      }
+    },
+    {
+      "name": "04-ordinary-video.png: readable inspector width",
+      "pass": true,
+      "measured": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    {
+      "name": "04-ordinary-video.png: screenshot under 500KB",
+      "pass": true,
+      "measured": {
+        "bytes": 84131
+      }
+    },
+    {
+      "name": "AI tab label and id",
+      "pass": true,
+      "measured": {
+        "text": "AI",
+        "id": "tab:inspector-generation",
+        "enabled": true
+      }
+    },
+    {
+      "name": "planned slot opens list",
+      "pass": true,
+      "measured": {
+        "list": true,
+        "panel": false
+      }
+    },
+    {
+      "name": "05-planned-slot.png: readable inspector width",
+      "pass": true,
+      "measured": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    {
+      "name": "05-planned-slot.png: screenshot under 500KB",
+      "pass": true,
+      "measured": {
+        "bytes": 122161
+      }
+    },
+    {
+      "name": "AI tab label and id",
+      "pass": true,
+      "measured": {
+        "text": "AI",
+        "id": "tab:inspector-generation",
+        "enabled": true
+      }
+    },
+    {
+      "name": "done still opens list",
+      "pass": true,
+      "measured": {
+        "tilePresent": true,
+        "panelPresent": false
+      }
+    },
+    {
+      "name": "05b-done-still.png: readable inspector width",
+      "pass": true,
+      "measured": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    {
+      "name": "05b-done-still.png: screenshot under 500KB",
+      "pass": true,
+      "measured": {
+        "bytes": 122168
+      }
+    },
+    {
+      "name": "AI tab label and id",
+      "pass": true,
+      "measured": {
+        "text": "AI",
+        "id": "tab:inspector-generation",
+        "enabled": true
+      }
+    },
+    {
+      "name": "done still with next planned opens list",
+      "pass": true,
+      "measured": {
+        "tilePresent": true,
+        "panelPresent": false
+      }
+    },
+    {
+      "name": "06-before-fake-generate.png: readable inspector width",
+      "pass": true,
+      "measured": {
+        "x": 635,
+        "y": 39,
+        "width": 437,
+        "height": 603
+      }
+    },
+    {
+      "name": "06-before-fake-generate.png: screenshot under 500KB",
+      "pass": true,
+      "measured": {
+        "bytes": 140546
+      }
     }
   ],
-  "screenshots": [],
+  "clicks": [
+    {
+      "name": "cut 3",
+      "selector": "[data-akari-ui=\"timeline:cut:3\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab selected",
+      "selector": "[data-akari-ui=\"tab:inspector-generation\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "video panel",
+      "selector": "[data-akari-inspector-ai-tile=\"video\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "back to tiles",
+      "selector": ".akari-inspector-ai-back",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "cut 4",
+      "selector": "[data-akari-ui=\"timeline:cut:4\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab selected",
+      "selector": "[data-akari-ui=\"tab:inspector-generation\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "cut 1",
+      "selector": "[data-akari-ui=\"timeline:cut:1\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab selected",
+      "selector": "[data-akari-ui=\"tab:inspector-generation\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "cut 2",
+      "selector": "[data-akari-ui=\"timeline:cut:2\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab selected",
+      "selector": "[data-akari-ui=\"tab:inspector-generation\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "cut 0",
+      "selector": "[data-akari-ui=\"timeline:cut:0\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab selected",
+      "selector": "[data-akari-ui=\"tab:inspector-generation\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "planned slot form",
+      "selector": "[data-akari-inspector-ai-tile=\"video\"]",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "cost approval",
+      "selector": "[data-akari-generation-action=\"generate\"]",
+      "attempt": 1,
+      "passed": false,
+      "error": "Timed out: cost approval"
+    },
+    {
+      "name": "cost approval",
+      "selector": "[data-akari-generation-action=\"generate\"]",
+      "attempt": 2,
+      "passed": false,
+      "error": "Timed out: cost approval"
+    },
+    {
+      "name": "cost approval",
+      "selector": "[data-akari-generation-action=\"generate\"]",
+      "attempt": 3,
+      "passed": false,
+      "error": "Timed out: cost approval"
+    }
+  ],
+  "settles": [
+    {
+      "step": "01 still tile list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "01 still tile list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "01 still tile list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "02 video action panel",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "03 return to AI list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "04 ordinary video disabled tile",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "04 ordinary video disabled tile",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "04 ordinary video disabled tile",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "05 planned empty frame list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "05 planned empty frame list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "05 planned empty frame list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "05b done still list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "05b done still list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "05b done still list",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "06 planned video form",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "06 planned video form",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "06 planned video form",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "06 planned video form",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "07 fake generation progress",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "07 fake generation progress",
+      "timedOut": false,
+      "observed": 2
+    },
+    {
+      "step": "07 fake generation progress",
+      "timedOut": false,
+      "observed": 2
+    }
+  ],
+  "measurements": {
+    "tileImageRatio": 1.7777777777777777,
+    "titleReasonIntersect": false,
+    "disabledFilter": "grayscale(1)",
+    "enabledTileBackground": "rgb(26, 26, 26)",
+    "enabledTileBorder": {
+      "width": "1px",
+      "style": "solid"
+    },
+    "backClickable": true
+  },
+  "screenshots": [
+    {
+      "file": "01-still-list.png",
+      "bytes": 122880,
+      "panelWidth": 437
+    },
+    {
+      "file": "02-video-panel.png",
+      "bytes": 100186,
+      "panelWidth": 437
+    },
+    {
+      "file": "03-back-to-list.png",
+      "bytes": 122865,
+      "panelWidth": 437
+    },
+    {
+      "file": "04-ordinary-video.png",
+      "bytes": 84131,
+      "panelWidth": 437
+    },
+    {
+      "file": "05-planned-slot.png",
+      "bytes": 122161,
+      "panelWidth": 437
+    },
+    {
+      "file": "05b-done-still.png",
+      "bytes": 122168,
+      "panelWidth": 437
+    },
+    {
+      "file": "06-before-fake-generate.png",
+      "bytes": 140546,
+      "panelWidth": 437
+    }
+  ],
   "scenarios": [],
   "fixture": {
     "ok": true,
@@ -33,8 +742,41 @@
     "plainImage": "assets/stills/plain.png",
     "captions": true
   },
-  "failedStep": "01 still tile list",
-  "error": "Error: Timed out: AI tab selected\n    at waitEval (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:50:9)\n    at async openAi (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:82:3)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:190:3",
-  "killedPid": 91921,
+  "failedStep": "07 fake generation progress",
+  "error": "Error: cost approval: failed after 3 clicks\n    at clickUntil (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:97:32)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:292:3",
+  "failureState": {
+    "tabs": [
+      {
+        "id": "tab:inspector-video",
+        "selected": "false"
+      },
+      {
+        "id": "tab:inspector-adjust",
+        "selected": "false"
+      },
+      {
+        "id": "tab:inspector-audio",
+        "selected": "false"
+      },
+      {
+        "id": "tab:inspector-generation",
+        "selected": "true"
+      },
+      {
+        "id": "tab:inspector-info",
+        "selected": "false"
+      }
+    ],
+    "tile": false,
+    "back": true,
+    "selectedCut": [
+      "timeline:cut:0"
+    ]
+  },
+  "errorScreenshot": {
+    "file": "error-full.png",
+    "bytes": 310380
+  },
+  "killedPid": 95071,
   "electronExited": true
 }

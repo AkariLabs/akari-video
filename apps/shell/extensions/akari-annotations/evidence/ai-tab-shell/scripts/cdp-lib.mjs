@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { writeFile } from 'node:fs/promises';
 
-const cdpTimeoutMs = process.env.AKARI_CDP_TIMEOUT_MS === undefined ? 10_000 : Number(process.env.AKARI_CDP_TIMEOUT_MS);
+const cdpTimeoutMs = process.env.AKARI_CDP_TIMEOUT_MS === undefined ? 35_000 : Number(process.env.AKARI_CDP_TIMEOUT_MS);
 if (!Number.isFinite(cdpTimeoutMs) || cdpTimeoutMs <= 0) throw new Error('AKARI_CDP_TIMEOUT_MS must be a positive number');
 
 export class CDP {

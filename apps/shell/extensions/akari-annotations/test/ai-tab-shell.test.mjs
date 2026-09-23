@@ -73,6 +73,8 @@ for (const [name, state, done, expected] of [
   ['失敗', 'failed', false, 'video'],
   ['stale', 'stale', false, 'video'],
   ['生成済み', 'done', true, 'video'],
+  ['done の静止画 → 一覧', 'done', false, 'tiles'],
+  ['done の静止画 + next planned → 一覧', 'done', false, 'tiles'],
   ['画像のまま', 'none', false, 'tiles']
 ]) {
   test(`aiTabViewFor: ${name}`, () => {
