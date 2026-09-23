@@ -3416,7 +3416,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 );
             }
             if (message?.type === 'akari-preview-my-style-save' && typeof message.captionId === 'string') {
-                window.dispatchEvent(new CustomEvent('akari.mystyle.open-save'));
+                window.dispatchEvent(new CustomEvent('akari.mystyle.open-save', { detail: { captionId: message.captionId } }));
             }
             if (this.isReviewTransportRequest(message)) {
                 this.forwardReviewTransport(widget, message);

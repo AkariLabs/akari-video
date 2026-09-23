@@ -149,7 +149,9 @@ import {
     removeCaptionLine
 } from '../common/caption-store';
 import { captionCueOriginalStylePatch, captionCueStylePresetId, captionPresetAwareStylePatch } from './inspector/caption-style-effects';
-import { effectiveMyStyleLook, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle } from './my-style-look';
+import { effectiveMyStyleLook, myStyleApplyNotice, placedMyStyleTextStyle,
+    replaceMyStyleLookInSource, appendMyStyleUsage, newMyStyleUid, newMyStyleSlug, myStyleOutputHeight,
+    type MyStyleUsageEntry } from './my-style-look';
 import {
     EditAudioBgm,
     EditAudioNarration,
@@ -1351,7 +1353,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
-        const openMyStyleSave = (): void => { void this.openMyStyleSaveDialog(); };
+        const openMyStyleSave = (event: Event): void => {
+            const id = (event as CustomEvent<{ captionId?: string }>).detail?.captionId;
+            void this.openMyStyleSaveDialog(id);
+        };
         const applyMyStyle = (event: Event): void => { void this.applyMyStyle((event as CustomEvent).detail); };
         window.addEventListener('akari.mystyle.open-save', openMyStyleSave);
         window.addEventListener('akari.mystyle.apply', applyMyStyle);
@@ -3564,6 +3569,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = '字幕を更新しました。';
                     return { ok: true };
                 }
+                case 'caption-style-my-style': {
+                    const ids = [...new Set(request.targets?.map(target => {
+                        if (target.kind !== 'caption') throw new Error('字幕以外にはマイスタイルを当てられません。');
+                        return target.id;
+                    }) ?? [request.id])];
+                    const captionsUri = location.captionsUri;
+                    if (!location.editUri) throw new Error('edit.json がありません。');
+                    const editUri = location.editUri.toString();
+                    const before = (await this.fileService.readFile(captionsUri)).value.toString();
+                    const after = replaceMyStyleLookInSource(before, ids, request.value);
+                    const write = async (captionsSource: string): Promise<void> => {
+                        await this.annotationsService.writeEditSnapshot({
+                            editUri, projectRootUri: location.root.toString(),
+                            captionsUri: captionsUri.toString(), captionsSource
+                        });
+                    };
+                    await write(after);
+                    this.pushHistory({ label: 'マイスタイルを当てる',
+                        undo: async () => { await write(before); await this.reloadCaptions(); },
+                        redo: async () => { await write(after); await this.reloadCaptions(); } });
+                    await this.reloadCaptions();
+                    this.hideNotice();
+                    this.footer.textContent = 'マイスタイルを当てました。';
+                    return { ok: true };
+                }
                 case 'caption-style-color':
                 case 'caption-style-size':
                 case 'caption-style-font-weight':
@@ -3580,8 +3610,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 case 'caption-style-bg-opacity':
                 case 'caption-style-bg-radius':
                 case 'caption-style-bg-mode':
-                case 'caption-style-zone':
-                case 'caption-style-my-style': {
+                case 'caption-style-zone': {
                     const captionsUri = location.captionsUri.toString();
                     const projectRootUri = location.root.toString();
                     let nextStyle: CaptionTextStylePatch;
@@ -3636,9 +3665,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             break;
                         case 'caption-style-zone':
                             nextStyle = { zone: request.value };
-                            break;
-                        case 'caption-style-my-style':
-                            nextStyle = myStyleLookPatch(request.value);
                             break;
                     }
                     const targetIds = request.targets
@@ -4520,7 +4546,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** 両方の入口から呼ぶ即置き。ファイルの新規作成も 1 手の履歴に含める。 */
-    protected async applyMyStyle(detail: { style?: { parts?: Array<{ kind: string; text_style?: unknown }> }; ids?: string[] } | undefined): Promise<void> {
+    protected async applyMyStyle(detail: { style?: { uid?: string; revision?: number;
+        parts?: Array<{ kind: string; text_style?: unknown }> }; ids?: string[] } | undefined): Promise<void> {
         const style = detail?.style;
         if (!style || !Array.isArray(style.parts)) return;
         const look = style.parts.find(part => part.kind === 'look');
@@ -4531,13 +4558,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 value: (look.text_style && typeof look.text_style === 'object' ? look.text_style : {}) as Record<string, unknown>,
                 targets: ids.map(id => ({ kind: 'caption' as const, id })) });
             if (!result.ok) { this.showNotice(result.message ?? 'スタイルを当てられませんでした。'); return; }
+            await this.recordMyStyleUsage(style, ids);
         }
         const notice = myStyleApplyNotice(style.parts);
         if (notice) this.showNotice(notice);
     }
 
-    protected async openMyStyleSaveDialog(): Promise<void> {
-        const id = this.selectionModel.selectedCaptionIds[0];
+    protected async recordMyStyleUsage(style: { uid?: string; revision?: number;
+        parts?: Array<{ kind: string }> }, captionIds: readonly string[]): Promise<void> {
+        if (!this.location || !style.uid || !style.revision) return;
+        const uri = this.location.root.resolve('.akari/style-usage.json');
+        const source = await this.fileService.exists(uri) ? (await this.fileService.readFile(uri)).value.toString() : undefined;
+        const entry: MyStyleUsageEntry = { caption_ids: [...new Set(captionIds)], style_uid: style.uid,
+            revision: style.revision, parts: (style.parts ?? []).filter(part => part.kind === 'look').map(part => part.kind),
+            applied_at: new Date().toISOString() };
+        await this.fileService.createFolder(uri.parent);
+        await this.fileService.writeFile(uri, BinaryBuffer.fromString(appendMyStyleUsage(source, entry)));
+    }
+
+    protected async openMyStyleSaveDialog(captionId?: string): Promise<void> {
+        const id = captionId ?? this.selectionModel.selectedCaptionIds[0];
         const caption = this.captions.find(item => item.id === id);
         if (!caption) { this.showNotice('字幕を選んでください。'); return; }
         document.querySelector('[data-akari-my-style-dialog]')?.remove();
@@ -4566,18 +4606,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
         name.value = caption.text.slice(0, 40) || 'マイスタイル';
         const close = (): void => { document.removeEventListener('keydown', keyboard, true); dialog.remove(); };
         let saving = false;
-        const save = (): void => {
+        const save = async (): Promise<void> => {
             if (saving) return;
             if (!name.value.trim() || !when.value.trim()) { this.showNotice('名前と使いどころを入力してください。'); return; }
             const lookChecked = dialog.querySelector<HTMLInputElement>('[data-akari-my-style-part-input="look"]')?.checked;
             if (!lookChecked) { this.showNotice('保存する部品を選んでください。'); return; }
             saving = true;
             saveButton.disabled = true;
+            let height: number;
+            try {
+                if (!this.location?.editUri) throw new Error('edit.json がありません。');
+                height = myStyleOutputHeight((await this.fileService.readFile(this.location.editUri)).value.toString());
+            } catch (error) {
+                saving = false; saveButton.disabled = false;
+                this.showNotice(error instanceof Error ? error.message : String(error)); return;
+            }
             const now = new Date().toISOString();
-            const style = { schema: 'akari-style/v0', id: `my-${crypto.randomUUID()}`, name: name.value.trim(),
+            const style = { schema: 'akari-style', version: 1, revision: 1, uid: newMyStyleUid(),
+                id: newMyStyleSlug(name.value.trim()), name: name.value.trim(),
                 when_to_use: when.value.trim(), sample_text: caption.text, created_at: now, updated_at: now,
-                license: 'private', version: 1, parts: [{ kind: 'look',
-                    text_style: effectiveMyStyleLook(this.defaultTextStyle, caption.textStyle) }] };
+                tags: [], visibility: 'private', price: null, requires: [], provenance: {},
+                license: { spdx: 'LicenseRef-user-owned', scope: 'private-owned',
+                    attribution_required: false, ai_training_allowed: false },
+                parts: [{ kind: 'look', scope: 'caption', mode: 'modify',
+                    text_style: effectiveMyStyleLook(this.defaultTextStyle, caption.textStyle, height) }] };
             const pending = new Promise<void>((resolve, reject) => {
                 window.dispatchEvent(new CustomEvent('akari.mystyle.save', { detail: { style, resolve, reject } }));
             });
@@ -4590,16 +4642,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const keyboard = (event: KeyboardEvent): void => {
             if (event.key === 'Escape') { event.preventDefault(); close(); }
             else if (event.key === 'Enter' && dialog.contains(event.target as Node) && !event.isComposing) {
-                event.preventDefault(); save();
+                event.preventDefault(); void save();
             }
         };
         document.addEventListener('keydown', keyboard, true);
         dialog.querySelector('[data-akari-my-style-cancel]')?.addEventListener('click', close);
-        saveButton.addEventListener('click', save);
+        saveButton.addEventListener('click', () => { void save(); });
         name.focus();
     }
 
-    async placeText(options: PlaceTextOptions & { myStyle?: { parts: Array<{ kind: string; text_style?: unknown }> } } = {}): Promise<string | undefined> {
+    async placeText(options: PlaceTextOptions & { myStyle?: { uid?: string; revision?: number;
+        parts: Array<{ kind: string; text_style?: unknown }> } } = {}): Promise<string | undefined> {
         const location = this.location;
         if (!location?.editUri || this.placingText) return undefined;
         this.placingText = true;
@@ -4607,13 +4660,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const editSource = (await this.fileService.readFile(location.editUri)).value.toString();
             const source = await this.fileService.exists(location.captionsUri)
                 ? (await this.fileService.readFile(location.captionsUri)).value.toString() : '{"captions": []}';
-            const captions = parseCaptions(source).captions;
+            const parsedCaptions = parseCaptions(source);
+            const captions = parsedCaptions.captions;
             const duration = timelineDurationSeconds(readInternalEdit(editSource, {
                 hasCaptions: captions.length > 0, captions: toAnchorCaptions(captions)
             })).seconds;
             const caption = placeTextCaption(options, this.playheadT, duration, captions.map(item => item.id));
             const look = options.myStyle?.parts.find(part => part.kind === 'look');
-            if (look) caption.textStyle = placedMyStyleTextStyle(caption.textStyle, look.text_style);
+            if (look) {
+                caption.textStyle = placedMyStyleTextStyle(caption.textStyle, look.text_style,
+                    parsedCaptions.defaultTextStyle);
+                caption.stylePreset = undefined;
+            }
             await this.withHistory('文字を置く', async () => {
                 await this.annotationsService.insertCaption({
                     captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
@@ -4627,11 +4685,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.requestSeek(caption.start, { domain: 'output' });
             this.publishPrimaryPreviewSelection({ kind: 'caption', id: caption.id });
             const notice = options.myStyle && myStyleApplyNotice(options.myStyle.parts);
+            if (look && options.myStyle) await this.recordMyStyleUsage(options.myStyle, [caption.id]);
             if (notice) this.showNotice(notice);
             return caption.id;
         } catch (error) {
             const message = this.errorMessage(error);
             this.messages.warn(message);
+            if (options.myStyle && message.includes('layout')) this.showNotice(message);
             return undefined;
         } finally {
             this.placingText = false;

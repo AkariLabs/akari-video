@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // マイスタイル v0 の AFTER（L1・受け入れ条件の判定つき）。ラッパー作成の検証スクリプト。
-// 使い方: node after.mjs <作業用ディレクトリ（実体パス）>   （fixture = <作業用>/fixture/spoken。CDP_PORT 既定 9485）
+// 使い方: node after.mjs <作業用ディレクトリ（実体パス）>   （fixture = <作業用>/fixture/spoken・vertical・horizontal。CDP_PORT 既定 9485）
+// r1: 保存形（schema akari-style + version 1 + revision + uid・license オブジェクト・reference_height_px）・部品単位の置換・
+//     style_preset を外す・利用台帳（.akari/style-usage.json）・縦（1080×1920）で保存 → 横（1920×1080）へ当てる、を判定に追加。
 // 流れ: 保存（インスペクターの ⋯）→ 棚 → 3 本に当てる → undo 1 回 → ＋ / ドラッグで置く → 名前の変更 →
 //       motion 入りの style.json を手で足す → 起動し直す → 残っている・motion 入りを当てる → ミニパネルから保存 → 削除。
 import { execFileSync } from 'node:child_process';
@@ -31,7 +33,10 @@ const POSITION_KEYS = ['text_anchor', 'position', 'zone', 'textAnchor'];
 const ABS = /(^|["'\s])(\/(Users|private|tmp|var|home|Volumes)\/|[A-Za-z]:\\|\\\\|file:\/\/|~\/)/;
 const SOURCE_LOOK = { color: '#FFD400', size_px: 52, font_weight: 900, stroke: { color: '#D12B2B', width_px: 5 },
     background: { color: '#1E3A8A', opacity: 0.85, radius_px: 12, mode: 'block' },
-    shadow: { color: '#000000', opacity: 0.6, blur_px: 6, distance_px: 6, angle_deg: 90 } };
+    shadow: { color: '#000000', opacity: 0.6, blur_px: 6, distance_px: 6, angle_deg: 90 },
+    glow: { color: '#000000', density: 0 }, reference_height_px: 720 };
+const ULID = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+const usage = async project => { try { return JSON.parse(await readFile(path.join(project, '.akari', 'style-usage.json'), 'utf8')); } catch { return null; } };
 
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 async function check(name, operation) {
@@ -51,10 +56,11 @@ async function shot(cdp, name) {
     execFileSync('sips', ['-Z', '1440', raw, '--out', path.join(OUT, `after-${name}.png`)], { stdio: 'ignore' });
     out.screenshots.push(`after-${name}.png`);
 }
-const captionsText = () => readFile(path.join(PJ, 'captions.json'), 'utf8');
+const captionsText = () => readFile(path.join(PROJECT, 'captions.json'), 'utf8');
 const captions = async () => JSON.parse(await captionsText()).captions;
 const row = async id => (await captions()).find(c => c.id === id);
 const headCaptions = () => execFileSync('/usr/bin/git', ['show', 'HEAD:captions.json'], { cwd: PJ, encoding: 'utf8' });
+let PROJECT = PJ;
 const editUri = () => `file://${path.join(PJ, 'edit.json')}`;
 async function waitFor(label, fn, timeoutMs = 30_000) {
     const deadline = Date.now() + timeoutMs; let last;
@@ -77,12 +83,14 @@ async function undoOnce(cdp) {
     await evalOn(cdp, `(()=>{document.activeElement?.blur?.();return true})()`);
     await key(cdp, 'z', 'KeyZ', 90, 4);
     let equal = false;
-    for (let i = 0; i < 24 && !equal; i++) { await sleep(250); equal = (await captionsText()) === headCaptions(); }
+    const original = await readFile(path.join(WORK, 'fixture', path.basename(PROJECT) === 'ws' ? 'spoken' : path.basename(PROJECT), 'captions.json'), 'utf8');
+    const now = () => readFile(path.join(PROJECT, 'captions.json'), 'utf8');
+    for (let i = 0; i < 24 && !equal; i++) { await sleep(250); equal = (await now()) === original; }
     await sleep(800);
-    return { captionsEqualHead: (await captionsText()) === headCaptions(), gitStatus: execFileSync('/usr/bin/git', ['status', '--porcelain', '--', 'captions.json', 'edit.json'], { cwd: PJ, encoding: 'utf8' }) };
+    return { captionsEqualHead: (await now()) === original, gitStatus: execFileSync('/usr/bin/git', ['status', '--porcelain', '--', 'captions.json', 'edit.json'], { cwd: PROJECT, encoding: 'utf8' }) };
 }
-const select = (cdp, ids) => evalOn(cdp, command('akari.timeline.selectCaptions', { editUri: editUri(), captionIds: ids }));
-const NOTICE = `[...document.querySelectorAll('*')].filter(e=>e.children.length===0&&e.getBoundingClientRect().width>0&&/マイスタイル|v0|当てません|当てました|未対応/.test(e.textContent)&&e.textContent.length<140&&!e.closest('[data-akari-my-style-shelf],[data-akari-my-style-dialog]')).map(e=>e.textContent.trim())`;
+const select = (cdp, ids) => evalOn(cdp, command('akari.timeline.selectCaptions', { editUri: `file://${path.join(PROJECT, 'edit.json')}`, captionIds: ids }));
+const NOTICE = `[...document.querySelectorAll('*')].filter(e=>e.children.length===0&&e.getBoundingClientRect().width>0&&/マイスタイル|v0|当てません|当てました|未対応/.test(e.textContent)&&e.textContent.length<140&&!e.closest('[data-akari-my-style-shelf],[data-akari-my-style-dialog]')&&!(e.style.height==='26px'&&e.style.fontSize==='11px')).map(e=>e.textContent.trim())`;
 async function styleFiles() {
     let ids = [];
     try { ids = (await readdir(STYLES, { withFileTypes: true })).filter(d => d.isDirectory()).map(d => d.name); } catch {}
@@ -95,7 +103,7 @@ function deepKeys(value, acc = []) {
     return acc;
 }
 const pick = (look, keys) => Object.fromEntries(keys.map(k => [k, look?.[k]]));
-const LOOK_KEYS = ['color', 'size_px', 'font_weight', 'stroke', 'background', 'shadow'];
+const LOOK_KEYS = ['color', 'size_px', 'font_weight', 'stroke', 'background', 'shadow', 'glow', 'reference_height_px'];
 async function openShelf(cdp) {
     await evalOn(cdp, `(()=>{document.querySelectorAll('.theia-notification-list-item .codicon-close, .theia-notification-list-item [title]').forEach(e=>{if(/close/.test(e.className))e.click()});return true})()`).catch(() => {});
     const tab = await evalOn(cdp, `(()=>{const e=[...document.querySelectorAll('*')].find(e=>e.children.length===0&&e.textContent.trim()==='ライブラリ'&&e.getBoundingClientRect().width>0&&e.getBoundingClientRect().top<80);if(!e)return null;const r=e.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}})()`);
@@ -189,10 +197,12 @@ try {
         const text = files[styleId];
         const style = JSON.parse(text);
         const look = style.parts.find(p => p.kind === 'look')?.text_style;
-        assert(style.schema === 'akari-style/v0' && style.id === styleId && style.name === '強調テロップ' && style.when_to_use === '驚きや大事な一言を目立たせたいとき', `header ${text.slice(0, 200)}`);
-        assert(style.license === 'private' && Number.isInteger(style.version) && style.created_at && style.updated_at, 'license/version/dates');
-        assert(style.parts.length === 1 && style.parts[0].kind === 'look', `parts ${S(style.parts.map(p => p.kind))}`);
-        assert(!deepKeys(style).some(k => POSITION_KEYS.includes(k)), 'position key present');
+        assert(style.schema === 'akari-style' && style.id === styleId && style.name === '強調テロップ' && style.when_to_use === '驚きや大事な一言を目立たせたいとき', `header ${text.slice(0, 200)}`);
+        assert(style.version === 1 && style.revision === 1 && ULID.test(style.uid) && style.created_at && style.updated_at, 'version/revision/uid/dates');
+        assert(style.license && typeof style.license === 'object' && typeof style.license.spdx === 'string' && style.visibility === 'private' && style.price === null && Array.isArray(style.requires) && Array.isArray(style.tags) && style.provenance && typeof style.provenance === 'object', `lab fields ${S({ license: style.license, visibility: style.visibility, price: style.price })}`);
+        assert(style.parts.length === 1 && style.parts[0].kind === 'look' && style.parts[0].scope === 'caption' && style.parts[0].mode === 'modify', `parts ${S(style.parts.map(p => [p.kind, p.scope, p.mode]))}`);
+        assert(!('applies_to' in style), 'applies_to is written');
+        assert(!deepKeys(style).some(k => POSITION_KEYS.includes(k) || k === 'animation' || k === 'layout'), 'position / animation / layout key present');
         assert(!ABS.test(text), 'absolute path present');
         for (const k of LOOK_KEYS) assert(S(look[k]) === S(SOURCE_LOOK[k]), `${k}: ${S(look[k])} != ${S(SOURCE_LOOK[k])}`);
         return { relativeFile: `styles/${styleId}/style.json`, style };
@@ -251,11 +261,16 @@ try {
         }
         assert(S(rows['c-0001']) === S(before['c-0001']) && S(rows['c-0005']) === S(before['c-0005']), 'unselected captions changed');
         const notices = await evalOn(cdp, NOTICE);
-        return { before: pick(before, ['c-0002', 'c-0003', 'c-0004']), after: pick(rows, ['c-0002', 'c-0003', 'c-0004']), notices };
+        const ledger = await waitFor('usage appended', async () => { const u = await usage(PJ); return u?.entries?.length ? u : null; }, 10_000);
+        const saved = JSON.parse((await styleFiles())[styleId]);
+        const last = ledger.entries.at(-1);
+        assert(S(last.caption_ids) === S(['c-0002', 'c-0003', 'c-0004']) && last.style_uid === saved.uid && last.revision === saved.revision && S(last.parts) === S(['look']) && last.applied_at, `usage ${S(last)}`);
+        return { before: pick(before, ['c-0002', 'c-0003', 'c-0004']), after: pick(rows, ['c-0002', 'c-0003', 'c-0004']), notices, usage: ledger };
     });
     await check('当てる: 出力プレビューで 3 本の見た目（文字色・縁取り・座布団・影・大きさ）が保存元 c-0001 と同じ', async () => {
         const v = await view(PORT);
-        const STYLE = id => `(()=>{const want='caption-plate-'+encodeURIComponent(${S(id)});const p=document.getElementById(want)||[...document.querySelectorAll('.caption-row-plate')].find(e=>e.id.startsWith(want));if(!p)return null;const l=p.querySelector('.akari-caption__line')||p;const b=p.querySelector('.akari-caption__block')||l;const cs=getComputedStyle(l),bs=getComputedStyle(b);return{color:cs.color,fontSize:cs.fontSize,fontWeight:cs.fontWeight,stroke:cs.webkitTextStrokeColor+' '+cs.webkitTextStrokeWidth,textShadow:cs.textShadow,background:bs.backgroundColor,radius:bs.borderTopLeftRadius}})()`;
+        // 「無し」の glow（density 0）は透明な影の層（rgba(…, 0)）として描かれ、目には見えない。比べるのは見える層だけ（生の値も記録する）。
+        const STYLE = id => `(()=>{const visibleShadow=v=>v==='none'?v:v.split(/,(?![^(]*\\))/).map(x=>x.trim()).filter(x=>!/rgba\\([^)]*,\\s*0\\)/.test(x)).join(', ')||'none';const want='caption-plate-'+encodeURIComponent(${S(id)});const p=document.getElementById(want)||[...document.querySelectorAll('.caption-row-plate')].find(e=>e.id.startsWith(want));if(!p)return null;const l=p.querySelector('.akari-caption__line')||p;const b=p.querySelector('.akari-caption__block')||l;const cs=getComputedStyle(l),bs=getComputedStyle(b);return{color:cs.color,fontSize:cs.fontSize,fontWeight:cs.fontWeight,stroke:cs.webkitTextStrokeColor+' '+cs.webkitTextStrokeWidth,textShadow:visibleShadow(cs.textShadow),background:bs.backgroundColor,radius:bs.borderTopLeftRadius}})()`;
         // 書き込み直後はプレビューの再読込が追いつかないことがあるので、c-0001 と一致するまで最大 15 秒待ち、待った時間も記録する。
         const got = {}, waitedMs = {};
         for (const [id, t] of [['c-0001', 1], ['c-0002', 4], ['c-0003', 7], ['c-0004', 10]]) {
@@ -269,9 +284,15 @@ try {
             waitedMs[id] = Date.now() - t0;
             if (id === 'c-0003') await shot(cdp, '05-applied-preview');
         }
+        const rawTextShadow = {};
+        for (const [id, t] of [['c-0001', 1], ['c-0002', 4]]) {
+            await evalOn(cdp, command('akari.preview.seekOutput', { editUri: editUri(), time: t }));
+            await sleep(800);
+            rawTextShadow[id] = await v.eval(`(()=>{const want='caption-plate-'+encodeURIComponent(${S(id)});const p=document.getElementById(want)||[...document.querySelectorAll('.caption-row-plate')].find(e=>e.id.startsWith(want));const l=p?.querySelector('.akari-caption__line')||p;return l?getComputedStyle(l).textShadow:null})()`);
+        }
         v.close();
         for (const id of ['c-0002', 'c-0003', 'c-0004']) assert(S(got[id]) === S(got['c-0001']), `${id} ${S(got[id])} != c-0001 ${S(got['c-0001'])}`);
-        return { styles: got, waitedMs };
+        return { styles: got, waitedMs, rawTextShadow };
     });
     await check('当てる: Cmd+Z 1 回で 3 本とも戻る（captions.json が fixture と byte 一致）', async () => {
         const r = await undoOnce(cdp);
@@ -324,23 +345,47 @@ try {
         return { payloadKind: payload?.kind, drop, elementAtDrop: at, placed: { id: placed.id, start: placed.start, end: placed.end }, undo };
     });
 
+    await check('style_preset だけの字幕（c-0005）に当てる → style_preset が外れ見た目が入る・Cmd+Z 1 回で両方戻る', async () => {
+        await select(cdp, ['c-0005']);
+        await sleep(800);
+        await clickSel(cdp, `[data-akari-my-style-apply=${S(styleId)}]`);
+        await waitFor('captions written', async () => (await captionsText()) !== headCaptions());
+        await sleep(1000);
+        const after = await row('c-0005');
+        assert(after.style_preset === undefined, `style_preset remains ${after.style_preset}`);
+        for (const k of LOOK_KEYS) assert(S(after.text_style?.[k]) === S(SOURCE_LOOK[k]), `c-0005.${k} ${S(after.text_style?.[k])}`);
+        const undo = await undoOnce(cdp);
+        const restored = await row('c-0005');
+        assert(undo.captionsEqualHead && restored.style_preset === 'subtitle-variety' && restored.text_style === undefined, `undo ${S({ undo, restored })}`);
+        return { after, undo, restored };
+    });
+
     // ===== 5. 名前の変更 =====
     await check('名前の変更: 「強調テロップ（黄）」へ → style.json とカードに反映', async () => {
         await clickSel(cdp, `[data-akari-my-style-rename=${S(styleId)}]`);
         const dlg = await waitFor('rename dialog', () => evalOn(cdp, `(()=>{const d=document.querySelector('.dialogBlock');return d?{text:d.innerText.replace(/\\n+/g,' / '),buttons:[...d.querySelectorAll('button')].map(b=>b.textContent.trim())}:null})()`));
         await typeInto(cdp, '.dialogBlock input', '強調テロップ（黄）');
         await key(cdp, 'Enter', 'Enter', 13);
+        const beforeRename = JSON.parse((await styleFiles())[styleId]);
         const style = await waitFor('renamed', async () => { const s = JSON.parse((await styleFiles())[styleId]); return s.name === '強調テロップ（黄）' ? s : null; });
+        assert(style.uid === beforeRename.uid && style.id === beforeRename.id && style.revision === beforeRename.revision + 1, `uid/id/revision ${S([beforeRename.uid, style.uid, beforeRename.revision, style.revision])}`);
         await waitFor('card renamed', () => evalOn(cdp, `/強調テロップ（黄）/.test(document.querySelector('[data-akari-my-style-card=${S(styleId).replaceAll('"', '\\"')}]')?.innerText||'')`));
         assert(dlg.buttons.every(b => !/^(OK|Cancel)$/.test(b)), `english buttons ${S(dlg.buttons)}`);
-        return { dialog: dlg, name: style.name, updated_at: style.updated_at, created_at: style.created_at };
+        return { dialog: dlg, name: style.name, uid: style.uid, revision: [beforeRename.revision, style.revision], updated_at: style.updated_at, created_at: style.created_at };
     });
 
     // ===== 6. motion 入りの style.json を手で足す → 起動し直す =====
     await mkdir(path.join(STYLES, 'hand-motion'), { recursive: true });
-    await writeFile(path.join(STYLES, 'hand-motion', 'style.json'), `${S({ schema: 'akari-style/v0', id: 'hand-motion', name: '手書きの動き入り', when_to_use: '動きの部品が混ざった保存形の確認',
-        parts: [{ kind: 'look', text_style: { color: '#00E5FF', stroke: { color: '#002233', width_px: 4 } } }, { kind: 'motion', animation: { in: 'pop', loop: null, out: 'fade' } }],
-        sample_text: '動きつき', created_at: '2026-09-24T00:00:00.000Z', updated_at: '2026-09-24T00:00:00.000Z', license: 'private', version: 1 }, null, 2)}\n`);
+    {
+        // 保存された 1 件を写して id / uid / 名前を変え、look の色と縁取りを変え、parts に motion と未知の kind を手で足す。
+        const base = JSON.parse((await styleFiles())[presetStyleId]);
+        const look = base.parts.find(p => p.kind === 'look');
+        await writeFile(path.join(STYLES, 'hand-motion', 'style.json'), `${S({ ...base, id: 'hand-motion', uid: '01K5ZZZZZZHANDM0T10N000000', name: '手書きの動き入り', when_to_use: '動きの部品が混ざった保存形の確認',
+            sample_text: '動きつき', tags: ['確認用'],
+            parts: [{ ...look, text_style: { ...look.text_style, color: '#00E5FF', stroke: { color: '#002233', width_px: 4 } } },
+                { kind: 'motion', scope: 'caption', mode: 'modify', animation: { in: { id: 'pop' }, out: { id: 'fade' } } },
+                { kind: 'future-kind', scope: 'clip', mode: 'attach', attach: { at: 'in', offset_frames: 3 }, ref: { category: 'sfx', id: 'whoosh' } }] }, null, 2)}\n`);
+    }
     const filesBeforeRestart = await styleFiles();
     await stop(session);
     session = await preparedLaunch();
@@ -355,6 +400,8 @@ try {
         const files = await styleFiles();
         for (const id of Object.keys(filesBeforeRestart)) assert(files[id] === filesBeforeRestart[id], `${id} rewritten`);
         const motionCard = shelf.cards.find(c => c.id === 'hand-motion');
+        const hand = JSON.parse(files['hand-motion']);
+        assert(hand.parts.some(p => p.kind === 'future-kind' && p.attach?.offset_frames === 3), 'unknown kind not kept');
         return { ids, motionCardParts: motionCard.parts };
     });
     await shot(cdp, '07-shelf-after-restart');
@@ -371,6 +418,8 @@ try {
         assert(after.text_style.animation === undefined, 'animation written');
         for (const k of POSITION_KEYS) assert(S(after.text_style[k]) === S(before.text_style?.[k]), `${k} changed`);
         assert(notice.length === 1 && !notice[0].includes('\n') && /動き/.test(notice[0]), `notice ${S(notice)}`);
+        const hand = JSON.parse((await styleFiles())['hand-motion']);
+        assert(hand.parts.length === 3, 'style.json rewritten on apply');
         await shot(cdp, '08-motion-notice');
         const undo = await undoOnce(cdp);
         assert(undo.captionsEqualHead, `undo ${S(undo)}`);
@@ -401,8 +450,10 @@ try {
         v.close();
         assert(tip && tooltip.ms <= 200, `tooltip ${S(tooltip)}`);
         assert(dialog.name === '豆は挽きたてが一番おいしい', `dialog for ${dialog.name}`);
+        const focusedMs = await (async () => { const t0 = Date.now(); await waitFor('dialog focused', () => evalOn(cdp, `document.hasFocus()&&document.activeElement?.hasAttribute('data-akari-my-style-name')`), 5_000); return Date.now() - t0; })();
         await key(cdp, 'Escape', 'Escape', 27);
         await sleep(500);
+        dialog.focusedMs = focusedMs;
         const closed = !(await evalOn(cdp, `Boolean(document.querySelector('[data-akari-my-style-dialog]'))`));
         assert(closed, 'Escape did not close the dialog');
         return { toolsCount: tools.items.length, item, tooltip, dialog, escapeCloses: closed };
@@ -428,6 +479,100 @@ try {
             assert(!deepKeys(JSON.parse(text)).some(k => POSITION_KEYS.includes(k)), `${id} position key`);
         }
         return { files: Object.keys(files).map(id => `styles/${id}/style.json`), savedExample: JSON.parse(files[styleId]) };
+    });
+    // ===== 9. 縦（1080×1920）で保存 → 横（1920×1080）の案件に当てる（reference_height_px の比率）=====
+    const VPJ = path.join(WORK, 'xres', 'vertical');
+    const HPJ = path.join(WORK, 'xres', 'horizontal');
+    await rm(path.join(WORK, 'xres'), { recursive: true, force: true });
+    await cp(path.join(WORK, 'fixture', 'vertical'), VPJ, { recursive: true });
+    await cp(path.join(WORK, 'fixture', 'horizontal'), HPJ, { recursive: true });
+    const PLATE = id => `(()=>{const want='caption-plate-'+encodeURIComponent(${S(id)});const p=document.getElementById(want)||[...document.querySelectorAll('.caption-row-plate')].find(e=>e.id.startsWith(want));if(!p)return null;const l=p.querySelector('.akari-caption__line')||p;const b=p.querySelector('.akari-caption__block')||l;const cs=getComputedStyle(l),bs=getComputedStyle(b);const st=document.getElementById('preview-stage');const lr=l.getBoundingClientRect(),sr=st.getBoundingClientRect();return{color:cs.color,fontSize:parseFloat(cs.fontSize),stroke:cs.webkitTextStrokeWidth,textShadow:cs.textShadow,background:bs.backgroundColor,radius:bs.borderTopLeftRadius,stageOffsetH:st.offsetHeight,stageRectH:sr.height,lineRectH:lr.height}})()`;
+    const measure = async (v, id, t, project) => {
+        await evalOn(cdp, command('akari.preview.seekOutput', { editUri: `file://${path.join(project, 'edit.json')}`, time: t }));
+        return waitFor(`plate ${id}`, () => v.eval(PLATE(id)), 20_000);
+    };
+    let xStyleId, vertical;
+    await stop(session);
+    PROJECT = VPJ;
+    session = await launch({ shellDir: SHELL, electron: ELECTRON, project: VPJ, port: PORT, isoDir: ISO, prepare: iso => prepareLibrary(iso, LIBRARY) });
+    cdp = session.cdp;
+    await openProject(session, VPJ, 1, PORT);
+    await setupWindow(cdp);
+    await check('縦（1080×1920）: c-0001 を保存 → reference_height_px = 1920', async () => {
+        await select(cdp, ['c-0001']);
+        await evalOn(cdp, command('akari.inspector.open'));
+        await sleep(1200);
+        await clickSel(cdp, '[data-akari-my-style-inspector-menu]');
+        await clickSel(cdp, '[data-akari-my-style-inspector-save]');
+        await waitFor('dialog', () => evalOn(cdp, `Boolean(document.querySelector('[data-akari-my-style-dialog]'))`));
+        await typeInto(cdp, '[data-akari-my-style-name]', '縦で作った強調');
+        await typeInto(cdp, '[data-akari-my-style-when]', '縦の案件で作った強調を横の案件でも使うとき');
+        const before = Object.keys(await styleFiles());
+        await clickSel(cdp, '[data-akari-my-style-save]');
+        const files = await waitFor('style.json written', async () => { const f = await styleFiles(); return Object.keys(f).length > before.length ? f : null; });
+        xStyleId = Object.keys(files).find(id => !before.includes(id));
+        const look = JSON.parse(files[xStyleId]).parts[0].text_style;
+        assert(look.reference_height_px === 1920 && look.size_px === 52, `look ${S(look)}`);
+        const v = await view(PORT);
+        vertical = await measure(v, 'c-0001', 1, VPJ);
+        await sleep(800);
+        await shot(cdp, '11-vertical-source');
+        v.close();
+        return { look, preview: vertical };
+    });
+    await stop(session);
+    PROJECT = HPJ;
+    session = await launch({ shellDir: SHELL, electron: ELECTRON, project: HPJ, port: PORT, isoDir: ISO, prepare: iso => prepareLibrary(iso, LIBRARY) });
+    cdp = session.cdp;
+    await openProject(session, HPJ, 1, PORT);
+    await setupWindow(cdp);
+    await openShelf(cdp);
+    await check('横（1920×1080）: c-0002〜c-0004 に当てる → 置換（既定の glow も消える・位置と animation は残る・style_preset が外れる）', async () => {
+        const original = JSON.parse(await readFile(path.join(HPJ, 'captions.json'), 'utf8'));
+        await select(cdp, ['c-0002', 'c-0003', 'c-0004']);
+        await sleep(800);
+        await clickSel(cdp, `[data-akari-my-style-apply=${S(xStyleId)}]`);
+        const originalText = await readFile(path.join(WORK, 'fixture', 'horizontal', 'captions.json'), 'utf8');
+        await waitFor('captions written', async () => (await captionsText()) !== execFileSync('/usr/bin/git', ['show', 'HEAD:captions.json'], { cwd: HPJ, encoding: 'utf8' }));
+        await sleep(1200);
+        const rows = Object.fromEntries((await captions()).map(c => [c.id, c]));
+        const origRows = Object.fromEntries(original.captions.map(c => [c.id, c]));
+        for (const id of ['c-0002', 'c-0003', 'c-0004']) {
+            const ts = rows[id].text_style;
+            assert(ts.reference_height_px === 1920 && ts.size_px === 52 && ts.color === '#FFD400', `${id} ${S(ts)}`);
+            assert(S(ts.glow) === S({ color: '#000000', density: 0 }), `${id} glow ${S(ts.glow)}`);
+            assert(rows[id].style_preset === undefined, `${id} style_preset ${rows[id].style_preset}`);
+        }
+        const c2 = rows['c-0002'].text_style, o2 = origRows['c-0002'].text_style;
+        assert(S(c2.position) === S(o2.position) && c2.text_anchor === o2.text_anchor && S(c2.animation) === S(o2.animation), `c-0002 kept ${S(c2)}`);
+        assert(S(rows['c-0001']) === S(origRows['c-0001']) && S(rows['c-0005']) === S(origRows['c-0005']), 'unselected changed');
+        const ledger = await usage(HPJ);
+        assert(ledger?.entries?.length === 1 && S(ledger.entries[0].caption_ids) === S(['c-0002', 'c-0003', 'c-0004']), `usage ${S(ledger)}`);
+        return { after: { 'c-0002': c2, 'c-0004': rows['c-0004'] }, usage: ledger, originalBytes: originalText.length };
+    });
+    await check('横: 出力プレビューで大きさが比率どおり（1920 基準の 52px → 1080 出力で 29.25px 相当 = 対照 c-0001（52px）の 0.5625 倍）・縦の保存元と画面の高さに対する比が同じ・glow が出ない', async () => {
+        const v = await view(PORT);
+        const control = await measure(v, 'c-0001', 1, HPJ);
+        let applied = await measure(v, 'c-0003', 7, HPJ);
+        const deadline = Date.now() + 15_000;
+        while (Math.abs(applied.fontSize / control.fontSize - 0.5625) > 0.01 && Date.now() < deadline) { await sleep(250); applied = await v.eval(PLATE('c-0003')) ?? applied; }
+        await sleep(800);
+        await shot(cdp, '12-horizontal-applied');
+        const c2 = await measure(v, 'c-0002', 4, HPJ);
+        v.close();
+        const ratio = applied.fontSize / control.fontSize;
+        // プレビューの舞台は出力解像度の要素を transform で縮めて見せるので、描かれた行の高さ ÷ 描かれた舞台の高さで比べる。
+        const hRel = applied.lineRectH / applied.stageRectH, vRel = vertical.lineRectH / vertical.stageRectH;
+        assert(Math.abs(ratio - 1080 / 1920) < 0.01, `ratio ${ratio}`);
+        assert(Math.abs(hRel / vRel - 1) < 0.03, `relative to frame height: horizontal ${hRel} vs vertical ${vRel}`);
+        assert(!/rgb\(0, 255, 0\)|rgb\(255, 0, 255\)/.test(c2.textShadow), `glow remains ${c2.textShadow}`);
+        return { control, applied, c0002: c2, ratio, expected: 1080 / 1920, fontSizeOverStageHeight: { horizontal: hRel, vertical: vRel } };
+    });
+    await check('横: Cmd+Z 1 回で 3 本とも（style_preset も）戻る', async () => {
+        const r = await undoOnce(cdp);
+        const c4 = (await captions()).find(c => c.id === 'c-0004');
+        assert(r.captionsEqualHead && c4.style_preset === 'subtitle-variety', S({ r, c4 }));
+        return r;
     });
     out.status = out.checks.every(c => c.pass) ? 'pass' : 'fail';
 } catch (error) {

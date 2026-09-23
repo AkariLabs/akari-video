@@ -6,17 +6,18 @@ import * as myStyleLook from '../lib/browser/my-style-look.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
-const start = source.indexOf("                case 'caption-style-color':");
+const start = source.indexOf("                case 'caption-style-my-style':");
 const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
-const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', `return (async function () {
+const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'buffer_1', `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
   id, textStyle: style, stylePreset, rawStyle
 });
-const location = { captionsUri: { toString: () => 'captions' }, root: { toString: () => 'root' } };
+const location = { captionsUri: { toString: () => 'captions' }, editUri: { toString: () => 'edit' },
+  root: { toString: () => 'root' } };
 
 function rawStyle(style) {
   return {
@@ -50,23 +51,28 @@ const sourceFor = captions => JSON.stringify(captions.map(item => ({
 })));
 
 async function invoke(kind, value, captions, targets, source = sourceFor(captions),
-  staleSource = source) {
+  staleSource = source, expectOk = true) {
   const calls = [];
   const history = [];
+  const writes = [];
   let reads = 0;
   const context = {
     captions,
     lastAppliedCaptionsSource: staleSource,
-    fileService: { readFile: async () => { reads++; return { value: source }; } },
-    annotationsService: { setCaptionTextStyle: async entry => { calls.push(entry); } },
+    fileService: { readFile: async () => { reads++; return { value: source }; },
+      writeFile: async () => { throw new Error('direct FileService write is forbidden'); } },
+    annotationsService: { setCaptionTextStyle: async entry => { calls.push(entry); },
+      writeEditSnapshot: async entry => { writes.push(entry); } },
     pushHistory: entry => { history.push(entry); },
     reloadCaptions: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
   };
-  const result = await run.call(context, { kind, id: captions[0].id, value, ...(targets ? { targets } : {}) },
-    location, captionStyleEffects, myStyleLook);
-  assert.equal(result.ok, true);
-  assert.equal(history.length, 1);
-  return { calls, history, reads };
+  let result;
+  try { result = await run.call(context, { kind, id: captions[0].id, value, ...(targets ? { targets } : {}) },
+    location, captionStyleEffects, myStyleLook, {}); }
+  catch (error) { result = { ok: false, message: error.message }; }
+  assert.equal(result.ok, expectOk);
+  assert.equal(history.length, expectOk ? 1 : 0);
+  return { calls, history, reads, writes, result };
 }
 
 test('太さは font_weight と weight を同値で書き、undo で両方戻す', async () => {
@@ -107,31 +113,45 @@ test('新 kind と効果は複数字幕の元の値を個別に保持し、undo 
   }
 });
 
-test('マイスタイルの見た目を 3 字幕へ一括で写し、位置を保って undo 1 回で戻す', async () => {
+test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き込みで替え、undo 1 回で戻す', async () => {
   const captions = [caption('one', { color: '#111111' }), caption('two', { color: '#222222' }),
     caption('three', { color: '#333333' })];
   const source = JSON.stringify(captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
     text: '字幕', speaker: null, sourceRef: null, edited: false,
-    text_style: { color: item.textStyle.color, position: { x: index / 3, y: 0.5 }, zone: 'bottom' } })));
+    style_preset: 'neon', text_style: { color: item.textStyle.color, glow: { color: '#fff' },
+      animation: { in: { id: 'pop' } }, position: { x: index / 3, y: 0.5 }, zone: 'bottom' } })));
   const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
   const result = await invoke('caption-style-my-style', {
-    color: '#ff1744', stroke: { color: '#ffffff', width_px: 6 },
+    color: '#ff1744', reference_height_px: 1920, stroke: { color: '#ffffff', width_px: 6 },
     background: { color: '#111111', opacity: 0.7 }, position: { x: 0.9 }, zone: 'top'
   }, captions, targets, source);
   assert.equal(result.history.length, 1);
-  assert.equal(result.calls.length, 3);
-  let written = source;
-  for (const call of result.calls) {
-    assert.equal(call.textStyle.zone, undefined);
-    assert.equal(call.textStyle.position, undefined);
-    written = updateCaptionTextStyleInSource(written, call.captionId, call.textStyle);
-  }
-  const rows = JSON.parse(written);
+  assert.equal(result.writes.length, 1);
+  assert.deepEqual(Object.keys(result.writes[0]).sort(),
+    ['captionsSource', 'captionsUri', 'editUri', 'projectRootUri']);
+  const rows = JSON.parse(result.writes[0].captionsSource);
   assert.deepEqual(rows.map(row => row.text_style.position.x), [0, 1 / 3, 2 / 3]);
   assert.deepEqual(rows.map(row => row.text_style.color), ['#ff1744', '#ff1744', '#ff1744']);
+  assert.ok(rows.every(row => !('glow' in row.text_style) && !('style_preset' in row)
+    && row.text_style.animation.in.id === 'pop' && row.text_style.reference_height_px === 1920));
   await result.history[0].undo();
-  for (const call of result.calls.slice(3)) written = updateCaptionTextStyleInSource(written, call.captionId, call.textStyle);
-  assert.deepEqual(JSON.parse(written), JSON.parse(source));
+  assert.deepEqual(JSON.parse(result.writes[1].captionsSource), JSON.parse(source));
+  await result.history[0].redo();
+  assert.deepEqual(JSON.parse(result.writes[2].captionsSource), rows);
+});
+
+test('既定 layout と基準高さが衝突する複数選択は RPC 前に全件拒否する', async () => {
+  const captions = [caption('one'), caption('two')];
+  const source = JSON.stringify({ default_text_style: { layout: { mode: 'reference-pixel',
+    reference_width_px: 1920, reference_height_px: 1080, left_px: 261, width_px: 1120,
+    bottom_px: 29, text_align: 'center', max_lines: 1 } },
+  captions: captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
+    text: '字幕', speaker: null, sourceRef: null, edited: false, text_style: { color: '#fff' } })) });
+  const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
+  const result = await invoke('caption-style-my-style', { color: '#f00', reference_height_px: 1920 },
+    captions, targets, source, source, false);
+  assert.match(result.result.message, /layout.*基準高さ/);
+  assert.equal(result.writes.length, 0);
 });
 
 test('プリセット付き字幕の太さは合成後も選択値になり、undo は cue 側指定だけ戻す', async () => {

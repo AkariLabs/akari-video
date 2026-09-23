@@ -417,9 +417,24 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         const style = parseMyStyle(value);
         const directory = await this.myStylesDirectory();
         const file = this.myStyleFile(directory, style.id);
+        const existing = await this.listMyStyles();
+        if (existing.some(item => item.uid === style.uid && item.id !== style.id)) {
+            throw new Error('同じスタイル UID は別の ID で保存できません。');
+        }
+        let previous: MyStyle | undefined;
+        try { previous = parseMyStyle(JSON.parse(await fs.readFile(file, 'utf8'))); }
+        catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                throw new Error('既存のスタイルを確認できないため上書きできません。');
+            }
+        }
+        if (previous && (previous.id !== style.id || previous.uid !== style.uid
+            || style.revision < previous.revision)) {
+            throw new Error('スタイル ID の衝突、または古い改訂です。');
+        }
         await fs.mkdir(dirname(file), { recursive: true });
         await this.assertMyStyleDirectories(directory, style.id);
-        const temp = `${file}.${process.pid}.tmp`;
+        const temp = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
         try {
             await fs.writeFile(temp, `${JSON.stringify(style, null, 2)}\n`, { flag: 'wx' });
             await fs.rename(temp, file);
@@ -433,7 +448,8 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         await this.assertMyStyleDirectories(directory, id);
         const style = parseMyStyle(JSON.parse(await fs.readFile(file, 'utf8')));
         if (style.id !== id) throw new Error('スタイル ID が一致しません。');
-        await this.saveMyStyle({ ...style, name: name.trim(), updated_at: new Date().toISOString() });
+        await this.saveMyStyle({ ...style, name: name.trim(), revision: style.revision + 1,
+            updated_at: new Date().toISOString() });
     }
 
     async deleteMyStyle(id: string): Promise<void> {

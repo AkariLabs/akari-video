@@ -9,6 +9,38 @@ const KEYS: Readonly<Record<string, string>> = {
     blurPx: 'blur_px', distancePx: 'distance_px', angleDeg: 'angle_deg', spread: 'spread'
 };
 const SKIP = new Set(['position', 'textAnchor', 'text_anchor', 'zone', 'animation', 'layout']);
+const LOOK_FIELDS: Readonly<Record<string, true | readonly string[]>> = {
+    color: true, size_px: true, reference_height_px: true, font_family: true,
+    font_weight: true, weight: true, line_height: true, letter_spacing_em: true,
+    stroke: ['color', 'width_px'], background: ['color', 'opacity', 'radius_px', 'padding_px', 'mode'],
+    shadow: ['color', 'opacity', 'blur_px', 'distance_px', 'angle_deg'],
+    glow: ['color', 'density', 'spread', 'offset_x', 'offset_y']
+};
+const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+export function newMyStyleUid(now = Date.now()): string {
+    let time = now;
+    let prefix = '';
+    for (let i = 0; i < 10; i++) { prefix = ULID_ALPHABET[time % 32] + prefix; time = Math.floor(time / 32); }
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+    return prefix + Array.from(bytes, byte => ULID_ALPHABET[byte & 31]).join('');
+}
+
+export function newMyStyleSlug(name: string): string {
+    const readable = name.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '').slice(0, 40) || 'my-style';
+    return `${readable}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+export function myStyleOutputHeight(editSource: string): number {
+    const edit = JSON.parse(editSource) as { output?: { height?: unknown } };
+    const height = edit.output?.height;
+    if (typeof height !== 'number' || !Number.isInteger(height) || height < 1) {
+        throw new Error('出力解像度の高さを確認できません。');
+    }
+    return height;
+}
 
 function record(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -16,20 +48,85 @@ function record(value: unknown): value is Record<string, unknown> {
 
 /** Use the existing caption merge, then freeze only its visual fields. */
 export function effectiveMyStyleLook(defaultStyle: CaptionTextStyle | undefined,
-    captionStyle: CaptionTextStyle | undefined): Record<string, unknown> {
+    captionStyle: CaptionTextStyle | undefined, referenceHeightPx?: number): Record<string, unknown> {
     const effective = mergeCaptionTextStyles(defaultStyle, captionStyle) as Record<string, unknown> | undefined;
     const convert = (source: Record<string, unknown>): Record<string, unknown> => Object.fromEntries(
         Object.entries(source).filter(([key]) => !SKIP.has(key)).map(([key, value]) => [
             KEYS[key] ?? key, record(value) ? convert(value) : value
         ])
     );
-    const look = convert(effective ?? {});
-    // Explicit absence is distinct from an omitted field: it clears an effect on the target.
-    if (!('shadow' in look)) look.shadow = null;
-    if (!('glow' in look)) look.glow = null;
-    if (!('stroke' in look)) look.stroke = { width_px: 0 };
-    if (!('background' in look)) look.background = { opacity: 0 };
+    const look = sanitizeMyStyleLook(convert(effective ?? {}));
+    if (!record(look.stroke) || look.stroke.width_px === 0) look.stroke = { width_px: 0 };
+    if (!record(look.background) || look.background.opacity === 0) look.background = { opacity: 0 };
+    if (!record(look.shadow) || look.shadow.opacity === 0) look.shadow = { color: '#000000', opacity: 0 };
+    if (!record(look.glow) || look.glow.density === 0) look.glow = { color: '#000000', density: 0 };
+    if (referenceHeightPx !== undefined) look.reference_height_px = referenceHeightPx;
     return look;
+}
+
+/** layout and reference height are exclusive after default + cue merge (the preset is removed). */
+export function assertMyStyleLayoutCompatible(defaultStyle: unknown, cueStyle: unknown): void {
+    const base = record(defaultStyle) ? defaultStyle : {};
+    const cue = record(cueStyle) ? cueStyle : {};
+    const layout = cue.layout ?? base.layout;
+    const height = cue.reference_height_px ?? cue.referenceHeightPx
+        ?? base.reference_height_px ?? base.referenceHeightPx;
+    if (layout !== undefined && height !== undefined) {
+        throw new Error('既定のスタイルを含めて layout と基準高さが重なるため、マイスタイルを当てられません。');
+    }
+}
+
+export function sanitizeMyStyleLook(value: unknown): Record<string, unknown> {
+    if (!record(value)) return {};
+    const look: Record<string, unknown> = {};
+    for (const [key, allowed] of Object.entries(LOOK_FIELDS)) {
+        if (!(key in value)) continue;
+        const entry = value[key];
+        if (allowed === true) look[key] = entry;
+        else if (record(entry)) look[key] = Object.fromEntries(
+            Object.entries(entry).filter(([field]) => allowed.includes(field)));
+    }
+    return look;
+}
+
+/** One source write replaces every look field and removes style_preset on all selected cues. */
+export function replaceMyStyleLookInSource(source: string, ids: readonly string[], value: unknown): string {
+    const look = sanitizeMyStyleLook(value);
+    const document = JSON.parse(source) as unknown;
+    const rows = Array.isArray(document) ? document
+        : record(document) && Array.isArray(document.captions) ? document.captions : undefined;
+    if (!rows) throw new Error('字幕データを読み取れません。');
+    for (const id of new Set(ids)) {
+        const matches = rows.filter(row => record(row) && row.id === id);
+        if (matches.length !== 1) throw new Error(`字幕 ${id} が一意に見つかりません。`);
+        const row = matches[0] as Record<string, unknown>;
+        const before = record(row.text_style) ? row.text_style : {};
+        const next = { ...before };
+        for (const key of Object.keys(LOOK_FIELDS)) delete next[key];
+        Object.assign(next, look);
+        const defaultStyle = record(document) ? document.default_text_style : undefined;
+        assertMyStyleLayoutCompatible(defaultStyle, next);
+        if (Object.keys(next).length) row.text_style = next;
+        else delete row.text_style;
+        delete row.style_preset;
+    }
+    return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+export interface MyStyleUsageEntry {
+    caption_ids: string[];
+    style_uid: string;
+    revision: number;
+    parts: string[];
+    applied_at: string;
+}
+
+export function appendMyStyleUsage(source: string | undefined, entry: MyStyleUsageEntry): string {
+    const document = source ? JSON.parse(source) as unknown : { version: 1, entries: [] };
+    if (!record(document) || document.version !== 1 || !Array.isArray(document.entries)) {
+        throw new Error('スタイル利用台帳の保存形を確認できません。');
+    }
+    return `${JSON.stringify({ ...document, entries: [...document.entries, entry] }, null, 2)}\n`;
 }
 
 /** The v0 write route accepts these look fields as one patch and one undo entry. */
@@ -79,7 +176,7 @@ export function myStyleLookPatch(value: unknown): CaptionTextStylePatch {
 
 export function unsupportedMyStyleLookFields(value: unknown): string[] {
     if (!record(value)) return [];
-    const top = new Set(['color', 'size_px', 'font_weight', 'weight', 'line_height', 'letter_spacing_em',
+    const top = new Set(['color', 'size_px', 'reference_height_px', 'font_weight', 'weight', 'line_height', 'letter_spacing_em',
         'font_family', 'shadow', 'glow', 'stroke', 'background']);
     const nested: Readonly<Record<string, ReadonlySet<string>>> = {
         stroke: new Set(['color', 'width_px']),
@@ -115,8 +212,10 @@ export function myStyleApplyNotice(parts: readonly { kind: string; text_style?: 
 }
 
 /** Put the look in the new cue before insertCaption, keeping its default position. */
-export function placedMyStyleTextStyle(base: CaptionTextStyle | undefined, value: unknown): CaptionTextStyle {
-    const patch = myStyleLookPatch(value);
+export function placedMyStyleTextStyle(base: CaptionTextStyle | undefined, value: unknown,
+    defaultStyle?: CaptionTextStyle): CaptionTextStyle {
+    const look = sanitizeMyStyleLook(value);
+    const patch = myStyleLookPatch(look);
     const effects = {
         ...patch,
         ...(patch.shadow === null ? { shadow: { color: '#000000', opacity: 0 } } : {}),
@@ -128,5 +227,13 @@ export function placedMyStyleTextStyle(base: CaptionTextStyle | undefined, value
             .filter(([, entry]) => entry !== null && entry !== undefined)
             .map(([key, entry]) => [key, record(entry) ? withoutNull(entry) : entry]));
     };
-    return { ...base, ...withoutNull(effects) as CaptionTextStyle };
+    const next = { ...base } as Record<string, unknown>;
+    for (const key of Object.keys(LOOK_FIELDS)) {
+        const camel = Object.entries(KEYS).find(([, json]) => json === key)?.[0] ?? key;
+        delete next[camel];
+    }
+    const result = { ...next, ...withoutNull(effects) as CaptionTextStyle,
+        ...(typeof look.reference_height_px === 'number' ? { referenceHeightPx: look.reference_height_px } : {}) };
+    assertMyStyleLayoutCompatible(defaultStyle, result);
+    return result;
 }

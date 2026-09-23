@@ -12,7 +12,8 @@
 |---|---|
 | `scripts/gen-fixture.mjs` | fixture（話した言葉 5 行・15 秒・空の A1）。c-0001 = 色・縁取り・座布団・影・位置を変えた保存元 / c-0002 = 位置（`bl` / `{x:0.1,y:0.9}`）だけ持つ / c-0005 = `style_preset: subtitle-variety` だけ持つ。映像は ffmpeg（L1 専用） |
 | `scripts/before.mjs` | 手順 0（BEFORE）の記録（判定なし）。基点 `af19dd23` のビルドで実行 |
-| `scripts/after.mjs` | AFTER の受け入れ条件（16 項目の判定つき・起動し直しを含む）。最終ビルドで 1 回通しで実行 |
+| `scripts/after.mjs` | AFTER の受け入れ条件（r1 で 21 項目。起動し直し・縦 → 横を含む）。最終ビルドで 1 回通しで実行 |
+| `scripts/gen-fixture-xres.mjs` | r1 の fixture: 縦（1080×1920）の保存元と横（1920×1080・既定に glow・c-0002 に位置 + animation + glow・c-0004 に `style_preset`）の当て先 |
 | `scripts/library-home.mjs` | 隔離した `AKARI_HOME` に `library-location.json`（`state: done`・`root` = 一時の作業場の `library/`）を置く = 「作業場の library/」を既定の解決規則に乗せる |
 | `scripts/view.mjs` / `scripts/previewsave.mjs` / `scripts/msdrag.mjs` / `scripts/type.mjs` / `scripts/winsize.mjs` | 出力プレビュー（webview の入れ子 iframe）への到達・座標換算、ミニパネルからの保存、マイスタイルのドラッグ、文字入力（調査用の小道具） |
 | `scripts/cdp-lib.mjs` / `l1-lib.mjs` / `common.mjs` / `l1-common.mjs` ほか | 既存の L1 証跡（library-textstyle-place）の写し。`l1-lib.mjs` の `launch` に起動前の `prepare` を追記、既定ポートを 9485 に |
@@ -28,7 +29,7 @@
 | プレビューのミニパネル | `before-03-preview-mini-panel.png` | 8 個（全字幕モード・吸着・はみ出し防止・太字・色・座布団・既定に戻す・インスペクターを開く） |
 | ライブラリのテキストスタイルの棚 | `before-04-library-home.png` / `before-04b-library-details.png` / `before-05-library-textstyle-shelf.png` | ホーム →「詳細」を開く →「テキストスタイル」で同梱 12 枚。「マイスタイル」は無い（詳細の「保存したプリセット」は「近日」） |
 
-## AFTER（最終ビルド・16/16 pass）
+## AFTER r0（16/16 pass・r1 で下の表に置き換え。記録は r0 のコミットに残る）
 
 | 受け入れ条件 | 記録 | 実測 |
 |---|---|---|
@@ -60,3 +61,22 @@
 
 - 初回: ⋯ が見出しのグリッドの 3 つ目の子として次の行に落ち、見出しが 60 → 93.5px に伸びた / 棚のカードが幅約 60px の 3 列に入り、操作が縦積み・「当てる」が 1 文字ずつ折り返した / ＋ が undo 2 回 / 通知が汎用文 / 名前の変更・削除のダイアログが英語（OK / Cancel）
 - 2 回目: 見本が縁取りの太さを実寸のまま小さな文字に使い、太い縁取りの見た目（subtitle-variety 由来）が読めなかった → 3 回目で見本の大きさに比例して縮め、縁取りを塗りの下に描くよう修正
+
+## AFTER r1（差し戻し r1 を受けた最終ビルド・**21/21 pass**・`results-after.json`）
+
+保存形と当て方の修正（look から動き・配置を除く・`reference_height_px`・部品単位の置換・`style_preset` を外す・uid / version / revision・利用台帳）を実機で確かめた。r0 の 16 項目は新しい保存形に合わせて判定を直したうえで全部通し直し、5 項目を足した。
+
+| 受け入れ条件 | 記録 | 実測 |
+|---|---|---|
+| 保存形 | `results-after.json` | `schema akari-style`・`version 1`・`revision 1`・`uid` = ULID・`license` = オブジェクト（`spdx` ほか）・`visibility private`・`price null`・`requires []`・`tags []`・`provenance {}`。look は `scope caption` / `mode modify`、`reference_height_px 720`（fixture の出力の高さ）、効果が無いものは「無し」（glow `{color, density 0}`）。位置・`animation`・`layout`・`applies_to` のキーなし・絶対パスなし |
+| 3 本に当てる | 同上 | 見た目 8 項目（`reference_height_px`・glow を含む）が保存元と一致・位置不変。利用台帳 `.akari/style-usage.json` に `caption_ids [c-0002, c-0003, c-0004]`・`style_uid`・`revision`・`parts [look]`・`applied_at` が 1 行追記 |
+| 出力プレビュー | `after-05-applied-preview.png` | 3 本の computed style が c-0001 と一致。「無し」の glow は透明な影の層（`rgba(0, 0, 0, 0) 0px 0px 40px` ほか）として描かれ目には見えないので、比較は見える層だけ（生の値は `rawTextShadow` に記録） |
+| `style_preset` を外す | `results-after.json` | `style_preset: subtitle-variety` だけの c-0005 に当てる → `style_preset` が消え見た目が入る。Cmd+Z **1 回**で `style_preset` も戻り captions.json が fixture と byte 一致 |
+| 名前の変更 | 同上 | `uid`・`id` は不変、`revision` 1 → 2 |
+| 未知の kind | `after-08-motion-notice.png` | 保存した 1 件に `motion` と `future-kind`（`attach {at: in, offset_frames: 3}`・`{category, id}` の参照）を手で足した style.json: 起動し直しても棚に残り、当てても style.json は書き換わらない。見た目だけ当たり、通知 1 行「動き・future-kind は v0 では当てません。見た目を当てました。」（タイムライン下端の状態表示「マイスタイルを当てました。」は通知ではないので除いて数えた） |
+| 縦で保存 | `after-11-vertical-source.png` | 1080×1920 の案件の c-0001（52px）→ `reference_height_px 1920` |
+| 横へ当てる | `after-12-horizontal-applied.png` | 1920×1080 の案件の c-0002〜c-0004 に当てる: 3 本とも `reference_height_px 1920`・`style_preset` が外れ・glow は「無し」（既定の緑の glow も c-0002 の紫の glow も出ない）。c-0002 の位置と `animation` は残る |
+| 大きさの比率 | 同上 | 出力プレビューの computed font-size: 当てた c-0003 = **29.25px**、対照 c-0001（52px・基準高さなし）= 52px → 比 **0.5625** = 1080 / 1920。描かれた行の高さ ÷ 描かれた舞台の高さ: 横 **0.038455** / 縦 **0.038456**（同じ比率で描かれる） |
+| 横の undo | `results-after.json` | Cmd+Z **1 回**で 3 本とも（c-0004 の `style_preset` も）戻り、captions.json が fixture と byte 一致 |
+
+判定側の直し（r1）: 1 回目はバンドル（`lib/frontend`）が r2 より前のままで保存形が古かった（`npm run build` をやり直して解消）。2 回目で「通知 1 行」がタイムライン下端の状態表示も数えていたのを除外、縦横の比較を computed font-size ÷ 舞台の offsetHeight（舞台は transform で縮めて見せるため比較にならない）から描かれた矩形どうしの比へ変更、ミニパネルのダイアログの Escape は入力欄にフォーカスが来たのを確かめてから押すよう変更（単独の再現では最初から閉じた。フォーカスまで 1ms）。

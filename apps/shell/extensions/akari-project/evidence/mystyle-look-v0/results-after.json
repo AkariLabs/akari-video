@@ -1,6 +1,6 @@
 {
   "phase": "after",
-  "base": "af19dd23",
+  "base": "c4d4fcf7",
   "checks": [
     {
       "name": "インスペクター: 字幕の見出し帯の右端に ⋯（見出しの高さは BEFORE と同じ 60px・即時の説明）",
@@ -24,7 +24,7 @@
         "emoji": false,
         "tooltip": {
           "text": "字幕のその他の操作",
-          "ms": 80
+          "ms": 4
         }
       }
     },
@@ -79,31 +79,38 @@
       "name": "保存 → ライブラリの styles/<id>/style.json（形・位置なし・絶対パスなし・実効の見た目）",
       "pass": true,
       "detail": {
-        "relativeFile": "styles/my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8/style.json",
+        "relativeFile": "styles/my-style-7a5bc191/style.json",
         "style": {
-          "schema": "akari-style/v0",
-          "id": "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+          "schema": "akari-style",
+          "version": 1,
+          "revision": 1,
+          "uid": "01M37SXZWKQQ58Q8BPP2C79VK9",
+          "id": "my-style-7a5bc191",
           "name": "強調テロップ",
           "when_to_use": "驚きや大事な一言を目立たせたいとき",
           "sample_text": "今日は朝のルーティンを紹介します",
-          "created_at": "2026-09-23T17:50:43.575Z",
-          "updated_at": "2026-09-23T17:50:43.575Z",
-          "license": "private",
-          "version": 1,
+          "created_at": "2026-09-23T18:54:58.963Z",
+          "updated_at": "2026-09-23T18:54:58.963Z",
+          "tags": [],
+          "visibility": "private",
+          "price": null,
+          "requires": [],
+          "provenance": {},
+          "license": {
+            "spdx": "LicenseRef-user-owned",
+            "scope": "private-owned",
+            "attribution_required": false,
+            "ai_training_allowed": false
+          },
           "parts": [
             {
               "kind": "look",
+              "scope": "caption",
+              "mode": "modify",
               "text_style": {
                 "color": "#FFD400",
                 "size_px": 52,
                 "font_weight": 900,
-                "shadow": {
-                  "color": "#000000",
-                  "opacity": 0.6,
-                  "blur_px": 6,
-                  "distance_px": 6,
-                  "angle_deg": 90
-                },
                 "stroke": {
                   "color": "#D12B2B",
                   "width_px": 5
@@ -114,7 +121,18 @@
                   "radius_px": 12,
                   "mode": "block"
                 },
-                "glow": null
+                "shadow": {
+                  "color": "#000000",
+                  "opacity": 0.6,
+                  "blur_px": 6,
+                  "distance_px": 6,
+                  "angle_deg": 90
+                },
+                "glow": {
+                  "color": "#000000",
+                  "density": 0
+                },
+                "reference_height_px": 720
               }
             }
           ]
@@ -129,6 +147,10 @@
           "color": "#fff200",
           "size_px": 80,
           "weight": 700,
+          "stroke": {
+            "color": "#1a1a1a",
+            "width_px": 9
+          },
           "shadow": {
             "color": "#000000",
             "opacity": 0.6,
@@ -136,14 +158,14 @@
             "distance_px": 6,
             "angle_deg": 90
           },
-          "stroke": {
-            "color": "#1a1a1a",
-            "width_px": 9
-          },
-          "glow": null,
           "background": {
             "opacity": 0
-          }
+          },
+          "glow": {
+            "color": "#000000",
+            "density": 0
+          },
+          "reference_height_px": 720
         },
         "preset": {
           "size_px": 80,
@@ -177,7 +199,7 @@
           },
           "cards": [
             {
-              "id": "my-ef877c8c-d287-46fd-89a9-70f3580f0e29",
+              "id": "my-style-5db54da6",
               "rect": {
                 "w": 191,
                 "h": 155.5
@@ -220,7 +242,7 @@
               "buttonRows": 1
             },
             {
-              "id": "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+              "id": "my-style-7a5bc191",
               "rect": {
                 "w": 191,
                 "h": 155.5
@@ -290,14 +312,8 @@
             },
             "color": "#FFD400",
             "size_px": 52,
+            "reference_height_px": 720,
             "font_weight": 900,
-            "shadow": {
-              "color": "#000000",
-              "opacity": 0.6,
-              "blur_px": 6,
-              "distance_px": 6,
-              "angle_deg": 90
-            },
             "stroke": {
               "color": "#D12B2B",
               "width_px": 5
@@ -307,19 +323,24 @@
               "opacity": 0.85,
               "radius_px": 12,
               "mode": "block"
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "glow": {
+              "color": "#000000",
+              "density": 0
             }
           },
           "c-0003": {
             "color": "#FFD400",
             "size_px": 52,
+            "reference_height_px": 720,
             "font_weight": 900,
-            "shadow": {
-              "color": "#000000",
-              "opacity": 0.6,
-              "blur_px": 6,
-              "distance_px": 6,
-              "angle_deg": 90
-            },
             "stroke": {
               "color": "#D12B2B",
               "width_px": 5
@@ -329,19 +350,24 @@
               "opacity": 0.85,
               "radius_px": 12,
               "mode": "block"
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "glow": {
+              "color": "#000000",
+              "density": 0
             }
           },
           "c-0004": {
             "color": "#FFD400",
             "size_px": 52,
+            "reference_height_px": 720,
             "font_weight": 900,
-            "shadow": {
-              "color": "#000000",
-              "opacity": 0.6,
-              "blur_px": 6,
-              "distance_px": 6,
-              "angle_deg": 90
-            },
             "stroke": {
               "color": "#D12B2B",
               "width_px": 5
@@ -351,10 +377,39 @@
               "opacity": 0.85,
               "radius_px": 12,
               "mode": "block"
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "glow": {
+              "color": "#000000",
+              "density": 0
             }
           }
         },
-        "notices": []
+        "notices": [],
+        "usage": {
+          "version": 1,
+          "entries": [
+            {
+              "caption_ids": [
+                "c-0002",
+                "c-0003",
+                "c-0004"
+              ],
+              "style_uid": "01M37SXZWKQQ58Q8BPP2C79VK9",
+              "revision": 1,
+              "parts": [
+                "look"
+              ],
+              "applied_at": "2026-09-23T18:55:08.846Z"
+            }
+          ]
+        }
       }
     },
     {
@@ -400,10 +455,14 @@
           }
         },
         "waitedMs": {
-          "c-0001": 24,
-          "c-0002": 10,
-          "c-0003": 7,
-          "c-0004": 205
+          "c-0001": 2,
+          "c-0002": 206,
+          "c-0003": 5,
+          "c-0004": 204
+        },
+        "rawTextShadow": {
+          "c-0001": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "c-0002": "rgba(0, 0, 0, 0.6) 0px 6px 6px, rgba(0, 0, 0, 0) 0px 0px 40px, rgba(0, 0, 0, 0) 0px 0px 80px"
         }
       }
     },
@@ -431,6 +490,7 @@
           "text_style": {
             "color": "#FFD400",
             "size_px": 52,
+            "reference_height_px": 720,
             "font_weight": 900,
             "text_anchor": "tc",
             "position": {
@@ -487,6 +547,64 @@
       }
     },
     {
+      "name": "style_preset だけの字幕（c-0005）に当てる → style_preset が外れ見た目が入る・Cmd+Z 1 回で両方戻る",
+      "pass": true,
+      "detail": {
+        "after": {
+          "id": "c-0005",
+          "start": 12,
+          "end": 14.5,
+          "text": "ここがいちばん大事",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "text_style": {
+            "color": "#FFD400",
+            "size_px": 52,
+            "reference_height_px": 720,
+            "font_weight": 900,
+            "stroke": {
+              "color": "#D12B2B",
+              "width_px": 5
+            },
+            "background": {
+              "color": "#1E3A8A",
+              "opacity": 0.85,
+              "radius_px": 12,
+              "mode": "block"
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "glow": {
+              "color": "#000000",
+              "density": 0
+            }
+          }
+        },
+        "undo": {
+          "captionsEqualHead": true,
+          "gitStatus": ""
+        },
+        "restored": {
+          "id": "c-0005",
+          "start": 12,
+          "end": 14.5,
+          "text": "ここがいちばん大事",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": false,
+          "src": "a",
+          "style_preset": "subtitle-variety"
+        }
+      }
+    },
+    {
       "name": "名前の変更: 「強調テロップ（黄）」へ → style.json とカードに反映",
       "pass": true,
       "detail": {
@@ -498,8 +616,13 @@
           ]
         },
         "name": "強調テロップ（黄）",
-        "updated_at": "2026-09-23T17:51:16.736Z",
-        "created_at": "2026-09-23T17:50:43.575Z"
+        "uid": "01M37SXZWKQQ58Q8BPP2C79VK9",
+        "revision": [
+          1,
+          2
+        ],
+        "updated_at": "2026-09-23T18:55:33.004Z",
+        "created_at": "2026-09-23T18:54:58.963Z"
       }
     },
     {
@@ -508,8 +631,8 @@
       "detail": {
         "ids": [
           "hand-motion",
-          "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
-          "my-ef877c8c-d287-46fd-89a9-70f3580f0e29"
+          "my-style-5db54da6",
+          "my-style-7a5bc191"
         ],
         "motionCardParts": [
           {
@@ -519,6 +642,10 @@
           {
             "kind": "motion",
             "label": "動き（当てない）"
+          },
+          {
+            "kind": "future-kind",
+            "label": "future-kind（当てない）"
           }
         ]
       }
@@ -541,13 +668,30 @@
             "y": 0.9
           },
           "color": "#00E5FF",
+          "size_px": 80,
+          "reference_height_px": 720,
+          "weight": 700,
           "stroke": {
             "color": "#002233",
             "width_px": 4
+          },
+          "background": {
+            "opacity": 0
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.6,
+            "blur_px": 6,
+            "distance_px": 6,
+            "angle_deg": 90
+          },
+          "glow": {
+            "color": "#000000",
+            "density": 0
           }
         },
         "notice": [
-          "動き は v0 では当てません。見た目を当てました。"
+          "動き・future-kind は v0 では当てません。見た目を当てました。"
         ],
         "undo": {
           "captionsEqualHead": true,
@@ -575,7 +719,8 @@
           "ms": 1
         },
         "dialog": {
-          "name": "豆は挽きたてが一番おいしい"
+          "name": "豆は挽きたてが一番おいしい",
+          "focusedMs": 1
         },
         "escapeCloses": true
       }
@@ -592,8 +737,8 @@
           ]
         },
         "remaining": [
-          "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
-          "my-ef877c8c-d287-46fd-89a9-70f3580f0e29"
+          "my-style-5db54da6",
+          "my-style-7a5bc191"
         ]
       }
     },
@@ -602,33 +747,40 @@
       "pass": true,
       "detail": {
         "files": [
-          "styles/my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8/style.json",
-          "styles/my-ef877c8c-d287-46fd-89a9-70f3580f0e29/style.json"
+          "styles/my-style-5db54da6/style.json",
+          "styles/my-style-7a5bc191/style.json"
         ],
         "savedExample": {
-          "schema": "akari-style/v0",
-          "id": "my-46fb1454-0b7b-47a6-8d89-3da50b1b45e8",
+          "schema": "akari-style",
+          "version": 1,
+          "revision": 2,
+          "uid": "01M37SXZWKQQ58Q8BPP2C79VK9",
+          "id": "my-style-7a5bc191",
           "name": "強調テロップ（黄）",
           "when_to_use": "驚きや大事な一言を目立たせたいとき",
           "sample_text": "今日は朝のルーティンを紹介します",
-          "created_at": "2026-09-23T17:50:43.575Z",
-          "updated_at": "2026-09-23T17:51:16.736Z",
-          "license": "private",
-          "version": 1,
+          "created_at": "2026-09-23T18:54:58.963Z",
+          "updated_at": "2026-09-23T18:55:33.004Z",
+          "tags": [],
+          "visibility": "private",
+          "price": null,
+          "requires": [],
+          "provenance": {},
+          "license": {
+            "spdx": "LicenseRef-user-owned",
+            "scope": "private-owned",
+            "attribution_required": false,
+            "ai_training_allowed": false
+          },
           "parts": [
             {
               "kind": "look",
+              "scope": "caption",
+              "mode": "modify",
               "text_style": {
                 "color": "#FFD400",
                 "size_px": 52,
                 "font_weight": 900,
-                "shadow": {
-                  "color": "#000000",
-                  "opacity": 0.6,
-                  "blur_px": 6,
-                  "distance_px": 6,
-                  "angle_deg": 90
-                },
                 "stroke": {
                   "color": "#D12B2B",
                   "width_px": 5
@@ -639,11 +791,221 @@
                   "radius_px": 12,
                   "mode": "block"
                 },
-                "glow": null
+                "shadow": {
+                  "color": "#000000",
+                  "opacity": 0.6,
+                  "blur_px": 6,
+                  "distance_px": 6,
+                  "angle_deg": 90
+                },
+                "glow": {
+                  "color": "#000000",
+                  "density": 0
+                },
+                "reference_height_px": 720
               }
             }
           ]
         }
+      }
+    },
+    {
+      "name": "縦（1080×1920）: c-0001 を保存 → reference_height_px = 1920",
+      "pass": true,
+      "detail": {
+        "look": {
+          "color": "#FFD400",
+          "size_px": 52,
+          "font_weight": 900,
+          "stroke": {
+            "color": "#D12B2B",
+            "width_px": 5
+          },
+          "background": {
+            "color": "#1E3A8A",
+            "opacity": 0.85,
+            "radius_px": 12,
+            "mode": "block"
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0.6,
+            "blur_px": 6,
+            "distance_px": 6,
+            "angle_deg": 90
+          },
+          "glow": {
+            "color": "#000000",
+            "density": 0
+          },
+          "reference_height_px": 1920
+        },
+        "preview": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": 52,
+          "stroke": "10px",
+          "textShadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "background": "rgba(30, 58, 138, 0.85)",
+          "radius": "12px",
+          "stageOffsetH": 412,
+          "stageRectH": 412,
+          "lineRectH": 15.843963623046875
+        }
+      }
+    },
+    {
+      "name": "横（1920×1080）: c-0002〜c-0004 に当てる → 置換（既定の glow も消える・位置と animation は残る・style_preset が外れる）",
+      "pass": true,
+      "detail": {
+        "after": {
+          "c-0002": {
+            "text_anchor": "bl",
+            "position": {
+              "x": 0.1,
+              "y": 0.9
+            },
+            "animation": {
+              "in": {
+                "id": "pop",
+                "duration_sec": 0.3
+              }
+            },
+            "color": "#FFD400",
+            "size_px": 52,
+            "reference_height_px": 1920,
+            "font_weight": 900,
+            "stroke": {
+              "color": "#D12B2B",
+              "width_px": 5
+            },
+            "background": {
+              "color": "#1E3A8A",
+              "opacity": 0.85,
+              "radius_px": 12,
+              "mode": "block"
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "glow": {
+              "color": "#000000",
+              "density": 0
+            }
+          },
+          "c-0004": {
+            "id": "c-0004",
+            "start": 9,
+            "end": 11.5,
+            "text": "お湯は少し冷ましてから注ぎます",
+            "speaker": null,
+            "sourceRef": null,
+            "edited": false,
+            "src": "a",
+            "text_style": {
+              "color": "#FFD400",
+              "size_px": 52,
+              "reference_height_px": 1920,
+              "font_weight": 900,
+              "stroke": {
+                "color": "#D12B2B",
+                "width_px": 5
+              },
+              "background": {
+                "color": "#1E3A8A",
+                "opacity": 0.85,
+                "radius_px": 12,
+                "mode": "block"
+              },
+              "shadow": {
+                "color": "#000000",
+                "opacity": 0.6,
+                "blur_px": 6,
+                "distance_px": 6,
+                "angle_deg": 90
+              },
+              "glow": {
+                "color": "#000000",
+                "density": 0
+              }
+            }
+          }
+        },
+        "usage": {
+          "version": 1,
+          "entries": [
+            {
+              "caption_ids": [
+                "c-0002",
+                "c-0003",
+                "c-0004"
+              ],
+              "style_uid": "01M37T0T672ETX0R3JH9W939W1",
+              "revision": 1,
+              "parts": [
+                "look"
+              ],
+              "applied_at": "2026-09-23T18:56:56.087Z"
+            }
+          ]
+        },
+        "originalBytes": 1549
+      }
+    },
+    {
+      "name": "横: 出力プレビューで大きさが比率どおり（1920 基準の 52px → 1080 出力で 29.25px 相当 = 対照 c-0001（52px）の 0.5625 倍）・縦の保存元と画面の高さに対する比が同じ・glow が出ない",
+      "pass": true,
+      "detail": {
+        "control": {
+          "color": "rgb(255, 255, 255)",
+          "fontSize": 52,
+          "stroke": "7.28px",
+          "textShadow": "rgb(0, 255, 0) 0px 0px 30px, rgba(0, 255, 0, 0.7) 0px 0px 60px",
+          "background": "rgba(0, 0, 0, 0)",
+          "radius": "10px",
+          "stageOffsetH": 407,
+          "stageRectH": 407.25,
+          "lineRectH": 30.976806640625
+        },
+        "applied": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": 29.25,
+          "stroke": "5.625px",
+          "textShadow": "rgba(0, 0, 0, 0.6) 0px 3.38px 3.375px, rgba(0, 0, 0, 0) 0px 0px 16.875px, rgba(0, 0, 0, 0) 0px 0px 33.75px",
+          "background": "rgba(30, 58, 138, 0.85)",
+          "radius": "6.75px",
+          "stageOffsetH": 407,
+          "stageRectH": 407.25,
+          "lineRectH": 15.660736083984375
+        },
+        "c0002": {
+          "color": "rgb(255, 212, 0)",
+          "fontSize": 29.25,
+          "stroke": "5.625px",
+          "textShadow": "rgba(0, 0, 0, 0.6) 0px 3.38px 3.375px, rgba(0, 0, 0, 0) 0px 0px 16.875px, rgba(0, 0, 0, 0) 0px 0px 33.75px",
+          "background": "rgba(30, 58, 138, 0.85)",
+          "radius": "6.75px",
+          "stageOffsetH": 407,
+          "stageRectH": 407.25,
+          "lineRectH": 15.6607666015625
+        },
+        "ratio": 0.5625,
+        "expected": 0.5625,
+        "fontSizeOverStageHeight": {
+          "horizontal": 0.03845484612396409,
+          "vertical": 0.038456222386036104
+        }
+      }
+    },
+    {
+      "name": "横: Cmd+Z 1 回で 3 本とも（style_preset も）戻る",
+      "pass": true,
+      "detail": {
+        "captionsEqualHead": true,
+        "gitStatus": ""
       }
     }
   ],
@@ -657,7 +1019,9 @@
     "after-07-shelf-after-restart.png",
     "after-08-motion-notice.png",
     "after-09-mini-panel-tooltip.png",
-    "after-10-delete-confirm.png"
+    "after-10-delete-confirm.png",
+    "after-11-vertical-source.png",
+    "after-12-horizontal-applied.png"
   ],
   "window": {
     "w": 1440,
