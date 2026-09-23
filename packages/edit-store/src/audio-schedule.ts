@@ -216,6 +216,15 @@ export function buildWebAudioSchedule(input: WebAudioScheduleInput): WebAudioSch
                     clipStartSec, clipDurationSec);
             }
         }
+        if (bgm.ducking === undefined && duckKeys.length > 0 && finitePositive(bgm.durationSec)) {
+            const clipStartSec = typeof bgm.t === 'number' && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+            const clipDurationSec = finitePositive(bgm.duration)
+                ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+            if (clipDurationSec > 0 && duckIntervals.some(interval =>
+                interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+                warnings.push(`audio bgm ${typeof bgm.id === 'string' && bgm.id ? bgm.id : 'bgm'} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+            }
+        }
     }
     for (const item of sfx) {
         const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);

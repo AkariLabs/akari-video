@@ -9357,6 +9357,13 @@ ${indent}`);
               warnUnduckedTarget(typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm", clipStartSec, clipDurationSec);
             }
           }
+          if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive4(bgm.durationSec)) {
+            const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+            const clipDurationSec = finitePositive4(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+            if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+              warnings2.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+            }
+          }
         }
         for (const item of sfx) {
           const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);

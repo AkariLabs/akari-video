@@ -121,5 +121,73 @@
         "audio ducking target bgm (duck_keys: [\"narration\",\"speech\"]): duck key intervals do not overlap the clip; ducking was not applied"
       ]
     }
+  },
+  "no_ducking_overlap": {
+    "edit": "edit-no-ducking-overlap.json",
+    "layout": "reporter shape: bgm item has no ducking property; narration at 5 / duration 173 (0.167s-5.934s), bgm at 0 / duration 786 (0-26.2s), gain_db -6",
+    "note": "ducking defaults to false (contract audio-envelope v1), so the bgm is not a duck target. This envelope matches the one in the report exactly.",
+    "before": {
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "warnings": []
+    },
+    "after": {
+      "envelope": {
+        "duck_keys": [
+          "narration",
+          "speech"
+        ],
+        "speech_intervals": 0,
+        "ducked_items": [],
+        "keyframed_items": []
+      },
+      "warnings": [
+        "audio bgm bgm overlaps duck key intervals (duck_keys: [\"narration\",\"speech\"]) but ducking is not enabled; set \"ducking\": true on the item to duck it under narration"
+      ],
+      "export": {
+        "engine": "osr",
+        "launcher_tier": 2,
+        "bgm_220hz_mean_db": {
+          "overlap_1_5_to_5s": -36.2,
+          "bgm_only_8_to_18s": -36.1
+        },
+        "narration_1khz_mean_db": {
+          "overlap_1_5_to_5s": -36.1
+        },
+        "bgm_duck_depth_db": -0.1,
+        "measurement": "ffmpeg volumedetect after two bandpass=f=<hz>:t=q:w=8 stages"
+      }
+    },
+    "audio_mix_command_identical_before_after": true,
+    "explicit_false": {
+      "note": "same layout with \"ducking\": false",
+      "before_warnings": [],
+      "after_warnings": []
+    },
+    "no_ducking_nonoverlapping": {
+      "note": "same shape with bgm at 969 (reported timing): no overlap, no warning",
+      "before_warnings": [],
+      "after_warnings": []
+    },
+    "preview_schedule": {
+      "duckIntervals": [
+        {
+          "startSec": 0.16666666666666666,
+          "endSec": 5.933666666666667
+        }
+      ],
+      "before_warnings": [],
+      "after_warnings": [
+        "audio bgm bgm overlaps duck key intervals (duck_keys: [\"narration\",\"speech\"]) but ducking is not enabled; set \"ducking\": true on the item to duck it under narration"
+      ],
+      "explicit_false_after_warnings": []
+    }
   }
 }

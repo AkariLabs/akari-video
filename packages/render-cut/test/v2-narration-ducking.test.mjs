@@ -9,7 +9,7 @@ import test from 'node:test';
 import { readRenderEdit } from '../src/internal-render.mjs';
 import { buildAudioMixCommand } from '../src/plan.mjs';
 
-function v2Edit({ provenance = false, bgmAt = 0, narration = true, mute = false, duckKeys } = {}) {
+function v2Edit({ provenance = false, bgmAt = 0, narration = true, mute = false, duckKeys, ducking = true } = {}) {
   return {
     version: 2,
     output: { width: 320, height: 180, fps: 30 },
@@ -22,7 +22,8 @@ function v2Edit({ provenance = false, bgmAt = 0, narration = true, mute = false,
         ...(provenance ? { provenance: { provider: 'human' } } : {}),
       }] : [] },
       { id: 'a2', lane: 'audio', items: [{
-        id: 'music-item', role: 'bgm', at: bgmAt, duration: 786, gain_db: -6, ducking: true,
+        id: 'music-item', role: 'bgm', at: bgmAt, duration: 786, gain_db: -6,
+        ...(ducking === 'omit' ? {} : { ducking }),
         source: { kind: 'media', src: 'music', in: 0, out: 786 / 30 },
       }] },
     ],
@@ -39,6 +40,7 @@ function mixFor(doc) {
   try {
     writeFileSync(join(root, 'voice.wav'), 'probe fixture');
     const { edit } = readRenderEdit(doc, join(root, '.akari', 'render-tmp'), { projectRoot: root });
+    assert.equal(edit.audio.bgm.ducking, doc.tracks[1].items[0].ducking);
     return buildAudioMixCommand({
       edit, projectRoot: root, inputPath: join(root, 'input.mp4'),
       outputPath: join(root, 'output.mp4'), workDirectory: root, duration: 60,
@@ -79,4 +81,17 @@ test('v2 missing or muted narration warns for zero keys; explicit empty keys sta
   }
   assert.equal(mixFor(v2Edit({ narration: false, duckKeys: [] })).warnings
     .filter(warning => warning.includes('audio ducking target')).length, 0);
+});
+
+test('v2 BGM without ducking warns only when its clip overlaps narration', () => {
+  const warning = /audio bgm bgm overlaps duck key intervals \(duck_keys: \["narration","speech"\]\) but ducking is not enabled; set "ducking": true on the item to duck it under narration/;
+  const overlapping = mixFor(v2Edit({ ducking: 'omit' }));
+  assert.match(overlapping.warnings.join('\n'), warning);
+  assert.deepEqual(overlapping.envelope.ducked_items, []);
+
+  for (const doc of [v2Edit({ ducking: false }), v2Edit({ ducking: 'omit', bgmAt: 969 }), v2Edit({ ducking: true })]) {
+    const mix = mixFor(doc);
+    assert.doesNotMatch(mix.warnings.join('\n'), warning);
+    assert.deepEqual(mix.envelope.ducked_items, doc.tracks[1].items[0].ducking === true ? ['bgm'] : []);
+  }
 });

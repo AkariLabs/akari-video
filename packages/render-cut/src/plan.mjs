@@ -375,6 +375,10 @@ export function buildAudioMixCommand({
     const bgmDuration = Math.min(duration - bgmStart,
       Number(audio.bgm.duration) > 0 ? Number(audio.bgm.duration) : duration - bgmStart);
     if (audio.bgm.ducking === true) warnUnduckedTarget(audio.bgm.id ?? "bgm", bgmStart, bgmDuration);
+    if (audio.bgm.ducking === undefined && duckKeys.length > 0 && duckIntervals.some(interval =>
+      interval.startSec < bgmStart + bgmDuration && interval.endSec > bgmStart)) {
+      warnings.push(`audio bgm ${audio.bgm.id ?? "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+    }
     const bgmSourcePath = resolve(projectRoot, audio.bgm.path);
     const bgmIn = resolveBgmInSeconds(audio.bgm, ffprobeCommand, bgmSourcePath);
     warnings.push(...bgmIn.warnings);

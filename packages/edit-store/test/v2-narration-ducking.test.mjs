@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { buildWebAudioSchedule, projectLegacyAudioView, readInternalEdit } from '../lib/index.js';
 
-function v2Edit({ provenance = false, bgmAt = 0, narration = true, mute = false, duckKeys } = {}) {
+function v2Edit({ provenance = false, bgmAt = 0, narration = true, mute = false, duckKeys, ducking = true } = {}) {
   return {
     version: 2,
     output: { width: 320, height: 180, fps: 30 },
@@ -16,7 +16,8 @@ function v2Edit({ provenance = false, bgmAt = 0, narration = true, mute = false,
         ...(provenance ? { provenance: { provider: 'human' } } : {}),
       }] : [] },
       { id: 'a2', lane: 'audio', items: [{
-        id: 'music-item', role: 'bgm', at: bgmAt, duration: 786, gain_db: -6, ducking: true,
+        id: 'music-item', role: 'bgm', at: bgmAt, duration: 786, gain_db: -6,
+        ...(ducking === 'omit' ? {} : { ducking }),
         source: { kind: 'media', src: 'music', in: 0, out: 786 / 30 },
       }] },
     ],
@@ -64,4 +65,18 @@ test('v2 absent or muted narration warns for zero keys; explicit empty keys do n
   }
   assert.equal(scheduleFor(v2Edit({ narration: false, duckKeys: [] })).warnings
     .filter(warning => warning.includes('audio ducking target')).length, 0);
+});
+
+test('v2 BGM ducking omission survives projection and warns only on overlap', () => {
+  const warning = /audio bgm bgm overlaps duck key intervals \(duck_keys: \["narration","speech"\]\) but ducking is not enabled; set "ducking": true on the item to duck it under narration/;
+  for (const ducking of ['omit', false, true]) {
+    const view = projectLegacyAudioView(readInternalEdit(v2Edit({ ducking })));
+    assert.equal(view.bgm.ducking, ducking === 'omit' ? undefined : ducking);
+    const schedule = scheduleFor(v2Edit({ ducking }));
+    if (ducking === 'omit') assert.match(schedule.warnings.join('\n'), warning);
+    else assert.doesNotMatch(schedule.warnings.join('\n'), warning);
+    const bgm = schedule.items.find(item => item.kind === 'bgm');
+    assert.equal(bgm.envelopeEvents.length > 0, ducking === true);
+  }
+  assert.doesNotMatch(scheduleFor(v2Edit({ ducking: 'omit', bgmAt: 969 })).warnings.join('\n'), warning);
 });

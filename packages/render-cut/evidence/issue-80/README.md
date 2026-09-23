@@ -14,6 +14,14 @@ tones (narration 1 kHz, BGM 220 Hz) so the BGM level can be read with a narrow b
   and a warning that the duck key intervals do not overlap the BGM clip.
 - `edit-no-key.json` — `duck_keys: ["narration"]` with the narration muted. After: warning that no
   duck key intervals are available.
+- `edit-no-ducking-overlap.json` — the reporter's shape: the BGM item has **no `ducking` property**
+  (the default is `false`), and it overlaps the narration. Before and after the fix the envelope is
+  `speech_intervals: 0`, `ducked_items: []` — exactly the envelope in the report — and the BGM is not
+  ducked (real export: 220 Hz band -36.2 dB under the narration vs -36.1 dB alone). The audio mix
+  command is identical before / after. After: export and preview warn that the BGM overlaps the duck
+  key intervals but ducking is not enabled. `"ducking": false` or a non-overlapping BGM stays quiet.
+
+Note: the first three fixtures added `"ducking": true` to the BGM, which the report's JSON does not have.
 
 Numbers are in `before-after.json`. The preview schedule (`buildWebAudioSchedule`) returns the same
 duck interval as the export and now emits the same warnings.

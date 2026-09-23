@@ -9334,17 +9334,44 @@ ${indent}`);
           ...duckKeys.includes("narration") ? narrationIntervals : [],
           ...duckKeys.includes("speech") ? speechIntervals : []
         ]);
+        const warnUnduckedTarget = (id, clipStartSec, clipDurationSec) => {
+          if (duckKeys.length === 0)
+            return;
+          const label = `audio ducking target ${id} (duck_keys: ${JSON.stringify(duckKeys)})`;
+          if (duckIntervals.length === 0) {
+            warnings2.push(`${label}: no duck key intervals are available; ducking was not applied`);
+          } else if (!duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+            warnings2.push(`${label}: duck key intervals do not overlap the clip; ducking was not applied`);
+          }
+        };
         const items = [];
         const bgm = audio.bgm;
         if (bgm && (0, audio_ownership_1.isAudioItemAudible)(void 0, bgm)) {
           const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings2);
           if (scheduled)
             items.push(scheduled);
+          if (bgm.ducking === true && finitePositive4(bgm.durationSec)) {
+            const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+            const clipDurationSec = finitePositive4(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+            if (clipDurationSec > 0) {
+              warnUnduckedTarget(typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm", clipStartSec, clipDurationSec);
+            }
+          }
+          if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive4(bgm.durationSec)) {
+            const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+            const clipDurationSec = finitePositive4(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+            if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+              warnings2.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+            }
+          }
         }
         for (const item of sfx) {
           const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
           if (scheduled)
             items.push(scheduled);
+          if (item.spec.ducking === true) {
+            warnUnduckedTarget(item.id, item.t, Math.min(item.itemDurationSec, timelineDurationSec - item.t));
+          }
         }
         for (const item of narration) {
           const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
