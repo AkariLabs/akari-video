@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { resolveNewestPackageFile } from '../bin/core/install-root.mjs';
-import { runFixture } from '../evidence/issue-79/reproduce.mjs';
+import { runFixture } from './helpers/issue-79-fixture.mjs';
 
 test('edit-store は暗黙候補の新版を選び、上方探索と env は優先する', async (context) => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), 'issue-79-roots-'));
