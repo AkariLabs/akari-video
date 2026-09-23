@@ -3998,7 +3998,7 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
   const vertical = anchor ? anchor[0] : verticalAlign === "top" ? "t" : verticalAlign === "middle" ? "m" : "b";
   const horizontal = anchor ? anchor[1] : "c";
   if (typeof position?.y === "number" && Number.isFinite(position.y)) {
-    const clamped = Math.min(1, Math.max(0, position.y));
+    const clamped = typeof position?.x === "number" && Number.isFinite(position.x) ? position.y : Math.min(1, Math.max(0, position.y));
     if ((anchor || verticalAlign) && vertical === "b") {
       vars["--caption-top"] = "auto";
       vars["--caption-bottom"] = `${Math.round((1 - clamped) * 1e4) / 100}%`;
@@ -4015,11 +4015,12 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
     if (vertical === "m") vars["--caption-justify-content"] = "center";
   }
   if (typeof position?.x === "number" && Number.isFinite(position.x)) {
-    const clamped = Math.min(1, Math.max(0, position.x));
-    vars["--caption-left"] = `${Math.round(clamped * 1e4) / 100}%`;
-    vars["--caption-right"] = "4%";
+    const left = Math.round(position.x * 1e4) / 100;
+    vars["--caption-left"] = `${left}%`;
+    vars["--caption-right"] = `${Math.round((8 - left) * 100) / 100}%`;
     vars["--caption-align-items"] = "flex-start";
     vars["--caption-line-margin"] = "0";
+    vars["--caption-line-max-width"] = "100%";
   } else if (anchor) {
     vars["--caption-left"] = "4%";
     vars["--caption-right"] = "4%";
