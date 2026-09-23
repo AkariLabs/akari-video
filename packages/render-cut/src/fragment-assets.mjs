@@ -108,12 +108,44 @@ function scanReferences(html, htmlPath, absoluteOnly = false) {
   };
   const css = (text, offset, attribute) => {
     // Consume comments and other strings whole: their url(...) text is not a CSS URL.
-    const tokens = /\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\burl\(\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|([^)]*?))\s*\)/giu;
-    for (const token of text.matchAll(tokens)) {
-      const value = token[1] ?? token[2] ?? token[3];
-      if (value === undefined) continue;
-      const opening = /^url\(\s*["']?/iu.exec(token[0])[0].length;
-      add(value, offset + token.index + opening, attribute);
+    const tokens = /\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->|"(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'|\burl\(/giu;
+    let token;
+    while ((token = tokens.exec(text)) !== null) {
+      if (!/url\($/iu.test(token[0])) continue;
+      let cursor = tokens.lastIndex;
+      while (/\s/u.test(text[cursor] ?? "") && cursor < text.length) cursor++;
+      const quote = text[cursor] === '"' || text[cursor] === "'" ? text[cursor++] : null;
+      const start = cursor;
+      let depth = 0;
+      while (cursor < text.length) {
+        const char = text[cursor];
+        if (char === "\\") { cursor += 2; continue; }
+        if (quote && char === quote) break;
+        if (!quote && (char === '"' || char === "'")) {
+          const innerQuote = char;
+          cursor++;
+          while (cursor < text.length && text[cursor] !== innerQuote) {
+            cursor += text[cursor] === "\\" ? 2 : 1;
+          }
+          if (cursor < text.length) cursor++;
+          continue;
+        }
+        if (!quote && char === "(") depth++;
+        if (!quote && char === ")") {
+          if (depth === 0) break;
+          depth--;
+        }
+        cursor++;
+      }
+      const end = cursor;
+      if (quote && text[cursor] === quote) cursor++;
+      while (/\s/u.test(text[cursor] ?? "") && cursor < text.length) cursor++;
+      if (text[cursor] !== ")" || depth !== 0) {
+        tokens.lastIndex = text.length;
+        continue;
+      }
+      add(text.slice(start, end), offset + start, attribute);
+      tokens.lastIndex = cursor + 1;
     }
   };
   const srcset = (text, offset, attribute) => {

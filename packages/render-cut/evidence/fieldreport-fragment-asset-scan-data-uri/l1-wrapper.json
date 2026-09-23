@@ -1,0 +1,45 @@
+{
+  "note": "ラッパー（検証者）が自分で実行した akari capture（--engine osr, -t 0.1, launcher tier 2 = npm electron）。base = 基点 8db903e2 の detached worktree、after = 本ブランチの作業ツリー。A = fixture/ そのまま（data URI の中に url(ghost.png) の文字列）、B = A から data-note 属性を除いた括弧のみ（rotate(45) / rgb(1,2,3)）、C = SVG グラデーション参照 fill=\"url(%23g)\" を含む data URI（引用符なし・二重引用符）",
+  "variantC_fragment": "<!doctype html>\n<html><head><style>\n.unquoted { background: url(data:image/svg+xml;utf8,<svg><linearGradient id=\"g\" gradientTransform=\"rotate(45)\"><stop stop-color=\"rgb(1,2,3)\"/></linearGradient><rect fill=\"url(%23g)\" width=\"9\" height=\"9\"/></svg>); }\n.double { background: url(\"data:image/svg+xml;utf8,<svg><linearGradient id='g' gradientTransform='rotate(45)'><stop stop-color='rgb(1,2,3)'/></linearGradient><rect fill='url(%23g)' width='9' height='9'/></svg>\"); }\n@font-face { font-family: Fixture; src: url(fonts/a.ttf); }\n</style></head><body><img src=\"b.svg\" alt=\"neutral fixture\"></body></html>\n",
+  "results": {
+    "A": {
+      "base": {
+        "exit": 1,
+        "stderr": "overlay:neutral-card fragment overlays/fragment.html の参照 \"ghost.png\": overlay:neutral-card:fragment-asset could not be resolved: ENOENT: no such file or directory, lstat '<L1_TMP>/A/overlays/ghost.png'"
+      },
+      "after": {
+        "exit": 1,
+        "stderr": "overlay:neutral-card contains an undeclared local/network asset reference: ghost.png"
+      }
+    },
+    "B": {
+      "base": {
+        "exit": 0
+      },
+      "after": {
+        "exit": 0,
+        "verify_matched": true
+      }
+    },
+    "C": {
+      "base": {
+        "exit": 1,
+        "stderr": "overlay:neutral-card fragment overlays/fragment.html の参照 \"%23g\": overlay:neutral-card:fragment-asset could not be resolved: ENOENT: no such file or directory, lstat '<L1_TMP>/C/overlays/%23g'",
+        "sharedScanner": [
+          "%23g",
+          "fonts/a.ttf",
+          "b.svg"
+        ]
+      },
+      "after": {
+        "exit": 1,
+        "stderr": "overlay:neutral-card contains an undeclared local/network asset reference: %23g",
+        "sharedScanner": [
+          "fonts/a.ttf",
+          "b.svg"
+        ]
+      }
+    }
+  },
+  "conclusion": "共有スキャナ（fragment-assets.mjs の scanReferences）は A・C で data URI を参照に数えなくなった。B は基点でも通る（括弧だけでは誤判定しない）。A・C の capture は AFTER も exit 1: render-inputs.mjs の EXTERNAL_HTML_REFERENCE_PATTERN（assertNoUndeclaredHtmlAssets）が data URI 内の url( を独立に拾う。render-inputs.mjs は本票の編集禁止範囲"
+}

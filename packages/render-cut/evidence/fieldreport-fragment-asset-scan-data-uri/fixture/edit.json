@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10 },
+  "sources": [{ "id": "base", "path": "media/neutral.mp4", "proxy": null }],
+  "tracks": [
+    { "id": "base", "lane": "visual", "items": [
+      { "id": "base-clip", "at": 0, "duration": 2, "source": { "kind": "media", "src": "base", "in": 0, "out": 2 } }
+    ] },
+    { "id": "overlay", "lane": "visual", "items": [
+      { "id": "neutral-card", "at": 0, "duration": 2, "source": { "kind": "html", "path": "overlays/fragment.html" } }
+    ] }
+  ]
+}

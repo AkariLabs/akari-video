@@ -99,6 +99,28 @@ test("style blocks embed quoted and unquoted URLs and font-face sources", async 
   assert.equal(embedFragmentAssets(html, options), html.replaceAll("../assets/logo.png", data).replace("../assets/type.woff2", "data:font/woff2;base64,Zm9udA=="));
 });
 
+test("CSS data URLs with nested parentheses and inner url text stay local across quote forms", async t => {
+  const { options, put } = await fixture(t);
+  await put("overlays/fonts/a.ttf", "font");
+  await put("overlays/b.svg", "<svg/>");
+  const html = `<style>
+    .a { background:url(data:image/svg+xml;utf8,<svg transform="rotate(45)" fill="rgb(1,2,3)" data-note="url(ghost.png)"></svg>) }
+    .b { background:url("data:image/svg+xml;utf8,<svg transform='rotate(45)' fill='rgb(1,2,3)' data-note='url(ghost.png)'></svg>") }
+    .c { background:url('data:image/svg+xml;utf8,<svg transform="rotate(45)" fill="rgb(1,2,3)" data-note="url(ghost.png)"></svg>') }
+    .d { background:url(blob:local) url(#icon) url(about:blank) }
+    @font-face { src:url(fonts/a.ttf) }
+  </style><img src="b.svg">`;
+  assert.deepEqual(extractFragmentAssetReferences(html, options.htmlPath).map(({ raw, role }) => ({ raw, role })), [
+    { raw: "fonts/a.ttf", role: "font" }, { raw: "b.svg", role: "still-image" },
+  ]);
+  const embedded = embedFragmentAssets(html, options);
+  assert.ok(embedded.includes("url(ghost.png)"));
+  assert.ok(embedded.includes("data:font/ttf;base64,"));
+  assert.ok(embedded.includes("data:image/svg+xml;base64,"));
+  assert.deepEqual(extractFragmentAssetReferences("<style>.open{background:url(missing.png</style>", options.htmlPath), []);
+  assert.deepEqual(extractFragmentAssetReferences("<style>.nested{background:url(icons/round(1).svg)}</style>", options.htmlPath).map(ref => ref.raw), ["icons/round(1).svg"]);
+});
+
 test("style attributes preserve surrounding whitespace, quotes, and other attributes", async (t) => {
   const { options } = await fixture(t);
   const html = `<div title="a > b" style = "background: URL( '../assets/logo.png' ); color:red" data-src="missing.png"></div><div style='mask:url(  "../assets/logo.png"  )'></div>`;

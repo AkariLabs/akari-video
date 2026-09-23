@@ -1,0 +1,60 @@
+{
+  "phase": "before",
+  "sharedScanner": [
+    {
+      "role": "still-image",
+      "attribute": "url",
+      "raw": "ghost.png",
+      "path": "overlays/ghost.png"
+    },
+    {
+      "role": "still-image",
+      "attribute": "url",
+      "raw": "ghost.png",
+      "path": "overlays/ghost.png"
+    },
+    {
+      "role": "font",
+      "attribute": "url",
+      "raw": "fonts/a.ttf",
+      "path": "overlays/fonts/a.ttf"
+    },
+    {
+      "role": "still-image",
+      "attribute": "src",
+      "raw": "b.svg",
+      "path": "overlays/b.svg"
+    }
+  ],
+  "editLint": {
+    "assetFindings": [
+      {
+        "check": "overlay-fragment-asset-missing",
+        "message": "overlay:neutral-card fragment overlays/fragment.html の参照 \"ghost.png\" が見つからない。"
+      },
+      {
+        "check": "overlay-fragment-asset-missing",
+        "message": "overlay:neutral-card fragment overlays/fragment.html の参照 \"ghost.png\" が見つからない。"
+      }
+    ]
+  },
+  "previewServer": {
+    "warnings": [
+      "overlay:neutral-card fragment overlays/fragment.html の参照 \"ghost.png\" が見つからない。",
+      "overlay:neutral-card fragment overlays/fragment.html の参照 \"ghost.png\" が見つからない。"
+    ],
+    "ghostUrlRewritten": true
+  },
+  "shell": {
+    "streams": 2,
+    "warnings": [
+      "overlay:neutral-card fragment overlays/fragment.html の参照 \"ghost.png\" が見つからない、または配信できない"
+    ],
+    "ghostUrlRewritten": false
+  },
+  "capture": {
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": "overlay:neutral-card fragment overlays/fragment.html の参照 \"ghost.png\": overlay:neutral-card:fragment-asset could not be resolved: ENOENT: no such file or directory, lstat '<FIXTURE>/overlays/ghost.png'\n"
+  }
+}

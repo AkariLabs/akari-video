@@ -1,0 +1,6 @@
+{
+  "note": "Control removes only inner url(ghost.png) text. OSR Electron remained unresponsive for over two minutes and was stopped by SIGTERM.",
+  "exitCode": 1,
+  "stdout": "",
+  "stderr": "OSR Electron exited null (SIGTERM)\n"
+}

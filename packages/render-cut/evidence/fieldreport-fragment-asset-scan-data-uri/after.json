@@ -1,0 +1,34 @@
+{
+  "phase": "after",
+  "sharedScanner": [
+    {
+      "role": "font",
+      "attribute": "url",
+      "raw": "fonts/a.ttf",
+      "path": "overlays/fonts/a.ttf"
+    },
+    {
+      "role": "still-image",
+      "attribute": "src",
+      "raw": "b.svg",
+      "path": "overlays/b.svg"
+    }
+  ],
+  "editLint": {
+    "assetFindings": []
+  },
+  "previewServer": {
+    "warnings": [],
+    "ghostUrlRewritten": false
+  },
+  "shell": {
+    "streams": 2,
+    "warnings": [],
+    "ghostUrlRewritten": false
+  },
+  "capture": {
+    "exitCode": 1,
+    "stdout": "",
+    "stderr": "overlay:neutral-card contains an undeclared local/network asset reference: ghost.png\n"
+  }
+}
