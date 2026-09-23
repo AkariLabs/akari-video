@@ -1,4 +1,5 @@
 import { LibraryImportPlan, LibraryImportResult } from '../common/library-import';
+import { AssetSite, AssetSiteListing, AssetSiteRecommendation, siteUrlAllowed } from '../common/asset-sites';
 import { libraryImportScript, libraryPacksScript, libraryImportWaveformScript } from './library-import-scripts';
 import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
 import { applyCutRanges, readEditV2 } from '@akari-video/edit-store';
@@ -518,6 +519,41 @@ export class AkariProjectServiceImpl implements AkariProjectService {
 
     async planLibraryImport(paths: string[]): Promise<LibraryImportPlan> {
         return this.runLibraryImport('plan', paths);
+    }
+
+    async getAssetSiteListings(): Promise<AssetSiteListing[]> {
+        const testAllowed = process.env.AKARI_ASSET_SITE_TEST_ALLOWED === '1'
+            && process.env.AKARI_ASSET_SITE_TEST_HTTP === '1';
+        const testRoot = testAllowed && process.env.AKARI_ASSET_SITE_TEST_CATALOG;
+        const rootUri = testRoot ? undefined : await this.resolveCatalogRoot(undefined);
+        if (!rootUri && !testRoot) return [];
+        const root = testRoot || fileURLToPath(rootUri!);
+        // Explicit test override only; production always reads the shipped catalog/sites.
+        const sitesDir = join(root, 'sites');
+        const names = (await fs.readdir(sitesDir)).filter(name => name.endsWith('.json'));
+        let candidates: any[] = [];
+        try { const raw = JSON.parse(await fs.readFile(join(root, 'audio', 'candidates.json'), 'utf8'));
+            candidates = raw.categories.flatMap((group: any) => group.items); } catch { /* Optional index. */ }
+        const listings: AssetSiteListing[] = [];
+        for (const name of names) {
+            try {
+                const site = JSON.parse(await fs.readFile(join(sitesDir, name), 'utf8')) as AssetSite;
+                if (site.id !== name.slice(0, -5) || !siteUrlAllowed(site.entry_url, site.hosts, testAllowed)) continue;
+                const recommendations: AssetSiteRecommendation[] = [];
+                for (const reference of site.recommendations) {
+                    const candidate = reference.startsWith('audio/candidates/')
+                        ? candidates.find(item => item.id === reference.slice('audio/candidates/'.length)) : undefined;
+                    const meta = candidate ? undefined : JSON.parse(await fs.readFile(join(root, reference, 'meta.json'), 'utf8'));
+                    const pageUrl = candidate?.download_page_url ?? meta?.source?.url;
+                    if (!pageUrl || !siteUrlAllowed(pageUrl, site.hosts, testAllowed)) continue;
+                    recommendations.push({ id: reference, title: candidate?.title_ja ?? meta?.title ?? reference,
+                        pageUrl, expectedFilenames: candidate?.expected_filenames ?? meta?.expected_filenames ?? [],
+                        filenamePatterns: candidate?.filename_patterns ?? meta?.filename_patterns ?? [] });
+                }
+                listings.push({ site, recommendations });
+            } catch { /* A malformed site is rejected by validate-sites; keep the shell usable. */ }
+        }
+        return listings;
     }
 
     async applyLibraryImport(plan: LibraryImportPlan): Promise<LibraryImportResult> {

@@ -19,6 +19,8 @@ import { AkariAssetInspector } from './akari-asset-inspector';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 import { AkariGenerationPickCommandContribution } from './akari-generation-pick-command-contribution';
 import { AkariCatalogCommandContribution } from './akari-catalog-command-contribution';
+import { AssetSiteWidget } from './asset-site-widget';
+import { AssetSiteCommands } from './asset-site-commands';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectService).toDynamicValue(ctx =>
@@ -60,6 +62,11 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(CommandContribution).toService(AkariGenerationPickCommandContribution);
     bind(AkariCatalogCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariCatalogCommandContribution);
+    bind(AssetSiteWidget).toSelf();
+    bind(WidgetFactory).toDynamicValue(ctx => ({ id: AssetSiteWidget.ID,
+        createWidget: () => ctx.container.get(AssetSiteWidget) })).inSingletonScope();
+    bind(AssetSiteCommands).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AssetSiteCommands);
     bind(PreferenceContribution).toConstantValue({
         schema: {
             type: 'object',

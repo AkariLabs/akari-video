@@ -1,0 +1,454 @@
+{
+  "sheet_order": {
+    "first": "まず AKARI Lab から",
+    "lastTag": "DETAILS",
+    "paidLabel": "有料・サブスクのサービス（1）"
+  },
+  "sheet_to_central": {
+    "central": true,
+    "url": "http://127.0.0.1:50635/"
+  },
+  "aShell": {
+    "mode": "a",
+    "context": "real-shell",
+    "steps": {
+      "initial": {
+        "dom": {
+          "x": 221.9140625,
+          "y": 126.5,
+          "width": 404,
+          "height": 398.5
+        },
+        "viewBounds": {
+          "x": 221,
+          "y": 126,
+          "width": 404,
+          "height": 398
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "tabHidden": {
+        "otherId": "akari-home-widget",
+        "dom": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "split": {
+        "dom": {
+          "x": 423.9140625,
+          "y": 146,
+          "width": 202,
+          "height": 379
+        },
+        "viewBounds": {
+          "x": 423,
+          "y": 146,
+          "width": 202,
+          "height": 379
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "resize": {
+        "dom": {
+          "x": 483.953125,
+          "y": 126.5,
+          "width": 262.0390625,
+          "height": 478.5
+        },
+        "viewBounds": {
+          "x": 483,
+          "y": 126,
+          "width": 262,
+          "height": 478
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1240,
+          "height": 780
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "move": {
+        "dom": {
+          "x": 483.953125,
+          "y": 126.5,
+          "width": 262.0390625,
+          "height": 478.5
+        },
+        "viewBounds": {
+          "x": 483,
+          "y": 126,
+          "width": 262,
+          "height": 478
+        },
+        "windowBounds": {
+          "x": 315,
+          "y": 200,
+          "width": 1240,
+          "height": 780
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "restored": {
+        "dom": {
+          "x": 221.9140625,
+          "y": 126.5,
+          "width": 404,
+          "height": 398.5
+        },
+        "viewBounds": {
+          "x": 221,
+          "y": 126,
+          "width": 404,
+          "height": 398
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      }
+    }
+  },
+  "mode_a_shell": {
+    "mode": "a",
+    "context": "real-shell",
+    "steps": {
+      "initial": {
+        "dom": {
+          "x": 221.9140625,
+          "y": 126.5,
+          "width": 404,
+          "height": 398.5
+        },
+        "viewBounds": {
+          "x": 221,
+          "y": 126,
+          "width": 404,
+          "height": 398
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "tabHidden": {
+        "otherId": "akari-home-widget",
+        "dom": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "viewBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "split": {
+        "dom": {
+          "x": 423.9140625,
+          "y": 146,
+          "width": 202,
+          "height": 379
+        },
+        "viewBounds": {
+          "x": 423,
+          "y": 146,
+          "width": 202,
+          "height": 379
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "resize": {
+        "dom": {
+          "x": 483.953125,
+          "y": 126.5,
+          "width": 262.0390625,
+          "height": 478.5
+        },
+        "viewBounds": {
+          "x": 483,
+          "y": 126,
+          "width": 262,
+          "height": 478
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1240,
+          "height": 780
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "move": {
+        "dom": {
+          "x": 483.953125,
+          "y": 126.5,
+          "width": 262.0390625,
+          "height": 478.5
+        },
+        "viewBounds": {
+          "x": 483,
+          "y": 126,
+          "width": 262,
+          "height": 478
+        },
+        "windowBounds": {
+          "x": 315,
+          "y": 200,
+          "width": 1240,
+          "height": 780
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      },
+      "restored": {
+        "dom": {
+          "x": 221.9140625,
+          "y": 126.5,
+          "width": 404,
+          "height": 398.5
+        },
+        "viewBounds": {
+          "x": 221,
+          "y": 126,
+          "width": 404,
+          "height": 398
+        },
+        "windowBounds": {
+          "x": 280,
+          "y": 175,
+          "width": 1120,
+          "height": 700
+        },
+        "navigationLog": [
+          {
+            "stage": "did-navigate",
+            "url": "http://127.0.0.1:50635/",
+            "allowed": true
+          }
+        ],
+        "matches": true
+      }
+    }
+  },
+  "item_navigation": {
+    "url": "http://127.0.0.1:50635/item",
+    "requests": [
+      "GET /",
+      "GET /item",
+      "GET /sound.wav"
+    ],
+    "native": {
+      "viewBounds": {
+        "x": 221,
+        "y": 126,
+        "width": 404,
+        "height": 398
+      },
+      "windowBounds": {
+        "x": 280,
+        "y": 175,
+        "width": 1120,
+        "height": 700
+      },
+      "navigationLog": [
+        {
+          "stage": "did-navigate",
+          "url": "http://127.0.0.1:50635/",
+          "allowed": true
+        },
+        {
+          "stage": "will-navigate",
+          "url": "http://127.0.0.1:50635/item",
+          "allowed": true
+        },
+        {
+          "stage": "did-navigate",
+          "url": "http://127.0.0.1:50635/item",
+          "allowed": true
+        }
+      ]
+    }
+  },
+  "audio_playing": true,
+  "recommendation": {
+    "outlined": 1,
+    "downloadRequests": []
+  },
+  "received": "sound.wav を受け取りました —\nライブラリに入れる\n捨てる",
+  "free_import": {
+    "id": "1790124841025-sound",
+    "tags": [
+      "origin:site",
+      "sfx",
+      "site:fixture-free"
+    ],
+    "source": {
+      "url": "http://127.0.0.1:50635/item",
+      "acquisition": "direct",
+      "license_at_source": "疑似サイト検証用",
+      "attribution_required": true
+    },
+    "credit": "テスト提供\n"
+  },
+  "recent_first": "1790124841025-sound\n素材サイト · SFX",
+  "missing_highlight": {
+    "result": false,
+    "count": 0,
+    "newRequests": []
+  },
+  "direct_highlight_command": true,
+  "window_open_rejected": true,
+  "outside_rejected": true,
+  "file_rejected": {
+    "link": true,
+    "command": true
+  },
+  "permission_rejected": true,
+  "subscription_badge": "疑似サブスクサイト サブスク\nこのサイトの中だけ移動できます\nエージェントがこのページを開きました\nhttp://127.0.0.1:50635/subscription/item\n疑似サイト検証用",
+  "subscription_import": {
+    "id": "1790124852499-sound",
+    "tags": [
+      "origin:site",
+      "sfx",
+      "site:fixture-subscription",
+      "license:subscription"
+    ],
+    "source": {
+      "url": "http://127.0.0.1:50635/subscription/item",
+      "acquisition": "login",
+      "license_at_source": "疑似サイト検証用",
+      "attribution_required": false
+    }
+  },
+  "subscription_card_badge": 1,
+  "agent_packet": "【素材サイト】横断検索について: 利用者の希望: 明るい効果音。まず AKARI Lab と手持ちから探す。足りなければ素材サイトから選び、ページを開いてダウンロードの場所を光らせる。ダウンロードは利用者が押す。",
+  "temporary_dirs_after_close": []
+}

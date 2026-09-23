@@ -46,6 +46,14 @@ Unsupported and duplicate files appear separately with their reasons. For a
 project's physical asset, right-click and choose **Store in library** to copy it
 into the library. This leaves the project's file and `edit.json` unchanged.
 
+Use **＋ → Find on asset sites** to open a listed site in a central tab. Search and
+preview on the site's own page, then press its download link yourself. When the
+download finishes, choose **Add to library** or **Discard**. AKARI recommendations
+open the source page and outline a matching download link when one is found;
+they never press it. The site tab shows its allowed address and terms, and
+removes unimported temporary files when closed. Subscription imports carry a
+**Subscription** badge.
+
 ## Drag & drop onto the timeline
 
 Drag an asset card onto the timeline to place it: a duration ghost previews the span

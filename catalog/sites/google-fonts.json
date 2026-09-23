@@ -1,0 +1,40 @@
+{
+  "id": "google-fonts",
+  "name": "Google Fonts",
+  "tab": "font",
+  "entry_url": "https://fonts.google.com/",
+  "hosts": [
+    "fonts.google.com",
+    "fonts.gstatic.com",
+    "github.com"
+  ],
+  "download_hosts": [
+    "fonts.google.com",
+    "github.com"
+  ],
+  "price": "free",
+  "terms": {
+    "summary_ja": "商用利用可。多くはSIL Open Font License。個々のフォントのライセンスに従う。クレジット不要。公式APIによる直接取得は別審査のため行わない。",
+    "source_url": "https://fonts.google.com/faq",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": false,
+    "text": ""
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": [
+    "audio/akari-sounds-bgm",
+    "audio/akari-sounds-jingle",
+    "audio/akari-sounds-sfx",
+    "font/klee-one",
+    "font/noto-serif-jp",
+    "font/dela-gothic-one",
+    "font/mplus-1p",
+    "font/noto-sans-jp",
+    "font/dotgothic16",
+    "font/shippori-mincho",
+    "font/zen-maru-gothic",
+    "font/mplus-rounded-1c"
+  ]
+}

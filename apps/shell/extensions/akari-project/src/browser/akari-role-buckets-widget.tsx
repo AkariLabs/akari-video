@@ -1303,6 +1303,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         requestAnimationFrame(() => this.node.querySelector('[data-recent-strip]')?.scrollIntoView({ block: 'start' }));
     }
 
+    public async siteImportCompleted(result: LibraryImportResult): Promise<void> {
+        await this.finishLibraryImport(result);
+    }
+
+    public showSiteLab(): void {
+        this.topView = 'catalog'; this.librarySourceFilter = 'lab';
+        this.showLibraryHome();
+    }
+
     protected async pickLibraryImport(mode: 'both' | 'files' | 'folders'): Promise<string[]> {
         const selected = await this.dialogs.showOpenDialog({
             title: 'ローカルから取り込む', canSelectMany: true, canSelectFiles: mode !== 'folders', canSelectFolders: mode !== 'files'
@@ -2515,6 +2524,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 )}
                 {libraryOnly && <LibraryImportSheet service={this.projectService} isOSX={isOSX}
                     overlayHost={this.node}
+                    siteCategory={this.libraryCategory}
+                    openSite={id => this.commandService.executeCommand('akari.assetSite.open', id)}
+                    askSiteAgent={prompt => this.commandService.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, prompt)}
+                    openLab={() => this.showSiteLab()}
                     request={this.libraryImportRequest} consumed={() => { this.libraryImportRequest = undefined; }} pick={mode => this.pickLibraryImport(mode)}
                     imported={result => this.finishLibraryImport(result)} stopAudio={() => this.stopCatalogAudio()} />}
                 {this.renderLintBadge()}
@@ -3109,8 +3122,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         >
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.78em' }}>{entry.label}</div>
                             <div style={{ fontSize: '0.68em', opacity: 0.65, paddingTop: '3px' }}>
+                                {this.assetCatalogItems.find(item => item.key === entry.itemKey)?.sourceKind === 'site' ? '素材サイト · ' : ''}
                                 {this.libraryCategoryDefinition(entry.category).label}{entry.folder ? ` · ${entry.count} 件` : ''}
                             </div>
+                            {this.assetCatalogItems.some(item => item.key === entry.itemKey && this.isSiteSubscription(item)) &&
+                                <span data-akari-site-subscription style={{ fontSize: '0.68em' }}>サブスク</span>}
                         </button>
                     ))}
                 </div>
@@ -3752,6 +3768,18 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
+    protected isSiteSubscription(item: AssetCatalogViewItem): boolean {
+        return item.tags.includes('license:subscription') || item.machineTags?.includes('license:subscription') === true;
+    }
+
+    protected renderSiteSubscriptionBadge(item: AssetCatalogViewItem, compact = false): React.ReactNode {
+        return this.isSiteSubscription(item)
+            ? <span data-akari-site-subscription style={{ ...(compact ? { flex: '0 0 auto' } : { position: 'absolute', top: 4, right: 4 }),
+                padding: '1px 5px', background: AKARI_SURFACE.raised, border: AKARI_BORDER.hairline,
+                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.72em' }}>サブスク</span>
+            : undefined;
+    }
+
     /**
      * audio カードのサムネ右下に重ねる再生/停止ボタン。mediaUrl が無ければ何も出さない
      * （origin='local' の音源や、files[] に音声拡張子が無い項目はここで自然に非表示になる）。
@@ -4083,6 +4111,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     </span>
                     {this.renderCatalogAudioError(item)}
                 </div>
+                {this.renderSiteSubscriptionBadge(item, true)}
                 {this.renderGenerationPickBadge(pickCandidate)}
                 <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '46%' }}>
                     {!this.generationPick.request && item.category === 'audio' && item.mediaUrl && (
@@ -4159,6 +4188,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         />}
                     {this.renderAssetStateBadge(item)}
                     {this.renderAssetDistributionBadge(item)}
+                    {this.renderSiteSubscriptionBadge(item)}
                     {!this.generationPick.request && this.renderCatalogAudioControl(item)}
                 </div>
                 {this.renderGenerationPickBadge(pickCandidate)}

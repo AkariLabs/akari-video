@@ -1,0 +1,22 @@
+{
+  "id": "springin-sound-stock",
+  "name": "Springin' Sound Stock",
+  "tab": "audio",
+  "entry_url": "https://www.springin.org/sound-stock/",
+  "hosts": [
+    "www.springin.org"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "商用利用無料。運営が求めた場合は指定の形式でクレジット必須。再頒布は禁止。おすすめはカテゴリページ。",
+    "source_url": "https://www.springin.org/sound-stock/guideline/",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": true,
+    "text": "効果音：Springin’ Sound Stock"
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": []
+}

@@ -1,0 +1,25 @@
+{
+  "id": "851-font",
+  "name": "851 フォント",
+  "tab": "font",
+  "entry_url": "https://pm85122.onamae.jp/851fontTerm.html",
+  "hosts": [
+    "pm85122.onamae.jp"
+  ],
+  "download_hosts": [],
+  "price": "free",
+  "terms": {
+    "summary_ja": "商用・非商用利用可。クレジット不要。改造・再配布可。フォント単品の無断販売は禁止。",
+    "source_url": "https://pm85122.onamae.jp/851fontTerm.html",
+    "checked_at": "2026-09-21"
+  },
+  "attribution": {
+    "required": false,
+    "text": ""
+  },
+  "direct_fetch_allowed": false,
+  "recommendations": [
+    "font/851-chikara-yowaku",
+    "font/851-chikara-dzuyoku"
+  ]
+}

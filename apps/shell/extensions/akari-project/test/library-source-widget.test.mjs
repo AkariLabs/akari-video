@@ -15,6 +15,7 @@ function method(name) {
 }
 const Widget = new Function('React', 'library_source_view_1', 'library_home_view_1', 'akari_surface_tokens_1', 'edit_store_1',
     `return class { ${['renderLibrarySourceFilters', 'renderRecentLibraryStrip', 'openRecentLibraryEntry',
+        'isSiteSubscription',
         'libraryCategoryDefinition', 'selectLibraryCategory', 'showLibraryHome', 'filteredCatalogItems',
         'libraryCategoryCount', 'renderLibraryCategoryRow', 'renderTopControls', 'renderLibraryCategoryPage'].map(method).join('\n')} }`)(React, sources, home, tokens, { TRANSITION_VOCABULARY: [] });
 const walk = node => !node || typeof node !== 'object' ? [] : [node, ...React.Children.toArray(node.props?.children).flatMap(walk)];
@@ -69,4 +70,12 @@ test('帯の個別チップはカードを示す。フォルダチップは観�
     assert.equal(w.libraryFolderFilter, undefined);
     w.librarySourceFilter = 'lab';
     assert.equal(w.renderRecentLibraryStrip(), undefined);
+});
+test('サブスク札は tags と machineTags のどちらからも帯へ出る', () => {
+    const { w } = fixture();
+    w.assetCatalogItems[0].tags = ['license:subscription'];
+    assert.ok(walk(w.renderRecentLibraryStrip()).some(node => node.props['data-akari-site-subscription']));
+    w.assetCatalogItems[0].tags = [];
+    w.assetCatalogItems[0].machineTags = ['license:subscription'];
+    assert.ok(walk(w.renderRecentLibraryStrip()).some(node => node.props['data-akari-site-subscription']));
 });
