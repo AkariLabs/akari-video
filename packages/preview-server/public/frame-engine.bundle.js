@@ -5536,6 +5536,7 @@ var require_caption_display = __commonJS({
         const left = Math.round(position.x * 1e4) / 100;
         vars["--caption-left"] = `${left}%`;
         vars["--caption-right"] = `${Math.round((8 - left) * 100) / 100}%`;
+        vars["--caption-width"] = "max-content";
         vars["--caption-align-items"] = "flex-start";
         vars["--caption-line-margin"] = "0";
         vars["--caption-line-max-width"] = "100%";
