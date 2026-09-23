@@ -10319,6 +10319,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
                             const nodes = current.tree;
                             const selected = nodes.find(node => String(node.id) === String(target.id));
+                            const committedNodes = typeof window === 'undefined'
+                                ? [] : window.akari?.state?.summary?.tree || [];
                             let ancestorId = selected.parentId;
                             let parent = {};
                             const seen = new Set();
@@ -10326,10 +10328,17 @@ body { display: grid; place-items: center; padding: 32px; }
                                 seen.add(String(ancestorId));
                                 const ancestor = nodes.find(node => String(node.id) === String(ancestorId));
                                 if (!ancestor) break;
-                                if (ancestor.kind === 'group') { parent = ancestor.transform || {}; break; }
+                                if (ancestor.kind === 'group') {
+                                    parent = committedNodes.find(node => String(node.id) === String(ancestor.id))?.transform
+                                        || ancestor.transform || {};
+                                    break;
+                                }
                                 ancestorId = ancestor.parentId;
                             }
-                            const world = selected.transform || {};
+                            // The frame engine keeps its own summary object. Preview gestures update
+                            // state.summary.tree after persistence, so use that committed world pose.
+                            const committed = committedNodes.find(node => String(node.id) === String(target.id));
+                            const world = committed?.transform || selected.transform || {};
                             const parentScale = parent.scale ?? 1;
                             const radians = (parent.rotate ?? 0) * Math.PI / 180;
                             const cosine = Math.cos(radians), sine = Math.sin(radians);
@@ -17769,7 +17778,25 @@ body { display: grid; place-items: center; padding: 32px; }
                                     if (ancestor.kind === 'group') { parent = ancestor.transform || {}; break; }
                                     ancestorId = ancestor.parentId;
                                 }
-                                const world = selected.transform || {};
+                                const inlineNumber = (name, fallback) => {
+                                    const value = Number.parseFloat(overlay.style.getPropertyValue?.(name) || '');
+                                    return Number.isFinite(value) ? value : fallback;
+                                };
+                                const stored = selected.transform || {};
+                                const inlineScale = Boolean(overlay.style.getPropertyValue?.('--scale')?.trim());
+                                const inlineAxis = ['--scale-x', '--scale-y'].some(name =>
+                                    overlay.style.getPropertyValue?.(name)?.trim());
+                                const scale = inlineNumber('--scale', stored.scale ?? 1);
+                                const scaleX = inlineNumber('--scale-x', inlineScale ? scale : stored.scaleX ?? scale);
+                                const scaleY = inlineNumber('--scale-y', inlineScale ? scale : stored.scaleY ?? scale);
+                                const world = {
+                                    x: inlineNumber('--x', stored.x ?? 0),
+                                    y: inlineNumber('--y', stored.y ?? 0),
+                                    scale: inlineAxis && scaleX === scaleY ? scaleX : scale,
+                                    ...((inlineAxis || !inlineScale && (stored.scaleX !== undefined || stored.scaleY !== undefined))
+                                        && scaleX !== scaleY ? { scaleX, scaleY } : {}),
+                                    rotate: inlineNumber('--rotate', stored.rotate ?? 0)
+                                };
                                 const parentScale = parent.scale ?? 1;
                                 const radians = (parent.rotate ?? 0) * Math.PI / 180;
                                 const cosine = Math.cos(radians), sine = Math.sin(radians);

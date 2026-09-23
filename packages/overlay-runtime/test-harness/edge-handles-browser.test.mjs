@@ -13,14 +13,19 @@ async function fixture(browser, rotate = 0, group = false) {
   await page.evaluate(({ html, rotate, group }) => {
     window.writes = [];
     const parentKind = group === 'bag' ? 'bag' : 'group';
-    const tree = group && group !== 'multi' ? [{ id: 'group', kind: parentKind, parentId: null },
-      { id: 'leaf', kind: 'leaf', parentId: 'group' }] : [{ id: 'leaf', kind: 'leaf', parentId: null },
+    const tree = group && group !== 'multi' ? [{ id: 'group', kind: parentKind, parentId: null,
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 } },
+      { id: 'leaf', kind: 'leaf', parentId: 'group', transform: { x: 0, y: 0, scale: 1, rotate } }]
+      : [{ id: 'leaf', kind: 'leaf', parentId: null, transform: { x: 0, y: 0, scale: 1, rotate } },
       ...(group === 'multi' ? [{ id: 'other', kind: 'leaf', parentId: null }] : [])];
     window.akari = { state: { editPath: 'fixture', summary: { output: { width: 640, height: 360 },
       overlays: [{ id: 'leaf', html, start: 0, duration: 10, transform: { x: 0, y: 0, scale: 1, rotate } },
         ...(group === 'multi' ? [{ id: 'other', html: '<div style="position:absolute;left:40px;top:40px;width:60px;height:40px;background:blue">Other</div>',
           start: 0, duration: 10 }] : [])], tree } },
-      stageScale: () => 1, engine: { overlayWrite: async (_path, id, patch) => window.writes.push({ id, patch }) } };
+      stageScale: () => 1, engine: { overlayWrite: async (_path, id, patch) => {
+        window.writes.push({ id, patch });
+        if (window.rejectWrite) throw new Error('fixture write failure');
+      } } };
   }, { html, rotate, group });
   for (const name of ['text-split.js', 'overlay-runtime.js', 'interaction.js']) {
     await page.addScriptTag({ content: source(name) });
@@ -126,4 +131,75 @@ test('group, bag and multiple selection have no edge handles', async () => {
       await page.close();
     }
   } finally { await browser.close(); }
+});
+
+test('successful leaf edge, rotation, nudge and drag writes synchronize committed world poses in tree', async t => {
+  const browser = await launchBrowser(); t.after(() => browser.close());
+  for (const gesture of ['edge', 'rotate', 'nudge', 'drag']) await t.test(gesture, async () => {
+    const page = await fixture(browser);
+    try {
+      const before = await frame(page);
+      if (gesture === 'edge') await drag(page, before.points.e, 30, 0);
+      if (gesture === 'rotate') await drag(page, before.points.rotate, 35, 20);
+      if (gesture === 'nudge') {
+        await page.keyboard.press('ArrowRight');
+        await page.waitForFunction(() => window.writes.length === 1);
+      }
+      if (gesture === 'drag') {
+        const center = await page.evaluate(() => {
+          const rect = window.akari.interaction.fragmentBounds(document.querySelector('[data-overlay-id="leaf"]'));
+          return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        });
+        await drag(page, center, 24, 17);
+      }
+      await page.waitForFunction(() => {
+        const node = window.akari.state.summary.tree.find(node => node.id === 'leaf');
+        const patch = window.writes[0]?.patch.transform;
+        return patch && Object.entries(patch).every(([key, value]) => node.transform?.[key] === value);
+      });
+      const result = await page.evaluate(() => {
+        const node = window.akari.state.summary.tree.find(node => node.id === 'leaf');
+        const style = document.querySelector('[data-overlay-id="leaf"]').style;
+        return { tree: node.transform, patch: window.writes[0].patch.transform,
+          css: { x: parseFloat(style.getPropertyValue('--x')), y: parseFloat(style.getPropertyValue('--y')),
+            scale: Number(style.getPropertyValue('--scale')),
+            scaleX: Number(style.getPropertyValue('--scale-x') || style.getPropertyValue('--scale')),
+            scaleY: Number(style.getPropertyValue('--scale-y') || style.getPropertyValue('--scale')),
+            rotate: parseFloat(style.getPropertyValue('--rotate')) } };
+      });
+      assert.equal(result.tree.x, result.css.x);
+      assert.equal(result.tree.y, result.css.y);
+      assert.equal(result.tree.rotate, result.css.rotate);
+      assert.equal(result.tree.scaleX ?? result.tree.scale, result.css.scaleX);
+      assert.equal(result.tree.scaleY ?? result.tree.scale, result.css.scaleY);
+      assert.ok(result.patch && Object.keys(result.patch).length > 0);
+      if (gesture === 'edge') assert.ok(result.tree.scaleX > 1);
+      if (gesture === 'rotate') assert.ok(result.tree.rotate !== 0);
+    } finally { await page.close(); }
+  });
+});
+
+test('failed leaf gesture writes leave the tree world pose unchanged', async t => {
+  const browser = await launchBrowser(); t.after(() => browser.close());
+  for (const gesture of ['edge', 'rotate', 'nudge', 'drag']) await t.test(gesture, async () => {
+    const page = await fixture(browser);
+    try {
+      const original = await page.evaluate(() => structuredClone(window.akari.state.summary.tree[0].transform));
+      await page.evaluate(() => { window.rejectWrite = true; });
+      const before = await frame(page);
+      if (gesture === 'edge') await drag(page, before.points.e, 30, 0);
+      if (gesture === 'rotate') await drag(page, before.points.rotate, 35, 20);
+      if (gesture === 'nudge') await page.keyboard.press('ArrowRight');
+      if (gesture === 'drag') {
+        const center = await page.evaluate(() => {
+          const rect = window.akari.interaction.fragmentBounds(document.querySelector('[data-overlay-id="leaf"]'));
+          return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        });
+        await drag(page, center, 24, 17);
+      }
+      await page.waitForFunction(() => window.writes.length === 1);
+      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 20)));
+      assert.deepEqual(await page.evaluate(() => window.akari.state.summary.tree[0].transform), original);
+    } finally { await page.close(); }
+  });
 });

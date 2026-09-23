@@ -135,6 +135,10 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       assert.ok(Math.abs(after.union.left - before.union.left - 25) < 1);
       assert.ok(Math.abs(after.union.top - before.union.top - 18) < 1);
       assert.deepEqual(await page.evaluate(() => window.writes), [{ id: 'outer', patch: { transform: { x: 25, y: 18 } } }]);
+      assert.deepEqual(await page.evaluate(() => ['g', 'a', 'b'].map(id => {
+        const transform = window.akari.state.summary.tree.find(node => node.id === id).transform;
+        return { x: transform.x, y: transform.y };
+      })), Array(3).fill({ x: 25, y: 18 }));
     } finally { await page.close(); }
   });
   await t.test('failed group write rolls back all visible descendants', async () => {
@@ -165,6 +169,10 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       assert.ok(result.writes[0].patch.transform.scale > 1);
       assert.ok(result.children.every(child => child.scale > 1));
       assertWorldDelta(oldPose, result.writes[0].patch.transform, starts, await childWorlds(page));
+      const synchronized = await page.evaluate(() => ['g', 'a', 'b'].map(id =>
+        window.akari.state.summary.tree.find(node => node.id === id).transform));
+      assert.ok(synchronized.every(transform => transform?.scale > 1), JSON.stringify(synchronized));
+      assert.deepEqual(synchronized.slice(1).map(transform => ({ x: transform.x, scale: transform.scale })), result.children);
       assert.ok((await bounds(page)).union.right - (await bounds(page)).union.left > before.union.right - before.union.left,
         JSON.stringify({ before, after: await bounds(page), result }));
     } finally { await page.close(); }
@@ -187,6 +195,9 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       assert.equal(result.writes[0].patch.transform.rotate % 15, 0);
       assert.ok(result.angles.every(value => Number.parseFloat(value) === result.writes[0].patch.transform.rotate));
       assertWorldDelta(oldPose, result.writes[0].patch.transform, starts, await childWorlds(page));
+      assert.deepEqual(await page.evaluate(() => ['g', 'a', 'b'].map(id =>
+        window.akari.state.summary.tree.find(node => node.id === id).transform.rotate)),
+      Array(3).fill(result.writes[0].patch.transform.rotate));
     } finally { await page.close(); }
   });
   await t.test('leaf rotate writes rotate only; Esc cancels group resize', async () => {
@@ -228,6 +239,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
             rotate: Number.parseFloat(e.style.getPropertyValue('--rotate')) }; }) }));
       assert.deepEqual(observed.node, { x: 0, y: 0 });
       assert.deepEqual(observed.poses, [{ scale: 1, rotate: 0 }, { scale: 1, rotate: 0 }]);
+      assert.equal(await page.evaluate(() => window.akari.state.summary.tree.find(n => n.id === 'a').transform), undefined);
     } finally { await page.close(); }
   });
   await t.test('failed group rotation restores child angles and tree pose', async () => {

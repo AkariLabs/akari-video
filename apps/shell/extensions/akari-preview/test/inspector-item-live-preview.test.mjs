@@ -95,7 +95,8 @@ test('grouped HTML live width and X stay in world coordinates through a bag and 
   const css = new Map();
   const overlay = {
     getAttribute: name => name === 'data-overlay-id' ? 'html-leaf' : null,
-    style: { setProperty: (name, value) => css.set(name, value), removeProperty: name => css.delete(name) }
+    style: { getPropertyValue: name => css.get(name) || '',
+      setProperty: (name, value) => css.set(name, value), removeProperty: name => css.delete(name) }
   };
   const previousStage = globalThis.stage, previousSummary = globalThis.summary;
   globalThis.stage = { querySelectorAll: () => [overlay] };
@@ -120,6 +121,37 @@ test('grouped HTML live width and X stay in world coordinates through a bag and 
     else globalThis.stage = previousStage;
     if (previousSummary === undefined) delete globalThis.summary;
     else globalThis.summary = previousSummary;
+  }
+});
+
+test('HTML live width uses the current inline world pose when tree and frame-engine summary are stale', () => {
+  const original = { x: 280, y: -105, scale: 1, rotate: 0 };
+  const committed = { x: 674.26, y: -319.55, scale: 1, scaleX: 2.297, scaleY: 2.4848, rotate: 0 };
+  const target = { kind: 'item', id: 'html-leaf' };
+  const tree = [{ id: 'html-leaf', kind: 'leaf', parentId: null, transform: original }];
+  const current = { cuts: [], layers: [], tree };
+  const css = new Map(Object.entries({ '--x': '674.26px', '--y': '-319.55px', '--scale': '1',
+    '--scale-x': '2.297', '--scale-y': '2.4848', '--rotate': '0deg' }));
+  const overlay = { getAttribute: name => name === 'data-overlay-id' ? 'html-leaf' : null,
+    style: { getPropertyValue: name => css.get(name) || '',
+      setProperty: (name, value) => css.set(name, value), removeProperty: name => css.delete(name) } };
+  const previousStage = globalThis.stage, previousSummary = globalThis.summary, previousWindow = globalThis.window;
+  globalThis.stage = { querySelectorAll: () => [overlay] };
+  globalThis.summary = current;
+  globalThis.window = { akari: { state: { summary: { tree: [{ ...tree[0], transform: committed }] } } } };
+  try {
+    const preview = summaryWithLivePreview(current, { target, field: 'scaleX', value: 2.497 });
+    assert.deepEqual(preview.tree[0].transform, { ...committed, scaleX: 2.497 });
+    receive(target, 'scaleX', 2.497);
+    assert.equal(css.get('--x'), '674.26px');
+    assert.equal(css.get('--y'), '-319.55px');
+    assert.equal(css.get('--scale-y'), '2.4848');
+    assert.equal(css.get('--scale-x'), '2.497');
+    assert.deepEqual(tree[0].transform, original);
+  } finally {
+    if (previousStage === undefined) delete globalThis.stage; else globalThis.stage = previousStage;
+    if (previousSummary === undefined) delete globalThis.summary; else globalThis.summary = previousSummary;
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
   }
 });
 

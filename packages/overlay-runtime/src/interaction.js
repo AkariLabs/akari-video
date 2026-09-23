@@ -1210,6 +1210,24 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
   }
   // END world-delta
 
+  function syncLeafTransformOnSuccess(record, overlayId, transform) {
+    record.promise.then(() => {
+      const node = treeNode(overlayId);
+      if (node?.kind === 'leaf') node.transform = { ...transform };
+    }, () => undefined);
+  }
+
+  function syncGroupDescendants(overlayId, oldPose, newPose, members) {
+    const delta = worldDelta(oldPose, newPose);
+    const memberWorlds = new Map(members.map(member => [member.element.dataset.overlayId, member.transform]));
+    const tree = selectionTree();
+    for (const node of tree) {
+      if (node.id === overlayId || !lineage(tree, node.id).includes(overlayId)) continue;
+      const world = node.transform ?? memberWorlds.get(node.id);
+      if (world) node.transform = applyWorldDelta(delta, world);
+    }
+  }
+
   function setWorldTransform(element, transform) {
     element.style.setProperty('--x', `${transform.x}px`);
     element.style.setProperty('--y', `${transform.y}px`);
@@ -1242,6 +1260,8 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     const applied = { ...previous, ...transform };
     if (node) node.transform = applied;
     const record = enqueueWrite(gesture.writeContext, gesture.overlayId, { transform }, 'transform');
+    record.promise.then(() => syncGroupDescendants(gesture.overlayId, previous ?? {}, applied, gesture.members),
+      () => undefined);
     record.promise.catch(error => {
       if (node?.transform === applied) node.transform = previous;
       restoreGroupPose(gesture);
@@ -1278,12 +1298,20 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       previousTransform: treeNode(drag.overlayId)?.transform, x: drag.startX, y: drag.startY }];
     const writes = targets.map(target => {
       const transform = { x: target.x + drag.dx, y: target.y + drag.dy };
-      target.appliedTransform = { ...target.previousTransform, ...transform };
+      target.appliedTransform = target.node?.kind === 'leaf' && containerById(target.id)
+        ? readTransform(containerById(target.id)) : { ...target.previousTransform, ...transform };
       if (target.node) target.node.transform = target.appliedTransform;
       return { overlayId: target.id, patch: { transform } };
     });
     const record = writes.length > 1 ? enqueueWriteBatch(drag.writeContext, writes)
       : enqueueWrite(drag.writeContext, writes[0].overlayId, writes[0].patch, 'transform');
+    record.promise.then(() => {
+      for (const target of targets) {
+        if (target.node?.kind === 'group') {
+          syncGroupDescendants(target.id, target.previousTransform ?? {}, target.appliedTransform, drag.members);
+        }
+      }
+    }, () => undefined);
     record.promise.catch(error => {
       for (const target of targets) {
         if (target.node?.transform === target.appliedTransform) target.node.transform = target.previousTransform;
@@ -1305,6 +1333,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     const transform = { ...session.transform,
       x: session.startX + session.dx, y: session.startY + session.dy };
     const record = enqueueWrite(session.writeContext, session.overlayId, { transform }, 'transform');
+    syncLeafTransformOnSuccess(record, session.overlayId, transform);
     lastTransformWrite = record;
     record.promise.catch(() => {
       const current = readTransform(session.container);
@@ -1458,6 +1487,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       { transform },
       "transform"
     );
+    syncLeafTransformOnSuccess(record, drag.overlayId, transform);
     lastTransformWrite = record;
     return record;
   }
@@ -1974,6 +2004,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
     if (!rotation.moved) return null;
     const record = enqueueWrite(rotation.writeContext, rotation.overlayId,
       { transform: { rotate: rotation.oldPose.rotate + rotation.angle } }, 'transform');
+    syncLeafTransformOnSuccess(record, rotation.overlayId, readTransform(rotation.container));
     record.promise.catch(error => {
       rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate}deg`);
       refreshSelectionFrame();
@@ -2322,6 +2353,7 @@ function toggleScopedSelection(tree, selectedIds, scopeId, next) {
       { transform },
       "transform"
     );
+    syncLeafTransformOnSuccess(record, resize.overlayId, transform);
     lastTransformWrite = record;
     return record;
   }

@@ -1,5 +1,5 @@
 {
-  "status": "FAIL",
+  "status": "PASS",
   "port": 9771,
   "records": [
     {
@@ -317,11 +317,170 @@
     {
       "number": 7,
       "label": "width scrub is live and commits to edit.json",
-      "status": "ng",
-      "values": {},
-      "error": "Error: width scrub keeps world position and height: {\"beforeVars\":{\"x\":674.2626530718413,\"y\":-319.55176452459443,\"scaleY\":2.484787451866333},\"liveVars\":{\"x\":280,\"y\":-105,\"scaleY\":1}}\n    at check (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:24:25)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:440:5\n    at async record (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:361:25)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:428:3"
+      "status": "ok",
+      "values": {
+        "before": {
+          "x": 404.2626530718413,
+          "y": -209.55176452459443,
+          "scale": 1.166063291387366,
+          "scaleX": 2.2969165651471726,
+          "scaleY": 2.484787451866333,
+          "rotate": 0
+        },
+        "parentScale": 1,
+        "observed": {
+          "before": {
+            "x": 1211,
+            "y": 405.5,
+            "value": "230"
+          },
+          "beforeWorld": "2.2969165651471726",
+          "beforeVars": {
+            "x": 674.2626530718413,
+            "y": -319.55176452459443,
+            "scaleY": 2.484787451866333
+          },
+          "live": {
+            "x": "2.4969165651471728",
+            "y": "2.484787451866333",
+            "vars": {
+              "x": 674.2626530718413,
+              "y": -319.55176452459443,
+              "scaleY": 2.484787451866333
+            }
+          },
+          "restored": null,
+          "previous": {
+            "contextId": 2,
+            "targetId": "9CB5106B84BFCC82C5707EF8613485AF"
+          },
+          "retry": null
+        },
+        "saved": {
+          "x": 404.2626530718413,
+          "y": -209.55176452459443,
+          "scale": 1.166063291387366,
+          "scaleX": 2.4969165651471728,
+          "scaleY": 2.484787451866333,
+          "rotate": 0
+        },
+        "cancelled": {
+          "before": {
+            "x": 1211,
+            "y": 405.5,
+            "value": "250"
+          },
+          "beforeWorld": "2.4969165651471728",
+          "beforeVars": {
+            "x": 674.2626530718413,
+            "y": -319.55176452459443,
+            "scaleY": 2.484787451866333
+          },
+          "live": {
+            "x": "2.6169165651471724",
+            "y": "2.484787451866333",
+            "vars": {
+              "x": 674.2626530718413,
+              "y": -319.55176452459443,
+              "scaleY": 2.484787451866333
+            }
+          },
+          "restored": "2.4969165651471728",
+          "previous": {
+            "contextId": 3,
+            "targetId": "9CB5106B84BFCC82C5707EF8613485AF"
+          },
+          "after": {
+            "x": 1211,
+            "y": 405.5,
+            "value": "250"
+          },
+          "retry": null
+        }
+      }
+    },
+    {
+      "number": 8,
+      "label": "preview edge updates inspector width",
+      "status": "ok",
+      "values": {
+        "before": {
+          "x": 1211,
+          "y": 405.5,
+          "value": "250"
+        },
+        "gesture": {
+          "count": 1,
+          "write": {
+            "id": "g1.first",
+            "patch": {
+              "transform": {
+                "x": 780.1902884362734,
+                "y": -319.55176452459443,
+                "scale": 1.166063291387366,
+                "scaleX": 2.8453627164660835,
+                "scaleY": 2.484787451866333,
+                "rotate": 0
+              }
+            }
+          },
+          "response": {
+            "type": "akari-preview-overlay-write-response",
+            "requestId": "akari-preview-1",
+            "ok": true
+          },
+          "reloaded": false
+        },
+        "after": {
+          "x": 1211,
+          "y": 405.5,
+          "value": "285"
+        }
+      }
+    },
+    {
+      "number": 9,
+      "label": "overall scale 50 to 100 preserves axis ratio",
+      "status": "ok",
+      "values": {
+        "initial": {
+          "x": 510.19028843627336,
+          "y": -209.55176452459443,
+          "scale": 1.166063291387366,
+          "scaleX": 2.8453627164660835,
+          "scaleY": 2.484787451866333,
+          "rotate": 0
+        },
+        "at50": {
+          "x": 510.19028843627336,
+          "y": -209.55176452459443,
+          "scale": 0.5,
+          "scaleX": 0.535049792538294,
+          "scaleY": 0.46724623294215606,
+          "rotate": 0
+        },
+        "at100": {
+          "x": 510.19028843627336,
+          "y": -209.55176452459443,
+          "scale": 1,
+          "scaleX": 1.0700995850765882,
+          "scaleY": 0.9344924658843123,
+          "rotate": 0
+        }
+      }
     }
   ],
-  "retries": [],
-  "error": "Error: width scrub keeps world position and height: {\"beforeVars\":{\"x\":674.2626530718413,\"y\":-319.55176452459443,\"scaleY\":2.484787451866333},\"liveVars\":{\"x\":280,\"y\":-105,\"scaleY\":1}}\n    at check (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:24:25)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:440:5\n    at async record (file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:361:25)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/preview-edge-handles-and-inspector/apps/shell/extensions/akari-preview/evidence/preview-edge-handles-v1/scripts/run-l1.mjs:428:3"
+  "retries": [
+    {
+      "reselect": "timeline row",
+      "reason": "timeout hittable g1.first",
+      "at": "2026-09-23T09:22:42.929Z"
+    },
+    {
+      "reselect": "timeline row",
+      "reason": "timeout hittable g1.first",
+      "at": "2026-09-23T09:23:43.907Z"
+    }
+  ],
+  "error": null
 }
