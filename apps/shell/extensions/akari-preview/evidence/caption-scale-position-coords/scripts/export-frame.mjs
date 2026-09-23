@@ -16,9 +16,12 @@ if (!['before', 'after'].includes(PHASE)) throw new Error('phase must be before|
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const REPO = path.resolve(ROOT, '..', '..', '..', '..', '..', '..');
 const TMP = path.join(os.tmpdir(), 'caption-scale-position-coords-l1');
-const FIXTURE_SRC = path.resolve(process.argv[3] ?? path.join(TMP, 'fixture'));
+const FIXTURE_SRC = path.resolve(process.argv.slice(3).find(v => !v.startsWith('--')) ?? path.join(TMP, 'fixture'));
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
 const W = 1280, H = 720;
+// r1 で追加: 3 つ目の引数 --engine=osr|gpu で render-cut のエンジンを固定する（既定 auto = gpu）。結果は export-<phase>-<engine>.json。
+const ENGINE = process.argv.find(v => v.startsWith('--engine='))?.slice(9) ?? null;
+const SUFFIX = ENGINE ? `-${ENGINE}` : '';
 const round = (v, d = 4) => Math.round(v * 10 ** d) / 10 ** d;
 
 const results = JSON.parse(await readFile(path.join(ROOT, `results-${PHASE}.json`), 'utf8'));
@@ -31,9 +34,11 @@ const CASES = [
     ['(b) 0.7 倍を 3 回動かした後', 'c-0002'],
     ['位置 x を持つ 1.5 倍（動かさない）', 'c-0013'],
     ['位置 x の無い回転 15°（動かさない）', 'c-0014'],
-    ['等倍・位置 x あり（3 回動かした後）', 'c-0004']
+    ['等倍・位置 x あり（3 回動かした後）', 'c-0004'],
+    // r1 で追加: 下端で切れない回転 15° の字幕（位置 x あり・回転つまみ → +20px。縦の中心も比べられる）
+    ['位置 x あり・回転 15°（画面の中ほど）', 'c-0012']
 ];
-const work = path.join(TMP, `export-${PHASE}`);
+const work = path.join(TMP, `export-${PHASE}${ENGINE ? `-${ENGINE}` : ''}`);
 await rm(work, { recursive: true, force: true });
 await cp(FIXTURE_SRC, work, { recursive: true });
 const project = await realpath(path.join(work, 'project'));
@@ -48,7 +53,7 @@ for (const track of edit.tracks) for (const item of track.items) {
 await writeFile(editFile, `${JSON.stringify(edit, null, 2)}\n`);
 const out = path.join(project, 'exports', 'out.mp4');
 const started = Date.now();
-const render = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), project, '--force', '--no-verify-blank', '--out', out], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 1_800_000, killSignal: 'SIGKILL' });
+const render = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), project, '--force', '--no-verify-blank', ...(ENGINE ? ['--engine', ENGINE] : []), '--out', out], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 1_800_000, killSignal: 'SIGKILL' });
 const renderSeconds = Math.round((Date.now() - started) / 1000);
 if (render.status !== 0) throw new Error(`render-cut exit ${render.status}: ${(render.stderr || render.stdout).slice(-2000)}`);
 const renderJson = JSON.parse(await readFile(path.join(project, '.akari', 'render.json'), 'utf8'));
@@ -58,7 +63,7 @@ for (const [index, [name, id]] of CASES.entries()) {
     const t = index + 0.5;
     const frame = spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-nostdin', '-ss', String(t), '-i', out, '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'gray', '-'], { maxBuffer: W * H * 2 });
     if (frame.status !== 0 || frame.stdout.length !== W * H) throw new Error(`frame extract failed: ${frame.stderr?.toString()}`);
-    const png = path.join(ROOT, `${PHASE}-07-export-${id}.png`);
+    const png = path.join(ROOT, `${PHASE}-07-export${SUFFIX}-${id}.png`);
     spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-ss', String(t), '-i', out, '-frames:v', '1', '-vf', 'scale=640:-1', png]);
     let minX = W, maxX = -1, minY = H, maxY = -1, count = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -76,5 +81,5 @@ for (const [index, [name, id]] of CASES.entries()) {
     } : null;
     measured.cases.push({ name, id, text_style: rows[index].text_style ?? null, frameAtSeconds: t, exported, previewBox, clipped, diff, brightPixels: count, screenshot: path.basename(png) });
 }
-await writeFile(path.join(ROOT, `export-${PHASE}.json`), `${JSON.stringify(measured, null, 2)}\n`);
+await writeFile(path.join(ROOT, `export-${PHASE}${SUFFIX}.json`), `${JSON.stringify(measured, null, 2)}\n`);
 console.log(JSON.stringify(measured, null, 1));

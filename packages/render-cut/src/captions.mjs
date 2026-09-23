@@ -265,8 +265,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         html,
         start: range.start,
         duration: range.duration,
-        transform: captionTransform(textStyle),
-        vars: textStyleVars,
+        transform: captionTransform(),
+        vars: { ...textStyleVars, ...captionTransformVars(textStyle) },
         generatedFrom: caption.id,
       });
     }
@@ -285,8 +285,8 @@ export function generateResolvedCaptionOverlays(displayResult) {
     html: renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue),
     start: cue.start,
     duration: cue.end - cue.start,
-    transform: captionTransform(cue.text_style),
-    vars: cue.style_vars ?? {},
+    transform: captionTransform(),
+    vars: { ...(cue.style_vars ?? {}), ...captionTransformVars(cue.text_style) },
     generatedFrom: cue.source_cue_id,
     sourceCueId: cue.source_cue_id,
     displayCue: cue,
@@ -297,6 +297,14 @@ export function captionTransform(style) {
   const scale = finiteNumber(style?.scale) && style.scale >= 0.4 && style.scale <= 3 ? style.scale : 1;
   const rotate = finiteNumber(style?.rotate) && style.rotate >= -180 && style.rotate <= 180 ? style.rotate : 0;
   return { x: 0, y: 0, scale, rotate };
+}
+
+function captionTransformVars(style) {
+  const { scale, rotate } = captionTransform(style);
+  return {
+    ...(scale !== 1 ? { "--caption-scale": String(scale) } : {}),
+    ...(rotate !== 0 ? { "--caption-rotate": `${rotate}deg` } : {}),
+  };
 }
 
 function finiteNumber(value) {
@@ -822,7 +830,8 @@ ${platePlacementCss}
       flex-direction: column;
 ${plateAlignmentCss}      gap: var(--plate-gap, 4px);
       opacity: 1;
-      transform: rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1));
+      rotate: var(--caption-rotate, 0deg);
+      scale: var(--caption-scale, 1);
       transform-origin: center;
 ${plateAnimationCss}
     }
@@ -1007,7 +1016,8 @@ ${platePlacementCss}
       flex-direction: column;
 ${plateAlignmentCss}      gap: var(--plate-gap, 4px);
       opacity: 1;
-      transform: rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1));
+      rotate: var(--caption-rotate, 0deg);
+      scale: var(--caption-scale, 1);
       transform-origin: center;
 ${plateAnimationCss}
     }

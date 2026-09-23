@@ -39,9 +39,9 @@ test("only the declared cue receives character spans", () => {
   assert.equal(chars(result[1].html).length, 6);
 });
 
-// Updated for the explicit-x ink-width plate and center-origin transform CSS; stripping only those declarations restores the old hashes.
+// Plate rotation and scale now use individual CSS properties so transform animations cannot replace them.
 test("undeclared caption HTML keeps the caption plate geometry contract", () => {
-  const expected = ["0d9d6542de25df310d40199fb7c530f029c0276850618525c013711f87b00ae1","1b17c67b5d5203d599b7b81d3256118ae212443190aa408a2618b1ef4ce8ffaf","4013e78451efeb726134767bc53fc512adae5707d482bfef5f9cbf8fdb51a543","f1ca62be6e9722fa32adcfdb6de8107a18785bb4a5290acbaa60fbc6c4738a0e","d80a5e7a1231894969d28068cde68a7d435159e1aa8aee2e2029412a1cfb0404"];
+  const expected = ["dd89a7c158a26692a3ccd966116349858479f247af80a6a34f93361bcf5593d0","e11e1c04e21d7c57f9ccae4772195ab38e5542244660a93b0f413db069493e89","65804a8053226f1f49c2bc18163e9cdfc18577f120fff585cd8a936f3d0e53c4","36274db405a7045453ed9a1dc7b6e29c642cf22c19b87793affed4128daaef3d","30a9b5c584f7142f5fc31aeb62c51dab5edef892d6537835d9b35c8ff8940fcf"];
   for (const [index, style] of [undefined, "karaoke", "pop", "reveal", "reveal-word"].entries()) {
     const canonical = html({ ...cue, style }).replace(/file:[^"\s]+/gu, "<bundled-font>");
     assert.equal(createHash("sha256").update(canonical).digest("hex"), expected[index]);

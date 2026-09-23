@@ -1,12 +1,12 @@
 {
   "phase": "after",
-  "renderSeconds": 4,
+  "renderSeconds": 10,
   "rasterizer": {
-    "planned": "gpu",
-    "adopted": "gpu",
+    "planned": "osr",
+    "adopted": "osr",
     "attempts": [
       {
-        "method": "gpu",
+        "method": "osr",
         "status": "adopted",
         "reason": null
       }
@@ -50,8 +50,8 @@
         "right": -0.0211,
         "left": 0.0199
       },
-      "brightPixels": 16801,
-      "screenshot": "after-07-export-c-0001.png"
+      "brightPixels": 16859,
+      "screenshot": "after-07-export-osr-c-0001.png"
     },
     {
       "name": "(c) 回転 15° を 3 回動かした後",
@@ -67,7 +67,7 @@
       "frameAtSeconds": 1.5,
       "exported": {
         "left": 0.3672,
-        "right": 0.7961,
+        "right": 0.7969,
         "top": 0.7708,
         "bottom": 1
       },
@@ -84,13 +84,13 @@
         "bottom": true
       },
       "diff": {
-        "cx": -0.0002,
+        "cx": 0.0002,
         "cy": null,
-        "right": -0.0185,
+        "right": -0.0177,
         "left": 0.0181
       },
-      "brightPixels": 7210,
-      "screenshot": "after-07-export-c-0003.png"
+      "brightPixels": 6680,
+      "screenshot": "after-07-export-osr-c-0003.png"
     },
     {
       "name": "(b) 0.7 倍を 3 回動かした後",
@@ -105,8 +105,8 @@
       },
       "frameAtSeconds": 2.5,
       "exported": {
-        "left": 0.4195,
-        "right": 0.7461,
+        "left": 0.4188,
+        "right": 0.7453,
         "top": 0.8722,
         "bottom": 0.9069
       },
@@ -123,13 +123,13 @@
         "bottom": false
       },
       "diff": {
-        "cx": 0.001,
+        "cx": 0.0002,
         "cy": 0.0013,
-        "right": -0.0107,
-        "left": 0.0126
+        "right": -0.0115,
+        "left": 0.0119
       },
-      "brightPixels": 3268,
-      "screenshot": "after-07-export-c-0002.png"
+      "brightPixels": 3315,
+      "screenshot": "after-07-export-osr-c-0002.png"
     },
     {
       "name": "位置 x を持つ 1.5 倍（動かさない）",
@@ -167,8 +167,8 @@
         "right": -0.026,
         "left": 0.0254
       },
-      "brightPixels": 25418,
-      "screenshot": "after-07-export-c-0013.png"
+      "brightPixels": 25455,
+      "screenshot": "after-07-export-osr-c-0013.png"
     },
     {
       "name": "位置 x の無い回転 15°（動かさない）",
@@ -178,7 +178,7 @@
       },
       "frameAtSeconds": 4.5,
       "exported": {
-        "left": 0.3563,
+        "left": 0.357,
         "right": 0.7313,
         "top": 0.7819,
         "bottom": 0.9986
@@ -196,13 +196,13 @@
         "bottom": true
       },
       "diff": {
-        "cx": 0.0008,
+        "cx": 0.0012,
         "cy": null,
         "right": -0.0169,
-        "left": 0.0186
+        "left": 0.0193
       },
-      "brightPixels": 7476,
-      "screenshot": "after-07-export-c-0014.png"
+      "brightPixels": 6915,
+      "screenshot": "after-07-export-osr-c-0014.png"
     },
     {
       "name": "等倍・位置 x あり（3 回動かした後）",
@@ -217,8 +217,8 @@
       },
       "frameAtSeconds": 5.5,
       "exported": {
-        "left": 0.2547,
-        "right": 0.9617,
+        "left": 0.2555,
+        "right": 0.9625,
         "top": 0.8528,
         "bottom": 0.9278
       },
@@ -235,13 +235,13 @@
         "bottom": false
       },
       "diff": {
-        "cx": -0.001,
+        "cx": -0.0002,
         "cy": 0.0028,
-        "right": -0.0218,
-        "left": 0.0198
+        "right": -0.021,
+        "left": 0.0206
       },
-      "brightPixels": 17804,
-      "screenshot": "after-07-export-c-0004.png"
+      "brightPixels": 17885,
+      "screenshot": "after-07-export-osr-c-0004.png"
     },
     {
       "name": "位置 x あり・回転 15°（画面の中ほど）",
@@ -279,8 +279,8 @@
         "right": -0.0168,
         "left": 0.0189
       },
-      "brightPixels": 6663,
-      "screenshot": "after-07-export-c-0012.png"
+      "brightPixels": 6144,
+      "screenshot": "after-07-export-osr-c-0012.png"
     }
   ]
 }

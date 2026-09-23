@@ -177,9 +177,12 @@ test('webview inline math is mechanically locked to the pure functions', () => {
 });
 
 test('all three caption plate CSS rules consume scale/rotate around the center', () => {
-  const transform = 'transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;';
-  assert.equal(handlerSource.split(transform).length - 1, 2);
-  assert.ok(visualContract.resolved_single_line_caption_css.includes(transform));
+  const individual = 'rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;';
+  assert.equal(handlerSource.split(individual).length - 1, 2);
+  assert.ok(visualContract.resolved_single_line_caption_css.includes(
+    'transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;'));
+  assert.match(handlerSource, /plate\.style\.rotate = 'none';[\s\S]*?plate\.style\.scale = 'none';/u);
+  assert.match(handlerSource, /plate\.style\.rotate = previousRotate;[\s\S]*?plate\.style\.scale = previousScale;/u);
   assert.ok(visualContract.resolved_caption_style_variable_names.includes('--caption-scale'));
   assert.ok(visualContract.resolved_caption_style_variable_names.includes('--caption-rotate'));
 });

@@ -50,8 +50,8 @@ test("emphasis_words absent keeps the pre-emphasis caption output byte-identical
   // 2026-08-03 縦長字幕改修: 擬似縁取り（4 方向 text-shadow）→ 実ストローク
   // （-webkit-text-stroke + paint-order）への意図的変更でダイジェストを更新
   // （レイアウト・タイミング系のアサーションは無改変）。
-  // x 付き字幕を文字幅にする plate CSS と中心変形規則だけの差分で再計算。
-  assert.equal(digest, "f681fbdb15dcae38d2b4c801afd2c816ff314c3b4e55299ed2a138f347e4f1ca");
+  // plate の rotate / scale を個別 CSS プロパティに移し、transform アニメーションと合成する差分で再計算。
+  assert.equal(digest, "8b133a3bfbb9233e43dc5d4829b07fc90079d83bbc1a2ed806795d93069b9e60");
   assert.deepEqual(generateCaptionOverlays(CAPTIONS, CUTS, { emphasisWords: [] }), output);
   assert.deepEqual(generateCaptionOverlays(CAPTIONS, CUTS, { emphasisWords: "invalid" }), output);
 });

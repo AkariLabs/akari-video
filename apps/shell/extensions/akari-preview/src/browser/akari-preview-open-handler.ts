@@ -13830,9 +13830,17 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionLayoutRect = (captionPlate = selectedCaptionPlate()) => {
                 const plate = captionPlate.querySelector('.akari-caption__plate') || captionPlate;
                 const previousTransform = plate.style.transform;
+                const previousRotate = plate.style.rotate;
+                const previousScale = plate.style.scale;
                 plate.style.transform = 'none';
+                plate.style.rotate = 'none';
+                plate.style.scale = 'none';
                 try { return captionVisualRect(captionPlate); }
-                finally { plate.style.transform = previousTransform; }
+                finally {
+                    plate.style.transform = previousTransform;
+                    plate.style.rotate = previousRotate;
+                    plate.style.scale = previousScale;
+                }
             };
             const captionTransformValues = captionPlate => {
                 const style = getComputedStyle(captionPlate);
@@ -15750,7 +15758,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + 'paint-order:var(--caption-paint-order,stroke fill);'
                     + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
                     + 'font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
@@ -15818,7 +15826,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     : '';
                 return '<div class="akari-caption"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss

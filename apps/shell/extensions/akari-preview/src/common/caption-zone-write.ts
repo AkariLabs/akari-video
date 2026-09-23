@@ -146,9 +146,57 @@ export function captionPositionFromVisualRect(
     }
     // Exact legacy arithmetic and rounding for an untransformed caption.
     if ((options.scale ?? 1) === 1 && (options.rotate ?? 0) === 0) {
-        return options.timeDomain === 'output'
-            ? placedCaptionPositionFromRects(visual, frame, options)
-            : captionCuePositionFromRects(visual, frame, options);
+        if (options.timeDomain === 'output') {
+            const width = (visual.right - visual.left) / frame.width;
+            const height = (visual.bottom - visual.top) / frame.height;
+            let x = (visual.left - frame.x) / frame.width;
+            let top = (visual.top - frame.y) / frame.height;
+            if (![x, top, width, height].every(Number.isFinite)) {
+                throw new Error('字幕位置は有限数である必要があります');
+            }
+            if (options.clamp) {
+                x = Math.min(Math.max(0, 1 - width), Math.max(0, x));
+                top = Math.min(Math.max(0, 1 - height), Math.max(0, top));
+            }
+            const vertical = options.anchor[0];
+            const y = top + (vertical === 'b' ? height : vertical === 'm' ? height / 2 : 0);
+            return { anchor: options.anchor, position: {
+                x: Math.round(x * 10000) / 10000,
+                y: Math.round(y * 10000) / 10000
+            } };
+        }
+        const topRatio = (visual.top - frame.y) / frame.height;
+        const anchor = options.anchor ?? (topRatio < 1 / 3 ? 'tc' : 'bc');
+        let x = (visual.left - frame.x) / frame.width;
+        const plateH = visual.bottom - visual.top;
+        let y = topRatio + (anchor[0] === 'b' ? plateH / frame.height
+            : anchor[0] === 'm' ? plateH / frame.height / 2 : 0);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            throw new Error('字幕位置は有限数である必要があります');
+        }
+        if (options.clamp) {
+            const plateW = visual.right - visual.left;
+            const maxX = 1 - plateW / frame.width;
+            if (maxX < 0) {
+                x = 0;
+            } else {
+                x = Math.min(maxX, Math.max(0, x));
+            }
+            if (anchor[0] === 'b') {
+                const minY = plateH / frame.height;
+                y = minY > 1 ? 1 : Math.min(1, Math.max(minY, y));
+            } else if (anchor[0] === 't') {
+                const maxY = 1 - plateH / frame.height;
+                y = maxY < 0 ? 0 : Math.min(maxY, Math.max(0, y));
+            } else {
+                const half = plateH / frame.height / 2;
+                y = Math.min(1 - half, Math.max(half, y));
+            }
+        }
+        return { anchor, position: {
+            x: Math.round(x * 10_000) / 10_000,
+            y: Math.round(y * 10_000) / 10_000
+        } };
     }
     const width = layout.right - layout.left;
     const height = layout.bottom - layout.top;

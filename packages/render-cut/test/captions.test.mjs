@@ -33,6 +33,54 @@ test("captionTransform accepts declared scale/rotate and ignores invalid values"
   assert.deepEqual(captionTransform({ scale: Infinity, rotate: 181 }), { x: 0, y: 0, scale: 1, rotate: 0 });
 });
 
+test('caption overlays transform their plate while keeping the frame-sized sprite at identity', () => {
+  const base = { id: 'c-transform', start: 0, end: 2, text: '字幕' };
+  for (const style of [undefined, { scale: 1, rotate: 0 },
+    { scale: 1.5, rotate: 15 }, { scale: 0.7, rotate: -15 },
+    { scale: 0.3, rotate: 181 }]) {
+    const legacy = generateCaptionOverlays([{ ...base, text_style: style }], [])[0];
+    const resolved = generateResolvedCaptionOverlays({ display_cues: [{
+      id: base.id, source_cue_id: base.id, start: 0, end: 2, text: base.text,
+      text_style: style, style_vars: { '--caption-left': '120px' },
+    }] })[0];
+    const { scale, rotate } = captionTransform(style);
+    const expected = {
+      ...(scale !== 1 ? { '--caption-scale': String(scale) } : {}),
+      ...(rotate !== 0 ? { '--caption-rotate': `${rotate}deg` } : {}),
+    };
+    for (const overlay of [legacy, resolved]) {
+      assert.deepEqual(overlay.transform, { x: 0, y: 0, scale: 1, rotate: 0 });
+      assert.deepEqual(Object.fromEntries(Object.entries(overlay.vars)
+        .filter(([key]) => key === '--caption-scale' || key === '--caption-rotate')), expected);
+    }
+    assert.equal(resolved.vars['--caption-left'], '120px');
+  }
+});
+
+test('legacy caption plate keeps scale and rotation outside fade and text-style transform animations', () => {
+  const base = { id: 'c-animation', start: 0, end: 2, text: '字幕',
+    words: [{ start: 0, end: 2, text: '字幕' }] };
+  for (const style of [undefined, 'karaoke']) {
+    for (const animation of [undefined, { in: { id: 'zoom-pop' } }]) {
+      const [overlay] = generateCaptionOverlays([{
+        ...base, style, text_style: {
+          scale: 1.5, rotate: 15, ...(animation ? { animation } : {})
+        }
+      }], []);
+      const plateCss = overlay.html.match(/\.akari-caption__plate\s*\{([^}]*)\}/u)?.[1];
+      assert.ok(plateCss, `${style ?? 'plain'} plate rule`);
+      assert.match(plateCss, /rotate:\s*var\(--caption-rotate,\s*0deg\);/u);
+      assert.match(plateCss, /scale:\s*var\(--caption-scale,\s*1\);/u);
+      assert.match(plateCss, /transform-origin:\s*center;/u);
+      assert.doesNotMatch(plateCss, /(?:^|;)\s*transform:/u);
+      assert.match(plateCss, animation ? /animation:\s*akari-anim-zoom-pop/u
+        : /animation:\s*akari-caption-fade/u);
+      assert.match(overlay.html, animation ? /@keyframes akari-anim-zoom-pop[^]*?transform: scale/u
+        : /@keyframes akari-caption-fade[^]*?transform: translateY/u);
+    }
+  }
+});
+
 test('legacy display_fragments become unique overlays at word boundaries', () => {
   const overlays = generateCaptionOverlays([{
     id: 'c-0001', start: 0, end: 3, text: '前半後半', display_fragments: ['前半', '後半'],

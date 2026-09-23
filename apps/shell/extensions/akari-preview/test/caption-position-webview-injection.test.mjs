@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import test from 'node:test';
 import vm from 'node:vm';
 
@@ -8,6 +9,10 @@ import {
     captionPositionFromVisualRect,
     placedCaptionPositionFromRects
 } from '../lib/common/caption-zone-write.js';
+
+const require = createRequire(new URL('../../../package.json', import.meta.url));
+const { minify } = require('terser');
+const { transformSync } = require('esbuild');
 
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 const start = source.indexOf('const roundCaptionRatioUnclamped =');
@@ -31,6 +36,52 @@ function webviewContext() {
 }
 
 const plain = value => JSON.parse(JSON.stringify(value));
+
+test('toString-injected position functions work alone after esbuild and terser minification', async () => {
+    const frame = { x: 10, y: 20, width: 1000, height: 500 };
+    const layout = { left: 140, right: 340, top: 160, bottom: 240 };
+    const rects = [layout,
+        { left: -80, right: 120, top: -35, bottom: 45 },
+        { left: -100, right: 1200, top: -90, bottom: 610 }
+    ];
+    const injected = [captionPositionFromVisualRect, placedCaptionPositionFromRects];
+    for (const original of injected) {
+        const standalone = new Function(`return (${original.toString()})`)();
+        const result = await minify(`globalThis.injected = (${original.toString()});`, {
+            compress: true, mangle: { toplevel: true }
+        });
+        const minified = new Function('globalThis', `${result.code}; return globalThis.injected;`)({});
+        const esbuildCode = transformSync(`globalThis.injected = (${original.toString()});`, {
+            minify: true, target: 'es2022'
+        }).code;
+        const esbuildMinified = new Function('globalThis', `${esbuildCode}; return globalThis.injected;`)({});
+        for (const candidate of [standalone, minified, esbuildMinified]) {
+            for (const anchor of [undefined, 'tl', 'mc', 'bc', 'br']) {
+                for (const clamp of [false, true]) {
+                    for (const rect of rects) {
+                        if (original === placedCaptionPositionFromRects && anchor === undefined) continue;
+                        const options = { anchor, clamp };
+                        if (original === placedCaptionPositionFromRects) {
+                            assert.deepEqual(candidate(rect, frame, options), original(rect, frame, options));
+                            continue;
+                        }
+                        for (const timeDomain of ['source', 'output']) {
+                            if (anchor === undefined && timeDomain === 'output') continue;
+                            for (const [scale, rotate, visual] of [
+                                [1, 0, rect], [0.7, 0, rect], [1.5, 15, rect], [1, 90, rect]
+                            ]) {
+                                if (anchor === undefined && (scale !== 1 || rotate !== 0)) continue;
+                                const transformOptions = { ...options, timeDomain, scale, rotate };
+                                assert.deepEqual(candidate(visual, layout, frame, transformOptions),
+                                    original(visual, layout, frame, transformOptions));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+});
 
 test('injected webview position functions match common for both time domains and transforms', () => {
     const webview = webviewFunctions();

@@ -53,11 +53,13 @@ test('caption scale/rotate values match across shell, render-cut, and GPU export
     });
     const sprite = gpu.spriteManifest.captions[0];
 
-    assert.deepEqual(renderOverlay.transform, captionTransform(style));
-    assert.equal(Number(shellVars['--caption-scale']), renderOverlay.transform.scale);
-    assert.equal(Number.parseFloat(shellVars['--caption-rotate']), renderOverlay.transform.rotate);
-    assert.equal(Number(sprite.vars['--scale']), renderOverlay.transform.scale);
-    assert.equal(Number.parseFloat(sprite.vars['--rotate']), renderOverlay.transform.rotate);
+    assert.deepEqual(renderOverlay.transform, captionTransform());
+    assert.equal(shellVars['--caption-scale'], renderOverlay.vars['--caption-scale']);
+    assert.equal(shellVars['--caption-rotate'], renderOverlay.vars['--caption-rotate']);
+    assert.equal(sprite.vars['--caption-scale'], shellVars['--caption-scale']);
+    assert.equal(sprite.vars['--caption-rotate'], shellVars['--caption-rotate']);
+    assert.equal(sprite.vars['--scale'], undefined);
+    assert.equal(sprite.vars['--rotate'], undefined);
     assert.deepEqual(sprite.transform, renderOverlay.transform);
 
     const defaultShellVars = captionTextStyleVars({ scale: 1, rotate: 0 });

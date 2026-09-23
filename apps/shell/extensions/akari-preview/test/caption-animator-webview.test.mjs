@@ -165,15 +165,15 @@ test('animator 無宣言 cue は評価器も warning も呼ばず、tick で DOM
 test('無宣言の HTML は caption transform 規則を含む基底のバイト列を保持する', () => {
     // Recorded after the caption plate scale/rotate contract was added to every styled fragment,
     // and after plain (unstyled) captions started rendering through the same fragment path.
-    // x を持つ字幕の plate を文字幅にする規則を追加したため、この CSS 宣言分だけ基準値を更新。
+    // 旧 fragment の plate は個別 rotate / scale を使い、transform アニメーションと合成する。
     const expected = [
-        'e1f2ebf51e322ae87c15563c5d4f924dd045e59af00eba148f9eb60573deeb66',
-        'e88cd02217e9f82c3a51dfd8f29d1e556a56bd8f4b65b57574699c5ea331b235',
+        'bdbf4a7890920212358b55f2e22a24e9a32cc7931134a8aa7f0ba2fb14324488',
+        '1d45f89a6232f3688800f7ff57840635cc8d9e6a1aafeb086092369097f6f358',
         '95deb5a75ca8c1294493805ca3aabf6466c959b1f56d27388ab29069a32edaf9',
-        '956fce5157e2fbab8f07f95cbf07e6320d53ff44c381a160791af1c9583fc524',
-        '48b8feee48ba655132fae6bd6766afcc8184151525cf290121e4c4d3732d7531',
-        '1c48f490b315ce9b6ff5915fbfa8dbe9462cb6b4f98bd7e8f036664d1a7a9b09',
-        'cfc1a431e67a491f87ae4d1241bfcc11ad72fc144e4061d5bbb9db83bf9073fe'
+        '1f682fa85dd613bc722f42f1f11e6adfb6f1065ea6f352bc732041c7f62a6e03',
+        '47eefc6e38df87b3b957dd8595983fac1e81601e1599aaa18edea2dc0729577f',
+        '29b199dc0ef4561e207b283595c8027b2a7160b4935eda5d6c7d58176f55752a',
+        '59df1dc0603c01c6cc69529006268ee5d40958edd10c6d807d0531c7e16426df'
     ];
     const fixtures = [{}, { textStyle: { color: '#fff', background: { mode: 'block' } } },
         { resolvedTimeline: true }, ...['karaoke', 'pop', 'reveal', 'reveal-word'].map(style => ({ style,
@@ -184,8 +184,13 @@ test('無宣言の HTML は caption transform 規則を含む基底のバイト�
         return view.plate.innerHTML;
     });
     const actual = markup.map(html => createHash('sha256').update(html).digest('hex'));
-    const previous = markup.map((html, index) => createHash('sha256')
-        .update(index === 2 ? html : html.replaceAll('width:var(--caption-width,auto);', '')).digest('hex'));
+    const previousTransform = 'transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;';
+    const individualTransform = 'rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;';
+    const previous = markup.map((html, index) => {
+        const beforeRotateScale = html.replaceAll(individualTransform, previousTransform);
+        return createHash('sha256').update(index === 2 ? beforeRotateScale
+            : beforeRotateScale.replaceAll('width:var(--caption-width,auto);', '')).digest('hex');
+    });
     assert.deepEqual(previous, [
         '334f9029ad09127bc0eccfdb5046dfc4d9c587428700763d6cbcbe19d0595a8e',
         '287f55aa58000709fb3c40e6fba3b25f893f9e287195c8b2a5de6261d7439853',
