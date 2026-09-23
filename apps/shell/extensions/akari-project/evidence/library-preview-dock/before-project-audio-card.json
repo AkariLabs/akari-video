@@ -1,0 +1,22 @@
+{
+ "rel": "assets/audio/tone.wav",
+ "before": [
+  "asset:assets/base.mp4@88",
+  "asset:assets/audio/tone.wav@88"
+ ],
+ "hover": [
+  "asset:assets/base.mp4@88",
+  "asset:assets/audio/tone.wav@88"
+ ],
+ "hoverAdded": [],
+ "click": [
+  "asset:assets/base.mp4@88",
+  "asset:assets/audio/tone.wav@88"
+ ],
+ "clickAdded": [
+  "SPAN.codicon codicon-device-camera-video",
+  "SPAN.codicon codicon-unmute",
+  "IMG."
+ ],
+ "at": "2026-09-22T23:49:50.861Z"
+}

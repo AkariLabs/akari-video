@@ -1,0 +1,76 @@
+{
+ "mode": "toggle",
+ "target": {
+  "key": "audio/bgm-tension-pulse-096",
+  "x": 233.328125,
+  "y": 244.015625
+ },
+ "before": {
+  "cardTops": [
+   -715.8,
+   -715.8,
+   -715.8,
+   -494.6,
+   -494.6,
+   -494.6
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 900,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [],
+  "audioBar": false,
+  "audioDock": false,
+  "dockRect": null,
+  "dockText": null,
+  "dockParentChain": null
+ },
+ "after": {
+  "cardTops": [
+   -715.8,
+   -715.8,
+   -715.8,
+   -494.6,
+   -494.6,
+   -494.6
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 940,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [
+   "audio/bgm-tension-pulse-096"
+  ],
+  "audioBar": true,
+  "audioDock": false,
+  "dockRect": {
+   "top": -765,
+   "bottom": -734,
+   "height": 32,
+   "position": "static"
+  },
+  "dockText": "再生中: Clockroom停止",
+  "dockParentChain": [
+   "DIV.[data-akari-catalog-audio-bar]",
+   "DIV.[data-akari-catalog-item-count][data-akari-catalog-view-mode]",
+   "DIV.[data-akari-library-category]",
+   "DIV."
+  ]
+ },
+ "added": [
+  "DIV.[data-akari-catalog-audio-bar]"
+ ],
+ "cardTopShiftPx": 0,
+ "scrollTopDelta": 40,
+ "at": "2026-09-22T23:49:17.358Z"
+}

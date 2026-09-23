@@ -1,0 +1,44 @@
+{
+ "at": "2026-09-23T00:04:23.875Z",
+ "playing": {
+  "dock": true,
+  "audioPaused": false,
+  "audioSrc": "bgm-jazzhop-piano-086.mp3",
+  "shelf": false,
+  "trialBar": []
+ },
+ "afterSelectItem": {
+  "dock": true,
+  "audioPaused": false,
+  "audioSrc": "bgm-jazzhop-piano-086.mp3",
+  "shelf": false,
+  "trialBar": []
+ },
+ "openSwap": true,
+ "shelfOpened": {
+  "dock": false,
+  "audioPaused": true,
+  "audioSrc": "bgm-jazzhop-piano-086.mp3",
+  "shelf": true,
+  "trialBar": []
+ },
+ "shelfToggle": [
+  334,
+  340.53125,
+  "audio/bgm-beatslide-124-001"
+ ],
+ "afterShelfToggle": {
+  "dock": false,
+  "audioPaused": false,
+  "audioSrc": "bgm-beatslide-124-001.mp3",
+  "shelf": true,
+  "trialBar": []
+ },
+ "afterShelfToggleAgain": {
+  "dock": false,
+  "audioPaused": true,
+  "audioSrc": "bgm-beatslide-124-001.mp3",
+  "shelf": true,
+  "trialBar": []
+ }
+}

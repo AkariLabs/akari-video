@@ -1,0 +1,39 @@
+{
+ "key": "audio/bgm-jazzhop-piano-086",
+ "mode": "plus",
+ "target": {
+  "x": 82.234375,
+  "y": 382.0234375,
+  "label": "＋",
+  "aria": "After the Rain をプレイヘッド位置に追加"
+ },
+ "at": "2026-09-23T00:01:43.799Z",
+ "playheadBefore": null,
+ "dockBefore": {
+  "dock": true,
+  "audioPaused": false,
+  "cardTop": 184.2
+ },
+ "waitMs": 16155,
+ "editChanged": true,
+ "newItems": [],
+ "newSfx": [
+  {
+   "id": "audio-1",
+   "path": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3",
+   "t": 0,
+   "track": 0
+  }
+ ],
+ "newSources": [],
+ "tracksAfter": [
+  "v1:visual",
+  "a1:audio"
+ ],
+ "dockAfter": {
+  "dock": true,
+  "audioPaused": false,
+  "cardTop": 184.2
+ },
+ "toasts": []
+}

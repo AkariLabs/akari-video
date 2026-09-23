@@ -1,0 +1,92 @@
+{
+ "mode": "toggle",
+ "target": {
+  "key": "audio/bgm-jazzhop-piano-086",
+  "x": 133.328125,
+  "y": 259.5234375
+ },
+ "before": {
+  "cardTops": [
+   184.2,
+   184.2,
+   184.2,
+   405.5,
+   405.5,
+   405.5
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [
+   "audio/bgm-jazzhop-piano-086"
+  ],
+  "audio": {
+   "paused": false,
+   "currentTime": 20.91,
+   "src": "bgm-jazzhop-piano-086.mp3"
+  },
+  "audioBar": true,
+  "audioDock": true,
+  "dockRect": {
+   "top": 554,
+   "bottom": 590,
+   "height": 36,
+   "position": "absolute"
+  },
+  "dockAnim": {
+   "name": "akari-catalog-audio-dock-enter",
+   "duration": "0.18s",
+   "zIndex": "8"
+  },
+  "dockInsideScroller": false,
+  "dockText": "再生中: After the Rain停止×",
+  "dockParentChain": [
+   "DIV.[data-akari-catalog-audio-dock][data-akari-catalog-audio-bar]",
+   "DIV.[data-akari-top-view]",
+   "DIV.",
+   "DIV.[data-akari-left-panel-layout]"
+  ]
+ },
+ "after": {
+  "cardTops": [
+   184.2,
+   184.2,
+   184.2,
+   405.5,
+   405.5,
+   405.5
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [],
+  "audio": {
+   "paused": true,
+   "currentTime": 20.96,
+   "src": "bgm-jazzhop-piano-086.mp3"
+  },
+  "audioBar": false,
+  "audioDock": false,
+  "dockRect": null,
+  "dockAnim": null,
+  "dockInsideScroller": null,
+  "dockText": null,
+  "dockParentChain": null
+ },
+ "added": [],
+ "cardTopShiftPx": 0,
+ "scrollTopDelta": 0,
+ "at": "2026-09-22T23:59:53.075Z"
+}

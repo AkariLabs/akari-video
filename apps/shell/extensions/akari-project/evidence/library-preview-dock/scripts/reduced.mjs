@@ -1,0 +1,20 @@
+// Emulate prefers-reduced-motion: reduce and play a card; record the dock's computed animation.
+import { writeFileSync } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { connectMain, evalMain, realClick } from '../../materials-tab-hardening/cdp-lib.mjs';
+const cdp = await connectMain(Number(process.env.CDP_PORT || 9455));
+const ev = e => evalMain(cdp, e, 30000);
+const out = process.argv[2];
+await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+const t = await ev(`(() => { const e=document.querySelector('[data-akari-catalog-audio-toggle]'); const r=e.getBoundingClientRect(); return [r.left+r.width/2, r.top+r.height/2]; })()`);
+await realClick(cdp, t[0], t[1]);
+await sleep(30);
+const reduced = await ev(`(() => { const d=document.querySelector('[data-akari-catalog-audio-dock]'); const cs=getComputedStyle(d); return { matches: matchMedia('(prefers-reduced-motion: reduce)').matches, animationName: cs.animationName, opacity: cs.opacity, transform: cs.transform }; })()`);
+await realClick(cdp, t[0], t[1]); await sleep(500);
+await cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+await realClick(cdp, t[0], t[1]);
+await sleep(40);
+const normal = await ev(`(() => { const d=document.querySelector('[data-akari-catalog-audio-dock]'); const cs=getComputedStyle(d); const a=d.getAnimations()[0]; return { matches: matchMedia('(prefers-reduced-motion: reduce)').matches, animationName: cs.animationName, duration: cs.animationDuration, opacityAt40ms: cs.opacity, transformAt40ms: cs.transform, currentTime: a ? Math.round(a.currentTime) : null }; })()`);
+await realClick(cdp, t[0], t[1]); await sleep(500);
+const rec = { reduced, normal, at: new Date().toISOString() };
+writeFileSync(out, JSON.stringify(rec, null, 1)); console.log(JSON.stringify(rec, null, 1)); process.exit(0);

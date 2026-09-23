@@ -1,0 +1,94 @@
+{
+ "mode": "toggle",
+ "target": {
+  "key": "audio/sfx-bell-tree",
+  "x": 233.6640625,
+  "y": 259.53125
+ },
+ "before": {
+  "cardTops": [
+   184.2,
+   184.2,
+   184.2,
+   392,
+   392,
+   392
+  ],
+  "firstCardKey": "audio/akari-sounds-sfx",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [],
+  "audio": {
+   "paused": true,
+   "currentTime": 1.46,
+   "src": "bgm-beatslide-clap-124.mp3"
+  },
+  "audioBar": false,
+  "audioDock": false,
+  "dockRect": null,
+  "dockAnim": null,
+  "dockInsideScroller": null,
+  "dockText": null,
+  "dockParentChain": null
+ },
+ "after": {
+  "cardTops": [
+   184.2,
+   184.2,
+   184.2,
+   392,
+   392,
+   392
+  ],
+  "firstCardKey": "audio/akari-sounds-sfx",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 376
+  },
+  "playing": [
+   "audio/sfx-bell-tree"
+  ],
+  "audio": {
+   "paused": false,
+   "currentTime": 0.79,
+   "src": "sfx-bell-tree.mp3"
+  },
+  "audioBar": true,
+  "audioDock": true,
+  "dockRect": {
+   "top": 554,
+   "bottom": 590,
+   "height": 36,
+   "position": "absolute"
+  },
+  "dockAnim": {
+   "name": "akari-catalog-audio-dock-enter",
+   "duration": "0.18s",
+   "zIndex": "8"
+  },
+  "dockInsideScroller": false,
+  "dockText": "再生中: Bell Tree Sweep Upward, Sparkling Cascade, Isola停止×",
+  "dockParentChain": [
+   "DIV.[data-akari-catalog-audio-dock][data-akari-catalog-audio-bar]",
+   "DIV.[data-akari-top-view]",
+   "DIV.",
+   "DIV.[data-akari-left-panel-layout]"
+  ]
+ },
+ "added": [
+  "DIV.[data-akari-catalog-audio-dock][data-akari-catalog-audio-bar]"
+ ],
+ "cardTopShiftPx": 0,
+ "scrollTopDelta": 0,
+ "at": "2026-09-23T00:00:20.025Z"
+}

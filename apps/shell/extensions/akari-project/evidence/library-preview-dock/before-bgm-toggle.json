@@ -1,0 +1,76 @@
+{
+ "mode": "toggle",
+ "target": {
+  "key": "audio/bgm-jazzhop-piano-086",
+  "x": 79,
+  "y": 222.890625
+ },
+ "before": {
+  "cardTops": [
+   201.9,
+   201.9,
+   201.9,
+   403.4,
+   403.4,
+   403.4
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 213
+  },
+  "playing": [],
+  "audioBar": false,
+  "audioDock": false,
+  "dockRect": null,
+  "dockText": null,
+  "dockParentChain": null
+ },
+ "after": {
+  "cardTops": [
+   241.4,
+   241.4,
+   241.4,
+   442.9,
+   442.9,
+   442.9
+  ],
+  "firstCardKey": "audio/bgm-jazzhop-piano-086",
+  "scrollTop": 0,
+  "scrollerClass": "DIV",
+  "panelRect": {
+   "top": 4,
+   "bottom": 642,
+   "left": 48,
+   "right": 213
+  },
+  "playing": [
+   "audio/bgm-jazzhop-piano-086"
+  ],
+  "audioBar": true,
+  "audioDock": false,
+  "dockRect": {
+   "top": 192,
+   "bottom": 223,
+   "height": 32,
+   "position": "static"
+  },
+  "dockText": "再生中: After the Rain停止",
+  "dockParentChain": [
+   "DIV.[data-akari-catalog-audio-bar]",
+   "DIV.[data-akari-catalog-item-count][data-akari-catalog-view-mode]",
+   "DIV.[data-akari-library-category]",
+   "DIV."
+  ]
+ },
+ "added": [
+  "DIV.[data-akari-catalog-audio-bar]"
+ ],
+ "cardTopShiftPx": 39.5,
+ "scrollTopDelta": 0,
+ "at": "2026-09-22T23:48:43.128Z"
+}

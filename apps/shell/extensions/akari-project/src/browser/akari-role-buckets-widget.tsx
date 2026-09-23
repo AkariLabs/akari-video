@@ -128,6 +128,7 @@ const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
 
 const AKARI_CATALOG_FOCUS_PULSE_CLASS = 'akari-catalog-focus-pulse';
 const AKARI_CATALOG_FOCUS_PULSE_STYLE_ID = 'akari-catalog-focus-pulse-style';
+const AKARI_CATALOG_AUDIO_DOCK_STYLE_ID = 'akari-catalog-audio-dock-style';
 
 function installCatalogFocusPulseStyle(): void {
     if (document.getElementById(AKARI_CATALOG_FOCUS_PULSE_STYLE_ID)) {
@@ -142,6 +143,27 @@ function installCatalogFocusPulseStyle(): void {
 @keyframes akari-catalog-focus-pulse {
     0%, 100% { box-shadow: 0 0 0 0 transparent; }
     15%, 55% { box-shadow: 0 0 0 3px var(--akari-focus-pulse, var(--akari-accent)); }
+}
+`;
+    document.head.appendChild(style);
+}
+
+function installCatalogAudioDockStyle(): void {
+    if (document.getElementById(AKARI_CATALOG_AUDIO_DOCK_STYLE_ID)) {
+        return;
+    }
+    const style = document.createElement('style');
+    style.id = AKARI_CATALOG_AUDIO_DOCK_STYLE_ID;
+    style.textContent = `
+[data-akari-catalog-audio-dock] {
+    animation: akari-catalog-audio-dock-enter 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes akari-catalog-audio-dock-enter {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    [data-akari-catalog-audio-dock] { animation: none; }
 }
 `;
     document.head.appendChild(style);
@@ -500,6 +522,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!await this.commandService.executeCommand('akari.timeline.isMaterialSwapActive', request)) return false;
         if (generation !== this.swapLoadGeneration || this.workflow.workspaceRoot?.toString() !== root.toString()) return false;
         this.generationPick?.cancel();
+        if (this.playingCatalogAudioKey) this.stopCatalogAudio();
         this.materialSwap = { request, title: current?.title ?? request.currentRelativePath.split('/').pop(),
             candidates: rankSwapCandidates(this.assetCatalogItems, request.kind, current, request.currentRelativePath), root: root.toString() };
         this.selectTopView('catalog');
@@ -593,7 +616,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected playingCatalogAudioKey?: string;
     /**
      * 再生中カードのタイトル。再生開始時に playingCatalogAudioKey とセットで保存する
-     * （検索・カテゴリでカードが一覧から消えても常設バーの表示名は失われない —
+     * （検索・カテゴリでカードが一覧から消えてもドックの表示名は失われない —
      * assetCatalogItems から都度引き直す設計だと、フィルタで消えた瞬間に参照できなくなる）。
      */
     protected playingCatalogAudioTitle?: string;
@@ -607,6 +630,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.toDispose.push({ dispose: () => this.node.removeEventListener('akari.library.changeLocation', changeLibraryLocation) });
         this.toDispose.push({ dispose: () => this.referenceWatches.dispose() });
         installCatalogFocusPulseStyle();
+        installCatalogAudioDockStyle();
         window.addEventListener('keydown', this.handleGenerationPickKey, true);
         window.addEventListener(GENERATION_PICK_PRIMARY_SELECTED_EVENT, this.handleGenerationPrimarySelected);
         this.toDispose.push({ dispose: () => {
@@ -2114,7 +2138,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     /**
-     * カタログ試聴の唯一の停止経路。常設バーの停止ボタン・面外クリック・面からの離脱・
+     * カタログ試聴の唯一の停止経路。ドックの停止ボタン・面外クリック・面からの離脱・
      * widget の非表示のすべてがここを呼ぶ（task.md 指示1・2・3の共通実装）。
      * 何も再生していないときは no-op — 面内クリックのたびに無条件で呼んでも安全。
      */
@@ -2587,9 +2611,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 {this.dragActive && this.renderDropOverlay()}
                 {this.renderGenerationPickBand()}
                 {this.renderTopControls()}
-                <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0 }}>
+                <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0,
+                    paddingBottom: this.topView === 'catalog' && !this.materialSwap && this.playingCatalogAudioKey ? '56px' : undefined,
+                    boxSizing: 'border-box' }}>
                     {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
                 </div>
+                {this.topView === 'catalog' && !this.materialSwap && this.renderCatalogAudioDock()}
                 {this.topView === 'materials' && this.workflow.workspaceRoot && this.renderBundleMaterials()}
             </div>
         );
@@ -3369,7 +3396,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 data-akari-catalog-view-mode={this.catalogViewMode}
             >
                 {this.renderCatalogResolverRetry()}
-                {this.renderCatalogAudioBar()}
                 {content}
                 <div style={{ marginTop: 'auto', padding: '8px 10px 10px' }}>
                     {this.renderCatalogDeveloperLinkRow()}
@@ -3415,7 +3441,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         return (
             <div data-akari-catalog-pack-count={totalGroups} style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
                 {this.renderCatalogResolverRetry()}
-                {this.renderCatalogAudioBar()}
                 {this.catalogLoading
                     ? <p style={{ opacity: 0.7, padding: '16px' }}>読み込み中…</p>
                     : groups.length
@@ -3676,29 +3701,25 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
     }
 
-    /**
-     * 常設の再生中バー（task.md 指示1）。再生中のあいだ検索チップの下・一覧の上に
-     * 常時表示し、一覧をどうフィルタしても（検索・カテゴリ切替でカードが消えても）
-     * 停止手段が画面に残るようにする。何も再生していなければ何も描画しない。
-     * 停止ボタンは event.stopPropagation() で renderCatalogTab の面外クリック検知
-     * （どこを押しても停止）に二重に反応しないようにしている
-     * （stopCatalogAudio 自体は冪等なので実害はないが、意図を明確にするため）。
-     */
-    protected renderCatalogAudioBar(): React.ReactNode {
+    /** 一覧のスクロール領域の外へ置く共有試聴ドック。 */
+    protected renderCatalogAudioDock(): React.ReactNode {
         if (!this.playingCatalogAudioKey) {
             return undefined;
         }
         return (
             <div
+                data-akari-catalog-audio-dock
                 data-akari-catalog-audio-bar
                 onClick={event => event.stopPropagation()}
                 style={{
-                    flex: '0 0 auto',
-                    margin: '0 8px 8px',
-                    padding: '4px 8px',
+                    position: 'absolute',
+                    left: '8px',
+                    right: '8px',
+                    bottom: '8px',
+                    zIndex: 8,
+                    padding: '6px 8px',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
                     gap: '8px',
                     borderRadius: `${AKARI_RADIUS.panel}px`,
                     border: AKARI_BORDER.hairline,
@@ -3706,7 +3727,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     fontSize: '0.8em'
                 }}
             >
-                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span className='codicon codicon-unmute' aria-hidden='true' style={{ marginRight: '4px' }} />
                     再生中: {this.playingCatalogAudioTitle}
                 </span>
@@ -3719,6 +3740,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 >
                     停止
                 </button>
+                <button
+                    type='button'
+                    aria-label='試聴ドックを閉じる'
+                    title='閉じる'
+                    data-akari-catalog-audio-dock-close
+                    onClick={event => { event.stopPropagation(); this.stopCatalogAudio(); }}
+                    style={{ flex: '0 0 auto', padding: '0 3px', border: 'none', background: 'transparent', color: AKARI_INK, cursor: 'pointer', fontSize: '1.2em' }}
+                >×</button>
             </div>
         );
     }
