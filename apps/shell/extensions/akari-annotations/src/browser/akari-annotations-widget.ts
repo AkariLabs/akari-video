@@ -1,4 +1,4 @@
-import { placeTextCaption, type PlaceTextOptions } from '../common/place-text';
+import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
 import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
