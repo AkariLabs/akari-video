@@ -5,10 +5,19 @@ import { HomeStats } from './home-model';
 export const homePanelCss = `
 .akari-current-label{font-size:11px;font-weight:600;line-height:1.3;color:var(--theia-descriptionForeground);margin:0 0 8px}
 .akari-current-band{background:var(--theia-sideBar-background);border:1px solid var(--theia-widget-border);border-radius:12px;padding:16px;display:grid;grid-template-columns:minmax(190px,32%) minmax(0,1fr);gap:18px;margin-bottom:20px}
+.akari-current-band:has(.akari-current-hero-empty)>div{min-width:0}
 .akari-current-hero{display:block;position:relative;width:100%;aspect-ratio:16/9;border:0;border-radius:8px;overflow:hidden;background:var(--theia-editor-background);cursor:pointer;padding:0;color:var(--theia-foreground)}
+.akari-current-hero-empty{min-height:180px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:14px 10px;text-align:center;cursor:default;background:linear-gradient(145deg,color-mix(in srgb,var(--theia-sideBar-background) 94%,var(--akari-accent,var(--theia-focusBorder)) 6%),var(--theia-list-hoverBackground));border:1px solid var(--theia-widget-border)}
+.akari-current-empty-icon{width:30px;height:30px;color:var(--akari-accent,var(--theia-focusBorder));opacity:.75}
+.akari-current-empty-title{font-size:13px;font-weight:600}.akari-current-empty-hint{max-width:100%;font-size:11px;text-wrap:balance;color:var(--theia-descriptionForeground)}
+.akari-current-hero-preview-placeholder{justify-content:space-between;cursor:pointer}
+.akari-current-hero-preview-placeholder:hover{border-color:var(--akari-accent,var(--theia-focusBorder))}
+.akari-current-empty-action{margin-top:2px;padding:5px 10px;border-radius:6px;border:1px solid color-mix(in srgb,var(--akari-accent,var(--theia-focusBorder)) 50%,transparent);background:color-mix(in srgb,var(--akari-accent,var(--theia-focusBorder)) 12%,transparent);color:var(--theia-foreground);font:inherit;font-size:11px;cursor:pointer}
+.akari-current-empty-action:hover{border-color:var(--akari-accent,var(--theia-focusBorder));background:color-mix(in srgb,var(--akari-accent,var(--theia-focusBorder)) 20%,transparent)}
 .akari-current-hero img,.akari-current-thumbnails img{width:100%;height:100%;object-fit:contain}
 .akari-current-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:100%;background:rgba(0,0,0,.65);color:white;padding:12px;font-size:17px}
 .akari-current-thumbnails{display:flex;gap:5px;margin-top:6px}.akari-current-thumbnails img{width:calc((100% - 20px)/5);aspect-ratio:16/9;border-radius:4px;background:var(--theia-editor-background);object-fit:cover}
+.akari-current-thumbnail-empty{box-sizing:border-box;width:calc((100% - 20px)/5);aspect-ratio:16/9;border-radius:4px;border:1px solid var(--theia-widget-border);background:color-mix(in srgb,var(--theia-sideBar-background) 80%,var(--theia-list-hoverBackground) 20%)}
 .akari-current-crumb{display:flex;align-items:center;gap:8px}.akari-current-tag{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;background:var(--theia-list-hoverBackground);font-size:11px;color:var(--theia-foreground);white-space:nowrap}.akari-current-tag.channel{color:var(--theia-focusBorder);background:color-mix(in srgb,var(--theia-focusBorder) 12%,transparent);border:1px solid color-mix(in srgb,var(--theia-focusBorder) 42%,transparent)}
 .akari-current-switch{font-size:11px;padding:4px 8px;min-height:auto;height:auto;white-space:nowrap}.akari-current-name{font-size:20px;margin:7px 0 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .akari-current-path{border:0;background:none;color:var(--theia-descriptionForeground);font:inherit;font-size:11px;text-align:left;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;max-width:100%}
@@ -37,17 +46,38 @@ export function HomeScrim(props: { kind: string; onClose: () => void; children: 
 }
 
 export interface CurrentProjectBandProps {
-    name: string; channel?: string; path: string; frames: string[]; stats: HomeStats;
-    onPreview: () => void; onReveal: () => void; onEdit: () => void; onExport: () => void; onSwitch: () => void; onJoin: () => void; onLauncher: () => void;
+    name: string; channel?: string; path: string; frames: string[]; stats: HomeStats; canPreview: boolean;
+    onPreview: () => void; onStart: () => void; onReveal: () => void; onEdit: () => void; onExport: () => void; onSwitch: () => void; onJoin: () => void; onLauncher: () => void;
+}
+function CurrentThumbnail(p: { src?: string; index: number }): React.ReactElement {
+    const [failedSrc, setFailedSrc] = React.useState<string | undefined>();
+    return p.src && p.src !== failedSrc
+        ? <img src={p.src} alt='' data-akari-current-thumbnail={p.index} onError={() => setFailedSrc(p.src)} />
+        : <span className='akari-current-thumbnail-empty' data-akari-current-thumbnail={p.index} />;
+}
+function EmptyFilmIcon(): React.ReactElement {
+    return <svg className='akari-current-empty-icon' viewBox='0 0 32 32' fill='none' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' aria-hidden='true'><rect x='3' y='7' width='26' height='18' rx='3' /><path d='M11 7v18M21 7v18M3 12h8m-8 8h8m10-8h8m-8 8h8' /></svg>;
 }
 export function CurrentProjectBand(p: CurrentProjectBandProps): React.ReactElement {
+    const [failedPosterSrc, setFailedPosterSrc] = React.useState<string | undefined>();
+    const poster = p.frames[0] !== failedPosterSrc && p.frames[0];
     const values: Array<[string, string | undefined]> = [['尺', p.stats.duration], ['クリップ', p.stats.clips], ['素材', p.stats.assets], ['データ量', p.stats.bytes], ['最後の書き出し', p.stats.lastExport]];
     return <section className='akari-current-project' data-akari-current-location='true' data-akari-status-kind={p.channel ? 'inside' : 'outside'}>
         <p className='akari-current-label'>いま開いているプロジェクト</p>
         <div className='akari-current-band' data-akari-current-band='true'>
-            <div><button type='button' className='akari-current-hero' data-akari-current-hero='true' aria-label='出力プレビューで再生' onClick={p.onPreview}>
-                {p.frames[0] && <img src={p.frames[0]} alt='' />}<span className='akari-current-play'>▶</span>
-            </button>{p.frames.length > 0 && <div className='akari-current-thumbnails' data-akari-current-thumbnails='true'>{p.frames.slice(0, 5).map((frame, index) => <img key={index} src={frame} alt='' data-akari-current-thumbnail={index} />)}</div>}</div>
+            <div>{poster ? (p.canPreview ? <button type='button' className='akari-current-hero' data-akari-current-hero='true' aria-label='出力プレビューで再生' onClick={p.onPreview}>
+                <img src={poster} alt='' onError={() => setFailedPosterSrc(poster)} /><span className='akari-current-play'>▶</span>
+            </button> : <div className='akari-current-hero' data-akari-current-hero='true'><img src={poster} alt='' onError={() => setFailedPosterSrc(poster)} /></div>)
+                : p.canPreview ? <button type='button' className='akari-current-hero akari-current-hero-empty akari-current-hero-preview-placeholder' data-akari-current-hero='true' data-akari-current-hero-preview-placeholder='true' aria-label='出力プレビューで再生' onClick={p.onPreview}>
+                    <EmptyFilmIcon />
+                    <span className='akari-current-play'>▶</span>
+                    <span className='akari-current-empty-title'>サムネイルはありません</span>
+                </button> : <div className='akari-current-hero akari-current-hero-empty' data-akari-current-hero='true' data-akari-current-hero-empty='true'>
+                    <EmptyFilmIcon />
+                    <span className='akari-current-empty-title'>まだ映像がありません</span>
+                    <button type='button' className='akari-current-empty-action' onClick={p.onStart}>素材を入れて始める</button>
+                    <span className='akari-current-empty-hint'>素材をドラッグしても取り込めます</span>
+                </div>}{p.frames.length > 0 && <div className='akari-current-thumbnails' data-akari-current-thumbnails='true'>{Array.from({ length: 5 }, (_, index) => <CurrentThumbnail key={index} src={p.frames[index]} index={index} />)}</div>}</div>
             <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}><div className='akari-current-crumb'><span className={`akari-current-tag ${p.channel ? 'channel' : 'single'}`}>{p.channel && <span className='codicon codicon-layers' aria-hidden='true' />}{p.channel || '単体'}</span><button type='button' className='theia-button secondary akari-current-switch' data-akari-channel-switch='true' onClick={p.channel ? p.onSwitch : p.onJoin}>{p.channel ? '切り替え' : 'チャンネルに入れる'}</button></div>
                 <h2 className='akari-current-name'>{p.name}</h2><button type='button' className='akari-current-path' title={p.path} onClick={p.onReveal}>▱ {p.path}</button>
                 <div className='akari-current-stats' data-akari-current-stats='true'>{values.filter((entry): entry is [string, string] => !!entry[1]).map(([label, value]) => <div key={label} className='akari-current-stat' data-akari-stat={label}><span>{label}</span><b>{value}</b></div>)}</div>

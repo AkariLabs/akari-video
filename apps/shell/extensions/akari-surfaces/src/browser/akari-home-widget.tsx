@@ -71,7 +71,7 @@ import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog
 import { AkariNewVideoDialog } from './akari-new-video-dialog';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
 import { AkariUpdateToast } from './home/update-toast';
-import { buildHomeStats, HomeStats, noticeStage, validateChannelName } from './home/home-model';
+import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
 import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
@@ -358,6 +358,7 @@ export class AkariHomeWidget extends ReactWidget {
     protected voiceRequirement = '';
     protected currentFrames: string[] = [];
     protected currentStats: HomeStats = {};
+    protected currentCanPreview = false;
     protected currentDisplayPath = '';
 
     // --- ホーム v3 由来: 接続状態の判定 / 進め方フォーム ---
@@ -1821,6 +1822,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.currentFrames = await this.loadProjectCardThumbnails(uri);
         let edit: unknown;
         try { edit = JSON.parse((await this.fileService.readFile(uri.resolve('edit.json'))).value.toString()); } catch { /* no edit yet */ }
+        this.currentCanPreview = hasPreviewContent(edit);
         let assetCount: number | undefined;
         let assetBytes: number | undefined;
         try {
@@ -1847,8 +1849,9 @@ export class AkariHomeWidget extends ReactWidget {
         const name = row?.name ?? this.currentProjectUri.path.base;
         const channel = this.currentLocation?.kind === 'inside' ? this.currentLocation.channel : undefined;
         return <CurrentProjectBand name={name} channel={channel} path={this.currentDisplayPath || this.currentProjectUri.path.fsPath()}
-            frames={this.currentFrames} stats={this.currentStats}
+            frames={this.currentFrames} stats={this.currentStats} canPreview={this.currentCanPreview}
             onPreview={() => void this.openOutputPreview(true)} onReveal={() => void this.commands.executeCommand(REVEAL_IN_FILE_MANAGER_COMMAND, this.currentProjectUri)}
+            onStart={() => { this.voiceRequirement = ''; this.homeDialog = 'start'; this.update(); }}
             onEdit={() => void this.openEditData()} onExport={() => void this.openExportDialog()}
             onSwitch={() => void this.openChannelSwitcher()} onJoin={() => void this.joinChannel()} onLauncher={() => void this.openProjectLauncher()} />;
     }
@@ -1864,8 +1867,8 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected async openOutputPreview(play: boolean): Promise<void> {
         const root = this.currentProjectUri;
-        if (!root || !await this.fileService.exists(root.resolve('edit.json'))) {
-            this.messages.info('まだ出力プレビューがありません。');
+        if (!root || !this.currentCanPreview || !await this.fileService.exists(root.resolve('edit.json'))) {
+            this.messages.info('まだ映像がありません。素材を入れてください。');
             return;
         }
         try {

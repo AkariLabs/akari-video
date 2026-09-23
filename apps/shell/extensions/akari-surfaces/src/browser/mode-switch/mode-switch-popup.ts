@@ -21,17 +21,19 @@ export function installModeSwitchStyle(): void {
     style.id = STYLE_ID;
     style.textContent = `
         .theia-sidebar-menu-item:has(> .akari-mode-switch-icon) { border-radius: 8px; }
-        .akari-mode-switch-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+        .akari-mode-switch-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+        .akari-mode-switch-selected .akari-mode-switch-icon::after { content: ''; position: absolute; right: -1px; bottom: -1px; width: 6px; height: 6px; border-radius: 50%; background: var(--akari-accent, var(--theia-focusBorder)); box-shadow: 0 0 0 2px var(--theia-sideBar-background); }
         .theia-sidebar-menu-item.akari-mode-switch-open { color: var(--akari-accent, var(--theia-focusBorder)); background: color-mix(in srgb, var(--akari-accent, var(--theia-focusBorder)) 13%, transparent); }
         .akari-mode-popup { position: fixed; z-index: 10000; box-sizing: border-box; width: 340px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; padding: 8px; background: var(--theia-menu-background, var(--theia-sideBar-background)); color: var(--theia-foreground); border: 1px solid var(--theia-menu-border, var(--theia-widget-border)); border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.6); transform-origin: bottom right; opacity: 0; transform: translateX(6px) scale(.98); transition: opacity .16s, transform .2s cubic-bezier(.32,.72,0,1); }
         .akari-mode-popup.akari-mode-popup-visible { opacity: 1; transform: none; }
         .akari-mode-popup .hd { padding: 6px 8px 8px; font-size: 11px; color: var(--theia-descriptionForeground); }
-        .akari-mode-popup .mo { display: grid; grid-template-columns: 36px minmax(0,1fr) 16px; gap: 10px; align-items: center; width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+        .akari-mode-popup .mo { position: relative; display: grid; grid-template-columns: 36px minmax(0,1fr) 16px; gap: 10px; align-items: center; width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
         .akari-mode-popup .mo:hover { background: var(--theia-list-hoverBackground); }
-        .akari-mode-popup .mo.on { background: color-mix(in srgb, var(--akari-accent, var(--theia-focusBorder)) 16%, transparent); border-color: color-mix(in srgb, var(--akari-accent, var(--theia-focusBorder)) 45%, transparent); }
+        .akari-mode-popup .mo.on, .akari-mode-popup .mo.on:hover { background: color-mix(in srgb, var(--akari-accent, var(--theia-focusBorder)) 18%, var(--theia-menu-background, var(--theia-sideBar-background))); border-color: var(--akari-accent, var(--theia-focusBorder)); }
+        .akari-mode-popup .mo.on::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 2px; background: var(--akari-accent, var(--theia-focusBorder)); }
         .akari-mode-popup .mo:focus-visible { outline: 2px solid var(--theia-focusBorder); outline-offset: -2px; }
         .akari-mode-popup .ic { width: 36px; height: 36px; box-sizing: border-box; display: grid; place-items: center; border-radius: 10px; background: var(--theia-editor-background); border: 1px solid var(--theia-widget-border); color: var(--theia-descriptionForeground); }
-        .akari-mode-popup .mo.on .ic { color: var(--akari-accent, var(--theia-focusBorder)); border-color: color-mix(in srgb, var(--akari-accent, var(--theia-focusBorder)) 50%, transparent); }
+        .akari-mode-popup .mo.on .ic { color: var(--akari-accent, var(--theia-focusBorder)); border-color: var(--akari-accent, var(--theia-focusBorder)); background: color-mix(in srgb, var(--akari-accent, var(--theia-focusBorder)) 14%, var(--theia-editor-background)); }
         .akari-mode-popup .mo b { display: block; font-size: 13px; }
         .akari-mode-popup .mo span { display: block; font-size: 12px; line-height: 1.4; color: var(--theia-descriptionForeground); }
         .akari-mode-popup .mo > svg { width: 16px; height: 16px; color: var(--akari-accent, var(--theia-focusBorder)); visibility: hidden; }

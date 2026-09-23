@@ -128,6 +128,7 @@ export class AkariModeSwitchContribution implements FrontendApplicationContribut
             icon.appendChild(modeIcon('route'));
         }
         button?.classList.toggle('akari-mode-switch-open', !!this.popup);
+        button?.classList.toggle('akari-mode-switch-selected', !!this.currentAutonomy);
     }
 
     protected readonly onMenuClick = (event: MouseEvent): void => {

@@ -6,6 +6,16 @@ export interface HomeStats {
     lastExport?: string;
 }
 
+/** A project with only declared sources has nothing to play on the output timeline. */
+export function hasPreviewContent(edit: unknown): boolean {
+    if (!edit || typeof edit !== 'object') { return false; }
+    const value = edit as Record<string, unknown>;
+    const timeline = value.timeline && typeof value.timeline === 'object' ? value.timeline as Record<string, unknown> : {};
+    const hasItems = (items: unknown): boolean => Array.isArray(items) && items.length > 0;
+    return [value.clips, value.cuts, value.overlays, value.layers, value.captions, timeline.clips].some(hasItems)
+        || (Array.isArray(value.tracks) && value.tracks.some(track => track && typeof track === 'object' && hasItems((track as { items?: unknown }).items)));
+}
+
 export function formatDuration(seconds: unknown): string | undefined {
     if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) { return undefined; }
     const whole = Math.floor(seconds);
@@ -34,10 +44,10 @@ export function buildHomeStats(edit: unknown, assetCount?: number, assetBytes?: 
     const trackDuration = typeof fps === 'number' && fps > 0 && endFrames ? endFrames / fps : undefined;
     const duration = formatDuration(value.duration_s ?? timeline.duration_s ?? trackDuration);
     return {
-        duration,
-        clips: clips ? String(clips.length) : undefined,
-        assets: assetCount === undefined ? Array.isArray(value.sources) ? String(value.sources.length) : undefined : String(assetCount),
-        bytes: formatBytes(assetBytes),
+        duration: duration === '0:00' ? '—' : duration,
+        clips: clips ? clips.length ? String(clips.length) : '—' : undefined,
+        assets: assetCount === undefined ? Array.isArray(value.sources) ? value.sources.length ? String(value.sources.length) : '—' : undefined : assetCount ? String(assetCount) : '—',
+        bytes: assetBytes === 0 ? '—' : formatBytes(assetBytes),
         lastExport: lastExport === undefined ? undefined : new Date(lastExport).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
 }

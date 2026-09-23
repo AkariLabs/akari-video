@@ -1,0 +1,329 @@
+{
+  "label": "before",
+  "shell": "/tmp/hems-base/apps/shell",
+  "runs": {
+    "empty-dark": {
+      "band": {
+        "heroTag": "BUTTON",
+        "heroClass": "akari-current-hero",
+        "heroBackgroundColor": "rgb(10, 10, 10)",
+        "heroBackgroundImage": "none",
+        "heroSize": [
+          428.953125,
+          241.28125
+        ],
+        "heroText": "▶",
+        "hasPlayButton": true,
+        "hasPlayGlyph": true,
+        "posterLoaded": null,
+        "thumbnails": [],
+        "stats": [
+          "クリップ=0",
+          "素材=0"
+        ],
+        "bandBackground": "rgb(10, 10, 10)"
+      },
+      "clicked": {
+        "x": 536.515625,
+        "y": 156.6171875,
+        "what": "出力プレビューで再生"
+      },
+      "afterClick": {
+        "notifications": [],
+        "statusBar": "ryoma 0 0 CPU 86% · GPU 16% · メモリ 12.8 GB · 実行中 0",
+        "bodyHasOpenError": false,
+        "openErrorSnippets": []
+      },
+      "activeMain": "plugin-webview:akari-output-preview-199pea2",
+      "mode": {
+        "cards": [
+          {
+            "label": "そのまま",
+            "on": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(0, 0, 0, 0)",
+            "barContent": "none",
+            "barBackground": "rgba(0, 0, 0, 0)",
+            "barWidth": "auto",
+            "checkVisible": "hidden",
+            "checkColor": "rgb(249, 115, 22)",
+            "iconColor": "rgba(204, 204, 204, 0.7)",
+            "iconBorder": "rgb(27, 27, 27)",
+            "iconBackground": "rgb(10, 10, 10)"
+          },
+          {
+            "label": "提案つき",
+            "on": true,
+            "background": "color(srgb 0.976471 0.45098 0.0862745 / 0.16)",
+            "border": "color(srgb 0.976471 0.45098 0.0862745 / 0.45)",
+            "barContent": "none",
+            "barBackground": "rgba(0, 0, 0, 0)",
+            "barWidth": "auto",
+            "checkVisible": "visible",
+            "checkColor": "rgb(249, 115, 22)",
+            "iconColor": "rgb(249, 115, 22)",
+            "iconBorder": "color(srgb 0.976471 0.45098 0.0862745 / 0.5)",
+            "iconBackground": "rgb(10, 10, 10)"
+          },
+          {
+            "label": "一緒に作る",
+            "on": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(0, 0, 0, 0)",
+            "barContent": "none",
+            "barBackground": "rgba(0, 0, 0, 0)",
+            "barWidth": "auto",
+            "checkVisible": "hidden",
+            "checkColor": "rgb(249, 115, 22)",
+            "iconColor": "rgba(204, 204, 204, 0.7)",
+            "iconBorder": "rgb(27, 27, 27)",
+            "iconBackground": "rgb(10, 10, 10)"
+          }
+        ],
+        "accent": "#f97316",
+        "buttonTitle": null,
+        "buttonMarker": {
+          "content": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "width": "auto"
+        }
+      }
+    },
+    "empty-light": {
+      "band": {
+        "heroTag": "BUTTON",
+        "heroClass": "akari-current-hero",
+        "heroBackgroundColor": "rgb(255, 255, 255)",
+        "heroBackgroundImage": "none",
+        "heroSize": [
+          429,
+          241.3125
+        ],
+        "heroText": "▶",
+        "hasPlayButton": true,
+        "hasPlayGlyph": true,
+        "posterLoaded": null,
+        "thumbnails": [],
+        "stats": [
+          "クリップ=0",
+          "素材=0"
+        ],
+        "bandBackground": "rgb(255, 255, 255)"
+      },
+      "clicked": {
+        "x": 536.5390625,
+        "y": 156.625,
+        "what": "出力プレビューで再生"
+      },
+      "afterClick": {
+        "notifications": [],
+        "statusBar": "ryoma 0 0 CPU 100% · GPU 25% · メモリ 12.8 GB · 実行中 0",
+        "bodyHasOpenError": false,
+        "openErrorSnippets": []
+      },
+      "activeMain": "plugin-webview:akari-output-preview-199pea2",
+      "mode": {
+        "cards": [
+          {
+            "label": "そのまま",
+            "on": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(0, 0, 0, 0)",
+            "barContent": "none",
+            "barBackground": "rgba(0, 0, 0, 0)",
+            "barWidth": "auto",
+            "checkVisible": "hidden",
+            "checkColor": "rgb(234, 88, 12)",
+            "iconColor": "rgb(113, 113, 113)",
+            "iconBorder": "rgb(237, 237, 237)",
+            "iconBackground": "rgb(255, 255, 255)"
+          },
+          {
+            "label": "提案つき",
+            "on": true,
+            "background": "color(srgb 0.917647 0.345098 0.0470588 / 0.16)",
+            "border": "color(srgb 0.917647 0.345098 0.0470588 / 0.45)",
+            "barContent": "none",
+            "barBackground": "rgba(0, 0, 0, 0)",
+            "barWidth": "auto",
+            "checkVisible": "visible",
+            "checkColor": "rgb(234, 88, 12)",
+            "iconColor": "rgb(234, 88, 12)",
+            "iconBorder": "color(srgb 0.917647 0.345098 0.0470588 / 0.5)",
+            "iconBackground": "rgb(255, 255, 255)"
+          },
+          {
+            "label": "一緒に作る",
+            "on": false,
+            "background": "rgba(0, 0, 0, 0)",
+            "border": "rgba(0, 0, 0, 0)",
+            "barContent": "none",
+            "barBackground": "rgba(0, 0, 0, 0)",
+            "barWidth": "auto",
+            "checkVisible": "hidden",
+            "checkColor": "rgb(234, 88, 12)",
+            "iconColor": "rgb(113, 113, 113)",
+            "iconBorder": "rgb(237, 237, 237)",
+            "iconBackground": "rgb(255, 255, 255)"
+          }
+        ],
+        "accent": "#ea580c",
+        "buttonTitle": null,
+        "buttonMarker": {
+          "content": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "width": "auto"
+        }
+      }
+    },
+    "noedit-dark": {
+      "band": {
+        "heroTag": "BUTTON",
+        "heroClass": "akari-current-hero",
+        "heroBackgroundColor": "rgb(10, 10, 10)",
+        "heroBackgroundImage": "none",
+        "heroSize": [
+          428.953125,
+          241.28125
+        ],
+        "heroText": "▶",
+        "hasPlayButton": true,
+        "hasPlayGlyph": true,
+        "posterLoaded": null,
+        "thumbnails": [],
+        "stats": [
+          "素材=0"
+        ],
+        "bandBackground": "rgb(10, 10, 10)"
+      },
+      "clicked": {
+        "x": 536.515625,
+        "y": 156.6171875,
+        "what": "出力プレビューで再生"
+      },
+      "afterClick": {
+        "notifications": [
+          "まだ出力プレビューがありません。",
+          "まだ出力プレビューがありません。",
+          "まだ出力プレビューがありません。",
+          "まだ出力プレビューがありません。"
+        ],
+        "statusBar": "ryoma 0 0 CPU 59% · GPU 32% · メモリ 12.9 GB · 実行中 0 1",
+        "bodyHasOpenError": false,
+        "openErrorSnippets": []
+      },
+      "activeMain": "akari-home-widget"
+    },
+    "content-dark": {
+      "band": {
+        "heroTag": "BUTTON",
+        "heroClass": "akari-current-hero",
+        "heroBackgroundColor": "rgb(10, 10, 10)",
+        "heroBackgroundImage": "none",
+        "heroSize": [
+          428.953125,
+          241.28125
+        ],
+        "heroText": "▶",
+        "hasPlayButton": true,
+        "hasPlayGlyph": true,
+        "posterLoaded": true,
+        "thumbnails": [
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(10, 10, 10)",
+            "border": "rgb(204, 204, 204)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(10, 10, 10)",
+            "border": "rgb(204, 204, 204)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(10, 10, 10)",
+            "border": "rgb(204, 204, 204)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(10, 10, 10)",
+            "border": "rgb(204, 204, 204)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(10, 10, 10)",
+            "border": "rgb(204, 204, 204)"
+          }
+        ],
+        "stats": [
+          "尺=0:06",
+          "クリップ=1",
+          "素材=1",
+          "データ量=2.3 MB"
+        ],
+        "bandBackground": "rgb(10, 10, 10)"
+      }
+    },
+    "content-light": {
+      "band": {
+        "heroTag": "BUTTON",
+        "heroClass": "akari-current-hero",
+        "heroBackgroundColor": "rgb(255, 255, 255)",
+        "heroBackgroundImage": "none",
+        "heroSize": [
+          428.953125,
+          241.28125
+        ],
+        "heroText": "▶",
+        "hasPlayButton": true,
+        "hasPlayGlyph": true,
+        "posterLoaded": true,
+        "thumbnails": [
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(255, 255, 255)",
+            "border": "rgb(97, 97, 97)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(255, 255, 255)",
+            "border": "rgb(97, 97, 97)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(255, 255, 255)",
+            "border": "rgb(97, 97, 97)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(255, 255, 255)",
+            "border": "rgb(97, 97, 97)"
+          },
+          {
+            "tag": "IMG",
+            "cls": "",
+            "bg": "rgb(255, 255, 255)",
+            "border": "rgb(97, 97, 97)"
+          }
+        ],
+        "stats": [
+          "尺=0:06",
+          "クリップ=1",
+          "素材=1",
+          "データ量=2.3 MB"
+        ],
+        "bandBackground": "rgb(255, 255, 255)"
+      }
+    }
+  },
+  "status": "DONE"
+}
