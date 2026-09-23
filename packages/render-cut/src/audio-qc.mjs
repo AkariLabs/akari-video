@@ -5,6 +5,23 @@ export const AUDIO_QC_CAPTURE_LIMIT_BYTES = 1024 * 1024;
 // status-core/integrity.mjs because receipts must be interpreted exactly as they were generated.
 const STRICT_FINITE_DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u;
 
+export function parseAudioToolVersion(output) {
+  const firstLine = String(output ?? '').split(/\r?\n/u)[0].trim();
+  return /^(?:ffmpeg|ffprobe) version\s+\S+(?:\s|$)/u.test(firstLine) ? firstLine : null;
+}
+
+export function probeToolVersion(command, args, spawnSyncImpl = spawnSync) {
+  const result = spawnSyncImpl(command, args, { encoding: 'utf8', timeout: 10000, windowsHide: true });
+  if (result.error) return { version: null, error: `version probe failed: ${result.error.message}` };
+  if (result.status !== 0) return { version: null, error: `version probe exited with status ${result.status}${result.signal ? ` (${result.signal})` : ''}` };
+  const output = result.stdout || result.stderr || '';
+  const version = parseAudioToolVersion(output);
+  return version ? { version, error: null } : {
+    version: null,
+    error: `version probe returned a non-version first line: ${String(output).split(/\r?\n/u)[0].trim().slice(0, 120) || '(empty)'}`,
+  };
+}
+
 // Real AAC re-encode overshoots loudnorm's PCM-stage true peak target (measured +1.2 dB on real
 // material; -1.73 dBTP landed from a -2.5 applied target in the same test — planning/
 // notes-2026-08-17-mac-fresh-install-bug-reports.md #05). plan.mjs bakes this margin into the
@@ -36,12 +53,13 @@ export function configuredAudioQc(master) {
   };
 }
 
-export function measurementErrorAudioQc({ master, phase, code, message, filterReport = null, toolVersion }) {
+export function measurementErrorAudioQc({ master, phase, code, message, filterReport = null, toolVersion, toolVersionError }) {
   return {
     configured: configuredAudioQc(master),
     filter_report: phase === "filter_report" ? null : filterReport,
     decoded_measurement: null,
     tool_version: toolVersion,
+    ...(toolVersion ? {} : { tool_version_error: boundedMessage(toolVersionError ?? 'ffmpeg version was unavailable') }),
     verdict: "MEASUREMENT_ERROR",
     error: { phase, code, message: boundedMessage(message) },
   };
@@ -53,13 +71,16 @@ export function buildAudioQc({
   outputPath,
   ffmpegCommand,
   toolVersion,
+  toolVersionError,
   spawnSyncImpl = spawnSync,
 }) {
+  const versionError = toolVersion ? undefined : toolVersionError ?? 'ffmpeg version was unavailable';
+  const measurementFailure = values => measurementErrorAudioQc({ ...values, master, toolVersion, toolVersionError: versionError });
   let filterReport;
   try {
     filterReport = parseLoudnormReport(filterStderr, "filter_report", "output_i", "output_tp");
   } catch (error) {
-    return measurementErrorAudioQc({ master, phase: "filter_report", code: error.code, message: error.message, toolVersion });
+    return measurementFailure({ phase: "filter_report", code: error.code, message: error.message });
   }
   const configured = configuredAudioQc(master);
   const result = spawnSyncImpl(ffmpegCommand, [
@@ -74,24 +95,22 @@ export function buildAudioQc({
     "-",
   ], { encoding: "utf8", maxBuffer: AUDIO_QC_CAPTURE_LIMIT_BYTES });
   if (result.error) {
-    return measurementErrorAudioQc({
-      master,
+    return measurementFailure({
       phase: "decoded_measurement",
       code: result.error.code === "ENOBUFS" ? "CAPTURE_LIMIT" : "PROCESS_FAILED",
-      message: result.error.code === "ENOBUFS" ? "decoded measurement exceeded bounded capture" : "decoded measurement process failed",
+      message: result.error.code === "ENOBUFS" ? "decoded measurement exceeded bounded capture" : `decoded measurement process failed: ${result.error.message}; ${boundedMessage(result.stderr ?? '')}`,
       filterReport,
-      toolVersion,
     });
   }
   if (result.status !== 0) {
-    return measurementErrorAudioQc({ master, phase: "decoded_measurement", code: "PROCESS_FAILED", message: "decoded measurement process exited unsuccessfully", filterReport, toolVersion });
+    return measurementFailure({ phase: "decoded_measurement", code: "PROCESS_FAILED", message: `decoded measurement process exited unsuccessfully: ${boundedMessage(result.stderr ?? '')}`, filterReport });
   }
   let decoded;
   try {
     const parsed = parseLoudnormReport(result.stderr, "decoded_measurement", "input_i", "input_tp");
     decoded = { metric: "ffmpeg-loudnorm-input-v1", ...parsed };
   } catch (error) {
-    return measurementErrorAudioQc({ master, phase: "decoded_measurement", code: error.code, message: error.message, filterReport, toolVersion });
+    return measurementFailure({ phase: "decoded_measurement", code: error.code, message: error.message, filterReport });
   }
   const measuredTruePeak = decoded.normalized.input_tp;
   const truePeakExceeded = typeof measuredTruePeak === "number"
@@ -101,6 +120,7 @@ export function buildAudioQc({
     filter_report: filterReport,
     decoded_measurement: decoded,
     tool_version: toolVersion,
+    ...(versionError ? { tool_version_error: boundedMessage(versionError) } : {}),
     // Deliberately stays "INCONCLUSIVE" even when truePeakExceeded is true: status-core/
     // integrity.mjs's validateAudioQc treats any other verdict string as a structural integrity
     // problem (closed-world check on the successful-measurement branch), so a new verdict value

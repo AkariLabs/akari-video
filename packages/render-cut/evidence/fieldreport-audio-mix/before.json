@@ -1,0 +1,42 @@
+{
+  "phase": "before",
+  "ffmpeg_version": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "option_probe": {
+    "slash_filter_complex": true,
+    "filter_complex_script": true
+  },
+  "cases": {
+    "shared": {
+      "audio_items": 136,
+      "command_utf16_upper_bound": 19921,
+      "input_count": 138,
+      "filter_graph_chars": 7160,
+      "bgm_gain_db": {
+        "1.7": 0,
+        "1.85": -6,
+        "2.0": -12
+      },
+      "qc": {
+        "tool_version": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "verdict": "INCONCLUSIVE"
+      },
+      "graph_delivery": "command"
+    },
+    "distinct": {
+      "audio_items": 136,
+      "command_utf16_upper_bound": 20359,
+      "input_count": 138,
+      "filter_graph_chars": 7160,
+      "bgm_gain_db": {
+        "1.7": 0,
+        "1.85": -6,
+        "2.0": -12
+      },
+      "qc": {
+        "tool_version": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "verdict": "INCONCLUSIVE"
+      },
+      "graph_delivery": "command"
+    }
+  }
+}

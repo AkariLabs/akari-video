@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationEstimate, batchNarrationEstimate, compareNarrationDuration, defaultOverflowAction, irodoriCustomVoiceMissing, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations } from '../lib/common/read-aloud-model.js';
+import { narrationEstimate, batchNarrationEstimate, batchRetryAction, compareNarrationDuration, defaultOverflowAction, irodoriCustomVoiceMissing, prepareReadAloudEngine, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations } from '../lib/common/read-aloud-model.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 const available = { state: 'available', label: '使用可' };
 const engines = [
@@ -114,4 +117,34 @@ test('字幕が存在し script と異なる narration だけ古い', () => {
         { id: 'n-4', script: '元' }
     ], [{ id: 'c-1', text: '新' }, { id: 'c-2', text: '同じ' }]);
     assert.deepEqual([...old], ['n-1']);
+});
+
+test('needs の VOICEVOX は生成前に start 1 回、カードを available に取り直す', async () => {
+    const calls = [];
+    const needs = { ...engines[0], availability: { state: 'needs', label: '自動起動' } };
+    await prepareReadAloudEngine(needs, async () => { calls.push('start'); }, async () => {
+        calls.push('refresh'); return [engines[0]];
+    });
+    calls.push('generate');
+    assert.deepEqual(calls, ['start', 'refresh', 'generate']);
+    await prepareReadAloudEngine(engines[0], async () => { calls.push('unexpected'); }, async () => []);
+    assert.equal(calls.includes('unexpected'), false);
+    await assert.rejects(prepareReadAloudEngine(needs, async () => {}, async () => [needs]), /起動を確認/);
+});
+
+test('彩カードの注記と状態は別の行に描画する', () => {
+    const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/browser/read-aloud/akari-read-aloud-dialog.ts'), 'utf8');
+    assert.match(source, /note\.style\.display = 'block'/);
+    assert.match(source, /badge\.style\.display = 'block'/);
+});
+
+test('check / ng のもう一度は読みの変更までフォーカスのみ、変更後だけ再生成する', () => {
+    for (const verdict of ['check', 'ng']) {
+        const state = { status: 'done', verdict, reading: '元の読み', verifiedReading: '元の読み' };
+        assert.equal(batchRetryAction(state), 'focus-reading');
+        assert.equal(batchRetryAction({ ...state, status: 'wait', reading: '直した読み' }), 'regenerate');
+        assert.equal(batchRetryAction({ ...state, status: 'done', reading: '元の読み' }), 'focus-reading');
+    }
+    assert.equal(batchRetryAction({ status: 'failed', reading: '元の読み' }), 'regenerate');
+    assert.equal(batchRetryAction({ status: 'done', verdict: 'ok', reading: '元の読み', verifiedReading: '元の読み' }), 'none');
 });

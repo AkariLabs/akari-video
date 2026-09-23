@@ -42,7 +42,8 @@ import {
   resolveDeclaredProjectInput,
 } from "./render-inputs.mjs";
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
-import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
+import { buildAudioQc, measurementErrorAudioQc, probeToolVersion, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
+import { countAudioItems, prepareAudioMixExecution } from "./audio-command.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
@@ -519,7 +520,9 @@ export async function renderProject(input, options = {}, io = console) {
     const finalPath = container.kind === "directory"
       ? compositePath
       : join(temporaryDirectory, `final.${container.ext}`);
-    const audioExecution = await executeAudioPlan(plan.commands.audio_mix);
+    const audioExecution = await executeAudioPlan(plan.commands.audio_mix, capabilities.ffmpegVersion, {
+      projectRoot, temporaryDirectory, audioItemCount: countAudioItems(edit.audio),
+    });
     const audioMaster = edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
     if (audioMaster && audioExecution.error) {
       state.audio_qc = measurementErrorAudioQc({
@@ -528,8 +531,9 @@ export async function renderProject(input, options = {}, io = console) {
         code: audioExecution.error.code,
         message: audioExecution.error.message,
         toolVersion: capabilities.ffmpegVersion,
+        toolVersionError: capabilities.ffmpegVersionError,
       });
-      if (codec === "png") throw new RefusalError("audio QC filter report measurement failed");
+      if (codec === "png") throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
       const failedArtifactPath = await persistFailedRenderArtifact(projectRoot, compositePath);
       const failedVerification = verifyArtifact({
         outputPath: failedArtifactPath,
@@ -566,7 +570,7 @@ export async function renderProject(input, options = {}, io = console) {
         });
         state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
       }
-      throw new RefusalError("audio QC filter report measurement failed");
+      throw new RefusalError(`audio QC filter report measurement failed: ${audioExecution.error.message}`);
     }
 
     if (codec === "png") {
@@ -592,6 +596,7 @@ export async function renderProject(input, options = {}, io = console) {
         outputPath: codec === "png" ? join(outputPath, "audio.wav") : outputPath,
         ffmpegCommand: capabilities.ffmpegCommand,
         toolVersion: capabilities.ffmpegVersion,
+        toolVersionError: capabilities.ffmpegVersionError,
       });
       if (state.audio_qc.verdict === "INCONCLUSIVE") {
         addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
@@ -1040,12 +1045,14 @@ async function measureCapabilities(
 ) {
   const ffmpegCommand = env.FFMPEG ?? resolveFfmpeg();
   const ffprobeCommand = env.FFPROBE ?? resolveFfprobe();
-  const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"]);
+  const ffmpegVersionProbe = probeToolVersion(ffmpegCommand, ["-version"]);
+  const ffmpegVersion = ffmpegVersionProbe.version;
   const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"]);
   const shared = {
     ffmpegCommand,
     ffprobeCommand,
     ffmpegVersion,
+    ffmpegVersionError: ffmpegVersionProbe.error,
     ffprobeVersion,
     nodeVersion: process.version,
   };
@@ -1212,28 +1219,46 @@ async function persistCaptionLayout(projectRoot, result, capabilities) {
   };
 }
 
-async function executeAudioPlan(audioPlan) {
+export async function executeAudioPlan(audioPlan, ffmpegVersion, { projectRoot, temporaryDirectory = dirname(audioPlan.output), audioItemCount = 0 } = {}) {
   if (audioPlan.operation === "copy") {
     await copyFile(audioPlan.input, audioPlan.output);
     return { stderr: "" };
   }
-  const result = spawnSync(audioPlan.command, audioPlan.args, {
-    encoding: "utf8",
-    maxBuffer: AUDIO_QC_CAPTURE_LIMIT_BYTES,
-  });
+  const graphPath = join(temporaryDirectory, `audio-filter-${process.pid}.txt`);
+  let prepared;
+  try {
+    prepared = prepareAudioMixExecution(audioPlan, { ffmpegVersion, graphPath, projectRoot, audioItemCount });
+  } catch (error) {
+    throw new RefusalError(error.message);
+  }
+  if (prepared.filterGraph !== null) await writeFile(graphPath, prepared.filterGraph, 'utf8');
+  let result;
+  try {
+    result = spawnSync(audioPlan.command, prepared.args, {
+      cwd: projectRoot,
+      encoding: "utf8",
+      maxBuffer: AUDIO_QC_CAPTURE_LIMIT_BYTES,
+    });
+  } finally {
+    if (prepared.filterGraph !== null) await rm(graphPath, { force: true });
+  }
   if (result.error) {
     return {
       stderr: result.stderr ?? "",
       error: {
         code: result.error.code === "ENOBUFS" ? "CAPTURE_LIMIT" : "PROCESS_FAILED",
-        message: result.error.code === "ENOBUFS" ? "filter report exceeded bounded capture" : "audio filter process failed",
+        message: result.error.code === "ENOBUFS" ? "filter report exceeded bounded capture" : `audio filter process failed: ${result.error.message}; ${summarizeAudioStderr(result.stderr)}`,
       },
     };
   }
   if (result.status !== 0) {
-    return { stderr: result.stderr ?? "", error: { code: "PROCESS_FAILED", message: "audio filter process exited unsuccessfully" } };
+    return { stderr: result.stderr ?? "", error: { code: "PROCESS_FAILED", message: `audio filter process exited unsuccessfully: ${summarizeAudioStderr(result.stderr)}` } };
   }
   return { stderr: result.stderr ?? "" };
+}
+
+function summarizeAudioStderr(stderr) {
+  return String(stderr ?? '').split(/\r?\n/u).map(line => line.trim()).filter(Boolean).slice(-3).join(' | ').slice(0, 240) || 'no stderr';
 }
 
 async function persistFailedRenderArtifact(projectRoot, sourcePath) {
@@ -2025,10 +2050,7 @@ function probeMedia(command, path, spawnSyncImpl = spawnSync) {
 }
 
 export function commandVersion(command, args) {
-  const result = spawnSync(command, args, { encoding: "utf8", timeout: 5000, windowsHide: true });
-  if (result.error || result.status !== 0) return null;
-  const firstLine = (result.stdout || result.stderr || "").split(/\r?\n/u)[0].trim();
-  return /\d+\.\d+\.\d+/u.test(firstLine) ? firstLine : null;
+  return probeToolVersion(command, args).version;
 }
 
 // Only used for the ffmpeg not-found message (task scope: detection logic itself stays unchanged).

@@ -137,8 +137,16 @@ if [ "$#" -eq 1 ] && [ "$1" = "-version" ]; then
   exit 0
 fi
 {
+  graph_next=0
   for argument do
     printf '%s\\037' "$argument"
+    if [ "$graph_next" -eq 1 ]; then
+      printf 'AKARI_FILTER_GRAPH=%s\\037' "$(cat "$argument")"
+      graph_next=0
+    fi
+    case "$argument" in
+      -/filter_complex|-filter_complex_script) graph_next=1 ;;
+    esac
   done
   printf '\\036'
 } >> "$AKARI_FFMPEG_LOG"
@@ -177,7 +185,7 @@ exec "$AKARI_REAL_FFMPEG" "$@"
       .map((record) => record.split("\x1f").slice(0, -1));
     const loudnormCalls = invocations.filter(args => args.some(value => value.includes("loudnorm=")));
     assert.equal(loudnormCalls.length, 2, JSON.stringify(loudnormCalls));
-    const filterCall = loudnormCalls.find(args => args.includes("-filter_complex"));
+    const filterCall = loudnormCalls.find(args => ["-filter_complex", "-/filter_complex", "-filter_complex_script"].some(option => args.includes(option)));
     const decodedCall = loudnormCalls.find(args => args.includes("-af") && args.at(-1) === "-");
     assert.ok(filterCall, "filter execution was not captured");
     assert.ok(decodedCall, "independent decoded measurement execution was not captured");
@@ -357,8 +365,11 @@ test("audio filter process failure preserves a content-addressed artifact and ME
     const wrapper = join(project, "ffmpeg-filter-failure.mjs");
     await writeFile(wrapper, `#!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 const args = process.argv.slice(2);
-if (args.some(value => value.includes("loudnorm=")) && args.at(-1)?.endsWith("final.mp4")) {
+const graphIndex = args.findIndex(value => value === "-/filter_complex" || value === "-filter_complex_script");
+const graph = graphIndex >= 0 ? readFileSync(args[graphIndex + 1], "utf8") : "";
+if ((graph.includes("loudnorm=") || args.some(value => value.includes("loudnorm="))) && args.at(-1)?.endsWith("final.mp4")) {
   process.stderr.write("fixture audio filter failure\\n");
   process.exit(1);
 }
@@ -374,7 +385,7 @@ process.exit(result.status ?? 2);
     assert.deepEqual(state.audio_qc.error, {
       phase: "filter_report",
       code: "PROCESS_FAILED",
-      message: "audio filter process exited unsuccessfully",
+      message: "audio filter process exited unsuccessfully: fixture audio filter failure",
     });
     assert.match(state.artifacts[0].path, /^\.akari\/reports\/failed-render-artifacts\/[a-f0-9]{64}\.mp4$/u);
     const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
@@ -398,9 +409,12 @@ test("failed-render artifact persistence refuses child symlinks and a retargeted
         await writeFile(wrapper, `#!/usr/bin/env node
 import { rm, symlink } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 const args = process.argv.slice(2);
-if (args.some(value => value.includes("loudnorm=")) && args.at(-1)?.endsWith("final.mp4")) {
+const graphIndex = args.findIndex(value => value === "-/filter_complex" || value === "-filter_complex_script");
+const graph = graphIndex >= 0 ? readFileSync(args[graphIndex + 1], "utf8") : "";
+if ((graph.includes("loudnorm=") || args.some(value => value.includes("loudnorm="))) && args.at(-1)?.endsWith("final.mp4")) {
   if (process.env.AKARI_TEST_RETARGET_REPORTS === "1") {
     const reports = join(process.env.AKARI_TEST_PROJECT, ".akari", "reports");
     await rm(reports, { recursive: true, force: true });

@@ -11,6 +11,26 @@ export function selectReadAloudVoice(voices: readonly NarrationVoice[], preferre
     return voices.find(voice => voice.id === preferred) ?? voices.find(voice => voice.default) ?? voices[0];
 }
 
+/** needs のときだけ常駐起動し、生成前にカードを取り直す。 */
+export async function prepareReadAloudEngine(engine: NarrationEngine,
+    start: () => Promise<unknown>, refresh: () => Promise<readonly NarrationEngine[]>): Promise<void> {
+    if (engine.id !== 'voicevox' || engine.availability.state !== 'needs') return;
+    await start();
+    const engines = await refresh();
+    if (!engines.some(item => item.id === 'voicevox' && item.availability.state === 'available')) {
+        throw new Error('VOICEVOX の起動を確認できませんでした。');
+    }
+}
+
+/** 要修正行は読みが変わるまで再生成を始めない。失敗行はそのまま再試行できる。 */
+export function batchRetryAction(state: { status: 'wait' | 'running' | 'done' | 'failed';
+    verdict?: 'ok' | 'check' | 'ng'; reading: string; verifiedReading?: string }): 'none' | 'focus-reading' | 'regenerate' {
+    if (state.status === 'failed') return 'regenerate';
+    if (state.status === 'wait' && state.verifiedReading !== undefined && state.reading !== state.verifiedReading) return 'regenerate';
+    if (state.status === 'done' && (state.verdict === 'check' || state.verdict === 'ng')) return 'focus-reading';
+    return 'none';
+}
+
 export function irodoriCustomVoiceMissing(engineId: string | undefined, voiceId: string, style: string): boolean {
     return engineId === 'irodori' && voiceId === 'custom' && !style.trim();
 }

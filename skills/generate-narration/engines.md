@@ -80,6 +80,13 @@ akari narration generate \
 - `engines --json` の VOICEVOX `availability.detail` は `running`、`version`、`app_found`、`managed` を返す。設定画面の「止める」は `managed` の場合だけ有効。
 - `generate` の従来の一時自動起動は、生成後に自分が起動した分を止めるまま。`start` で常駐させたエンジンを生成が止めることはない。
 
+## 生成音声の聞き取り照合
+
+- `akari narration verify --project <root> (--id n-0001 | --audio <path> --text <字幕の文字>) [--reading <読み原稿>] [--backend auto|speechanalyzer|whisper] --json` は、この Mac の SpeechAnalyzer または whisper.cpp で生成音声を聞き取り、字幕の文字と比べる。クラウドへ送らず、analysis / captions / edit に書かない。使える backend が無ければ exit 3 と `status: unavailable`、理由を返す。
+- 字幕と聞き取りの文字を NFKC、英字小文字化、句読点・記号・空白除去のうえ、文字単位の編集距離で比較する。`score = 1 - 編集距離 / max(文字数)` を小数 3 桁で返し、連続した差を `diffs` にまとめる。読み原稿は比較せず結果に残す。
+- verdict は `ok`（0.9 以上）、`check`（0.7 以上）、`ng`（0.7 未満）。**根拠のない初期値。較正は calibration/ で行う。**
+- `--record <dir>` を明示したときだけ、そのディレクトリの `narration-verify.jsonl` に期待文、読み原稿、聞き取り、score、verdict、engine、voice、backend、時刻を 1 行 JSON で追記する。ポップアップからは指定しない。
+
 ## ElevenLabs（凍結中）
 
 ElevenLabs は今回のスキルではアダプタを実装しない。凍結中のため、実行時にも選択肢として提示しない

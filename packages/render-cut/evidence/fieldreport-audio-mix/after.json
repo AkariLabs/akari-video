@@ -1,0 +1,95 @@
+{
+  "phase": "after",
+  "ffmpeg_version": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "option_probe": {
+    "slash_filter_complex": true,
+    "filter_complex_script": true
+  },
+  "cases": {
+    "shared": {
+      "audio_items": 136,
+      "command_utf16_upper_bound": 618,
+      "input_count": 19,
+      "filter_graph_chars": 9799,
+      "bgm_gain_db": {
+        "1.7": 0,
+        "1.85": -6,
+        "2.0": -12
+      },
+      "qc": {
+        "tool_version": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "verdict": "INCONCLUSIVE"
+      },
+      "graph_delivery": "file"
+    },
+    "distinct": {
+      "audio_items": 136,
+      "command_utf16_upper_bound": 2962,
+      "input_count": 138,
+      "filter_graph_chars": 7160,
+      "bgm_gain_db": {
+        "1.7": 0,
+        "1.85": -6,
+        "2.0": -12
+      },
+      "qc": {
+        "tool_version": "ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "verdict": "INCONCLUSIVE"
+      },
+      "graph_delivery": "file"
+    }
+  },
+  "version_cases": [
+    {
+      "line": "ffmpeg version n8.1.2-34-g9b6c8969e0 Copyright (c) ...",
+      "parsed": "ffmpeg version n8.1.2-34-g9b6c8969e0 Copyright (c) ...",
+      "filter_graph_option": "-/filter_complex"
+    },
+    {
+      "line": "ffmpeg version 9.0-full_build-www.gyan.dev Copyright ...",
+      "parsed": "ffmpeg version 9.0-full_build-www.gyan.dev Copyright ...",
+      "filter_graph_option": "-/filter_complex"
+    },
+    {
+      "line": "ffmpeg version 2026-09-01-git-abcdef1234-full_build-www.gyan.dev Copyright ...",
+      "parsed": "ffmpeg version 2026-09-01-git-abcdef1234-full_build-www.gyan.dev Copyright ...",
+      "filter_graph_option": "-/filter_complex"
+    },
+    {
+      "line": "ffmpeg version N-12345-gabcdef Copyright ...",
+      "parsed": "ffmpeg version N-12345-gabcdef Copyright ...",
+      "filter_graph_option": "-/filter_complex"
+    },
+    {
+      "line": "ffmpeg version 7.1.1-tessus Copyright ...",
+      "parsed": "ffmpeg version 7.1.1-tessus Copyright ...",
+      "filter_graph_option": "-/filter_complex"
+    },
+    {
+      "line": "ffmpeg version 7.1 Copyright ...",
+      "parsed": "ffmpeg version 7.1 Copyright ...",
+      "filter_graph_option": "-/filter_complex"
+    },
+    {
+      "line": "ffmpeg version 6.1.1 Copyright ...",
+      "parsed": "ffmpeg version 6.1.1 Copyright ...",
+      "filter_graph_option": "-filter_complex_script"
+    },
+    {
+      "line": null,
+      "parsed": null,
+      "filter_graph_option": null
+    }
+  ],
+  "audio_phase_136": {
+    "exit_status": 0,
+    "error_code": null,
+    "duration_seconds": 4,
+    "audio_streams": 1,
+    "stderr_tail": [
+      "[out#0/mp4 @ 0x7fec95e00] video:1KiB audio:61KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 4.770098%",
+      "frame=   40 fps= 19 q=-1.0 Lsize=      65KiB time=00:00:04.00 bitrate= 132.8kbits/s speed=1.88x elapsed=0:00:02.12    ",
+      "[aac @ 0x7ff135880] Qavg: 710.563"
+    ]
+  }
+}

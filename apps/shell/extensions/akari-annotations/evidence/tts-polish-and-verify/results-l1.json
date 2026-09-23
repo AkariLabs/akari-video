@@ -1,0 +1,49 @@
+{
+  "checks": [
+    {
+      "id": "1",
+      "pass": true,
+      "detail": "needs → 起動中 → 生成 → available"
+    },
+    {
+      "id": "2",
+      "pass": true,
+      "detail": {
+        "rows": 3,
+        "elapsed_s": 17.84,
+        "voicevoxRestarted": false
+      }
+    },
+    {
+      "id": "3",
+      "pass": true,
+      "detail": {
+        "backend": "speech-analyzer",
+        "shown": true
+      }
+    },
+    {
+      "id": "4",
+      "pass": true,
+      "detail": {
+        "backend": "speech-analyzer",
+        "scores": 3
+      }
+    },
+    {
+      "id": "5",
+      "pass": true,
+      "detail": {
+        "note": "GPU 推奨 · 処理が重い",
+        "status": "Irodori サーバーにつながりません（お試し）",
+        "availability": "unconfigured",
+        "separate": true
+      }
+    }
+  ],
+  "cleanup": {
+    "electronStopped": true,
+    "voicevoxStopExit": 0
+  },
+  "status": "pass"
+}

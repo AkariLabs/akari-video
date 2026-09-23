@@ -19,7 +19,7 @@ import { basename, dirname, join, relative, sep, extname, isAbsolute, resolve } 
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { NarrationCliManager } from './narration-cli';
-import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult } from '../common/akari-annotations-protocol';
+import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult } from '../common/akari-annotations-protocol';
 import {
     ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
     AkariAnnotationsClient,
@@ -235,6 +235,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
     async listNarrationVoices(_projectRootUri: string, engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult> {
         return this.narrationCli.voices(engine, irodoriUrl);
+    }
+    async startNarrationEngine(_projectRootUri: string, engine: string): Promise<{ status: string }> {
+        return this.narrationCli.start(engine);
+    }
+    async narrationVerificationBackend(projectRootUri: string): Promise<NarrationVerificationBackend> {
+        return this.narrationCli.verificationBackend(this.fsPath(projectRootUri));
+    }
+    async verifyNarration(request: VerifyNarrationRequest): Promise<VerifyNarrationResult> {
+        if (!/^out\/narration\/n-\d{4}\.(wav|mp3)$/u.test(request.audio)) throw new Error('音声パスが不正です。');
+        return this.narrationCli.verify(request, this.fsPath(request.projectRootUri));
     }
     async generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult> {
         if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
