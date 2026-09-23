@@ -752,7 +752,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     protected renderAbout(section: HTMLElement): void {
         section.append(groupCard('AKARI Video', settingsNote('バージョンとビルド情報を調べています…')));
-        void Promise.all([this.maintenance.appInfo(), window.electronAkariUpdater?.getLastEvent()]).then(([info, update]) => {
+        void Promise.all([this.maintenance.appInfo(), window.electronAkariUpdater?.getLastEvent(), this.maintenance.getUpdateSettings().catch(() => undefined)]).then(([info, update, updateSettings]) => {
             if (this.isDisposed || !section.isConnected) { return; }
             section.replaceChildren(...this.sectionHeading('about'));
             const icon = element('img'); icon.src = info.icon || AKARI_APP_ICON; icon.alt = 'AKARI Video'; icon.width = 64; icon.height = 64;
@@ -767,12 +767,12 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const main = groupCard(undefined, hero,
                 settingRow(status, `最後に確かめた: ${checked}`, action('アップデートを確認', () => void window.electronAkariUpdater?.checkForUpdatesNow(), { small: true, icon: 'refresh' })),
                 settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
-                    value: this.preferences.get('akari.update.channel', 'stable'), onChange: value => {
+                    value: updateSettings?.channel ?? this.preferences.get('akari.update.channel', 'prerelease'), onChange: value => {
                         this.savePreference('akari.update.channel', value);
                         void this.maintenance.setUpdateSettings({ channel: value });
                     } })),
                 settingRow('自動で確認する', '起動したときに右下の通知でお知らせ', switchControl({ label: '自動で確認する',
-                    checked: this.preferences.get<boolean>('akari.update.autoCheck', true), onChange: checked => {
+                    checked: updateSettings?.autoCheck ?? this.preferences.get<boolean>('akari.update.autoCheck', true), onChange: checked => {
                         this.savePreference('akari.update.autoCheck', checked);
                         void this.maintenance.setUpdateSettings({ autoCheck: checked });
                     } })));
@@ -1732,7 +1732,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
             'akari.export.openFolderAfter': { type: 'boolean', default: false },
             'akari.export.notifyAfter': { type: 'boolean', default: true },
             [AKARI_EXPORT_FILENAME_PATTERN]: { type: 'string', enum: ['project-date-time', 'project-name'], default: 'project-date-time' },
-            'akari.update.channel': { type: 'string', enum: ['stable', 'prerelease'], default: 'stable' },
+            'akari.update.channel': { type: 'string', enum: ['stable', 'prerelease'], default: 'prerelease' },
             'akari.update.autoCheck': { type: 'boolean', default: true }
         } });
         const applyZoom = (): void => applyAkariZoom(clampZoom(Number(this.preferences.get(AKARI_APPEARANCE_ZOOM, 100))));

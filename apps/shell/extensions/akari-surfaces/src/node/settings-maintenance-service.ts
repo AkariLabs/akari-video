@@ -5,6 +5,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { AkariSettingsMaintenanceService, PartnerDetail, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
 import { AKARI_APP_ICON } from '../browser/settings/app-icon';
+import { resolveUpdateChannel } from '../common/shell-update-applier';
 
 const home = (): string => process.env.AKARI_HOME || path.join(os.homedir(), '.akari');
 const localDate = (value: Date): string => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
@@ -120,11 +121,17 @@ export function zipEntries(entries: Record<string, string>): Buffer {
 
 @injectable()
 export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMaintenanceService {
+    async getUpdateSettings(): Promise<{ channel: 'stable' | 'prerelease'; autoCheck: boolean }> {
+        try {
+            const value = JSON.parse(await fs.readFile(path.join(home(), 'update-preferences.json'), 'utf8')) as { channel?: string; autoCheck?: boolean };
+            return { channel: resolveUpdateChannel(value.channel), autoCheck: value.autoCheck !== false };
+        } catch { return { channel: 'prerelease', autoCheck: true }; }
+    }
     async setUpdateSettings(change: { channel?: 'stable' | 'prerelease'; autoCheck?: boolean }): Promise<void> {
         const location = path.join(home(), 'update-preferences.json');
         let current: { channel?: string; autoCheck?: boolean } = {};
         try { current = JSON.parse(await fs.readFile(location, 'utf8')); } catch { /* 初期値 */ }
-        const next = { channel: change.channel || (current.channel === 'prerelease' ? 'prerelease' : 'stable'),
+        const next = { channel: change.channel || resolveUpdateChannel(current.channel),
             autoCheck: change.autoCheck ?? (current.autoCheck !== false) };
         await fs.mkdir(path.dirname(location), { recursive: true });
         await fs.writeFile(location, JSON.stringify(next, null, 2), { mode: 0o600 });
