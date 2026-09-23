@@ -20,38 +20,93 @@ import {
     updateCaptionGroupPositionSource,
     updateCaptionGroupZoneSource,
     updateCaptionTextSource,
-    updateCaptionZoneSource
+    updateCaptionZoneSource,
+    updateCaptionToolStyleSource,
+    resetCaptionCueGeometrySource
 } from '../lib/common/caption-zone-write.js';
+import { captionTextStyleVars } from '../../../../../packages/render-cut/src/captions.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const handlerSource = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
 const require = createRequire(import.meta.url);
 const { lintProjectCandidates } = require('../../../../../packages/edit-store/lib/write-gate.js');
+const { captionAnchorPositionVars, resolveCaptionLineStyleVars } = require('../../../../../packages/edit-store/lib/index.js');
 
-test('caption group landing switches bc/tc, omits centered x, and snaps the lower edge to 93%', () => {
+test('preview and export resolve the same placement for center, side, and off-frame drops', () => {
+    assert.equal(captionTextStyleVars, resolveCaptionLineStyleVars,
+        'export consumes the same shared placement resolver as preview');
+    const frame = { x: 0, y: 0, width: 1280, height: 720 };
+    for (const left of [472, 120, 980, -168]) {
+        const plate = { left, right: left + 336, top: 580, bottom: 640 };
+        const saved = captionCuePositionFromRects(plate, frame, { clamp: false, anchor: 'bc' });
+        const preview = captionAnchorPositionVars(saved.anchor, saved.position, undefined);
+        const exported = captionTextStyleVars({ text_anchor: saved.anchor, position: saved.position });
+        for (const key of ['--caption-left', '--caption-right', '--caption-bottom', '--caption-line-max-width']) {
+            assert.equal(preview[key], exported[key]);
+        }
+    }
+});
+
+test('cue position retains the drag-start anchor across the top third', () => {
+    const frame = { x: 0, y: 0, width: 1000, height: 500 };
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: -100, right: 100, top: -40, bottom: 60 }, frame,
+        { clamp: false, anchor: 'bc' }
+    ), { anchor: 'bc', position: { x: -0.1, y: 0.12 } });
+});
+
+test('mini-panel style writes affect only selected cues and preserve other fields', () => {
+    const source = JSON.stringify({ captions: [
+        { id: 'a', text: 'A', start: 0, end: 1, text_style: { color: '#123456', scale: 1.5 } },
+        { id: 'b', text: 'B', start: 1, end: 2 },
+        { id: 'c', text: 'C', start: 2, end: 3 }
+    ] });
+    const bold = updateCaptionToolStyleSource(source, ['a', 'b'], { field: 'font_weight', value: 900 });
+    const colored = updateCaptionToolStyleSource(bold, ['a', 'b'], { field: 'background.color', value: '#ff8b2c' });
+    const result = JSON.parse(updateCaptionToolStyleSource(colored, ['a', 'b'], { field: 'background.opacity', value: 0 }));
+    assert.equal(result.captions[0].text_style.scale, 1.5);
+    assert.equal(result.captions[0].text_style.font_weight, 900);
+    assert.equal(result.captions[1].text_style.background.color, '#ff8b2c');
+    assert.equal(result.captions[1].text_style.background.opacity, 0);
+    assert.equal(result.captions[2].text_style, undefined);
+});
+
+test('reset removes cue geometry and keeps group defaults and other cue styles', () => {
+    const source = JSON.stringify({ default_text_style: { scale: 1.4 }, captions: [
+        { id: 'a', text_style: { scale: 2, rotate: 12, position: { x: -0.2, y: 1.1 }, text_anchor: 'bc', color: '#abcdef' } },
+        { id: 'b', text_style: { scale: 1.3 } }, { id: 'c', text_style: { scale: 1.5 } }
+    ] });
+    const result = JSON.parse(resetCaptionCueGeometrySource(source, ['a', 'b']));
+    assert.deepEqual(result.default_text_style, { scale: 1.4 });
+    assert.deepEqual(result.captions[0].text_style, { color: '#abcdef' });
+    assert.equal(result.captions[1].text_style, undefined);
+    assert.deepEqual(result.captions[2].text_style, { scale: 1.5 });
+});
+
+test('caption group landing retains the start anchor and exact visible edges', () => {
     const frame = { x: 100, y: 50, width: 1000, height: 500 };
     assert.deepEqual(captionGroupPositionFromRects({
         left: 510, right: 690, top: 400, bottom: 519
     }, frame), {
         anchor: 'bc',
-        position: { y: 0.93 }
+        position: { x: 0.41, y: 0.938 }
     });
     assert.deepEqual(captionGroupPositionFromRects({
         left: 180, right: 360, top: 100, bottom: 180
-    }, frame), {
+    }, frame, 'tc'), {
         anchor: 'tc',
         position: { x: 0.08, y: 0.1 }
     });
 });
 
-test('caption group landing clamps and rounds deterministically to four decimal places', () => {
+test('caption group landing preserves out-of-frame coordinates and rounds deterministically', () => {
     const input = {
         plate: { left: 223.45678, right: 423.45678, top: -20, bottom: 333.33333 },
         frame: { x: 100, y: 50, width: 777, height: 333 }
     };
-    const first = captionGroupPositionFromRects(input.plate, input.frame);
-    const second = captionGroupPositionFromRects(input.plate, input.frame);
-    assert.deepEqual(first, { anchor: 'tc', position: { x: 0.1589, y: 0 } });
+    const first = captionGroupPositionFromRects(input.plate, input.frame, 'tc');
+    const second = captionGroupPositionFromRects(input.plate, input.frame, 'tc');
+    assert.deepEqual(first, { anchor: 'tc', position: { x: 0.1589, y: -0.2102 } });
     assert.deepEqual(second, first);
 });
 
@@ -71,12 +126,12 @@ test('caption cue landing uses a top-center anchor inside the top third', () => 
     ), { anchor: 'tc', position: { x: 0.1, y: 0.1 } });
 });
 
-test('caption cue landing omits x when the plate is centered', () => {
+test('caption cue landing persists explicit x when the plate is centered', () => {
     assert.deepEqual(captionCuePositionFromRects(
         { left: 400, right: 600, top: 300, bottom: 400 },
         { x: 0, y: 0, width: 1000, height: 500 },
         { clamp: true }
-    ), { anchor: 'bc', position: { y: 0.8 } });
+    ), { anchor: 'bc', position: { x: 0.4, y: 0.8 } });
 });
 
 test('caption cue landing snaps its lower edge to 93%', () => {
@@ -338,8 +393,8 @@ test('successful caption write refreshes the webview instead of suppressing its 
 
 test('caption drag keeps Alt group movement and batches ordinary cue movement with plate transform', () => {
     assert.match(handlerSource, /captionPlate\.style\.translate = outputDx \+ 'px ' \+ outputDy \+ 'px'/);
-    assert.match(handlerSource, /Math\.abs\(centerRatio - 0\.5\) < 0\.03/);
-    assert.match(handlerSource, /Math\.abs\(bottomRatio - 0\.93\) < 0\.02/);
+    assert.match(handlerSource, /interaction\.computeSnapCorrection\(\{/);
+    assert.match(handlerSource, /interaction\.showSnapGuides\(snap\.x, snap\.y\)/);
     assert.match(handlerSource, /const captionVisualRect =/);
     assert.match(handlerSource, /querySelectorAll\('\.akari-caption__line'\)/);
     assert.match(handlerSource, /await window\.akari\.engine\.captionWrite\(cueId, \{ groupPosition \}\)/);
@@ -358,18 +413,20 @@ test('caption drag converts client geometry to output pixels and display pixels 
     assert.doesNotMatch(handlerSource, /captionGroupPositionFromRects\([\s\S]{0,120}captionVisualRect\(\),[\s\S]{0,40}frameRect/);
 });
 
-test('caption group badge, drag guides, and inspector zone highlight are wired', () => {
-    assert.match(handlerSource, /この字幕だけ動く — ⌥ドラッグで全字幕/);
-    assert.match(handlerSource, /caption-drag-guide-center/);
-    assert.match(handlerSource, /caption-drag-guide-bottom/);
+test('caption mini panel and inspector zone highlight are wired', () => {
+    for (const tool of ['group', 'snap', 'clamp', 'bold', 'color', 'cushion', 'reset', 'inspector']) {
+        assert.match(handlerSource, new RegExp('data-caption-tool="' + tool + '"'));
+    }
+    assert.doesNotMatch(handlerSource, /id="caption-drag-guide-center"/);
+    assert.doesNotMatch(handlerSource, /id="caption-drag-guide-bottom"/);
     assert.match(handlerSource, /akari-preview-caption-zone-hover/);
     assert.match(handlerSource, /persistCaptionGroupZoneForWidget/);
 });
 
 test('caption cue drag clamp, reset, and Alt group mode are wired', () => {
     assert.match(handlerSource, /captionClampOverrides/);
-    assert.match(handlerSource, /akari-caption-clamp-chip/);
-    assert.match(handlerSource, /akari-caption-position-reset/);
+    assert.match(handlerSource, /data-caption-tool="clamp"/);
+    assert.match(handlerSource, /data-caption-tool="reset"/);
     assert.match(handlerSource, /captionWrite\(cueId, \{\s*cuePosition\s*\}\)/);
     assert.match(handlerSource, /cuePositionReset: true/);
     assert.match(handlerSource, /event\.altKey/);

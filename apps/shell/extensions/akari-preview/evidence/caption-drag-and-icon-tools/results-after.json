@@ -1,0 +1,1154 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "選択枠: 字幕を選ぶと見える枠の本数・幅・黄色の outline",
+      "pass": true,
+      "detail": {
+        "frameW": 676,
+        "ink": {
+          "left": 205.62,
+          "top": 353.8,
+          "width": 336.75,
+          "height": 31.7
+        },
+        "selectBox": {
+          "active": true,
+          "left": 205.62,
+          "top": 353.8,
+          "width": 336.74,
+          "height": 31.7,
+          "border": "solid 1.5px rgb(77, 163, 255)"
+        },
+        "frames": [
+          {
+            "tag": "div",
+            "id": "caption-select-box",
+            "cls": "is-active",
+            "kind": "border",
+            "style": "solid",
+            "color": "rgb(77, 163, 255)",
+            "width": 1.5,
+            "offset": null,
+            "rect": {
+              "left": 205.62,
+              "top": 353.8,
+              "width": 336.74,
+              "height": 31.7
+            }
+          }
+        ],
+        "frameCount": 1,
+        "yellowOutlines": 0,
+        "yellowDetail": [],
+        "plateBox": {
+          "left": 36,
+          "right": 712,
+          "width": 676
+        },
+        "selectBoxMinusInkPx": -0.01,
+        "selectBoxWidthRatio": 0.4981
+      }
+    },
+    {
+      "name": "吸着: 中央から 6 / 10 / 14 / 20px（押したまま測る）→ 20px で離して保存",
+      "pass": true,
+      "detail": {
+        "startOffsetPx": 0,
+        "probes": {
+          "+6": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 329.53,
+            "right": 506.37,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "+10": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 329.53,
+            "right": 506.37,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "+14": {
+            "cxOffPx": 14.01,
+            "left": 183.63,
+            "top": 329.53,
+            "right": 520.38,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "+20": {
+            "cxOffPx": 20.01,
+            "left": 189.63,
+            "top": 329.53,
+            "right": 526.38,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2805,
+            "y": 0.95
+          }
+        },
+        "settled": {
+          "cxOffPx": 20.01,
+          "left": 189.63,
+          "top": 329.53,
+          "right": 526.38,
+          "bottom": 361.24,
+          "w": 336.75,
+          "h": 31.7,
+          "lines": 1
+        }
+      }
+    },
+    {
+      "name": "吸着: 20px の位置から中央へ 6px まで寄せる → 中央に吸着して保存",
+      "pass": true,
+      "detail": {
+        "startOffsetPx": 19.99,
+        "probes": {
+          "+6": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 329.53,
+            "right": 506.37,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2509,
+            "y": 0.95
+          }
+        },
+        "settled": {
+          "cxOffPx": 0,
+          "left": 169.63,
+          "top": 329.53,
+          "right": 506.37,
+          "bottom": 361.24,
+          "w": 336.75,
+          "h": 31.7,
+          "lines": 1
+        }
+      }
+    },
+    {
+      "name": "吸着: Alt を押したまま中央から 6px → 吸着しない",
+      "pass": true,
+      "detail": {
+        "startOffsetPx": -0.02,
+        "probes": {
+          "alt+6": {
+            "cxOffPx": 6,
+            "left": 175.63,
+            "top": 329.53,
+            "right": 512.38,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2598,
+            "y": 0.95
+          }
+        },
+        "settled": {
+          "cxOffPx": 6,
+          "left": 175.63,
+          "top": 329.53,
+          "right": 512.38,
+          "bottom": 361.24,
+          "w": 336.75,
+          "h": 31.7,
+          "lines": 1
+        },
+        "defaultTextStyle": {
+          "zone": "bottom"
+        }
+      }
+    },
+    {
+      "name": "保存: 中央吸着（c-0004）— 離す瞬間と保存後の描画",
+      "pass": true,
+      "detail": {
+        "id": "c-0004",
+        "initial": {
+          "cxOffPx": 0,
+          "left": 149.55,
+          "top": 288.11,
+          "right": 526.44,
+          "bottom": 353.63,
+          "w": 376.89,
+          "h": 65.52,
+          "lines": 2
+        },
+        "hold": {
+          "cxOffPx": 0,
+          "left": 149.56,
+          "top": 250.32,
+          "right": 526.44,
+          "bottom": 315.84,
+          "w": 376.89,
+          "h": 65.52,
+          "lines": 2
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2212,
+            "y": 0.8306
+          }
+        },
+        "settled": {
+          "cxOffPx": -0.03,
+          "left": 149.53,
+          "top": 250.32,
+          "right": 526.42,
+          "bottom": 315.84,
+          "w": 376.89,
+          "h": 65.52,
+          "lines": 2
+        },
+        "diff": {
+          "left": -0.03,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "保存: 左寄り（c-0005）— 離す瞬間と保存後の描画",
+      "pass": true,
+      "detail": {
+        "id": "c-0005",
+        "initial": {
+          "cxOffPx": 0,
+          "left": 128.89,
+          "top": 288.11,
+          "right": 547.11,
+          "bottom": 353.63,
+          "w": 418.23,
+          "h": 65.52,
+          "lines": 2
+        },
+        "hold": {
+          "cxOffPx": -128.89,
+          "left": 0,
+          "top": 219.9,
+          "right": 418.23,
+          "bottom": 285.42,
+          "w": 418.23,
+          "h": 65.52,
+          "lines": 2
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0,
+            "y": 0.7506
+          }
+        },
+        "settled": {
+          "cxOffPx": -128.89,
+          "left": 0,
+          "top": 219.9,
+          "right": 418.23,
+          "bottom": 285.42,
+          "w": 418.23,
+          "h": 65.52,
+          "lines": 2
+        },
+        "diff": {
+          "left": 0,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "保存: 右寄り（c-0006）— 離す瞬間と保存後の描画",
+      "pass": true,
+      "detail": {
+        "id": "c-0006",
+        "initial": {
+          "cxOffPx": 0,
+          "left": 179.06,
+          "top": 288.11,
+          "right": 496.94,
+          "bottom": 353.63,
+          "w": 317.88,
+          "h": 65.52,
+          "lines": 2
+        },
+        "hold": {
+          "cxOffPx": 135.2,
+          "left": 314.25,
+          "top": 280.75,
+          "right": 632.14,
+          "bottom": 346.27,
+          "w": 317.88,
+          "h": 65.52,
+          "lines": 2
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.4649,
+            "y": 0.9106
+          }
+        },
+        "settled": {
+          "cxOffPx": 135.21,
+          "left": 314.27,
+          "top": 280.74,
+          "right": 632.15,
+          "bottom": 346.26,
+          "w": 317.88,
+          "h": 65.52,
+          "lines": 2
+        },
+        "diff": {
+          "left": 0.02,
+          "top": -0.01,
+          "w": 0,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "はみ出し: 既定のまま字幕の半分を画面の左の外へ → 保存",
+      "pass": true,
+      "detail": {
+        "hold": {
+          "cxOffPx": -338,
+          "left": -158.64,
+          "top": 190.13,
+          "right": 158.64,
+          "bottom": 221.83,
+          "w": 317.28,
+          "h": 31.7,
+          "lines": 1
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": -0.2347,
+            "y": 0.5834
+          }
+        },
+        "settled": {
+          "cxOffPx": -338.01,
+          "left": -158.66,
+          "top": 190.14,
+          "right": 158.63,
+          "bottom": 221.84,
+          "w": 317.28,
+          "h": 31.7,
+          "lines": 1
+        },
+        "outsideRatio": 0.5
+      }
+    },
+    {
+      "name": "ミニパネル: 選んだ字幕の上に浮く道具の中身",
+      "pass": true,
+      "detail": {
+        "tools": {
+          "items": [
+            {
+              "tag": "button",
+              "cls": "",
+              "text": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+              "title": null,
+              "aria": "全字幕モード",
+              "pressed": null,
+              "hasSvg": true
+            },
+            {
+              "tag": "button",
+              "cls": "on",
+              "text": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+              "title": null,
+              "aria": "吸着",
+              "pressed": null,
+              "hasSvg": true
+            },
+            {
+              "tag": "button",
+              "cls": "",
+              "text": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+              "title": null,
+              "aria": "はみ出し防止",
+              "pressed": null,
+              "hasSvg": true
+            },
+            {
+              "tag": "button",
+              "cls": "",
+              "text": "B太字のオン・オフ",
+              "title": null,
+              "aria": "太字",
+              "pressed": null,
+              "hasSvg": false
+            },
+            {
+              "tag": "button",
+              "cls": "",
+              "text": "文字・縁取り・座布団の色",
+              "title": null,
+              "aria": "色",
+              "pressed": null,
+              "hasSvg": true
+            },
+            {
+              "tag": "button",
+              "cls": "",
+              "text": "座布団 OFF — 形・余白・角丸はインスペクターで",
+              "title": null,
+              "aria": "座布団",
+              "pressed": null,
+              "hasSvg": true
+            },
+            {
+              "tag": "button",
+              "cls": "",
+              "text": "インスペクターを開く",
+              "title": null,
+              "aria": "インスペクターを開く",
+              "pressed": null,
+              "hasSvg": true
+            }
+          ],
+          "text": "B",
+          "emoji": []
+        },
+        "selectBox": {
+          "active": true,
+          "left": 205.02,
+          "top": 353.8,
+          "width": 337.95,
+          "height": 31.7,
+          "border": "solid 1.5px rgb(77, 163, 255)"
+        },
+        "icons": [
+          {
+            "tool": "group",
+            "iconText": "",
+            "hasSvg": true,
+            "on": false,
+            "pressed": null,
+            "tip": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+            "symbols": []
+          },
+          {
+            "tool": "snap",
+            "iconText": "",
+            "hasSvg": true,
+            "on": true,
+            "pressed": null,
+            "tip": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+            "symbols": []
+          },
+          {
+            "tool": "clamp",
+            "iconText": "",
+            "hasSvg": true,
+            "on": false,
+            "pressed": null,
+            "tip": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+            "symbols": []
+          },
+          {
+            "tool": "bold",
+            "iconText": "B",
+            "hasSvg": false,
+            "on": false,
+            "pressed": null,
+            "tip": "太字のオン・オフ",
+            "symbols": []
+          },
+          {
+            "tool": "color",
+            "iconText": "",
+            "hasSvg": true,
+            "on": false,
+            "pressed": null,
+            "tip": "文字・縁取り・座布団の色",
+            "symbols": []
+          },
+          {
+            "tool": "cushion",
+            "iconText": "",
+            "hasSvg": true,
+            "on": false,
+            "pressed": null,
+            "tip": "座布団 OFF — 形・余白・角丸はインスペクターで",
+            "symbols": []
+          },
+          {
+            "tool": "inspector",
+            "iconText": "",
+            "hasSvg": true,
+            "on": false,
+            "pressed": null,
+            "tip": "インスペクターを開く",
+            "symbols": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "ミニパネル: 各アイコンの説明がマウスを乗せて 100ms 以内に出る",
+      "pass": true,
+      "detail": {
+        "group": {
+          "ms": 0.2,
+          "text": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+          "visibleBefore": false
+        },
+        "snap": {
+          "ms": 0,
+          "text": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+          "visibleBefore": false
+        },
+        "clamp": {
+          "ms": 0.1,
+          "text": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+          "visibleBefore": false
+        },
+        "bold": {
+          "ms": 0.1,
+          "text": "太字のオン・オフ",
+          "visibleBefore": false
+        },
+        "color": {
+          "ms": 0.1,
+          "text": "文字・縁取り・座布団の色",
+          "visibleBefore": false
+        },
+        "cushion": {
+          "ms": 0.1,
+          "text": "座布団 OFF — 形・余白・角丸はインスペクターで",
+          "visibleBefore": false
+        },
+        "inspector": {
+          "ms": 0.1,
+          "text": "インスペクターを開く",
+          "visibleBefore": false
+        }
+      }
+    },
+    {
+      "name": "ミニパネル: 既定の状態（吸着 ON・はみ出し防止 OFF・全字幕モード OFF）",
+      "pass": true,
+      "detail": {
+        "snap": true,
+        "clamp": false,
+        "group": false,
+        "tips": {
+          "snap": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+          "clamp": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+          "group": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）"
+        }
+      }
+    },
+    {
+      "name": "ミニパネル: B（太字）で text_style.font_weight が 900 ⇄ 解除",
+      "pass": true,
+      "detail": {
+        "on": {
+          "font_weight": 900,
+          "weight": 900
+        },
+        "iconOn": true,
+        "off": {}
+      }
+    },
+    {
+      "name": "ミニパネル: 色（文字 / 縁取り / 座布団の 3 タブ）で captions.json が書き換わる",
+      "pass": true,
+      "detail": {
+        "swatches": 14,
+        "text": {
+          "color": "#ff8b2c"
+        },
+        "stroke": {
+          "color": "#ff8b2c",
+          "stroke": {
+            "color": "#283447"
+          }
+        },
+        "background": {
+          "color": "#ff8b2c",
+          "stroke": {
+            "color": "#283447"
+          },
+          "background": {
+            "color": "#4da3ff"
+          }
+        },
+        "recent": [
+          "#4da3ff",
+          "#283447",
+          "#ff8b2c"
+        ]
+      }
+    },
+    {
+      "name": "ミニパネル: 「他の色…」で host のインスペクターのコマンドが実行される",
+      "pass": true,
+      "detail": {
+        "log": [
+          {
+            "id": "akari.inspector.open",
+            "args": "[]"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ミニパネル: 座布団で background.opacity が 0 ⇄ 直前の値",
+      "pass": true,
+      "detail": {
+        "before": {
+          "color": "#4da3ff"
+        },
+        "off": {
+          "color": "#4da3ff",
+          "opacity": 0
+        },
+        "on": {
+          "color": "#4da3ff",
+          "opacity": 1
+        }
+      }
+    },
+    {
+      "name": "ミニパネル: 「インスペクターを開く」で host のコマンドが実行される",
+      "pass": true,
+      "detail": {
+        "log": [
+          {
+            "id": "akari.inspector.open",
+            "args": "[]"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ミニパネル: 全字幕モードの切り替えで選択枠が破線 ⇄ 実線",
+      "pass": true,
+      "detail": {
+        "initial": "solid",
+        "groupOn": "dashed",
+        "groupOff": "solid",
+        "tipWhenOn": "全字幕が動く — もう一度押すと「この字幕だけ」"
+      }
+    },
+    {
+      "name": "行の箱: 既定は出さない・切り替えると折り返しの幅を破線で示す",
+      "pass": true,
+      "detail": {
+        "default": {
+          "visible": false,
+          "border": "dashed rgba(245, 196, 81, 0.6)",
+          "label": "折り返しの幅",
+          "width": 0
+        },
+        "on": {
+          "visible": true,
+          "border": "dashed rgba(245, 196, 81, 0.6)",
+          "label": "折り返しの幅",
+          "width": 621.91
+        },
+        "off": {
+          "visible": false,
+          "border": "dashed rgba(245, 196, 81, 0.6)",
+          "label": "折り返しの幅",
+          "width": 0
+        },
+        "frameW": 676,
+        "onWidthRatio": 0.92
+      }
+    },
+    {
+      "name": "吸着（置いた文字）: 中央から 6px で吸着・20px で離して 20px のまま保存",
+      "pass": true,
+      "detail": {
+        "startOffsetPx": 0,
+        "probes": {
+          "+6": {
+            "cxOffPx": 0,
+            "left": 279.4,
+            "top": 174.27,
+            "right": 396.6,
+            "bottom": 205.98,
+            "w": 117.19,
+            "h": 31.7,
+            "lines": 1
+          },
+          "+20": {
+            "cxOffPx": 20,
+            "left": 299.41,
+            "top": 174.27,
+            "right": 416.6,
+            "bottom": 205.98,
+            "w": 117.19,
+            "h": 31.7,
+            "lines": 1
+          }
+        },
+        "saved": {
+          "position": {
+            "x": 0.4429,
+            "y": 0.4583
+          },
+          "text_anchor": "tc"
+        },
+        "settled": {
+          "cxOffPx": 19.99,
+          "left": 299.4,
+          "top": 174.26,
+          "right": 416.59,
+          "bottom": 205.97,
+          "w": 117.19,
+          "h": 31.7,
+          "lines": 1
+        }
+      }
+    },
+    {
+      "name": "再読込: 離した瞬間（hold）と再読込後の描画 — 3 ケース + はみ出し",
+      "pass": true,
+      "detail": {
+        "中央吸着": {
+          "reloaded": {
+            "cxOffPx": -0.03,
+            "left": 149.53,
+            "top": 250.32,
+            "right": 526.42,
+            "bottom": 315.84,
+            "w": 376.89,
+            "h": 65.52,
+            "lines": 2
+          },
+          "hold": {
+            "cxOffPx": 0,
+            "left": 149.56,
+            "top": 250.32,
+            "right": 526.44,
+            "bottom": 315.84,
+            "w": 376.89,
+            "h": 65.52,
+            "lines": 2
+          },
+          "diff": {
+            "left": -0.03,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "左寄り": {
+          "reloaded": {
+            "cxOffPx": -128.89,
+            "left": 0,
+            "top": 219.9,
+            "right": 418.23,
+            "bottom": 285.42,
+            "w": 418.23,
+            "h": 65.52,
+            "lines": 2
+          },
+          "hold": {
+            "cxOffPx": -128.89,
+            "left": 0,
+            "top": 219.9,
+            "right": 418.23,
+            "bottom": 285.42,
+            "w": 418.23,
+            "h": 65.52,
+            "lines": 2
+          },
+          "diff": {
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "右寄り": {
+          "reloaded": {
+            "cxOffPx": 135.21,
+            "left": 314.27,
+            "top": 280.74,
+            "right": 632.15,
+            "bottom": 346.26,
+            "w": 317.88,
+            "h": 65.52,
+            "lines": 2
+          },
+          "hold": {
+            "cxOffPx": 135.2,
+            "left": 314.25,
+            "top": 280.75,
+            "right": 632.14,
+            "bottom": 346.27,
+            "w": 317.88,
+            "h": 65.52,
+            "lines": 2
+          },
+          "diff": {
+            "left": 0.02,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "はみ出し": {
+          "reloaded": {
+            "cxOffPx": -338.01,
+            "left": -158.66,
+            "top": 190.14,
+            "right": 158.63,
+            "bottom": 221.84,
+            "w": 317.28,
+            "h": 31.7,
+            "lines": 1
+          },
+          "hold": {
+            "cxOffPx": -338,
+            "left": -158.64,
+            "top": 190.13,
+            "right": 158.64,
+            "bottom": 221.83,
+            "w": 317.28,
+            "h": 31.7,
+            "lines": 1
+          },
+          "diff": {
+            "left": -0.02,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0001": {
+          "reloaded": {
+            "cxOffPx": 6,
+            "left": 175.62,
+            "top": 329.53,
+            "right": 512.37,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "beforeReload": {
+            "cxOffPx": 6,
+            "left": 175.62,
+            "top": 329.53,
+            "right": 512.37,
+            "bottom": 361.24,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-selected.png",
+    "after-02-snap-20px.png",
+    "after-03-right-case.png",
+    "after-04-overflow.png",
+    "after-05-tools.png",
+    "after-08-tooltip-snap.png",
+    "after-09-palette.png",
+    "after-10-row-box.png",
+    "after-06-reload-overflow.png"
+  ],
+  "pids": [
+    67179,
+    76661
+  ],
+  "consoleWarnings": [
+    "2026-09-23T06:29:00.872Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at aac (file://<worktree>/apps/shell/lib/frontend/bundle.js:13837:36699)\n ",
+    "2026-09-23T06:29:13.288Z root WARN [akari-preview] open attempt 1 failed; retrying file://<machine-path> Error: Timed out after 10000ms while opening file://<machine-path>",
+    "2026-09-23T06:29:17.463Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>"
+  ],
+  "calibration": {
+    "sx": 1,
+    "sy": 1,
+    "dx": 57,
+    "dy": 39,
+    "iframe": {
+      "left": 57,
+      "top": 39,
+      "width": 748,
+      "height": 501.890625
+    }
+  },
+  "frame": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  },
+  "saveCases": [
+    {
+      "id": "c-0004",
+      "initial": {
+        "cxOffPx": 0,
+        "left": 149.55,
+        "top": 288.11,
+        "right": 526.44,
+        "bottom": 353.63,
+        "w": 376.89,
+        "h": 65.52,
+        "lines": 2
+      },
+      "hold": {
+        "cxOffPx": 0,
+        "left": 149.56,
+        "top": 250.32,
+        "right": 526.44,
+        "bottom": 315.84,
+        "w": 376.89,
+        "h": 65.52,
+        "lines": 2
+      },
+      "saved": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.2212,
+          "y": 0.8306
+        }
+      },
+      "settled": {
+        "cxOffPx": -0.03,
+        "left": 149.53,
+        "top": 250.32,
+        "right": 526.42,
+        "bottom": 315.84,
+        "w": 376.89,
+        "h": 65.52,
+        "lines": 2
+      },
+      "diff": {
+        "left": -0.03,
+        "top": 0,
+        "w": 0,
+        "lines": 0
+      }
+    },
+    {
+      "id": "c-0005",
+      "initial": {
+        "cxOffPx": 0,
+        "left": 128.89,
+        "top": 288.11,
+        "right": 547.11,
+        "bottom": 353.63,
+        "w": 418.23,
+        "h": 65.52,
+        "lines": 2
+      },
+      "hold": {
+        "cxOffPx": -128.89,
+        "left": 0,
+        "top": 219.9,
+        "right": 418.23,
+        "bottom": 285.42,
+        "w": 418.23,
+        "h": 65.52,
+        "lines": 2
+      },
+      "saved": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0,
+          "y": 0.7506
+        }
+      },
+      "settled": {
+        "cxOffPx": -128.89,
+        "left": 0,
+        "top": 219.9,
+        "right": 418.23,
+        "bottom": 285.42,
+        "w": 418.23,
+        "h": 65.52,
+        "lines": 2
+      },
+      "diff": {
+        "left": 0,
+        "top": 0,
+        "w": 0,
+        "lines": 0
+      }
+    },
+    {
+      "id": "c-0006",
+      "initial": {
+        "cxOffPx": 0,
+        "left": 179.06,
+        "top": 288.11,
+        "right": 496.94,
+        "bottom": 353.63,
+        "w": 317.88,
+        "h": 65.52,
+        "lines": 2
+      },
+      "hold": {
+        "cxOffPx": 135.2,
+        "left": 314.25,
+        "top": 280.75,
+        "right": 632.14,
+        "bottom": 346.27,
+        "w": 317.88,
+        "h": 65.52,
+        "lines": 2
+      },
+      "saved": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.4649,
+          "y": 0.9106
+        }
+      },
+      "settled": {
+        "cxOffPx": 135.21,
+        "left": 314.27,
+        "top": 280.74,
+        "right": 632.15,
+        "bottom": 346.26,
+        "w": 317.88,
+        "h": 65.52,
+        "lines": 2
+      },
+      "diff": {
+        "left": 0.02,
+        "top": -0.01,
+        "w": 0,
+        "lines": 0
+      }
+    }
+  ],
+  "overflow": {
+    "hold": {
+      "cxOffPx": -338,
+      "left": -158.64,
+      "top": 190.13,
+      "right": 158.64,
+      "bottom": 221.83,
+      "w": 317.28,
+      "h": 31.7,
+      "lines": 1
+    },
+    "saved": {
+      "text_anchor": "bc",
+      "position": {
+        "x": -0.2347,
+        "y": 0.5834
+      }
+    },
+    "settled": {
+      "cxOffPx": -338.01,
+      "left": -158.66,
+      "top": 190.14,
+      "right": 158.63,
+      "bottom": 221.84,
+      "w": 317.28,
+      "h": 31.7,
+      "lines": 1
+    },
+    "outsideRatio": 0.5
+  },
+  "renderedBeforeReload": {
+    "c-0001": {
+      "cxOffPx": 6,
+      "left": 175.62,
+      "top": 329.53,
+      "right": 512.37,
+      "bottom": 361.24,
+      "w": 336.75,
+      "h": 31.7,
+      "lines": 1
+    },
+    "c-0003": {
+      "cxOffPx": -338.01,
+      "left": -158.66,
+      "top": 190.14,
+      "right": 158.63,
+      "bottom": 221.84,
+      "w": 317.28,
+      "h": 31.7,
+      "lines": 1
+    },
+    "c-0004": {
+      "cxOffPx": -0.03,
+      "left": 149.53,
+      "top": 250.32,
+      "right": 526.42,
+      "bottom": 315.84,
+      "w": 376.89,
+      "h": 65.52,
+      "lines": 2
+    },
+    "c-0005": {
+      "cxOffPx": -128.89,
+      "left": 0,
+      "top": 219.9,
+      "right": 418.23,
+      "bottom": 285.42,
+      "w": 418.23,
+      "h": 65.52,
+      "lines": 2
+    },
+    "c-0006": {
+      "cxOffPx": 135.21,
+      "left": 314.27,
+      "top": 280.74,
+      "right": 632.15,
+      "bottom": 346.26,
+      "w": 317.88,
+      "h": 65.52,
+      "lines": 2
+    }
+  },
+  "frameAfterReload": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  }
+}

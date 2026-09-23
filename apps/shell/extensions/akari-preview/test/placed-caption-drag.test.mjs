@@ -11,7 +11,7 @@ function section(start, end) {
     return source.slice(from, to);
 }
 
-test('actual drag listeners skip placed-text snaps, preserve anchors, and write the landing', async () => {
+test('actual drag listeners share snapping, preserve placed anchors, and write the landing', async () => {
     for (const anchor of ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']) {
         for (const [dx, dy] of [[315, 100], [-80, -85], [860, 100], [100, 265.5], [173.4, 128.35]]) {
             const listeners = new Map(), writes = [], guides = [];
@@ -21,6 +21,7 @@ test('actual drag listeners skip placed-text snaps, preserve anchors, and write 
             const original = { left: 100, right: 300, top: 100, bottom: 200 };
             const context = {
                 captionLayer: { addEventListener: (_type, listener) => { pointerdown = listener; } },
+                captionGroupToolEnabled: false, captionSnapEnabled: true,
                 activeCaptionEdit: null, captionForEvent: () => caption,
                 beginCaptionHandleDrag: () => false, selectCaption() {}, setCaptionGroupMode() {},
                 captionClampEnabled: () => false, captionCuePositionKnown: new Map(),
@@ -33,11 +34,14 @@ test('actual drag listeners skip placed-text snaps, preserve anchors, and write 
                 },
                 placedCaptionPositionFromRects,
                 captionCuePositionFromRects: () => { throw Error('speech resolver must not handle placed text'); },
-                setCaptionDragGuides: value => guides.push(value), updateCaptionSelectBoxForRect() {}, updateCaptionSelectBox() {},
+                updateCaptionSelectBoxForRect() {}, updateCaptionSelectBox() {},
                 window: {
                     addEventListener: (type, listener) => listeners.set(type, listener),
                     removeEventListener: type => listeners.delete(type),
-                    akari: { computeOutputFrameRect: () => ({}), engine: { captionWrite: async (...args) => writes.push(args) }, showWriteError: error => { throw error; } }
+                    akari: { computeOutputFrameRect: () => ({}),
+                        interaction: { computeSnapCorrection: () => ({ x: null, y: null }),
+                            showSnapGuides: () => guides.push(true), hideSnapGuides: () => guides.push(false) },
+                        engine: { captionWrite: async (...args) => writes.push(args) }, showWriteError: error => { throw error; } }
                 }, console
             };
             vm.runInNewContext(section("captionLayer.addEventListener('pointerdown', event =>", '            new ResizeObserver(() => updateCaptionSelectBox())'), context);
@@ -54,17 +58,17 @@ test('actual drag listeners skip placed-text snaps, preserve anchors, and write 
             const saved = writes[0][1].cuePosition;
             assert.deepEqual(saved, placedCaptionPositionFromRects(landed, context.captionOutputFrame(), { anchor, clamp: false }));
             assert.equal(saved.anchor, anchor);
-            assert.ok(guides.every(value => value === false));
+            assert.equal(guides.at(-1), false);
         }
     }
 });
 
-test('clamp defaults to off only for declared output cues and an explicit toggle wins', () => {
+test('clamp defaults to off for every caption and an explicit toggle wins', () => {
     const context = vm.createContext({});
     vm.runInContext(section('const captionClampOverrides =', '            const captionCuePositionKnown ='), context);
     for (const timeDomain of ['output', 'source', undefined]) {
         context.caption = { id: 'c1', timeDomain };
-        assert.equal(vm.runInContext('captionClampEnabled(caption)', context), timeDomain !== 'output');
+        assert.equal(vm.runInContext('captionClampEnabled(caption)', context), false);
     }
     vm.runInContext("captionClampOverrides.set('c1', false)", context);
     assert.equal(vm.runInContext('captionClampEnabled(caption)', context), false);
@@ -124,7 +128,7 @@ function hostMethod(name, bindings = {}) {
     return new Host();
 }
 
-test('write boundary accepts nine cue anchors and still rejects invalid anchors and group anchors', () => {
+test('write boundary accepts nine anchors and unbounded finite positions', () => {
     const host = hostMethod('isCaptionWriteRequest');
     const request = patch => ({ type: 'akari-preview-caption-write', requestId: 'r1', captionId: 'c1', patch });
     for (const anchor of ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br', 'invalid']) {
@@ -133,8 +137,11 @@ test('write boundary accepts nine cue anchors and still rejects invalid anchors 
         assert.equal(host.isCaptionWriteRequest(request({ plateTransform: {
             captionIds: ['c1'], scale: 1, rotate: 0, cuePosition: { captionId: 'c1', value }
         } })), anchor !== 'invalid');
-        assert.equal(host.isCaptionWriteRequest(request({ groupPosition: value })), ['bc', 'tc'].includes(anchor));
+        assert.equal(host.isCaptionWriteRequest(request({ groupPosition: value })), anchor !== 'invalid');
     }
+    assert.equal(host.isCaptionWriteRequest(request({ cuePosition: {
+        anchor: 'bc', position: { x: -2.4, y: 3.2 }
+    } })), true);
 });
 
 test('resolved captions retain original domains using source cue ids, not their normalized clocks', async () => {

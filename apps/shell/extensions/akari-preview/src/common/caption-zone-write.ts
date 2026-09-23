@@ -36,10 +36,7 @@ export interface CaptionCuePosition {
     position: { x?: number; y: number };
 }
 
-export interface CaptionGroupPosition extends CaptionCuePosition {
-    anchor: 'bc' | 'tc';
-    position: { x?: number; y: number };
-}
+export type CaptionGroupPosition = CaptionCuePosition;
 
 export interface CaptionPlateRect {
     left: number;
@@ -126,50 +123,31 @@ function defaultTextStyle(root: Record<string, unknown>): Record<string, unknown
     return style;
 }
 
-const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 const round4 = (value: number): number => Math.round(value * 10_000) / 10_000;
 
 /** Resolve the deterministic group position represented by a dragged caption plate. */
 export function captionGroupPositionFromRects(
     plate: CaptionPlateRect,
-    frame: CaptionFrameRect
+    frame: CaptionFrameRect,
+    anchor: CaptionPositionAnchor = 'bc'
 ): CaptionGroupPosition {
-    if (!(frame.width > 0) || !(frame.height > 0)) {
-        throw new Error('出力フレームの幅と高さは正数である必要があります');
-    }
-    const centerRatio = ((plate.left + plate.right) / 2 - frame.x) / frame.width;
-    const centered = Math.abs(centerRatio - 0.5) < 0.03;
-    let bottomRatio = (plate.bottom - frame.y) / frame.height;
-    if (Math.abs(bottomRatio - 0.93) < 0.02) bottomRatio = 0.93;
-    const topRatio = (plate.top - frame.y) / frame.height;
-    const anchor = topRatio < 1 / 3 ? 'tc' : 'bc';
-    const position: CaptionGroupPosition['position'] = {
-        y: round4(clamp01(anchor === 'tc' ? topRatio : bottomRatio))
-    };
-    if (!centered) {
-        position.x = round4(clamp01((plate.left - frame.x) / frame.width));
-    }
-    return { anchor, position };
+    return captionCuePositionFromRects(plate, frame, { anchor, clamp: false });
 }
 
 /** Resolve one cue position represented by a dragged caption plate. */
 export function captionCuePositionFromRects(
     plate: CaptionPlateRect,
     frame: CaptionFrameRect,
-    options: { clamp: boolean }
-): CaptionGroupPosition {
+    options: { clamp: boolean; anchor?: CaptionPositionAnchor }
+): CaptionCuePosition {
     if (!(frame.width > 0) || !(frame.height > 0)) {
         throw new Error('出力フレームの幅と高さは正数である必要があります');
     }
-    const centerRatio = ((plate.left + plate.right) / 2 - frame.x) / frame.width;
-    const centered = Math.abs(centerRatio - 0.5) < 0.03;
-    let bottomRatio = (plate.bottom - frame.y) / frame.height;
-    if (Math.abs(bottomRatio - 0.93) < 0.02) bottomRatio = 0.93;
     const topRatio = (plate.top - frame.y) / frame.height;
-    const anchor = topRatio < 1 / 3 ? 'tc' : 'bc';
+    const anchor = options.anchor ?? (topRatio < 1 / 3 ? 'tc' : 'bc');
     let x = (plate.left - frame.x) / frame.width;
-    let y = anchor === 'tc' ? topRatio : bottomRatio;
-    let forceX = false;
+    const height = (plate.bottom - plate.top) / frame.height;
+    let y = topRatio + (anchor[0] === 'b' ? height : anchor[0] === 'm' ? height / 2 : 0);
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
         throw new Error('字幕位置は有限数である必要があります');
     }
@@ -179,21 +157,21 @@ export function captionCuePositionFromRects(
         const maxX = 1 - plateW / frame.width;
         if (maxX < 0) {
             x = 0;
-            forceX = true;
         } else {
             x = Math.min(maxX, Math.max(0, x));
         }
-        if (anchor === 'bc') {
+        if (anchor[0] === 'b') {
             const minY = plateH / frame.height;
             y = minY > 1 ? 1 : Math.min(1, Math.max(minY, y));
-        } else {
+        } else if (anchor[0] === 't') {
             const maxY = 1 - plateH / frame.height;
             y = maxY < 0 ? 0 : Math.min(maxY, Math.max(0, y));
+        } else {
+            const half = plateH / frame.height / 2;
+            y = Math.min(1 - half, Math.max(half, y));
         }
     }
-    const position: CaptionGroupPosition['position'] = { y: round4(y) };
-    if (!centered || forceX) position.x = round4(x);
-    return { anchor, position };
+    return { anchor, position: { x: round4(x), y: round4(y) } };
 }
 
 /** Placed text keeps its anchor. Explicit x is the left edge in the caption renderer,
@@ -268,6 +246,67 @@ export function clearCaptionCuePositionSource(source: string, captionId: string)
         delete currentStyle.text_anchor;
         delete currentStyle.position;
         if (Object.keys(currentStyle).length === 0) delete caption.text_style;
+    }
+    return `${JSON.stringify(root, undefined, 2)}\n`;
+}
+
+/** Remove cue-only placement and transform values so the group defaults apply again. */
+export function resetCaptionCueGeometrySource(source: string, captionIds: readonly string[]): string {
+    const root: unknown = JSON.parse(source);
+    const list = captionList(root);
+    for (const id of new Set(captionIds)) {
+        const caption = list[captionIndex(list, id)] as Record<string, unknown>;
+        const style = caption.text_style && typeof caption.text_style === 'object'
+            && !Array.isArray(caption.text_style)
+            ? caption.text_style as Record<string, unknown> : undefined;
+        if (!style) continue;
+        delete style.text_anchor;
+        delete style.position;
+        delete style.scale;
+        delete style.rotate;
+        if (Object.keys(style).length === 0) delete caption.text_style;
+    }
+    return `${JSON.stringify(root, undefined, 2)}\n`;
+}
+
+export type CaptionToolStylePatch =
+    | { field: 'font_weight'; value: number | null }
+    | { field: 'color' | 'stroke.color' | 'background.color'; value: string }
+    | { field: 'background.opacity'; value: number };
+
+/** Apply a mini-panel style change to precisely the selected cue IDs. */
+export function updateCaptionToolStyleSource(
+    source: string, captionIds: readonly string[], patch: CaptionToolStylePatch
+): string {
+    const root: unknown = JSON.parse(source);
+    const list = captionList(root);
+    for (const id of new Set(captionIds)) {
+        const caption = list[captionIndex(list, id)] as Record<string, unknown>;
+        const style = caption.text_style && typeof caption.text_style === 'object'
+            && !Array.isArray(caption.text_style)
+            ? caption.text_style as Record<string, unknown> : {};
+        const [parent, child] = patch.field.split('.');
+        if (child) {
+            const nested = style[parent] && typeof style[parent] === 'object'
+                && !Array.isArray(style[parent])
+                ? style[parent] as Record<string, unknown> : {};
+            nested[child] = patch.value;
+            style[parent] = nested;
+            if (patch.field === 'background.color' && nested.opacity === 0) nested.opacity = 0.75;
+        } else {
+            if (patch.field === 'font_weight') {
+                if (patch.value === null) {
+                    delete style.font_weight;
+                    delete style.weight;
+                } else {
+                    style.font_weight = patch.value;
+                    style.weight = patch.value;
+                }
+            } else {
+                style[parent] = patch.value;
+            }
+        }
+        caption.text_style = style;
     }
     return `${JSON.stringify(root, undefined, 2)}\n`;
 }

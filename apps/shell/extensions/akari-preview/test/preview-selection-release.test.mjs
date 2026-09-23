@@ -268,7 +268,7 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
             document: { getElementById: () => ({ getBoundingClientRect: () => ({ width: 800 * zoom, height: 450 * zoom }) }) },
             window: { akari: { stageScale: () => scale } },
             summary: { output: { width: 1280, height: 720 } }, selectedCaptionId: 'c1',
-            captionSelectBox: { style: {}, classList: { add() {} } }, updateCaptionSelectTools() {},
+            captionSelectBox: { style: {}, classList: { add() {} } }, updateCaptionSelectTools() {}, updateCaptionRowBox() {},
             captionPlate: {
                 querySelector: () => null, querySelectorAll: () => [],
                 getBoundingClientRect: () => ({

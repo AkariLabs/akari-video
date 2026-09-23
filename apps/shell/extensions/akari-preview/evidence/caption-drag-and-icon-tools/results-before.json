@@ -1,0 +1,838 @@
+{
+  "phase": "before",
+  "status": "recorded",
+  "checks": [
+    {
+      "name": "選択枠: 字幕を選ぶと見える枠の本数・幅・黄色の outline",
+      "pass": true,
+      "detail": {
+        "frameW": 676,
+        "ink": {
+          "left": 205.62,
+          "top": 353.8,
+          "width": 336.75,
+          "height": 31.7
+        },
+        "selectBox": {
+          "active": true,
+          "left": 205.62,
+          "top": 353.8,
+          "width": 336.74,
+          "height": 31.7,
+          "border": "dashed 1.5px rgb(77, 163, 255)"
+        },
+        "frames": [
+          {
+            "tag": "div",
+            "id": "",
+            "cls": "akari-caption__plate",
+            "kind": "outline",
+            "style": "solid",
+            "color": "rgb(245, 196, 81)",
+            "width": 1.5,
+            "offset": "4px",
+            "rect": {
+              "left": 36,
+              "top": 353.8,
+              "width": 676,
+              "height": 31.7
+            }
+          },
+          {
+            "tag": "div",
+            "id": "caption-select-box",
+            "cls": "is-active",
+            "kind": "border",
+            "style": "dashed",
+            "color": "rgb(77, 163, 255)",
+            "width": 1.5,
+            "offset": null,
+            "rect": {
+              "left": 205.62,
+              "top": 353.8,
+              "width": 336.74,
+              "height": 31.7
+            }
+          }
+        ],
+        "frameCount": 2,
+        "yellowOutlines": 1,
+        "yellowDetail": [
+          {
+            "cls": "akari-caption__plate",
+            "id": ""
+          }
+        ],
+        "plateBox": {
+          "left": 36,
+          "right": 712,
+          "width": 676
+        },
+        "selectBoxMinusInkPx": -0.01,
+        "selectBoxWidthRatio": 0.4981
+      }
+    },
+    {
+      "name": "吸着: 中央から 6 / 10 / 14 / 20px（押したまま測る）→ 20px で離して保存",
+      "pass": true,
+      "detail": {
+        "startOffsetPx": 0,
+        "probes": {
+          "+6": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "+10": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "+14": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "+20": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "y": 0.93
+          }
+        },
+        "settled": {
+          "cxOffPx": 0,
+          "left": 169.62,
+          "top": 321.93,
+          "right": 506.37,
+          "bottom": 353.63,
+          "w": 336.75,
+          "h": 31.7,
+          "lines": 1
+        }
+      }
+    },
+    {
+      "name": "吸着: 20px の位置から中央へ 6px まで寄せる → 中央に吸着して保存",
+      "pass": true,
+      "detail": {
+        "startOffsetPx": 0,
+        "probes": {
+          "+6": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "y": 0.93
+          }
+        },
+        "settled": {
+          "cxOffPx": 0,
+          "left": 169.62,
+          "top": 321.93,
+          "right": 506.37,
+          "bottom": 353.63,
+          "w": 336.75,
+          "h": 31.7,
+          "lines": 1
+        }
+      }
+    },
+    {
+      "name": "吸着: Alt を押したまま中央から 6px → 吸着しない",
+      "pass": true,
+      "detail": {
+        "startOffsetPx": 0,
+        "probes": {
+          "alt+6": {
+            "cxOffPx": 0,
+            "left": 169.63,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "y": 0.93
+          }
+        },
+        "settled": {
+          "cxOffPx": 0,
+          "left": 169.62,
+          "top": 321.93,
+          "right": 506.37,
+          "bottom": 353.63,
+          "w": 336.75,
+          "h": 31.7,
+          "lines": 1
+        },
+        "defaultTextStyle": {
+          "zone": "bottom"
+        }
+      }
+    },
+    {
+      "name": "保存: 中央吸着（c-0004）— 離す瞬間と保存後の描画",
+      "pass": true,
+      "detail": {
+        "id": "c-0004",
+        "initial": {
+          "cxOffPx": 0,
+          "left": 149.55,
+          "top": 288.11,
+          "right": 526.44,
+          "bottom": 353.63,
+          "w": 376.89,
+          "h": 65.52,
+          "lines": 2
+        },
+        "hold": {
+          "cxOffPx": 0,
+          "left": 149.56,
+          "top": 250.32,
+          "right": 526.44,
+          "bottom": 315.84,
+          "w": 376.89,
+          "h": 65.52,
+          "lines": 2
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "y": 0.8306
+          }
+        },
+        "settled": {
+          "cxOffPx": 0,
+          "left": 149.55,
+          "top": 250.32,
+          "right": 526.44,
+          "bottom": 315.84,
+          "w": 376.89,
+          "h": 65.52,
+          "lines": 2
+        },
+        "diff": {
+          "left": -0.01,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "保存: 左寄り（c-0005）— 離す瞬間と保存後の描画",
+      "pass": true,
+      "detail": {
+        "id": "c-0005",
+        "initial": {
+          "cxOffPx": 0,
+          "left": 128.89,
+          "top": 288.11,
+          "right": 547.11,
+          "bottom": 353.63,
+          "w": 418.23,
+          "h": 65.52,
+          "lines": 2
+        },
+        "hold": {
+          "cxOffPx": -128.89,
+          "left": 0,
+          "top": 219.9,
+          "right": 418.23,
+          "bottom": 285.42,
+          "w": 418.23,
+          "h": 65.52,
+          "lines": 2
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0,
+            "y": 0.7506
+          }
+        },
+        "settled": {
+          "cxOffPx": -128.89,
+          "left": 0,
+          "top": 219.9,
+          "right": 418.23,
+          "bottom": 285.42,
+          "w": 418.23,
+          "h": 65.52,
+          "lines": 2
+        },
+        "diff": {
+          "left": 0,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "保存: 右寄り（c-0006）— 離す瞬間と保存後の描画",
+      "pass": true,
+      "detail": {
+        "id": "c-0006",
+        "initial": {
+          "cxOffPx": 0,
+          "left": 179.06,
+          "top": 288.11,
+          "right": 496.94,
+          "bottom": 353.63,
+          "w": 317.88,
+          "h": 65.52,
+          "lines": 2
+        },
+        "hold": {
+          "cxOffPx": 135.2,
+          "left": 314.25,
+          "top": 288.11,
+          "right": 632.14,
+          "bottom": 353.63,
+          "w": 317.88,
+          "h": 65.52,
+          "lines": 2
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.4649,
+            "y": 0.93
+          }
+        },
+        "settled": {
+          "cxOffPx": 130.23,
+          "left": 314.27,
+          "top": 288.11,
+          "right": 622.18,
+          "bottom": 353.63,
+          "w": 307.91,
+          "h": 65.52,
+          "lines": 2
+        },
+        "diff": {
+          "left": 0.02,
+          "top": 0,
+          "w": -9.97,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "はみ出し: 既定のまま字幕の半分を画面の左の外へ → 保存",
+      "pass": true,
+      "detail": {
+        "hold": {
+          "cxOffPx": -179.36,
+          "left": 0,
+          "top": 193.28,
+          "right": 317.28,
+          "bottom": 224.98,
+          "w": 317.28,
+          "h": 31.7,
+          "lines": 1
+        },
+        "saved": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0,
+            "y": 0.5917
+          }
+        },
+        "settled": {
+          "cxOffPx": -179.36,
+          "left": 0,
+          "top": 193.29,
+          "right": 317.28,
+          "bottom": 225,
+          "w": 317.28,
+          "h": 31.7,
+          "lines": 1
+        },
+        "outsideRatio": 0
+      }
+    },
+    {
+      "name": "ミニパネル: 選んだ字幕の上に浮く道具の中身",
+      "pass": true,
+      "detail": {
+        "tools": {
+          "items": [
+            {
+              "tag": "div",
+              "cls": "akari-caption-group-badge",
+              "text": "この字幕だけ動く — ⌥ドラッグで全字幕",
+              "title": null,
+              "aria": null,
+              "pressed": null,
+              "hasSvg": false
+            },
+            {
+              "tag": "button",
+              "cls": "akari-caption-clamp-chip on",
+              "text": "🧲 はみ出し防止 ON",
+              "title": null,
+              "aria": null,
+              "pressed": null,
+              "hasSvg": false
+            }
+          ],
+          "text": "この字幕だけ動く — ⌥ドラッグで全字幕\n🧲 はみ出し防止 ON",
+          "emoji": [
+            "🧲"
+          ]
+        },
+        "selectBox": {
+          "active": true,
+          "left": 205.02,
+          "top": 353.8,
+          "width": 337.95,
+          "height": 31.7,
+          "border": "dashed 1.5px rgb(77, 163, 255)"
+        }
+      }
+    },
+    {
+      "name": "再読込: 離した瞬間（hold）と再読込後の描画 — 3 ケース + はみ出し",
+      "pass": true,
+      "detail": {
+        "中央吸着": {
+          "reloaded": {
+            "cxOffPx": 0,
+            "left": 149.55,
+            "top": 250.32,
+            "right": 526.44,
+            "bottom": 315.84,
+            "w": 376.89,
+            "h": 65.52,
+            "lines": 2
+          },
+          "hold": {
+            "cxOffPx": 0,
+            "left": 149.56,
+            "top": 250.32,
+            "right": 526.44,
+            "bottom": 315.84,
+            "w": 376.89,
+            "h": 65.52,
+            "lines": 2
+          },
+          "diff": {
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "左寄り": {
+          "reloaded": {
+            "cxOffPx": -128.89,
+            "left": 0,
+            "top": 219.9,
+            "right": 418.23,
+            "bottom": 285.42,
+            "w": 418.23,
+            "h": 65.52,
+            "lines": 2
+          },
+          "hold": {
+            "cxOffPx": -128.89,
+            "left": 0,
+            "top": 219.9,
+            "right": 418.23,
+            "bottom": 285.42,
+            "w": 418.23,
+            "h": 65.52,
+            "lines": 2
+          },
+          "diff": {
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "右寄り": {
+          "reloaded": {
+            "cxOffPx": 130.23,
+            "left": 314.27,
+            "top": 288.11,
+            "right": 622.18,
+            "bottom": 353.63,
+            "w": 307.91,
+            "h": 65.52,
+            "lines": 2
+          },
+          "hold": {
+            "cxOffPx": 135.2,
+            "left": 314.25,
+            "top": 288.11,
+            "right": 632.14,
+            "bottom": 353.63,
+            "w": 317.88,
+            "h": 65.52,
+            "lines": 2
+          },
+          "diff": {
+            "left": 0.02,
+            "top": 0,
+            "w": -9.97,
+            "lines": 0
+          }
+        },
+        "はみ出し": {
+          "reloaded": {
+            "cxOffPx": -179.36,
+            "left": 0,
+            "top": 193.29,
+            "right": 317.28,
+            "bottom": 225,
+            "w": 317.28,
+            "h": 31.7,
+            "lines": 1
+          },
+          "hold": {
+            "cxOffPx": -179.36,
+            "left": 0,
+            "top": 193.28,
+            "right": 317.28,
+            "bottom": 224.98,
+            "w": 317.28,
+            "h": 31.7,
+            "lines": 1
+          },
+          "diff": {
+            "left": 0,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0001": {
+          "reloaded": {
+            "cxOffPx": 0,
+            "left": 169.62,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          },
+          "beforeReload": {
+            "cxOffPx": 0,
+            "left": 169.62,
+            "top": 321.93,
+            "right": 506.37,
+            "bottom": 353.63,
+            "w": 336.75,
+            "h": 31.7,
+            "lines": 1
+          }
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "before-01-selected.png",
+    "before-02-snap-20px.png",
+    "before-03-right-case.png",
+    "before-04-overflow.png",
+    "before-05-tools.png",
+    "before-06-reload-overflow.png"
+  ],
+  "pids": [
+    47342,
+    51892
+  ],
+  "consoleWarnings": [
+    "2026-09-23T04:05:11.993Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at iac (file://<worktree>/apps/shell/lib/frontend/bundle.js:13678:36699)\n ",
+    "2026-09-23T04:05:20.003Z root WARN [akari-preview] speech sidecar cut-base-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>"
+  ],
+  "calibration": {
+    "sx": 1,
+    "sy": 1,
+    "dx": 57,
+    "dy": 39,
+    "iframe": {
+      "left": 57,
+      "top": 39,
+      "width": 748,
+      "height": 501.890625
+    }
+  },
+  "frame": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  },
+  "saveCases": [
+    {
+      "id": "c-0004",
+      "initial": {
+        "cxOffPx": 0,
+        "left": 149.55,
+        "top": 288.11,
+        "right": 526.44,
+        "bottom": 353.63,
+        "w": 376.89,
+        "h": 65.52,
+        "lines": 2
+      },
+      "hold": {
+        "cxOffPx": 0,
+        "left": 149.56,
+        "top": 250.32,
+        "right": 526.44,
+        "bottom": 315.84,
+        "w": 376.89,
+        "h": 65.52,
+        "lines": 2
+      },
+      "saved": {
+        "text_anchor": "bc",
+        "position": {
+          "y": 0.8306
+        }
+      },
+      "settled": {
+        "cxOffPx": 0,
+        "left": 149.55,
+        "top": 250.32,
+        "right": 526.44,
+        "bottom": 315.84,
+        "w": 376.89,
+        "h": 65.52,
+        "lines": 2
+      },
+      "diff": {
+        "left": -0.01,
+        "top": 0,
+        "w": 0,
+        "lines": 0
+      }
+    },
+    {
+      "id": "c-0005",
+      "initial": {
+        "cxOffPx": 0,
+        "left": 128.89,
+        "top": 288.11,
+        "right": 547.11,
+        "bottom": 353.63,
+        "w": 418.23,
+        "h": 65.52,
+        "lines": 2
+      },
+      "hold": {
+        "cxOffPx": -128.89,
+        "left": 0,
+        "top": 219.9,
+        "right": 418.23,
+        "bottom": 285.42,
+        "w": 418.23,
+        "h": 65.52,
+        "lines": 2
+      },
+      "saved": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0,
+          "y": 0.7506
+        }
+      },
+      "settled": {
+        "cxOffPx": -128.89,
+        "left": 0,
+        "top": 219.9,
+        "right": 418.23,
+        "bottom": 285.42,
+        "w": 418.23,
+        "h": 65.52,
+        "lines": 2
+      },
+      "diff": {
+        "left": 0,
+        "top": 0,
+        "w": 0,
+        "lines": 0
+      }
+    },
+    {
+      "id": "c-0006",
+      "initial": {
+        "cxOffPx": 0,
+        "left": 179.06,
+        "top": 288.11,
+        "right": 496.94,
+        "bottom": 353.63,
+        "w": 317.88,
+        "h": 65.52,
+        "lines": 2
+      },
+      "hold": {
+        "cxOffPx": 135.2,
+        "left": 314.25,
+        "top": 288.11,
+        "right": 632.14,
+        "bottom": 353.63,
+        "w": 317.88,
+        "h": 65.52,
+        "lines": 2
+      },
+      "saved": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.4649,
+          "y": 0.93
+        }
+      },
+      "settled": {
+        "cxOffPx": 130.23,
+        "left": 314.27,
+        "top": 288.11,
+        "right": 622.18,
+        "bottom": 353.63,
+        "w": 307.91,
+        "h": 65.52,
+        "lines": 2
+      },
+      "diff": {
+        "left": 0.02,
+        "top": 0,
+        "w": -9.97,
+        "lines": 0
+      }
+    }
+  ],
+  "overflow": {
+    "hold": {
+      "cxOffPx": -179.36,
+      "left": 0,
+      "top": 193.28,
+      "right": 317.28,
+      "bottom": 224.98,
+      "w": 317.28,
+      "h": 31.7,
+      "lines": 1
+    },
+    "saved": {
+      "text_anchor": "bc",
+      "position": {
+        "x": 0,
+        "y": 0.5917
+      }
+    },
+    "settled": {
+      "cxOffPx": -179.36,
+      "left": 0,
+      "top": 193.29,
+      "right": 317.28,
+      "bottom": 225,
+      "w": 317.28,
+      "h": 31.7,
+      "lines": 1
+    },
+    "outsideRatio": 0
+  },
+  "renderedBeforeReload": {
+    "c-0001": {
+      "cxOffPx": 0,
+      "left": 169.62,
+      "top": 321.93,
+      "right": 506.37,
+      "bottom": 353.63,
+      "w": 336.75,
+      "h": 31.7,
+      "lines": 1
+    },
+    "c-0003": {
+      "cxOffPx": -179.36,
+      "left": 0,
+      "top": 193.29,
+      "right": 317.28,
+      "bottom": 225,
+      "w": 317.28,
+      "h": 31.7,
+      "lines": 1
+    },
+    "c-0004": {
+      "cxOffPx": 0,
+      "left": 149.55,
+      "top": 250.32,
+      "right": 526.44,
+      "bottom": 315.84,
+      "w": 376.89,
+      "h": 65.52,
+      "lines": 2
+    },
+    "c-0005": {
+      "cxOffPx": -128.89,
+      "left": 0,
+      "top": 219.9,
+      "right": 418.23,
+      "bottom": 285.42,
+      "w": 418.23,
+      "h": 65.52,
+      "lines": 2
+    },
+    "c-0006": {
+      "cxOffPx": 130.23,
+      "left": 314.27,
+      "top": 288.11,
+      "right": 622.18,
+      "bottom": 353.63,
+      "w": 307.91,
+      "h": 65.52,
+      "lines": 2
+    }
+  },
+  "frameAfterReload": {
+    "x": 36,
+    "y": 31.875,
+    "w": 676,
+    "h": 380.25
+  }
+}

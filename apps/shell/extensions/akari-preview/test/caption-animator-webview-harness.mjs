@@ -154,7 +154,7 @@ export function harness({ text = source, cues = [], engine = true, available = t
     vm.runInContext(section(text, 'let requestedOverlayId;', 'const onMainVideoLoadedMetadata ='), context);
     vm.runInContext(section(text, 'const selectLayer = (layerId, options)', '// ㉒ スナップ統一:'), context);
     vm.runInContext(section(text, 'const selectCut = options =>', 'for (const handle of cutHandleElements)'), context);
-    vm.runInContext(section(text, 'const selectCaption = (captionId, options)', "captionClampChip.addEventListener('click'"), context);
+    vm.runInContext(section(text, 'const selectCaption = (captionId, options)', 'const captionToolTargets ='), context);
     vm.runInContext(section(text, 'const tick = (immediatePlaybackTick', 'const runTickGuarded ='), context);
     vm.runInContext(section(text, 'const seekTimelineTime =', 'const applyInitialPosition ='), context);
     return {

@@ -97,6 +97,7 @@ import {
 import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { previewContentEnd } from '../common/preview-content-end';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
+import { captionRowWrapRect } from '../common/caption-row-box';
 import {
     placedCaptionPositionFromRects,
     type CaptionCuePosition,
@@ -105,7 +106,10 @@ import {
     persistCaptionGroupPosition,
     persistCaptionGroupZone,
     persistCaptionText,
-    persistCaptionZone
+    persistCaptionZone,
+    updateCaptionToolStyleSource,
+    resetCaptionCueGeometrySource,
+    type CaptionToolStylePatch
 } from '../common/caption-zone-write';
 import { persistCaptionPlateTransform } from '../common/caption-plate-handles';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
@@ -837,7 +841,7 @@ interface CaptionWriteRequest {
     patch: { zone: CaptionZoneValue }
         | { text: string }
         | { groupZone: CaptionZoneValue }
-        | { groupPosition: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } } }
+        | { groupPosition: CaptionCuePosition }
         | { cuePosition: CaptionCuePosition }
         | {
             plateTransform: {
@@ -850,7 +854,9 @@ interface CaptionWriteRequest {
                 };
             };
         }
-        | { cuePositionReset: true };
+        | { cuePositionReset: true }
+        | { cueGeometryReset: { captionIds: string[] } }
+        | { toolStyle: { captionIds: string[]; change: CaptionToolStylePatch } };
 }
 
 interface PreviewCaptionSelectedRequest {
@@ -3320,6 +3326,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             if (this.isCaptionWriteRequest(message)) {
                 this.captionWriteTail = this.captionWriteTail.then(() => this.handleCaptionWrite(widget, message));
+            }
+            if (message?.type === 'akari-preview-caption-inspector'
+                && ['caption-style', 'caption-style-color', 'caption-style-stroke-color', 'caption-style-bg-color'].includes(message.field)) {
+                const command = this.commandRegistry.getCommand('akari.inspector.revealField');
+                void this.commandRegistry.executeCommand(
+                    command ? 'akari.inspector.revealField' : 'akari.inspector.open',
+                    ...(command ? [{ field: message.field }] : [])
+                );
             }
             if (this.isReviewTransportRequest(message)) {
                 this.forwardReviewTransport(widget, message);
@@ -6557,7 +6571,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
                 }
             };
-            const lintResult = 'text' in request.patch
+            const toolStyle = 'toolStyle' in request.patch ? request.patch.toolStyle : undefined;
+            const geometryReset = 'cueGeometryReset' in request.patch ? request.patch.cueGeometryReset : undefined;
+            const lintResult = geometryReset
+                ? await (async () => {
+                    const candidate = resetCaptionCueGeometrySource(originalText, geometryReset.captionIds);
+                    const result = await persistOptions.lint(candidate);
+                    if (result.pass) await persistOptions.write(candidate);
+                    return result;
+                })()
+                : toolStyle
+                ? await (async () => {
+                    const candidate = updateCaptionToolStyleSource(
+                        originalText, toolStyle.captionIds, toolStyle.change
+                    );
+                    const result = await persistOptions.lint(candidate);
+                    if (result.pass) await persistOptions.write(candidate);
+                    return result;
+                })()
+                : 'text' in request.patch
                 ? await persistCaptionText({ ...persistOptions, text: request.patch.text })
                 : 'plateTransform' in request.patch
                     ? await persistCaptionPlateTransform({
@@ -6594,7 +6626,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                                 })
                                 : await persistCaptionZone({
                                     ...persistOptions,
-                                    zone: request.patch.zone
+                                    zone: 'zone' in request.patch ? request.patch.zone : 'bottom'
                                 });
             if (!lintResult.pass) {
                 respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
@@ -6613,23 +6645,35 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const hasGroupZone = typeof message?.patch?.groupZone === 'string';
         const groupPosition = message?.patch?.groupPosition;
         const hasGroupPosition = groupPosition
-            && (groupPosition.anchor === 'bc' || groupPosition.anchor === 'tc')
+            && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(groupPosition.anchor)
             && groupPosition.position && typeof groupPosition.position === 'object'
             && Number.isFinite(groupPosition.position.y)
-            && groupPosition.position.y >= 0 && groupPosition.position.y <= 1
             && (groupPosition.position.x === undefined
-                || (Number.isFinite(groupPosition.position.x)
-                    && groupPosition.position.x >= 0 && groupPosition.position.x <= 1));
+                || Number.isFinite(groupPosition.position.x));
         const cuePosition = message?.patch?.cuePosition;
         const hasCuePosition = cuePosition
             && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(cuePosition.anchor)
             && cuePosition.position && typeof cuePosition.position === 'object'
             && Number.isFinite(cuePosition.position.y)
-            && cuePosition.position.y >= -1 && cuePosition.position.y <= 2
             && (cuePosition.position.x === undefined
-                || (Number.isFinite(cuePosition.position.x)
-                    && cuePosition.position.x >= -1 && cuePosition.position.x <= 2));
+                || Number.isFinite(cuePosition.position.x));
         const hasCuePositionReset = message?.patch?.cuePositionReset === true;
+        const geometryReset = message?.patch?.cueGeometryReset;
+        const hasGeometryReset = !!geometryReset && Array.isArray(geometryReset.captionIds)
+            && geometryReset.captionIds.length > 0
+            && geometryReset.captionIds.every((id: unknown) => typeof id === 'string' && id.length > 0);
+        const toolStyle = message?.patch?.toolStyle;
+        const hasToolStyle = !!toolStyle && Array.isArray(toolStyle.captionIds)
+            && toolStyle.captionIds.length > 0
+            && toolStyle.captionIds.every((id: unknown) => typeof id === 'string' && id.length > 0)
+            && ['font_weight', 'color', 'stroke.color', 'background.color', 'background.opacity']
+                .includes(toolStyle.change?.field)
+            && (toolStyle.change.field === 'font_weight'
+                ? toolStyle.change.value === null || (Number.isInteger(toolStyle.change.value)
+                    && toolStyle.change.value >= 100 && toolStyle.change.value <= 900)
+                : toolStyle.change.field === 'background.opacity'
+                    ? Number.isFinite(toolStyle.change.value) && toolStyle.change.value >= 0 && toolStyle.change.value <= 1
+                    : typeof toolStyle.change.value === 'string' && /^#[0-9a-fA-F]{6}$/.test(toolStyle.change.value));
         const plateTransform = message?.patch?.plateTransform;
         const plateCuePosition = plateTransform?.cuePosition;
         const hasValidPlateCuePosition = plateCuePosition === undefined || (
@@ -6637,11 +6681,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(plateCuePosition.value?.anchor)
             && plateCuePosition.value?.position && typeof plateCuePosition.value.position === 'object'
             && Number.isFinite(plateCuePosition.value.position.y)
-            && plateCuePosition.value.position.y >= -1 && plateCuePosition.value.position.y <= 2
             && (plateCuePosition.value.position.x === undefined
-                || (Number.isFinite(plateCuePosition.value.position.x)
-                    && plateCuePosition.value.position.x >= -1
-                    && plateCuePosition.value.position.x <= 2))
+                || Number.isFinite(plateCuePosition.value.position.x))
         );
         const hasPlateScale = plateTransform?.scale !== undefined
             && Number.isFinite(plateTransform.scale)
@@ -6663,7 +6704,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && message.patch
             && typeof message.patch === 'object'
             && [hasZone, hasText, hasGroupZone, !!hasGroupPosition,
-                !!hasCuePosition, hasCuePositionReset, hasPlateTransform].filter(Boolean).length === 1;
+                !!hasCuePosition, hasCuePositionReset, hasPlateTransform, hasToolStyle, hasGeometryReset].filter(Boolean).length === 1;
     }
 
     protected async persistCaptionGroupZoneForWidget(
@@ -7183,21 +7224,33 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #cut-select-box .akari-cut-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
 #cut-select-box .akari-cut-handle-rotate { top: 0; left: 50%; margin-top: -34px; border-radius: 50%; cursor: grab; }
 #cut-select-box .akari-cut-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
-#caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px dashed #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
+:root { --akari-caption-select-color: #4da3ff; }
+#caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #caption-select-box.is-active { display: block; }
-#caption-select-box .akari-caption-select-tools { position: absolute; left: -1px; bottom: calc(100% + 6px); display: flex; align-items: center; gap: 5px; white-space: nowrap; pointer-events: none; }
-#caption-select-box .akari-caption-group-badge { position: relative; display: inline-flex; align-items: center; min-height: 20px; padding: 2px 8px; border: 1px solid #4da3ff; border-radius: 999px; background: var(--vscode-editor-background, rgba(20,20,20,.92)); color: var(--vscode-textLink-foreground, #75beff); font-size: 10px; font-weight: 600; line-height: 1.3; white-space: nowrap; pointer-events: none; }
-#caption-select-box .akari-caption-clamp-chip, #caption-select-box .akari-caption-position-reset { pointer-events: auto; font-size: 10px; font-weight: 700; color: #8a93a5; background: rgba(8,9,11,.6); border: 1px solid #333b48; border-radius: 999px; padding: 2px 9px; cursor: pointer; white-space: nowrap; }
-#caption-select-box .akari-caption-clamp-chip.on { color: #7fe7d3; border-color: rgba(83,209,188,.4); }
-#caption-select-box .akari-caption-clamp-chip:hover, #caption-select-box .akari-caption-position-reset:hover { color: #e9ecf2; }
-#caption-select-box .akari-caption-position-reset[hidden] { display: none; }
-.akari-caption-drag-guide { position: absolute; z-index: 1890; display: none; box-sizing: border-box; border-color: var(--vscode-editorWarning-foreground, #cca700); color: var(--vscode-editorWarning-foreground, #cca700); pointer-events: none; }
-.akari-caption-drag-guide.is-active { display: block; }
-.akari-caption-drag-guide--center { width: 1px; border-left: 1px solid currentColor; }
-.akari-caption-drag-guide--bottom { height: 1px; border-top: 1px solid currentColor; }
-.akari-caption-drag-guide__label { position: absolute; padding: 1px 4px; border-radius: 3px; background: var(--vscode-editor-background, rgba(20,20,20,.92)); font-size: 9px; line-height: 1.3; white-space: nowrap; }
-.akari-caption-drag-guide--center .akari-caption-drag-guide__label { top: 2px; left: 4px; }
-.akari-caption-drag-guide--bottom .akari-caption-drag-guide__label { right: 2px; bottom: 4px; }
+#caption-select-box[data-alt-all] { border-style: dashed; }
+#caption-select-box .akari-caption-select-tools { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 6px); display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.96); box-shadow: 0 4px 14px #0008; white-space: nowrap; pointer-events: auto; }
+.akari-caption-tool-separator { width: 1px; height: 18px; margin: 0 3px; background: #333842; }
+#caption-select-box [data-caption-tool] { position: relative; width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #aab1bd; cursor: pointer; pointer-events: auto; }
+#caption-select-box [data-caption-tool]:hover { background: #2b2f38; color: #fff; }
+#caption-select-box [data-caption-tool].on { background: #2d3b52; color: #bcdcff; }
+#caption-select-box [data-caption-tool] svg { width: 16px; height: 16px; display: block; }
+#caption-select-box [data-caption-tool="bold"] { font: 900 15px Georgia, serif; }
+#caption-select-box [data-caption-tool="color"]::after { content: ''; position: absolute; left: 7px; right: 7px; bottom: 3px; height: 3px; border-radius: 2px; background: var(--caption-tool-color, #fff); }
+#caption-select-box .akari-caption-tool-tip { display: none; position: absolute; z-index: 10; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); padding: 5px 8px; border: 1px solid #333842; border-radius: 6px; background: #0b0c0e; color: #e6e6e6; font: 11px/1.45 sans-serif; white-space: nowrap; pointer-events: none; }
+#caption-select-box [data-caption-tool]:hover .akari-caption-tool-tip, #caption-select-box [data-caption-tool]:focus-visible .akari-caption-tool-tip { display: block; }
+#caption-select-box [data-caption-tool="reset"][hidden] { display: none; }
+#caption-select-box [data-caption-palette] { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 43px); width: 214px; padding: 8px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.98); box-shadow: 0 8px 24px #000a; pointer-events: auto; }
+#caption-select-box [data-caption-palette][hidden] { display: none; }
+#caption-select-box .akari-caption-palette-tabs { display: flex; gap: 4px; margin-bottom: 7px; }
+#caption-select-box [data-palette-tab] { flex: 1; border: 1px solid #333842; border-radius: 5px; background: transparent; color: #aab1bd; font: 11px sans-serif; cursor: pointer; }
+#caption-select-box [data-palette-tab].on { background: #2b2f38; color: #fff; }
+#caption-select-box .akari-caption-palette-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+#caption-select-box [data-color] { aspect-ratio: 1; border: 0; border-radius: 50%; cursor: pointer; box-shadow: inset 0 0 0 1px #ffffff55; }
+#caption-select-box .akari-caption-palette-label { color: #8a8f98; font: 10px sans-serif; margin: 7px 0 4px; }
+#caption-select-box [data-palette-more] { width: 100%; margin-top: 8px; padding: 5px; border: 1px dashed #4a5160; border-radius: 6px; background: transparent; color: #cfd5de; cursor: pointer; }
+#caption-row-box { position: absolute; z-index: 1889; display: none; box-sizing: border-box; border: 1px dashed #f5c45199; pointer-events: none; }
+#caption-row-box.is-active { display: block; }
+#caption-row-box span { position: absolute; right: 3px; bottom: calc(100% + 2px); padding: 0 5px; border-radius: 3px; background: #000a; color: #f5c451; font-size: 10px; white-space: nowrap; }
 #zone-hint-layer { position: absolute; inset: 0; pointer-events: none; z-index: 1870; }
 .zone-hint-box { position: absolute; box-sizing: border-box; border: 1px dashed var(--akari-focus-pulse, var(--akari-accent)); background: var(--akari-focus-pulse, var(--akari-accent)); opacity: .18; }
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
@@ -7238,21 +7291,15 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
 .caption-row-plate[data-output-caption] .akari-caption__plate { width: 92%; right: auto; }
 .caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }
-.caption-row-plate[data-selected] { outline: 1.5px solid #f5c451; outline-offset: 4px; }
-.caption-row-plate[data-alt-all] { outline-style: dashed; outline-color: #53d1bc; }
-.caption-row-plate.akari-caption-host--styled[data-selected] { outline: none; }
-.caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: 1.5px solid #f5c451; outline-offset: 4px; }
-.caption-row-plate.akari-caption-host--styled[data-alt-all] .akari-caption__plate { outline-style: dashed; outline-color: #53d1bc; }
+.caption-row-plate[data-selected], .caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: none; }
 .caption-row-plate .akari-caption-handle-box { position:absolute;pointer-events:none; }
-.caption-row-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid #f5c451;box-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:auto; }
+.caption-row-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid var(--akari-caption-select-color);box-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:auto; }
 .caption-row-plate .akari-caption-handle[data-h="nw"] { left:-10px;top:-10px;cursor:nwse-resize; }
 .caption-row-plate .akari-caption-handle[data-h="ne"] { right:-10px;top:-10px;cursor:nesw-resize; }
 .caption-row-plate .akari-caption-handle[data-h="sw"] { left:-10px;bottom:-10px;cursor:nesw-resize; }
 .caption-row-plate .akari-caption-handle[data-h="se"] { right:-10px;bottom:-10px;cursor:nwse-resize; }
-.caption-row-plate .akari-caption-handle[data-h="rot"] { left:50%;top:-34px;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:#f5c451;border:2px solid #fff;cursor:grab; }
-.caption-row-plate .akari-caption-handle[data-h="rot"]::before { content:"";position:absolute;left:50%;top:12px;width:1.5px;height:18px;background:#f5c451;transform:translateX(-50%); }
-.caption-row-plate[data-alt-all] .akari-caption-handle { border-color:#53d1bc; }
-.caption-row-plate[data-alt-all] .akari-caption-handle[data-h="rot"] { background:#53d1bc; }
+.caption-row-plate .akari-caption-handle[data-h="rot"] { left:50%;top:-34px;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:var(--akari-caption-select-color);border:2px solid #fff;cursor:grab; }
+.caption-row-plate .akari-caption-handle[data-h="rot"]::before { content:"";position:absolute;left:50%;top:12px;width:1.5px;height:18px;background:var(--akari-caption-select-color);transform:translateX(-50%); }
 .caption-row-plate.akari-caption-host--editing, .caption-row-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
 .caption-row-plate.akari-caption-host--styled .akari-caption__line, .caption-row-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
 .caption-row-plate [data-akari-caption-editing="true"], .caption-row-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: none; caret-color: currentColor; }
@@ -7416,9 +7463,20 @@ html.akari-gen-capturing #caption-plate *::selection { background: transparent !
           <div id="cut-select-box"><div class="akari-cut-rotate-stem"></div><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div><div class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate"></div><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="caption-zone-highlight"></div>
           <div id="zone-hint-layer"></div>
-          <div id="caption-drag-guide-center" class="akari-caption-drag-guide akari-caption-drag-guide--center"><span class="akari-caption-drag-guide__label">中央</span></div>
-          <div id="caption-drag-guide-bottom" class="akari-caption-drag-guide akari-caption-drag-guide--bottom"><span class="akari-caption-drag-guide__label">下段 7%</span></div>
-          <div id="caption-select-box"><div class="akari-caption-select-tools"><div class="akari-caption-group-badge">この字幕だけ動く — ⌥ドラッグで全字幕</div><button type="button" class="akari-caption-clamp-chip on">🧲 はみ出し防止 ON</button><button type="button" class="akari-caption-position-reset" hidden>↺ 既定に戻す</button></div></div>
+          <div id="caption-row-box"><span>折り返しの幅</span></div>
+          <div id="caption-select-box"><div class="akari-caption-select-tools">
+            <button type="button" data-caption-tool="group" aria-label="全字幕モード"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="3" rx="1"/><rect x="2" y="10" width="12" height="3" rx="1" opacity=".45"/></svg><span class="akari-caption-tool-tip">全字幕モード（Alt ドラッグでも操作）</span></button>
+            <span class="akari-caption-tool-separator"></span>
+            <button type="button" data-caption-tool="snap" class="on" aria-label="吸着"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4M12 15l4 4"/></svg><span class="akari-caption-tool-tip">吸着のオン・オフ</span></button>
+            <button type="button" data-caption-tool="clamp" aria-label="はみ出し防止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9V7h2M17 9V7h-2M7 15v2h2M17 15v2h-2"/></svg><span class="akari-caption-tool-tip">はみ出し防止のオン・オフ</span></button>
+            <span class="akari-caption-tool-separator"></span>
+            <button type="button" data-caption-tool="bold" aria-label="太字">B<span class="akari-caption-tool-tip">太字のオン・オフ</span></button>
+            <button type="button" data-caption-tool="color" aria-label="色"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.1 2h1.8l4 10.5h-1.9l-1-2.8H6l-1 2.8H3.1L7.1 2zm-.5 6.2h2.8L8 4.4 6.6 8.2z"/></svg><span class="akari-caption-tool-tip">文字・縁取り・座布団の色</span></button>
+            <button type="button" data-caption-tool="cushion" aria-label="座布団"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="3" fill="currentColor" fill-opacity=".25"/><path d="M8 12h8"/></svg><span class="akari-caption-tool-tip">座布団を敷く・外す</span></button>
+            <span class="akari-caption-tool-separator"></span>
+            <button type="button" data-caption-tool="reset" aria-label="既定に戻す" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 6.5A5 5 0 1 1 3 9M3 3v3.5h3.5"/></svg><span class="akari-caption-tool-tip">位置と大きさを既定に戻す</span></button>
+            <button type="button" data-caption-tool="inspector" aria-label="インスペクターを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="akari-caption-tool-tip">インスペクターを開く</span></button>
+          </div><div data-caption-palette hidden><div class="akari-caption-palette-tabs"><button type="button" data-palette-tab="text" class="on">文字</button><button type="button" data-palette-tab="stroke">縁取り</button><button type="button" data-palette-tab="background">座布団</button></div><div class="akari-caption-palette-grid" data-palette-colors></div><div class="akari-caption-palette-label">最近使った色</div><div class="akari-caption-palette-grid" data-palette-recent></div><button type="button" data-palette-more>他の色…</button></div></div>
           <canvas id="pen-layer" aria-hidden="true"></canvas>
         </div>
       </div>
@@ -7471,6 +7529,7 @@ html.akari-gen-capturing #caption-plate *::selection { background: transparent !
     <div class="transport-right">
       <button id="akari-gen-capture-frame" class="icon-button" type="button" aria-label="今のコマを保存" title="今のコマを保存"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v14H3Z" fill="none" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="4" fill="none" stroke-width="2"/></svg></button>
       <button id="pen-toggle" class="icon-button" type="button" aria-label="ペン" title="ペン" aria-pressed="false" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-1 5 5-1L19.5 8.5a2.12 2.12 0 0 0-3-3zM14.8 7.2l2 2M4 16l4 4"/></svg></button>
+      <button id="caption-row-box-toggle" class="icon-button" type="button" aria-label="折り返しの幅を表示" title="折り返しの幅を表示" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="3" y="5" width="18" height="14" rx="2"/></svg></button>
       <button id="rate-toggle" class="icon-button rate-button" type="button" aria-label="再生速度" title="再生速度" aria-expanded="false" data-akari-ui="preview:rate">1×</button>
       <button id="zoom-toggle" class="icon-button" type="button" aria-label="ズーム" title="ズーム" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
       <button id="fullscreen-toggle" class="icon-button" type="button" aria-label="全画面" title="全画面" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"/></svg></button>
@@ -8872,6 +8931,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (captionId) selectedPrimary = { kind: 'caption', id: captionId };
                 else if (selectedPrimary?.kind === 'caption') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
+            };
+            window.akari.requestCaptionInspector = field => {
+                vscode.postMessage({ type: 'akari-preview-caption-inspector', field });
             };
             window.akari.reportAltAll = on => vscode.postMessage({ type: 'akari-preview-alt-all', on });
             if (outputPreviewLink && initial.relatedEditUri) {
@@ -10513,6 +10575,7 @@ body { display: grid; place-items: center; padding: 32px; }
     protected previewBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview;
+            const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
             const isAudioItemAudibleFn = (${isAudioItemAudible.toString()});
             // Match edit-store's cut rule here: toString() cannot preserve mangled helper references.
             const isCutAudioAudibleFn = (cut, track) => cut.audio !== false && isAudioItemAudibleFn(track, cut);
@@ -13487,20 +13550,31 @@ body { display: grid; place-items: center; padding: 32px; }
             // 最小複製する（既存の caption style 変数ミラーと同じ方式）。
             let selectedCaptionId = null;
             let pendingCaptionDragReload = false;
-            // クランプ解除は captions.json に席がないため、webview を開いている間だけ保持する。
+            // 表示系の切り替えはプレビューのセッション中だけ保持する。
             const captionClampOverrides = new Map();
             const captionClampEnabled = caption => captionClampOverrides.get(caption?.sourceCueId || caption?.id)
-                ?? (caption?.timeDomain !== 'output');
+                ?? false;
+            let captionSnapEnabled = true;
+            let captionGroupToolEnabled = false;
+            let captionDragGroupActive = false;
+            let captionRowBoxEnabled = false;
+            let captionPaletteTab = 'text';
+            const captionRecentColors = [];
+            const captionCushionOpacity = new Map();
             // textStyle は default_text_style とマージ済みなので、初期表示だけは cue 固有位置を推定する。
             // 書き込み後はこの Map を正としてグループ既定と cue 固有位置を区別する。
             const captionCuePositionKnown = new Map();
             const captionSelectBox = document.getElementById('caption-select-box');
-            const captionGroupBadge = captionSelectBox.querySelector('.akari-caption-group-badge');
-            const captionClampChip = captionSelectBox.querySelector('.akari-caption-clamp-chip');
-            const captionPositionReset = captionSelectBox.querySelector('.akari-caption-position-reset');
+            const captionTool = name => captionSelectBox.querySelector('[data-caption-tool="' + name + '"]');
+            const setCaptionToolTip = (name, message) => {
+                captionTool(name).querySelector('.akari-caption-tool-tip').textContent = message;
+            };
+            const captionClampChip = captionTool('clamp');
+            const captionPositionReset = captionTool('reset');
+            const captionPalette = captionSelectBox.querySelector('[data-caption-palette]');
+            const captionRowBox = document.getElementById('caption-row-box');
+            const captionRowBoxToggle = document.getElementById('caption-row-box-toggle');
             const captionZoneHighlight = document.getElementById('caption-zone-highlight');
-            const captionCenterGuide = document.getElementById('caption-drag-guide-center');
-            const captionBottomGuide = document.getElementById('caption-drag-guide-bottom');
             const ZONE_ROW_RANGES = { top: [0, 1 / 3], middle: [1 / 3, 2 / 3], bottom: [2 / 3, 1] };
             const ZONE_COL_RANGES = { left: [0, 1 / 3], center: [1 / 3, 2 / 3], right: [2 / 3, 1] };
             const zoneParts = zone => {
@@ -13628,19 +13702,40 @@ body { display: grid; place-items: center; padding: 32px; }
             const updateCaptionSelectTools = () => {
                 const caption = selectedCaption();
                 const clampOn = !!selectedCaptionId && captionClampEnabled(caption);
-                captionClampChip.textContent = clampOn
-                    ? '🧲 はみ出し防止 ON' : '🧲 はみ出し防止 OFF';
+                const groupOn = captionGroupToolEnabled || captionDragGroupActive;
                 captionClampChip.classList.toggle('on', clampOn);
-                captionPositionReset.hidden = !captionHasCuePosition(caption);
+                captionTool('snap').classList.toggle('on', captionSnapEnabled);
+                captionTool('group').classList.toggle('on', groupOn);
+                captionTool('bold').classList.toggle('on',
+                    (caption?.textStyle?.weight ?? caption?.textStyle?.font_weight) === 900);
+                const background = caption?.textStyle?.background;
+                const cushionOn = !!background && (background.opacity ?? (background.color ? 1 : 0)) > 0;
+                captionTool('cushion').classList.toggle('on', cushionOn);
+                setCaptionToolTip('group', groupOn
+                    ? '全字幕が動く — もう一度押すと「この字幕だけ」'
+                    : 'この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）');
+                setCaptionToolTip('snap', '吸着 ' + (captionSnapEnabled ? 'ON' : 'OFF')
+                    + ' — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効');
+                setCaptionToolTip('clamp', 'はみ出し防止 ' + (clampOn ? 'ON' : 'OFF')
+                    + ' — ON で画面の内側に押し戻す');
+                setCaptionToolTip('cushion', '座布団 ' + (cushionOn ? 'ON' : 'OFF')
+                    + ' — 形・余白・角丸はインスペクターで');
+                captionTool('color').style.setProperty('--caption-tool-color', caption?.textStyle?.color || '#ffffff');
+                captionPositionReset.hidden = !captionHasCuePosition(caption)
+                    && !(Number.isFinite(caption?.textStyle?.scale) && caption.textStyle.scale !== 1)
+                    && !(Number.isFinite(caption?.textStyle?.rotate) && caption.textStyle.rotate !== 0);
             };
             const setCaptionGroupMode = groupMode => {
-                captionGroupBadge.textContent = groupMode
-                    ? '全字幕が動く' : 'この字幕だけ動く — ⌥ドラッグで全字幕';
+                captionDragGroupActive = groupMode;
+                captionSelectBox.toggleAttribute('data-alt-all', captionGroupToolEnabled || captionDragGroupActive);
+                updateCaptionSelectTools();
             };
             const updateCaptionSelectBoxForRect = rect => {
                 syncCaptionHandleBox();
                 if (!selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
+                    captionPalette.hidden = true;
+                    captionRowBox.classList.remove('is-active');
                     updateCaptionSelectTools();
                     return;
                 }
@@ -13654,6 +13749,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 });
                 captionSelectBox.classList.add('is-active');
                 updateCaptionSelectTools();
+                updateCaptionRowBox();
             };
             const updateCaptionZoneHighlight = zone => {
                 if (!zone) {
@@ -13672,22 +13768,33 @@ body { display: grid; place-items: center; padding: 32px; }
                 });
                 captionZoneHighlight.classList.add('is-active');
             };
-            const setCaptionDragGuides = (active, frameRect) => {
-                captionCenterGuide.classList.toggle('is-active', active);
-                captionBottomGuide.classList.toggle('is-active', active);
-                if (!active) return;
-                Object.assign(captionCenterGuide.style, {
-                    left: (frameRect.x + frameRect.width * 0.5) + 'px',
-                    top: frameRect.y + 'px',
-                    height: frameRect.height + 'px'
+            const updateCaptionRowBox = () => {
+                const plate = selectedCaptionId ? selectedCaptionPlate()?.querySelector('.akari-caption__plate') : null;
+                if (!captionRowBoxEnabled || !plate || !captionSelectBox.classList.contains('is-active')) {
+                    captionRowBox.classList.remove('is-active');
+                    return;
+                }
+                const plateRect = plate.getBoundingClientRect();
+                const line = plate.querySelector('.akari-caption__block')
+                    || plate.querySelector('.akari-caption__line');
+                const plateStyle = getComputedStyle(plate);
+                const lineStyle = line ? getComputedStyle(line) : null;
+                const cssPixelScale = plate.offsetWidth > 0
+                    ? plateRect.width / plate.offsetWidth : window.akari.stageScale() || 1;
+                const rect = captionRowWrapRectFn(
+                    plateRect, lineStyle?.maxWidth || 'none', cssPixelScale,
+                    plateStyle.alignItems, lineStyle?.textAlign || plateStyle.textAlign
+                );
+                const a = captionOutputPoint(rect.left, rect.top);
+                const b = captionOutputPoint(rect.right, rect.bottom);
+                const frame = window.akari.computeOutputFrameRect();
+                const scale = window.akari.stageScale() || 1;
+                setRectStyle(captionRowBox, {
+                    left: frame.x + a.x * scale, right: frame.x + b.x * scale,
+                    top: frame.y + a.y * scale, bottom: frame.y + b.y * scale
                 });
-                Object.assign(captionBottomGuide.style, {
-                    left: frameRect.x + 'px',
-                    top: (frameRect.y + frameRect.height * 0.93) + 'px',
-                    width: frameRect.width + 'px'
-                });
+                captionRowBox.classList.add('is-active');
             };
-            const roundCaptionRatio = value => Math.round(Math.min(1, Math.max(0, value)) * 10000) / 10000;
             const roundCaptionRatioUnclamped = value => {
                 if (!Number.isFinite(value)) throw new Error('字幕位置は有限数である必要があります');
                 return Math.round(value * 10000) / 10000;
@@ -13725,60 +13832,48 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 return activeId ? [activeId] : [];
             };
-            const captionGroupPositionFromRects = (plateRect, frameRect) => {
-                const centerRatio = ((plateRect.left + plateRect.right) / 2 - frameRect.x) / frameRect.width;
-                const centered = Math.abs(centerRatio - 0.5) < 0.03;
-                let bottomRatio = (plateRect.bottom - frameRect.y) / frameRect.height;
-                if (Math.abs(bottomRatio - 0.93) < 0.02) bottomRatio = 0.93;
-                const topRatio = (plateRect.top - frameRect.y) / frameRect.height;
-                const anchor = topRatio < 1 / 3 ? 'tc' : 'bc';
-                const position = { y: roundCaptionRatio(anchor === 'tc' ? topRatio : bottomRatio) };
-                if (!centered) position.x = roundCaptionRatio((plateRect.left - frameRect.x) / frameRect.width);
-                return { anchor, position };
-            };
+            const captionGroupPositionFromRects = (plateRect, frameRect, anchor) =>
+                captionCuePositionFromRects(plateRect, frameRect, false, anchor);
             const placedCaptionPositionFromRects = (${placedCaptionPositionFromRects.toString()});
-            const captionCuePositionFromRects = (plateRect, frameRect, clampOn) => {
+            const captionCuePositionFromRects = (plateRect, frameRect, clampOn, anchor) => {
                 if (!(frameRect.width > 0) || !(frameRect.height > 0)) {
                     throw new Error('出力フレームの幅と高さは正数である必要があります');
                 }
-                const centerRatio = ((plateRect.left + plateRect.right) / 2 - frameRect.x) / frameRect.width;
-                const centered = Math.abs(centerRatio - 0.5) < 0.03;
-                let bottomRatio = (plateRect.bottom - frameRect.y) / frameRect.height;
-                if (Math.abs(bottomRatio - 0.93) < 0.02) bottomRatio = 0.93;
                 const topRatio = (plateRect.top - frameRect.y) / frameRect.height;
-                const anchor = topRatio < 1 / 3 ? 'tc' : 'bc';
                 let x = (plateRect.left - frameRect.x) / frameRect.width;
-                let y = anchor === 'tc' ? topRatio : bottomRatio;
-                let forceX = false;
+                const plateH = plateRect.bottom - plateRect.top;
+                let y = topRatio + (anchor[0] === 'b' ? plateH / frameRect.height
+                    : anchor[0] === 'm' ? plateH / frameRect.height / 2 : 0);
                 if (!Number.isFinite(x) || !Number.isFinite(y)) {
                     throw new Error('字幕位置は有限数である必要があります');
                 }
                 if (clampOn) {
                     const plateW = plateRect.right - plateRect.left;
-                    const plateH = plateRect.bottom - plateRect.top;
                     const maxX = 1 - plateW / frameRect.width;
                     if (maxX < 0) {
                         x = 0;
-                        forceX = true;
                     } else {
                         x = Math.min(maxX, Math.max(0, x));
                     }
-                    if (anchor === 'bc') {
+                    if (anchor[0] === 'b') {
                         const minY = plateH / frameRect.height;
                         y = minY > 1 ? 1 : Math.min(1, Math.max(minY, y));
-                    } else {
+                    } else if (anchor[0] === 't') {
                         const maxY = 1 - plateH / frameRect.height;
                         y = maxY < 0 ? 0 : Math.min(maxY, Math.max(0, y));
+                    } else {
+                        const half = plateH / frameRect.height / 2;
+                        y = Math.min(1 - half, Math.max(half, y));
                     }
                 }
-                const position = { y: roundCaptionRatioUnclamped(y) };
-                if (!centered || forceX) position.x = roundCaptionRatioUnclamped(x);
-                return { anchor, position };
+                return { anchor, position: { x: roundCaptionRatioUnclamped(x), y: roundCaptionRatioUnclamped(y) } };
             };
             const updateCaptionSelectBox = () => {
                 syncCaptionHandleBox();
                 if (!selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
+                    captionPalette.hidden = true;
+                    captionRowBox.classList.remove('is-active');
                     updateCaptionSelectTools();
                     return;
                 }
@@ -13787,6 +13882,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     .find(row => (row.sourceCueId || row.id) === selectedCaptionId);
                 if (!caption || !active || (active.sourceCueId || active.id) !== selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
+                    captionPalette.hidden = true;
+                    captionRowBox.classList.remove('is-active');
                     updateCaptionSelectTools();
                     return;
                 }
@@ -13815,6 +13912,52 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (report) window.akari.reportCaptionSelection(selectedCaptionId);
             };
             const deselectCaption = options => selectCaption(null, options);
+            const captionToolTargets = () => captionHandleTargets(
+                [...selectedCaptionIds], selectedCaptionId,
+                captions.map(item => item.sourceCueId || item.id), false
+            );
+            const writeCaptionToolStyle = change => {
+                const ids = captionToolTargets();
+                if (!ids.length) return;
+                void window.akari.engine.captionWrite(selectedCaptionId, {
+                    toolStyle: { captionIds: ids, change }
+                }).catch(error => window.akari.showWriteError(error));
+            };
+            const requestCaptionInspector = field => {
+                window.akari.requestCaptionInspector(field);
+            };
+            const paletteColors = ['#ffffff', '#000000', '#f5c451', '#ff8b2c', '#f26666', '#e85fa1', '#ac78ed',
+                '#4da3ff', '#53d1bc', '#75d368', '#a8de5f', '#e6c78c', '#8a93a5', '#283447'];
+            const renderCaptionPalette = () => {
+                for (const tab of captionPalette.querySelectorAll('[data-palette-tab]')) {
+                    tab.classList.toggle('on', tab.dataset.paletteTab === captionPaletteTab);
+                }
+                for (const [selector, colors] of [
+                    ['[data-palette-colors]', paletteColors], ['[data-palette-recent]', captionRecentColors]
+                ]) {
+                    const grid = captionPalette.querySelector(selector);
+                    grid.replaceChildren();
+                    for (const color of colors) {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.dataset.color = color;
+                        button.style.background = color;
+                        button.setAttribute('aria-label', color);
+                        grid.appendChild(button);
+                    }
+                }
+            };
+            captionSelectBox.querySelector('.akari-caption-select-tools').addEventListener('pointerdown', event => event.stopPropagation());
+            captionPalette.addEventListener('pointerdown', event => event.stopPropagation());
+            captionTool('group').addEventListener('click', () => {
+                captionGroupToolEnabled = !captionGroupToolEnabled;
+                setCaptionGroupMode(false);
+            });
+            captionTool('snap').addEventListener('click', () => {
+                captionSnapEnabled = !captionSnapEnabled;
+                if (!captionSnapEnabled) window.akari.interaction?.hideSnapGuides?.();
+                updateCaptionSelectTools();
+            });
             captionClampChip.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -13822,13 +13965,60 @@ body { display: grid; place-items: center; padding: 32px; }
                 captionClampOverrides.set(selectedCaptionId, !captionClampEnabled(selectedCaption()));
                 updateCaptionSelectTools();
             });
+            captionTool('bold').addEventListener('click', () => {
+                writeCaptionToolStyle({ field: 'font_weight', value:
+                    (selectedCaption()?.textStyle?.weight ?? selectedCaption()?.textStyle?.font_weight) === 900 ? null : 900 });
+            });
+            captionTool('cushion').addEventListener('click', () => {
+                const style = selectedCaption()?.textStyle?.background;
+                const id = selectedCaptionId;
+                const current = style?.opacity ?? (style?.color ? 1 : 0);
+                if (current > 0) captionCushionOpacity.set(id, current);
+                writeCaptionToolStyle({ field: 'background.opacity', value: current > 0 ? 0 : (captionCushionOpacity.get(id) || 0.75) });
+            });
+            captionTool('color').addEventListener('click', () => {
+                captionPalette.hidden = !captionPalette.hidden;
+                if (!captionPalette.hidden) renderCaptionPalette();
+            });
+            captionPalette.addEventListener('click', event => {
+                const tab = event.target.closest('[data-palette-tab]');
+                if (tab) {
+                    captionPaletteTab = tab.dataset.paletteTab;
+                    renderCaptionPalette();
+                    return;
+                }
+                const sample = event.target.closest('[data-color]');
+                if (sample) {
+                    const color = sample.dataset.color;
+                    const field = captionPaletteTab === 'text' ? 'color'
+                        : captionPaletteTab === 'stroke' ? 'stroke.color' : 'background.color';
+                    writeCaptionToolStyle({ field, value: color });
+                    captionRecentColors.splice(captionRecentColors.indexOf(color), captionRecentColors.includes(color) ? 1 : 0);
+                    captionRecentColors.unshift(color);
+                    captionRecentColors.length = Math.min(captionRecentColors.length, 7);
+                    renderCaptionPalette();
+                    return;
+                }
+                if (event.target.closest('[data-palette-more]')) {
+                    requestCaptionInspector(captionPaletteTab === 'text' ? 'caption-style-color'
+                        : captionPaletteTab === 'stroke' ? 'caption-style-stroke-color' : 'caption-style-bg-color');
+                    captionPalette.hidden = true;
+                }
+            });
+            captionTool('inspector').addEventListener('click', () => requestCaptionInspector('caption-style'));
+            captionRowBoxToggle.addEventListener('click', () => {
+                captionRowBoxEnabled = !captionRowBoxEnabled;
+                captionRowBoxToggle.setAttribute('aria-pressed', String(captionRowBoxEnabled));
+                updateCaptionRowBox();
+            });
             captionPositionReset.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
                 const cueId = selectedCaptionId;
                 if (!cueId) return;
-                void window.akari.engine.captionWrite(cueId, { cuePositionReset: true }).then(() => {
-                    captionCuePositionKnown.set(cueId, false);
+                const ids = captionToolTargets();
+                void window.akari.engine.captionWrite(cueId, { cueGeometryReset: { captionIds: ids } }).then(() => {
+                    for (const id of ids) captionCuePositionKnown.set(id, false);
                     updateCaptionSelectBox();
                 }).catch(error => {
                     console.warn('[akari-preview] caption cue position reset rejected', error);
@@ -14077,8 +14267,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.preventDefault();
                 event.stopPropagation();
                 const placedText = caption.timeDomain === 'output';
-                const groupMode = event.altKey && !placedText;
+                const groupMode = (event.altKey || captionGroupToolEnabled) && !placedText;
                 const clampOn = captionClampEnabled(caption);
+                const startAnchor = caption.textStyle?.text_anchor || 'bc';
                 selectCaption(cueId);
                 setCaptionGroupMode(groupMode);
                 const pointerId = event.pointerId;
@@ -14089,8 +14280,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 let moved = false;
                 selectionDragActive = true;
                 try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
-                const frameRect = window.akari.computeOutputFrameRect();
                 const outputFrame = captionOutputFrame();
+                let dragSnap = { x: null, y: null };
                 const cleanup = () => {
                     selectionDragActive = false;
                     window.removeEventListener('pointermove', onMove);
@@ -14098,6 +14289,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.removeEventListener('pointercancel', onCancel);
                     window.removeEventListener('keydown', onKeyDown, true);
                     setCaptionGroupMode(false);
+                    window.akari.interaction?.hideSnapGuides?.();
                     if (captionPlate.hasPointerCapture && captionPlate.hasPointerCapture(pointerId)) {
                         captionPlate.releasePointerCapture(pointerId);
                     }
@@ -14111,16 +14303,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     const nowOutputPoint = captionOutputPoint(moveEvent.clientX, moveEvent.clientY);
                     let outputDx = nowOutputPoint.x - startOutputPoint.x;
                     let outputDy = nowOutputPoint.y - startOutputPoint.y;
-                    const movedCenter = (startPlateRect.left + startPlateRect.right) / 2 + outputDx;
-                    const centerRatio = (movedCenter - outputFrame.x) / outputFrame.width;
-                    if (!placedText && Math.abs(centerRatio - 0.5) < 0.03) {
-                        outputDx += outputFrame.x + outputFrame.width * 0.5 - movedCenter;
-                    }
-                    const movedBottom = startPlateRect.bottom + outputDy;
-                    const bottomRatio = (movedBottom - outputFrame.y) / outputFrame.height;
-                    if (!placedText && Math.abs(bottomRatio - 0.93) < 0.02) {
-                        outputDy += outputFrame.y + outputFrame.height * 0.93 - movedBottom;
-                    }
                     if (!groupMode && clampOn) {
                         const plateW = startPlateRect.right - startPlateRect.left;
                         const plateH = startPlateRect.bottom - startPlateRect.top;
@@ -14133,13 +14315,28 @@ body { display: grid; place-items: center; padding: 32px; }
                         outputDy = maxDy < minDy
                             ? maxDy : Math.min(maxDy, Math.max(minDy, outputDy));
                     }
+                    if (!captionSnapEnabled || moveEvent.altKey || !window.akari.interaction?.computeSnapCorrection) {
+                        dragSnap = { x: null, y: null };
+                        window.akari.interaction?.hideSnapGuides?.();
+                    } else {
+                        const left = startPlateRect.left + outputDx;
+                        const right = startPlateRect.right + outputDx;
+                        const top = startPlateRect.top + outputDy;
+                        const bottom = startPlateRect.bottom + outputDy;
+                        const snap = window.akari.interaction.computeSnapCorrection({
+                            left, right, top, bottom,
+                            centerX: (left + right) / 2, centerY: (top + bottom) / 2
+                        }, dragSnap);
+                        dragSnap = snap;
+                        if (snap.x) outputDx += snap.x.correction;
+                        if (snap.y) outputDy += snap.y.correction;
+                        window.akari.interaction.showSnapGuides(snap.x, snap.y);
+                    }
                     captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
-                    setCaptionDragGuides(!placedText, frameRect);
                     updateCaptionSelectBoxForRect(captionVisualRect());
                 };
                 const finish = async cancelled => {
                     cleanup();
-                    setCaptionDragGuides(false, frameRect);
                     if (cancelled || !moved) {
                         captionPlate.style.translate = '';
                         updateCaptionSelectBox();
@@ -14150,15 +14347,16 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (groupMode) {
                             const groupPosition = captionGroupPositionFromRects(
                                 captionVisualRect(),
-                                outputFrame
+                                outputFrame,
+                                startAnchor
                             );
                             await window.akari.engine.captionWrite(cueId, { groupPosition });
                         } else {
                             const cuePosition = placedText
                                 ? placedCaptionPositionFromRects(captionVisualRect(), outputFrame, {
-                                    anchor: caption.textStyle?.text_anchor || 'bc', clamp: clampOn
+                                    anchor: startAnchor, clamp: clampOn
                                 })
-                                : captionCuePositionFromRects(captionVisualRect(), outputFrame, clampOn);
+                                : captionCuePositionFromRects(captionVisualRect(), outputFrame, clampOn, startAnchor);
                             await window.akari.engine.captionWrite(cueId, {
                                 cuePosition
                             });

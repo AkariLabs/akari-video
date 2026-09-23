@@ -1655,7 +1655,10 @@ export function captionAnchorPositionVars(
         : verticalAlign === 'top' ? 't' : verticalAlign === 'middle' ? 'm' : 'b';
     const horizontal = anchor ? anchor[1] : 'c';
     if (typeof position?.y === 'number' && Number.isFinite(position.y)) {
-        const clamped = Math.min(1, Math.max(0, position.y));
+        // Explicit x is an absolute placement. Keep its y outside the frame as well;
+        // legacy captions without x retain the previous clamped rendering exactly.
+        const clamped = typeof position?.x === 'number' && Number.isFinite(position.x)
+            ? position.y : Math.min(1, Math.max(0, position.y));
         if ((anchor || verticalAlign) && vertical === 'b') {
             vars['--caption-top'] = 'auto';
             vars['--caption-bottom'] = `${Math.round((1 - clamped) * 10000) / 100}%`;
@@ -1672,11 +1675,14 @@ export function captionAnchorPositionVars(
         if (vertical === 'm') vars['--caption-justify-content'] = 'center';
     }
     if (typeof position?.x === 'number' && Number.isFinite(position.x)) {
-        const clamped = Math.min(1, Math.max(0, position.x));
-        vars['--caption-left'] = `${Math.round(clamped * 10000) / 100}%`;
-        vars['--caption-right'] = '4%';
+        const left = Math.round(position.x * 10000) / 100;
+        vars['--caption-left'] = `${left}%`;
+        // left + right always leaves 92% of the frame for wrapping, including
+        // off-frame x. The renderer's placed-text plate also fixes width at 92%.
+        vars['--caption-right'] = `${Math.round((8 - left) * 100) / 100}%`;
         vars['--caption-align-items'] = 'flex-start';
         vars['--caption-line-margin'] = '0';
+        vars['--caption-line-max-width'] = '100%';
     } else if (anchor) {
         vars['--caption-left'] = '4%';
         vars['--caption-right'] = '4%';

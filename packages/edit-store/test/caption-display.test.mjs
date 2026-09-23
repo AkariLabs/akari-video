@@ -874,8 +874,10 @@ test('captionAnchorPositionVars maps the nine anchors and 0..1 positions like th
   assert.deepEqual(captionAnchorPositionVars('mc', undefined, undefined)['--caption-justify-content'], 'center');
   const withX = captionAnchorPositionVars('tl', { x: 0.25, y: 1.5 }, undefined);
   assert.equal(withX['--caption-left'], '25%');
+  assert.equal(withX['--caption-right'], '-17%');
+  assert.equal(withX['--caption-line-max-width'], '100%');
   assert.equal(withX['--caption-align-items'], 'flex-start');
-  assert.equal(withX['--caption-top'], '100%', 'position.y is clamped to 0..1');
+  assert.equal(withX['--caption-top'], '150%', 'explicit positions may leave the frame');
   assert.deepEqual(captionAnchorPositionVars(undefined, undefined, 'middle')['--caption-top'], '0');
   assert.deepEqual(captionAnchorPositionVars('zz', undefined, undefined), {}, 'invalid anchor is ignored');
   assert.deepEqual(captionAnchorPositionVars(undefined, undefined, undefined), {});
@@ -899,9 +901,26 @@ test('captionAnchorPositionVars combines bl bottom-edge y with explicit x', () =
     '--caption-top': 'auto',
     '--caption-bottom': '10%',
     '--caption-left': '10%',
-    '--caption-right': '4%',
+    '--caption-right': '-2%',
     '--caption-align-items': 'flex-start',
     '--caption-line-margin': '0',
+    '--caption-line-max-width': '100%',
+  });
+});
+
+test('explicit x fixes wrap width at 92% and preserves out-of-frame placement', () => {
+  for (const x of [-0.3, 0.2, 0.5, 0.9, 1.2]) {
+    const vars = captionAnchorPositionVars('bc', { x, y: 1.1 }, undefined);
+    const left = Number.parseFloat(vars['--caption-left']);
+    const right = Number.parseFloat(vars['--caption-right']);
+    assert.ok(Math.abs(100 - left - right - 92) < 0.001);
+    assert.equal(vars['--caption-bottom'], '-10%');
+  }
+  assert.deepEqual(captionAnchorPositionVars('bc', { y: 1.1 }, undefined), {
+    '--caption-top': 'auto', '--caption-bottom': '0%', '--caption-left': '4%',
+    '--caption-right': '4%', '--caption-align-items': 'center',
+    '--caption-text-align': 'center', '--caption-line-margin': '0',
+    '--caption-line-max-width': '100%'
   });
 });
 

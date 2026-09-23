@@ -1,0 +1,111 @@
+{
+  "phase": "after",
+  "renderSeconds": 203,
+  "rasterizer": {
+    "planned": "gpu",
+    "adopted": "gpu",
+    "attempts": [
+      {
+        "method": "gpu",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "verify": "pass",
+  "cases": [
+    {
+      "name": "中央吸着",
+      "id": "c-0004",
+      "text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.2212,
+          "y": 0.8306
+        }
+      },
+      "frameAtSeconds": 0.5,
+      "exported": {
+        "left": 0.2344,
+        "right": 0.7633,
+        "top": 0.6764,
+        "bottom": 0.8167
+      },
+      "previewBox": {
+        "left": 0.2212,
+        "right": 0.7787,
+        "top": 0.6583,
+        "bottom": 0.8306
+      },
+      "diff": {
+        "right": -0.0154,
+        "cy": 0.0021,
+        "cx": -0.0011
+      },
+      "brightPixels": 13455,
+      "screenshot": "after-07-export-1.png"
+    },
+    {
+      "name": "左寄り",
+      "id": "c-0005",
+      "text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0,
+          "y": 0.7506
+        }
+      },
+      "frameAtSeconds": 1.5,
+      "exported": {
+        "left": 0.0133,
+        "right": 0.6031,
+        "top": 0.5958,
+        "bottom": 0.7347
+      },
+      "previewBox": {
+        "left": 0,
+        "right": 0.6187,
+        "top": 0.5783,
+        "bottom": 0.7506
+      },
+      "diff": {
+        "right": -0.0156,
+        "cy": 0.0008,
+        "cx": -0.0012
+      },
+      "brightPixels": 12563,
+      "screenshot": "after-07-export-2.png"
+    },
+    {
+      "name": "はみ出し",
+      "id": "c-0003",
+      "text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "x": -0.2347,
+          "y": 0.5834
+        }
+      },
+      "frameAtSeconds": 2.5,
+      "exported": {
+        "left": 0,
+        "right": 0.2203,
+        "top": 0.5181,
+        "bottom": 0.5681
+      },
+      "previewBox": {
+        "left": -0.2347,
+        "right": 0.2347,
+        "top": 0.5,
+        "bottom": 0.5834
+      },
+      "diff": {
+        "right": -0.0144,
+        "cy": 0.0014,
+        "cx": null
+      },
+      "brightPixels": 3342,
+      "screenshot": "after-07-export-3.png"
+    }
+  ]
+}
