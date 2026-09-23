@@ -1,0 +1,9 @@
+cut 3 (still) after select {"tab":{"text":"AI","disabled":false,"sel":"false"},"active":["映像"],"tiles":[],"back":false,"section":false,"selected":["timeline:cut:3"]} mutations/3s 0
+cut 3 after AI click {"tab":{"text":"AI","disabled":false,"sel":"true"},"active":["AI"],"tiles":[["動画にする","false"]],"back":false,"section":false,"selected":["timeline:cut:3"]} mutations/3s 0
+cut 4 (mp4) after select {"tab":{"text":"AI","disabled":false,"sel":"false"},"active":["映像"],"tiles":[],"back":false,"section":false,"selected":["timeline:cut:4"]} mutations/3s 0
+cut 4 after AI click {"tab":{"text":"AI","disabled":false,"sel":"true"},"active":["AI"],"tiles":[["動画にする静止画か空の枠で使えます","true"]],"back":false,"section":false,"selected":["timeline:cut:4"]} mutations/3s 0
+cut 1 (planned) after select {"tab":{"text":"AI","disabled":false,"sel":"true"},"active":["AI"],"tiles":[["動画にする","false"]],"back":false,"section":false,"selected":["timeline:cut:1"]} mutations/3s 0
+cut 0 (next-a) after select {"tab":{"text":"AI","disabled":false,"sel":"true"},"active":["AI"],"tiles":[],"back":true,"section":true,"selected":["timeline:cut:0"]} mutations/3s 0
+cut 2 (c) after select {"tab":{"text":"AI","disabled":false,"sel":"false"},"active":["映像"],"tiles":[],"back":false,"section":false,"selected":["timeline:cut:2"]} mutations/3s 0
+cut 2 after AI click {"tab":{"text":"AI","disabled":false,"sel":"true"},"active":["AI"],"tiles":[],"back":true,"section":true,"selected":["timeline:cut:2"]} mutations/3s 0
+cut3 again {"tab":{"text":"AI","disabled":false,"sel":"false"},"active":["映像"],"tiles":[],"back":false,"section":false,"selected":["timeline:cut:3"]}

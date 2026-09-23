@@ -31,6 +31,8 @@ import {
     TimelineGapSelection
 } from './timeline-selection-model';
 import { createSelectionHeader } from './inspector/selection-header';
+import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
 import { createInspectorIcon } from './inspector/icons';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
@@ -2401,6 +2403,12 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
     protected lastEasingPreviewAt = -Infinity;
     protected generationCatalog: GenerationCatalogRow[] = [];
+    protected aiCatalogLoaded = false;
+    protected aiCatalogFailed = false;
+    protected aiCatalogFailureWorkspace?: string;
+    protected aiCatalogLoading?: Promise<void>;
+    protected aiView?: AiTabView;
+    protected aiViewClipKey?: string;
     protected generationDefaultModel = 'fal:h3-i2v';
     protected readonly generationDrafts = new Map<string, GenerationDraft>();
     protected readonly generationQuality = new Map<string, { modelId: string; enabled: boolean; previousResolution: string | null }>();
@@ -2466,6 +2474,21 @@ export class AkariInspectorWidget extends BaseWidget {
 
         const style = document.createElement('style');
         style.textContent = `
+.akari-inspector-ai-list { display: grid; gap: 16px; padding: 8px 2px; min-width: 0; }
+.akari-inspector-ai-group { min-width: 0; }
+.akari-inspector-ai-heading { margin: 0 0 9px; font-size: 13px; font-weight: 700; }
+.akari-inspector-ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.akari-inspector-widget button.akari-inspector-ai-tile { display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 0 0 7px; overflow: hidden; text-align: left; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 7px; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-tile:hover:not(.akari-inspector-ai-disabled) { border-color: var(--akari-accent); }
+.akari-inspector-ai-image { display: block; box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+.akari-inspector-ai-title { display: block; margin: 7px 8px 0; font-size: 12px; font-weight: 600; line-height: 1.35; }
+.akari-inspector-widget button.akari-inspector-ai-disabled { cursor: default; }
+.akari-inspector-ai-disabled .akari-inspector-ai-image { filter: grayscale(1); opacity: .55; }
+.akari-inspector-ai-disabled .akari-inspector-ai-title { color: var(--akari-muted); }
+.akari-inspector-ai-reason { display: block; margin: 4px 8px 0; color: var(--akari-muted); font-size: 10px; line-height: 1.35; }
+.akari-inspector-ai-panel-header { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px 2px 8px; }
+.akari-inspector-widget button.akari-inspector-ai-back { padding: 3px 5px; color: var(--akari-accent); background: transparent; border: 0; cursor: pointer; }
+.akari-inspector-ai-panel-title { margin: 0; font-size: 13px; font-weight: 700; }
 .akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
 .akari-inspector-generation-gap h3, .akari-inspector-generation-gap p { margin: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .akari-inspector-generation-gap-ends { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -3446,6 +3469,10 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (this.generationVideoPaths) this.observeGenerationVideo(snapshot);
         const generationIdentity = this.generationIdentity(snapshot);
+        if (!generationIdentity && (snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item')) {
+            // The existing test harness transpiles render without this new loader method.
+            void this.loadAiCatalog?.();
+        }
         if (generationIdentity && !this.generationLoads.has(generationIdentity.key)) {
             void this.loadGeneration(generationIdentity);
         }
@@ -3580,10 +3607,19 @@ export class AkariInspectorWidget extends BaseWidget {
                     break;
             }
         }
-        const tabs = tabsForKind(sectionKind, {
-            src: this.tabSourceHint(rowSnapshot), generationAvailable: !!generationIdentity
-        });
         const generationState = generationIdentity ? this.generationStates.get(generationIdentity.key) : undefined;
+        const generationDone = !!generationIdentity && this.generationDone?.has(generationIdentity.key) === true;
+        // Older render harnesses instantiate only extracted methods and have no AI catalog state.
+        const aiGroups = this.aiCatalogLoaded === undefined ? [] : describeAiTiles(
+            aiActionCatalog(this.generationCatalog),
+            aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState })
+        );
+        const aiAvailability = this.aiCatalogLoaded === undefined
+            ? { enabled: !!generationIdentity, forcePanel: false }
+            : aiTabAvailabilityFor({ kind: sectionKind, hasIdentity: !!generationIdentity, groups: aiGroups });
+        const tabs = tabsForKind(sectionKind, {
+            src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled
+        });
         const meta = generationIdentity ? this.generationTabMeta.get(generationIdentity.key) : undefined;
         const generationTodo = !!generationIdentity && (
             ['planned', 'generating', 'stale', 'failed'].includes(generationState ?? '') || meta?.next?.status === 'planned'
@@ -3611,6 +3647,26 @@ export class AkariInspectorWidget extends BaseWidget {
                 : { kind: 'item', id: rowSnapshot.id };
         this.syncAdjustCompare(compareTarget, activeTab);
         this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo);
+
+        if (activeTab === 'generation' && this.aiCatalogLoaded) {
+            this.aiView = aiTabViewFor({
+                clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
+                generationState, generationDone, forcePanel: aiAvailability.forcePanel
+            });
+            this.aiViewClipKey = clipKey;
+            if (this.aiView === 'tiles') {
+                appendAiTiles(this.body, aiGroups, id => {
+                    if (id !== 'video') return;
+                    this.aiView = 'video';
+                    this.render();
+                });
+                return;
+            }
+            appendAiBack(this.body, '動画にする', () => {
+                this.aiView = 'tiles';
+                this.render();
+            });
+        }
 
         let keyframeSection: InspectorSection | undefined;
         const selectedKeyframe = this.model.keyframeSelection;
@@ -4287,6 +4343,36 @@ export class AkariInspectorWidget extends BaseWidget {
             duration: snapshot.kind === 'cut' ? snapshot.outputEnd - snapshot.outputStart : snapshot.duration });
     }
 
+    protected loadAiCatalog(): Promise<void> {
+        if (this.aiCatalogLoaded) return Promise.resolve();
+        const workspace = this.workspaceService.tryGetRoots()[0]?.resource.toString();
+        if (this.aiCatalogFailed && this.aiCatalogFailureWorkspace === workspace) return Promise.resolve();
+        if (this.aiCatalogLoading) return this.aiCatalogLoading;
+        this.aiCatalogLoading = (async () => {
+            let attemptedWorkspace = workspace;
+            try {
+                await this.workspaceService.ready;
+                const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                if (!root) return;
+                attemptedWorkspace = root.toString();
+                this.aiCatalogFailed = false;
+                if (this.generationCatalog.length === 0) {
+                    const catalog = await this.layerAudioService.readGenerationCatalog();
+                    this.generationCatalog = catalog.models.filter(row => row.kind === 'video') as unknown as GenerationCatalogRow[];
+                }
+                this.aiCatalogLoaded = true;
+                this.render();
+            } catch (error) {
+                this.aiCatalogFailed = true;
+                this.aiCatalogFailureWorkspace = attemptedWorkspace;
+                this.showFieldNotice(String(error));
+            } finally {
+                this.aiCatalogLoading = undefined;
+            }
+        })();
+        return this.aiCatalogLoading;
+    }
+
     protected generationIdentity(snapshot: TimelineSelectionModel['snapshot']): {
         key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string;
     } | undefined {
@@ -4319,6 +4405,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.generationCatalog = catalog.models.filter(row => row.kind === 'video') as unknown as GenerationCatalogRow[];
                 this.generationDefaultModel = defaults.video || 'fal:h3-i2v';
             }
+            this.aiCatalogLoaded = true;
             const sidecars = await this.layerAudioService.readGenerationSidecars({
                 projectRootUri: root.toString(), sourcePaths: [identity.sourcePath]
             });

@@ -41,8 +41,8 @@ export function tabsForKind(
         { ...VIDEO_TAB },
         { id: 'adjust', label: '色', enabled: hasMediaPreview },
         { id: 'audio', label: '音声', enabled: hasMediaPreview },
-        { id: 'generation', label: '生成', enabled: snapshotHints.generationAvailable === true,
-            disabledTitle: 'このクリップには生成の入力がありません' },
+        { id: 'generation', label: 'AI', enabled: snapshotHints.generationAvailable === true,
+            disabledTitle: 'このクリップで使える AI はまだありません' },
         { ...INFO_TAB }
     ];
 }

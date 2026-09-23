@@ -235,6 +235,8 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 ## 9. 用語（混同を防ぐ）
 
+右パネルのタブ表示名は「AI」（id は `generation`）。入口は行為のタイル一覧で、選ぶと既存の生成フォームを専用パネルに表示する。
+
 | 語 | 意味 |
 |---|---|
 | 仮枠 | 尺と場所を持つ静止画クリップ。完成品でもある |

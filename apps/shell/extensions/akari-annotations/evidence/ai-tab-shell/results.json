@@ -1,0 +1,40 @@
+{
+  "status": "FAIL",
+  "step": "finished",
+  "port": 22223,
+  "checks": [
+    {
+      "name": "AI tab label and id",
+      "pass": true,
+      "measured": {
+        "text": "AI",
+        "id": "tab:inspector-generation",
+        "enabled": true
+      }
+    }
+  ],
+  "screenshots": [],
+  "scenarios": [],
+  "fixture": {
+    "ok": true,
+    "project": "evidence/ai-tab-shell/fixture/project",
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c",
+      "clip-plain",
+      "clip-mp4"
+    ],
+    "sidecars": [
+      "assets/stills/a.png.meta.json",
+      "assets/stills/b.png.meta.json",
+      "assets/stills/c.png.meta.json"
+    ],
+    "plainImage": "assets/stills/plain.png",
+    "captions": true
+  },
+  "failedStep": "01 still tile list",
+  "error": "Error: Timed out: AI tab selected\n    at waitEval (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:50:9)\n    at async openAi (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:82:3)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-shell/scripts/l1-ai-tab-shell.mjs:190:3",
+  "killedPid": 91921,
+  "electronExited": true
+}
