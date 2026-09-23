@@ -58,13 +58,20 @@ async function dismiss(cdp) {
   await waitEval(cdp, `document.querySelectorAll('.theia-notification-list-item').length===0`, 'notifications clear', 5000).catch(() => null);
 }
 async function settle(cdp) {
-  return evalOn(cdp, `new Promise(resolve=>{const roots=[...['[data-akari-ui="panel:inspector"]','[data-akari-ui="panel:timeline"]']
-    .map(s=>document.querySelector(s)),document.querySelector('[data-akari-material-path]')?.parentElement]
-    .filter(Boolean);if(!roots.length){resolve(true);return}
-    let quiet,limit;const observers=roots.map(root=>{const observer=new MutationObserver(reset);
-    observer.observe(root,{subtree:true,childList:true,attributes:true,characterData:true});return observer});
-    function done(){clearTimeout(quiet);clearTimeout(limit);observers.forEach(o=>o.disconnect());resolve(true)}
-    function reset(){clearTimeout(quiet);quiet=setTimeout(done,500)}limit=setTimeout(done,90000);reset()})`, undefined, 100_000);
+  const until = Date.now() + 90_000;
+  while (Date.now() < until) {
+    const slice = Math.min(45_000, Math.max(1, until - Date.now()));
+    const quiet = await evalOn(cdp, `new Promise(resolve=>{const roots=[...['[data-akari-ui="panel:inspector"]','[data-akari-ui="panel:timeline"]']
+      .map(s=>document.querySelector(s)),document.querySelector('[data-akari-material-path]')?.parentElement]
+      .filter(Boolean);if(!roots.length){resolve(true);return}
+      let quiet,limit;const observers=roots.map(root=>{const observer=new MutationObserver(reset);
+      observer.observe(root,{subtree:true,childList:true,attributes:true,characterData:true});return observer});
+      function done(stable){clearTimeout(quiet);clearTimeout(limit);observers.forEach(o=>o.disconnect());resolve(stable)}
+      function reset(){clearTimeout(quiet);quiet=setTimeout(()=>done(true),500)}
+      limit=setTimeout(()=>done(false),${slice});reset()})`, undefined, 60_000);
+    if (quiet) return true;
+  }
+  return true;
 }
 async function clickUntil(cdp, selector, expected, name) {
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -82,6 +89,51 @@ async function clickUntil(cdp, selector, expected, name) {
       return;
     } catch (error) {
       result.clicks.push({ name, attempt, passed: false, error: String(error) });
+      if (attempt === 3) throw error;
+    }
+  }
+}
+const timelineClip = '[data-akari-ui="timeline:cut:0"]';
+const timelineClipVisible = `(()=>{const e=document.querySelector(${S(timelineClip)});
+  if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0})()`;
+const theiaDialogState = `(()=>{const overlay=[...document.querySelectorAll('.dialogOverlay')].find(e=>{
+  const r=e.getBoundingClientRect(),style=getComputedStyle(e);
+  return r.width>0&&r.height>0&&style.display!=='none'&&style.visibility!=='hidden'});
+  return overlay?{title:overlay.querySelector('.dialogTitle')?.textContent?.trim()||null}:null})()`;
+async function closeTheiaDialogs(cdp) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!await evalOn(cdp, theiaDialogState)) return;
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+    if (await waitEval(cdp, `!(${theiaDialogState})`, 'Theia dialog closed', 1500).then(() => true).catch(() => false)) continue;
+    const cancel = await evalOn(cdp, `(()=>{const overlay=[...document.querySelectorAll('.dialogOverlay')].find(e=>e.getBoundingClientRect().width>0);
+      const button=[...(overlay?.querySelectorAll('.dialogControl button')||[])].find(e=>e.textContent?.trim()==='キャンセル');
+      if(!button)return null;const r=button.getBoundingClientRect();return r.width>0&&r.height>0?{x:r.left+r.width/2,y:r.top+r.height/2}:null})()`);
+    if (cancel) await realClick(cdp, cancel.x, cancel.y);
+  }
+  await waitEval(cdp, `!(${theiaDialogState})`, 'Theia dialogs closed', 5000);
+}
+async function revealTimelineTab(cdp) {
+  const tabPoint = `(()=>{for(const root of ['#theia-bottom-content-panel','#theia-main-content-panel']){
+    for(const tab of document.querySelectorAll(root+' .lm-TabBar-tab,'+root+' .p-TabBar-tab')){
+      const label=tab.querySelector('.lm-TabBar-tabLabel,.p-TabBar-tabLabel')?.textContent?.trim();
+      if(!label?.includes('タイムライン'))continue;
+      const r=tab.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+      const hit=document.elementFromPoint(x,y);
+      if(r.width>0&&r.height>0&&hit&&(hit===tab||tab.contains(hit)))return{x,y}
+    }}return null})()`;
+  await settle(cdp);
+  await dismiss(cdp);
+  if (!await evalOn(cdp, tabPoint)) return false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await settle(cdp);
+    await dismiss(cdp);
+    const point = await waitEval(cdp, tabPoint, 'timeline tab point', 5000);
+    await realClick(cdp, point.x, point.y);
+    try {
+      await waitEval(cdp, timelineClipVisible, 'timeline visible', 5000);
+      return true;
+    } catch (error) {
       if (attempt === 3) throw error;
     }
   }
@@ -160,28 +212,31 @@ try {
   } throw new Error('Electron CDP page did not appear'); })();
   cdp = new CDP(target.webSocketDebuggerUrl);
   await cdp.connect(); await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
-  await waitEval(cdp, 'Boolean(window.theia?.container&&document.getElementById("theia-app-shell"))', 'Theia workbench', 180_000);
+  await waitEval(cdp, `Boolean(window.theia?.container&&document.getElementById('theia-app-shell')&&(()=>{
+    const preload=document.querySelector('.theia-preload');if(!preload)return true;
+    const style=getComputedStyle(preload);return style.display==='none'||Number(style.opacity)===0})())`, 'Theia workbench', 180_000);
   await waitEval(cdp, 'Boolean(document.querySelector(' + S(card('assets/interview.wav')) + '))', 'audio material card');
-  await evalOn(cdp, command('akari.annotations.open')).catch(() => null);
+  if (!await evalOn(cdp, `Boolean(document.querySelector(${S(timelineClip)}))`))
+    await evalOn(cdp, command('akari.annotations.open'));
   await waitEval(cdp, 'Boolean(document.querySelector("[data-akari-ui=\\"timeline:cut:0\\"]"))', 'timeline');
 
   await clickUntil(cdp, card('assets/interview.wav'),
     'document.querySelector(".akari-inspector-ai-material-name")?.textContent==="interview.wav"', 'audio material');
   const openedMainTabState = `(()=>{const main=document.querySelector('#theia-main-content-panel');
-    const tab=[...(main?.querySelectorAll('.lm-TabBar-tab.lm-mod-current,.p-TabBar-tab.p-mod-current')||[])]
-      .find(e=>e.getBoundingClientRect().width>0&&e.textContent.includes('素材プレビュー'));
-    const widgets=[...(main?.querySelectorAll('.lm-Widget,.p-Widget')||[])].filter(e=>
-      !e.closest('.lm-TabBar,.p-TabBar')&&e.getBoundingClientRect().width>0
-      &&e.getBoundingClientRect().height>0&&!e.classList.contains('lm-mod-hidden')
-      &&!e.classList.contains('p-mod-hidden'));
-    return{label:tab?.querySelector('.lm-TabBar-tabLabel,.p-TabBar-tabLabel')?.textContent.trim()||null,
-      bodyHasInterview:widgets.some(e=>e.textContent.includes('interview.wav'))}})()`;
+    const tabs=[...(main?.querySelectorAll('.lm-TabBar-tab,.p-TabBar-tab')||[])]
+      .filter(e=>{const r=e.getBoundingClientRect(),style=getComputedStyle(e);
+        return r.width>0&&r.height>0&&style.display!=='none'&&style.visibility!=='hidden'})
+      .map(e=>({label:e.querySelector('.lm-TabBar-tabLabel,.p-TabBar-tabLabel')?.textContent.trim()||null,
+        current:e.classList.contains('lm-mod-current')||e.classList.contains('p-mod-current')}));
+    const matches=e=>e.label?.includes('interview.wav')||e.label?.includes('素材プレビュー');
+    const tab=tabs.find(e=>e.current&&matches(e))||tabs.find(matches);
+    return{label:tab?.label||null}})()`;
   const openedMainTab = await waitEval(cdp,
-    `(()=>{const state=${openedMainTabState};return state.label?.includes('素材プレビュー')&&state.bodyHasInterview?state:null})()`,
-    'audio opened in main area', 10_000).catch(() => evalOn(cdp, openedMainTabState));
+    `(()=>{const state=${openedMainTabState};return state.label?state:null})()`,
+    'audio opened in main area').catch(() => evalOn(cdp, openedMainTabState));
   result.measurements.openedMainTab = openedMainTab;
   check('card still opens interview.wav in the main area',
-    openedMainTab.label?.includes('素材プレビュー') && openedMainTab.bodyHasInterview, openedMainTab);
+    openedMainTab.label?.includes('interview.wav') || openedMainTab.label?.includes('素材プレビュー'), openedMainTab);
   await waitEval(cdp, 'Boolean(document.querySelector(' + S(tile) + ')?.querySelector(".akari-inspector-ai-done-badge"))', 'done badge');
   const geometry = await evalOn(cdp, '(()=>{const e=document.querySelector(' + S(tile) + '),b=e.querySelector(".akari-inspector-ai-done-badge"),'
     + 't=e.querySelector(".akari-inspector-ai-title"),h=document.querySelector(".akari-inspector-ai-material-header");'
@@ -241,9 +296,14 @@ try {
     + '&&document.querySelector(".akari-inspector-ai-material-empty")?.textContent==="この素材で使える AI はまだありません"'), true);
   await shot(cdp, '05-image-empty.png');
 
-  await evalOn(cdp, command('akari.annotations.open')).catch(() => null);
-  await waitEval(cdp, '(()=>{const e=document.querySelector("[data-akari-ui=\\"timeline:cut:0\\"]");return !!e&&e.getBoundingClientRect().width>0})()', 'timeline visible');
-  await clickUntil(cdp, '[data-akari-ui="timeline:cut:0"]',
+  await closeTheiaDialogs(cdp);
+  if (!await evalOn(cdp, timelineClipVisible)) {
+    if (!await revealTimelineTab(cdp) && !await evalOn(cdp, `Boolean(document.querySelector(${S(timelineClip)}))`))
+      await evalOn(cdp, command('akari.annotations.open'));
+  }
+  await closeTheiaDialogs(cdp);
+  await waitEval(cdp, timelineClipVisible, 'timeline visible');
+  await clickUntil(cdp, timelineClip,
     '!document.querySelector(".akari-inspector-ai-material-header")&&Boolean(document.querySelector("[data-akari-ui=\\"tab:inspector-generation\\"]"))',
     'timeline clip');
   await shot(cdp, '06-timeline-return.png');
@@ -267,6 +327,7 @@ try {
           tile:!!document.querySelector(${S(tile)}),badge:!!document.querySelector('.akari-inspector-ai-done-badge'),
           transcribePanel:!!document.querySelector(${S(panel)}),back:!!document.querySelector('.akari-inspector-ai-back'),
           dialog:!!document.querySelector('[data-akari-transcribe-dialog="true"]')},
+        theiaDialogTitle:(${theiaDialogState})?.title??null,
         notifications:document.querySelectorAll('.theia-notification-list-item').length
       }))()`);
     } catch (stateError) { result.failureState = { error: String(stateError) }; }

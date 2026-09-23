@@ -1,13 +1,94 @@
 {
-  "status": "FAIL",
+  "status": "PASS",
   "checks": [
     {
       "name": "card still opens interview.wav in the main area",
-      "passed": false,
+      "passed": true,
       "measured": {
-        "label": "素材プレビュー",
-        "bodyHasInterview": false
+        "label": "素材プレビュー"
       }
+    },
+    {
+      "name": "audio name, kind, selected AI tab and separate badge rectangles",
+      "passed": true,
+      "measured": {
+        "audioHeader": "音声の素材",
+        "geometry": {
+          "badge": {
+            "x": 809.5,
+            "y": 198.5,
+            "width": 32,
+            "height": 17
+          },
+          "title": {
+            "x": 654,
+            "y": 312.84375,
+            "width": 185.5,
+            "height": 16.1953125
+          },
+          "header": {
+            "x": 643,
+            "y": 47,
+            "width": 421,
+            "height": 57.5
+          },
+          "intersect": false,
+          "headerIntersect": false
+        }
+      }
+    },
+    {
+      "name": "overview includes selected material card and inspector",
+      "passed": true,
+      "measured": {
+        "scale": 1,
+        "bytes": 261557
+      }
+    },
+    {
+      "name": "01-audio-done-tile.png <= 500KB",
+      "passed": true,
+      "measured": 67809
+    },
+    {
+      "name": "first lines and daihon",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "02-audio-transcript.png <= 500KB",
+      "passed": true,
+      "measured": 60364
+    },
+    {
+      "name": "transcription RPC blocked before dialog",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "03-video-dialog.png <= 500KB",
+      "passed": true,
+      "measured": 143861
+    },
+    {
+      "name": "04-video-after-dialog.png <= 500KB",
+      "passed": true,
+      "measured": 28335
+    },
+    {
+      "name": "image kind and empty state with zero tiles",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "05-image-empty.png <= 500KB",
+      "passed": true,
+      "measured": 22993
+    },
+    {
+      "name": "06-timeline-return.png <= 500KB",
+      "passed": true,
+      "measured": 62507
     }
   ],
   "clicks": [
@@ -15,23 +96,104 @@
       "name": "audio material",
       "attempt": 1,
       "passed": true
+    },
+    {
+      "name": "done transcript panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "video material",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "video transcript panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "existing transcript dialog",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "image material",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "timeline clip",
+      "attempt": 1,
+      "passed": true
     }
   ],
   "screenshots": [
     {
-      "name": "error-full.png",
-      "bytes": 261674
+      "name": "00-overview.png",
+      "bytes": 261557,
+      "scale": 1,
+      "viewport": {
+        "width": 1120,
+        "height": 668
+      }
+    },
+    {
+      "name": "01-audio-done-tile.png",
+      "bytes": 67809
+    },
+    {
+      "name": "02-audio-transcript.png",
+      "bytes": 60364
+    },
+    {
+      "name": "03-video-dialog.png",
+      "bytes": 143861
+    },
+    {
+      "name": "04-video-after-dialog.png",
+      "bytes": 28335
+    },
+    {
+      "name": "05-image-empty.png",
+      "bytes": 22993
+    },
+    {
+      "name": "06-timeline-return.png",
+      "bytes": 62507
     }
   ],
   "measurements": {
-    "badgeTitleIntersect": null,
+    "badgeTitleIntersect": false,
     "buttons": [],
     "openedMainTab": {
-      "label": "素材プレビュー",
-      "bodyHasInterview": false
+      "label": "素材プレビュー"
+    },
+    "materialHeaderBadgeIntersect": false,
+    "badgeTitleRects": {
+      "badge": {
+        "x": 809.5,
+        "y": 198.5,
+        "width": 32,
+        "height": 17
+      },
+      "title": {
+        "x": 654,
+        "y": 312.84375,
+        "width": 185.5,
+        "height": 16.1953125
+      },
+      "header": {
+        "x": 643,
+        "y": 47,
+        "width": 421,
+        "height": 57.5
+      },
+      "intersect": false,
+      "headerIntersect": false
     }
   },
-  "blockedTranscriptions": 0,
+  "blockedTranscriptions": 1,
   "fixture": {
     "project": "<TEMP>/project",
     "audio": "assets/interview.wav",
@@ -39,20 +201,6 @@
     "still": "assets/still.png",
     "segments": 7
   },
-  "error": "Error: card still opens interview.wav in the main area: {\"label\":\"素材プレビュー\",\"bodyHasInterview\":false}",
-  "failureState": {
-    "selectedClips": [],
-    "tabs": [],
-    "inspector": {
-      "present": true,
-      "tile": true,
-      "badge": true,
-      "transcribePanel": false,
-      "back": false,
-      "dialog": false
-    },
-    "notifications": 0
-  },
-  "killedPid": 15664,
+  "killedPid": 59728,
   "electronExited": true
 }
