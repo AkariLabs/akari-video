@@ -45,7 +45,7 @@ manifest の `panelPath` が返す `?k=` を枠の通信に付けます。合言
 Lab 接続の鍵は `AKARI_VOICE_JUDGE_TOKEN`、次に `AKARI_HOME/store-credentials.json`
 （未指定なら `~/.akari/store-credentials.json`）の token を使います。
 利用者の OpenRouter の鍵は `OPENROUTER_API_KEY` → `AKARI_CREDENTIALS_FILE` →
-`~/.config/akari-video/credentials.env` → 旧 `~/.config/akari/openrouter.env` の順に探します。
+`~/.akari/credentials.env`（旧 `~/.config/akari-video/credentials.env` も読む）→ 旧 `~/.config/akari/openrouter.env` の順に探します。
 ファイルは呼び出すたびに読み直します。登録後の再起動は不要です。
 
 通常、保存済みの両方の鍵を送る相手は HTTPS の `akari.video` だけです。
