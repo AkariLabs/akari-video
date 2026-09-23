@@ -1,0 +1,5887 @@
+{
+  "phase": "before",
+  "status": "recorded",
+  "checks": [
+    {
+      "name": "(a) 角のつまみ 1.5 倍: つまみの操作で文字の中心が動かない",
+      "pass": true,
+      "detail": {
+        "before": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 183.78,
+          "top": 348.81,
+          "right": 548.65,
+          "bottom": 383.16,
+          "w": 364.86,
+          "h": 34.35,
+          "lines": 1,
+          "lineLefts": [
+            183.79
+          ],
+          "plateBox": {
+            "left": 0,
+            "width": 732.44,
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "hold": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 92.57,
+          "top": 340.22,
+          "right": 639.86,
+          "bottom": 391.74,
+          "w": 547.3,
+          "h": 51.53,
+          "lines": 1,
+          "lineLefts": [
+            92.57
+          ],
+          "plateBox": {
+            "left": -183.11,
+            "width": 1098.66,
+            "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "settled": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 92.57,
+          "top": 340.22,
+          "right": 639.86,
+          "bottom": 391.74,
+          "w": 547.3,
+          "h": 51.53,
+          "lines": 1,
+          "lineLefts": [
+            92.57
+          ],
+          "plateBox": {
+            "left": -183.11,
+            "width": 1098.66,
+            "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "saved": {
+          "scale": 1.5
+        },
+        "centerShiftHold": {
+          "cx": 0,
+          "cy": 0,
+          "left": -91.21,
+          "top": -8.59,
+          "w": 182.44,
+          "lines": 0
+        },
+        "centerShiftSettled": {
+          "cx": 0,
+          "cy": 0,
+          "left": -91.21,
+          "top": -8.59,
+          "w": 182.44,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "(b) 角のつまみ 0.7 倍: つまみの操作で文字の中心が動かない",
+      "pass": true,
+      "detail": {
+        "before": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 183.14,
+          "top": 348.81,
+          "right": 549.3,
+          "bottom": 383.16,
+          "w": 366.17,
+          "h": 34.35,
+          "lines": 1,
+          "lineLefts": [
+            183.14
+          ],
+          "plateBox": {
+            "left": 0,
+            "width": 732.44,
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "hold": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 238.06,
+          "top": 353.96,
+          "right": 494.38,
+          "bottom": 378,
+          "w": 256.32,
+          "h": 24.05,
+          "lines": 1,
+          "lineLefts": [
+            238.06
+          ],
+          "plateBox": {
+            "left": 109.87,
+            "width": 512.71,
+            "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "settled": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 238.06,
+          "top": 353.96,
+          "right": 494.38,
+          "bottom": 378,
+          "w": 256.32,
+          "h": 24.05,
+          "lines": 1,
+          "lineLefts": [
+            238.06
+          ],
+          "plateBox": {
+            "left": 109.87,
+            "width": 512.71,
+            "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "saved": {
+          "scale": 0.7
+        },
+        "centerShiftHold": {
+          "cx": 0,
+          "cy": 0,
+          "left": 54.92,
+          "top": 5.15,
+          "w": -109.85,
+          "lines": 0
+        },
+        "centerShiftSettled": {
+          "cx": 0,
+          "cy": 0,
+          "left": 54.92,
+          "top": 5.15,
+          "w": -109.85,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "(c) 回転つまみ 15°: つまみの操作で文字の中心が動かない",
+      "pass": true,
+      "detail": {
+        "before": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 194.33,
+          "top": 348.81,
+          "right": 538.1,
+          "bottom": 383.16,
+          "w": 343.77,
+          "h": 34.35,
+          "lines": 1,
+          "lineLefts": [
+            194.33
+          ],
+          "plateBox": {
+            "left": 0,
+            "width": 732.44,
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "hold": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 195.74,
+          "top": 304.9,
+          "right": 536.69,
+          "bottom": 427.06,
+          "w": 340.95,
+          "h": 122.16,
+          "lines": 1,
+          "lineLefts": [
+            195.74
+          ],
+          "plateBox": {
+            "left": 8.03,
+            "width": 716.37,
+            "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "settled": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 195.74,
+          "top": 304.9,
+          "right": 536.69,
+          "bottom": 427.06,
+          "w": 340.95,
+          "h": 122.16,
+          "lines": 1,
+          "lineLefts": [
+            195.74
+          ],
+          "plateBox": {
+            "left": 8.03,
+            "width": 716.37,
+            "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "saved": {
+          "rotate": 15
+        },
+        "centerShiftHold": {
+          "cx": 0,
+          "cy": 0,
+          "left": 1.41,
+          "top": -43.91,
+          "w": -2.82,
+          "lines": 0
+        },
+        "centerShiftSettled": {
+          "cx": 0,
+          "cy": 0,
+          "left": 1.41,
+          "top": -43.91,
+          "w": -2.82,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "つまみの操作 → 再読込: 文字の中心が保存前と同じ",
+      "pass": true,
+      "detail": {
+        "c-0001": {
+          "cx": 0,
+          "cy": 0,
+          "left": 0,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        },
+        "c-0002": {
+          "cx": 0,
+          "cy": 0,
+          "left": 0,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        },
+        "c-0003": {
+          "cx": 0,
+          "cy": 0,
+          "left": 0,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        }
+      }
+    },
+    {
+      "name": "本体ドラッグ 3 回: 離した瞬間と再読込後の文字の中心の差（(a)(b)(c) は ±1px・累積なし）",
+      "pass": true,
+      "detail": {
+        "c-0001": {
+          "name": "(a) 1.5 倍",
+          "holdToReloaded": [
+            {
+              "cx": -168.46,
+              "cy": 8.59,
+              "left": -168.46,
+              "top": 8.59,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -168.46,
+              "cy": 8.57,
+              "left": -168.46,
+              "top": 8.57,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -168.44,
+              "cy": 8.59,
+              "left": -168.44,
+              "top": 8.59,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            23.27
+          ],
+          "cumulativeCx": -442.09,
+          "expectedCumulativeCx": 63.269999999999996
+        },
+        "c-0002": {
+          "name": "(b) 0.7 倍",
+          "holdToReloaded": [
+            {
+              "cx": 101.05,
+              "cy": -5.15,
+              "left": 101.05,
+              "top": -5.15,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 101.07,
+              "cy": -5.15,
+              "left": 101.07,
+              "top": -5.15,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 101.07,
+              "cy": -5.15,
+              "left": 101.08,
+              "top": -5.15,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            20
+          ],
+          "cumulativeCx": 363.19,
+          "expectedCumulativeCx": 60
+        },
+        "c-0003": {
+          "name": "(c) 回転 15°",
+          "holdToReloaded": [
+            {
+              "cx": 7.06,
+              "cy": 1.21,
+              "left": 7.07,
+              "top": 1.21,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 7.03,
+              "cy": 1.19,
+              "left": 7.02,
+              "top": 1.19,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 7.03,
+              "cy": 1.19,
+              "left": 7.03,
+              "top": 1.19,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            20
+          ],
+          "cumulativeCx": 81.12,
+          "expectedCumulativeCx": 60
+        },
+        "c-0004": {
+          "name": "(d) 1 行・拡縮回転なし",
+          "holdToReloaded": [
+            {
+              "cx": 0.01,
+              "cy": 0,
+              "left": 0.01,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": -0.01,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 0,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            20
+          ],
+          "cumulativeCx": 60,
+          "expectedCumulativeCx": 60
+        },
+        "c-0005": {
+          "name": "(d) 複数行",
+          "holdToReloaded": [
+            {
+              "cx": 0.02,
+              "cy": 0,
+              "left": 0.02,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": -0.01,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 0,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            20
+          ],
+          "cumulativeCx": 60.01,
+          "expectedCumulativeCx": 60
+        },
+        "c-0006": {
+          "name": "(d) プリセット相当（subtitle-news）",
+          "holdToReloaded": [
+            {
+              "cx": 0,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": -0.01,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 0,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            20
+          ],
+          "cumulativeCx": 59.99,
+          "expectedCumulativeCx": 60
+        },
+        "c-0007": {
+          "name": "(d) アンカー mc",
+          "holdToReloaded": [
+            {
+              "cx": -0.04,
+              "cy": 0,
+              "left": -0.04,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 0,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": -0.01,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            20
+          ],
+          "cumulativeCx": 59.95,
+          "expectedCumulativeCx": 60
+        },
+        "c-0008": {
+          "name": "(d) アンカー tc",
+          "holdToReloaded": [
+            {
+              "cx": -0.03,
+              "cy": 0,
+              "left": -0.04,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 0,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            20
+          ],
+          "cumulativeCx": 59.96,
+          "expectedCumulativeCx": 60
+        },
+        "c-0101": {
+          "name": "(d) 置いた文字",
+          "holdToReloaded": [
+            {
+              "cx": -0.01,
+              "cy": -0.01,
+              "left": -0.02,
+              "top": -0.01,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": -0.01,
+              "left": -0.01,
+              "top": -0.01,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 0,
+              "cy": -0.01,
+              "left": 0,
+              "top": -0.01,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            20,
+            20,
+            23.52
+          ],
+          "cumulativeCx": 63.5,
+          "expectedCumulativeCx": 63.519999999999996
+        },
+        "c-0009": {
+          "name": "(d) 画面の外（x −0.2）",
+          "holdToReloaded": [
+            {
+              "cx": -0.01,
+              "cy": 0.02,
+              "left": -0.01,
+              "top": 0.01,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0.02,
+              "left": -0.01,
+              "top": 0.01,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": 0,
+              "cy": 0.02,
+              "left": 0,
+              "top": 0.01,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            21.77,
+            20,
+            20
+          ],
+          "cumulativeCx": 61.75,
+          "expectedCumulativeCx": 61.769999999999996
+        },
+        "c-0010": {
+          "name": "(d) 中央吸着（+6px）",
+          "holdToReloaded": [
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            },
+            {
+              "cx": -0.01,
+              "cy": 0,
+              "left": 0,
+              "top": 0,
+              "w": 0,
+              "lines": 0
+            }
+          ],
+          "moved": [
+            0,
+            0.01,
+            0.01
+          ],
+          "cumulativeCx": -0.01,
+          "expectedCumulativeCx": 0.02
+        }
+      }
+    },
+    {
+      "name": "(d) 全字幕モード: ⌥ドラッグ +20px → 離す → 再読込",
+      "pass": true,
+      "detail": {
+        "pre": {
+          "cx": 366.22,
+          "cy": 365.98,
+          "left": 226.62,
+          "top": 348.81,
+          "right": 505.81,
+          "bottom": 383.16,
+          "w": 279.19,
+          "h": 34.35,
+          "lines": 1,
+          "lineLefts": [
+            226.63
+          ],
+          "plateBox": {
+            "left": 0,
+            "width": 732.44,
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "hold": {
+          "cx": 386.22,
+          "cy": 365.98,
+          "left": 246.62,
+          "top": 348.81,
+          "right": 525.81,
+          "bottom": 383.16,
+          "w": 279.19,
+          "h": 34.35,
+          "lines": 1,
+          "lineLefts": [
+            246.63
+          ],
+          "plateBox": {
+            "left": 20,
+            "width": 732.44,
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "origin": "640px 30.0156px"
+          }
+        },
+        "settled": {
+          "cx": 386.2,
+          "cy": 365.98,
+          "left": 246.61,
+          "top": 348.81,
+          "right": 525.8,
+          "bottom": 383.16,
+          "w": 279.19,
+          "h": 34.35,
+          "lines": 1,
+          "lineLefts": [
+            246.61
+          ],
+          "plateBox": {
+            "left": 246.61,
+            "width": 673.84,
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "origin": "588.801px 30.0156px"
+          }
+        },
+        "reloaded": {
+          "cx": 386.2,
+          "cy": 365.98,
+          "left": 246.61,
+          "top": 348.81,
+          "right": 525.8,
+          "bottom": 383.16,
+          "w": 279.19,
+          "h": 34.35,
+          "lines": 1,
+          "lineLefts": [
+            246.61
+          ],
+          "plateBox": {
+            "left": 246.61,
+            "width": 673.84,
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "origin": "588.801px 30.0156px"
+          }
+        },
+        "savedDefault": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3367,
+            "y": 0.93
+          }
+        },
+        "cue": null,
+        "moved": {
+          "cx": 20,
+          "cy": 0,
+          "left": 20,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        },
+        "holdToReloaded": {
+          "cx": -0.02,
+          "cy": 0,
+          "left": -0.01,
+          "top": 0,
+          "w": 0,
+          "lines": 0
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "before-00-initial-c-0013.png",
+    "before-01-a-scaled-1.5.png",
+    "before-02-a-after-drag-1.png",
+    "before-03-after-3-reloads-c-0001.png",
+    "before-03-after-3-reloads-c-0002.png",
+    "before-03-after-3-reloads-c-0003.png",
+    "before-03-after-3-reloads-c-0005.png"
+  ],
+  "pids": [
+    14197,
+    21393,
+    29556,
+    39348,
+    50599,
+    54152
+  ],
+  "step": "measure c-0001,c-0002,c-0003,c-0004,c-0005,c-0006,c-0007,c-0008,c-0101,c-0009,c-0010,c-0011,c-0012,c-0013,c-0014",
+  "frame": {
+    "x": 296.78125,
+    "y": 16.00390625,
+    "w": 732.4375,
+    "h": 411.99609375
+  },
+  "initial": {
+    "frame": {
+      "x": 296.78125,
+      "y": 16.00390625,
+      "w": 732.4375,
+      "h": 411.99609375
+    },
+    "c-0001": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 183.78,
+      "top": 348.81,
+      "right": 548.65,
+      "bottom": 383.16,
+      "w": 364.86,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        183.79
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0002": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 183.14,
+      "top": 348.81,
+      "right": 549.3,
+      "bottom": 383.16,
+      "w": 366.17,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        183.14
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0003": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 194.33,
+      "top": 348.81,
+      "right": 538.1,
+      "bottom": 383.16,
+      "w": 343.77,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        194.33
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0004": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 183.46,
+      "top": 348.81,
+      "right": 548.97,
+      "bottom": 383.16,
+      "w": 365.52,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        183.46
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0005": {
+      "cx": 366.22,
+      "cy": 329.34,
+      "left": 139.65,
+      "top": 275.53,
+      "right": 592.79,
+      "bottom": 383.16,
+      "w": 453.14,
+      "h": 107.63,
+      "lines": 3,
+      "lineLefts": [
+        139.65,
+        151.06,
+        237.82
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 94.0469px"
+      }
+    },
+    "c-0006": {
+      "cx": 366.22,
+      "cy": 351.25,
+      "left": 229.69,
+      "top": 319.35,
+      "right": 502.75,
+      "bottom": 383.16,
+      "w": 273.06,
+      "h": 63.81,
+      "lines": 1,
+      "lineLefts": [
+        229.69
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 55.7578px"
+      }
+    },
+    "c-0007": {
+      "cx": 366.22,
+      "cy": 206,
+      "left": 259.24,
+      "top": 188.82,
+      "right": 473.2,
+      "bottom": 223.17,
+      "w": 213.96,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        259.24
+      ],
+      "plateBox": {
+        "left": 29.3,
+        "width": 673.85,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.805px 30.0156px"
+      }
+    },
+    "c-0008": {
+      "cx": 366.22,
+      "cy": 66.61,
+      "left": 280.99,
+      "top": 49.44,
+      "right": 451.45,
+      "bottom": 83.79,
+      "w": 170.47,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        280.99
+      ],
+      "plateBox": {
+        "left": 29.3,
+        "width": 673.85,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.805px 30.0156px"
+      }
+    },
+    "c-0101": {
+      "cx": 366.21,
+      "cy": 207.72,
+      "left": 302.73,
+      "top": 190.55,
+      "right": 429.7,
+      "bottom": 224.9,
+      "w": 126.98,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        302.73
+      ],
+      "plateBox": {
+        "left": 29.3,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.797px 30.0156px"
+      }
+    },
+    "c-0009": {
+      "cx": 14.85,
+      "cy": 230.02,
+      "left": -146.49,
+      "top": 212.85,
+      "right": 176.19,
+      "bottom": 247.2,
+      "w": 322.68,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        -146.49
+      ],
+      "plateBox": {
+        "left": -146.49,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0010": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 226.62,
+      "top": 348.81,
+      "right": 505.81,
+      "bottom": 383.16,
+      "w": 279.19,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        226.63
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0011": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 226.62,
+      "top": 348.81,
+      "right": 505.81,
+      "bottom": 383.16,
+      "w": 279.19,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        226.63
+      ],
+      "plateBox": {
+        "left": 0,
+        "width": 732.44,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0012": {
+      "cx": 312.01,
+      "cy": 238.27,
+      "left": 183.11,
+      "top": 221.09,
+      "right": 440.9,
+      "bottom": 255.44,
+      "w": 257.79,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        183.11
+      ],
+      "plateBox": {
+        "left": 183.11,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.797px 30.0156px"
+      }
+    },
+    "c-0013": {
+      "cx": 187,
+      "cy": 312.42,
+      "left": -21.97,
+      "top": 286.66,
+      "right": 395.97,
+      "bottom": 338.18,
+      "w": 417.94,
+      "h": 51.53,
+      "lines": 1,
+      "lineLefts": [
+        -21.97
+      ],
+      "plateBox": {
+        "left": -21.97,
+        "width": 1010.76,
+        "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+        "origin": "588.797px 30.0156px"
+      }
+    },
+    "c-0014": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 215.87,
+      "top": 310.3,
+      "right": 516.56,
+      "bottom": 421.66,
+      "w": 300.69,
+      "h": 111.37,
+      "lines": 1,
+      "lineLefts": [
+        215.87
+      ],
+      "plateBox": {
+        "left": 8.03,
+        "width": 716.37,
+        "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    }
+  },
+  "transforms": {
+    "c-0001": {
+      "before": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 183.78,
+        "top": 348.81,
+        "right": 548.65,
+        "bottom": 383.16,
+        "w": 364.86,
+        "h": 34.35,
+        "lines": 1,
+        "lineLefts": [
+          183.79
+        ],
+        "plateBox": {
+          "left": 0,
+          "width": 732.44,
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "hold": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 92.57,
+        "top": 340.22,
+        "right": 639.86,
+        "bottom": 391.74,
+        "w": 547.3,
+        "h": 51.53,
+        "lines": 1,
+        "lineLefts": [
+          92.57
+        ],
+        "plateBox": {
+          "left": -183.11,
+          "width": 1098.66,
+          "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "settled": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 92.57,
+        "top": 340.22,
+        "right": 639.86,
+        "bottom": 391.74,
+        "w": 547.3,
+        "h": 51.53,
+        "lines": 1,
+        "lineLefts": [
+          92.57
+        ],
+        "plateBox": {
+          "left": -183.11,
+          "width": 1098.66,
+          "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "saved": {
+        "scale": 1.5
+      },
+      "centerShiftHold": {
+        "cx": 0,
+        "cy": 0,
+        "left": -91.21,
+        "top": -8.59,
+        "w": 182.44,
+        "lines": 0
+      },
+      "centerShiftSettled": {
+        "cx": 0,
+        "cy": 0,
+        "left": -91.21,
+        "top": -8.59,
+        "w": 182.44,
+        "lines": 0
+      }
+    },
+    "c-0002": {
+      "before": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 183.14,
+        "top": 348.81,
+        "right": 549.3,
+        "bottom": 383.16,
+        "w": 366.17,
+        "h": 34.35,
+        "lines": 1,
+        "lineLefts": [
+          183.14
+        ],
+        "plateBox": {
+          "left": 0,
+          "width": 732.44,
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "hold": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 238.06,
+        "top": 353.96,
+        "right": 494.38,
+        "bottom": 378,
+        "w": 256.32,
+        "h": 24.05,
+        "lines": 1,
+        "lineLefts": [
+          238.06
+        ],
+        "plateBox": {
+          "left": 109.87,
+          "width": 512.71,
+          "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "settled": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 238.06,
+        "top": 353.96,
+        "right": 494.38,
+        "bottom": 378,
+        "w": 256.32,
+        "h": 24.05,
+        "lines": 1,
+        "lineLefts": [
+          238.06
+        ],
+        "plateBox": {
+          "left": 109.87,
+          "width": 512.71,
+          "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "saved": {
+        "scale": 0.7
+      },
+      "centerShiftHold": {
+        "cx": 0,
+        "cy": 0,
+        "left": 54.92,
+        "top": 5.15,
+        "w": -109.85,
+        "lines": 0
+      },
+      "centerShiftSettled": {
+        "cx": 0,
+        "cy": 0,
+        "left": 54.92,
+        "top": 5.15,
+        "w": -109.85,
+        "lines": 0
+      }
+    },
+    "c-0003": {
+      "before": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 194.33,
+        "top": 348.81,
+        "right": 538.1,
+        "bottom": 383.16,
+        "w": 343.77,
+        "h": 34.35,
+        "lines": 1,
+        "lineLefts": [
+          194.33
+        ],
+        "plateBox": {
+          "left": 0,
+          "width": 732.44,
+          "transform": "matrix(1, 0, 0, 1, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "hold": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 195.74,
+        "top": 304.9,
+        "right": 536.69,
+        "bottom": 427.06,
+        "w": 340.95,
+        "h": 122.16,
+        "lines": 1,
+        "lineLefts": [
+          195.74
+        ],
+        "plateBox": {
+          "left": 8.03,
+          "width": 716.37,
+          "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "settled": {
+        "cx": 366.22,
+        "cy": 365.98,
+        "left": 195.74,
+        "top": 304.9,
+        "right": 536.69,
+        "bottom": 427.06,
+        "w": 340.95,
+        "h": 122.16,
+        "lines": 1,
+        "lineLefts": [
+          195.74
+        ],
+        "plateBox": {
+          "left": 8.03,
+          "width": 716.37,
+          "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+          "origin": "640px 30.0156px"
+        }
+      },
+      "saved": {
+        "rotate": 15
+      },
+      "centerShiftHold": {
+        "cx": 0,
+        "cy": 0,
+        "left": 1.41,
+        "top": -43.91,
+        "w": -2.82,
+        "lines": 0
+      },
+      "centerShiftSettled": {
+        "cx": 0,
+        "cy": 0,
+        "left": 1.41,
+        "top": -43.91,
+        "w": -2.82,
+        "lines": 0
+      }
+    }
+  },
+  "reload0": {
+    "frame": {
+      "x": 296.78125,
+      "y": 16.00390625,
+      "w": 732.4375,
+      "h": 411.99609375
+    },
+    "c-0001": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 92.57,
+      "top": 340.22,
+      "right": 639.86,
+      "bottom": 391.74,
+      "w": 547.3,
+      "h": 51.53,
+      "lines": 1,
+      "lineLefts": [
+        92.57
+      ],
+      "plateBox": {
+        "left": -183.11,
+        "width": 1098.66,
+        "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0002": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 238.06,
+      "top": 353.96,
+      "right": 494.38,
+      "bottom": 378,
+      "w": 256.32,
+      "h": 24.05,
+      "lines": 1,
+      "lineLefts": [
+        238.06
+      ],
+      "plateBox": {
+        "left": 109.87,
+        "width": 512.71,
+        "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    },
+    "c-0003": {
+      "cx": 366.22,
+      "cy": 365.98,
+      "left": 195.74,
+      "top": 304.9,
+      "right": 536.69,
+      "bottom": 427.06,
+      "w": 340.95,
+      "h": 122.16,
+      "lines": 1,
+      "lineLefts": [
+        195.74
+      ],
+      "plateBox": {
+        "left": 8.03,
+        "width": 716.37,
+        "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+        "origin": "640px 30.0156px"
+      }
+    }
+  },
+  "iterations": [
+    {
+      "index": 1,
+      "cases": {
+        "c-0001": {
+          "name": "(a) 1.5 倍",
+          "pre": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 92.57,
+            "top": 340.22,
+            "right": 639.86,
+            "bottom": 391.74,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              92.57
+            ],
+            "plateBox": {
+              "left": -183.11,
+              "width": 1098.66,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 365.63,
+            "left": 112.57,
+            "top": 339.87,
+            "right": 659.86,
+            "bottom": 391.4,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              112.57
+            ],
+            "plateBox": {
+              "left": -163.11,
+              "width": 1098.66,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 217.76,
+            "cy": 374.22,
+            "left": -55.89,
+            "top": 348.46,
+            "right": 491.41,
+            "bottom": 399.98,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -55.88
+            ],
+            "plateBox": {
+              "left": -55.88,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "scale": 1.5,
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.1537,
+              "y": 0.95
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": -0.35,
+            "left": 20,
+            "top": -0.35,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -168.46,
+            "cy": 8.59,
+            "left": -168.46,
+            "top": 8.59,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 217.76,
+            "cy": 374.22,
+            "left": -55.89,
+            "top": 348.46,
+            "right": 491.41,
+            "bottom": 399.98,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -55.88
+            ],
+            "plateBox": {
+              "left": -55.88,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -168.46,
+            "cy": 8.59,
+            "left": -168.46,
+            "top": 8.59,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0002": {
+          "name": "(b) 0.7 倍",
+          "pre": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 238.06,
+            "top": 353.96,
+            "right": 494.38,
+            "bottom": 378,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              238.06
+            ],
+            "plateBox": {
+              "left": 109.87,
+              "width": 512.71,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 365.98,
+            "left": 258.06,
+            "top": 353.96,
+            "right": 514.38,
+            "bottom": 378,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              258.06
+            ],
+            "plateBox": {
+              "left": 129.87,
+              "width": 512.71,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 487.27,
+            "cy": 360.83,
+            "left": 359.11,
+            "top": 348.81,
+            "right": 615.43,
+            "bottom": 372.85,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              359.11
+            ],
+            "plateBox": {
+              "left": 359.11,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "scale": 0.7,
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3523,
+              "y": 0.9175
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 101.05,
+            "cy": -5.15,
+            "left": 101.05,
+            "top": -5.15,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 487.27,
+            "cy": 360.83,
+            "left": 359.11,
+            "top": 348.81,
+            "right": 615.43,
+            "bottom": 372.85,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              359.11
+            ],
+            "plateBox": {
+              "left": 359.11,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 101.05,
+            "cy": -5.15,
+            "left": 101.05,
+            "top": -5.15,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0003": {
+          "name": "(c) 回転 15°",
+          "pre": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 195.74,
+            "top": 304.9,
+            "right": 536.69,
+            "bottom": 427.06,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              195.74
+            ],
+            "plateBox": {
+              "left": 8.03,
+              "width": 716.37,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 365.98,
+            "left": 215.74,
+            "top": 304.9,
+            "right": 556.69,
+            "bottom": 427.06,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              215.74
+            ],
+            "plateBox": {
+              "left": 28.03,
+              "width": 716.37,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 393.28,
+            "cy": 367.19,
+            "left": 222.81,
+            "top": 306.11,
+            "right": 563.76,
+            "bottom": 428.26,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              222.81
+            ],
+            "plateBox": {
+              "left": 222.81,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "rotate": 15,
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.2946,
+              "y": 1.0366
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 7.06,
+            "cy": 1.21,
+            "left": 7.07,
+            "top": 1.21,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 393.28,
+            "cy": 367.19,
+            "left": 222.81,
+            "top": 306.11,
+            "right": 563.76,
+            "bottom": 428.26,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              222.81
+            ],
+            "plateBox": {
+              "left": 222.81,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 7.06,
+            "cy": 1.21,
+            "left": 7.07,
+            "top": 1.21,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0004": {
+          "name": "(d) 1 行・拡縮回転なし",
+          "pre": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 183.46,
+            "top": 348.81,
+            "right": 548.97,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              183.46
+            ],
+            "plateBox": {
+              "left": 0,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 365.98,
+            "left": 203.46,
+            "top": 348.81,
+            "right": 568.97,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              203.46
+            ],
+            "plateBox": {
+              "left": 20,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 386.23,
+            "cy": 365.98,
+            "left": 203.47,
+            "top": 348.81,
+            "right": 568.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              203.47
+            ],
+            "plateBox": {
+              "left": 203.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.2778,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0.01,
+            "cy": 0,
+            "left": 0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 386.23,
+            "cy": 365.98,
+            "left": 203.47,
+            "top": 348.81,
+            "right": 568.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              203.47
+            ],
+            "plateBox": {
+              "left": 203.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0.01,
+            "cy": 0,
+            "left": 0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0005": {
+          "name": "(d) 複数行",
+          "pre": {
+            "cx": 366.22,
+            "cy": 329.34,
+            "left": 139.65,
+            "top": 275.53,
+            "right": 592.79,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              139.65,
+              151.06,
+              237.82
+            ],
+            "plateBox": {
+              "left": 0,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 94.0469px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 329.34,
+            "left": 159.65,
+            "top": 275.53,
+            "right": 612.79,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              159.65,
+              171.06,
+              257.82
+            ],
+            "plateBox": {
+              "left": 20,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 94.0469px"
+            }
+          },
+          "settled": {
+            "cx": 386.24,
+            "cy": 329.34,
+            "left": 159.67,
+            "top": 275.53,
+            "right": 612.81,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              159.67,
+              159.67,
+              159.67
+            ],
+            "plateBox": {
+              "left": 159.67,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 94.0469px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.218,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0.02,
+            "cy": 0,
+            "left": 0.02,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 386.24,
+            "cy": 329.34,
+            "left": 159.67,
+            "top": 275.53,
+            "right": 612.81,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              159.67,
+              159.67,
+              159.67
+            ],
+            "plateBox": {
+              "left": 159.67,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 94.0469px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0.02,
+            "cy": 0,
+            "left": 0.02,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0006": {
+          "name": "(d) プリセット相当（subtitle-news）",
+          "pre": {
+            "cx": 366.22,
+            "cy": 351.25,
+            "left": 229.69,
+            "top": 319.35,
+            "right": 502.75,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              229.69
+            ],
+            "plateBox": {
+              "left": 0,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 55.7578px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 351.25,
+            "left": 249.69,
+            "top": 319.35,
+            "right": 522.75,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              249.69
+            ],
+            "plateBox": {
+              "left": 20,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 55.7578px"
+            }
+          },
+          "settled": {
+            "cx": 386.22,
+            "cy": 351.25,
+            "left": 249.69,
+            "top": 319.35,
+            "right": 522.75,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              249.69
+            ],
+            "plateBox": {
+              "left": 249.69,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 55.7578px"
+            }
+          },
+          "saved": {
+            "size_px": 56,
+            "weight": 700,
+            "color": "#ffffff",
+            "background": {
+              "color": "#c62828",
+              "opacity": 1,
+              "padding_px": 16,
+              "radius_px": 0
+            },
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3409,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 386.22,
+            "cy": 351.25,
+            "left": 249.69,
+            "top": 319.35,
+            "right": 522.75,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              249.69
+            ],
+            "plateBox": {
+              "left": 249.69,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 55.7578px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0007": {
+          "name": "(d) アンカー mc",
+          "pre": {
+            "cx": 366.22,
+            "cy": 206,
+            "left": 259.24,
+            "top": 188.82,
+            "right": 473.2,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              259.24
+            ],
+            "plateBox": {
+              "left": 29.3,
+              "width": 673.85,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.805px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 206,
+            "left": 279.24,
+            "top": 188.82,
+            "right": 493.2,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              279.24
+            ],
+            "plateBox": {
+              "left": 49.3,
+              "width": 673.85,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.805px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 386.18,
+            "cy": 206,
+            "left": 279.2,
+            "top": 188.82,
+            "right": 493.16,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              279.2
+            ],
+            "plateBox": {
+              "left": 279.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.3812,
+              "y": 0.5
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.04,
+            "cy": 0,
+            "left": -0.04,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 386.18,
+            "cy": 206,
+            "left": 279.2,
+            "top": 188.82,
+            "right": 493.16,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              279.2
+            ],
+            "plateBox": {
+              "left": 279.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.04,
+            "cy": 0,
+            "left": -0.04,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0008": {
+          "name": "(d) アンカー tc",
+          "pre": {
+            "cx": 366.22,
+            "cy": 66.61,
+            "left": 280.99,
+            "top": 49.44,
+            "right": 451.45,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              280.99
+            ],
+            "plateBox": {
+              "left": 29.3,
+              "width": 673.85,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.805px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 386.22,
+            "cy": 66.61,
+            "left": 300.99,
+            "top": 49.44,
+            "right": 471.45,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              300.99
+            ],
+            "plateBox": {
+              "left": 49.3,
+              "width": 673.85,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.805px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 386.19,
+            "cy": 66.61,
+            "left": 300.95,
+            "top": 49.44,
+            "right": 471.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              300.96
+            ],
+            "plateBox": {
+              "left": 300.96,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "tc",
+            "position": {
+              "x": 0.4109,
+              "y": 0.12
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.03,
+            "cy": 0,
+            "left": -0.04,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 386.19,
+            "cy": 66.61,
+            "left": 300.95,
+            "top": 49.44,
+            "right": 471.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              300.96
+            ],
+            "plateBox": {
+              "left": 300.96,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.03,
+            "cy": 0,
+            "left": -0.04,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0101": {
+          "name": "(d) 置いた文字",
+          "pre": {
+            "cx": 366.21,
+            "cy": 207.72,
+            "left": 302.73,
+            "top": 190.55,
+            "right": 429.7,
+            "bottom": 224.9,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              302.73
+            ],
+            "plateBox": {
+              "left": 29.3,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 386.21,
+            "cy": 206,
+            "left": 322.73,
+            "top": 188.82,
+            "right": 449.7,
+            "bottom": 223.17,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              322.73
+            ],
+            "plateBox": {
+              "left": 49.3,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 386.2,
+            "cy": 205.99,
+            "left": 322.71,
+            "top": 188.81,
+            "right": 449.69,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              322.71
+            ],
+            "plateBox": {
+              "left": 322.71,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "saved": {
+            "position": {
+              "x": 0.4406,
+              "y": 0.4583
+            },
+            "text_anchor": "tc"
+          },
+          "moved": {
+            "cx": 20,
+            "cy": -1.72,
+            "left": 20,
+            "top": -1.73,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": -0.01,
+            "left": -0.02,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 386.2,
+            "cy": 205.99,
+            "left": 322.71,
+            "top": 188.81,
+            "right": 449.69,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              322.71
+            ],
+            "plateBox": {
+              "left": 322.71,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": -0.01,
+            "left": -0.02,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0009": {
+          "name": "(d) 画面の外（x −0.2）",
+          "pre": {
+            "cx": 14.85,
+            "cy": 230.02,
+            "left": -146.49,
+            "top": 212.85,
+            "right": 176.19,
+            "bottom": 247.2,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -146.49
+            ],
+            "plateBox": {
+              "left": -146.49,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 36.62,
+            "cy": 223.17,
+            "left": -124.72,
+            "top": 206,
+            "right": 197.96,
+            "bottom": 240.35,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -124.72
+            ],
+            "plateBox": {
+              "left": -124.72,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 36.61,
+            "cy": 223.19,
+            "left": -124.73,
+            "top": 206.01,
+            "right": 197.95,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -124.73
+            ],
+            "plateBox": {
+              "left": -124.73,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": -0.1703,
+              "y": 0.5834
+            }
+          },
+          "moved": {
+            "cx": 21.77,
+            "cy": -6.85,
+            "left": 21.77,
+            "top": -6.85,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0.02,
+            "left": -0.01,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 36.61,
+            "cy": 223.19,
+            "left": -124.73,
+            "top": 206.01,
+            "right": 197.95,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -124.73
+            ],
+            "plateBox": {
+              "left": -124.73,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0.02,
+            "left": -0.01,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0010": {
+          "name": "(d) 中央吸着（+6px）",
+          "pre": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.81,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.63
+            ],
+            "plateBox": {
+              "left": 0,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.81,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.63
+            ],
+            "plateBox": {
+              "left": 0,
+              "width": 732.44,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "640px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3094,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        }
+      }
+    },
+    {
+      "index": 2,
+      "cases": {
+        "c-0001": {
+          "name": "(a) 1.5 倍",
+          "pre": {
+            "cx": 217.76,
+            "cy": 374.22,
+            "left": -55.89,
+            "top": 348.46,
+            "right": 491.41,
+            "bottom": 399.98,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -55.88
+            ],
+            "plateBox": {
+              "left": -55.88,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 237.76,
+            "cy": 374.22,
+            "left": -35.89,
+            "top": 348.46,
+            "right": 511.41,
+            "bottom": 399.98,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -35.88
+            ],
+            "plateBox": {
+              "left": -35.88,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 69.3,
+            "cy": 382.79,
+            "left": -204.35,
+            "top": 357.03,
+            "right": 342.95,
+            "bottom": 408.55,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -204.35
+            ],
+            "plateBox": {
+              "left": -204.35,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "scale": 1.5,
+            "text_anchor": "bc",
+            "position": {
+              "x": -0.049,
+              "y": 0.9708
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -168.46,
+            "cy": 8.57,
+            "left": -168.46,
+            "top": 8.57,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 69.3,
+            "cy": 382.79,
+            "left": -204.35,
+            "top": 357.03,
+            "right": 342.95,
+            "bottom": 408.55,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -204.35
+            ],
+            "plateBox": {
+              "left": -204.35,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -168.46,
+            "cy": 8.57,
+            "left": -168.46,
+            "top": 8.57,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0002": {
+          "name": "(b) 0.7 倍",
+          "pre": {
+            "cx": 487.27,
+            "cy": 360.83,
+            "left": 359.11,
+            "top": 348.81,
+            "right": 615.43,
+            "bottom": 372.85,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              359.11
+            ],
+            "plateBox": {
+              "left": 359.11,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 507.27,
+            "cy": 360.83,
+            "left": 379.11,
+            "top": 348.81,
+            "right": 635.43,
+            "bottom": 372.85,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              379.11
+            ],
+            "plateBox": {
+              "left": 379.11,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 608.34,
+            "cy": 355.68,
+            "left": 480.18,
+            "top": 343.66,
+            "right": 736.5,
+            "bottom": 367.7,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              480.18
+            ],
+            "plateBox": {
+              "left": 480.18,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "scale": 0.7,
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.5176,
+              "y": 0.905
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 101.07,
+            "cy": -5.15,
+            "left": 101.07,
+            "top": -5.15,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 608.34,
+            "cy": 355.68,
+            "left": 480.18,
+            "top": 343.66,
+            "right": 736.5,
+            "bottom": 367.7,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              480.18
+            ],
+            "plateBox": {
+              "left": 480.18,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 101.07,
+            "cy": -5.15,
+            "left": 101.07,
+            "top": -5.15,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0003": {
+          "name": "(c) 回転 15°",
+          "pre": {
+            "cx": 393.28,
+            "cy": 367.19,
+            "left": 222.81,
+            "top": 306.11,
+            "right": 563.76,
+            "bottom": 428.26,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              222.81
+            ],
+            "plateBox": {
+              "left": 222.81,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 413.28,
+            "cy": 367.19,
+            "left": 242.81,
+            "top": 306.11,
+            "right": 583.76,
+            "bottom": 428.26,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              242.81
+            ],
+            "plateBox": {
+              "left": 242.81,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 420.31,
+            "cy": 368.38,
+            "left": 249.83,
+            "top": 307.3,
+            "right": 590.78,
+            "bottom": 429.46,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              249.83
+            ],
+            "plateBox": {
+              "left": 249.83,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "rotate": 15,
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3315,
+              "y": 1.0395
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 7.03,
+            "cy": 1.19,
+            "left": 7.02,
+            "top": 1.19,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 420.31,
+            "cy": 368.38,
+            "left": 249.83,
+            "top": 307.3,
+            "right": 590.78,
+            "bottom": 429.46,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              249.83
+            ],
+            "plateBox": {
+              "left": 249.83,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 7.03,
+            "cy": 1.19,
+            "left": 7.02,
+            "top": 1.19,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0004": {
+          "name": "(d) 1 行・拡縮回転なし",
+          "pre": {
+            "cx": 386.23,
+            "cy": 365.98,
+            "left": 203.47,
+            "top": 348.81,
+            "right": 568.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              203.47
+            ],
+            "plateBox": {
+              "left": 203.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 406.23,
+            "cy": 365.98,
+            "left": 223.47,
+            "top": 348.81,
+            "right": 588.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              223.47
+            ],
+            "plateBox": {
+              "left": 223.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 406.22,
+            "cy": 365.98,
+            "left": 223.46,
+            "top": 348.81,
+            "right": 588.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              223.47
+            ],
+            "plateBox": {
+              "left": 223.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3051,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 406.22,
+            "cy": 365.98,
+            "left": 223.46,
+            "top": 348.81,
+            "right": 588.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              223.47
+            ],
+            "plateBox": {
+              "left": 223.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0005": {
+          "name": "(d) 複数行",
+          "pre": {
+            "cx": 386.24,
+            "cy": 329.34,
+            "left": 159.67,
+            "top": 275.53,
+            "right": 612.81,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              159.67,
+              159.67,
+              159.67
+            ],
+            "plateBox": {
+              "left": 159.67,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 94.0469px"
+            }
+          },
+          "hold": {
+            "cx": 406.24,
+            "cy": 329.34,
+            "left": 179.67,
+            "top": 275.53,
+            "right": 632.81,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              179.67,
+              179.67,
+              179.67
+            ],
+            "plateBox": {
+              "left": 179.67,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 94.0469px"
+            }
+          },
+          "settled": {
+            "cx": 406.23,
+            "cy": 329.34,
+            "left": 179.66,
+            "top": 275.53,
+            "right": 632.8,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              179.66,
+              179.66,
+              179.66
+            ],
+            "plateBox": {
+              "left": 179.66,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 94.0469px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.2453,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 406.23,
+            "cy": 329.34,
+            "left": 179.66,
+            "top": 275.53,
+            "right": 632.8,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              179.66,
+              179.66,
+              179.66
+            ],
+            "plateBox": {
+              "left": 179.66,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 94.0469px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0006": {
+          "name": "(d) プリセット相当（subtitle-news）",
+          "pre": {
+            "cx": 386.22,
+            "cy": 351.25,
+            "left": 249.69,
+            "top": 319.35,
+            "right": 522.75,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              249.69
+            ],
+            "plateBox": {
+              "left": 249.69,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 55.7578px"
+            }
+          },
+          "hold": {
+            "cx": 406.22,
+            "cy": 351.25,
+            "left": 269.69,
+            "top": 319.35,
+            "right": 542.75,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              269.69
+            ],
+            "plateBox": {
+              "left": 269.69,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 55.7578px"
+            }
+          },
+          "settled": {
+            "cx": 406.21,
+            "cy": 351.25,
+            "left": 269.68,
+            "top": 319.35,
+            "right": 542.74,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              269.68
+            ],
+            "plateBox": {
+              "left": 269.68,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 55.7578px"
+            }
+          },
+          "saved": {
+            "size_px": 56,
+            "weight": 700,
+            "color": "#ffffff",
+            "background": {
+              "color": "#c62828",
+              "opacity": 1,
+              "padding_px": 16,
+              "radius_px": 0
+            },
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3682,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 406.21,
+            "cy": 351.25,
+            "left": 269.68,
+            "top": 319.35,
+            "right": 542.74,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              269.68
+            ],
+            "plateBox": {
+              "left": 269.68,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 55.7578px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0007": {
+          "name": "(d) アンカー mc",
+          "pre": {
+            "cx": 386.18,
+            "cy": 206,
+            "left": 279.2,
+            "top": 188.82,
+            "right": 493.16,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              279.2
+            ],
+            "plateBox": {
+              "left": 279.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 406.18,
+            "cy": 206,
+            "left": 299.2,
+            "top": 188.82,
+            "right": 513.16,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              299.2
+            ],
+            "plateBox": {
+              "left": 299.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 406.18,
+            "cy": 206,
+            "left": 299.2,
+            "top": 188.82,
+            "right": 513.15,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              299.2
+            ],
+            "plateBox": {
+              "left": 299.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.4085,
+              "y": 0.5
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 406.18,
+            "cy": 206,
+            "left": 299.2,
+            "top": 188.82,
+            "right": 513.15,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              299.2
+            ],
+            "plateBox": {
+              "left": 299.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0008": {
+          "name": "(d) アンカー tc",
+          "pre": {
+            "cx": 386.19,
+            "cy": 66.61,
+            "left": 300.95,
+            "top": 49.44,
+            "right": 471.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              300.96
+            ],
+            "plateBox": {
+              "left": 300.96,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 406.19,
+            "cy": 66.61,
+            "left": 320.95,
+            "top": 49.44,
+            "right": 491.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              320.96
+            ],
+            "plateBox": {
+              "left": 320.96,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 406.18,
+            "cy": 66.61,
+            "left": 320.95,
+            "top": 49.44,
+            "right": 491.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              320.95
+            ],
+            "plateBox": {
+              "left": 320.95,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "tc",
+            "position": {
+              "x": 0.4382,
+              "y": 0.12
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 406.18,
+            "cy": 66.61,
+            "left": 320.95,
+            "top": 49.44,
+            "right": 491.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              320.95
+            ],
+            "plateBox": {
+              "left": 320.95,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0101": {
+          "name": "(d) 置いた文字",
+          "pre": {
+            "cx": 386.2,
+            "cy": 205.99,
+            "left": 322.71,
+            "top": 188.81,
+            "right": 449.69,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              322.71
+            ],
+            "plateBox": {
+              "left": 322.71,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 406.2,
+            "cy": 206,
+            "left": 342.71,
+            "top": 188.82,
+            "right": 469.69,
+            "bottom": 223.17,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              342.71
+            ],
+            "plateBox": {
+              "left": 342.71,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 406.19,
+            "cy": 205.99,
+            "left": 342.7,
+            "top": 188.81,
+            "right": 469.68,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              342.71
+            ],
+            "plateBox": {
+              "left": 342.71,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "saved": {
+            "position": {
+              "x": 0.4679,
+              "y": 0.4583
+            },
+            "text_anchor": "tc"
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0.01,
+            "left": 20,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": -0.01,
+            "left": -0.01,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 406.19,
+            "cy": 205.99,
+            "left": 342.7,
+            "top": 188.81,
+            "right": 469.68,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              342.71
+            ],
+            "plateBox": {
+              "left": 342.71,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": -0.01,
+            "left": -0.01,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0009": {
+          "name": "(d) 画面の外（x −0.2）",
+          "pre": {
+            "cx": 36.61,
+            "cy": 223.19,
+            "left": -124.73,
+            "top": 206.01,
+            "right": 197.95,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -124.73
+            ],
+            "plateBox": {
+              "left": -124.73,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 56.61,
+            "cy": 223.17,
+            "left": -104.73,
+            "top": 206,
+            "right": 217.95,
+            "bottom": 240.35,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -104.73
+            ],
+            "plateBox": {
+              "left": -104.73,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 56.6,
+            "cy": 223.19,
+            "left": -104.74,
+            "top": 206.01,
+            "right": 217.94,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -104.74
+            ],
+            "plateBox": {
+              "left": -104.74,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": -0.143,
+              "y": 0.5834
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": -0.02,
+            "left": 20,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0.02,
+            "left": -0.01,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 56.6,
+            "cy": 223.19,
+            "left": -104.74,
+            "top": 206.01,
+            "right": 217.94,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -104.74
+            ],
+            "plateBox": {
+              "left": -104.74,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0.02,
+            "left": -0.01,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0010": {
+          "name": "(d) 中央吸着（+6px）",
+          "pre": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.81,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.63
+            ],
+            "plateBox": {
+              "left": 226.63,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3094,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        }
+      }
+    },
+    {
+      "index": 3,
+      "cases": {
+        "c-0001": {
+          "name": "(a) 1.5 倍",
+          "pre": {
+            "cx": 69.3,
+            "cy": 382.79,
+            "left": -204.35,
+            "top": 357.03,
+            "right": 342.95,
+            "bottom": 408.55,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -204.35
+            ],
+            "plateBox": {
+              "left": -204.35,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 92.57,
+            "cy": 386.23,
+            "left": -181.08,
+            "top": 360.47,
+            "right": 366.22,
+            "bottom": 412,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -181.08
+            ],
+            "plateBox": {
+              "left": -181.08,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": -75.87,
+            "cy": 394.82,
+            "left": -349.52,
+            "top": 369.06,
+            "right": 197.78,
+            "bottom": 420.58,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -349.52
+            ],
+            "plateBox": {
+              "left": -349.52,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "scale": 1.5,
+            "text_anchor": "bc",
+            "position": {
+              "x": -0.2472,
+              "y": 1
+            }
+          },
+          "moved": {
+            "cx": 23.27,
+            "cy": 3.44,
+            "left": 23.27,
+            "top": 3.44,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -168.44,
+            "cy": 8.59,
+            "left": -168.44,
+            "top": 8.59,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": -75.87,
+            "cy": 394.82,
+            "left": -349.52,
+            "top": 369.06,
+            "right": 197.78,
+            "bottom": 420.58,
+            "w": 547.3,
+            "h": 51.53,
+            "lines": 1,
+            "lineLefts": [
+              -349.52
+            ],
+            "plateBox": {
+              "left": -349.52,
+              "width": 1010.77,
+              "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -168.44,
+            "cy": 8.59,
+            "left": -168.44,
+            "top": 8.59,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0002": {
+          "name": "(b) 0.7 倍",
+          "pre": {
+            "cx": 608.34,
+            "cy": 355.68,
+            "left": 480.18,
+            "top": 343.66,
+            "right": 736.5,
+            "bottom": 367.7,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              480.18
+            ],
+            "plateBox": {
+              "left": 480.18,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 628.34,
+            "cy": 355.68,
+            "left": 500.18,
+            "top": 343.66,
+            "right": 756.5,
+            "bottom": 367.7,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              500.18
+            ],
+            "plateBox": {
+              "left": 500.18,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 729.41,
+            "cy": 350.53,
+            "left": 601.26,
+            "top": 338.51,
+            "right": 857.57,
+            "bottom": 362.55,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              601.26
+            ],
+            "plateBox": {
+              "left": 601.26,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "scale": 0.7,
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.6829,
+              "y": 0.8925
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 101.07,
+            "cy": -5.15,
+            "left": 101.08,
+            "top": -5.15,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 729.41,
+            "cy": 350.53,
+            "left": 601.26,
+            "top": 338.51,
+            "right": 857.57,
+            "bottom": 362.55,
+            "w": 256.32,
+            "h": 24.05,
+            "lines": 1,
+            "lineLefts": [
+              601.26
+            ],
+            "plateBox": {
+              "left": 601.26,
+              "width": 471.69,
+              "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 101.07,
+            "cy": -5.15,
+            "left": 101.08,
+            "top": -5.15,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0003": {
+          "name": "(c) 回転 15°",
+          "pre": {
+            "cx": 420.31,
+            "cy": 368.38,
+            "left": 249.83,
+            "top": 307.3,
+            "right": 590.78,
+            "bottom": 429.46,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              249.83
+            ],
+            "plateBox": {
+              "left": 249.83,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 440.31,
+            "cy": 368.38,
+            "left": 269.83,
+            "top": 307.3,
+            "right": 610.78,
+            "bottom": 429.46,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              269.83
+            ],
+            "plateBox": {
+              "left": 269.83,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 447.34,
+            "cy": 369.57,
+            "left": 276.86,
+            "top": 308.49,
+            "right": 617.81,
+            "bottom": 430.65,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              276.86
+            ],
+            "plateBox": {
+              "left": 276.86,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "rotate": 15,
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3684,
+              "y": 1.0424
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 7.03,
+            "cy": 1.19,
+            "left": 7.03,
+            "top": 1.19,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 447.34,
+            "cy": 369.57,
+            "left": 276.86,
+            "top": 308.49,
+            "right": 617.81,
+            "bottom": 430.65,
+            "w": 340.95,
+            "h": 122.16,
+            "lines": 1,
+            "lineLefts": [
+              276.86
+            ],
+            "plateBox": {
+              "left": 276.86,
+              "width": 659.77,
+              "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 7.03,
+            "cy": 1.19,
+            "left": 7.03,
+            "top": 1.19,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0004": {
+          "name": "(d) 1 行・拡縮回転なし",
+          "pre": {
+            "cx": 406.22,
+            "cy": 365.98,
+            "left": 223.46,
+            "top": 348.81,
+            "right": 588.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              223.47
+            ],
+            "plateBox": {
+              "left": 223.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 426.22,
+            "cy": 365.98,
+            "left": 243.46,
+            "top": 348.81,
+            "right": 608.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              243.47
+            ],
+            "plateBox": {
+              "left": 243.47,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 426.22,
+            "cy": 365.98,
+            "left": 243.46,
+            "top": 348.81,
+            "right": 608.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              243.46
+            ],
+            "plateBox": {
+              "left": 243.46,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3324,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 426.22,
+            "cy": 365.98,
+            "left": 243.46,
+            "top": 348.81,
+            "right": 608.98,
+            "bottom": 383.16,
+            "w": 365.52,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              243.46
+            ],
+            "plateBox": {
+              "left": 243.46,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0005": {
+          "name": "(d) 複数行",
+          "pre": {
+            "cx": 406.23,
+            "cy": 329.34,
+            "left": 179.66,
+            "top": 275.53,
+            "right": 632.8,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              179.66,
+              179.66,
+              179.66
+            ],
+            "plateBox": {
+              "left": 179.66,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 94.0469px"
+            }
+          },
+          "hold": {
+            "cx": 426.23,
+            "cy": 329.34,
+            "left": 199.66,
+            "top": 275.53,
+            "right": 652.8,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              199.66,
+              199.66,
+              199.66
+            ],
+            "plateBox": {
+              "left": 199.66,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 94.0469px"
+            }
+          },
+          "settled": {
+            "cx": 426.23,
+            "cy": 329.34,
+            "left": 199.66,
+            "top": 275.53,
+            "right": 652.8,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              199.66,
+              199.66,
+              199.66
+            ],
+            "plateBox": {
+              "left": 199.66,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 94.0469px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.2726,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 426.23,
+            "cy": 329.34,
+            "left": 199.66,
+            "top": 275.53,
+            "right": 652.8,
+            "bottom": 383.16,
+            "w": 453.14,
+            "h": 107.63,
+            "lines": 3,
+            "lineLefts": [
+              199.66,
+              199.66,
+              199.66
+            ],
+            "plateBox": {
+              "left": 199.66,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 94.0469px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0006": {
+          "name": "(d) プリセット相当（subtitle-news）",
+          "pre": {
+            "cx": 406.21,
+            "cy": 351.25,
+            "left": 269.68,
+            "top": 319.35,
+            "right": 542.74,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              269.68
+            ],
+            "plateBox": {
+              "left": 269.68,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 55.7578px"
+            }
+          },
+          "hold": {
+            "cx": 426.21,
+            "cy": 351.25,
+            "left": 289.68,
+            "top": 319.35,
+            "right": 562.74,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              289.68
+            ],
+            "plateBox": {
+              "left": 289.68,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 55.7578px"
+            }
+          },
+          "settled": {
+            "cx": 426.21,
+            "cy": 351.25,
+            "left": 289.68,
+            "top": 319.35,
+            "right": 562.74,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              289.68
+            ],
+            "plateBox": {
+              "left": 289.68,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 55.7578px"
+            }
+          },
+          "saved": {
+            "size_px": 56,
+            "weight": 700,
+            "color": "#ffffff",
+            "background": {
+              "color": "#c62828",
+              "opacity": 1,
+              "padding_px": 16,
+              "radius_px": 0
+            },
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3955,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 426.21,
+            "cy": 351.25,
+            "left": 289.68,
+            "top": 319.35,
+            "right": 562.74,
+            "bottom": 383.16,
+            "w": 273.06,
+            "h": 63.81,
+            "lines": 1,
+            "lineLefts": [
+              289.68
+            ],
+            "plateBox": {
+              "left": 289.68,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 55.7578px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0007": {
+          "name": "(d) アンカー mc",
+          "pre": {
+            "cx": 406.18,
+            "cy": 206,
+            "left": 299.2,
+            "top": 188.82,
+            "right": 513.15,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              299.2
+            ],
+            "plateBox": {
+              "left": 299.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 426.18,
+            "cy": 206,
+            "left": 319.2,
+            "top": 188.82,
+            "right": 533.15,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              319.2
+            ],
+            "plateBox": {
+              "left": 319.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 426.17,
+            "cy": 206,
+            "left": 319.19,
+            "top": 188.82,
+            "right": 533.15,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              319.2
+            ],
+            "plateBox": {
+              "left": 319.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "mc",
+            "position": {
+              "x": 0.4358,
+              "y": 0.5
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 426.17,
+            "cy": 206,
+            "left": 319.19,
+            "top": 188.82,
+            "right": 533.15,
+            "bottom": 223.17,
+            "w": 213.96,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              319.2
+            ],
+            "plateBox": {
+              "left": 319.2,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": -0.01,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0008": {
+          "name": "(d) アンカー tc",
+          "pre": {
+            "cx": 406.18,
+            "cy": 66.61,
+            "left": 320.95,
+            "top": 49.44,
+            "right": 491.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              320.95
+            ],
+            "plateBox": {
+              "left": 320.95,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 426.18,
+            "cy": 66.61,
+            "left": 340.95,
+            "top": 49.44,
+            "right": 511.42,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              340.95
+            ],
+            "plateBox": {
+              "left": 340.95,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 426.18,
+            "cy": 66.61,
+            "left": 340.95,
+            "top": 49.44,
+            "right": 511.41,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              340.95
+            ],
+            "plateBox": {
+              "left": 340.95,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "tc",
+            "position": {
+              "x": 0.4655,
+              "y": 0.12
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": 0,
+            "left": 20,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 426.18,
+            "cy": 66.61,
+            "left": 340.95,
+            "top": 49.44,
+            "right": 511.41,
+            "bottom": 83.79,
+            "w": 170.47,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              340.95
+            ],
+            "plateBox": {
+              "left": 340.95,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0101": {
+          "name": "(d) 置いた文字",
+          "pre": {
+            "cx": 406.19,
+            "cy": 205.99,
+            "left": 342.7,
+            "top": 188.81,
+            "right": 469.68,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              342.71
+            ],
+            "plateBox": {
+              "left": 342.71,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 429.71,
+            "cy": 206,
+            "left": 366.22,
+            "top": 188.82,
+            "right": 493.2,
+            "bottom": 223.17,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              366.22
+            ],
+            "plateBox": {
+              "left": 366.22,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 429.71,
+            "cy": 205.99,
+            "left": 366.22,
+            "top": 188.81,
+            "right": 493.2,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              366.22
+            ],
+            "plateBox": {
+              "left": 366.22,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "saved": {
+            "position": {
+              "x": 0.5,
+              "y": 0.4583
+            },
+            "text_anchor": "tc"
+          },
+          "moved": {
+            "cx": 23.52,
+            "cy": 0.01,
+            "left": 23.52,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": -0.01,
+            "left": 0,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 429.71,
+            "cy": 205.99,
+            "left": 366.22,
+            "top": 188.81,
+            "right": 493.2,
+            "bottom": 223.16,
+            "w": 126.98,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              366.22
+            ],
+            "plateBox": {
+              "left": 366.22,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": -0.01,
+            "left": 0,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0009": {
+          "name": "(d) 画面の外（x −0.2）",
+          "pre": {
+            "cx": 56.6,
+            "cy": 223.19,
+            "left": -104.74,
+            "top": 206.01,
+            "right": 217.94,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -104.74
+            ],
+            "plateBox": {
+              "left": -104.74,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 76.6,
+            "cy": 223.17,
+            "left": -84.74,
+            "top": 206,
+            "right": 237.94,
+            "bottom": 240.35,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -84.74
+            ],
+            "plateBox": {
+              "left": -84.74,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 76.6,
+            "cy": 223.19,
+            "left": -84.74,
+            "top": 206.01,
+            "right": 237.93,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -84.74
+            ],
+            "plateBox": {
+              "left": -84.74,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": -0.1157,
+              "y": 0.5834
+            }
+          },
+          "moved": {
+            "cx": 20,
+            "cy": -0.02,
+            "left": 20,
+            "top": -0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": 0,
+            "cy": 0.02,
+            "left": 0,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 76.6,
+            "cy": 223.19,
+            "left": -84.74,
+            "top": 206.01,
+            "right": 237.93,
+            "bottom": 240.36,
+            "w": 322.68,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              -84.74
+            ],
+            "plateBox": {
+              "left": -84.74,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.801px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": 0,
+            "cy": 0.02,
+            "left": 0,
+            "top": 0.01,
+            "w": 0,
+            "lines": 0
+          }
+        },
+        "c-0010": {
+          "name": "(d) 中央吸着（+6px）",
+          "pre": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "hold": {
+            "cx": 366.22,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.81,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.63
+            ],
+            "plateBox": {
+              "left": 226.63,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "settled": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "saved": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.3094,
+              "y": 0.93
+            }
+          },
+          "moved": {
+            "cx": 0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "holdToSettled": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          },
+          "reloaded": {
+            "cx": 366.21,
+            "cy": 365.98,
+            "left": 226.62,
+            "top": 348.81,
+            "right": 505.8,
+            "bottom": 383.16,
+            "w": 279.19,
+            "h": 34.35,
+            "lines": 1,
+            "lineLefts": [
+              226.62
+            ],
+            "plateBox": {
+              "left": 226.62,
+              "width": 673.84,
+              "transform": "matrix(1, 0, 0, 1, 0, 0)",
+              "origin": "588.797px 30.0156px"
+            }
+          },
+          "holdToReloaded": {
+            "cx": -0.01,
+            "cy": 0,
+            "left": 0,
+            "top": 0,
+            "w": 0,
+            "lines": 0
+          }
+        }
+      }
+    }
+  ],
+  "captionsFinal": {
+    "default_text_style": {
+      "text_anchor": "bc",
+      "position": {
+        "x": 0.3367,
+        "y": 0.93
+      }
+    },
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 3.6,
+        "text": "今日は朝のルーティンを紹介します",
+        "sourceRef": {
+          "segment": 0
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "scale": 1.5,
+          "text_anchor": "bc",
+          "position": {
+            "x": -0.2472,
+            "y": 1
+          }
+        }
+      },
+      {
+        "id": "c-0002",
+        "start": 4,
+        "end": 7.6,
+        "text": "まずはコーヒーを淹れるところから",
+        "sourceRef": {
+          "segment": 1
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "scale": 0.7,
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.6829,
+            "y": 0.8925
+          }
+        }
+      },
+      {
+        "id": "c-0003",
+        "start": 8,
+        "end": 11.6,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "sourceRef": {
+          "segment": 2
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "rotate": 15,
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3684,
+            "y": 1.0424
+          }
+        }
+      },
+      {
+        "id": "c-0004",
+        "start": 12,
+        "end": 15.6,
+        "text": "パソコンを開いて予定を確認します",
+        "sourceRef": {
+          "segment": 3
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3324,
+            "y": 0.93
+          }
+        }
+      },
+      {
+        "id": "c-0005",
+        "start": 16,
+        "end": 19.6,
+        "text": "その間にデスクの上をさっと片付けて気分を切り替えてから今日いちばん大事な作業を一つだけ決めておきます",
+        "sourceRef": {
+          "segment": 4
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2726,
+            "y": 0.93
+          }
+        }
+      },
+      {
+        "id": "c-0006",
+        "start": 20,
+        "end": 23.6,
+        "text": "ニュース風の字幕",
+        "sourceRef": {
+          "segment": 5
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "size_px": 56,
+          "weight": 700,
+          "color": "#ffffff",
+          "background": {
+            "color": "#c62828",
+            "opacity": 1,
+            "padding_px": 16,
+            "radius_px": 0
+          },
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3955,
+            "y": 0.93
+          }
+        }
+      },
+      {
+        "id": "c-0007",
+        "start": 24,
+        "end": 27.6,
+        "text": "真ん中に置いた字幕",
+        "sourceRef": {
+          "segment": 6
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "mc",
+          "position": {
+            "x": 0.4358,
+            "y": 0.5
+          }
+        }
+      },
+      {
+        "id": "c-0008",
+        "start": 28,
+        "end": 31.6,
+        "text": "上に置いた字幕",
+        "sourceRef": {
+          "segment": 7
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "tc",
+          "position": {
+            "x": 0.4655,
+            "y": 0.12
+          }
+        }
+      },
+      {
+        "id": "c-0101",
+        "start": 32,
+        "end": 35.6,
+        "text": "置いた文字",
+        "time_domain": "output",
+        "sourceRef": null,
+        "edited": true,
+        "speaker": null,
+        "text_style": {
+          "position": {
+            "x": 0.5,
+            "y": 0.4583
+          },
+          "text_anchor": "tc"
+        }
+      },
+      {
+        "id": "c-0009",
+        "start": 36,
+        "end": 39.6,
+        "text": "画面の外へはみ出した字幕です",
+        "sourceRef": {
+          "segment": 9
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": -0.1157,
+            "y": 0.5834
+          }
+        }
+      },
+      {
+        "id": "c-0010",
+        "start": 40,
+        "end": 43.6,
+        "text": "中央に吸着させる字幕です",
+        "sourceRef": {
+          "segment": 10
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.3094,
+            "y": 0.93
+          }
+        }
+      },
+      {
+        "id": "c-0011",
+        "start": 44,
+        "end": 47.6,
+        "text": "全字幕モードで動かす字幕",
+        "sourceRef": {
+          "segment": 11
+        },
+        "edited": false,
+        "speaker": null
+      },
+      {
+        "id": "c-0012",
+        "start": 48,
+        "end": 51.6,
+        "text": "位置 x を持つ等倍の字幕",
+        "sourceRef": {
+          "segment": 12
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.25,
+            "y": 0.62
+          }
+        }
+      },
+      {
+        "id": "c-0013",
+        "start": 52,
+        "end": 55.6,
+        "text": "位置 x を持つ 1.5 倍の字幕",
+        "sourceRef": {
+          "segment": 13
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "text_anchor": "bc",
+          "position": {
+            "x": 0.2,
+            "y": 0.8
+          },
+          "scale": 1.5
+        }
+      },
+      {
+        "id": "c-0014",
+        "start": 56,
+        "end": 59.6,
+        "text": "位置 x の無い回転 15° の字幕",
+        "sourceRef": {
+          "segment": 14
+        },
+        "edited": false,
+        "speaker": null,
+        "text_style": {
+          "rotate": 15
+        }
+      }
+    ]
+  },
+  "frameFinal": {
+    "x": 296.78125,
+    "y": 16.00390625,
+    "w": 732.4375,
+    "h": 411.99609375
+  },
+  "final": {
+    "frame": {
+      "x": 296.78125,
+      "y": 16.00390625,
+      "w": 732.4375,
+      "h": 411.99609375
+    },
+    "c-0001": {
+      "cx": -75.87,
+      "cy": 394.82,
+      "left": -349.52,
+      "top": 369.06,
+      "right": 197.78,
+      "bottom": 420.58,
+      "w": 547.3,
+      "h": 51.53,
+      "lines": 1,
+      "lineLefts": [
+        -349.52
+      ],
+      "plateBox": {
+        "left": -349.52,
+        "width": 1010.77,
+        "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0002": {
+      "cx": 729.41,
+      "cy": 350.53,
+      "left": 601.26,
+      "top": 338.51,
+      "right": 857.57,
+      "bottom": 362.55,
+      "w": 256.32,
+      "h": 24.05,
+      "lines": 1,
+      "lineLefts": [
+        601.26
+      ],
+      "plateBox": {
+        "left": 601.26,
+        "width": 471.69,
+        "transform": "matrix(0.7, 0, 0, 0.7, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0003": {
+      "cx": 447.34,
+      "cy": 369.57,
+      "left": 276.86,
+      "top": 308.49,
+      "right": 617.81,
+      "bottom": 430.65,
+      "w": 340.95,
+      "h": 122.16,
+      "lines": 1,
+      "lineLefts": [
+        276.86
+      ],
+      "plateBox": {
+        "left": 276.86,
+        "width": 659.77,
+        "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0004": {
+      "cx": 426.22,
+      "cy": 365.98,
+      "left": 243.46,
+      "top": 348.81,
+      "right": 608.98,
+      "bottom": 383.16,
+      "w": 365.52,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        243.46
+      ],
+      "plateBox": {
+        "left": 243.46,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0005": {
+      "cx": 426.23,
+      "cy": 329.34,
+      "left": 199.66,
+      "top": 275.53,
+      "right": 652.8,
+      "bottom": 383.16,
+      "w": 453.14,
+      "h": 107.63,
+      "lines": 3,
+      "lineLefts": [
+        199.66,
+        199.66,
+        199.66
+      ],
+      "plateBox": {
+        "left": 199.66,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 94.0469px"
+      }
+    },
+    "c-0006": {
+      "cx": 426.21,
+      "cy": 351.25,
+      "left": 289.68,
+      "top": 319.35,
+      "right": 562.74,
+      "bottom": 383.16,
+      "w": 273.06,
+      "h": 63.81,
+      "lines": 1,
+      "lineLefts": [
+        289.68
+      ],
+      "plateBox": {
+        "left": 289.68,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 55.7578px"
+      }
+    },
+    "c-0007": {
+      "cx": 426.17,
+      "cy": 206,
+      "left": 319.19,
+      "top": 188.82,
+      "right": 533.15,
+      "bottom": 223.17,
+      "w": 213.96,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        319.2
+      ],
+      "plateBox": {
+        "left": 319.2,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0008": {
+      "cx": 426.18,
+      "cy": 66.61,
+      "left": 340.95,
+      "top": 49.44,
+      "right": 511.41,
+      "bottom": 83.79,
+      "w": 170.47,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        340.95
+      ],
+      "plateBox": {
+        "left": 340.95,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0101": {
+      "cx": 429.71,
+      "cy": 205.99,
+      "left": 366.22,
+      "top": 188.81,
+      "right": 493.2,
+      "bottom": 223.16,
+      "w": 126.98,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        366.22
+      ],
+      "plateBox": {
+        "left": 366.22,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.797px 30.0156px"
+      }
+    },
+    "c-0009": {
+      "cx": 76.6,
+      "cy": 223.19,
+      "left": -84.74,
+      "top": 206.01,
+      "right": 237.93,
+      "bottom": 240.36,
+      "w": 322.68,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        -84.74
+      ],
+      "plateBox": {
+        "left": -84.74,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0010": {
+      "cx": 366.21,
+      "cy": 365.98,
+      "left": 226.62,
+      "top": 348.81,
+      "right": 505.8,
+      "bottom": 383.16,
+      "w": 279.19,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        226.62
+      ],
+      "plateBox": {
+        "left": 226.62,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.797px 30.0156px"
+      }
+    },
+    "c-0011": {
+      "cx": 386.2,
+      "cy": 365.98,
+      "left": 246.61,
+      "top": 348.81,
+      "right": 525.8,
+      "bottom": 383.16,
+      "w": 279.19,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        246.61
+      ],
+      "plateBox": {
+        "left": 246.61,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    },
+    "c-0012": {
+      "cx": 312.01,
+      "cy": 238.27,
+      "left": 183.11,
+      "top": 221.09,
+      "right": 440.9,
+      "bottom": 255.44,
+      "w": 257.79,
+      "h": 34.35,
+      "lines": 1,
+      "lineLefts": [
+        183.11
+      ],
+      "plateBox": {
+        "left": 183.11,
+        "width": 673.84,
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "origin": "588.797px 30.0156px"
+      }
+    },
+    "c-0013": {
+      "cx": 187,
+      "cy": 312.42,
+      "left": -21.97,
+      "top": 286.66,
+      "right": 395.97,
+      "bottom": 338.18,
+      "w": 417.94,
+      "h": 51.53,
+      "lines": 1,
+      "lineLefts": [
+        -21.97
+      ],
+      "plateBox": {
+        "left": -21.97,
+        "width": 1010.76,
+        "transform": "matrix(1.5, 0, 0, 1.5, 0, 0)",
+        "origin": "588.797px 30.0156px"
+      }
+    },
+    "c-0014": {
+      "cx": 403.99,
+      "cy": 317.87,
+      "left": 253.64,
+      "top": 262.19,
+      "right": 554.33,
+      "bottom": 373.56,
+      "w": 300.69,
+      "h": 111.37,
+      "lines": 1,
+      "lineLefts": [
+        253.64
+      ],
+      "plateBox": {
+        "left": 253.64,
+        "width": 659.77,
+        "transform": "matrix(0.965926, 0.258819, -0.258819, 0.965926, 0, 0)",
+        "origin": "588.801px 30.0156px"
+      }
+    }
+  }
+}

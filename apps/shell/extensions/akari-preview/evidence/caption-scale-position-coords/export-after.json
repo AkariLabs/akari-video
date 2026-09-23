@@ -1,0 +1,207 @@
+{
+  "phase": "after",
+  "renderSeconds": 4,
+  "rasterizer": {
+    "planned": "gpu",
+    "adopted": "gpu",
+    "attempts": [
+      {
+        "method": "gpu",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "verify": "pass",
+  "cases": [
+    {
+      "name": "(a) 1.5 倍を 3 回動かした後",
+      "id": "c-0001",
+      "text_style": {
+        "scale": 1.5,
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.3273,
+          "y": 0.9292
+        }
+      },
+      "frameAtSeconds": 0.5,
+      "exported": null,
+      "previewBox": {
+        "left": 0.2028,
+        "right": 0.95,
+        "top": 0.825,
+        "bottom": 0.9501
+      },
+      "clipped": {
+        "left": false,
+        "right": false,
+        "top": false,
+        "bottom": false
+      },
+      "diff": null,
+      "brightPixels": 0,
+      "screenshot": "after-07-export-c-0001.png"
+    },
+    {
+      "name": "(c) 回転 15° を 3 回動かした後",
+      "id": "c-0003",
+      "text_style": {
+        "rotate": 15,
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.3472,
+          "y": 0.93
+        }
+      },
+      "frameAtSeconds": 1.5,
+      "exported": {
+        "left": 0.3078,
+        "right": 0.7016,
+        "top": 0.7958,
+        "bottom": 0.9833
+      },
+      "previewBox": {
+        "left": 0.3491,
+        "right": 0.8146,
+        "top": 0.7401,
+        "bottom": 1.0366
+      },
+      "clipped": {
+        "left": false,
+        "right": false,
+        "top": false,
+        "bottom": true
+      },
+      "diff": {
+        "cx": -0.0771,
+        "cy": null,
+        "right": -0.113,
+        "left": -0.0413
+      },
+      "brightPixels": 6026,
+      "screenshot": "after-07-export-c-0003.png"
+    },
+    {
+      "name": "(b) 0.7 倍を 3 回動かした後",
+      "id": "c-0002",
+      "text_style": {
+        "scale": 0.7,
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.3319,
+          "y": 0.93
+        }
+      },
+      "frameAtSeconds": 2.5,
+      "exported": null,
+      "previewBox": {
+        "left": 0.4069,
+        "right": 0.7568,
+        "top": 0.8591,
+        "bottom": 0.9175
+      },
+      "clipped": {
+        "left": false,
+        "right": false,
+        "top": false,
+        "bottom": false
+      },
+      "diff": null,
+      "brightPixels": 0,
+      "screenshot": "after-07-export-c-0002.png"
+    },
+    {
+      "name": "位置 x を持つ 1.5 倍（動かさない）",
+      "id": "c-0013",
+      "text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.2273,
+          "y": 0.8
+        },
+        "scale": 2
+      },
+      "frameAtSeconds": 3.5,
+      "exported": null,
+      "previewBox": {
+        "left": 0.0371,
+        "right": 0.7979,
+        "top": 0.6749,
+        "bottom": 0.8417
+      },
+      "clipped": {
+        "left": false,
+        "right": false,
+        "top": false,
+        "bottom": false
+      },
+      "diff": null,
+      "brightPixels": 0,
+      "screenshot": "after-07-export-c-0013.png"
+    },
+    {
+      "name": "位置 x の無い回転 15°（動かさない）",
+      "id": "c-0014",
+      "text_style": {
+        "rotate": 15
+      },
+      "frameAtSeconds": 4.5,
+      "exported": {
+        "left": 0.257,
+        "right": 0.632,
+        "top": 0.7931,
+        "bottom": 0.9833
+      },
+      "previewBox": {
+        "left": 0.2947,
+        "right": 0.7053,
+        "top": 0.7532,
+        "bottom": 1.0235
+      },
+      "clipped": {
+        "left": false,
+        "right": false,
+        "top": false,
+        "bottom": true
+      },
+      "diff": {
+        "cx": -0.0555,
+        "cy": null,
+        "right": -0.0733,
+        "left": -0.0377
+      },
+      "brightPixels": 7072,
+      "screenshot": "after-07-export-c-0014.png"
+    },
+    {
+      "name": "等倍・位置 x あり（3 回動かした後）",
+      "id": "c-0004",
+      "text_style": {
+        "scale": 1.5,
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.2778,
+          "y": 0.9292
+        }
+      },
+      "frameAtSeconds": 5.5,
+      "exported": null,
+      "previewBox": {
+        "left": 0.153,
+        "right": 0.9016,
+        "top": 0.825,
+        "bottom": 0.9501
+      },
+      "clipped": {
+        "left": false,
+        "right": false,
+        "top": false,
+        "bottom": false
+      },
+      "diff": null,
+      "brightPixels": 0,
+      "screenshot": "after-07-export-c-0004.png"
+    }
+  ]
+}

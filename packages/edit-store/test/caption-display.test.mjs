@@ -875,6 +875,7 @@ test('captionAnchorPositionVars maps the nine anchors and 0..1 positions like th
   const withX = captionAnchorPositionVars('tl', { x: 0.25, y: 1.5 }, undefined);
   assert.equal(withX['--caption-left'], '25%');
   assert.equal(withX['--caption-right'], '-17%');
+  assert.equal(withX['--caption-width'], 'max-content');
   assert.equal(withX['--caption-line-max-width'], '100%');
   assert.equal(withX['--caption-align-items'], 'flex-start');
   assert.equal(withX['--caption-top'], '150%', 'explicit positions may leave the frame');
@@ -902,18 +903,20 @@ test('captionAnchorPositionVars combines bl bottom-edge y with explicit x', () =
     '--caption-bottom': '10%',
     '--caption-left': '10%',
     '--caption-right': '-2%',
+    '--caption-width': 'max-content',
     '--caption-align-items': 'flex-start',
     '--caption-line-margin': '0',
     '--caption-line-max-width': '100%',
   });
 });
 
-test('explicit x fixes wrap width at 92% and preserves out-of-frame placement', () => {
+test('explicit x retains the legacy right variable and permits out-of-frame placement', () => {
   for (const x of [-0.3, 0.2, 0.5, 0.9, 1.2]) {
     const vars = captionAnchorPositionVars('bc', { x, y: 1.1 }, undefined);
     const left = Number.parseFloat(vars['--caption-left']);
     const right = Number.parseFloat(vars['--caption-right']);
     assert.ok(Math.abs(100 - left - right - 92) < 0.001);
+    assert.equal(vars['--caption-width'], 'max-content');
     assert.equal(vars['--caption-bottom'], '-10%');
   }
   assert.deepEqual(captionAnchorPositionVars('bc', { y: 1.1 }, undefined), {

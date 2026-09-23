@@ -817,10 +817,13 @@ ${typographyCss}
       position: absolute;
 ${platePlacementCss}
       bottom: var(--caption-bottom, 7%);
+      width: var(--caption-width, auto);
       display: flex;
       flex-direction: column;
 ${plateAlignmentCss}      gap: var(--plate-gap, 4px);
       opacity: 1;
+      transform: rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1));
+      transform-origin: center;
 ${plateAnimationCss}
     }
     .akari-caption__line {
@@ -999,10 +1002,13 @@ ${typographyCss}
       position: absolute;
 ${platePlacementCss}
       bottom: var(--caption-bottom, 7%);
+      width: var(--caption-width, auto);
       display: flex;
       flex-direction: column;
 ${plateAlignmentCss}      gap: var(--plate-gap, 4px);
       opacity: 1;
+      transform: rotate(var(--caption-rotate, 0deg)) scale(var(--caption-scale, 1));
+      transform-origin: center;
 ${plateAnimationCss}
     }
     .akari-caption__line {

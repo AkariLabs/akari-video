@@ -165,7 +165,28 @@ test('animator 無宣言 cue は評価器も warning も呼ばず、tick で DOM
 test('無宣言の HTML は caption transform 規則を含む基底のバイト列を保持する', () => {
     // Recorded after the caption plate scale/rotate contract was added to every styled fragment,
     // and after plain (unstyled) captions started rendering through the same fragment path.
+    // x を持つ字幕の plate を文字幅にする規則を追加したため、この CSS 宣言分だけ基準値を更新。
     const expected = [
+        'e1f2ebf51e322ae87c15563c5d4f924dd045e59af00eba148f9eb60573deeb66',
+        'e88cd02217e9f82c3a51dfd8f29d1e556a56bd8f4b65b57574699c5ea331b235',
+        '95deb5a75ca8c1294493805ca3aabf6466c959b1f56d27388ab29069a32edaf9',
+        '956fce5157e2fbab8f07f95cbf07e6320d53ff44c381a160791af1c9583fc524',
+        '48b8feee48ba655132fae6bd6766afcc8184151525cf290121e4c4d3732d7531',
+        '1c48f490b315ce9b6ff5915fbfa8dbe9462cb6b4f98bd7e8f036664d1a7a9b09',
+        'cfc1a431e67a491f87ae4d1241bfcc11ad72fc144e4061d5bbb9db83bf9073fe'
+    ];
+    const fixtures = [{}, { textStyle: { color: '#fff', background: { mode: 'block' } } },
+        { resolvedTimeline: true }, ...['karaoke', 'pop', 'reveal', 'reveal-word'].map(style => ({ style,
+            words: [{ text: '字幕', start: 3, end: 4 }, { text: '<&', start: 4, end: 5 }] }))];
+    const markup = fixtures.map(extra => {
+        const view = harness({ cues: [{ id: 'c1', start: 3, end: 8, text: '字幕<&が👨‍👩‍👧‍👦', ...extra }] });
+        view.tick(4);
+        return view.plate.innerHTML;
+    });
+    const actual = markup.map(html => createHash('sha256').update(html).digest('hex'));
+    const previous = markup.map((html, index) => createHash('sha256')
+        .update(index === 2 ? html : html.replaceAll('width:var(--caption-width,auto);', '')).digest('hex'));
+    assert.deepEqual(previous, [
         '334f9029ad09127bc0eccfdb5046dfc4d9c587428700763d6cbcbe19d0595a8e',
         '287f55aa58000709fb3c40e6fba3b25f893f9e287195c8b2a5de6261d7439853',
         '95deb5a75ca8c1294493805ca3aabf6466c959b1f56d27388ab29069a32edaf9',
@@ -173,15 +194,7 @@ test('無宣言の HTML は caption transform 規則を含む基底のバイト�
         'ff3a82868c750f72aa3729e269bd69aeef209ad68fe500d059254b2026b2719a',
         '7d7576263b2ecb6ed19d60a06c0f0abef419a01e0c87f21b141653a97e490fd1',
         'b8a8bd1d6d6efda89b0f8db602c901bd240b58fca24b50d78f5fdb5584d5a92c'
-    ];
-    const fixtures = [{}, { textStyle: { color: '#fff', background: { mode: 'block' } } },
-        { resolvedTimeline: true }, ...['karaoke', 'pop', 'reveal', 'reveal-word'].map(style => ({ style,
-            words: [{ text: '字幕', start: 3, end: 4 }, { text: '<&', start: 4, end: 5 }] }))];
-    const actual = fixtures.map(extra => {
-        const view = harness({ cues: [{ id: 'c1', start: 3, end: 8, text: '字幕<&が👨‍👩‍👧‍👦', ...extra }] });
-        view.tick(4);
-        return createHash('sha256').update(view.plate.innerHTML).digest('hex');
-    });
+    ]);
     assert.deepEqual(actual, expected);
 });
 

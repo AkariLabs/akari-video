@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { placedCaptionPositionFromRects } from '../lib/common/caption-zone-write.js';
+import { captionPositionFromVisualRect, placedCaptionPositionFromRects } from '../lib/common/caption-zone-write.js';
 
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 function section(start, end) {
@@ -33,6 +33,9 @@ test('actual drag listeners share snapping, preserve placed anchors, and write t
                     const [x, y] = (plate.style.translate || '0 0').split(' ').map(parseFloat);
                     return { left: original.left + x, right: original.right + x, top: original.top + y, bottom: original.bottom + y };
                 },
+                captionLayoutRect: () => original,
+                captionTransformValues: () => ({ scale: 1, rotate: 0 }),
+                captionPositionFromVisualRect,
                 placedCaptionPositionFromRects,
                 captionCuePositionFromRects: () => { throw Error('speech resolver must not handle placed text'); },
                 updateCaptionSelectBoxForRect() {}, updateCaptionSelectBox() {},
@@ -57,7 +60,9 @@ test('actual drag listeners share snapping, preserve placed anchors, and write t
             // ドラッグは位置だけを送る（scale / rotate は送らない = 回転の保存直後のドラッグで古い値に戻さない）
             assert.deepEqual(Object.keys(writes[0][1]), ['cuePosition']);
             const saved = writes[0][1].cuePosition;
-            assert.deepEqual(saved, placedCaptionPositionFromRects(landed, context.captionOutputFrame(), { anchor, clamp: false }));
+            assert.deepEqual(saved, placedCaptionPositionFromRects(
+                landed, context.captionOutputFrame(), { anchor, clamp: false }
+            ));
             assert.equal(saved.anchor, anchor);
             assert.equal(guides.at(-1), false);
         }
@@ -88,10 +93,10 @@ test('inline editor has no second outline and uses an ink line rather than the f
     assert.match(edit, /element.style.userSelect = 'text'/);
 });
 
-test('output cues keep a frame-relative plate width and unbounded single lines at every x', () => {
+test('output cues retain the frame-relative fallback and fit explicit-x plates to their ink', () => {
     const plateRule = source.match(/\.caption-row-plate\[data-output-caption\] \.akari-caption__plate \{[^}]+\}/)?.[0];
     const lineRule = source.match(/\.caption-row-plate\[data-output-caption\] \.akari-caption__line[^\n]+/)?.[0];
-    assert.match(plateRule, /width: 92%; right: auto/);
+    assert.match(plateRule, /width: var\(--caption-width, 92%\); right: auto/);
     assert.match(lineRule, /max-width: none; flex-shrink: 0/);
     assert.match(section('const renderCaptionRow =', '            const renderCaption ='), /caption\?\.timeDomain === 'output'/);
     assert.equal((source.match(/\.caption-row-plate\[data-output-caption\]/g) ?? []).length, 3);

@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+    captionPositionFromVisualRect,
     captionCuePositionFromRects,
     placedCaptionPositionFromRects,
     captionGroupPositionFromRects,
@@ -45,6 +46,80 @@ test('preview and export resolve the same placement for center, side, and off-fr
             assert.equal(preview[key], exported[key]);
         }
     }
+});
+
+test('visual rectangle inverse keeps the ink center across scale, rotation and all anchors', () => {
+    const frame = { x: 0, y: 0, width: 1280, height: 720 };
+    const width = 218;
+    const height = 62;
+    const layout = { left: 0, right: width, top: 0, bottom: height };
+    for (const anchor of ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']) {
+        const vertical = anchor[0];
+        for (const scale of [0.4, 1, 1.5, 3]) {
+            for (const rotate of [0, 15, 90]) {
+                const radians = rotate * Math.PI / 180;
+                const visibleWidth = scale * (Math.abs(width * Math.cos(radians))
+                    + Math.abs(height * Math.sin(radians)));
+                const visibleHeight = scale * (Math.abs(width * Math.sin(radians))
+                    + Math.abs(height * Math.cos(radians)));
+                let x = 0.2;
+                let y = 0.5;
+                for (let move = 0; move < 3; move++) {
+                    const centerX = frame.width * x + width / 2 + 20;
+                    const centerY = frame.height * y
+                        + (vertical === 't' ? height / 2 : vertical === 'b' ? -height / 2 : 0) + 10;
+                    const visual = {
+                        left: centerX - visibleWidth / 2, right: centerX + visibleWidth / 2,
+                        top: centerY - visibleHeight / 2, bottom: centerY + visibleHeight / 2
+                    };
+                    const saved = captionPositionFromVisualRect(visual, layout, frame,
+                        { anchor, clamp: false, scale, rotate });
+                    const redrawnCenterX = saved.position.x * frame.width + width / 2;
+                    const redrawnCenterY = saved.position.y * frame.height
+                        + (vertical === 't' ? height / 2 : vertical === 'b' ? -height / 2 : 0);
+                    assert.ok(Math.abs(redrawnCenterX - centerX) < 0.07, `${anchor} ${scale} ${rotate} x`);
+                    assert.ok(Math.abs(redrawnCenterY - centerY) < 0.04, `${anchor} ${scale} ${rotate} y`);
+                    x = saved.position.x;
+                    y = saved.position.y;
+                }
+            }
+        }
+    }
+});
+
+test('scale 1 and rotate 0 preserve legacy source and output positions, rounding and overflow', () => {
+    const frame = { x: 17, y: 31, width: 1000, height: 500 };
+    const rects = [
+        { left: 120, right: 320, top: 80, bottom: 160 },
+        { left: -180, right: 20, top: -90, bottom: -10 },
+        { left: 880.12345, right: 1180.12345, top: 420.54321, bottom: 590.54321 },
+        { left: -50, right: 1250, top: -80, bottom: 620 },
+        { left: 999, right: 2199, top: 480, bottom: 1080 }
+    ];
+    for (const anchor of ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']) {
+        for (const clamp of [false, true]) {
+            for (const rect of rects) {
+                for (const timeDomain of ['source', 'output']) {
+                    const actual = captionPositionFromVisualRect(rect, rect, frame,
+                        { anchor, clamp, timeDomain, scale: 1, rotate: 0 });
+                    const legacy = timeDomain === 'output'
+                        ? placedCaptionPositionFromRects(rect, frame, { anchor, clamp })
+                        : captionCuePositionFromRects(rect, frame, { anchor, clamp });
+                    assert.deepEqual(actual, legacy, `${timeDomain} ${anchor} ${clamp} ${JSON.stringify(rect)}`);
+                }
+            }
+        }
+    }
+});
+
+test('transformed clamp aligns oversized visible ink to the frame top-left before inversion', () => {
+    const frame = { x: 0, y: 0, width: 1000, height: 500 };
+    const layout = { left: 0, right: 200, top: 0, bottom: 80 };
+    const visual = { left: -200, right: 1400, top: -60, bottom: 640 };
+    assert.deepEqual(captionPositionFromVisualRect(visual, layout, frame,
+        { anchor: 'bc', clamp: true, scale: 3, rotate: 15 }), {
+        anchor: 'bc', position: { x: 0.7, y: 0.78 }
+    });
 });
 
 test('cue position retains the drag-start anchor across the top third', () => {
@@ -398,7 +473,7 @@ test('caption drag keeps Alt group movement and batches ordinary cue movement wi
     assert.match(handlerSource, /const captionVisualRect =/);
     assert.match(handlerSource, /querySelectorAll\('\.akari-caption__line'\)/);
     assert.match(handlerSource, /await window\.akari\.engine\.captionWrite\(cueId, \{ groupPosition \}\)/);
-    assert.match(handlerSource, /else \{\s*const cuePosition = (?:placedText\s*\?\s*placedCaptionPositionFromRects\([\s\S]*?\)\s*:\s*)?captionCuePositionFromRects\([\s\S]*?\);\s*await window\.akari\.engine\.captionWrite\(cueId, \{\s*cuePosition\s*\}\);/);
+    assert.match(handlerSource, /else \{\s*const cuePosition = captionPositionFromVisualRect\([\s\S]*?\);\s*await window\.akari\.engine\.captionWrite\(cueId, \{\s*cuePosition\s*\}\);/);
     assert.match(handlerSource, /pendingCaptionDragReload = true/);
     assert.match(handlerSource, /akari-preview-captions-update'[\s\S]*plate\.style\.translate = ''/);
     assert.doesNotMatch(handlerSource, /zoneFromFraction/);
@@ -409,8 +484,7 @@ test('caption drag converts client geometry to output pixels and display pixels 
     assert.match(handlerSource, /const topLeft = captionOutputPoint\(clientRect\.left, clientRect\.top\)/);
     assert.match(handlerSource, /left: frameRect\.x \+ rect\.left \* frameScale/);
     assert.match(handlerSource, /const outputFrame = captionOutputFrame\(\)/);
-    assert.match(handlerSource, /captionGroupPositionFromRects\([\s\S]{0,120}captionVisualRect\(\),[\s\S]{0,40}outputFrame/);
-    assert.doesNotMatch(handlerSource, /captionGroupPositionFromRects\([\s\S]{0,120}captionVisualRect\(\),[\s\S]{0,40}frameRect/);
+    assert.match(handlerSource, /captionGroupPositionFromRects\([\s\S]{0,120}captionVisualRect\(\),[\s\S]{0,40}captionLayoutRect\(\),[\s\S]{0,40}outputFrame/);
 });
 
 test('caption mini panel and inspector zone highlight are wired', () => {

@@ -39,9 +39,9 @@ test("only the declared cue receives character spans", () => {
   assert.equal(chars(result[1].html).length, 6);
 });
 
-// Hashes from addd7a27; only the machine-dependent bundled font URL is canonicalized.
-test("undeclared caption HTML matches addd7a27 bytes", () => {
-  const expected = ["b4e11cb2aef370cbc5a8db98b34eb94f332000497a7a19076d33322a8b934b3a","7d58967ae50c90dbfc1e38c5faf555525e4bdfc85c57dc26e5c6ecc7c2557ee8","8eefa548548b2f1f7f6c86c060dc0549325712f9cd19953ff4852ddf4ff381a6","66de5b1f2cc4add30281e233d88d4e10a8614933fb9d3fc92151321d2746ce4f","911e5ca9bc8d65e0599b82b30eab995ac256fb340690967a1c53401d5a8af110"];
+// Updated for the explicit-x ink-width plate and center-origin transform CSS; stripping only those declarations restores the old hashes.
+test("undeclared caption HTML keeps the caption plate geometry contract", () => {
+  const expected = ["0d9d6542de25df310d40199fb7c530f029c0276850618525c013711f87b00ae1","1b17c67b5d5203d599b7b81d3256118ae212443190aa408a2618b1ef4ce8ffaf","4013e78451efeb726134767bc53fc512adae5707d482bfef5f9cbf8fdb51a543","f1ca62be6e9722fa32adcfdb6de8107a18785bb4a5290acbaa60fbc6c4738a0e","d80a5e7a1231894969d28068cde68a7d435159e1aa8aee2e2029412a1cfb0404"];
   for (const [index, style] of [undefined, "karaoke", "pop", "reveal", "reveal-word"].entries()) {
     const canonical = html({ ...cue, style }).replace(/file:[^"\s]+/gu, "<bundled-font>");
     assert.equal(createHash("sha256").update(canonical).digest("hex"), expected[index]);

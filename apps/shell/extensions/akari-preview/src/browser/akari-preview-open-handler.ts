@@ -101,6 +101,7 @@ import { previewContentEnd } from '../common/preview-content-end';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { captionRowWrapRect } from '../common/caption-row-box';
 import {
+    captionPositionFromVisualRect,
     placedCaptionPositionFromRects,
     type CaptionCuePosition,
     persistCaptionCuePosition,
@@ -7395,7 +7396,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-row-plate:empty { display: none; }
 .caption-row-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
 .caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
-.caption-row-plate[data-output-caption] .akari-caption__plate { width: 92%; right: auto; }
+.caption-row-plate[data-output-caption] .akari-caption__plate { width: var(--caption-width, 92%); right: auto; }
 .caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }
 .caption-row-plate[data-selected], .caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: none; }
 .caption-row-plate .akari-caption-handle-box { position:absolute;pointer-events:none; }
@@ -13826,6 +13827,22 @@ body { display: grid; place-items: center; padding: 32px; }
                     bottom: bottomRight.y
                 };
             };
+            const captionLayoutRect = (captionPlate = selectedCaptionPlate()) => {
+                const plate = captionPlate.querySelector('.akari-caption__plate') || captionPlate;
+                const previousTransform = plate.style.transform;
+                plate.style.transform = 'none';
+                try { return captionVisualRect(captionPlate); }
+                finally { plate.style.transform = previousTransform; }
+            };
+            const captionTransformValues = captionPlate => {
+                const style = getComputedStyle(captionPlate);
+                const scale = Number.parseFloat(style.getPropertyValue('--caption-scale'));
+                const rotate = Number.parseFloat(style.getPropertyValue('--caption-rotate'));
+                return {
+                    scale: Number.isFinite(scale) ? scale : 1,
+                    rotate: Number.isFinite(rotate) ? rotate : 0
+                };
+            };
             const syncCaptionHandleBox = (captionPlate = selectedCaptionPlate()) => {
                 const box = captionPlate.querySelector('.akari-caption-handle-box');
                 if (!box) return;
@@ -14030,14 +14047,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 return activeId ? [activeId] : [];
             };
-            const captionGroupPositionFromRects = (plateRect, frameRect, anchor) =>
-                captionCuePositionFromRects(plateRect, frameRect, false, anchor);
+            const captionPositionFromVisualRect = (${captionPositionFromVisualRect.toString()});
+            const captionGroupPositionFromRects = (plateRect, layoutRect, frameRect, anchor, transform) =>
+                captionPositionFromVisualRect(plateRect, layoutRect, frameRect,
+                    { anchor, clamp: false, ...transform });
             const placedCaptionPositionFromRects = (${placedCaptionPositionFromRects.toString()});
-            const captionCuePositionFromRects = (plateRect, frameRect, clampOn, anchor) => {
+            const captionCuePositionFromRects = (plateRect, frameRect, options) => {
                 if (!(frameRect.width > 0) || !(frameRect.height > 0)) {
                     throw new Error('出力フレームの幅と高さは正数である必要があります');
                 }
                 const topRatio = (plateRect.top - frameRect.y) / frameRect.height;
+                const anchor = options.anchor ?? (topRatio < 1 / 3 ? 'tc' : 'bc');
                 let x = (plateRect.left - frameRect.x) / frameRect.width;
                 const plateH = plateRect.bottom - plateRect.top;
                 let y = topRatio + (anchor[0] === 'b' ? plateH / frameRect.height
@@ -14045,7 +14065,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!Number.isFinite(x) || !Number.isFinite(y)) {
                     throw new Error('字幕位置は有限数である必要があります');
                 }
-                if (clampOn) {
+                if (options.clamp) {
                     const plateW = plateRect.right - plateRect.left;
                     const maxX = 1 - plateW / frameRect.width;
                     if (maxX < 0) {
@@ -14475,18 +14495,32 @@ body { display: grid; place-items: center; padding: 32px; }
                 const startClientX = event.clientX;
                 const startClientY = event.clientY;
                 const startPlateRect = captionVisualRect();
+                const startLayoutRect = captionLayoutRect();
+                const startTransform = captionTransformValues(captionPlate);
                 const startOutputPoint = captionOutputPoint(startClientX, startClientY);
                 const moveIds = !groupMode && selectedCaptionIds.has(cueId)
                     ? [...selectedCaptionIds].filter(id => captions.some(item => (item.sourceCueId || item.id) === id))
                     : [];
                 const multiMove = moveIds.length > 1;
                 const startRects = new Map();
+                const startLayoutRects = new Map();
+                const startTransforms = new Map();
                 if (multiMove) {
                     for (const id of moveIds) {
-                        if (id === cueId) { startRects.set(id, startPlateRect); continue; }
+                        if (id === cueId) {
+                            startRects.set(id, startPlateRect);
+                            startLayoutRects.set(id, startLayoutRect);
+                            startTransforms.set(id, startTransform);
+                            continue;
+                        }
                         const visible = [...captionRows.values()].find(row =>
                             (row.caption.sourceCueId || row.caption.id) === id);
-                        if (visible) { startRects.set(id, captionVisualRect(visible.plate)); continue; }
+                        if (visible) {
+                            startRects.set(id, captionVisualRect(visible.plate));
+                            startLayoutRects.set(id, captionLayoutRect(visible.plate));
+                            startTransforms.set(id, captionTransformValues(visible.plate));
+                            continue;
+                        }
                         const candidate = captions.find(item => (item.sourceCueId || item.id) === id);
                         const measuringPlate = document.createElement('div');
                         measuringPlate.className = 'caption-row-plate akari-caption-host--styled';
@@ -14505,6 +14539,8 @@ body { display: grid; place-items: center; padding: 32px; }
                             ? renderStyledCaptionFragment(candidate) : renderPlainCaptionFragment(candidate);
                         captionLayer.appendChild(measuringPlate);
                         startRects.set(id, captionVisualRect(measuringPlate));
+                        startLayoutRects.set(id, captionLayoutRect(measuringPlate));
+                        startTransforms.set(id, captionTransformValues(measuringPlate));
                         measuringPlate.remove();
                     }
                 }
@@ -14594,8 +14630,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (groupMode) {
                             const groupPosition = captionGroupPositionFromRects(
                                 captionVisualRect(),
+                                captionLayoutRect(),
                                 outputFrame,
-                                startAnchor
+                                startAnchor,
+                                startTransform
                             );
                             await window.akari.engine.captionWrite(cueId, { groupPosition });
                         } else if (multiMove) {
@@ -14610,19 +14648,20 @@ body { display: grid; place-items: center; padding: 32px; }
                                 };
                                 const anchor = target.textStyle?.text_anchor || 'bc';
                                 const clamp = captionClampEnabled(target);
-                                const value = target.timeDomain === 'output'
-                                    ? placedCaptionPositionFromRects(movedRect, outputFrame, { anchor, clamp })
-                                    : captionCuePositionFromRects(movedRect, outputFrame, clamp, anchor);
+                                const value = captionPositionFromVisualRect(
+                                    movedRect, startLayoutRects.get(id), outputFrame,
+                                    { anchor, clamp, timeDomain: target.timeDomain, ...startTransforms.get(id) }
+                                );
                                 return { captionId: id, value };
                             });
                             await window.akari.engine.captionWrite(cueId, { cuePositions });
                             for (const id of moveIds) captionCuePositionKnown.set(id, true);
                         } else {
-                            const cuePosition = placedText
-                                ? placedCaptionPositionFromRects(captionVisualRect(), outputFrame, {
-                                    anchor: startAnchor, clamp: clampOn
-                                })
-                                : captionCuePositionFromRects(captionVisualRect(), outputFrame, clampOn, startAnchor);
+                            const cuePosition = captionPositionFromVisualRect(
+                                captionVisualRect(), captionLayoutRect(), outputFrame,
+                                { anchor: startAnchor, clamp: clampOn,
+                                    timeDomain: caption.timeDomain, ...startTransform }
+                            );
                             await window.akari.engine.captionWrite(cueId, {
                                 cuePosition
                             });
@@ -15711,7 +15750,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + 'paint-order:var(--caption-paint-order,stroke fill);'
                     + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
                     + 'font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
@@ -15779,7 +15818,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     : '';
                 return '<div class="akari-caption"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss

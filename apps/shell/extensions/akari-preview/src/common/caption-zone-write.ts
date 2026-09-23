@@ -125,6 +125,61 @@ function defaultTextStyle(root: Record<string, unknown>): Record<string, unknown
 
 const round4 = (value: number): number => Math.round(value * 10_000) / 10_000;
 
+/** Invert a center-origin scale/rotation of the ink rectangle after snapping.
+ * Rotation changes the visible bounding-box size, but never its center. The
+ * untransformed ink size is measured from layout, so even a 90° rotation is
+ * invertible without dividing by cos(2θ). */
+export function captionPositionFromVisualRect(
+    visual: CaptionPlateRect,
+    layout: CaptionPlateRect,
+    frame: CaptionFrameRect,
+    options: {
+        anchor: CaptionPositionAnchor;
+        clamp: boolean;
+        timeDomain?: 'source' | 'output';
+        scale?: number;
+        rotate?: number;
+    }
+): CaptionCuePosition {
+    if (!(frame.width > 0) || !(frame.height > 0)) {
+        throw new Error('出力フレームの幅と高さは正数である必要があります');
+    }
+    // Exact legacy arithmetic and rounding for an untransformed caption.
+    if ((options.scale ?? 1) === 1 && (options.rotate ?? 0) === 0) {
+        return options.timeDomain === 'output'
+            ? placedCaptionPositionFromRects(visual, frame, options)
+            : captionCuePositionFromRects(visual, frame, options);
+    }
+    const width = layout.right - layout.left;
+    const height = layout.bottom - layout.top;
+    const visualWidth = visual.right - visual.left;
+    const visualHeight = visual.bottom - visual.top;
+    let left = visual.left;
+    let top = visual.top;
+    if (![width, height, visualWidth, visualHeight, left, top].every(Number.isFinite)
+        || width < 0 || height < 0 || visualWidth < 0 || visualHeight < 0) {
+        throw new Error('字幕位置は有限数である必要があります');
+    }
+    if (options.clamp) {
+        // Clamp the transformed bounds by their top-left edge. Oversized ink
+        // keeps that edge at the frame origin, as the existing drag clamp does.
+        left = visualWidth > frame.width ? frame.x
+            : Math.min(frame.x + frame.width - visualWidth, Math.max(frame.x, left));
+        top = visualHeight > frame.height ? frame.y
+            : Math.min(frame.y + frame.height - visualHeight, Math.max(frame.y, top));
+    }
+    const centerX = left + visualWidth / 2;
+    const centerY = top + visualHeight / 2;
+    const vertical = options.anchor[0];
+    const x = (centerX - width / 2 - frame.x) / frame.width;
+    const y = (centerY + (vertical === 'b' ? height / 2 : vertical === 't' ? -height / 2 : 0)
+        - frame.y) / frame.height;
+    return { anchor: options.anchor, position: {
+        x: Math.round(x * 10_000) / 10_000,
+        y: Math.round(y * 10_000) / 10_000
+    } };
+}
+
 /** Resolve the deterministic group position represented by a dragged caption plate. */
 export function captionGroupPositionFromRects(
     plate: CaptionPlateRect,

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -16,8 +17,11 @@ import {
 import { harness } from './caption-animator-webview-harness.mjs';
 
 const extensionRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const require = createRequire(import.meta.url);
+const { captionAnchorPositionVars } = require(resolve(extensionRoot, '../../../../packages/edit-store/lib/index.js'));
 const handlerSource = readFileSync(join(extensionRoot, 'src/browser/akari-preview-open-handler.ts'), 'utf8');
 const pureSource = readFileSync(join(extensionRoot, 'src/common/caption-plate-handles.ts'), 'utf8');
+const renderCaptionSource = readFileSync(resolve(extensionRoot, '../../../../packages/render-cut/src/captions.mjs'), 'utf8');
 const visualContract = JSON.parse(readFileSync(
   resolve(extensionRoot, '../../../../packages/edit-store/src/caption-visual-contract.json'),
   'utf8'
@@ -156,7 +160,7 @@ test('handle box follows the text bounds for styled captions and fills a plain p
 
 test('body drag keeps Alt group position and batches one cue for ordinary movement', () => {
   assert.match(handlerSource, /if \(groupMode\) \{[\s\S]*captionWrite\(cueId, \{ groupPosition \}\)/u);
-  assert.match(handlerSource, /else \{\s*const cuePosition = (?:placedText\s*\?\s*placedCaptionPositionFromRects\([\s\S]*?\)\s*:\s*)?captionCuePositionFromRects\([\s\S]*?\);\s*await window\.akari\.engine\.captionWrite\(cueId, \{\s*cuePosition\s*\}\);/u);
+  assert.match(handlerSource, /else \{\s*const cuePosition = captionPositionFromVisualRect\([\s\S]*?\);\s*await window\.akari\.engine\.captionWrite\(cueId, \{\s*cuePosition\s*\}\);/u);
 });
 
 test('webview inline math is mechanically locked to the pure functions', () => {
@@ -178,6 +182,32 @@ test('all three caption plate CSS rules consume scale/rotate around the center',
   assert.ok(visualContract.resolved_single_line_caption_css.includes(transform));
   assert.ok(visualContract.resolved_caption_style_variable_names.includes('--caption-scale'));
   assert.ok(visualContract.resolved_caption_style_variable_names.includes('--caption-rotate'));
+});
+
+test('explicit-x caption handles keep the ink center fixed through scale and rotation', () => {
+  assert.equal(captionAnchorPositionVars('bc', { x: 0.2, y: 0.8 }, undefined)['--caption-width'], 'max-content');
+  assert.equal((handlerSource.match(/width:var\(--caption-width,auto\);[^']*?transform-origin:center;/gu) ?? []).length, 2);
+  assert.equal((renderCaptionSource.match(/width: var\(--caption-width, auto\);[\s\S]{0,350}?transform-origin: center;/gu) ?? []).length, 2);
+  assert.match(visualContract.resolved_single_line_caption_css,
+    /width:var\(--caption-width,auto\);[\s\S]*?transform-origin:center;/u);
+  assert.match(handlerSource, /const captionLayoutRect = [\s\S]*?plate\.style\.transform = 'none';[\s\S]*?return captionVisualRect\(captionPlate\);[\s\S]*?plate\.style\.transform = previousTransform;/u);
+  assert.match(handlerSource, /const rect = captionVisualRect\(\);\s*const center = \{ x: \(rect\.left \+ rect\.right\) \/ 2, y: \(rect\.top \+ rect\.bottom\) \/ 2 \};/u);
+
+  const center = { x: 256 + 109, y: 540 };
+  const corners = [[-109, -31], [109, -31], [109, 31], [-109, 31]];
+  for (const scale of [0.4, 1, 1.5, 3]) {
+    for (const rotate of [0, 15, 90]) {
+      const angle = rotate * Math.PI / 180;
+      const transformed = corners.map(([x, y]) => ({
+        x: center.x + scale * (x * Math.cos(angle) - y * Math.sin(angle)),
+        y: center.y + scale * (x * Math.sin(angle) + y * Math.cos(angle))
+      }));
+      const visualCenterX = (Math.min(...transformed.map(p => p.x)) + Math.max(...transformed.map(p => p.x))) / 2;
+      const visualCenterY = (Math.min(...transformed.map(p => p.y)) + Math.max(...transformed.map(p => p.y))) / 2;
+      assert.ok(Math.abs(visualCenterX - center.x) < 1e-9, `${scale} ${rotate} x`);
+      assert.ok(Math.abs(visualCenterY - center.y) < 1e-9, `${scale} ${rotate} y`);
+    }
+  }
 });
 
 test('resolved display_lines render one paragraph per line', () => {

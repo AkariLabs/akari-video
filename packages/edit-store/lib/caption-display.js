@@ -1543,9 +1543,11 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
     if (typeof position?.x === 'number' && Number.isFinite(position.x)) {
         const left = Math.round(position.x * 10000) / 100;
         vars['--caption-left'] = `${left}%`;
-        // left + right always leaves 92% of the frame for wrapping, including
-        // off-frame x. The renderer's placed-text plate also fixes width at 92%.
+        // Keep the legacy right variable for consumers that read it, while
+        // sizing the transformed plate to its ink. CSS ignores the overconstrained
+        // right edge once width is explicit; the text becomes its transform origin.
         vars['--caption-right'] = `${Math.round((8 - left) * 100) / 100}%`;
+        vars['--caption-width'] = 'max-content';
         vars['--caption-align-items'] = 'flex-start';
         vars['--caption-line-margin'] = '0';
         vars['--caption-line-max-width'] = '100%';
