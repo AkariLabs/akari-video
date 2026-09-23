@@ -23,8 +23,11 @@ export class NarrationCliManager {
         const readingFile = join(directory, 'reading.txt');
         try {
             await fs.writeFile(readingFile, request.reading, 'utf8');
+            // CLI の自動採番は edit.json だけを見る。まとめ生成では配置まで edit.json を
+            // 変えないため、未配置の out/narration も含めて ID を予約する。
+            const id = await this.nextOutputId(root);
             const args = ['narration', 'generate', '--project', root, '--engine', request.engine,
-                '--text', request.script, '--reading-file', readingFile, '--json'];
+                '--text', request.script, '--reading-file', readingFile, '--id', id, '--json'];
             if (request.engine === 'voicevox') args.push('--speaker', request.voice);
             else args.push('--voice', request.voice);
             if (request.speed !== undefined && request.engine === 'voicevox') args.push('--speed', String(request.speed));
@@ -35,6 +38,24 @@ export class NarrationCliManager {
         } finally {
             await fs.rm(directory, { recursive: true, force: true });
         }
+    }
+    protected async nextOutputId(root: string): Promise<string> {
+        const names = await fs.readdir(join(root, 'out', 'narration')).catch(() => []);
+        let maximum = 0;
+        for (const name of names) {
+            const match = /^n-(\d{4})\.(?:wav|mp3)$/u.exec(name);
+            if (match) maximum = Math.max(maximum, Number(match[1]));
+        }
+        try {
+            const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+                audio?: { narration?: Array<{ id?: string }> }; tracks?: Array<{ items?: Array<{ id?: string }> }>;
+            };
+            const ids = [...(edit.audio?.narration ?? []).map(item => item.id),
+                ...(edit.tracks ?? []).flatMap(track => (track.items ?? []).map(item => item.id))];
+            for (const id of ids) if (id && /^n-\d{4}$/u.test(id)) maximum = Math.max(maximum, Number(id.slice(2)));
+        } catch { /* edit.json がまだ無いときも出力ファイルから採番する。 */ }
+        if (maximum >= 9999) throw new Error('ナレーション ID の上限に達しました。');
+        return `n-${String(maximum + 1).padStart(4, '0')}`;
     }
     async cancel(root: string): Promise<void> {
         const child = this.children.get(root);

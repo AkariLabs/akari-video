@@ -29,6 +29,10 @@ export interface ApplyNarrationRequest {
     projectRootUri: string; path: string; t: number; script: string; reading: string;
     provenance?: Record<string, unknown>; captionRef?: string | null; id?: string;
 }
+export type ApplyNarrationItem = Omit<ApplyNarrationRequest, 'projectRootUri'>;
+export interface ApplyNarrationsRequest {
+    projectRootUri: string; items: ApplyNarrationItem[]; replaceIds?: string[];
+}
 
 export type MediaUnavailableReason = 'ffmpeg-not-found' | 'source-missing' | 'extraction-failed';
 
@@ -841,6 +845,7 @@ export interface AkariAnnotationsService {
     listNarrationVoices(projectRootUri: string, engine: string): Promise<NarrationVoicesResult>;
     generateNarration(request: GenerateNarrationRequest): Promise<GenerateNarrationResult>;
     applyNarration(request: ApplyNarrationRequest): Promise<{ id: string }>;
+    applyNarrations(request: ApplyNarrationsRequest): Promise<{ ids: string[] }>;
     cancelNarration(projectRootUri: string): Promise<void>;
     projectReferenceMediaUris(request: { projectRootUri: string; declaredPaths?: string[] }): Promise<Record<string, string>>;
     setClient(client: AkariAnnotationsClient | undefined): void;

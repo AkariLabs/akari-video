@@ -20,6 +20,45 @@ export function narrationEstimate(engine: NarrationEngine, reading: string): {
         label: engine.place === 'local' ? '費用 ¥0' : `見積 $${usd.toFixed(3)}（≈ ¥${Math.round(usd * 150)}）· 承認 1 回` };
 }
 
+export interface ReadAloudRow { id: string; text: string; start: number; end: number;
+    timeDomain: 'source' | 'output'; outputStart?: number; nextStart?: number }
+
+/** 出力に現れる字幕だけを対象にし、画面上の順序で返す。 */
+export function selectReadAloudRows(rows: readonly ReadAloudRow[], selectedIds: readonly string[] = []): ReadAloudRow[] {
+    const selected = new Set(selectedIds);
+    return rows.filter(row => row.text.trim() && Number.isFinite(row.outputStart)
+        && (selected.size === 0 || selected.has(row.id)))
+        .sort((a, b) => a.outputStart! - b.outputStart! || a.id.localeCompare(b.id));
+}
+
+export function batchNarrationEstimate(engine: NarrationEngine, readings: readonly string[]): ReturnType<typeof narrationEstimate> {
+    return narrationEstimate(engine, readings.join(''));
+}
+
+export type OverflowChoice = 'extend' | 'retry' | 'keep';
+export function defaultOverflowAction(input: { frameSeconds: number; durationSeconds: number;
+    timeDomain: 'source' | 'output'; enginePlace: 'local' | 'cloud'; speedSupported: boolean;
+    start: number; nextStart?: number }): { choice: OverflowChoice; extendEnd?: number; remainder: number; recommendedSpeed: number } {
+    const comparison = compareNarrationDuration(input.frameSeconds, input.durationSeconds, input.timeDomain, input.speedSupported);
+    if (comparison.overflow <= 0) return { choice: 'keep', remainder: 0, recommendedSpeed: comparison.recommendedSpeed };
+    if (input.timeDomain === 'output') {
+        const desired = input.start + input.durationSeconds;
+        const extendEnd = Math.min(desired, Math.max(input.start + input.frameSeconds, input.nextStart ?? Infinity));
+        return { choice: 'extend', extendEnd, remainder: Math.max(0, desired - extendEnd), recommendedSpeed: comparison.recommendedSpeed };
+    }
+    if (input.enginePlace === 'local' && input.speedSupported) return {
+        choice: 'retry', remainder: comparison.overflow, recommendedSpeed: comparison.recommendedSpeed
+    };
+    return { choice: 'keep', remainder: comparison.overflow, recommendedSpeed: comparison.recommendedSpeed };
+}
+
+export function staleNarrations(narrations: readonly { id: string; caption_ref?: string | null; script?: string }[],
+    captions: readonly { id: string; text: string }[]): Set<string> {
+    const texts = new Map(captions.map(caption => [caption.id, caption.text]));
+    return new Set(narrations.filter(narration => narration.caption_ref && texts.has(narration.caption_ref)
+        && narration.script !== texts.get(narration.caption_ref)).map(narration => narration.id));
+}
+
 /** 試聴前の表示と費用承認を、エンジンの availability を含む CLI 応答から決定する。 */
 export function readAloudPreviewPlan(engine: NarrationEngine, reading: string): {
     buttonLabel: string; footnote: string; needsApproval: boolean;

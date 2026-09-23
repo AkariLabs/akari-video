@@ -1,0 +1,74 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "3 行 fixture で台本の 🔊 → 読み上げ — 3 行",
+      "pass": true,
+      "detail": {
+        "rows": 3,
+        "title": "読み上げ — 3 行"
+      },
+      "seconds": 2.44
+    },
+    {
+      "name": "まとめて作る（VOICEVOX）→ 3 行とも ✓",
+      "pass": true,
+      "detail": {
+        "done": 3,
+        "generationSeconds": 326.4
+      },
+      "seconds": 329.12
+    },
+    {
+      "name": "3 件を置く → 帯 +3・各 caption_ref",
+      "pass": true,
+      "detail": {
+        "added": 3,
+        "captionRefs": [
+          "c-0001",
+          "c-0002",
+          "c-0003"
+        ]
+      },
+      "seconds": 3.14
+    },
+    {
+      "name": "⌘Z 1 回で 3 件とも消え字幕の時刻も戻る",
+      "pass": true,
+      "detail": {
+        "removed": 3,
+        "captionsRestored": true
+      },
+      "seconds": 1.73
+    },
+    {
+      "name": "字幕の文字変更で該当 narration に 🔊 古い",
+      "pass": true,
+      "detail": {
+        "editedCaption": "c-0001",
+        "staleBadge": true
+      },
+      "seconds": 259.86
+    },
+    {
+      "name": "作り直す… → 置く → 件数維持・札消去",
+      "pass": true,
+      "detail": {
+        "count": 3,
+        "oldRemoved": true,
+        "staleCleared": true
+      },
+      "seconds": 148.89
+    },
+    {
+      "name": "VOICEVOX の needs バッジ → 設定「読み上げ」",
+      "pass": true,
+      "detail": {
+        "badge": "needs",
+        "section": "narration"
+      },
+      "seconds": 3.51
+    }
+  ],
+  "paidCalls": 0
+}

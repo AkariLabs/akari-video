@@ -587,8 +587,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.readAloudButton.className = 'akari-daihon-retime akari-daihon-read-aloud';
         this.readAloudButton.textContent = '🔊 読み上げ';
         this.readAloudButton.addEventListener('click', () => {
+            const captionIds = this.selection.selected.length ? [...this.selection.selected] : this.sourceCaptions.map(caption => caption.id);
             void this.commands.executeCommand('akari.caption.readAloud',
-                { captionIds: [...this.selection.selected] }, this.editUri?.toString());
+                { captionIds }, this.editUri?.toString());
         });
         this.retimeButton.type = 'button';
         this.retimeButton.className = 'akari-daihon-retime';

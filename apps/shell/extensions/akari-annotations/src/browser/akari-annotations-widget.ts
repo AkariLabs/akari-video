@@ -1,5 +1,6 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { AkariReadAloudDialog, type ReadAloudPlacement } from './read-aloud/akari-read-aloud-dialog';
+import { selectReadAloudRows, staleNarrations } from '../common/read-aloud-model';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
 import { calculateFrameDraw, type FrameDrawRange } from '../common/timeline-frame-draw';
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
@@ -4434,38 +4435,58 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.pushHistory({ label, undo: () => restore(before), redo: () => restore(after) });
     }
 
-    async openReadAloud(options: { captionIds: readonly string[] }): Promise<void> {
+    async openReadAloud(options: { captionIds: readonly string[]; replaceIds?: string[] }): Promise<void> {
         const location = this.location;
         if (!location) return;
-        const captionIds = [...options.captionIds];
+        const rows = options.captionIds.length ? selectReadAloudRows(this.captions.map(item => ({ id: item.id, text: item.text,
+            start: item.start, end: item.end, timeDomain: item.timeDomain,
+            outputStart: this.captionRangeToOutputRanges(item.id, item.start, item.end)[0]?.[0] })), options.captionIds) : [];
+        const captionIds = rows.map(row => row.id);
+        const allOutputRows = this.captions.filter(item => item.text.trim()).map(item => ({
+            id: item.id, start: this.captionRangeToOutputRanges(item.id, item.start, item.end)[0]?.[0]
+        })).filter((item): item is { id: string; start: number } => item.start !== undefined)
+            .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id));
+        rows.forEach(row => { row.nextStart = allOutputRows[allOutputRows.findIndex(item => item.id === row.id) + 1]?.start; });
         const caption = this.captions.find(item => item.id === captionIds[0]);
-        const ranges = caption ? this.captionRangeToOutputRanges(caption.id, caption.start, caption.end) : [];
-        const start = caption ? (caption.timeDomain === 'output' ? caption.start : ranges[0]?.[0]) : this.playheadT;
+        const start = rows[0]?.outputStart ?? this.playheadT;
         if (start === undefined) { this.showNotice('字幕の出力時刻を特定できません。'); return; }
         const dialog = new AkariReadAloudDialog({
             captionIds, captionId: caption?.id, text: caption?.text ?? '', start,
             end: caption?.end, frameSeconds: caption ? caption.end - caption.start : undefined,
             timeDomain: caption?.timeDomain,
-            projectRootUri: location.root.toString()
+            projectRootUri: location.root.toString(), rows, replaceIds: options.replaceIds
         }, this.annotationsService, this.fileService, this.preferences, this.commands,
-        async (placement: ReadAloudPlacement) => {
-            const result = placement.result;
-            if (!result.path) throw new Error('音声ファイルがありません。');
+        async (placements: ReadAloudPlacement[]) => {
+            if (placements.some(placement => !placement.result.path)) throw new Error('音声ファイルがありません。');
             await this.withHistory('読み上げ', async () => {
-                if (placement.captionId && placement.extendEnd !== undefined && caption?.timeDomain === 'output') {
+                for (const placement of placements) {
+                    const current = this.captions.find(item => item.id === placement.captionId);
+                    if (!current || placement.extendEnd === undefined || current.timeDomain !== 'output') continue;
                     await this.annotationsService.setCaptionTiming({ captionsUri: location.captionsUri.toString(),
                         projectRootUri: location.root.toString(), captionId: placement.captionId,
-                        start: caption.start, end: placement.extendEnd, edited: true });
+                        start: current.start, end: placement.extendEnd, edited: true });
                 }
-                await this.annotationsService.applyNarration({ projectRootUri: location.root.toString(),
-                    id: result.id, path: result.path!, t: placement.t, script: placement.script,
-                    reading: placement.reading, provenance: result.provenance,
-                    captionRef: placement.captionId ?? null });
+                await this.annotationsService.applyNarrations({ projectRootUri: location.root.toString(),
+                    replaceIds: options.replaceIds,
+                    items: placements.map(placement => ({ id: placement.result.id, path: placement.result.path!,
+                        t: placement.t, script: placement.script, reading: placement.reading,
+                        provenance: placement.result.provenance, captionRef: placement.captionId ?? null })) });
             });
             await this.reloadEdit();
-            if (placement.extendEnd !== undefined) await this.reloadCaptions();
+            if (placements.some(placement => placement.extendEnd !== undefined)) await this.reloadCaptions();
         });
         await dialog.open();
+    }
+
+    /** legacy 投影は caption_ref を落とすため、読み上げの紐付けは edit.json の宣言を読む。 */
+    protected narrationReadAloudMetadata(id: string): { caption_ref?: string; script?: string } | undefined {
+        const document = this.editDocument as unknown as { audio?: { narration?: Array<{
+            id: string; caption_ref?: string; script?: string
+        }> } } | undefined;
+        const legacy = document?.audio?.narration?.find(item => item.id === id);
+        if (legacy) return legacy;
+        const raw = this.rawV2Item(id) as (Record<string, unknown> & { caption_ref?: string; script?: string }) | undefined;
+        return raw;
     }
 
     /** 台本 → タイムラインの片方向同期（task 2026-09-12-daihon-selection-sync 指示2）。 */
@@ -9542,8 +9563,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 `audio:${narration.id}`, narrationSignature, narration.t, end, top, itemHeight,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-narration', label
             );
-            const captionRef = (narration as EditAudioNarrationWithEnvelope & { caption_ref?: string }).caption_ref;
-            if (captionRef) element.title = `字幕 ${captionRef} から作成`;
+            const metadata = this.narrationReadAloudMetadata(narration.id);
+            const captionRef = metadata?.caption_ref;
+            const stale = staleNarrations([{ id: narration.id, caption_ref: captionRef, script: metadata?.script ?? narration.script }], this.captions).has(narration.id);
+            if (captionRef) element.title = stale ? `字幕 ${captionRef} の文字が変わりました` : `字幕 ${captionRef} から作成`;
+            const oldBadge = element.querySelector('[data-akari-stale-narration]');
+            if (oldBadge) oldBadge.remove();
+            if (stale) {
+                const badge = document.createElement('span'); badge.dataset.akariStaleNarration = 'true';
+                badge.textContent = '🔊 古い'; badge.title = `字幕 ${captionRef} の文字が変わりました`;
+                badge.style.cssText = 'position:absolute;right:2px;top:2px;background:#9b5a13;color:white;padding:1px 3px;border-radius:3px;font-size:10px';
+                element.append(badge);
+            }
             element.dataset.akariItemKind = 'audio';
             element.dataset.akariItemId = narration.id;
             element.dataset.akariLane = layout.id ?? 'audio';
@@ -16909,7 +16940,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     hasAudio === undefined ? {} : { hasAudio }
                 ) } : {}),
                 copyable: item.kind !== 'audio' || this.audioSfx.some(candidate => candidate.id === item.id),
-                linked: item.kind === 'audio' && this.linkedCutAudioPair(item.id) !== undefined
+                linked: item.kind === 'audio' && this.linkedCutAudioPair(item.id) !== undefined,
+                narrationRedo: item.kind === 'audio' && this.audioNarration.some(candidate => candidate.id === item.id)
+                    && this.captions.some(caption => caption.id === this.narrationReadAloudMetadata(item.id)?.caption_ref)
             }
         );
         const items = withAudioTrimMenuItem(
@@ -16938,6 +16971,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dispatchTimelineClipMenuAction(
         id: string, item: TimelineSelectionItem, clientX: number, hasAudio?: boolean, altKey = false
     ): void {
+        if (id === 'narrate-redo' && item.kind === 'audio') {
+            const narration = this.narrationReadAloudMetadata(item.id);
+            if (narration?.caption_ref && this.captions.some(caption => caption.id === narration.caption_ref)) {
+                void this.openReadAloud({ captionIds: [narration.caption_ref], replaceIds: [item.id] });
+            }
+            return;
+        }
         if (id === 'material-swap') {
             const target = this.selectedMaterialSwapTarget(item);
             if (target) void this.commandRegistry.executeCommand('akari.catalog.openSwap', target);
