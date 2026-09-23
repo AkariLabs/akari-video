@@ -74,7 +74,7 @@ test('engine 面の当たり判定は実寸とクロップ窓を使う トラッ
     assert.match(engineBranch, /hits\.sort\(\(a, b\) => Number\(b\.style\.zIndex\) - Number\(a\.style\.zIndex\)\);/u);
     assert.match(engineBranch, /const bounds = video\.getBoundingClientRect\(\);/u);
     assert.match(engineBranch, /return hits\[0\] \|\| null;/u);
-    assert.equal((compiledHandler.match(/findVisualMediaHitAt\(event\)/gu) || []).length, 3);
+    assert.equal((compiledHandler.match(/findVisualMediaHitAt\(event\)/gu) || []).length, 4);
 });
 
 test('engine 面の pointerdown は previewStage へ一度だけ委譲し操作 UI を横取りしない', () => {

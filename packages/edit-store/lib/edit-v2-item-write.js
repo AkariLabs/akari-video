@@ -4,6 +4,7 @@ exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
 exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
 const edit_v2_1 = require("./edit-v2");
 const transform_1 = require("./transform");
+const transform_keyframe_edit_1 = require("./transform-keyframe-edit");
 const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const recordOf = (value) => isRecord(value) ? value : {};
 const stringifyEdit = (value) => `${JSON.stringify(value, undefined, 2)}\n`;
@@ -122,6 +123,20 @@ function resolveV2Write(parsed, command) {
     if (!target)
         throw new Error(`アイテムが見つかりません: ${itemId}`);
     const item = target.item;
+    const writeTransform = (patch) => {
+        const seconds = command.playheadSeconds;
+        if (Number.isFinite(seconds) && Array.isArray(item.keyframes)
+            && item.keyframes.some(point => point.transform)) {
+            const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+            const frame = Math.round(seconds * edit.output.fps) - start;
+            const updated = (0, transform_keyframe_edit_1.writeItemTransformAt)(item, frame, patch);
+            item.transform = updated.transform;
+            item.keyframes = updated.keyframes;
+        }
+        else {
+            item.transform = mergeTransform(item.transform, patch);
+        }
+    };
     if (command.kind === 'overlay') {
         if ('text' in command.patch) {
             if (typeof command.patch.text !== 'string') {
@@ -180,7 +195,7 @@ function resolveV2Write(parsed, command) {
             }
             if (!command.patch.transform)
                 return {};
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             return { candidateText: stringifyEdit(edit) };
         }
     }
@@ -217,13 +232,13 @@ function resolveV2Write(parsed, command) {
             throw new Error(`図形アイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
         }
         if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
         }
     }
     else if (command.kind === 'layer') {
         if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
         }
         if (command.patch.crop) {
@@ -247,7 +262,7 @@ function resolveV2Write(parsed, command) {
             throw new Error(`映像アイテムではありません: ${itemId}`);
         }
         if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
         }
         if (command.patch.crop) {

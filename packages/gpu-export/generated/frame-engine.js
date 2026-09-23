@@ -6815,6 +6815,228 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/transform-keyframe-edit.js
+  var require_transform_keyframe_edit = __commonJS({
+    "packages/edit-store/lib/transform-keyframe-edit.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.evaluatedItemTransform = evaluatedItemTransform;
+      exports.hasTransformKeyframe = hasTransformKeyframe;
+      exports.activateItemTransformKeyframe = activateItemTransformKeyframe;
+      exports.writeItemTransformAt = writeItemTransformAt;
+      var FIELDS = ["x", "y", "scale", "scaleX", "scaleY", "rotate"];
+      var DEFAULTS = { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 };
+      var finite7 = (value) => typeof value === "number" && Number.isFinite(value);
+      var isMedia = (item) => item.source.kind === "media";
+      var pointsOf = (item) => Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.t - b.t) : [];
+      var frameOf = (item, frame) => Math.min(item.duration, Math.max(0, Math.round(frame)));
+      function eased(point, field, u2, media) {
+        const raw = point.easing;
+        const name = typeof raw === "string" ? raw : raw?.[`transform.${field}`] ?? raw?.transform ?? "linear";
+        if (media)
+          return name === "ease-in-out" ? u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2 : u2;
+        if (name === "hold")
+          return 0;
+        if (name === "ease-in-out" || name === "in-out-cubic")
+          return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
+        if (name === "in-quad")
+          return u2 * u2;
+        if (name === "out-quad")
+          return 1 - (1 - u2) ** 2;
+        if (name === "in-out-quad")
+          return u2 < 0.5 ? 2 * u2 * u2 : 1 - (-2 * u2 + 2) ** 2 / 2;
+        if (name === "in-cubic")
+          return u2 ** 3;
+        if (name === "out-cubic")
+          return 1 - (1 - u2) ** 3;
+        if (name === "in-quart")
+          return u2 ** 4;
+        if (name === "out-quart")
+          return 1 - (1 - u2) ** 4;
+        if (name === "in-out-quart")
+          return u2 < 0.5 ? 8 * u2 ** 4 : 1 - (-2 * u2 + 2) ** 4 / 2;
+        if (name === "in-expo")
+          return u2 === 0 ? 0 : 2 ** (10 * u2 - 10);
+        if (name === "out-expo")
+          return u2 === 1 ? 1 : 1 - 2 ** (-10 * u2);
+        if (name === "in-out-expo")
+          return u2 === 0 || u2 === 1 ? u2 : u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
+        if (name === "in-back")
+          return 2.70158 * u2 ** 3 - 1.70158 * u2 ** 2;
+        if (name === "out-back")
+          return 1 + 2.70158 * (u2 - 1) ** 3 + 1.70158 * (u2 - 1) ** 2;
+        if (name === "in-out-back") {
+          const c = 1.70158 * 1.525;
+          return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
+        }
+        if (name === "out-bounce") {
+          const n2 = 7.5625, d2 = 2.75;
+          if (u2 < 1 / d2)
+            return n2 * u2 * u2;
+          if (u2 < 2 / d2)
+            return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
+          if (u2 < 2.5 / d2)
+            return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
+          return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
+        }
+        if (name === "out-elastic")
+          return u2 === 0 || u2 === 1 ? u2 : 2 ** (-10 * u2) * Math.sin((u2 * 10 - 0.75) * (2 * Math.PI / 3)) + 1;
+        const match = typeof name === "string" ? name.match(/^cubic-bezier\(([^,]+),([^,]+),([^,]+),([^,]+)\)$/u) : null;
+        if (match) {
+          const [x1, y1, x22, y2] = match.slice(1).map(Number);
+          if ([x1, y1, x22, y2].every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
+            const curve = (p2, a, b) => 3 * (1 - p2) ** 2 * p2 * a + 3 * (1 - p2) * p2 ** 2 * b + p2 ** 3;
+            let low = 0, high = 1;
+            for (let i2 = 0; i2 < 32; i2++) {
+              const mid = (low + high) / 2;
+              if (curve(mid, x1, x22) < u2)
+                low = mid;
+              else
+                high = mid;
+            }
+            return curve((low + high) / 2, y1, y2);
+          }
+        }
+        return u2;
+      }
+      function valueAt2(points, frame, field, fallback, media, statics) {
+        const declared = points.flatMap((point) => {
+          const transform = point.transform;
+          if (!transform)
+            return [];
+          let value = transform[field];
+          if (!finite7(value) && (field === "scaleX" || field === "scaleY")) {
+            value = transform.scale ?? (media ? statics[field] ?? statics.scale ?? 1 : fallback);
+          }
+          if (!finite7(value) && media)
+            value = DEFAULTS[field];
+          return finite7(value) ? [{ point, value }] : [];
+        });
+        if (!declared.length)
+          return fallback;
+        if (frame <= declared[0].point.t)
+          return declared[0].value;
+        const last = declared[declared.length - 1];
+        if (frame >= last.point.t)
+          return last.value;
+        for (let i2 = 1; i2 < declared.length; i2++) {
+          const right = declared[i2], left = declared[i2 - 1];
+          if (frame > right.point.t)
+            continue;
+          const span = right.point.t - left.point.t;
+          const u2 = span > 0 ? eased(right.point, field, (frame - left.point.t) / span, media) : 1;
+          return left.value + (right.value - left.value) * u2;
+        }
+        return last.value;
+      }
+      function evaluatedItemTransform(item, frame) {
+        const staticValue = item.transform ?? {};
+        const base = {
+          x: staticValue.x ?? 0,
+          y: staticValue.y ?? 0,
+          scale: staticValue.scale ?? 1,
+          scaleX: staticValue.scaleX ?? staticValue.scale ?? 1,
+          scaleY: staticValue.scaleY ?? staticValue.scale ?? 1,
+          rotate: staticValue.rotate ?? 0
+        };
+        const points = pointsOf(item), media = isMedia(item);
+        if (points.length < 2 || !points.some((point) => point.transform))
+          return base;
+        const at2 = frameOf(item, frame);
+        return Object.fromEntries(FIELDS.map((field) => [
+          field,
+          valueAt2(points, at2, field, media && field !== "scaleX" && field !== "scaleY" ? DEFAULTS[field] : base[field], media, staticValue)
+        ]));
+      }
+      function hasTransformKeyframe(item, field) {
+        return pointsOf(item).some((point) => finite7(point.transform?.[field]));
+      }
+      function validPatch(patch) {
+        for (const [field, value] of Object.entries(patch)) {
+          if (!FIELDS.includes(field) || !finite7(value) || (field === "scale" || field === "scaleX" || field === "scaleY") && value <= 0) {
+            throw new Error(`Invalid transform.${field}`);
+          }
+        }
+      }
+      function normalizedAxisPatch(current, patch) {
+        if (patch.scale === void 0 || patch.scaleX !== void 0 || patch.scaleY !== void 0)
+          return patch;
+        const previous = Math.sqrt(current.scaleX * current.scaleY);
+        const ratio = previous > 0 ? patch.scale / previous : 1;
+        return { ...patch, scaleX: current.scaleX * ratio, scaleY: current.scaleY * ratio };
+      }
+      function fullMediaPoint(item, point) {
+        if (!point.transform)
+          return { ...point };
+        return { ...point, transform: evaluatedItemTransform(item, point.t) };
+      }
+      function activateItemTransformKeyframe(item, frame, field) {
+        const at2 = frameOf(item, frame), before = evaluatedItemTransform(item, at2);
+        const points = pointsOf(item);
+        if (hasTransformKeyframe(item, field) && points.some((point) => point.t === at2 && finite7(point.transform?.[field])))
+          return item;
+        const next = points.map((point) => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
+        const value = isMedia(item) ? { ...before } : field === "scale" ? { scale: Math.sqrt(before.scaleX * before.scaleY), scaleX: before.scaleX, scaleY: before.scaleY } : { [field]: before[field] };
+        const seat = next.find((point) => point.t === at2);
+        if (seat)
+          seat.transform = { ...seat.transform, ...value };
+        else
+          next.push({ t: at2, transform: value });
+        if (next.length === 1) {
+          next.push({ t: at2 === 0 ? item.duration : 0, transform: { ...value } });
+        }
+        return { ...item, keyframes: next.sort((a, b) => a.t - b.t) };
+      }
+      function writeItemTransformAt(item, frame, input) {
+        validPatch(input);
+        const at2 = frameOf(item, frame), current = evaluatedItemTransform(item, at2);
+        const patch = normalizedAxisPatch(current, input);
+        const animated = new Set(FIELDS.filter((field) => hasTransformKeyframe(item, field)));
+        if (patch.scale !== void 0 && (animated.has("scaleX") || animated.has("scaleY")))
+          animated.add("scale");
+        if (animated.has("scale")) {
+          animated.add("scaleX");
+          animated.add("scaleY");
+        }
+        const base = { ...item.transform };
+        const pointPatch = {};
+        for (const field of FIELDS) {
+          const value = patch[field];
+          if (value === void 0)
+            continue;
+          if (animated.has(field))
+            pointPatch[field] = value;
+          else
+            base[field] = value;
+        }
+        if (patch.scaleX !== void 0 || patch.scaleY !== void 0) {
+          if (animated.has("scale")) {
+            pointPatch.scaleX ??= current.scaleX;
+            pointPatch.scaleY ??= current.scaleY;
+          }
+          const x3 = pointPatch.scaleX ?? base.scaleX ?? base.scale ?? current.scaleX;
+          const y2 = pointPatch.scaleY ?? base.scaleY ?? base.scale ?? current.scaleY;
+          if (animated.has("scale"))
+            pointPatch.scale = Math.sqrt(x3 * y2);
+          else if (base.scaleX !== void 0 || base.scaleY !== void 0)
+            base.scale = Math.sqrt(x3 * y2);
+        }
+        let keyframes = pointsOf(item);
+        if (Object.keys(pointPatch).length) {
+          keyframes = keyframes.map((point) => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
+          let seat = keyframes.find((point) => point.t === at2);
+          if (!seat) {
+            seat = { t: at2 };
+            keyframes.push(seat);
+          }
+          seat.transform = { ...isMedia(item) ? current : seat.transform, ...pointPatch };
+          keyframes.sort((a, b) => a.t - b.t);
+        }
+        return { ...item, transform: base, ...keyframes.length ? { keyframes } : {} };
+      }
+    }
+  });
+
   // packages/edit-store/lib/edit-v2-item-write.js
   var require_edit_v2_item_write = __commonJS({
     "packages/edit-store/lib/edit-v2-item-write.js"(exports) {
@@ -6824,6 +7046,7 @@ ${indent}`);
       exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
       var edit_v2_1 = require_edit_v2();
       var transform_1 = require_transform();
+      var transform_keyframe_edit_1 = require_transform_keyframe_edit();
       var isRecord2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
       var recordOf = (value) => isRecord2(value) ? value : {};
       var stringifyEdit = (value) => `${JSON.stringify(value, void 0, 2)}
@@ -6927,6 +7150,18 @@ ${indent}`);
         if (!target)
           throw new Error(`\u30A2\u30A4\u30C6\u30E0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${itemId}`);
         const item = target.item;
+        const writeTransform = (patch) => {
+          const seconds = command.playheadSeconds;
+          if (Number.isFinite(seconds) && Array.isArray(item.keyframes) && item.keyframes.some((point) => point.transform)) {
+            const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+            const frame = Math.round(seconds * edit.output.fps) - start;
+            const updated = (0, transform_keyframe_edit_1.writeItemTransformAt)(item, frame, patch);
+            item.transform = updated.transform;
+            item.keyframes = updated.keyframes;
+          } else {
+            item.transform = mergeTransform(item.transform, patch);
+          }
+        };
         if (command.kind === "overlay") {
           if ("text" in command.patch) {
             if (typeof command.patch.text !== "string") {
@@ -6981,7 +7216,7 @@ ${indent}`);
             }
             if (!command.patch.transform)
               return {};
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             return { candidateText: stringifyEdit(edit) };
           }
         }
@@ -7017,12 +7252,12 @@ ${indent}`);
             throw new Error(`\u56F3\u5F62\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
           }
           if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
           }
         } else if (command.kind === "layer") {
           if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
           }
           if (command.patch.crop) {
@@ -7044,7 +7279,7 @@ ${indent}`);
             throw new Error(`\u6620\u50CF\u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
           }
           if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
           }
           if (command.patch.crop) {
@@ -12278,6 +12513,7 @@ ${indent}`);
       Object.defineProperty(exports, "normalizeTransform", { enumerable: true, get: function() {
         return transform_1.normalizeTransform;
       } });
+      __exportStar(require_transform_keyframe_edit(), exports);
     }
   });
 

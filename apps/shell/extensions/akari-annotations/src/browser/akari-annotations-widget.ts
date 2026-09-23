@@ -17,7 +17,9 @@ import {
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
-import { selectGenerationSidecarForSource, setCaptionTimingLine } from '@akari-video/edit-store';
+import { evaluatedItemTransform, resolvePreviewItemWrite, resolvePreviewItemWriteBatch,
+    selectGenerationSidecarForSource, setCaptionTimingLine,
+    type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -199,6 +201,8 @@ import {
     prepareV2KeyframeDistribution,
     removeV2Keyframe,
     setV2Keyframe,
+    activateV2ItemTransformKeyframe,
+    writeV2ItemTransformAt,
     setV2SegmentEasing,
     ungroupTreeV2Item,
     updateAudioSfxPreferV2,
@@ -1369,6 +1373,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.commandRegistry.getCommand(GET_TIMELINE_PLAYHEAD.id)) {
             this.toDispose.push(this.commandRegistry.registerCommand(GET_TIMELINE_PLAYHEAD, {
                 execute: () => this.playheadT
+            }));
+        }
+        if (!this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')) {
+            this.toDispose.push(this.commandRegistry.registerCommand({ id: 'akari.annotations.commitPreviewTransform' }, {
+                execute: async (editUri: string, command: PreviewItemWriteCommand | PreviewItemWriteCommand[]) => {
+                    if (!this.location?.editUri || this.normalizeUri(editUri) !== this.normalizeUri(this.location.editUri.toString())) {
+                        return false;
+                    }
+                    await this.commitEditMutation('プレビューで変形を変更', doc => {
+                        const source = JSON.stringify(doc);
+                        const resolved = Array.isArray(command)
+                            ? resolvePreviewItemWriteBatch(source, command)
+                            : resolvePreviewItemWrite(source, command);
+                        if (!resolved.candidateText) throw new Error('変形の書き込み結果がありません。');
+                        return JSON.parse(resolved.candidateText) as EditV2Document;
+                    });
+                    return true;
+                }
             }));
         }
         this.toDispose.push(this.contextKeys.onDidChange(event => {
@@ -5270,9 +5292,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 treeSelection,
                 raw?.source?.kind === 'caption' ? raw.source.id : undefined
             );
-            this.selectionModel.snapshot = captionId
+            const selectedSnapshot = captionId
                 ? this.snapshotForSelection({ kind: 'caption', id: captionId })
                 : this.treeItemSnapshot(treeSelection, raw);
+            this.selectionModel.snapshot = this.withEvaluatedTransform?.(selectedSnapshot) ?? selectedSnapshot;
             this.selectionModel.fps = this.fps;
             return;
         }
@@ -5283,8 +5306,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionModel.snapshot = undefined;
             return;
         }
-        this.selectionModel.snapshot = snapshot;
+        this.selectionModel.snapshot = this.withEvaluatedTransform?.(snapshot) ?? snapshot;
         this.selectionModel.fps = this.fps;
+    }
+
+    protected withEvaluatedTransform(snapshot: TimelineItemSelectionSnapshot | TimelineWorldSelection | undefined):
+        TimelineItemSelectionSnapshot | TimelineWorldSelection | undefined {
+        if (!snapshot || (snapshot.kind !== 'cut' && snapshot.kind !== 'layer'
+            && snapshot.kind !== 'overlay' && snapshot.kind !== 'item')) return snapshot;
+        const id = snapshot.kind === 'cut' ? this.cutItemId(snapshot.index) : snapshot.id;
+        const raw = this.rawKeyframeItem(id);
+        if (!raw || !Array.isArray(raw.keyframes) || !raw.keyframes.some((point: Record<string, unknown>) => point.transform)) {
+            return { ...snapshot, playheadSeconds: this.playheadT };
+        }
+        const frame = Math.round((this.playheadT - snapshot.outputStart) * this.fps);
+        const transform = evaluatedItemTransform(raw as never, frame);
+        if (snapshot.kind === 'overlay') {
+            return { ...snapshot, playheadSeconds: this.playheadT, payload: { ...snapshot.payload, transform } };
+        }
+        return { ...snapshot, playheadSeconds: this.playheadT, transform };
     }
 
     protected treeItemSnapshot(
@@ -11122,7 +11162,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected staticKeyframeValue(raw: Record<string, any> | undefined, property: KeyframeProperty): unknown {
         if (property.startsWith('transform.')) {
             const key = property.substring('transform.'.length);
-            return raw?.transform?.[key] ?? (key === 'scale' ? 1 : 0);
+            return raw?.transform?.[key] ?? (key.startsWith('scale') ? raw?.transform?.scale ?? 1 : 0);
         }
         if (property === 'crop' || property === 'perspective') return objectKeyframeValue(raw, property, 0, undefined, []);
         return raw?.[property] ?? 1;
@@ -11366,6 +11406,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return { ok: true };
             }
             if (request.action === 'write') {
+                if (property.startsWith('transform.')) {
+                    const field = property.substring('transform.'.length) as TransformField;
+                    if (typeof request.value !== 'number' || !Number.isFinite(request.value)) {
+                        throw new Error('変形の値が不正です。');
+                    }
+                    await this.commitEditMutation('変形キーフレームを変更', doc => writeV2ItemTransformAt(doc, {
+                        itemId, t, patch: { [field]: request.value! },
+                        ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
+                    }));
+                    return { ok: true };
+                }
                 if (property !== 'crop' && property !== 'perspective') {
                     throw new Error('数値行の書き込み対象が不正です。');
                 }
@@ -11386,10 +11437,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
                 await this.removeSelectedKeyframes();
             } else {
-                await this.setTimelineKeyframe(itemId, property, t,
-                    property === 'crop' || property === 'perspective'
-                        ? objectKeyframeValue(raw, request.property, t, request.value, points)
-                        : request.value ?? this.staticKeyframeValue(raw, property));
+                if (property.startsWith('transform.')) {
+                    await this.commitEditMutation('キーフレームを打つ', doc => activateV2ItemTransformKeyframe(doc, {
+                        itemId, t, field: property.substring('transform.'.length) as TransformField,
+                        ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
+                    }));
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId, property, times: [t],
+                        easing: this.segmentEasingAt(itemId, property, t)
+                    };
+                } else {
+                    await this.setTimelineKeyframe(itemId, property, t,
+                        property === 'crop' || property === 'perspective'
+                            ? objectKeyframeValue(raw, request.property, t, request.value, points)
+                            : request.value ?? this.staticKeyframeValue(raw, property));
+                }
             }
             return { ok: true };
         } catch (error) {
@@ -12306,7 +12368,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected commitEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
+            captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         if (!options?.trial && this.materialSwap) {
             return this.finishMaterialSwap(false).then(() => this.commitEditMutation(label, mutate, options));
@@ -12319,7 +12382,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async performEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
+            captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
@@ -17169,6 +17233,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.visualPlaying = request.playing;
         this.visualThumbnails.setPaused(this.visualPlaying || this.visualPointerDown);
         this.playheadT = Math.max(0, request.time!);
+        if (this.selectionModel.snapshot && !request.playing
+            && ['cut', 'layer', 'overlay', 'item', 'world'].includes(this.selectionModel.snapshot.kind)) {
+            const current = this.selectionModel.snapshot;
+            const updated = this.withEvaluatedTransform(current as TimelineItemSelectionSnapshot | TimelineWorldSelection);
+            if (updated !== current) this.selectionModel.snapshot = updated;
+        }
         const inspectorSnapshot = this.selectionModel.snapshot;
         if (inspectorSnapshot?.kind === 'audio') {
             (inspectorSnapshot as AudioSelectionSnapshot).playheadSeconds = this.playheadT;

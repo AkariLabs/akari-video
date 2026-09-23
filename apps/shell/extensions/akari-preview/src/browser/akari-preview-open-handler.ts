@@ -49,7 +49,7 @@ import {
     TimelineSegment
 } from '@akari-video/edit-store';
 import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2, GenerationMetaV1 } from '@akari-video/edit-store';
-import type { ReadableTransitionType } from '@akari-video/edit-store';
+import type { PreviewItemWriteCommand, ReadableTransitionType } from '@akari-video/edit-store';
 import { applyAdjustBypass } from '../common/adjust-bypass';
 import {
     PREVIEW_INIT_STAGES,
@@ -773,6 +773,7 @@ interface PreviewZoneHintMessage {
 interface OverlayWriteRequest {
     type: 'akari-preview-overlay-write';
     requestId: string;
+    playheadSeconds?: number;
     overlayId: string;
     patch: {
         vars?: Record<string, unknown>;
@@ -790,6 +791,7 @@ interface OverlayWriteRequest {
 interface OverlayWriteBatchRequest {
     type: 'akari-preview-overlay-write-batch';
     requestId: string;
+    playheadSeconds?: number;
     writes: Array<Pick<OverlayWriteRequest, 'overlayId' | 'patch'>>;
 }
 
@@ -812,6 +814,7 @@ interface LayerPerspectivePatch {
 interface LayerWriteRequest {
     type: 'akari-preview-layer-write';
     requestId: string;
+    playheadSeconds?: number;
     layerId: string;
     patch: {
         transform?: OverlayTransform;
@@ -827,6 +830,7 @@ interface LayerWriteRequest {
 interface CutWriteRequest {
     type: 'akari-preview-cut-write';
     requestId: string;
+    playheadSeconds?: number;
     cutIndex: number;
     cutId?: string;
     patch: {
@@ -1280,9 +1284,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 一度成功/失敗した判定を使い回す — アプリ再起動でクリアされる程度の弱いキャッシュで十分）。
     protected readonly hevcFallbackProxyUris = new Map<string, string>();
     protected readonly hevcFallbackAttempted = new Set<string>();
-    protected overlayWriteTail = Promise.resolve();
-    protected layerWriteTail = Promise.resolve();
-    protected cutWriteTail = Promise.resolve();
+    protected previewItemWriteTail = Promise.resolve();
     protected captionWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
     /** バックエンドでプロセス寿命中不変の約 13MB ランタイム資産を、frontend でも RPC 1 回に畳む。 */
@@ -3350,13 +3352,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 void this.handlePreviewAudioPriority(widget, message.time);
             }
             if (this.isOverlayWriteRequest(message)) {
-                this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWrite(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleOverlayWrite(widget, message));
             }
             if (this.isOverlayWriteBatchRequest(message)) {
-                this.overlayWriteTail = this.overlayWriteTail.then(() => this.handleOverlayWriteBatch(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleOverlayWriteBatch(widget, message));
             }
             if (this.isLayerWriteRequest(message)) {
-                this.layerWriteTail = this.layerWriteTail.then(() => this.handleLayerWrite(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleLayerWrite(widget, message));
             }
             if (message?.type === 'akari-preview-open-audio-meter') {
                 void this.openAudioMeter();
@@ -3399,7 +3401,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.forwardCutSelection(widget, message);
             }
             if (this.isCutWriteRequest(message)) {
-                this.cutWriteTail = this.cutWriteTail.then(() => this.handleCutWrite(widget, message));
+                this.previewItemWriteTail = this.previewItemWriteTail.then(() => this.handleCutWrite(widget, message));
             }
             if (this.isCaptionSelectedRequest(message)) {
                 this.forwardCaptionSelection(widget, message);
@@ -6344,11 +6346,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if ('text' in request.patch && typeof request.patch.text !== 'string') {
                 throw new Error('部品の text は文字列である必要があります');
             }
-            const resolved = resolvePreviewItemWrite(await this.readText(editUri), {
+            const originalText = await this.readText(editUri);
+            const write: PreviewItemWriteCommand = {
                 kind: 'overlay',
                 itemId: request.overlayId,
-                patch: request.patch
-            });
+                patch: request.patch,
+                playheadSeconds: request.playheadSeconds ?? widget.akariPreviewLastKnownTime
+            };
+            const resolved = resolvePreviewItemWrite(originalText, write);
             // 断片テキスト編集の html patch は overlays[].html が指す断片ファイルへ書く。
             // 旧実装はここで html を黙って捨てて ok を返しており、contenteditable の編集が
             // どのサーフェスでも一度も永続化されていなかった（edit.json へマージすると
@@ -6397,7 +6402,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return;
                 }
                 this.recentWrites.set(editUri.toString(), Date.now());
-                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+                if (request.patch.transform && request.patch.html === undefined) {
+                    await this.persistPreviewTransform(editUri, candidateText, write);
+                } else {
+                    await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+                }
             }
             widget.sendMessage({
                 type: 'akari-preview-overlay-write-response',
@@ -6414,19 +6423,36 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    protected async persistPreviewTransform(
+        editUri: URI, after: string, command?: PreviewItemWriteCommand | PreviewItemWriteCommand[]
+    ): Promise<void> {
+        if (command && this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')) {
+            const handled = await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform', editUri.toString(), command);
+            if (handled === true) return;
+        }
+        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(after));
+    }
+
     protected async handleOverlayWriteBatch(widget: PreviewWidgetMarker, request: OverlayWriteBatchRequest): Promise<void> {
         try {
             const editUri = widget.akariPreviewEditUri;
             if (!editUri) throw new Error('編集中の edit.json がありません');
-            const resolved = resolvePreviewItemWriteBatch(await this.readText(editUri), request.writes.map(write => ({
-                kind: 'overlay' as const, itemId: write.overlayId, patch: write.patch
-            })));
+            const originalText = await this.readText(editUri);
+            const writes: PreviewItemWriteCommand[] = request.writes.map(write => ({
+                kind: 'overlay' as const, itemId: write.overlayId, patch: write.patch,
+                playheadSeconds: request.playheadSeconds ?? widget.akariPreviewLastKnownTime
+            }));
+            const resolved = resolvePreviewItemWriteBatch(originalText, writes);
             const candidateText = resolved.candidateText;
             if (candidateText === undefined) throw new Error('バッチの結果文書がありません');
             const lintResult = await this.previewService.lintEditCandidate({ editUri: editUri.toString(), candidateText });
             if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
             this.recentWrites.set(editUri.toString(), Date.now());
-            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            if (request.writes.some(write => Boolean(write.patch.transform))) {
+                await this.persistPreviewTransform(editUri, candidateText, writes);
+            } else {
+                await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            }
             widget.sendMessage({ type: 'akari-preview-overlay-write-batch-response', requestId: request.requestId, ok: true });
         } catch (error) {
             widget.sendMessage({ type: 'akari-preview-overlay-write-batch-response', requestId: request.requestId,
@@ -6558,11 +6584,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             const originalText = await this.readText(editUri);
-            const resolved = resolvePreviewItemWrite(originalText, {
+            const write: PreviewItemWriteCommand = {
                 kind: 'layer',
                 itemId: request.layerId,
-                patch: request.patch
-            });
+                patch: request.patch,
+                playheadSeconds: request.playheadSeconds ?? widget.akariPreviewLastKnownTime
+            };
+            const resolved = resolvePreviewItemWrite(originalText, write);
             const candidateText = resolved.candidateText;
             if (!candidateText) {
                 throw new Error('edit.json へ書き込む変更がありません');
@@ -6576,7 +6604,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.markRecentWrite(editUri);
-            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            await this.persistPreviewTransform(editUri, candidateText, request.patch.transform ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -6607,12 +6635,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             const originalText = await this.readText(editUri);
-            const resolved = resolvePreviewItemWrite(originalText, {
+            const write: PreviewItemWriteCommand = {
                 kind: 'cut',
                 itemId: request.cutId,
                 legacyIndex: request.cutIndex,
-                patch: request.patch
-            });
+                patch: request.patch,
+                playheadSeconds: request.playheadSeconds ?? widget.akariPreviewLastKnownTime
+            };
+            const resolved = resolvePreviewItemWrite(originalText, write);
             const candidateText = resolved.candidateText;
             if (!candidateText) {
                 throw new Error('edit.json へ書き込む変更がありません');
@@ -6626,7 +6656,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.markRecentWrite(editUri);
-            await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+            await this.persistPreviewTransform(editUri, candidateText, request.patch.transform ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -10525,9 +10555,25 @@ body { display: grid; place-items: center; padding: 32px; }
                     refreshAdjustBypass() {
                         return queueEngineSummaryUpdate(current => current, false);
                     },
-                    applyTransformPreview(target, transform) {
-                        return queueEngineSummaryUpdate(current => Object.entries(transform).reduce(
-                            (next, [field, value]) => summaryWithLivePreview(next, { target, field, value }), current), false);
+                    applyTransformPreview(target, transform, playheadSeconds) {
+                        return queueEngineSummaryUpdate(current => {
+                            const cut = target.kind === 'cut' ? current.cuts?.[target.index] : undefined;
+                            if (cut && Array.isArray(cut.keyframes) && cut.keyframes.length >= 2
+                                && Number.isFinite(playheadSeconds)) {
+                                const local = Math.max(0, playheadSeconds - (Number(cut.at) || 0));
+                                const points = cut.keyframes.map(point => ({ ...point }));
+                                const tolerance = 0.5 / (Number(current.output?.fps) || 30);
+                                let point = points.find(value => Math.abs(Number(value.t) - local) <= tolerance);
+                                if (!point) { point = { t: local }; points.push(point); }
+                                point.transform = { ...transform };
+                                points.sort((a, b) => Number(a.t) - Number(b.t));
+                                const cuts = [...current.cuts];
+                                cuts[target.index] = { ...cut, keyframes: points };
+                                return { ...current, cuts };
+                            }
+                            return Object.entries(transform).reduce(
+                                (next, [field, value]) => summaryWithLivePreview(next, { target, field, value }), current);
+                        }, false);
                     },
                     applyLivePreview(message) {
                         return queueEngineSummaryUpdate(
@@ -11773,6 +11819,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const applyCutKeyframesToMedia = (media, segment, localTime) => {
                 if (!cutHasLayerStyleVisual(segment)) return false;
+                if (selectionGestureProtects('cut')) return true;
                 if (Array.isArray(segment.keyframes) && segment.keyframes.length >= 2) {
                     try {
                         // layer と同じ純関数を同じ cut-local/output 秒で評価する。outputTime 由来なので
@@ -12859,6 +12906,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const gesture = beginSelectionGesture(target);
                 const pointerId = startEvent.pointerId;
                 const original = target.transformNow();
+                let latestTransform = original;
                 const captureTarget = startEvent.currentTarget;
                 let moved = false;
                 let cancelled = false;
@@ -12881,7 +12929,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     const dy = moveEvent.clientY - startEvent.clientY;
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
-                    target.applyTransform(computeTransform(moveEvent, original));
+                    latestTransform = computeTransform(moveEvent, original);
+                    target.applyTransform(latestTransform);
                 };
                 const finish = async () => {
                     if (finished) return;
@@ -12903,7 +12952,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             target.flushTransform();
                             return;
                         }
-                        const finalTransform = target.transformNow();
+                        const finalTransform = latestTransform;
                         try {
                             await target.write({ transform: finalTransform });
                             window.akari.reportGesture('saved');
@@ -13399,6 +13448,15 @@ body { display: grid; place-items: center; padding: 32px; }
             let cutSelected = false;
             const cutSelectBox = document.getElementById('cut-select-box');
             const cutHandleElements = Array.from(cutSelectBox.querySelectorAll('[data-akari-handle]'));
+            window.addEventListener('pointerdown', event => {
+                if (event.button !== 0 || !cutSelected) return;
+                const onCutHandle = event.target instanceof Element && Boolean(event.target.closest('#cut-select-box'));
+                const hit = findVisualMediaHitAt(event);
+                if (!onCutHandle && hit !== video && hit !== stillImage) return;
+                const interaction = window.akari.interaction;
+                interaction?.setEnabled?.(false);
+                queueMicrotask(() => interaction?.setEnabled?.(true));
+            }, true);
             let selectionCutSource;
             let selectionCutSegment;
             let selectionProxySource;
@@ -13431,7 +13489,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     writeCutLayerStyleBase(selectionCutProxy, segment);
                     selectionProxySource = selectionCutSource;
                 }
-                if (!selectionDragActive) applyCutKeyframesToMedia(selectionCutProxy, segment, Math.max(0, outputTime - segment.outStart));
+                if (!selectionGestureProtects('cut')) applyCutKeyframesToMedia(selectionCutProxy, segment, Math.max(0, outputTime - segment.outStart));
                 return selectionCutProxy;
             };
             const cutInteractionMedia = () => frameEngineMediaIdle ? [cutSelectionVideo()] : [video, stillImage];
@@ -13446,7 +13504,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const cutTransformVisualThrottle = createRafThrottleFn(() => {
                 const index = Number(cutSelectionVideo().dataset.akariCutIndex);
                 if (cutSelectionVideo().dataset.akariCutIndex !== '' && Number.isInteger(index)) {
-                    void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'cut', index }, cutTransformNow());
+                    void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'cut', index }, cutTransformNow(), outputTime);
                 }
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (cropModeActive || edgeCropDragActive) updateLayerCropBox();

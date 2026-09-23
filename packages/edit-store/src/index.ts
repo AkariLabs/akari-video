@@ -44,3 +44,4 @@ export { LegacyEditVersionError } from './migrate/error';
 export * from './adjust-css-visual';
 
 export { effectiveScale, normalizeTransform } from './transform';
+export * from './transform-keyframe-edit';

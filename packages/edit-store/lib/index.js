@@ -64,3 +64,4 @@ __exportStar(require("./adjust-css-visual"), exports);
 var transform_1 = require("./transform");
 Object.defineProperty(exports, "effectiveScale", { enumerable: true, get: function () { return transform_1.effectiveScale; } });
 Object.defineProperty(exports, "normalizeTransform", { enumerable: true, get: function () { return transform_1.normalizeTransform; } });
+__exportStar(require("./transform-keyframe-edit"), exports);

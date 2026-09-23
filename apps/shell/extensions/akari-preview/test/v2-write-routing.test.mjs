@@ -16,10 +16,23 @@ const serviceSource = readFileSync(
 
 test('overlay, layer, and cut writes share the edit-store version-routing helper', () => {
   assert.match(source, /import \{[^}]*resolvePreviewItemWrite[^}]*\} from '@akari-video\/edit-store'/s);
-  assert.match(source, /resolvePreviewItemWrite\(await this\.readText\(editUri\), \{\s*kind: 'overlay'/s);
-  assert.match(source, /resolvePreviewItemWrite\(originalText, \{\s*kind: 'layer'/s);
-  assert.match(source, /resolvePreviewItemWrite\(originalText, \{\s*kind: 'cut'/s);
+  assert.match(source, /const originalText = await this\.readText\(editUri\);\s*const write: PreviewItemWriteCommand = \{\s*kind: 'overlay'/s);
+  assert.match(source, /const write: PreviewItemWriteCommand = \{\s*kind: 'layer'/s);
+  assert.match(source, /const write: PreviewItemWriteCommand = \{\s*kind: 'cut'/s);
+  assert.match(source, /resolvePreviewItemWrite\(originalText, write\)/u);
   assert.doesNotMatch(source, /Array\.isArray\(edit\?\.(?:overlays|layers|cuts)\)/);
+});
+
+test('embedded transform write bridge uses host playback time without an out-of-scope variable', () => {
+  const start = source.indexOf('            window.akari.engine = {');
+  const end = source.indexOf('                captionWrite:', start);
+  assert.ok(start >= 0 && end > start);
+  const bridge = source.slice(start, end);
+  assert.doesNotMatch(bridge, /\boutputTime\b/u);
+  for (const kind of ['overlay', 'layer', 'cut']) {
+    assert.match(bridge, new RegExp(`type: 'akari-preview-${kind}-write'`));
+  }
+  assert.match(source, /playheadSeconds: request\.playheadSeconds \?\? widget\.akariPreviewLastKnownTime/u);
 });
 
 test('v2 html writes retain the legacy project-boundary and existence gates', () => {
@@ -60,5 +73,5 @@ test('cut の crop も transform と同じ version-routing ヘルパーを 1 pat
     source,
     /this\.validateLayerTransformPatch\(request\.patch\.transform\)\s*\?\? this\.validateLayerCropPatch\(request\.patch\.crop\)/,
   );
-  assert.match(source, /resolvePreviewItemWrite\(originalText, \{\s*kind: 'cut'/s);
+  assert.match(source, /resolvePreviewItemWrite\(originalText, write\)/u);
 });

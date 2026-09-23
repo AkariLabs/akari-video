@@ -17,7 +17,7 @@ test('既定プロパティ行を導出し、両端白抜き・中間塗りを�
     ]
   });
   assert.deepEqual(rows.map(row => row.property), [
-    'transform.x', 'transform.y', 'transform.scale', 'transform.rotate', 'opacity'
+    'transform.x', 'transform.y', 'transform.scale', 'transform.scaleX', 'transform.scaleY', 'transform.rotate', 'opacity'
   ]);
   assert.deepEqual(rows[0].diamonds, [
     { t: 0, endpoint: true, filled: false },
@@ -44,6 +44,15 @@ test('seat leaves map to their single timeline row', () => {
   ]) assert.equal(keyframeRowPropertyOf(seat), row);
 });
 
+test('overall scale and axis points appear on their own timeline rows', () => {
+  const rows = deriveTimelineKeyframeRows({ id: 'card', duration: 180,
+    keyframes: [{ t: 0, transform: { scale: 1.12, scaleX: 1.18, scaleY: 1.08 } },
+      { t: 180, transform: { x: -58 } }] });
+  for (const field of ['scale', 'scaleX', 'scaleY']) {
+    assert.deepEqual(rows.find(row => row.property === `transform.${field}`).diamonds.map(point => point.t), [0]);
+  }
+});
+
 test('集約ダイヤは全子が同時刻なら塗り、一部だけならくり抜き', () => {
   const diamonds = aggregateKeyframeDiamonds([
     { id: 'a', duration: 20, keyframes: [{ t: 0, opacity: 0 }, { t: 20, opacity: 1 }] },
@@ -56,9 +65,9 @@ test('集約ダイヤは全子が同時刻なら塗り、一部だけならく�
   ]);
 });
 
-test('点の無いアイテムも基本 5 行を出し、空白ダブルクリックの席を保つ', () => {
+test('点の無いアイテムも基本 7 行を出し、空白ダブルクリックの席を保つ', () => {
   const rows = deriveTimelineKeyframeRows({ id: 'empty', duration: 60 });
-  assert.equal(rows.length, 5);
+  assert.equal(rows.length, 7);
   assert.equal(rows.every(row => row.diamonds.length === 0 && row.editable), true);
 });
 

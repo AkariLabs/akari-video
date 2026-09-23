@@ -5846,15 +5846,24 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!property) return undefined;
         const rowProperty = keyframeRowPropertyOf(property);
         const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
-        const selected = this.model.keyframeSelection;
         const keyframeValue = /^transform-scale(?:X|Y)?$/u.test(fieldName) ? value / 100 : value;
+        const localFrame = Math.max(0, Math.round(
+            ((snapshot.playheadSeconds ?? snapshot.outputStart) - snapshot.outputStart) * this.model.fps
+        ));
+        const active = snapshot.keyframes?.some(point => point.t === localFrame
+            && keyframeValueAt(point, rowProperty) !== undefined) ?? false;
         const hasKeyframes = snapshot.keyframes?.some(point =>
-            keyframeValueAt(point, rowProperty) !== undefined) ?? false;
+            keyframeValueAt(point, rowProperty) !== undefined
+            || (rowProperty === 'transform.scale' && (
+                keyframeValueAt(point, 'transform.scaleX') !== undefined
+                || keyframeValueAt(point, 'transform.scaleY') !== undefined))
+            || ((rowProperty === 'transform.scaleX' || rowProperty === 'transform.scaleY')
+                && keyframeValueAt(point, 'transform.scale') !== undefined)) ?? false;
         const request = (action: Exclude<KeyframeControlRequest['action'], 'easing'>): void => {
             void this.model.requestKeyframe?.({ action, itemId, property, value: keyframeValue });
         };
         return {
-            active: selected?.itemId === itemId && selected.property === rowProperty,
+            active,
             hasKeyframes,
             onToggle: () => request('toggle'),
             onPrevious: () => request('previous'),
@@ -6426,12 +6435,16 @@ export class AkariInspectorWidget extends BaseWidget {
                     displayPrecision: field.displayPrecision,
                     onPreview: sendLive,
                     onCommit: async value => {
-                        if (keyframe?.hasKeyframes && /^(crop-|perspective-)/u.test(fieldName)
+                        if (keyframe?.hasKeyframes && /^(crop-|perspective-|transform-)/u.test(fieldName)
                             && this.model.requestKeyframe) {
                             const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
+                            const property = fieldName.startsWith('transform-')
+                                ? fieldName.replace('transform-', 'transform.') as KeyframeSeatProperty
+                                : fieldName.replace(/-/gu, '.') as KeyframeSeatProperty;
                             const result = await this.model.requestKeyframe({
                                 action: 'write', itemId,
-                                property: fieldName.replace(/-/gu, '.') as KeyframeSeatProperty, value
+                                property,
+                                value: fieldName.startsWith('transform-scale') ? value / 100 : value
                             });
                             if (!result.ok) this.showFieldNotice(result.message ?? '書き込みに失敗しました。');
                             return result.ok;

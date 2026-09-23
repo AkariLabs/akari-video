@@ -52,6 +52,7 @@ export interface TimelineOverlaySelection {
     kind: 'overlay';
     id: string;
     outputStart: number;
+    playheadSeconds?: number;
     duration: number;
     track?: number;
     payload: Record<string, unknown>;
@@ -90,6 +91,7 @@ export interface TimelineLayerSelection {
     sourceKind?: string;
     durationFrames: number;
     outputStart: number;
+    playheadSeconds?: number;
     duration: number;
     src?: string;
     preset?: string;
@@ -122,6 +124,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     mask?: string;
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     outputStart: number;
+    playheadSeconds?: number;
     duration: number;
     durationFrames: number;
     transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };

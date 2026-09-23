@@ -29,6 +29,7 @@ import {
     type KeyframeProperty,
 } from '@akari-video/edit-store';
 import { normalizeAudioKeyframes, type AudioEnvelopeKeyframe } from './audio-envelope-store';
+import { activateItemTransformKeyframe, writeItemTransformAt, type TransformField } from '@akari-video/edit-store';
 
 export type EditV2Document = Record<string, unknown>;
 export type EditV2Lane = 'visual' | 'audio';
@@ -221,6 +222,32 @@ export function setV2Keyframe(
 ): EditV2Document {
     const edit = editForKeyframes(doc, options);
     setTreeKeyframe(edit, options.itemId, options.property, options.t, options.value);
+    return finishKeyframeMutation(edit);
+}
+
+export function activateV2ItemTransformKeyframe(
+    doc: EditV2Document,
+    options: { itemId: string; t: number; field: TransformField; hydratedPoints?: readonly Record<string, unknown>[] }
+): EditV2Document {
+    const edit = editForKeyframes(doc, { itemId: options.itemId, property: `transform.${options.field}`,
+        ...(options.hydratedPoints ? { hydratedPoints: options.hydratedPoints } : {}) });
+    const item = edit.find(options.itemId);
+    if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+    const updated = activateItemTransformKeyframe(item as never, options.t, options.field);
+    updateTreeItem(edit, options.itemId, { keyframes: updated.keyframes });
+    return finishKeyframeMutation(edit);
+}
+
+export function writeV2ItemTransformAt(
+    doc: EditV2Document,
+    options: { itemId: string; t: number; patch: Record<string, number>; hydratedPoints?: readonly Record<string, unknown>[] }
+): EditV2Document {
+    const edit = editForKeyframes(doc, { itemId: options.itemId, property: 'transform.x',
+        ...(options.hydratedPoints ? { hydratedPoints: options.hydratedPoints } : {}) });
+    const item = edit.find(options.itemId);
+    if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+    const updated = writeItemTransformAt(item as never, options.t, options.patch);
+    updateTreeItem(edit, options.itemId, { transform: updated.transform, keyframes: updated.keyframes });
     return finishKeyframeMutation(edit);
 }
 

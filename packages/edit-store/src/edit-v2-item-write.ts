@@ -1,5 +1,6 @@
 import { EditV2, HtmlSourceV2, ItemV2, readEditV2 } from './edit-v2';
 import { effectiveScale, normalizeTransform } from './transform';
+import { writeItemTransformAt } from './transform-keyframe-edit';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -23,7 +24,7 @@ export interface PreviewItemPerspectivePatch {
     corners: [number, number][];
 }
 
-export type PreviewItemWriteCommand =
+export type PreviewItemWriteCommand = (
     | {
         kind: 'overlay';
         itemId: string;
@@ -54,7 +55,7 @@ export type PreviewItemWriteCommand =
             /** 出力プレビューの辺バークロップ。cuts[] に crop の席があるのは v2 だけ。 */
             crop?: PreviewItemCropPatch;
         };
-    };
+    }) & { playheadSeconds?: number };
 
 export interface PreviewItemWriteResolution {
     /** edit.json を更新する patch があるときだけ返す。 */
@@ -187,6 +188,19 @@ function resolveV2Write(
     }
     if (!target) throw new Error(`アイテムが見つかりません: ${itemId}`);
     const item = target.item;
+    const writeTransform = (patch: PreviewItemTransformPatch): void => {
+        const seconds = command.playheadSeconds;
+        if (Number.isFinite(seconds) && Array.isArray(item.keyframes)
+            && item.keyframes.some(point => point.transform)) {
+            const start = [...target!.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+            const frame = Math.round((seconds as number) * edit.output.fps) - start;
+            const updated = writeItemTransformAt(item, frame, patch);
+            item.transform = updated.transform;
+            item.keyframes = updated.keyframes;
+        } else {
+            item.transform = mergeTransform(item.transform, patch);
+        }
+    };
     if (command.kind === 'overlay') {
         if ('text' in command.patch) {
             if (typeof command.patch.text !== 'string') {
@@ -240,7 +254,7 @@ function resolveV2Write(
                 throw new Error(`グループアイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
             }
             if (!command.patch.transform) return {};
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             return { candidateText: stringifyEdit(edit) };
         }
     }
@@ -277,12 +291,12 @@ function resolveV2Write(
             throw new Error(`図形アイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
         }
         if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
         }
     } else if (command.kind === 'layer') {
         if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
         }
         if (command.patch.crop) {
@@ -304,7 +318,7 @@ function resolveV2Write(
             throw new Error(`映像アイテムではありません: ${itemId}`);
         }
         if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
         }
         if (command.patch.crop) {
