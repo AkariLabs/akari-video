@@ -19,8 +19,8 @@ test("commandVersion returns null after timing out an unending command", (t) => 
 
   t.diagnostic(`commandVersion timeout elapsed: ${elapsedSeconds.toFixed(3)}s`);
   assert.equal(version, null);
-  assert.ok(elapsedSeconds >= 4.5, `expected the 5s timeout to wait at least 4.5s, got ${elapsedSeconds}s`);
-  assert.ok(elapsedSeconds <= 20, `expected the timeout to return within 20s, got ${elapsedSeconds}s`);
+  assert.ok(elapsedSeconds >= 9.5, `expected the 10s timeout to wait at least 9.5s, got ${elapsedSeconds}s`);
+  assert.ok(elapsedSeconds <= 25, `expected the timeout to return within 25s, got ${elapsedSeconds}s`);
 });
 
 test("commandVersion returns null for output without a version", () => {

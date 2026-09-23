@@ -42,6 +42,7 @@ const GAIN_DB_MAX = 12;
 // (spawnSync ffmpeg ENAMETOOLONG during the audio-cut stage). Only the chunking changes: the
 // per-chunk commands are concatenated exactly as before, so the rendered audio is unaffected.
 export const MAX_AUDIO_INPUTS_PER_COMMAND = process.platform === "win32" ? 25 : 200;
+export const SHARED_AUDIO_INPUT_MAX_SECONDS = 30;
 export const AUDIO_SEEK_PREROLL_SECONDS = 0.5;
 
 export function buildPlan({
@@ -191,15 +192,17 @@ export function buildAudioMixCommand({
   codec = "h264",
 }) {
   const audio = normalizeAudioPlan(edit.audio);
+  const audioProbeCache = new Map();
   const { tracks: narrationTracks, warnings } = resolveNarrationTracks({
     narration: edit.audio?.narration,
     projectRoot,
     duration,
     ffprobeCommand,
     fps: edit.output?.fps,
+    audioProbeCache,
   });
   const splitSpeech = resolveNarrationTracks({
-    narration: edit.audio?.speech, projectRoot, duration, ffprobeCommand, fps: edit.output?.fps, kind: "speech",
+    narration: edit.audio?.speech, projectRoot, duration, ffprobeCommand, fps: edit.output?.fps, kind: "speech", audioProbeCache,
   });
   warnings.push(...splitSpeech.warnings);
   const speechTracks = splitSpeech.tracks;
@@ -279,6 +282,17 @@ export function buildAudioMixCommand({
   const labels = ["[0:a]"];
   const filters = [];
   let inputIndex = 1;
+  const sharedAudioInputs = new Map();
+  const addAudioInput = path => {
+    args.push("-i", path);
+    return inputIndex++;
+  };
+  const addSharedSfxInput = path => {
+    if (sharedAudioInputs.has(path)) return sharedAudioInputs.get(path);
+    const index = addAudioInput(path);
+    sharedAudioInputs.set(path, index);
+    return index;
+  };
 
   // Build the narration track(s) first so the merged [narration] label exists before bgm decides
   // whether to route ducking's sidechain input through it (contract-2026-07-20 §3).
@@ -289,8 +303,7 @@ export function buildAudioMixCommand({
     const prefix = kind === "narration" ? "nar" : "speech";
     const rawLabels = [];
     for (const [index, track] of tracks.entries()) {
-      args.push("-i", track.path);
-      const narrationInputIndex = inputIndex++;
+      const narrationInputIndex = addAudioInput(track.path);
       const delay = Math.max(0, Math.round(track.t * 1000));
       const rawLabel = `${prefix}_raw${index}`;
       const baseLabel = `${prefix}_base${index}`;
@@ -402,11 +415,17 @@ export function buildAudioMixCommand({
       needsEnvelopeDuration,
       clipSpeed,
       edit.output?.fps,
+      audioProbeCache,
     );
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
-    args.push("-i", sfxSourcePath);
-    const sfxInputIndex = inputIndex++;
+    // asplit pushes every decoded frame to every branch, including effects delayed far into
+    // the timeline. Limit sharing to probed short SFX so a long source cannot queue hundreds
+    // of MB of PCM behind those delays; narration, speech and BGM retain independent inputs.
+    if (!audioProbeCache.has(sfxSourcePath)) audioProbeCache.set(sfxSourcePath, probeNarrationAudio(ffprobeCommand, sfxSourcePath));
+    const sfxProbe = audioProbeCache.get(sfxSourcePath);
+    const sfxInputIndex = isShareableSfxProbe(sfxProbe)
+      ? addSharedSfxInput(sfxSourcePath) : addAudioInput(sfxSourcePath);
     const sfxClipFx = clipFxPrefix(sfx, sfx.id ?? `sfx-${index}`);
     const delay = Math.max(0, Math.round((sfx.t ?? 0) * 1000));
     let fadeSuffix = "";
@@ -473,6 +492,18 @@ export function buildAudioMixCommand({
     finalLabel = "[master_ln]";
   }
 
+  // A filter output pad is single-use. Fan a repeated file input out before any clip-specific
+  // trim, delay or gain; each item then keeps its own independent processing chain.
+  for (const index of sharedAudioInputs.values()) {
+    const reference = `[${index}:a]`;
+    const uses = filters.reduce((count, filter) => count + filter.split(reference).length - 1, 0);
+    if (uses < 2) continue;
+    let occurrence = 0;
+    for (let filterIndex = 0; filterIndex < filters.length; filterIndex++) {
+      filters[filterIndex] = filters[filterIndex].replaceAll(reference, () => `[shared_${index}_${occurrence++}]`);
+    }
+    filters.unshift(`${reference}asplit=${uses}${Array.from({ length: uses }, (_, part) => `[shared_${index}_${part}]`).join("")}`);
+  }
   args.push(
     "-filter_complex",
     filters.join(";"),
@@ -492,6 +523,11 @@ export function buildAudioMixCommand({
     envelope: envelopeProvenance(),
     clip_fx: clipFxProvenance(),
   };
+}
+
+export function isShareableSfxProbe(probe) {
+  return probe?.hasAudio === true && Number.isFinite(probe.duration)
+    && probe.duration > 0 && probe.duration <= SHARED_AUDIO_INPUT_MAX_SECONDS;
 }
 
 // docs/contract-2026-07-22-render-basics.md #5: denoise has an explicit off value; loudnorm does
@@ -518,7 +554,7 @@ function normalizeMasterPlan(master) {
 // filesystem and its declared values, skipping (with a warning) whatever cannot be rendered safely
 // instead of failing the whole export. Runs during planning so the resulting command is deterministic
 // for a fixed filesystem/edit.json pair.
-function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand, fps, kind = "narration" }) {
+function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeCommand, fps, kind = "narration", audioProbeCache = new Map() }) {
   const warnings = [];
   const tracks = [];
   if (!Array.isArray(narration)) return { tracks, warnings };
@@ -537,7 +573,8 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
       warnings.push(`${kind} ${id}: file not found at ${path}; skipped`);
       continue;
     }
-    const probe = probeNarrationAudio(ffprobeCommand, resolvedPath);
+    if (!audioProbeCache.has(resolvedPath)) audioProbeCache.set(resolvedPath, probeNarrationAudio(ffprobeCommand, resolvedPath));
+    const probe = audioProbeCache.get(resolvedPath);
     if (!probe.hasAudio || !isFiniteNumber(probe.duration) || probe.duration <= 0) {
       warnings.push(`${kind} ${id}: file could not be decoded as audio at ${path}; skipped`);
       continue;
@@ -804,6 +841,7 @@ function resolveSfxTrim(
   needsEnvelopeDuration = false,
   speed = 1,
   fps,
+  audioProbeCache = new Map(),
 ) {
   const hasIn = sfx.in !== undefined;
   const hasOut = sfx.out !== undefined;
@@ -817,7 +855,8 @@ function resolveSfxTrim(
   const inSeconds = hasIn && isFiniteNumber(sfx.in) && sfx.in >= 0 ? sfx.in : 0;
   let outSeconds = hasOut && isFiniteNumber(sfx.out) && sfx.out > 0 ? sfx.out : null;
 
-  const actualDuration = probeAudioDurationSeconds(ffprobeCommand, resolvedPath);
+  if (!audioProbeCache.has(resolvedPath)) audioProbeCache.set(resolvedPath, probeNarrationAudio(ffprobeCommand, resolvedPath));
+  const actualDuration = audioProbeCache.get(resolvedPath).duration;
   if (isFiniteNumber(actualDuration) && actualDuration > 0) {
     if (inSeconds >= actualDuration) {
       warnings.push(
