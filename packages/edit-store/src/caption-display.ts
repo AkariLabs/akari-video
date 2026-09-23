@@ -514,14 +514,48 @@ function resolveProjectedWordStyles(
     captions.forEach((caption, index) => {
         if (caption.time_domain === 'output') return;
         const projected = projectedCaptions[index];
-        if (!Array.isArray(projected.words) || projected.words.length === 0
-            || projected.words.map(word => String(word.text)).join('') !== projected.displayText) return;
+        if (!Array.isArray(projected.words) || projected.words.length === 0) return;
+        let entries = projected.words.map(word => ({ word, synthetic: false }));
+        const visible = (items: typeof entries) => items.map(item => String(item.word.text).replace(/\s/gu, ''));
+        if (visible(entries).join('') !== projected.displayText.replace(/\s/gu, '')
+            && !projected.changed && Array.isArray(caption.words)) {
+            // A legacy zero-duration word was filtered from projected.words. Borrow an
+            // adjacent word's timing for its text, but never give it an emphasis preset.
+            const rescued = caption.words.flatMap((value, wordIndex) => {
+                if (projected.words!.includes(value)) return [{ word: value, synthetic: false }];
+                if (!isRecord(value) || typeof value.text !== 'string' || !value.text
+                    || !finiteNonNegative(value.start) || !finiteNonNegative(value.end)
+                    || value.start !== value.end) return [];
+                const later = caption.words.slice(wordIndex + 1).find(candidate => projected.words!.includes(candidate));
+                const earlier = caption.words.slice(0, wordIndex).reverse()
+                    .find(candidate => projected.words!.includes(candidate));
+                const anchor = later ?? earlier ?? projected.words![0];
+                return [{ word: { text: value.text, start: anchor.start, end: anchor.end }, synthetic: true }];
+            });
+            if (visible(rescued).join('') === projected.displayText.replace(/\s/gu, '')) entries = rescued;
+        }
+        const visibleWords = visible(entries);
+        if (visibleWords.join('') !== projected.displayText.replace(/\s/gu, '')) return;
+        // Assign whitespace from the display string to the following timed word.
+        // The resulting texts and offsets reconstruct the cue exactly, including
+        // leading spaces such as " Code", without changing source word timings.
+        let displayCursor = 0;
+        const alignedTexts = visibleWords.map(visible => {
+            const start = displayCursor;
+            let matched = '';
+            while (displayCursor < projected.displayText.length && matched.length < visible.length) {
+                const char = projected.displayText[displayCursor++];
+                if (!/\s/u.test(char)) matched += char;
+            }
+            return projected.displayText.slice(start, displayCursor);
+        });
+        alignedTexts[alignedTexts.length - 1] += projected.displayText.slice(displayCursor);
         let offset = 0;
-        const words = projected.words.map(word => {
-            const text = String(word.text);
+        const words = entries.map(({ word, synthetic }, wordIndex) => {
+            const text = alignedTexts[wordIndex];
             let emphasis: UnknownRecord | undefined;
             let styleVars: Record<string, string> | null = null;
-            for (const candidate of emphasisWords) {
+            for (const candidate of synthetic ? [] : emphasisWords) {
                 const sourceMatches = !(strictText(candidate.src) && strictText(caption.src))
                     || candidate.src === caption.src;
                 if (!sourceMatches
@@ -543,6 +577,12 @@ function resolveProjectedWordStyles(
             return value;
         });
         expandProjectedWordStyles(words, projected.displayText, locale);
+        entries.forEach((entry, wordIndex) => {
+            if (entry.synthetic) {
+                delete words[wordIndex].preset_id;
+                delete words[wordIndex].style_vars;
+            }
+        });
         if (words.some(word => word.preset_id)) result.set(index, words);
     });
     return result;

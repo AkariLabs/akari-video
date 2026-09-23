@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   applyCaptionTextEdit,
   KARAOKE_MIN_WORD_MATCH_RATIO,
+  rebaseCaptionEmphasis,
   rederiveCaptionWords,
 } from '../lib/caption-words-rederive.js';
 
@@ -61,6 +62,27 @@ test('全半角・大小文字・句読点だけの変更は全語 keep にな�
     timed.map(({ start, end }) => ({ start, end })));
 });
 
+test('旧 text と words の表記揺れはベースの正規化 LCS 経路へ戻す', () => {
+  const result = rederiveCaptionWords({
+    oldText: 'ＡＩの話です', newText: 'ＡＩの話でした',
+    words: [
+      { text: 'AI', start: 0, end: 0.4 },
+      { text: 'の', start: 0.4, end: 0.8 },
+      { text: '話', start: 0.8, end: 1.2 },
+      { text: 'です', start: 1.2, end: 1.6 },
+    ], start: 0, end: 1.6,
+  });
+  assert.deepEqual(result, {
+    words: [
+      { start: 0, end: 0.4, text: 'ＡＩ' },
+      { start: 0.4, end: 0.8, text: 'の' },
+      { start: 0.8, end: 1.2, text: '話' },
+      { start: 1.2, end: 1.333, text: 'で' },
+      { start: 1.333, end: 1.6, text: 'した' },
+    ], keptCount: 3, derivedCount: 2, matchRatio: 0.75, degraded: false,
+  });
+});
+
 test('一致率が閾値未満の意訳は words を空にして degrade する', () => {
   const result = rederiveCaptionWords({
     oldText: 'alpha beta gamma', newText: 'entirely different meaning', words, start: 0, end: 3,
@@ -71,7 +93,7 @@ test('一致率が閾値未満の意訳は words を空にして degrade する'
   assert.equal(result.matchRatio, 0);
 });
 
-test('旧 words 数と旧トークン数が違っても新トークン数へ単調に再マップする', () => {
+test('旧 words 数と旧トークン数が違っても旧境界を保ち、狭い挿入は隣語へ併合する', () => {
   const result = rederiveCaptionWords({
     oldText: 'one two three four', newText: 'one two plus three four',
     words: [
@@ -80,7 +102,10 @@ test('旧 words 数と旧トークン数が違っても新トークン数へ単�
     ],
     start: 10, end: 14,
   });
-  assert.equal(result.words.length, 5);
+  assert.equal(result.words.length, 2);
+  assert.deepEqual(result.words.map(({ start, end }) => ({ start, end })), [
+    { start: 10, end: 11.5 }, { start: 11.5, end: 14 },
+  ]);
   for (let index = 0; index < result.words.length; index++) {
     assert.ok(result.words[index].start >= 10);
     assert.ok(result.words[index].end <= 14);
@@ -138,7 +163,7 @@ test('Intl.Segmenter 不在でも grapheme fallback が保持アンカーを守�
   }
 });
 
-test('出力は ms 丸めした schema の三フィールドだけを持つ', () => {
+test('変わらない語は実測時刻を丸めず schema の三フィールドだけを持つ', () => {
   const result = rederiveCaptionWords({
     oldText: 'alpha beta gamma', newText: 'alpha delta gamma',
     words: [
@@ -149,7 +174,7 @@ test('出力は ms 丸めした schema の三フィールドだけを持つ', ()
     start: 0, end: 3,
   });
   assert.deepEqual(Object.keys(result.words[0]), ['start', 'end', 'text']);
-  assert.deepEqual(result.words[0], { start: 0.123, end: 0.765, text: 'alpha' });
+  assert.deepEqual(result.words[0], { start: 0.12345, end: 0.76549, text: 'alpha' });
 });
 
 test('空文字への編集は拒否する', () => {
@@ -157,6 +182,131 @@ test('空文字への編集は拒否する', () => {
     () => applyCaptionTextEdit({ text: 'before', start: 0, end: 1 }, ' \n '),
     /空にできません/,
   );
+});
+
+test('日本語の一文字置換・挿入・削除は旧語の境界と時刻を保ち、長さ 0 を作らない', () => {
+  const original = ['今日', 'は', 'とても', '大事', 'な', '話', 'を', 'します']
+    .map((text, index) => ({ text, start: index * 0.2, end: (index + 1) * 0.2 }));
+  const oldText = original.map(word => word.text).join('');
+  for (const newText of ['明日はとても大事な話をします', '今日はとても大切な話をします',
+    '今日はとても大事な話をしま', '今日はとても大事な話をしますよ']) {
+    const result = rederiveCaptionWords({ oldText, newText, words: original, start: 0, end: 1.6 });
+    assert.equal(result.degraded, false);
+    assert.ok(result.words.every(word => word.end > word.start));
+    for (const index of [1, 2, 4, 5, 6]) {
+      assert.deepEqual(result.words.find(word => word.text === original[index].text), original[index]);
+    }
+  }
+});
+
+test('先頭空白付きの書き起こし語境界を保つ', () => {
+  const original = [
+    { text: 'Claude', start: 0, end: 0.5 },
+    { text: ' Code', start: 0.5, end: 1 },
+    { text: ' を', start: 1, end: 1.2 },
+    { text: '使います', start: 1.2, end: 2 },
+  ];
+  const result = rederiveCaptionWords({
+    oldText: 'Claude Code を使います', newText: 'Claude Code を使えます',
+    words: original, start: 0, end: 2,
+  });
+  assert.deepEqual(result.words.slice(0, 3), original.slice(0, 3));
+  assert.equal(result.words.map(word => word.text).join(''), 'Claude Code を使えます');
+});
+
+test('時間の隙間がない挿入は隣語へ併合し、0 秒の語を作らない', () => {
+  const original = [
+    { text: 'alpha', start: 0, end: 1 },
+    { text: 'beta', start: 1, end: 2 },
+    { text: 'gamma', start: 2, end: 3 },
+  ];
+  const result = rederiveCaptionWords({ oldText: 'alpha beta gamma',
+    newText: 'alpha new beta gamma', words: original, start: 0, end: 3 });
+  assert.equal(result.degraded, false);
+  assert.equal(result.words.length, 3);
+  assert.ok(result.words.every(word => word.end > word.start));
+  assert.deepEqual(result.words.slice(1), original.slice(1));
+});
+
+test('一語だけの cue でも語内の小さな編集は劣化させない', () => {
+  const result = rederiveCaptionWords({ oldText: '挽きたて', newText: '挽きたてよ',
+    words: [{ text: '挽きたて', start: 0.2, end: 1.4 }], start: 0, end: 2 });
+  assert.equal(result.degraded, false);
+  assert.deepEqual(result.words[0], { text: '挽きたて', start: 0.2, end: 1.4 });
+  assert.ok(result.words.every(word => word.end > word.start));
+});
+
+test('強調は置換語へ付け替え、削除語だけを removed へ返す', () => {
+  const original = [
+    { text: 'alpha', start: 0, end: 1 },
+    { text: 'beta', start: 1, end: 2 },
+    { text: 'gamma', start: 2, end: 3 },
+  ];
+  const item = { id: 'e1', t_start: 1.2, t_end: 1.8, word: 'beta', style_preset: 'neon' };
+  const result = rederiveCaptionWords({ oldText: 'alpha beta gamma',
+    newText: 'alpha be ta gamma', words: original, start: 0, end: 3 });
+  const rebased = rebaseCaptionEmphasis({ emphasis: [item], oldWords: original, result,
+    oldText: 'alpha beta gamma', newText: 'alpha be ta gamma' });
+  assert.equal(rebased.removed.length, 0);
+  assert.equal(rebased.emphasis.length, 1);
+  assert.deepEqual([rebased.emphasis[0].t_start, rebased.emphasis[0].t_end], [1, 2]);
+  assert.equal(rebased.emphasis[0].word, 'be ta');
+  const deleted = rederiveCaptionWords({ oldText: 'alpha beta gamma',
+    newText: 'alpha gamma', words: original, start: 0, end: 3 });
+  const detached = rebaseCaptionEmphasis({ emphasis: [item], oldWords: original, result: deleted,
+    oldText: 'alpha beta gamma', newText: 'alpha gamma' });
+  assert.deepEqual(detached.emphasis, []);
+  assert.deepEqual(detached.removed, [item]);
+  const rewritten = rederiveCaptionWords({ oldText: 'alpha beta gamma',
+    newText: 'entirely different meaning', words: original, start: 0, end: 3 });
+  const degraded = rebaseCaptionEmphasis({ emphasis: [item], oldWords: original, result: rewritten,
+    oldText: 'alpha beta gamma', newText: 'entirely different meaning' });
+  assert.deepEqual(degraded.removed, [item]);
+});
+
+test('複数語に跨る差分でも強調は元の文字区間に対応する新語だけへ付く', () => {
+  const original = ['今日', 'は', 'とても', '大事', 'な', '話']
+    .map((text, index) => ({ text, start: index * 0.5, end: (index + 1) * 0.5 }));
+  const oldText = '今日はとても大事な話';
+  const newText = '今日はとても大切に話';
+  const result = rederiveCaptionWords({ oldText, newText, words: original, start: 0, end: 3 });
+  const rebased = rebaseCaptionEmphasis({
+    emphasis: [{ id: 'e1', word: '大事', t_start: 1.5, t_end: 2 }],
+    oldWords: original, result, oldText, newText,
+  });
+  assert.deepEqual(rebased.emphasis.map(({ word, t_start, t_end }) => ({ word, t_start, t_end })),
+    [{ word: '大切', t_start: 1.5, t_end: 2.167 }]);
+});
+
+test('手動断片は単一断片内の編集と境界を跨ぐ編集で切れ目を保つ', () => {
+  const record = { text: '朝のコーヒーは挽きたての豆で淹れます', start: 0, end: 4,
+    display_fragments: ['朝のコーヒーは', '挽きたての豆で淹れます'] };
+  assert.deepEqual(applyCaptionTextEdit(record, '朝のコーヒーは挽きたての豆で入れます').record.display_fragments,
+    ['朝のコーヒーは', '挽きたての豆で入れます']);
+  assert.deepEqual(applyCaptionTextEdit(record, '朝のコーヒーを入れたての豆で淹れます').record.display_fragments,
+    ['朝のコーヒーを', '入れたての豆で淹れます']);
+});
+
+test('整文の未編集部分を保ち、同じ文字差分だけ表示に写す', () => {
+  const record = { text: 'これは大事です', display_text: 'これは、大事です！',
+    start: 0, end: 2 };
+  const result = applyCaptionTextEdit(record, 'これは大切です').record;
+  assert.equal(result.display_text, 'これは、大切です！');
+  const inserted = applyCaptionTextEdit(record, 'これはとても大事です').record;
+  assert.equal(inserted.display_text, 'これは、とても大事です！');
+});
+
+test('整文中に同じ助詞が複数あっても左右の文脈で置換位置を定める', () => {
+  const record = {
+    text: '私の友達の家の犬', display_text: '私の友達の家の犬です。',
+    start: 0, end: 3,
+    words: ['私', 'の', '友達', 'の', '家', 'の', '犬']
+      .map((text, index) => ({ text, start: index * 0.4, end: (index + 1) * 0.4 })),
+  };
+  assert.equal(applyCaptionTextEdit(record, '私の友達が家の犬').record.display_text,
+    '私の友達が家の犬です。');
+  assert.equal(applyCaptionTextEdit(record, '私の友達家の犬').record.display_text,
+    '私の友達家の犬です。');
 });
 
 function assertGapInsertion({ oldText, newText, words: original, insertedText, insertedIndex }) {

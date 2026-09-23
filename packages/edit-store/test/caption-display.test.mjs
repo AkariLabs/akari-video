@@ -149,6 +149,47 @@ test('emphasis style_preset resolves per word, rounds partial overlap inward, an
   assert.deepEqual([cue.words[0].start, cue.words[0].end], [1, 1.5]);
 });
 
+test('空白を含む語と空白を省いた語のどちらも強調 cue を正確に再構成する', () => {
+  for (const second of [' Code', 'Code']) {
+    const root = {
+      display_policy: englishPolicy(40),
+      emphasis_words: [{ id: 'e1', t_start: 0.6, t_end: 1,
+        word: 'Code', emotion: 'neutral', style_preset: 'neon' }],
+      captions: [caption('c-0001', 0, 2, 'Claude Code', {
+        words: [{ text: 'Claude', start: 0, end: 0.6 },
+          { text: second, start: 0.6, end: 1.2 }],
+      })],
+    };
+    const [cue] = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 2 }] }).display_cues;
+    assert.equal(cue.words.map(word => word.text).join(''), cue.text);
+    assert.equal(cue.text, 'Claude Code');
+    assert.ok(cue.word_styles.some(style => style.preset_id === 'neon'));
+  }
+});
+
+test('旧データの長さ 0 の語を文字として救済し、強調は時刻付き語にだけ付ける', () => {
+  const root = {
+    display_policy: { ...policy, max_line_units: 20 },
+    emphasis_words: [{ id: 'e-0001', t_start: 1, t_end: 1.5,
+      word: '大事', emotion: 'neutral', style_preset: 'emphasis-red' }],
+    captions: [caption('c-0001', 0, 3, '明日はとても大事な話', {
+      words: [
+        { text: '明日', start: 0, end: 0 },
+        { text: 'は', start: 0, end: 0.5 },
+        { text: 'とても', start: 0.5, end: 1 },
+        { text: '大事', start: 1, end: 1.5 },
+        { text: 'な', start: 1.5, end: 2 },
+        { text: '話', start: 2, end: 3 },
+      ],
+    })],
+  };
+  const [cue] = resolveCaptionDisplay(root, { cuts: [{ in: 0, out: 3 }] }).display_cues;
+  assert.equal(cue.words.map(word => word.text).join(''), cue.text);
+  assert.equal(cue.word_styles.length, 1);
+  const [style] = cue.word_styles;
+  assert.equal(cue.words.slice(style.from, style.to).map(word => word.text).join(''), '大事');
+});
+
 test('word style vars expose complete neon and glitch decoration on the isolated token rail', () => {
   const neon = resolveCaptionStylePreset({ style_preset: 'neon' }, TEXTSTYLE_CATALOG);
   const neonVars = resolveCaptionWordStyleVars(neon.record.text_style, { width: 1920, height: 1080 });

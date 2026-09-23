@@ -183,12 +183,15 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     ) {
       style = REVEAL_STYLE;
     }
-    const fullCoverage = allWords.map((word) => word.text).join("") === caption.text;
+    const wordText = allWords.map((word) => word.text).join("");
+    const fullCoverage = wordText.replace(/\s/gu, "")
+      === caption.text.replace(/\s/gu, "");
     const usesTimedRendering = style !== null || emphasisWords.length > 0;
     const mappedRendering = usesTimedRendering
       && (style === REVEAL_STYLE
         || displayText !== caption.text
-        || (allWords.length > 0 && !fullCoverage));
+        // Coverage ignores whitespace, but mapping still restores the exact display spaces.
+        || (allWords.length > 0 && (!fullCoverage || wordText !== caption.text)));
     const warned = new Set();
     const warn = (code, message) => {
       if (warned.has(code)) return;

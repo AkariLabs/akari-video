@@ -1,0 +1,643 @@
+{
+  "phase": "after",
+  "status": "done",
+  "edits": [
+    {
+      "id": "c-0001",
+      "note": "強調の無い単語を 1 文字置換（強調 2 か所は別の単語）",
+      "inputShown": "今日はとても大事な話をします",
+      "typed": "明日はとても大事な話をします",
+      "textBefore": "今日はとても大事な話をします",
+      "textAfter": "明日はとても大事な話をします",
+      "notice": []
+    },
+    {
+      "id": "c-0002",
+      "note": "手動の改行（2 断片）の 2 断片目の中で 1 文字置換",
+      "inputShown": "朝のコーヒーは挽きたての豆で淹れます",
+      "typed": "朝のコーヒーは挽きたての豆で入れます",
+      "textBefore": "朝のコーヒーは挽きたての豆で淹れます",
+      "textAfter": "朝のコーヒーは挽きたての豆で入れます",
+      "notice": []
+    },
+    {
+      "id": "c-0003",
+      "note": "整文（display_text）のある cue で 1 文字置換",
+      "inputShown": "えーと、これが新しい機能です",
+      "typed": "えーと、それが新しい機能です",
+      "textBefore": "えーと、これが新しい機能です",
+      "textAfter": "えーと、それが新しい機能です",
+      "notice": []
+    },
+    {
+      "id": "c-0004",
+      "note": "空白を含む文（Claude Code に強調）で 1 文字置換",
+      "inputShown": "Claude Code を毎日使っています",
+      "typed": "Claude Code を毎朝使っています",
+      "textBefore": "Claude Code を毎日使っています",
+      "textAfter": "Claude Code を毎朝使っています",
+      "notice": []
+    },
+    {
+      "id": "c-0005",
+      "note": "強調の掛かった単語そのものを 1 文字置換",
+      "inputShown": "この方法は本当に簡単です",
+      "typed": "この方法は本当に簡便です",
+      "textBefore": "この方法は本当に簡単です",
+      "textAfter": "この方法は本当に簡便です",
+      "notice": []
+    }
+  ],
+  "preview": {
+    "pre": {
+      "c-0001": {
+        "time": 1.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}今日はとても大事な話をします",
+            "innerText": "今日はとても大事な話をします",
+            "lines": [
+              "今日はとても大事な話をします"
+            ],
+            "emphasis": [
+              {
+                "text": "大事",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              },
+              {
+                "text": "話",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              }
+            ]
+          }
+        ]
+      },
+      "c-0002": {
+        "time": 5.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0002-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}朝のコーヒーは挽きたての豆で淹れます",
+            "innerText": "朝のコーヒーは\n\n挽きたての豆で淹れます",
+            "lines": [
+              "朝のコーヒーは",
+              "挽きたての豆で淹れます"
+            ],
+            "emphasis": []
+          }
+        ]
+      },
+      "c-0003": {
+        "time": 9.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0003-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}これが新しい機能です",
+            "innerText": "これが新しい機能です",
+            "lines": [
+              "これが新しい機能です"
+            ],
+            "emphasis": []
+          }
+        ]
+      },
+      "c-0004": {
+        "time": 13.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0004-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}Claude Code を毎日使っています",
+            "innerText": "Claude Code を\n\n毎日使っています",
+            "lines": [
+              "Claude Code を",
+              "毎日使っています"
+            ],
+            "emphasis": [
+              {
+                "text": "Claude",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              },
+              {
+                "text": " Code",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              }
+            ]
+          }
+        ]
+      },
+      "c-0005": {
+        "time": 17.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0005-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}この方法は本当に簡単です",
+            "innerText": "この方法は本当に簡単です",
+            "lines": [
+              "この方法は本当に簡単です"
+            ],
+            "emphasis": [
+              {
+                "text": "簡単",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "post": {
+      "c-0001": {
+        "time": 1.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0001-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}明日はとても大事な話をします",
+            "innerText": "明日はとても大事な話をします",
+            "lines": [
+              "明日はとても大事な話をします"
+            ],
+            "emphasis": [
+              {
+                "text": "大事",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              },
+              {
+                "text": "話",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              }
+            ]
+          }
+        ]
+      },
+      "c-0002": {
+        "time": 5.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0002-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}朝のコーヒーは挽きたての豆で入れます",
+            "innerText": "朝のコーヒーは\n\n挽きたての豆で入れます",
+            "lines": [
+              "朝のコーヒーは",
+              "挽きたての豆で入れます"
+            ],
+            "emphasis": []
+          }
+        ]
+      },
+      "c-0003": {
+        "time": 9.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0003-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}それが新しい機能です",
+            "innerText": "それが新しい機能です",
+            "lines": [
+              "それが新しい機能です"
+            ],
+            "emphasis": []
+          }
+        ]
+      },
+      "c-0004": {
+        "time": 13.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0004-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}Claude Code を毎朝使っています",
+            "innerText": "Claude Code を\n\n毎朝使っています",
+            "lines": [
+              "Claude Code を",
+              "毎朝使っています"
+            ],
+            "emphasis": [
+              {
+                "text": "Claude",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              },
+              {
+                "text": " Code",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              }
+            ]
+          }
+        ]
+      },
+      "c-0005": {
+        "time": 17.9,
+        "plates": [
+          {
+            "id": "caption-plate-c-0005-occ-0001-part-1",
+            "text": ".akari-caption--single-line{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);text-shadow:var(--caption-text-shadow,-1.5px -1.5px 0 rgba(0,0,0,.85),1.5px -1.5px 0 rgba(0,0,0,.85),-1.5px 1.5px 0 rgba(0,0,0,.85),1.5px 1.5px 0 rgba(0,0,0,.85),0 0 8px rgba(0,0,0,.6));-webkit-text-stroke:var(--caption-webkit-text-stroke,0 transparent);paint-order:var(--caption-paint-order,stroke fill);font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-style:var(--caption-font-style,normal);font-weight:var(--caption-font-weight,700);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;animation:none;transform:none;}.akari-caption--single-line .akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);max-width:100%;display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:0;padding:var(--plate-block-pad-y,0) var(--plate-block-pad-x,0);border-radius:var(--plate-block-radius,0);background:var(--plate-block-bg,transparent);animation:none;transform:rotate(var(--caption-rotate,0deg)) scale(var(--caption-scale,1));transform-origin:center;}.akari-caption--single-line .akari-caption__line{width:var(--caption-line-width,max-content);max-width:100%;margin:0 auto;padding:var(--plate-pad-y,0) var(--plate-pad-x,0);border-radius:var(--plate-radius,0);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:nowrap;animation:none;transform:none;}.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}この方法は本当に簡便です",
+            "innerText": "この方法は本当に簡便です",
+            "lines": [
+              "この方法は本当に簡便です"
+            ],
+            "emphasis": [
+              {
+                "text": "簡便",
+                "preset": "emphasis-red",
+                "color": "rgb(255, 23, 68)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "screenshots": [
+    "after-pre-c-0001.png",
+    "after-pre-c-0002.png",
+    "after-pre-c-0003.png",
+    "after-pre-c-0004.png",
+    "after-pre-c-0005.png",
+    "after-daihon-pre.png",
+    "after-post-c-0001.png",
+    "after-post-c-0002.png",
+    "after-post-c-0003.png",
+    "after-post-c-0004.png",
+    "after-post-c-0005.png",
+    "after-daihon-post.png"
+  ],
+  "pid": 47139,
+  "diff": {
+    "c-0001": {
+      "text": [
+        "今日はとても大事な話をします",
+        "明日はとても大事な話をします"
+      ],
+      "display_text": [
+        null,
+        null
+      ],
+      "display_fragments": [
+        null,
+        null
+      ],
+      "wordCount": [
+        8,
+        8
+      ],
+      "wordsBefore": [
+        "今日@0.2-0.686",
+        "は@0.686-0.929",
+        "とても@0.929-1.657",
+        "大事@1.657-2.143",
+        "な@2.143-2.386",
+        "話@2.386-2.629",
+        "を@2.629-2.871",
+        "します@2.871-3.6"
+      ],
+      "wordsAfter": [
+        "明日@0.2-0.686",
+        "は@0.686-0.929",
+        "とても@0.929-1.657",
+        "大事@1.657-2.143",
+        "な@2.143-2.386",
+        "話@2.386-2.629",
+        "を@2.629-2.871",
+        "します@2.871-3.6"
+      ],
+      "unchangedWordsKept": 7,
+      "unchangedWordsTotal": 8,
+      "zeroLengthWordsAfter": 0,
+      "emphasisBefore": [
+        {
+          "id": "e-0001",
+          "t_start": 1.657,
+          "t_end": 2.143,
+          "word": "大事"
+        },
+        {
+          "id": "e-0002",
+          "t_start": 2.386,
+          "t_end": 2.629,
+          "word": "話"
+        }
+      ],
+      "emphasisAfter": [
+        {
+          "id": "e-0001",
+          "t_start": 1.657,
+          "t_end": 2.143,
+          "word": "大事"
+        },
+        {
+          "id": "e-0002",
+          "t_start": 2.386,
+          "t_end": 2.629,
+          "word": "話"
+        }
+      ],
+      "preview": {
+        "textPre": [
+          "今日はとても大事な話をします"
+        ],
+        "textPost": [
+          "明日はとても大事な話をします"
+        ],
+        "linesPre": [
+          1
+        ],
+        "linesPost": [
+          1
+        ],
+        "emphasisSpansPre": [
+          "大事",
+          "話"
+        ],
+        "emphasisSpansPost": [
+          "大事",
+          "話"
+        ]
+      }
+    },
+    "c-0002": {
+      "text": [
+        "朝のコーヒーは挽きたての豆で淹れます",
+        "朝のコーヒーは挽きたての豆で入れます"
+      ],
+      "display_text": [
+        null,
+        null
+      ],
+      "display_fragments": [
+        [
+          "朝のコーヒーは",
+          "挽きたての豆で淹れます"
+        ],
+        [
+          "朝のコーヒーは",
+          "挽きたての豆で入れます"
+        ]
+      ],
+      "wordCount": [
+        11,
+        11
+      ],
+      "wordsBefore": [
+        "朝@4.2-4.389",
+        "の@4.389-4.578",
+        "コーヒー@4.578-5.333",
+        "は@5.333-5.522",
+        "挽き@5.522-5.9",
+        "たて@5.9-6.278",
+        "の@6.278-6.467",
+        "豆@6.467-6.656",
+        "で@6.656-6.844",
+        "淹れ@6.844-7.222",
+        "ます@7.222-7.6"
+      ],
+      "wordsAfter": [
+        "朝@4.2-4.389",
+        "の@4.389-4.578",
+        "コーヒー@4.578-5.333",
+        "は@5.333-5.522",
+        "挽き@5.522-5.9",
+        "たて@5.9-6.278",
+        "の@6.278-6.467",
+        "豆@6.467-6.656",
+        "で@6.656-6.844",
+        "入れ@6.844-7.222",
+        "ます@7.222-7.6"
+      ],
+      "unchangedWordsKept": 10,
+      "unchangedWordsTotal": 11,
+      "zeroLengthWordsAfter": 0,
+      "emphasisBefore": [],
+      "emphasisAfter": [],
+      "preview": {
+        "textPre": [
+          "朝のコーヒーは\n\n挽きたての豆で淹れます"
+        ],
+        "textPost": [
+          "朝のコーヒーは\n\n挽きたての豆で入れます"
+        ],
+        "linesPre": [
+          2
+        ],
+        "linesPost": [
+          2
+        ],
+        "emphasisSpansPre": [],
+        "emphasisSpansPost": []
+      }
+    },
+    "c-0003": {
+      "text": [
+        "えーと、これが新しい機能です",
+        "えーと、それが新しい機能です"
+      ],
+      "display_text": [
+        "これが新しい機能です",
+        "それが新しい機能です"
+      ],
+      "display_fragments": [
+        null,
+        null
+      ],
+      "wordCount": [
+        7,
+        7
+      ],
+      "wordsBefore": [
+        "えーと@8.2-8.929",
+        "、@8.929-9.171",
+        "これ@9.171-9.657",
+        "が@9.657-9.9",
+        "新しい@9.9-10.629",
+        "機能@10.629-11.114",
+        "です@11.114-11.6"
+      ],
+      "wordsAfter": [
+        "えーと@8.2-8.929",
+        "、@8.929-9.171",
+        "それ@9.171-9.657",
+        "が@9.657-9.9",
+        "新しい@9.9-10.629",
+        "機能@10.629-11.114",
+        "です@11.114-11.6"
+      ],
+      "unchangedWordsKept": 6,
+      "unchangedWordsTotal": 7,
+      "zeroLengthWordsAfter": 0,
+      "emphasisBefore": [],
+      "emphasisAfter": [],
+      "preview": {
+        "textPre": [
+          "これが新しい機能です"
+        ],
+        "textPost": [
+          "それが新しい機能です"
+        ],
+        "linesPre": [
+          1
+        ],
+        "linesPost": [
+          1
+        ],
+        "emphasisSpansPre": [],
+        "emphasisSpansPost": []
+      }
+    },
+    "c-0004": {
+      "text": [
+        "Claude Code を毎日使っています",
+        "Claude Code を毎朝使っています"
+      ],
+      "display_text": [
+        null,
+        null
+      ],
+      "display_fragments": [
+        null,
+        null
+      ],
+      "wordCount": [
+        6,
+        6
+      ],
+      "wordsBefore": [
+        "Claude@12.2-13.274",
+        " Code@13.274-13.989",
+        " を@13.989-14.168",
+        "毎日@14.168-14.526",
+        "使って@14.526-15.063",
+        "います@15.063-15.6"
+      ],
+      "wordsAfter": [
+        "Claude@12.2-13.274",
+        " Code@13.274-13.989",
+        " を@13.989-14.168",
+        "毎朝@14.168-14.526",
+        "使って@14.526-15.063",
+        "います@15.063-15.6"
+      ],
+      "unchangedWordsKept": 5,
+      "unchangedWordsTotal": 6,
+      "zeroLengthWordsAfter": 0,
+      "emphasisBefore": [
+        {
+          "id": "e-0003",
+          "t_start": 12.2,
+          "t_end": 13.989,
+          "word": "Claude Code"
+        }
+      ],
+      "emphasisAfter": [
+        {
+          "id": "e-0003",
+          "t_start": 12.2,
+          "t_end": 13.989,
+          "word": "Claude Code"
+        }
+      ],
+      "preview": {
+        "textPre": [
+          "Claude Code を\n\n毎日使っています"
+        ],
+        "textPost": [
+          "Claude Code を\n\n毎朝使っています"
+        ],
+        "linesPre": [
+          2
+        ],
+        "linesPost": [
+          2
+        ],
+        "emphasisSpansPre": [
+          "Claude",
+          " Code"
+        ],
+        "emphasisSpansPost": [
+          "Claude",
+          " Code"
+        ]
+      }
+    },
+    "c-0005": {
+      "text": [
+        "この方法は本当に簡単です",
+        "この方法は本当に簡便です"
+      ],
+      "display_text": [
+        null,
+        null
+      ],
+      "display_fragments": [
+        null,
+        null
+      ],
+      "wordCount": [
+        7,
+        7
+      ],
+      "wordsBefore": [
+        "この@16.2-16.767",
+        "方法@16.767-17.333",
+        "は@17.333-17.617",
+        "本当@17.617-18.183",
+        "に@18.183-18.467",
+        "簡単@18.467-19.033",
+        "です@19.033-19.6"
+      ],
+      "wordsAfter": [
+        "この@16.2-16.767",
+        "方法@16.767-17.333",
+        "は@17.333-17.617",
+        "本当@17.617-18.183",
+        "に@18.183-18.467",
+        "簡便@18.467-19.033",
+        "です@19.033-19.6"
+      ],
+      "unchangedWordsKept": 6,
+      "unchangedWordsTotal": 7,
+      "zeroLengthWordsAfter": 0,
+      "emphasisBefore": [
+        {
+          "id": "e-0004",
+          "t_start": 18.467,
+          "t_end": 19.033,
+          "word": "簡単"
+        }
+      ],
+      "emphasisAfter": [
+        {
+          "id": "e-0004",
+          "t_start": 18.467,
+          "t_end": 19.033,
+          "word": "簡便"
+        }
+      ],
+      "preview": {
+        "textPre": [
+          "この方法は本当に簡単です"
+        ],
+        "textPost": [
+          "この方法は本当に簡便です"
+        ],
+        "linesPre": [
+          1
+        ],
+        "linesPost": [
+          1
+        ],
+        "emphasisSpansPre": [
+          "簡単"
+        ],
+        "emphasisSpansPost": [
+          "簡便"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "label": "after",
+  "edits": [
+    {
+      "id": "c-0001",
+      "from": "今日",
+      "to": "明日"
+    },
+    {
+      "id": "c-0002",
+      "from": "淹れ",
+      "to": "入れ"
+    },
+    {
+      "id": "c-0003",
+      "from": "これが",
+      "to": "それが"
+    },
+    {
+      "id": "c-0004",
+      "from": "毎日",
+      "to": "毎朝"
+    },
+    {
+      "id": "c-0005",
+      "from": "簡単",
+      "to": "簡便"
+    }
+  ],
+  "kernelPath": {
+    "pre": [
+      {
+        "id": "c-0001",
+        "overlays": 1,
+        "emphasisSpans": [
+          "大事",
+          "話"
+        ]
+      },
+      {
+        "id": "c-0002",
+        "overlays": 1,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0003",
+        "overlays": 1,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0004",
+        "overlays": 1,
+        "emphasisSpans": [
+          "Claude",
+          " Code"
+        ]
+      },
+      {
+        "id": "c-0005",
+        "overlays": 1,
+        "emphasisSpans": [
+          "簡単"
+        ]
+      }
+    ],
+    "post": [
+      {
+        "id": "c-0001",
+        "overlays": 1,
+        "emphasisSpans": [
+          "大事",
+          "話"
+        ]
+      },
+      {
+        "id": "c-0002",
+        "overlays": 1,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0003",
+        "overlays": 1,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0004",
+        "overlays": 1,
+        "emphasisSpans": [
+          "Claude",
+          " Code"
+        ]
+      },
+      {
+        "id": "c-0005",
+        "overlays": 1,
+        "emphasisSpans": [
+          "簡便"
+        ]
+      }
+    ]
+  },
+  "legacyPath": {
+    "pre": [
+      {
+        "id": "c-0001",
+        "overlays": 1,
+        "emphasisSpans": [
+          "大事",
+          "話"
+        ]
+      },
+      {
+        "id": "c-0002",
+        "overlays": 2,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0003",
+        "overlays": 1,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0004",
+        "overlays": 1,
+        "emphasisSpans": [
+          "Claude",
+          " Code"
+        ]
+      },
+      {
+        "id": "c-0005",
+        "overlays": 1,
+        "emphasisSpans": [
+          "簡単"
+        ]
+      }
+    ],
+    "post": [
+      {
+        "id": "c-0001",
+        "overlays": 1,
+        "emphasisSpans": [
+          "大事",
+          "話"
+        ]
+      },
+      {
+        "id": "c-0002",
+        "overlays": 2,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0003",
+        "overlays": 1,
+        "emphasisSpans": []
+      },
+      {
+        "id": "c-0004",
+        "overlays": 1,
+        "emphasisSpans": [
+          "Claude",
+          " Code"
+        ]
+      },
+      {
+        "id": "c-0005",
+        "overlays": 1,
+        "emphasisSpans": [
+          "簡便"
+        ]
+      }
+    ]
+  }
+}

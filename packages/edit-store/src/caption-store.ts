@@ -1,5 +1,5 @@
 import { findMatchingBracket, splitTopLevelElements, type SourceElement } from './edit-store';
-import { applyCaptionTextEdit, type CaptionTextEditRecord, type CaptionWordTiming } from './caption-words-rederive';
+import { applyCaptionTextEdit, rebaseCaptionEmphasis, type CaptionEmphasis, type CaptionTextEditRecord, type CaptionWordTiming } from './caption-words-rederive';
 import { applyCaptionStylePresets } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
@@ -366,10 +366,27 @@ export function updateCaptionFieldsInSource(
     const array = locateCaptionArray(source);
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
+    let nextEmphasis: CaptionEmphasis[] | undefined;
+    let oldEmphasis: CaptionEmphasis[] | undefined;
     if (updates.text !== undefined) {
         const parsed = JSON.parse(nextElement) as CaptionTextEditRecord;
         const applied = applyCaptionTextEdit(parsed, updates.text);
         if (applied.record !== parsed) {
+            const root = JSON.parse(source) as unknown;
+            if (!Array.isArray(root) && isRecord(root) && Array.isArray(root.emphasis_words)
+                && Array.isArray(parsed.words) && applied.rederive) {
+                oldEmphasis = root.emphasis_words as CaptionEmphasis[];
+                const rebased = rebaseCaptionEmphasis({
+                    emphasis: oldEmphasis,
+                    oldWords: parsed.words,
+                    result: applied.rederive,
+                    oldText: parsed.text,
+                    newText: applied.record.text,
+                    ...(typeof parsed.src === 'string' ? { src: parsed.src } : {})
+                });
+                if (rebased.removed.length || rebased.emphasis.some((entry, index) =>
+                    entry !== oldEmphasis![index])) nextEmphasis = rebased.emphasis;
+            }
             nextElement = replaceCaptionJsonProperty(nextElement, 'text', applied.record.text, captionId);
             nextElement = replaceCaptionJsonProperty(nextElement, 'edited', applied.record.edited, captionId);
             nextElement = syncOptionalCaptionProperty(nextElement, 'words', applied.record.words, captionId);
@@ -406,7 +423,35 @@ export function updateCaptionFieldsInSource(
         const next = updates.displayTiming === 'speech-tight' ? 'speech-tight' : undefined;
         nextElement = syncOptionalCaptionProperty(nextElement, 'display_timing', next, captionId);
     }
-    return replaceElement(source, array.openIndex + 1, element, nextElement);
+    let updated = replaceElement(source, array.openIndex + 1, element, nextElement);
+    if (nextEmphasis && oldEmphasis) {
+        const property = locateTopLevelProperty(updated, 'emphasis_words');
+        if (!property) throw new Error('emphasis_words 配列を特定できません。');
+        const colon = property.text.indexOf(':');
+        const open = updated.indexOf('[', property.start + colon + 1);
+        if (open < 0 || open >= property.end) throw new Error('emphasis_words 配列を特定できません。');
+        const close = findMatchingBracket(updated, open);
+        const inner = updated.slice(open + 1, close);
+        const elements = splitTopLevelElements(inner);
+        if (elements.length !== oldEmphasis.length) throw new Error('emphasis_words 配列を特定できません。');
+        const byId = new Map(nextEmphasis.map(entry => [entry.id, entry]));
+        const kept = elements.flatMap((entry, index) => {
+            const old = oldEmphasis![index];
+            const next = byId.get(old.id);
+            return next ? [{ index, text: next === old ? entry.text : JSON.stringify(next) }] : [];
+        });
+        let nextInner = '';
+        kept.forEach((entry, keptIndex) => {
+            const originalIndex = entry.index;
+            const separator = originalIndex === 0
+                ? inner.slice(0, elements[0].start)
+                : inner.slice(elements[originalIndex - 1].end, elements[originalIndex].start);
+            nextInner += (keptIndex === 0 ? separator.replace(/^,/u, '') : separator) + entry.text;
+        });
+        if (kept.length) nextInner += inner.slice(elements[elements.length - 1].end);
+        updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
+    }
+    return updated;
 }
 
 export function applyWordBookToCaptionsInSource(

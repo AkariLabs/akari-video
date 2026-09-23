@@ -65,6 +65,18 @@ test("captions.json emphasis_words produces the same emphasis CSS as the legacy 
   });
 });
 
+test("space omitted from timed words still renders the emphasized export token", () => {
+  const captions = [{ ...CAPTIONS[0], text: "Claude Code", words: [
+    { start: 0, end: 1, text: "Claude" },
+    { start: 1, end: 2, text: "Code" },
+  ] }];
+  const [overlay] = generateCaptionOverlays(captions, CUTS, {
+    emphasisWords: [emphasis({ word: "Code", t_start: 1, t_end: 2 })],
+  });
+  assert.match(overlay.html, /data-emphasis-id="e-0001"/u);
+  assert.match(overlay.html, />Claude<\/span><span[^>]*> <\/span><span[^>]*>Code<\/span>/u);
+});
+
 test("captions.json emphasis_words wins when both captions.json and edit.json seats exist", async () => {
   const captionsWord = emphasis({ id: "e-0002", style_hint: "size-pulse" });
   const editWord = emphasis({ id: "e-9000", emotion: "sadness", style_hint: "color-accent" });

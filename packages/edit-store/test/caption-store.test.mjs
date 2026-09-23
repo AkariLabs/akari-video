@@ -145,6 +145,53 @@ test('speaker だけの更新は words をバイト単位で変えない', () =>
   assert.deepEqual(JSON.parse(updated)[0].words, row.words);
 });
 
+test('object ルートの強調を変更語へ付け替え、他のキーと物理行を保つ', () => {
+  const row = caption('c-0001', 0, 'alpha beta gamma', {
+    end: 3, words: [
+      { text: 'alpha', start: 0, end: 1 },
+      { text: 'beta', start: 1, end: 2 },
+      { text: 'gamma', start: 2, end: 3 },
+    ],
+  });
+  const other = caption('c-0002', 3, 'untouched');
+  const source = `{\n  "note": { "keep": true },\n  "captions": [\n    ${JSON.stringify(row)},\n    ${JSON.stringify(other)}\n  ],\n  "emphasis_words": [{"id":"e1","t_start":1.2,"t_end":1.8,"word":"beta","style_preset":"neon"}]\n}\n`;
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', { text: 'alpha be ta gamma' });
+  const root = JSON.parse(updated);
+  assert.deepEqual(root.emphasis_words.map(({ t_start, t_end }) => [t_start, t_end]), [[1, 2]]);
+  assert.equal(root.emphasis_words[0].word, 'be ta');
+  assert.deepEqual(root.captions[0].words[0], row.words[0]);
+  assert.deepEqual(root.captions[0].words.at(-1), row.words.at(-1));
+  assert.equal(updated.split('\n')[1], source.split('\n')[1]);
+  assert.equal(updated.split('\n')[4], source.split('\n')[4]);
+});
+
+test('強調配列は変更要素だけを置換・削除し、他要素と複数行書式を保つ', () => {
+  const timed = ['今日', 'は', 'とても', '大事', 'な', '話']
+    .map((text, index) => ({ text, start: index * 0.5, end: (index + 1) * 0.5 }));
+  const row = caption('c-0001', 0, '今日はとても大事な話', { end: 3, words: timed });
+  const unchanged = [
+    '    {"id":"e-0001", "t_start":0, "t_end":0.5, "word":"今日", "style_preset":"neon"}',
+    '    {"id":"e-0003", "t_start":2.5, "t_end":3, "word":"話", "style_preset":"neon"}',
+    '    {"id":"e-0004", "t_start":4, "t_end":5, "word":"別", "style_preset":"neon"}',
+  ];
+  const changed = '    {"id":"e-0002", "t_start":1.5, "t_end":2, "word":"大事", "style_preset":"emphasis-red"}';
+  const source = `{\n  "emphasis_words": [\n${unchanged[0]},\n${changed},\n${unchanged[1]},\n${unchanged[2]}\n  ],\n  "captions": [\n    ${JSON.stringify(row)}\n  ],\n  "note": { "keep": true }\n}\n`;
+  const replaced = updateCaptionFieldsInSource(source, 'c-0001', { text: '今日はとても大切に話' });
+  const root = JSON.parse(replaced);
+  assert.deepEqual(root.emphasis_words.map(({ id }) => id), ['e-0001', 'e-0002', 'e-0003', 'e-0004']);
+  assert.equal(root.emphasis_words[1].word, '大切');
+  assert.deepEqual([root.emphasis_words[1].t_start, root.emphasis_words[1].t_end], [1.5, 2.167]);
+  for (const line of unchanged) assert.ok(replaced.includes(line));
+  assert.match(replaced, /"emphasis_words": \[\n    \{[^\n]+\},\n    \{[^\n]+\},\n    \{[^\n]+\},\n    \{[^\n]+\}\n  \]/u);
+  assert.ok(replaced.includes('  "note": { "keep": true }'));
+
+  const deleted = updateCaptionFieldsInSource(source, 'c-0001', { text: '今日はとてもな話' });
+  assert.deepEqual(JSON.parse(deleted).emphasis_words.map(({ id }) => id), ['e-0001', 'e-0003', 'e-0004']);
+  for (const line of unchanged) assert.ok(deleted.includes(line));
+  assert.doesNotMatch(deleted, /"e-0002"/u);
+  assert.match(deleted, /"emphasis_words": \[\n    \{[^\n]+\},\n    \{[^\n]+\},\n    \{[^\n]+\}\n  \]/u);
+});
+
 test('words 無し行の text 更新では words を追加しない', () => {
   const source = `[\n  ${JSON.stringify(caption('c-0001', 0, 'before'))}\n]\n`;
   const updated = updateCaptionFieldsInSource(source, 'c-0001', { text: 'after' });

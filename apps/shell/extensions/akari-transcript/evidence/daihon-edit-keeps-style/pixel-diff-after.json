@@ -1,0 +1,67 @@
+{
+  "phase": "after",
+  "region": [
+    20,
+    60,
+    502,
+    440
+  ],
+  "threshold": 24,
+  "report": {
+    "c-0001": {
+      "changedPixels": 121,
+      "box": {
+        "left": 139,
+        "top": 308,
+        "right": 152,
+        "bottom": 321,
+        "width": 14,
+        "height": 14
+      }
+    },
+    "c-0002": {
+      "changedPixels": 120,
+      "box": {
+        "left": 281,
+        "top": 315,
+        "right": 294,
+        "bottom": 328,
+        "width": 14,
+        "height": 14
+      }
+    },
+    "c-0003": {
+      "changedPixels": 85,
+      "box": {
+        "left": 195,
+        "top": 316,
+        "right": 206,
+        "bottom": 327,
+        "width": 12,
+        "height": 12
+      }
+    },
+    "c-0004": {
+      "changedPixels": 101,
+      "box": {
+        "left": 221,
+        "top": 308,
+        "right": 233,
+        "bottom": 321,
+        "width": 13,
+        "height": 14
+      }
+    },
+    "c-0005": {
+      "changedPixels": 610,
+      "box": {
+        "left": 301,
+        "top": 292,
+        "right": 334,
+        "bottom": 324,
+        "width": 34,
+        "height": 33
+      }
+    }
+  }
+}

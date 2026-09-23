@@ -1,0 +1,67 @@
+{
+  "phase": "before",
+  "region": [
+    20,
+    60,
+    502,
+    440
+  ],
+  "threshold": 24,
+  "report": {
+    "c-0001": {
+      "changedPixels": 4032,
+      "box": {
+        "left": 139,
+        "top": 292,
+        "right": 381,
+        "bottom": 328,
+        "width": 243,
+        "height": 37
+      }
+    },
+    "c-0002": {
+      "changedPixels": 2123,
+      "box": {
+        "left": 187,
+        "top": 296,
+        "right": 333,
+        "bottom": 328,
+        "width": 147,
+        "height": 33
+      }
+    },
+    "c-0003": {
+      "changedPixels": 1470,
+      "box": {
+        "left": 169,
+        "top": 315,
+        "right": 353,
+        "bottom": 328,
+        "width": 185,
+        "height": 14
+      }
+    },
+    "c-0004": {
+      "changedPixels": 5091,
+      "box": {
+        "left": 154,
+        "top": 261,
+        "right": 367,
+        "bottom": 328,
+        "width": 214,
+        "height": 68
+      }
+    },
+    "c-0005": {
+      "changedPixels": 2001,
+      "box": {
+        "left": 268,
+        "top": 291,
+        "right": 359,
+        "bottom": 324,
+        "width": 92,
+        "height": 34
+      }
+    }
+  }
+}

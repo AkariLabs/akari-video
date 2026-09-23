@@ -10,6 +10,14 @@ export interface RederiveResult {
     derivedCount: number;
     matchRatio: number;
     degraded: boolean;
+    changedOldRange?: [number, number];
+    changedNewRange?: [number, number];
+}
+export interface CaptionEmphasis {
+    t_start: number;
+    t_end: number;
+    src?: string;
+    [key: string]: unknown;
 }
 export interface CaptionTextEditRecord {
     text: string;
@@ -28,6 +36,18 @@ export declare function rederiveCaptionWords(input: {
     start: number;
     end: number;
 }): RederiveResult;
+/** Move only emphasis attached to replaced words; report entries that have no timed successor. */
+export declare function rebaseCaptionEmphasis<T extends CaptionEmphasis>(input: {
+    emphasis: readonly T[];
+    oldWords: readonly CaptionWordTiming[];
+    result: RederiveResult;
+    oldText: string;
+    newText: string;
+    src?: string;
+}): {
+    emphasis: T[];
+    removed: T[];
+};
 export declare function applyCaptionTextEdit<T extends CaptionTextEditRecord>(record: T, newText: string): {
     record: T;
     rederive?: RederiveResult;
