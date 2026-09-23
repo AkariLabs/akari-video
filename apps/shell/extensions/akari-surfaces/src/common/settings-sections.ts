@@ -37,7 +37,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     about: 'バージョンとアップデート。',
     connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
     transcribe: '文字起こしのモードとエンジンを選びます。',
-    narration: '読み上げ（音声を作る）の既定のエンジンと声。エンジンの準備は読み上げのポップアップのカードからできます。',
+    narration: '読み上げ（音声を作る）のエンジンの導入・起動と、既定のエンジン・声を設定します。',
     quality: 'プレビューの描き方を選びます。',
     notifications: 'AI パートナーの処理が終わったときの通知を設定します。',
     tools: '動画づくりに必要な道具の状態を確認し、セットアップします。',

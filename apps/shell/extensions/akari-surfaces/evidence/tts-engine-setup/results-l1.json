@@ -1,0 +1,56 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "読み上げ節に VOICEVOX・Gemini・彩の 3 カードがある",
+      "pass": true,
+      "detail": {
+        "cards": [
+          "VOICEVOX",
+          "Gemini 2.5 Flash TTS",
+          "彩（Irodori-TTS）"
+        ]
+      }
+    },
+    {
+      "name": "止まっている VOICEVOX を起動し版つきのピルになる",
+      "pass": true,
+      "detail": {
+        "pill": "起動中 · 0.25.2"
+      }
+    },
+    {
+      "name": "声を試すと音声ができ audio の src に入る",
+      "pass": true,
+      "detail": {
+        "hasAudioSrc": true,
+        "encodedLength": 67666
+      }
+    },
+    {
+      "name": "AKARI が起動した VOICEVOX を止めると停止ピルになる",
+      "pass": true,
+      "detail": {
+        "pill": "止まっています",
+        "engineStopped": true
+      }
+    },
+    {
+      "name": "Gemini のピルが fal 鍵の有無と一致し接続節へ移る",
+      "pass": true,
+      "detail": {
+        "pill": "fal の鍵がありません",
+        "matchesCredentialState": true,
+        "connectionsOpened": true
+      }
+    },
+    {
+      "name": "彩のピルが近日である",
+      "pass": true,
+      "detail": {
+        "pill": "近日"
+      }
+    }
+  ],
+  "elapsedSeconds": 43.74
+}

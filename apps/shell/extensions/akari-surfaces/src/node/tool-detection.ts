@@ -27,6 +27,7 @@ export interface ToolDetectionOptions {
     repoRoot?: string;
     /** Recursive entries, relative to the requested directory (fs.readdir semantics). */
     listDir?: (path: string) => Promise<string[]>;
+    fetchImpl?: typeof fetch;
     /** Electron パッケージ実行時の `process.resourcesPath`。既定は実プロセスの値。 */
     resourcesPath?: string;
     /**
@@ -107,7 +108,7 @@ export async function detectTools(options: ToolDetectionOptions = {}): Promise<A
         tools.push(await detectExecutable(spec, platform, arch, homeDir, env, runCommand, pathExists, resourcesPath, devSearchRoots));
     }
     // VOICEVOX の run は起動すると常駐エンジンになるため、存在確認だけに留める。
-    tools.splice(4, 0, await detectVoicevox(platform, homeDir, env, pathExists));
+    tools.splice(4, 0, await detectVoicevox(platform, homeDir, env, pathExists, options.fetchImpl ?? fetch));
     if (platform === 'darwin') {
         tools.push(await detectCommandLineTools(env, runCommand));
     }
@@ -218,18 +219,27 @@ async function detectVoicevox(
     platform: NodeJS.Platform,
     homeDir: string,
     env: NodeJS.ProcessEnv,
-    pathExists: (path: string) => Promise<boolean>
+    pathExists: (path: string) => Promise<boolean>,
+    fetchImpl: typeof fetch
 ): Promise<AkariToolCheckResult> {
     const candidates = unique([
         env.VOICEVOX_RUN,
         ...voicevoxPaths(platform, homeDir, env)
     ].filter((value): value is string => Boolean(value)));
+    let executable: string | undefined;
     for (const candidate of candidates) {
         if (await pathExists(candidate)) {
-            return { id: 'voicevox', tier: 'advanced', available: true, executable: candidate };
+            executable = candidate;
+            break;
         }
     }
-    return { id: 'voicevox', tier: 'advanced', available: false };
+    let version: string | undefined;
+    try {
+        const response = await fetchImpl('http://127.0.0.1:50021/version', { signal: AbortSignal.timeout(1500) });
+        if (response.ok) { version = String(await response.json()).trim(); }
+    } catch { /* 停止中 */ }
+    return { id: 'voicevox', tier: 'advanced', available: Boolean(executable || version),
+        ...(executable ? { executable } : {}), ...(version ? { version } : {}) };
 }
 
 async function detectCommandLineTools(
@@ -385,7 +395,8 @@ function exeNameForPlatform(name: string, platform: NodeJS.Platform): string {
 
 function voicevoxPaths(platform: NodeJS.Platform, homeDir: string, env: NodeJS.ProcessEnv): string[] {
     if (platform === 'darwin') {
-        return ['/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run'];
+        return ['/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run',
+            join(homeDir, 'Applications', 'VOICEVOX.app', 'Contents', 'Resources', 'vv-engine', 'run')];
     }
     if (platform === 'win32') {
         const localAppData = env.LOCALAPPDATA ?? join(homeDir, 'AppData', 'Local');

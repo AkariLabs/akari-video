@@ -76,16 +76,20 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
     process.env.AKARI_CREDENTIALS_FILE = join(scratch, 'credentials.env');
     process.env.VOICEVOX_RUN = join(scratch, 'run');
     let up = false;
-    globalThis.fetch = async () => ({ ok: up });
+    globalThis.fetch = async () => ({ ok: up, json: async () => '0.25.2' });
     const get = async () => {
       const output = collectLogs();
-      assert.equal((await runNarrationCommand(['engines', '--json'], output)).exitCode, 0);
+      assert.equal((await runNarrationCommand(['engines', '--json'], { ...output,
+        engineRuntime: { pidPath: join(scratch, 'voicevox.pid'), isProcessAlive: () => false,
+          readProcessCommand: () => assert.fail('ps を呼ばない') } })).exitCode, 0);
       assert.equal(output.lines.length, 1);
       return JSON.parse(output.lines[0]);
     };
     let result = await get();
     assert.deepEqual(result.engines.map(engine => engine.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
     assert.equal(result.engines[0].availability.state, 'unconfigured');
+    assert.deepEqual(result.engines[0].availability.detail.running, false);
+    assert.deepEqual(result.engines[0].availability.detail.app_found, false);
     assert.equal(result.engines[1].availability.state, 'unconfigured');
     assert.equal(result.engines[2].availability.state, 'unsupported');
     assert.equal(JSON.stringify(result).includes(scratch), false);
@@ -93,17 +97,165 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
     await writeFile(process.env.AKARI_CREDENTIALS_FILE, 'FAL_KEY=test-secret');
     result = await get();
     assert.equal(result.engines[0].availability.state, 'needs');
+    assert.equal(result.engines[0].availability.detail.app_found, true);
     assert.equal(result.engines[1].availability.state, 'available');
     assert.equal(JSON.stringify(result).includes('test-secret'), false);
     up = true;
     result = await get();
     assert.equal(result.engines[0].availability.state, 'available');
+    assert.equal(result.engines[0].availability.detail.version, '0.25.2');
   } finally {
     globalThis.fetch = priorFetch;
     if (priorRun === undefined) delete process.env.VOICEVOX_RUN; else process.env.VOICEVOX_RUN = priorRun;
     if (priorCredentials === undefined) delete process.env.AKARI_CREDENTIALS_FILE; else process.env.AKARI_CREDENTIALS_FILE = priorCredentials;
     await rm(scratch, { recursive: true, force: true });
   }
+});
+
+test('start は切り離し起動して pid を記録し、stop はその pid だけ止める', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-voicevox-start-'));
+  try {
+    const runPath = join(scratch, 'run');
+    const pidPath = join(scratch, 'voicevox.pid');
+    await writeFile(runPath, 'fake');
+    let running = false;
+    let detached = false;
+    let windowsHide = false;
+    let unref = false;
+    const killed = [];
+    const runtime = { pidPath, env: { VOICEVOX_RUN: runPath },
+      fetchImpl: async () => ({ ok: running, json: async () => '0.25.2' }),
+      spawnImpl: (command, args, options) => {
+        assert.equal(command, runPath); assert.deepEqual(args, []);
+        detached = options.detached;
+        windowsHide = options.windowsHide;
+        return { pid: 43210, unref: () => { unref = true; } };
+      },
+      sleep: async () => { running = true; },
+      isProcessAlive: pid => pid === 43210,
+      readProcessCommand: pid => pid === 43210 ? runPath : null,
+      killProcess: (pid, signal) => { killed.push([pid, signal]); running = false; } };
+    const start = collectLogs();
+    assert.equal((await runNarrationCommand(['start', '--engine', 'voicevox', '--json'], { ...start, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(start.lines[0]), { status: 'ok', already_running: false, version: '0.25.2' });
+    assert.equal(await readFile(pidPath, 'utf8'), '43210\n');
+    assert.equal(detached && unref && windowsHide, true);
+    const stop = collectLogs();
+    assert.equal((await runNarrationCommand(['stop', '--engine', 'voicevox', '--json'], { ...stop, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(stop.lines[0]), { status: 'ok', stopped: true, managed: true });
+    assert.deepEqual(killed, [[43210, 'SIGTERM']]);
+    await assert.rejects(readFile(pidPath, 'utf8'));
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('既に動く VOICEVOX は起動せず、AKARI の pid が無ければ止めない', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-voicevox-external-'));
+  try {
+    const runtime = { pidPath: join(scratch, 'missing.pid'),
+      fetchImpl: async () => ({ ok: true, json: async () => '0.25.2' }),
+      spawnImpl: () => assert.fail('spawn しない'), killProcess: () => assert.fail('外部アプリを止めない') };
+    const start = collectLogs();
+    assert.equal((await runNarrationCommand(['start', '--engine', 'voicevox', '--json'], { ...start, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(start.lines[0]), { status: 'ok', already_running: true, version: '0.25.2' });
+    const stop = collectLogs();
+    assert.equal((await runNarrationCommand(['stop', '--engine', 'voicevox', '--json'], { ...stop, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(stop.lines[0]), { status: 'ok', stopped: false, managed: false });
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('古い pid が死亡済みなら engines/start/stop は managed にせずファイルを掃除する', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-voicevox-stale-dead-'));
+  try {
+    const runPath = join(scratch, 'run');
+    const pidPath = join(scratch, 'voicevox.pid');
+    await writeFile(runPath, 'fake');
+    const runtime = { pidPath, env: { VOICEVOX_RUN: runPath },
+      fetchImpl: async () => ({ ok: true, json: async () => '0.25.2' }),
+      isProcessAlive: pid => { assert.equal(pid, 43210); return false; },
+      readProcessCommand: () => assert.fail('死亡 PID のコマンドは読まない'),
+      spawnImpl: () => assert.fail('既に起動中なら spawn しない'),
+      killProcess: () => assert.fail('死亡 PID は kill しない') };
+    await writeFile(pidPath, '43210\n');
+    const list = collectLogs();
+    assert.equal((await runNarrationCommand(['engines', '--json'], { ...list, engineRuntime: runtime })).exitCode, 0);
+    assert.equal(JSON.parse(list.lines[0]).engines[0].availability.detail.managed, false);
+    await assert.rejects(readFile(pidPath, 'utf8'));
+    await writeFile(pidPath, '43210\n');
+    const start = collectLogs();
+    assert.equal((await runNarrationCommand(['start', '--engine', 'voicevox', '--json'], { ...start, engineRuntime: runtime })).exitCode, 0);
+    assert.equal(JSON.parse(start.lines[0]).already_running, true);
+    await assert.rejects(readFile(pidPath, 'utf8'));
+    await writeFile(pidPath, '43210\n');
+    const stop = collectLogs();
+    assert.equal((await runNarrationCommand(['stop', '--engine', 'voicevox', '--json'], { ...stop, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(stop.lines[0]), { status: 'ok', stopped: false, managed: false });
+    await assert.rejects(readFile(pidPath, 'utf8'));
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('pid が再利用され別コマンドなら外部 VOICEVOX の起動中も止めない', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-voicevox-stale-reused-'));
+  try {
+    const runPath = join(scratch, 'run');
+    const pidPath = join(scratch, 'voicevox.pid');
+    await writeFile(runPath, 'fake');
+    const runtime = { pidPath, env: { VOICEVOX_RUN: runPath },
+      fetchImpl: async () => ({ ok: true, json: async () => '0.25.2' }),
+      isProcessAlive: () => true,
+      readProcessCommand: () => '/usr/bin/unrelated-task',
+      killProcess: () => assert.fail('再利用 PID は kill しない') };
+    await writeFile(pidPath, '43210\n');
+    const list = collectLogs();
+    assert.equal((await runNarrationCommand(['engines', '--json'], { ...list, engineRuntime: runtime })).exitCode, 0);
+    assert.equal(JSON.parse(list.lines[0]).engines[0].availability.detail.managed, false);
+    await assert.rejects(readFile(pidPath, 'utf8'));
+    await writeFile(pidPath, '43210\n');
+    const stop = collectLogs();
+    assert.equal((await runNarrationCommand(['stop', '--engine', 'voicevox', '--json'], { ...stop, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(stop.lines[0]), { status: 'ok', stopped: false, managed: false });
+    await assert.rejects(readFile(pidPath, 'utf8'));
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('生存 PID の実行コマンドが vv-engine run と一致するときだけ managed=true で停止する', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-voicevox-managed-'));
+  try {
+    const runPath = join(scratch, 'vv-engine', 'run');
+    const pidPath = join(scratch, 'voicevox.pid');
+    await writeFile(pidPath, '43210\n');
+    let running = true;
+    const kills = [];
+    const runtime = { pidPath, env: { VOICEVOX_RUN: runPath },
+      fetchImpl: async () => ({ ok: running, json: async () => '0.25.2' }),
+      isProcessAlive: () => true,
+      readProcessCommand: () => `${runPath} --host 127.0.0.1`,
+      killProcess: (pid, signal) => { kills.push([pid, signal]); running = false; } };
+    const list = collectLogs();
+    assert.equal((await runNarrationCommand(['engines', '--json'], { ...list, engineRuntime: runtime })).exitCode, 0);
+    assert.equal(JSON.parse(list.lines[0]).engines[0].availability.detail.managed, true);
+    const stop = collectLogs();
+    assert.equal((await runNarrationCommand(['stop', '--engine', 'voicevox', '--json'], { ...stop, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(stop.lines[0]), { status: 'ok', stopped: true, managed: true });
+    assert.deepEqual(kills, [[43210, 'SIGTERM']]);
+    await assert.rejects(readFile(pidPath, 'utf8'));
+  } finally { await rm(scratch, { recursive: true, force: true }); }
+});
+
+test('検査後にプロセスが終了した競合では stopped=false を返す', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-voicevox-stop-race-'));
+  try {
+    const runPath = join(scratch, 'run');
+    const pidPath = join(scratch, 'voicevox.pid');
+    await writeFile(pidPath, '43210\n');
+    const output = collectLogs();
+    const runtime = { pidPath, env: { VOICEVOX_RUN: runPath },
+      isProcessAlive: () => true, readProcessCommand: () => runPath,
+      fetchImpl: () => assert.fail('停止済みなら HTTP を呼ばない'),
+      killProcess: () => { const error = new Error('not found'); error.code = 'ESRCH'; throw error; } };
+    assert.equal((await runNarrationCommand(['stop', '--engine', 'voicevox', '--json'], { ...output, engineRuntime: runtime })).exitCode, 0);
+    assert.deepEqual(JSON.parse(output.lines[0]), { status: 'ok', stopped: false, managed: false });
+    await assert.rejects(readFile(pidPath, 'utf8'));
+  } finally { await rm(scratch, { recursive: true, force: true }); }
 });
 
 test('Gemini voices JSON は Leda が先頭で 30 声', async () => {

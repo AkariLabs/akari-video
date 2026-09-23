@@ -11,8 +11,15 @@ import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-
 import { AkariKitsServiceImpl } from './akari-kits-service';
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH } from '../common/settings-maintenance-protocol';
 import { AkariSettingsMaintenanceServiceImpl } from './settings-maintenance-service';
+import { AkariNarrationEnginesService, AKARI_NARRATION_ENGINES_SERVICE_PATH } from '../common/narration-engines-protocol';
+import { AkariNarrationEnginesServiceImpl } from './narration-engines';
 
 export default new ContainerModule(bind => {
+    bind(AkariNarrationEnginesServiceImpl).toSelf().inSingletonScope();
+    bind(AkariNarrationEnginesService).toService(AkariNarrationEnginesServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_NARRATION_ENGINES_SERVICE_PATH, () => context.container.get(AkariNarrationEnginesService))
+    ).inSingletonScope();
     bind(LibraryMigrationContribution).toSelf().inSingletonScope();
     bind(BackendApplicationContribution).toService(LibraryMigrationContribution);
     bind(AkariConnectionsServiceImpl).toSelf().inSingletonScope();

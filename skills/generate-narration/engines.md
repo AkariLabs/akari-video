@@ -65,6 +65,13 @@ akari narration generate \
 - `akari narration voices --engine <voicevox|gemini-tts|fal-qwen3> --json` は声一覧を返す。VOICEVOX の声取得時だけ必要に応じて起動する。
 - `akari narration generate ... --json` は stdout に結果 JSON を 1 行で返し、経過ログを stderr に出す。Gemini の費用承認待ちは exit 2 と `status: needs_approval` を返す。
 
+## VOICEVOX の常駐起動と停止
+
+- `akari narration start --engine voicevox --json` は、停止中なら vv-engine を切り離して起動し、`~/.akari/run/voicevox.pid` に PID を記録する。既に動作中ならその版を返し、起動済みのアプリには触れない。
+- `akari narration stop --engine voicevox --json` は PID ファイルの PID が生存し、実行コマンドが VOICEVOX の `run` と一致するときだけ停止する。古い PID は削除し、ユーザーが起動した VOICEVOX アプリは停止しない。
+- `engines --json` の VOICEVOX `availability.detail` は `running`、`version`、`app_found`、`managed` を返す。設定画面の「止める」は `managed` の場合だけ有効。
+- `generate` の従来の一時自動起動は、生成後に自分が起動した分を止めるまま。`start` で常駐させたエンジンを生成が止めることはない。
+
 ## ElevenLabs（凍結中）
 
 ElevenLabs は今回のスキルではアダプタを実装しない。凍結中のため、実行時にも選択肢として提示しない

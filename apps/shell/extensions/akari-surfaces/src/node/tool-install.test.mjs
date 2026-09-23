@@ -5,7 +5,46 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { installTool, resolveWhisperModelOverride, resolveWhisperModelPath, WHISPER_MODEL_FILENAME } from '../../lib/node/tool-install.js';
-import { detectTools } from '../../lib/node/tool-detection.js';
+import { detectTools as detectToolsImpl } from '../../lib/node/tool-detection.js';
+
+const detectTools = options => detectToolsImpl({ fetchImpl: async () => ({ ok: false }), ...options });
+
+test('VOICEVOX 導入は cask の存在を確認し、無ければ公式サイトへ誘導する', async () => {
+    const commands = [];
+    const opened = [];
+    const base = { ...noExternalWork, platform: 'darwin', pathExists: async () => false,
+        openPath: async url => { opened.push(url); },
+        runCommand: async (command, args) => {
+            commands.push([command, args]);
+            return { ok: args[0] === '--version', stdout: '', stderr: '' };
+        } };
+    const result = await installTool('voicevox', base);
+    assert.equal(result.outcome, 'external-installer-opened');
+    assert.deepEqual(commands.map(([, args]) => args), [['--version'], ['info', '--cask', 'voicevox']]);
+    assert.deepEqual(opened, ['https://voicevox.hiroshiba.jp/']);
+    assert.equal(commands.some(([, args]) => args[0] === 'install'), false);
+    commands.length = 0;
+    const absentBrew = await installTool('voicevox', { ...base, runCommand: async (command, args) => {
+        commands.push([command, args]); return { ok: false, stdout: '', stderr: '' };
+    } });
+    assert.equal(absentBrew.outcome, 'external-installer-opened');
+    assert.equal(commands.some(([, args]) => args[0] === 'install'), false);
+    for (const platform of ['win32', 'linux']) {
+        const fallback = await installTool('voicevox', { ...base, platform });
+        assert.equal(fallback.outcome, 'external-installer-opened');
+    }
+});
+
+test('VOICEVOX の cask が存在するときだけ偽 brew install を呼ぶ', async () => {
+    const calls = [];
+    const result = await installTool('voicevox', { ...noExternalWork, platform: 'darwin',
+        runCommand: async (command, args) => {
+            calls.push(args);
+            return { ok: true, stdout: '', stderr: '' };
+        } });
+    assert.equal(result.outcome, 'installed');
+    assert.deepEqual(calls, [['--version'], ['info', '--cask', 'voicevox'], ['install', '--cask', 'voicevox']]);
+});
 import { SPEECH_ANALYZER_MANUAL_INSTALL_GUIDANCE } from '../../lib/common/tool-guidance.js';
 
 const noExternalWork = {

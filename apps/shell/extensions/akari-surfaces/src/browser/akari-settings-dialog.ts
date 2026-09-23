@@ -32,6 +32,7 @@ import { describeToolInstallOutcome, formatInstallProgressLabel } from '../commo
 import { computeDownloadPercent, formatDownloadProgressLabel } from '../common/tool-install-progress';
 import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
 import { AkariHomeCommands } from './akari-home-command-contribution';
+import { AkariNarrationEnginesService, NarrationEngineRow } from '../common/narration-engines-protocol';
 import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE,
@@ -113,6 +114,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected diagnosticPath = '';
     protected diagnosticPathCustomized = false;
     protected credentialsPath = '';
+    protected narrationState: { engines: NarrationEngineRow[]; voicevoxCaskAvailable: boolean } | undefined;
+    protected narrationLoading = false;
+    protected narrationBusy = '';
+    protected narrationError = '';
+    protected voicevoxPreviewSrc = '';
     protected partnerDetails: Record<string, PartnerDetail> | undefined;
     protected extensionVersions: Record<string, string> | undefined;
 
@@ -125,7 +131,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly toolsService: AkariNewProjectService, protected readonly files: FileService, env: EnvVariablesServer,
         protected readonly fileDialogs: FileDialogService, protected readonly maintenance: AkariSettingsMaintenanceService,
         protected readonly workspaceRoot: string | undefined, protected readonly widgetManager: WidgetManager,
-        protected readonly shell: ApplicationShell, protected readonly pluginServer: PluginServer, initialSection?: SettingsSectionId
+        protected readonly shell: ApplicationShell, protected readonly pluginServer: PluginServer,
+        protected readonly narrationService: AkariNarrationEnginesService, initialSection?: SettingsSectionId
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -254,6 +261,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             else { item.removeAttribute('aria-current'); }
         }
         this.highlightSearch(section);
+        if (section === 'narration') { void this.refreshNarrationState(); }
     }
 
     protected filterSections(): void {
@@ -902,6 +910,78 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected renderNarration(): void {
         const section = this.sections.get('narration')!;
         section.replaceChildren(...this.sectionHeading('narration'));
+        const voicevox = this.narrationState?.engines.find(row => row.id === 'voicevox');
+        const gemini = this.narrationState?.engines.find(row => row.id === 'gemini-tts');
+        const voicevoxDetail = voicevox?.availability.detail;
+        const voicevoxRunning = voicevoxDetail?.running === true;
+        const voicevoxFound = voicevoxDetail?.app_found === true;
+        const voicevoxPill = this.narrationLoading ? '確認中…' : voicevoxRunning
+            ? `起動中 · ${voicevoxDetail?.version ?? '版を確認できません'}` : voicevoxFound ? '止まっています' : '入っていません';
+        const engineCard = (id: string, label: string, state: string, description: string): { card: HTMLElement; actions: HTMLElement } => {
+            const card = element('div');
+            card.setAttribute('data-akari-narration-engine', id);
+            Object.assign(card.style, { padding: '14px 16px', borderBottom: '1px solid var(--theia-border-color, #404040)' });
+            const heading = element('div');
+            Object.assign(heading.style, { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' });
+            heading.append(element('strong', label), statusPill(state, state.startsWith('起動中') || state === 'fal の鍵あり' ? 'ok' : 'neutral'));
+            const detail = element('div', description);
+            detail.style.opacity = '0.8';
+            const actions = element('div');
+            Object.assign(actions.style, { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '9px' });
+            card.append(heading, detail, actions);
+            return { card, actions };
+        };
+        const vv = engineCard('voicevox', 'VOICEVOX', voicevoxPill,
+            'この Mac · 無料 · 使う声のクレジット（VOICEVOX:キャラ名）が必要');
+        if (!this.narrationLoading && !voicevoxFound && !voicevoxRunning) {
+            if (this.narrationState?.voicevoxCaskAvailable) {
+                const install = action(this.narrationBusy === 'install' ? '入れています…' : '入れる', () => void this.installVoicevox(), { small: true });
+                install.disabled = Boolean(this.narrationBusy);
+                install.setAttribute('data-akari-narration-action', 'install');
+                vv.actions.append(install);
+            }
+            const official = action('公式サイトを開く', () => this.windows.openNewWindow('https://voicevox.hiroshiba.jp/', { external: true }), { small: true });
+            official.setAttribute('data-akari-narration-action', 'official');
+            vv.actions.append(official);
+        } else if (!this.narrationLoading && voicevoxRunning) {
+            const preview = action(this.narrationBusy === 'preview' ? '作成中…' : '声を試す', () => void this.previewVoicevox(), { small: true });
+            preview.disabled = Boolean(this.narrationBusy);
+            preview.setAttribute('data-akari-narration-action', 'preview');
+            const stop = action('止める', () => void this.operateVoicevox('stop'), { small: true });
+            stop.disabled = Boolean(this.narrationBusy) || !voicevoxDetail?.managed;
+            stop.title = voicevoxDetail?.managed ? '' : 'VOICEVOX アプリから終了してください';
+            stop.setAttribute('data-akari-narration-action', 'stop');
+            vv.actions.append(preview, stop);
+        } else if (!this.narrationLoading && voicevoxFound) {
+            const start = action(this.narrationBusy === 'start' ? '起動中…' : '起動する', () => void this.operateVoicevox('start'), { small: true });
+            start.disabled = Boolean(this.narrationBusy);
+            start.setAttribute('data-akari-narration-action', 'start');
+            vv.actions.append(start);
+        }
+        if (this.voicevoxPreviewSrc && voicevoxRunning) {
+            const audio = element('audio');
+            audio.controls = true;
+            audio.src = this.voicevoxPreviewSrc;
+            audio.setAttribute('data-akari-narration-preview', 'true');
+            vv.card.append(audio);
+        }
+        if (this.narrationBusy === 'install') {
+            const progress = element('div');
+            progress.className = 'akari-set-progress';
+            progress.append(element('i'));
+            vv.card.append(progress, settingsNote('導入しています…'));
+        }
+        const geminiCard = engineCard('gemini-tts', 'Gemini 2.5 Flash TTS', this.narrationLoading ? '確認中…' :
+            gemini?.availability.state === 'available' ? 'fal の鍵あり' : 'fal の鍵がありません',
+            'クラウド · fal.ai 経由 · 従量（暫定 $0.05 / 1000 字）');
+        const connectionsButton = action('接続と API キーへ', () => this.showSection('connections'), { small: true });
+        connectionsButton.setAttribute('data-akari-narration-action', 'connections');
+        geminiCard.actions.append(connectionsButton);
+        const irodori = engineCard('irodori', '彩（Irodori-TTS）', '近日',
+            'この Mac · 無料 · MIT。M1 では生成が重いため、動作確認のあとで追加します');
+        irodori.card.style.opacity = '0.65';
+        section.append(groupCard('エンジン', vv.card, geminiCard.card, irodori.card));
+        if (this.narrationError) section.append(settingsNote(this.narrationError));
         const engine = this.preferences.get(AKARI_NARRATION_ENGINE);
         const voiceValue = this.preferences.get(AKARI_NARRATION_VOICE);
         const voices = typeof voiceValue === 'object' && voiceValue !== null && !Array.isArray(voiceValue)
@@ -929,6 +1009,57 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const note = settingsNote('Gemini を使うには「接続と API キー」で fal の鍵を登録します。');
         note.append(' ', inlineLink('接続と API キーを開く', () => this.showSection('connections')));
         section.append(note);
+    }
+
+    protected async refreshNarrationState(): Promise<void> {
+        this.narrationLoading = true;
+        this.renderNarration();
+        try { this.narrationState = await this.narrationService.narrationEngines(); this.narrationError = ''; }
+        catch (error) { this.narrationError = error instanceof Error ? error.message : '状態を取得できませんでした。'; }
+        finally { this.narrationLoading = false; if (!this.isDisposed) this.renderNarration(); }
+    }
+
+    protected async operateVoicevox(operation: 'start' | 'stop'): Promise<void> {
+        this.narrationBusy = operation;
+        this.renderNarration();
+        let actionError = '';
+        try {
+            if (operation === 'start') await this.narrationService.startNarrationEngine('voicevox');
+            else { await this.narrationService.stopNarrationEngine('voicevox'); this.voicevoxPreviewSrc = ''; }
+        } catch (error) { actionError = error instanceof Error ? error.message : '操作に失敗しました。'; }
+        finally {
+            this.narrationBusy = '';
+            await this.refreshNarrationState();
+            if (actionError && !this.isDisposed) { this.narrationError = actionError; this.renderNarration(); }
+        }
+    }
+
+    protected async previewVoicevox(): Promise<void> {
+        this.narrationBusy = 'preview'; this.renderNarration();
+        let actionError = '';
+        try { this.voicevoxPreviewSrc = await this.narrationService.previewVoicevox(); }
+        catch (error) { actionError = error instanceof Error ? error.message : '試聴音声を作れませんでした。'; }
+        finally {
+            this.narrationBusy = '';
+            await this.refreshNarrationState();
+            if (actionError && !this.isDisposed) { this.narrationError = actionError; this.renderNarration(); }
+            const audio = this.sections.get('narration')?.querySelector<HTMLAudioElement>('[data-akari-narration-preview]');
+            if (audio) void audio.play().catch(() => { /* ユーザー操作が必要なら controls を使う */ });
+        }
+    }
+
+    protected async installVoicevox(): Promise<void> {
+        this.narrationBusy = 'install'; this.renderNarration();
+        let actionError = '';
+        try {
+            const result = await this.toolsService.installTool('voicevox');
+            actionError = result.outcome === 'failed' ? result.message : '';
+        } catch (error) { actionError = error instanceof Error ? error.message : '導入できませんでした。'; }
+        finally {
+            this.narrationBusy = '';
+            await this.refreshNarrationState();
+            if (actionError && !this.isDisposed) { this.narrationError = actionError; this.renderNarration(); }
+        }
     }
 
     protected savePreference(key: string, value: unknown): void {
@@ -1458,6 +1589,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
     @inject(PreferenceSchemaService) protected readonly preferenceSchemas!: PreferenceSchemaService;
     @inject(AkariConnectionsService) protected readonly connections!: AkariConnectionsService;
+    @inject(AkariNarrationEnginesService) protected readonly narrationEngines!: AkariNarrationEnginesService;
     @inject(AkariProjectService) protected readonly store!: AkariProjectService;
     @inject(WindowService) protected readonly windows!: WindowService;
     @inject(CommandService) protected readonly commands!: CommandService;
@@ -1591,7 +1723,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         await this.preferences.ready;
         this.maintenance ??= this.connectionsProvider.createProxy<AkariSettingsMaintenanceService>(AKARI_SETTINGS_MAINTENANCE_PATH);
         const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.requestedSection);
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.requestedSection);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {

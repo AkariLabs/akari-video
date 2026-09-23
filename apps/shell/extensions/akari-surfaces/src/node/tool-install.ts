@@ -158,6 +158,9 @@ export async function installTool(id: AkariToolId, options: ToolInstallOptions =
     if (platform === 'win32') {
         return installOnWindows(ctx);
     }
+    if (id === 'voicevox') {
+        return openOfficialDownloadPage(ctx, OFFICIAL_SOURCES.voicevoxDownloadPage, 'VOICEVOX');
+    }
     return { id, outcome: 'failed', message: `${toolName(id)} はこの環境では自動導入に対応していません。` };
 }
 
@@ -200,6 +203,10 @@ async function installWithBrew(ctx: InstallContext, brewPath: string): Promise<A
     const cask = BREW_CASK[ctx.id];
     if (!formula && !cask) {
         return { id: ctx.id, outcome: 'failed', message: `${toolName(ctx.id)} はこの環境では自動導入に対応していません。` };
+    }
+    if (ctx.id === 'voicevox') {
+        const info = await ctx.runCommand(brewPath, ['info', '--cask', 'voicevox'], { env: ctx.env });
+        if (!info.ok) { return openOfficialDownloadPage(ctx, OFFICIAL_SOURCES.voicevoxDownloadPage, 'VOICEVOX'); }
     }
     const args = formula ? ['install', formula] : ['install', '--cask', cask as string];
     const result = await ctx.runCommand(brewPath, args, {
@@ -276,6 +283,9 @@ async function openOfficialDownloadPage(ctx: InstallContext, url: string, label:
 }
 
 async function installOnWindows(ctx: InstallContext): Promise<AkariToolInstallResult> {
+    if (ctx.id === 'voicevox') {
+        return openOfficialDownloadPage(ctx, OFFICIAL_SOURCES.voicevoxDownloadPage, 'VOICEVOX');
+    }
     // yt-dlp は公式配布の直 DL を第一経路にする（winget が無い/塞がれている環境があるため）。
     if (ctx.id === 'yt-dlp') {
         return installYtDlpWindowsBinary(ctx);

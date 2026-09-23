@@ -3,7 +3,9 @@ import { mkdtemp, mkdir, rm, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { detectTools } from '../../lib/node/tool-detection.js';
+import { detectTools as detectToolsImpl } from '../../lib/node/tool-detection.js';
+
+const detectTools = options => detectToolsImpl({ fetchImpl: async () => ({ ok: false }), ...options });
 
 function tool(result, id) {
     return result.tools.find(entry => entry.id === id);
@@ -81,6 +83,24 @@ test('macOS 以外では CLT 項目自体を返さない', async () => {
         runCommand: async () => ({ ok: false, stdout: '', stderr: '' })
     });
     assert.equal(tool(result, 'xcode-clt'), undefined);
+});
+
+test('VOICEVOX は未導入・停止中・起動中の版とユーザー Applications を偽 fs/HTTP だけで検出する', async () => {
+    const runCommand = async () => ({ ok: false, stdout: '', stderr: '' });
+    const base = { platform: 'darwin', env: { PATH: '/empty' }, homeDir: '/isolated',
+        resourcesPath: '', devSearchRoots: [], runCommand, pathExists: async () => false };
+    let result = await detectTools(base);
+    assert.equal(tool(result, 'voicevox').available, false);
+    const localRun = '/isolated/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run';
+    result = await detectTools({ ...base, pathExists: async path => path === localRun });
+    assert.equal(tool(result, 'voicevox').executable, localRun);
+    assert.equal(tool(result, 'voicevox').version, undefined);
+    result = await detectTools({ ...base, pathExists: async path => path === localRun,
+        fetchImpl: async url => {
+            assert.equal(url, 'http://127.0.0.1:50021/version');
+            return { ok: true, json: async () => '0.25.2' };
+        } });
+    assert.equal(tool(result, 'voicevox').version, '0.25.2');
 });
 
 // --- 同梱バイナリ検知（進捗バー + 同梱ファースト裁定） ------------------------------

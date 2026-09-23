@@ -41,6 +41,8 @@ const commandUsage = [
   "サブコマンド:",
   "  generate  原稿からナレーション音声を生成する",
   "  engines   エンジン一覧を表示する",
+  "  start     VOICEVOX エンジンを起動する",
+  "  stop      AKARI が起動した VOICEVOX エンジンを止める",
   "  voices    声一覧を表示する",
   "",
   usage,
@@ -358,12 +360,14 @@ async function synthesizeFal(readingText, meta, falKey) {
  * 純粋関数にして `platform` / `env` を注入でき、実プラットフォームに依存せずテストできる
  * ようにする（darwin 既定パスは不変。win32 既定パスの根拠は report.md 参照）。
  */
-export function resolveVoicevoxRunPath(platform = process.platform, env = process.env) {
+export function resolveVoicevoxRunPath(platform = process.platform, env = process.env, exists = fs.existsSync) {
   const override = env[VOICEVOX_RUN_ENV];
   if (override) return override;
 
   if (platform === "darwin") {
-    return "/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run";
+    const candidates = ["/Applications/VOICEVOX.app/Contents/Resources/vv-engine/run",
+      path.join(env.HOME || os.homedir(), "Applications", "VOICEVOX.app", "Contents", "Resources", "vv-engine", "run")];
+    return candidates.find(candidate => exists(candidate)) || candidates[0];
   }
   if (platform === "win32") {
     // VOICEVOX 0.16+ の既定インストーラ配置先（root repo 未検証・GitHub issue で確認済み。
@@ -426,6 +430,108 @@ async function getVoicevoxVersion() {
   const response = await fetch(`${VOICEVOX_BASE_URL}/version`);
   if (!response.ok) throw new PublicError(`VOICEVOX /version が HTTP ${response.status} を返しました`);
   return String(await response.json()).trim();
+}
+
+function voicevoxPidPath(env = process.env, homeDir = os.homedir()) {
+  return path.join(env.AKARI_HOME || path.join(homeDir, ".akari"), "run", "voicevox.pid");
+}
+
+async function probeVoicevox(fetchImpl = fetch) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1500);
+  try {
+    const response = await fetchImpl(`${VOICEVOX_BASE_URL}/version`, { signal: controller.signal });
+    return response.ok ? { running: true, version: String(await response.json()).trim() } : { running: false };
+  } catch { return { running: false }; }
+  finally { clearTimeout(timer); }
+}
+
+function defaultProcessAlive(pid) {
+  try { process.kill(pid, 0); return true; }
+  catch { return false; }
+}
+
+function defaultProcessCommand(pid) {
+  if (process.platform === "win32") return null;
+  const result = spawnSync("ps", ["-p", String(pid), "-o", "command="], {
+    encoding: "utf8", timeout: 3_000, maxBuffer: 64 * 1024,
+  });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function managedVoicevoxPid(runtime = {}) {
+  const fileSystem = runtime.fsImpl || fs;
+  const env = runtime.env || process.env;
+  const pidPath = runtime.pidPath || voicevoxPidPath(env, runtime.homeDir);
+  let pid;
+  try {
+    pid = Number(fileSystem.readFileSync(pidPath, "utf8").trim());
+  } catch { return null; }
+  let runPath;
+  try {
+    runPath = resolveVoicevoxRunPath(runtime.platform || process.platform, env,
+      candidate => fileSystem.existsSync(candidate));
+  } catch { /* 実行ファイルを特定できなければ停止しない */ }
+  let command = null;
+  try {
+    if (Number.isSafeInteger(pid) && pid > 0 && (runtime.isProcessAlive || defaultProcessAlive)(pid)) {
+      command = (runtime.readProcessCommand || defaultProcessCommand)(pid);
+    }
+  } catch { /* 照合できない PID は stale として扱う */ }
+  const matches = runPath && typeof command === "string" &&
+    [runPath, `"${runPath}"`].some(executable => command === executable || command.startsWith(`${executable} `));
+  if (matches) return pid;
+  fileSystem.rmSync(pidPath, { force: true });
+  return null;
+}
+
+async function startVoicevox(runtime = {}) {
+  const fetchImpl = runtime.fetchImpl || fetch;
+  const fileSystem = runtime.fsImpl || fs;
+  const env = runtime.env || process.env;
+  const pidPath = runtime.pidPath || voicevoxPidPath(env, runtime.homeDir);
+  managedVoicevoxPid(runtime); // 前回の PID が stale なら、既に別経路で起動したアプリを守るため削除する。
+  const probe = await probeVoicevox(fetchImpl);
+  if (probe.running) return { status: "ok", already_running: true, version: probe.version };
+  const runPath = resolveVoicevoxRunPath(runtime.platform || process.platform, env, candidate => fileSystem.existsSync(candidate));
+  if (!fileSystem.existsSync(runPath)) throw new PublicError("VOICEVOX エンジンが見つかりません。公式サイトから導入してください。");
+  const child = (runtime.spawnImpl || spawn)(runPath, [], { detached: true, windowsHide: true, stdio: "ignore", env });
+  child.on?.('error', () => { /* pid が無い場合は直後に失敗として扱う */ });
+  if (!Number.isSafeInteger(child.pid) || child.pid <= 0) throw new PublicError("VOICEVOX を起動できませんでした。");
+  child.unref();
+  fileSystem.mkdirSync(path.dirname(pidPath), { recursive: true });
+  fileSystem.writeFileSync(pidPath, `${child.pid}\n`, { mode: 0o600 });
+  const now = runtime.now || Date.now;
+  const pause = runtime.sleep || sleep;
+  const deadline = now() + VOICEVOX_STARTUP_TIMEOUT_MS;
+  while (now() < deadline) {
+    const state = await probeVoicevox(fetchImpl);
+    if (state.running) return { status: "ok", already_running: false, version: state.version };
+    await pause(1000);
+  }
+  try { (runtime.killProcess || process.kill)(child.pid, "SIGTERM"); } catch { /* 終了済み */ }
+  fileSystem.rmSync(pidPath, { force: true });
+  throw new PublicError("VOICEVOX エンジンの起動が 60 秒でタイムアウトしました。");
+}
+
+async function stopManagedVoicevox(runtime = {}) {
+  const fileSystem = runtime.fsImpl || fs;
+  const pidPath = runtime.pidPath || voicevoxPidPath(runtime.env || process.env, runtime.homeDir);
+  const pid = managedVoicevoxPid(runtime);
+  if (!pid) return { status: "ok", stopped: false, managed: false };
+  try { (runtime.killProcess || process.kill)(pid, "SIGTERM"); }
+  catch (error) {
+    if (error?.code !== "ESRCH") throw error;
+    fileSystem.rmSync(pidPath, { force: true });
+    return { status: "ok", stopped: false, managed: false };
+  }
+  fileSystem.rmSync(pidPath, { force: true });
+  const pause = runtime.sleep || sleep;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (!(await probeVoicevox(runtime.fetchImpl || fetch)).running) break;
+    await pause(250);
+  }
+  return { status: "ok", stopped: true, managed: true };
 }
 
 async function resolveVoicevoxSpeakerName(speakerId) {
@@ -506,16 +612,22 @@ function maskKey(secret) {
   return secret ? "***configured***" : "***unconfigured***";
 }
 
-async function listEngines() {
+async function listEngines(runtime = {}) {
   let voicevox;
-  if (await isVoicevoxUp()) {
-    voicevox = { state: "available", label: "VOICEVOX を使用できます" };
+  const state = await probeVoicevox(runtime.fetchImpl || fetch);
+  const fileSystem = runtime.fsImpl || fs;
+  let appFound = false;
+  try { appFound = fileSystem.existsSync(resolveVoicevoxRunPath(runtime.platform || process.platform, runtime.env || process.env,
+    candidate => fileSystem.existsSync(candidate))); } catch { /* 未対応 OS */ }
+  const ownedPid = managedVoicevoxPid(runtime);
+  const detail = { running: state.running, ...(state.version ? { version: state.version } : {}), app_found: appFound,
+    managed: state.running && Boolean(ownedPid) };
+  if (state.running) {
+    voicevox = { state: "available", label: "VOICEVOX を使用できます", detail };
   } else {
-    let installed = false;
-    try { installed = fs.existsSync(resolveVoicevoxRunPath()); } catch { /* 未対応 OS */ }
-    voicevox = installed
-      ? { state: "needs", label: "VOICEVOX を起動します（自動）" }
-      : { state: "unconfigured", label: "VOICEVOX をインストール", detail: { setup_url: "https://voicevox.hiroshiba.jp/" } };
+    voicevox = appFound
+      ? { state: "needs", label: "VOICEVOX を起動します（自動）", detail }
+      : { state: "unconfigured", label: "VOICEVOX をインストール", detail: { ...detail, setup_url: "https://voicevox.hiroshiba.jp/" } };
   }
   const configured = Boolean(readCredentials().get("FAL_KEY"));
   const falAvailability = configured
@@ -744,10 +856,23 @@ export async function runNarrationCommand(args, commandOptions = {}) {
     io.log(usage);
     return { exitCode: 0 };
   }
+  if (["start", "stop"].includes(args[0])) {
+    try {
+      if (args.length !== 4 || args[1] !== "--engine" || args[2] !== "voicevox" || args[3] !== "--json") {
+        throw new PublicError("start/stop には --engine voicevox --json が必要です", 2);
+      }
+      printCompactJson(args[0] === "start" ? await startVoicevox(commandOptions.engineRuntime) : await stopManagedVoicevox(commandOptions.engineRuntime), io.log);
+      return { exitCode: 0 };
+    } catch (error) {
+      const message = error instanceof PublicError ? error.message : `VOICEVOX を操作できませんでした: ${error?.message ?? error}`;
+      io.logError(message); printCompactJson({ error: message }, io.log);
+      return { exitCode: error instanceof PublicError ? error.exitCode : 1 };
+    }
+  }
   if (["engines", "voices"].includes(args[0])) {
     try {
       const engine = parseListArguments(args);
-      printCompactJson(args[0] === "engines" ? await listEngines() : { version: 1, engine, voices: await listVoices(engine) }, io.log);
+      printCompactJson(args[0] === "engines" ? await listEngines(commandOptions.engineRuntime) : { version: 1, engine, voices: await listVoices(engine) }, io.log);
       return { exitCode: 0 };
     } catch (error) {
       const message = error instanceof PublicError ? error.message : "声一覧を取得できませんでした";
