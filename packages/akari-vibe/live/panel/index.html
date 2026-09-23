@@ -491,6 +491,9 @@
     listening = Boolean(on);
     mic.classList.toggle('off', !listening);
     mic.title = listening ? '聞いています（押すと止める）' : '止まっています（押すと始める）';
+    if (outcome.textContent === '待機中' || outcome.textContent === '話しかけてください') {
+      outcome.textContent = listening ? '話しかけてください' : '待機中';
+    }
     if (state.textContent === '待機' || state.textContent === '聞いています') {
       setState(listening ? '聞いています' : '待機');
     }
@@ -505,7 +508,7 @@
   function setState(text, kind = '') {
     state.textContent = text;
     state.className = `state${kind ? ` ${kind}` : ''}`;
-    state.hidden = text === '待機';
+    state.hidden = text === '待機' || text === '聞いています';
   }
 
   function formatTimestamp(seconds) {
