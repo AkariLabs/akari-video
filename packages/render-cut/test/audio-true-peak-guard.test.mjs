@@ -135,7 +135,10 @@ test("audio.master.true_peak_dbtp=-1 on high-pressure material: final mp4's real
     assert.equal(executed.status, 0, executed.stderr);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
-    assert.equal(state.audio_qc.verdict, "INCONCLUSIVE");
+    const decoded = state.audio_qc.decoded_measurement.normalized;
+    const withinTarget = typeof decoded.input_i === "number" && Math.abs(decoded.input_i + 14) <= 1
+      && typeof decoded.input_tp === "number" && decoded.input_tp <= -0.9;
+    assert.equal(state.audio_qc.verdict, withinTarget ? "PASS" : "INCONCLUSIVE");
     assert.equal(state.audio_qc.configured.true_peak_dbtp, -1, "configured stays the caller's original ask, not the applied margin target");
     assert.deepEqual(state.audio_qc.true_peak_margin, { overshoot_margin_dbtp: 1.5, applied_true_peak_dbtp: -2.5 });
     assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-14:TP=-2\.5:LRA=11/u, "loudnorm must actually be told the margin-applied target, not the raw -1");

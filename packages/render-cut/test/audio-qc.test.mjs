@@ -14,21 +14,20 @@ test("filter and decoded reports preserve raw strings without mixing fields", ()
     toolVersion: "ffmpeg fixture",
     spawnSyncImpl: () => ({
       status: 0,
-      stderr: `{ "input_i":"-14.89", "input_tp":"-1.51", "output_i":"-14.01", "output_tp":"-1.70" }`,
+      stderr: `{ "input_i":"-14.89", "input_tp":"-1.61", "output_i":"-14.01", "output_tp":"-1.70" }`,
     }),
   });
-  assert.equal(qc.verdict, "INCONCLUSIVE");
+  assert.equal(qc.verdict, "PASS");
   assert.deepEqual(qc.filter_report, {
     normalized: { output_i: -14.52, output_tp: -1.7 },
     raw: { output_i: "-14.52", output_tp: "-1.70" },
   });
-  assert.deepEqual(qc.decoded_measurement.normalized, { input_i: -14.89, input_tp: -1.51 });
+  assert.deepEqual(qc.decoded_measurement.normalized, { input_i: -14.89, input_tp: -1.61 });
 });
 
 // task 2026-08-17-render-cut-true-peak-guard 裁定A: decoded_measurement exceeding
 // configured.true_peak_dbtp by more than the tolerance must be machine-detectable from the
-// receipt alone, without changing verdict away from "INCONCLUSIVE" (status-core/integrity.mjs's
-// validateAudioQc treats any other verdict string as a structural integrity problem).
+// receipt alone, with an INCONCLUSIVE verdict on overshoot.
 function buildWithDecodedInputTp(inputTp, master = { loudnorm: -14, true_peak_dbtp: -1 }) {
   return buildAudioQc({
     master,
@@ -53,7 +52,7 @@ test("decoded true peak exceeding configured true_peak_dbtp by more than the tol
 
 test("decoded true peak within tolerance of configured true_peak_dbtp adds no warnings field", () => {
   const withinTolerance = buildWithDecodedInputTp("-0.95"); // exactly -1 + 0.05, under the 0.1 tolerance
-  assert.equal(withinTolerance.verdict, "INCONCLUSIVE");
+  assert.equal(withinTolerance.verdict, "PASS");
   assert.equal(withinTolerance.warnings, undefined);
   const quieter = buildWithDecodedInputTp("-3");
   assert.equal(quieter.warnings, undefined);
@@ -62,6 +61,21 @@ test("decoded true peak within tolerance of configured true_peak_dbtp adds no wa
 test("decoded true peak exactly at the 0.1 dB tolerance boundary does not count as exceeded", () => {
   const atBoundary = buildWithDecodedInputTp("-0.9"); // exactly configured (-1) + tolerance (0.1)
   assert.equal(atBoundary.warnings, undefined);
+  assert.equal(atBoundary.verdict, "PASS");
+});
+
+test("loudness range, missing version and nonfinite measurements remain INCONCLUSIVE", () => {
+  const make = (inputI, toolVersion = "ffmpeg fixture") => buildAudioQc({
+    master: { loudnorm: -14, true_peak_dbtp: -1 }, filterStderr: filterJson,
+    outputPath: "fixture.mp4", ffmpegCommand: "ffmpeg", toolVersion,
+    spawnSyncImpl: () => ({ status: 0, stderr: JSON.stringify({ input_i: inputI, input_tp: "-2" }) }),
+  });
+  assert.equal(make("-13").verdict, "PASS");
+  assert.equal(make("-15").verdict, "PASS");
+  assert.equal(make("-12.99").verdict, "INCONCLUSIVE");
+  assert.equal(make("-14", null).verdict, "INCONCLUSIVE");
+  assert.equal(make("-14", " ").verdict, "INCONCLUSIVE");
+  assert.equal(make("-inf").verdict, "INCONCLUSIVE");
 });
 
 test("true_peak_margin is recorded only when true_peak_dbtp is explicit, using the shared margin constant", () => {

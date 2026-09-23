@@ -1,0 +1,71 @@
+{
+  "phase": "after",
+  "cases": {
+    "in_range": {
+      "render_exit": 0,
+      "render_error": null,
+      "receipt_audio_qc": {
+        "verdict": "PASS",
+        "configured": {
+          "integrated_lufs": -14,
+          "true_peak_dbtp": -1.5
+        },
+        "decoded_measurement": {
+          "metric": "ffmpeg-loudnorm-input-v1",
+          "normalized": {
+            "input_i": -14.01,
+            "input_tp": -12.68
+          },
+          "raw": {
+            "input_i": "-14.01",
+            "input_tp": "-12.68"
+          }
+        },
+        "warnings": []
+      },
+      "render_audio_qc_warnings": [],
+      "status_exit": 0,
+      "status_audio_qc_warnings": [],
+      "accept_exit": 0,
+      "accept_output": "Artifact: exports/final.mp4\r\nArtifact SHA-256: 1696aee3c758d166a12d3b51f5d1c6c8ba597f9ccafdc84bc1b9cc7b3d841d1a\r\nReceipt: .akari/reports/render-receipts/298b3959c1c7631e8664406040c8a5b8da2b8fa9a7b3205f674861e3b079a607.json\r\nReceipt SHA-256: 298b3959c1c7631e8664406040c8a5b8da2b8fa9a7b3205f674861e3b079a607\r\nAudio QC: PASS.\r\n\u001b[1G\u001b[0JHuman identity for this cooperative local record: \u001b[51Gfixture-reviewer\r\r\n\u001b[1G\u001b[0JYour final acceptance statement for this artifact: \u001b[52GFixture acceptance observation.\r\r\n\u001b[1G\u001b[0JType exactly “ACCEPT 1696aee3c758d166a12d3b51f5d1c6c8ba597f9ccafdc84bc1b9cc7b3d841d1a” to confirm this artifact checksum: \u001b[23GACCEPT 1696aee3c758d166a12d3b51f5d1c6c8ba597f9ccafdc84bc1b9cc7b3d841d1a\r\r\nRecorded cooperative local acceptance event 3c54b188-0450-4f65-9e03-be796b235a64 at .akari/events/20260923T173315507Z-3c54b188-0450-4f65-9e03-be796b235a64-final-acceptance.json. This record is not a cryptographic human-identity proof.\r\n",
+      "accept_warning_lines": []
+    },
+    "true_peak_exceeded": {
+      "render_exit": 0,
+      "render_error": null,
+      "receipt_audio_qc": {
+        "verdict": "INCONCLUSIVE",
+        "configured": {
+          "integrated_lufs": -5,
+          "true_peak_dbtp": -1.5
+        },
+        "decoded_measurement": {
+          "metric": "ffmpeg-loudnorm-input-v1",
+          "normalized": {
+            "input_i": -12.99,
+            "input_tp": -1.37
+          },
+          "raw": {
+            "input_i": "-12.99",
+            "input_tp": "-1.37"
+          }
+        },
+        "warnings": [
+          "TRUE_PEAK_EXCEEDED: decoded_measurement.normalized.input_tp (-1.37) exceeds configured.true_peak_dbtp (-1.5) by 0.13 dB"
+        ]
+      },
+      "render_audio_qc_warnings": [
+        "render-cut warning: audio_qc is INCONCLUSIVE and requires human acceptance review"
+      ],
+      "status_exit": 0,
+      "status_audio_qc_warnings": [
+        "audio_qc is INCONCLUSIVE; configured target, filter report, and decoded measurement require human review"
+      ],
+      "accept_exit": 0,
+      "accept_output": "Artifact: exports/final.mp4\r\nArtifact SHA-256: 768a1283a41756b15eafee08c703e3f3b5a8056b0d6b1e1222545e080a116df7\r\nReceipt: .akari/reports/render-receipts/ef54bd1dd4bc6086f1951d7cdc8c428c54250628fdbe0af378692c8c710458c3.json\r\nReceipt SHA-256: ef54bd1dd4bc6086f1951d7cdc8c428c54250628fdbe0af378692c8c710458c3\r\nWARNING: audio_qc is INCONCLUSIVE; this is not an audio conformance PASS.\r\nConfigured: {\"integrated_lufs\":-5,\"true_peak_dbtp\":-1.5}\r\nFilter report: {\"normalized\":{\"output_i\":-12.95,\"output_tp\":-1.5},\"raw\":{\"output_i\":\"-12.95\",\"output_tp\":\"-1.50\"}}\r\nDecoded artifact measurement: {\"metric\":\"ffmpeg-loudnorm-input-v1\",\"normalized\":{\"input_i\":-12.99,\"input_tp\":-1.37},\"raw\":{\"input_i\":\"-12.99\",\"input_tp\":\"-1.37\"}}\r\n\u001b[1G\u001b[0JHuman identity for this cooperative local record: \u001b[51Gfixture-reviewer\r\r\n\u001b[1G\u001b[0JYour final acceptance statement for this artifact: \u001b[52GFixture acceptance observation.\r\r\n\u001b[1G\u001b[0JType exactly “ACCEPT 768a1283a41756b15eafee08c703e3f3b5a8056b0d6b1e1222545e080a116df7” to confirm this artifact checksum: \u001b[23GACCEPT 768a1283a41756b15eafee08c703e3f3b5a8056b0d6b1e1222545e080a116df7\r\r\nRecorded cooperative local acceptance event 82c153c6-e229-4818-92de-dadada949206 at .akari/events/20260923T173656614Z-82c153c6-e229-4818-92de-dadada949206-final-acceptance.json. This record is not a cryptographic human-identity proof.\r\n",
+      "accept_warning_lines": [
+        "WARNING: audio_qc is INCONCLUSIVE; this is not an audio conformance PASS."
+      ]
+    }
+  }
+}

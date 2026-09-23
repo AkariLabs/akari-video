@@ -99,8 +99,10 @@ test("audio.master.loudnorm normalizes the final output to the target LUFS withi
     assert.equal(executed.status, 0, `${executed.stderr}\n${JSON.stringify(failedState?.audio_qc)}`);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
-    assert.equal(state.audio_qc.verdict, "INCONCLUSIVE");
-    assert.equal(state.audio_qc.verdict, "INCONCLUSIVE");
+    const decoded = state.audio_qc.decoded_measurement.normalized;
+    const withinTarget = typeof decoded.input_i === "number" && Math.abs(decoded.input_i - target) <= 1
+      && typeof decoded.input_tp === "number" && decoded.input_tp <= -1.4;
+    assert.equal(state.audio_qc.verdict, withinTarget ? "PASS" : "INCONCLUSIVE");
     assert.equal(typeof state.audio_qc.filter_report.raw.output_i, "string");
     assert.equal(typeof state.audio_qc.decoded_measurement.raw.input_i, "string");
     assert.equal(state.audio_qc.decoded_measurement.metric, "ffmpeg-loudnorm-input-v1");
@@ -203,7 +205,7 @@ exec "$AKARI_REAL_FFMPEG" "$@"
     const integrity = await inspectFullIntegrity(project);
     assert.equal(integrity.ok, true, integrity.problems.join("; "));
     assert.deepEqual(integrity.candidate.audio_qc, state.audio_qc);
-    assert.ok(integrity.warnings.some(value => value.includes("INCONCLUSIVE")));
+    assert.equal(integrity.warnings.some(value => value.includes("INCONCLUSIVE")), state.audio_qc.verdict === "INCONCLUSIVE");
     t.diagnostic(`filter output TP=${state.audio_qc.filter_report.raw.output_tp}; decoded input TP=${state.audio_qc.decoded_measurement.raw.input_tp}`);
   } finally {
     await rm(project, { recursive: true, force: true });

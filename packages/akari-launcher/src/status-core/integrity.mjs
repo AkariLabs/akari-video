@@ -202,7 +202,7 @@ export function contentAddressedJsonFilenameMatches(filePath, sha256Value, basen
   return basenameImpl(filePath) === `${sha256Value}.json`;
 }
 
-function validateAudioQc(value, problems, warnings) {
+export function validateAudioQc(value, problems, warnings) {
   if (!isRecord(value) || !isRecord(value.configured)
     || !isFiniteNumber(value.configured.integrated_lufs) || !isFiniteNumber(value.configured.true_peak_dbtp)
     || !isNonEmptyString(value.tool_version)) {
@@ -226,7 +226,7 @@ function validateAudioQc(value, problems, warnings) {
     }
     return;
   }
-  if (value.verdict !== "INCONCLUSIVE") {
+  if (value.verdict !== "INCONCLUSIVE" && value.verdict !== "PASS") {
     problems.push("audio_qc verdict is invalid");
     return;
   }
@@ -236,9 +236,25 @@ function validateAudioQc(value, problems, warnings) {
   } else {
     validateQcReport(value.decoded_measurement, ["input_i", "input_tp"], "audio_qc.decoded_measurement", problems);
   }
-  if (value.error !== undefined) problems.push("audio_qc INCONCLUSIVE must not contain an error");
-  warnings.push("audio_qc is INCONCLUSIVE; configured target, filter report, and decoded measurement require human review");
+  if (value.error !== undefined) problems.push("audio_qc successful measurement must not contain an error");
+  if (value.verdict === "PASS") {
+    const inputI = value.decoded_measurement?.normalized?.input_i;
+    const inputTp = value.decoded_measurement?.normalized?.input_tp;
+    if (!isNonEmptyString(value.tool_version)
+      || !isFiniteNumber(inputI)
+      || !isFiniteNumber(inputTp)
+      || Math.abs(inputI - value.configured.integrated_lufs) > INTEGRATED_LOUDNESS_TOLERANCE_LU
+      || inputTp > value.configured.true_peak_dbtp + TRUE_PEAK_EXCEEDED_TOLERANCE_DB) {
+      problems.push("audio_qc PASS does not match configured target and decoded measurement");
+    }
+  } else {
+    warnings.push("audio_qc is INCONCLUSIVE; configured target, filter report, and decoded measurement require human review");
+  }
 }
+
+// Keep these in parity with render-cut/src/audio-qc.mjs; status-core is a self-contained mirror.
+const INTEGRATED_LOUDNESS_TOLERANCE_LU = 1.0;
+const TRUE_PEAK_EXCEEDED_TOLERANCE_DB = 0.1;
 
 // akari-audio-qc-decimal-v1: exact finite base-10 text only. This intentionally duplicates the
 // render-cut grammar because status-core is distributed as a self-contained generated mirror.
