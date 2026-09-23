@@ -18,9 +18,9 @@ test('カット中行を含む結合は拒否する', () => assert.match(canMerg
 test('存在しない id は拒否する', () => assert.match(canMergeRows([row('a'), row('b')], ['a', 'z']).reason, /見つかりません/));
 test('重複 id は拒否する', () => assert.match(canMergeRows([row('a'), row('b')], ['a', 'a']).reason, /2 行以上|重複/));
 test('連続 3 行を rows 順に返す', () => assert.deepEqual(canMergeRows([row('a'), row('b'), row('c')], ['c', 'a', 'b']), { ok: true, orderedIds: ['a', 'b', 'c'] }));
-test('右クリックと単一選択バーは次の行を 2 行結合で呼ぶ', async () => {
+test('右クリックは単一選択の次の行を 2 行結合で呼ぶ', async () => {
   const source = await readFile(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
   assert.match(source, /case 'merge-next'/u);
   assert.match(source, /captionIds: \[row\.id, next\.id\]/u);
-  assert.match(source, /selectionMergeNext\.title[^;]+mergeNext\.reason/su);
+  assert.match(source, /'merge-next': !multiple && !!next && canMergeRows\(this\.rows, \[row\.id, next\.id\]\)\.ok/u);
 });

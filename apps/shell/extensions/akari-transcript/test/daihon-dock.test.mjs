@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { clampDockHeight, readDockHeight, dockTabs, dockActions, lookPatch, currentLookSwatch,
+const { clampDockHeight, readDockHeight, dockTabs, dockActions, rowDockTitle, lookPatch, currentLookSwatch,
   shouldCloseDockOnEscape } = require('../lib/common/daihon-dock.js');
 
 test('高さの記憶値を読み、140px からパネル 80% へ収める', () => {
@@ -33,10 +33,18 @@ test('選択の種類でドックのタブが決まる', () => {
 
 test('右クリックは利用できる操作だけ', () => {
   assert.deepEqual(dockActions('row', { cut: true, split: true, 'merge-next': false,
-    'insert-below': true, delete: true }), ['cut', 'split', 'insert-below', 'delete']);
+    'speech-tight': true, 'insert-below': true, delete: true }),
+  ['cut', 'split', 'speech-tight', 'insert-below', 'delete']);
+  assert.deepEqual(dockActions('row', { cut: true, 'merge-selected': true, 'speech-tight': true }),
+    ['cut', 'merge-selected', 'speech-tight']);
   assert.deepEqual(dockActions('placed', { all: true, delete: true }), ['all', 'delete']);
   assert.deepEqual(dockActions('placed', { all: true, duplicate: true, delete: true }),
     ['all', 'duplicate', 'delete']);
+});
+
+test('行ドックのタイトルは複数選択の数か単一行の文言', () => {
+  assert.equal(rowDockTitle(3, '発話1'), '3 行を選択中');
+  assert.equal(rowDockTitle(1, '発話1'), '発話1');
 });
 
 test('見た目の書き込み引数は setCaptionTextStyle の camelCase patch', () => {

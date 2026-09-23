@@ -1,0 +1,902 @@
+{
+  "phase": "before",
+  "status": "done",
+  "observations": {
+    "idle": {
+      "widget": {
+        "top": 39,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 835,
+        "width": 578
+      },
+      "region": {
+        "top": 145,
+        "bottom": 848,
+        "left": 814,
+        "right": 1392,
+        "height": 703,
+        "width": 578
+      },
+      "footer": {
+        "top": 848,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 26,
+        "width": 578
+      },
+      "rows": {
+        "top": 145,
+        "bottom": 848,
+        "left": 814,
+        "right": 1392,
+        "height": 703,
+        "width": 578
+      },
+      "dock": {
+        "open": false,
+        "box": {
+          "top": 848,
+          "bottom": 1266,
+          "left": 814,
+          "right": 1392,
+          "height": 418,
+          "width": 578
+        },
+        "title": "",
+        "head": {
+          "box": {
+            "top": 859,
+            "bottom": 890,
+            "left": 814,
+            "right": 1392,
+            "height": 31,
+            "width": 578
+          },
+          "text": "✕",
+          "lines": 2,
+          "children": [
+            {
+              "className": "akari-daihon-dock-title",
+              "text": "",
+              "box": {
+                "top": 874.5,
+                "bottom": 874.5,
+                "left": 824,
+                "right": 1353.84,
+                "height": 0,
+                "width": 529.84
+              },
+              "lines": 1,
+              "whiteSpace": "nowrap",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "11px"
+            },
+            {
+              "className": "akari-daihon-dock-close",
+              "text": "✕",
+              "box": {
+                "top": 865.75,
+                "bottom": 883.25,
+                "left": 1359.84,
+                "right": 1382,
+                "height": 17.5,
+                "width": 22.16
+              },
+              "lines": 1,
+              "whiteSpace": "normal",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "13.3333px"
+            }
+          ]
+        },
+        "tabs": []
+      },
+      "selbar": {
+        "count": 1,
+        "visibleCount": 0,
+        "box": null,
+        "countText": null,
+        "countBox": null,
+        "countLines": null,
+        "buttons": []
+      },
+      "relation": {
+        "dockBottom": 1266,
+        "selbarTop": null,
+        "selbarBottom": null,
+        "footerTop": 848,
+        "bandBelowDockPx": 0,
+        "bandsBetweenDockAndFooter": []
+      },
+      "selected": []
+    },
+    "select1": {
+      "widget": {
+        "top": 39,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 835,
+        "width": 578
+      },
+      "region": {
+        "top": 145,
+        "bottom": 712.5,
+        "left": 814,
+        "right": 1392,
+        "height": 567.5,
+        "width": 578
+      },
+      "footer": {
+        "top": 848,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 26,
+        "width": 578
+      },
+      "rows": {
+        "top": 145,
+        "bottom": 712.5,
+        "left": 814,
+        "right": 1392,
+        "height": 567.5,
+        "width": 578
+      },
+      "dock": {
+        "open": true,
+        "box": {
+          "top": 294.5,
+          "bottom": 712.5,
+          "left": 814,
+          "right": 1392,
+          "height": 418,
+          "width": 578
+        },
+        "title": "蒸らしは30 秒くらい",
+        "head": {
+          "box": {
+            "top": 305.5,
+            "bottom": 336.5,
+            "left": 814,
+            "right": 1392,
+            "height": 31,
+            "width": 578
+          },
+          "text": "蒸らしは30 秒くらい✕",
+          "lines": 2,
+          "children": [
+            {
+              "className": "akari-daihon-dock-title",
+              "text": "蒸らしは30 秒くらい",
+              "box": {
+                "top": 312.75,
+                "bottom": 329.25,
+                "left": 824,
+                "right": 1353.84,
+                "height": 16.5,
+                "width": 529.84
+              },
+              "lines": 1,
+              "whiteSpace": "nowrap",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "11px"
+            },
+            {
+              "className": "akari-daihon-dock-close",
+              "text": "✕",
+              "box": {
+                "top": 312.25,
+                "bottom": 329.75,
+                "left": 1359.84,
+                "right": 1382,
+                "height": 17.5,
+                "width": 22.16
+              },
+              "lines": 1,
+              "whiteSpace": "normal",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "13.3333px"
+            }
+          ]
+        },
+        "tabs": [
+          {
+            "tab": "template",
+            "label": "テンプレ",
+            "active": true
+          },
+          {
+            "tab": "look",
+            "label": "見た目",
+            "active": false
+          },
+          {
+            "tab": "anim",
+            "label": "アニメ",
+            "active": false
+          },
+          {
+            "tab": "emphasis",
+            "label": "強調",
+            "active": false
+          },
+          {
+            "tab": "time",
+            "label": "時刻",
+            "active": false
+          }
+        ]
+      },
+      "selbar": {
+        "count": 1,
+        "visibleCount": 1,
+        "box": {
+          "top": 712.5,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 135.5,
+          "width": 578
+        },
+        "countText": "1 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）",
+        "countBox": {
+          "top": 719.5,
+          "bottom": 842,
+          "left": 825,
+          "right": 869.22,
+          "height": 122.5,
+          "width": 44.22
+        },
+        "countLines": 9,
+        "buttons": [
+          {
+            "text": "🎨 テンプレ適用",
+            "className": "akari-daihon-seltpl",
+            "disabled": false,
+            "box": {
+              "top": 771.25,
+              "bottom": 790.25,
+              "left": 885.22,
+              "right": 973,
+              "height": 19,
+              "width": 87.78
+            },
+            "lines": 1
+          },
+          {
+            "text": "⧉ 選択行を結合",
+            "className": "akari-daihon-selmerge",
+            "disabled": true,
+            "box": {
+              "top": 771.25,
+              "bottom": 790.25,
+              "left": 981,
+              "right": 1065.74,
+              "height": 19,
+              "width": 84.74
+            },
+            "lines": 1
+          },
+          {
+            "text": "次の行と結合",
+            "className": "akari-daihon-selmerge-next",
+            "disabled": false,
+            "box": {
+              "top": 771.25,
+              "bottom": 790.25,
+              "left": 1073.74,
+              "right": 1147.74,
+              "height": 19,
+              "width": 74
+            },
+            "lines": 1
+          },
+          {
+            "text": "発話にぴったり",
+            "className": "akari-daihon-selgear",
+            "disabled": false,
+            "box": {
+              "top": 771.25,
+              "bottom": 790.25,
+              "left": 1155.74,
+              "right": 1239.74,
+              "height": 19,
+              "width": 84
+            },
+            "lines": 1
+          },
+          {
+            "text": "✂ 選択行をカット",
+            "className": "akari-daihon-selcut",
+            "disabled": false,
+            "box": {
+              "top": 771.25,
+              "bottom": 790.25,
+              "left": 1247.74,
+              "right": 1344.52,
+              "height": 19,
+              "width": 96.78
+            },
+            "lines": 1
+          },
+          {
+            "text": "✕ 解除",
+            "className": "akari-daihon-selclear",
+            "disabled": false,
+            "box": {
+              "top": 769.5,
+              "bottom": 792,
+              "left": 1352.52,
+              "right": 1407.97,
+              "height": 22.5,
+              "width": 55.45
+            },
+            "lines": 1
+          }
+        ]
+      },
+      "relation": {
+        "dockBottom": 712.5,
+        "selbarTop": 712.5,
+        "selbarBottom": 848,
+        "footerTop": 848,
+        "bandBelowDockPx": 135.5,
+        "bandsBetweenDockAndFooter": [
+          {
+            "className": "akari-daihon-selbar",
+            "box": {
+              "top": 712.5,
+              "bottom": 848,
+              "left": 814,
+              "right": 1392,
+              "height": 135.5,
+              "width": 578
+            }
+          }
+        ]
+      },
+      "selected": [
+        "c-0005"
+      ]
+    },
+    "select3": {
+      "widget": {
+        "top": 39,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 835,
+        "width": 578
+      },
+      "region": {
+        "top": 145,
+        "bottom": 695,
+        "left": 814,
+        "right": 1392,
+        "height": 550,
+        "width": 578
+      },
+      "footer": {
+        "top": 848,
+        "bottom": 874,
+        "left": 814,
+        "right": 1392,
+        "height": 26,
+        "width": 578
+      },
+      "rows": {
+        "top": 145,
+        "bottom": 695,
+        "left": 814,
+        "right": 1392,
+        "height": 550,
+        "width": 578
+      },
+      "dock": {
+        "open": true,
+        "box": {
+          "top": 277,
+          "bottom": 695,
+          "left": 814,
+          "right": 1392,
+          "height": 418,
+          "width": 578
+        },
+        "title": "3 行を編集",
+        "head": {
+          "box": {
+            "top": 288,
+            "bottom": 319,
+            "left": 814,
+            "right": 1392,
+            "height": 31,
+            "width": 578
+          },
+          "text": "3 行を編集✕",
+          "lines": 2,
+          "children": [
+            {
+              "className": "akari-daihon-dock-title",
+              "text": "3 行を編集",
+              "box": {
+                "top": 295.25,
+                "bottom": 311.75,
+                "left": 824,
+                "right": 1353.84,
+                "height": 16.5,
+                "width": 529.84
+              },
+              "lines": 1,
+              "whiteSpace": "nowrap",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "11px"
+            },
+            {
+              "className": "akari-daihon-dock-close",
+              "text": "✕",
+              "box": {
+                "top": 294.75,
+                "bottom": 312.25,
+                "left": 1359.84,
+                "right": 1382,
+                "height": 17.5,
+                "width": 22.16
+              },
+              "lines": 1,
+              "whiteSpace": "normal",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "13.3333px"
+            }
+          ]
+        },
+        "tabs": [
+          {
+            "tab": "template",
+            "label": "テンプレ",
+            "active": true
+          },
+          {
+            "tab": "look",
+            "label": "見た目",
+            "active": false
+          },
+          {
+            "tab": "anim",
+            "label": "アニメ",
+            "active": false
+          },
+          {
+            "tab": "emphasis",
+            "label": "強調",
+            "active": false
+          },
+          {
+            "tab": "time",
+            "label": "時刻",
+            "active": false
+          }
+        ]
+      },
+      "selbar": {
+        "count": 1,
+        "visibleCount": 1,
+        "box": {
+          "top": 695,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 153,
+          "width": 578
+        },
+        "countText": "3 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）",
+        "countBox": {
+          "top": 702,
+          "bottom": 842,
+          "left": 825,
+          "right": 869.22,
+          "height": 140,
+          "width": 44.22
+        },
+        "countLines": 10,
+        "buttons": [
+          {
+            "text": "🎨 テンプレ適用",
+            "className": "akari-daihon-seltpl",
+            "disabled": false,
+            "box": {
+              "top": 762.5,
+              "bottom": 781.5,
+              "left": 885.22,
+              "right": 973,
+              "height": 19,
+              "width": 87.78
+            },
+            "lines": 1
+          },
+          {
+            "text": "⧉ 選択行を結合",
+            "className": "akari-daihon-selmerge",
+            "disabled": false,
+            "box": {
+              "top": 762.5,
+              "bottom": 781.5,
+              "left": 981,
+              "right": 1065.74,
+              "height": 19,
+              "width": 84.74
+            },
+            "lines": 1
+          },
+          {
+            "text": "次の行と結合",
+            "className": "akari-daihon-selmerge-next",
+            "disabled": true,
+            "box": {
+              "top": 762.5,
+              "bottom": 781.5,
+              "left": 1073.74,
+              "right": 1147.74,
+              "height": 19,
+              "width": 74
+            },
+            "lines": 1
+          },
+          {
+            "text": "発話にぴったり",
+            "className": "akari-daihon-selgear",
+            "disabled": false,
+            "box": {
+              "top": 762.5,
+              "bottom": 781.5,
+              "left": 1155.74,
+              "right": 1239.74,
+              "height": 19,
+              "width": 84
+            },
+            "lines": 1
+          },
+          {
+            "text": "✂ 選択行をカット",
+            "className": "akari-daihon-selcut",
+            "disabled": false,
+            "box": {
+              "top": 762.5,
+              "bottom": 781.5,
+              "left": 1247.74,
+              "right": 1344.52,
+              "height": 19,
+              "width": 96.78
+            },
+            "lines": 1
+          },
+          {
+            "text": "✕ 解除",
+            "className": "akari-daihon-selclear",
+            "disabled": false,
+            "box": {
+              "top": 760.75,
+              "bottom": 783.25,
+              "left": 1352.52,
+              "right": 1407.97,
+              "height": 22.5,
+              "width": 55.45
+            },
+            "lines": 1
+          }
+        ]
+      },
+      "relation": {
+        "dockBottom": 695,
+        "selbarTop": 695,
+        "selbarBottom": 848,
+        "footerTop": 848,
+        "bandBelowDockPx": 153,
+        "bandsBetweenDockAndFooter": [
+          {
+            "className": "akari-daihon-selbar",
+            "box": {
+              "top": 695,
+              "bottom": 848,
+              "left": 814,
+              "right": 1392,
+              "height": 153,
+              "width": 578
+            }
+          }
+        ]
+      },
+      "selected": [
+        "c-0003",
+        "c-0004",
+        "c-0005"
+      ]
+    },
+    "rightClickIn3": {
+      "menu": [
+        {
+          "className": "akari-daihon-pop akari-daihon-row-menu",
+          "items": [
+            {
+              "text": "ここで切る",
+              "action": "cut",
+              "disabled": false,
+              "title": null
+            },
+            {
+              "text": "分割",
+              "action": "split",
+              "disabled": false,
+              "title": null
+            },
+            {
+              "text": "次の行と結合",
+              "action": "merge-next",
+              "disabled": false,
+              "title": null
+            },
+            {
+              "text": "下に行を足す",
+              "action": "insert-below",
+              "disabled": false,
+              "title": null
+            },
+            {
+              "text": "削除",
+              "action": "delete",
+              "disabled": false,
+              "title": null
+            }
+          ]
+        }
+      ],
+      "layout": {
+        "widget": {
+          "top": 39,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 835,
+          "width": 578
+        },
+        "region": {
+          "top": 145,
+          "bottom": 712.5,
+          "left": 814,
+          "right": 1392,
+          "height": 567.5,
+          "width": 578
+        },
+        "footer": {
+          "top": 848,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 26,
+          "width": 578
+        },
+        "rows": {
+          "top": 145,
+          "bottom": 712.5,
+          "left": 814,
+          "right": 1392,
+          "height": 567.5,
+          "width": 578
+        },
+        "dock": {
+          "open": false,
+          "box": {
+            "top": 712.5,
+            "bottom": 1130.5,
+            "left": 814,
+            "right": 1392,
+            "height": 418,
+            "width": 578
+          },
+          "title": "3 行を編集",
+          "head": {
+            "box": {
+              "top": 723.5,
+              "bottom": 754.5,
+              "left": 814,
+              "right": 1392,
+              "height": 31,
+              "width": 578
+            },
+            "text": "3 行を編集✕",
+            "lines": 2,
+            "children": [
+              {
+                "className": "akari-daihon-dock-title",
+                "text": "3 行を編集",
+                "box": {
+                  "top": 730.75,
+                  "bottom": 747.25,
+                  "left": 824,
+                  "right": 1353.84,
+                  "height": 16.5,
+                  "width": 529.84
+                },
+                "lines": 1,
+                "whiteSpace": "nowrap",
+                "color": "rgb(229, 229, 229)",
+                "fontSize": "11px"
+              },
+              {
+                "className": "akari-daihon-dock-close",
+                "text": "✕",
+                "box": {
+                  "top": 730.25,
+                  "bottom": 747.75,
+                  "left": 1359.84,
+                  "right": 1382,
+                  "height": 17.5,
+                  "width": 22.16
+                },
+                "lines": 1,
+                "whiteSpace": "normal",
+                "color": "rgb(229, 229, 229)",
+                "fontSize": "13.3333px"
+              }
+            ]
+          },
+          "tabs": [
+            {
+              "tab": "template",
+              "label": "テンプレ",
+              "active": true
+            },
+            {
+              "tab": "look",
+              "label": "見た目",
+              "active": false
+            },
+            {
+              "tab": "anim",
+              "label": "アニメ",
+              "active": false
+            },
+            {
+              "tab": "emphasis",
+              "label": "強調",
+              "active": false
+            },
+            {
+              "tab": "time",
+              "label": "時刻",
+              "active": false
+            }
+          ]
+        },
+        "selbar": {
+          "count": 1,
+          "visibleCount": 1,
+          "box": {
+            "top": 712.5,
+            "bottom": 848,
+            "left": 814,
+            "right": 1392,
+            "height": 135.5,
+            "width": 578
+          },
+          "countText": "1 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）",
+          "countBox": {
+            "top": 719.5,
+            "bottom": 842,
+            "left": 825,
+            "right": 869.22,
+            "height": 122.5,
+            "width": 44.22
+          },
+          "countLines": 9,
+          "buttons": [
+            {
+              "text": "🎨 テンプレ適用",
+              "className": "akari-daihon-seltpl",
+              "disabled": false,
+              "box": {
+                "top": 771.25,
+                "bottom": 790.25,
+                "left": 885.22,
+                "right": 973,
+                "height": 19,
+                "width": 87.78
+              },
+              "lines": 1
+            },
+            {
+              "text": "⧉ 選択行を結合",
+              "className": "akari-daihon-selmerge",
+              "disabled": true,
+              "box": {
+                "top": 771.25,
+                "bottom": 790.25,
+                "left": 981,
+                "right": 1065.74,
+                "height": 19,
+                "width": 84.74
+              },
+              "lines": 1
+            },
+            {
+              "text": "次の行と結合",
+              "className": "akari-daihon-selmerge-next",
+              "disabled": false,
+              "box": {
+                "top": 771.25,
+                "bottom": 790.25,
+                "left": 1073.74,
+                "right": 1147.74,
+                "height": 19,
+                "width": 74
+              },
+              "lines": 1
+            },
+            {
+              "text": "発話にぴったり",
+              "className": "akari-daihon-selgear",
+              "disabled": false,
+              "box": {
+                "top": 771.25,
+                "bottom": 790.25,
+                "left": 1155.74,
+                "right": 1239.74,
+                "height": 19,
+                "width": 84
+              },
+              "lines": 1
+            },
+            {
+              "text": "✂ 選択行をカット",
+              "className": "akari-daihon-selcut",
+              "disabled": false,
+              "box": {
+                "top": 771.25,
+                "bottom": 790.25,
+                "left": 1247.74,
+                "right": 1344.52,
+                "height": 19,
+                "width": 96.78
+              },
+              "lines": 1
+            },
+            {
+              "text": "✕ 解除",
+              "className": "akari-daihon-selclear",
+              "disabled": false,
+              "box": {
+                "top": 769.5,
+                "bottom": 792,
+                "left": 1352.52,
+                "right": 1407.97,
+                "height": 22.5,
+                "width": 55.45
+              },
+              "lines": 1
+            }
+          ]
+        },
+        "relation": {
+          "dockBottom": 1130.5,
+          "selbarTop": 712.5,
+          "selbarBottom": 848,
+          "footerTop": 848,
+          "bandBelowDockPx": -282.5,
+          "bandsBetweenDockAndFooter": []
+        },
+        "selected": [
+          "c-0004"
+        ]
+      }
+    }
+  },
+  "screenshots": [
+    "before-00-idle.png",
+    "before-01-select-1.png",
+    "before-02-select-3.png",
+    "before-03-row-context.png"
+  ]
+}

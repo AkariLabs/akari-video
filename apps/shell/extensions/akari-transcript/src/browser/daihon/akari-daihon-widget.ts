@@ -99,7 +99,7 @@ import {
     type DaihonSilenceSpan
 } from '../../common/daihon-silence';
 import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
-import { clampDockHeight, currentLookSwatch, dockActions, dockTabs, lookPatch, readDockHeight,
+import { clampDockHeight, currentLookSwatch, dockActions, dockTabs, lookPatch, readDockHeight, rowDockTitle,
     shouldCloseDockOnEscape, type DockKind, type DockTab, type LookField } from '../../common/daihon-dock';
 import {
     addWordRange, extendWordRange, normalizeWordRanges, removeWordRange, wordRangeSummary, wordsOf,
@@ -160,7 +160,7 @@ const DAIHON_WORD_UNIT_PREFERENCE = 'akari.daihon.wordUnit';
 const DAIHON_SHOW_BREAKS_PREFERENCE = 'akari.daihon.showBreaks';
 const DAIHON_ATTACHMENT_MODE_PREFERENCE = 'akari.daihon.attachmentMode';
 const FOCUS_TIMELINE_ITEM_COMMAND_ID = 'akari.timeline.focusItem';
-const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, button.akari-daihon-selgear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-selmerge, button.akari-daihon-selmerge-next, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
+const INTERACTIVE_SELECTOR = '.akari-daihon-placed-bar, .akari-daihon-placed-tag, .akari-daihon-speaker, button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, button.akari-daihon-split, button.akari-daihon-gear, .akari-daihon-splitmark, .akari-daihon-gapzone, .akari-daihon-gapdraft, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-tpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-cutrange, .akari-daihon-pop, .akari-daihon-minitl, .akari-daihon-wgap, .akari-daihon-wordbar, .akari-daihon-wordcm, .akari-daihon-slash';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -309,10 +309,6 @@ const STYLE = `
 .akari-daihon-row-edit { display:flex; gap:6px; align-items:center; }
 .akari-daihon-row-edit input { flex:1; font:inherit; font-size:15px; background:var(--theia-editor-background); color:var(--akari-ink, var(--theia-foreground)); border:1px solid #53d1bc; border-radius:6px; padding:5px 9px; }
 .akari-daihon-row-edit input:focus { outline:none; box-shadow:0 0 0 2px rgba(83,209,188,.25); }
-.akari-daihon-selbar { display:flex; align-items:center; gap:8px; padding:6px 11px; border-top:1px solid var(--akari-line-inner); background:var(--akari-card); font-size:11.5px; color:var(--akari-ink, var(--theia-foreground)); }
-.akari-daihon-selbar[hidden] { display:none; }
-.akari-daihon-selbar-spacer { flex:1; }
-.akari-daihon-selclear { font-size:11px; background:var(--akari-card); border:1px solid var(--akari-line); color:var(--akari-muted); border-radius:6px; padding:2px 10px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-word-filler { text-decoration:underline dashed rgba(255,143,115,.85) 1.5px; text-underline-offset:3px; color:color-mix(in srgb, #d9927f 40%, var(--akari-ink, var(--theia-foreground))); }
 .akari-daihon-word-unk { color:color-mix(in srgb, #b08a5a 40%, var(--akari-ink, var(--theia-foreground))); font-weight:700; letter-spacing:.08em; text-decoration:underline dotted rgba(240,180,90,.8) 1.5px; text-underline-offset:3px; cursor:pointer; }
 .akari-daihon-gapchip { display:inline-block; margin-left:6px; padding:0 6px; font-family:"JetBrains Mono",monospace; font-size:9px; color:var(--akari-muted); border:1px dashed var(--akari-line); border-radius:999px; cursor:pointer; vertical-align:1px; }
@@ -321,10 +317,10 @@ const STYLE = `
 .akari-daihon-cutcell .akari-daihon-rbtn { margin-left:auto; background:none; border:1px solid rgba(255,143,115,.35); color:color-mix(in srgb, #d9927f 40%, var(--akari-ink, var(--theia-foreground))); border-radius:4px; font-size:9.5px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled) { color:color-mix(in srgb, #ffb39e 40%, var(--akari-ink, var(--theia-foreground))); border-color:rgba(255,143,115,.7); }
 .akari-daihon-cutcell .akari-daihon-rbtn:disabled { opacity:.42; cursor:not-allowed; }
-.akari-daihon-cut,.akari-daihon-split,.akari-daihon-gear,.akari-daihon-selgear,.akari-daihon-selcut,.akari-daihon-selmerge,.akari-daihon-selmerge-next,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl,.akari-daihon-cuts,.akari-daihon-retime { background:var(--akari-elevated); border:1px solid var(--akari-line); color:var(--akari-ink, var(--theia-foreground)); border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
-.akari-daihon-cut:hover,.akari-daihon-gear:hover,.akari-daihon-selgear:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover,.akari-daihon-cuts:hover,.akari-daihon-retime:hover { color:var(--akari-ink, var(--theia-foreground)); border-color:var(--akari-accent); }
+.akari-daihon-cut,.akari-daihon-split,.akari-daihon-gear,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-cuts,.akari-daihon-retime { background:var(--akari-elevated); border:1px solid var(--akari-line); color:var(--akari-ink, var(--theia-foreground)); border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-cut:hover,.akari-daihon-gear:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-cuts:hover,.akari-daihon-retime:hover { color:var(--akari-ink, var(--theia-foreground)); border-color:var(--akari-accent); }
 .akari-daihon-cut:hover { color:color-mix(in srgb, #ff8f73 40%, var(--akari-ink, var(--theia-foreground))); border-color:rgba(255,143,115,.5); }
-.akari-daihon-split:disabled,.akari-daihon-selmerge:disabled,.akari-daihon-selmerge-next:disabled { opacity:.4; cursor:not-allowed; }
+.akari-daihon-split:disabled { opacity:.4; cursor:not-allowed; }
 .akari-daihon-gapzone { height:8px; margin:-3px 8px; position:relative; cursor:pointer; }
 .akari-daihon-gapzone button { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border:1px solid var(--akari-accent-light); border-radius:999px; background:var(--theia-akariTheme-accentTint); color:var(--theia-akariTheme-accentLight); font-size:10px; line-height:15px; width:17px; height:17px; padding:0; }
 .akari-daihon-gapzone:hover button { display:block; }
@@ -429,7 +425,8 @@ const STYLE = `
 .akari-daihon-dock-grip { flex:none; height:10px; cursor:ns-resize; touch-action:none; display:flex; justify-content:center; align-items:center; }
 .akari-daihon-dock-grip::before { content:""; width:36px; height:3px; border-radius:2px; background:var(--akari-muted); }
 .akari-daihon-dock-head { display:flex; align-items:center; gap:6px; padding:3px 10px; min-height:25px; font-size:11px; }
-.akari-daihon-dock-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.akari-daihon-dock-title { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+.akari-daihon-dock-selection-hint { color:var(--akari-muted); font-size:10px; white-space:nowrap; flex:none; }
 .akari-daihon-dock-close { border:0; background:none; color:inherit; cursor:pointer; }
 .akari-daihon-dock-tabs { display:flex; overflow-x:auto; flex:none; border-bottom:1px solid var(--akari-line); }
 .akari-daihon-dock-tabs button { border:0; border-bottom:2px solid transparent; background:none; color:var(--akari-muted); padding:5px 7px; cursor:pointer; white-space:nowrap; }
@@ -529,13 +526,10 @@ export class AkariDaihonWidget extends BaseWidget {
     protected dockCategory = 'all';
     protected readonly dockGrip = document.createElement('div');
     protected readonly dockTitle = document.createElement('strong');
+    protected readonly dockSelectionHint = document.createElement('span');
     protected readonly dockTabsNode = document.createElement('div');
     protected readonly dockBody = document.createElement('div');
     protected readonly rowsNode = document.createElement('div');
-    protected readonly selectionBar = document.createElement('div');
-    protected readonly selectionCount = document.createElement('span');
-    protected readonly selectionMerge = document.createElement('button');
-    protected readonly selectionMergeNext = document.createElement('button');
     protected readonly footer = document.createElement('div');
     protected readonly elements = new Map<string, RowElements>();
     protected rows: DaihonRow[] = [];
@@ -715,64 +709,26 @@ export class AkariDaihonWidget extends BaseWidget {
         window.addEventListener('akari.daihon.rowShortcut', rowShortcut);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.daihon.rowShortcut', rowShortcut) });
 
-        this.selectionBar.className = 'akari-daihon-selbar';
-        this.selectionBar.hidden = true;
-        this.selectionCount.className = 'akari-daihon-selcount';
-        const selectionSpacer = document.createElement('span');
-        selectionSpacer.className = 'akari-daihon-selbar-spacer';
-        const selectionClear = document.createElement('button');
-        selectionClear.type = 'button';
-        selectionClear.className = 'akari-daihon-selclear';
-        selectionClear.textContent = '✕ 解除';
-        selectionClear.addEventListener('click', () => this.setSelection(clearSelection()));
-        const selectionCut = document.createElement('button');
-        selectionCut.type = 'button';
-        selectionCut.className = 'akari-daihon-selcut';
-        selectionCut.textContent = '✂ 選択行をカット';
-        selectionCut.addEventListener('click', () => void this.cutSelectedRows());
-        const selectionTpl = document.createElement('button');
-        selectionTpl.type = 'button';
-        selectionTpl.className = 'akari-daihon-seltpl';
-        selectionTpl.textContent = '🎨 テンプレ適用';
-        selectionTpl.addEventListener('click', event => {
-            event.stopPropagation();
-            this.openRowDock('template');
-        });
-        this.selectionMerge.type = 'button';
-        this.selectionMerge.className = 'akari-daihon-selmerge';
-        this.selectionMerge.textContent = '⧉ 選択行を結合';
-        this.selectionMerge.addEventListener('click', () => void this.mergeSelectedRows());
-        this.selectionMergeNext.type = 'button';
-        this.selectionMergeNext.className = 'akari-daihon-selmerge-next';
-        this.selectionMergeNext.textContent = '次の行と結合';
-        this.selectionMergeNext.addEventListener('click', () => void this.mergeSelectedRowWithNext());
-        const selectionGear = document.createElement('button');
-        selectionGear.type = 'button';
-        selectionGear.className = 'akari-daihon-selgear';
-        selectionGear.textContent = '発話にぴったり';
-        selectionGear.title = '選択行の字幕を語の発話区間だけ表示する';
-        selectionGear.addEventListener('click', () => void this.applySpeechTightToSelection());
-        this.selectionBar.append(this.selectionCount, selectionSpacer, selectionTpl, this.selectionMerge,
-            this.selectionMergeNext, selectionGear, selectionCut, selectionClear);
-
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
         this.placedEditor.className = 'akari-daihon-placed-editor akari-daihon-dock';
         this.dockGrip.className = 'akari-daihon-dock-grip';
         this.dockGrip.title = '上下に引いて高さを変える';
         this.dockTitle.className = 'akari-daihon-dock-title';
+        this.dockSelectionHint.className = 'akari-daihon-dock-selection-hint';
+        this.dockSelectionHint.textContent = 'Shift=範囲 / ⌘=追加';
         const dockHead = document.createElement('div');
         dockHead.className = 'akari-daihon-dock-head';
         const dockClose = document.createElement('button');
         dockClose.className = 'akari-daihon-dock-close'; dockClose.type = 'button'; dockClose.textContent = '✕';
-        dockClose.addEventListener('click', () => this.closeDock());
-        dockHead.append(this.dockTitle, dockClose);
+        dockClose.addEventListener('click', () => this.dismissDock());
+        dockHead.append(this.dockTitle, this.dockSelectionHint, dockClose);
         this.dockTabsNode.className = 'akari-daihon-dock-tabs';
         this.dockBody.className = 'akari-daihon-dock-body';
         this.placedEditor.append(this.dockGrip, dockHead, this.dockTabsNode, this.dockBody);
         this.rowsRegion.className = 'akari-daihon-rows-region';
         this.rowsRegion.append(this.rowsNode, this.placedEditor);
-        this.node.append(header, this.rowsRegion, this.selectionBar, this.footer);
+        this.node.append(header, this.rowsRegion, this.footer);
         this.restoreDockHeight();
         if (typeof ResizeObserver !== 'undefined') {
             const observer = new ResizeObserver(() => this.restoreDockHeight());
@@ -788,7 +744,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const dockEscape = (event: KeyboardEvent): void => {
             const active = document.activeElement;
             if (shouldCloseDockOnEscape(event.key, !!this.dockKind && this.placedEditor.classList.contains('open'),
-                !!active && this.node.contains(active), active === document.body)) this.closeDock();
+                !!active && this.node.contains(active), active === document.body)) this.dismissDock();
         };
         document.addEventListener('keydown', dockEscape);
         this.toDispose.push({ dispose: () => document.removeEventListener('keydown', dockEscape) });
@@ -846,7 +802,10 @@ export class AkariDaihonWidget extends BaseWidget {
                     void this.reload();
                 }
             }
-            if (this.rowDrag?.moved) this.suppressRowClick = true;
+            if (this.rowDrag?.moved) {
+                this.suppressRowClick = true;
+                if (this.selection.selected.length && !this.dockKind) this.openRowDock('template');
+            }
             this.rowDrag = undefined;
         };
         document.addEventListener('pointerup', pointerUp);
@@ -1554,7 +1513,6 @@ export class AkariDaihonWidget extends BaseWidget {
         this.updateQcSummary();
         this.applyQcFilter();
         this.renderCutCells();
-        this.updateSelectionMerge();
         this.renderPlacedText();
     }
 
@@ -2033,6 +1991,12 @@ export class AkariDaihonWidget extends BaseWidget {
         this.renderPlacedText();
     }
 
+    protected dismissDock(): void {
+        const rowDock = this.dockKind === 'row';
+        this.closeDock();
+        if (rowDock) this.setSelection(clearSelection());
+    }
+
     protected openRowDock(tab: DockTab): void {
         if (!this.selection.selected.length) return;
         this.dockKind = 'row';
@@ -2054,7 +2018,8 @@ export class AkariDaihonWidget extends BaseWidget {
         const placed = kind === 'placed' ? this.placedRanges().find(item => item.captionId === ids[0]) : undefined;
         const row = this.rows.find(item => item.id === ids[0]);
         this.dockTitle.textContent = kind === 'placed' ? `T ${placed?.text ?? ''}`
-            : ids.length > 1 ? `${ids.length} 行を編集` : row?.text ?? '';
+            : rowDockTitle(ids.length, row?.text ?? '');
+        this.dockSelectionHint.hidden = kind !== 'row';
         this.dockTabsNode.replaceChildren();
         const labels: Record<DockTab, string> = { text: '文字', template: 'テンプレ', look: '見た目',
             anim: 'アニメ', emphasis: '強調', time: '時刻' };
@@ -2270,27 +2235,35 @@ export class AkariDaihonWidget extends BaseWidget {
     protected openRowMenu(event: MouseEvent, row: DaihonRow): void {
         this.closePop();
         if (this.dockKind) this.closeDock();
-        this.setSelection({ selected: [row.id], anchorId: row.id });
+        if (!this.selection.selected.includes(row.id)) this.setSelection({ selected: [row.id], anchorId: row.id });
+        const multiple = this.selection.selected.length > 1;
         const next = this.rows[this.rows.findIndex(item => item.id === row.id) + 1];
+        const merge = multiple ? canMergeRows(this.rows, this.selection.selected) : undefined;
         const available = {
-            cut: row.outStart !== null && row.outEnd !== null,
-            split: canSplitRow(row),
-            'merge-next': !!next && canMergeRows(this.rows, [row.id, next.id]).ok,
-            'insert-below': !!next && next.start - row.end >= .35,
-            delete: true
+            cut: multiple || row.outStart !== null && row.outEnd !== null,
+            split: !multiple && canSplitRow(row),
+            'merge-selected': multiple,
+            'merge-next': !multiple && !!next && canMergeRows(this.rows, [row.id, next.id]).ok,
+            'speech-tight': true,
+            'insert-below': !multiple && !!next && next.start - row.end >= .35,
+            delete: !multiple
         };
         const menu = document.createElement('div'); menu.className = 'akari-daihon-pop akari-daihon-row-menu';
         menu.style.left = `${Math.min(event.clientX, window.innerWidth - 190)}px`;
         menu.style.top = `${Math.min(event.clientY, window.innerHeight - 220)}px`;
-        const labels = { cut: 'ここで切る', split: '分割', 'merge-next': '次の行と結合',
-            'insert-below': '下に行を足す', delete: '削除', all: '全部の行に' };
+        const labels = { cut: multiple ? '選択行をカット' : 'ここで切る', split: '分割',
+            'merge-selected': '選択行を結合', 'merge-next': '次の行と結合',
+            'speech-tight': '発話にぴったり', 'insert-below': '下に行を足す', delete: '削除',
+            all: '全部の行に', duplicate: '複製' };
         for (const action of dockActions('row', available)) {
             const button = this.popButton(labels[action], () => {
                 this.closePop();
                 switch (action) {
-                    case 'cut': void this.cutRows([row]); break;
+                    case 'cut': void this.cutSelectedRows(); break;
                     case 'split': this.enterSplitMode(row); break;
+                    case 'merge-selected': void this.mergeSelectedRows(); break;
                     case 'merge-next': void this.mergeSelectedRowWithNext(); break;
+                    case 'speech-tight': void this.applySpeechTightToSelection(); break;
                     case 'insert-below': {
                         const zone = this.rowsNode.querySelector<HTMLElement>(`.akari-daihon-gapzone[data-prev-row-id="${CSS.escape(row.id)}"]`);
                         if (zone && next) this.openGapDraft(zone, row, next);
@@ -2300,6 +2273,12 @@ export class AkariDaihonWidget extends BaseWidget {
                 }
             });
             button.dataset.rowAction = action;
+            if (action === 'merge-selected') {
+                button.disabled = !merge?.ok;
+                button.title = merge?.ok ? '選択した隣接行を結合'
+                    : merge && 'reason' in merge ? merge.reason : '選択した行を結合できません。';
+            }
+            if (action === 'speech-tight') button.title = '選択行の字幕を語の発話区間だけ表示する';
             menu.appendChild(button);
         }
         document.body.appendChild(menu);
@@ -2869,21 +2848,6 @@ export class AkariDaihonWidget extends BaseWidget {
             await this.reload();
             this.notify('2 行を結合しました。');
         } catch (error) { this.notify(this.errorMessage(error)); }
-    }
-
-    protected updateSelectionMerge(): void {
-        const result = canMergeRows(this.rows, this.selection.selected);
-        this.selectionMerge.disabled = !result.ok;
-        this.selectionMerge.title = result.ok ? '選択した隣接行を結合' : ('reason' in result ? result.reason : '選択した行を結合できません。');
-        const selectedId = this.selection.selected.length === 1 ? this.selection.selected[0] : undefined;
-        const rowIndex = selectedId ? this.rows.findIndex(row => row.id === selectedId) : -1;
-        const row = this.rows[rowIndex];
-        const next = this.rows[rowIndex + 1];
-        const mergeNext = row && next ? canMergeRows(this.rows, [row.id, next.id])
-            : { ok: false as const, reason: row ? '次の行がありません。' : '1 行だけ選択してください。' };
-        this.selectionMergeNext.disabled = !mergeNext.ok;
-        this.selectionMergeNext.title = mergeNext.ok ? '選択行を次の行と結合'
-            : ('reason' in mergeNext ? mergeNext.reason : '次の行と結合できません。');
     }
 
     protected openFillerPop(anchor: HTMLElement, row: DaihonRow, wordIndex: number): void {
@@ -4602,7 +4566,10 @@ export class AkariDaihonWidget extends BaseWidget {
     }
 
     protected handleRowShortcut(action: 'selectAll' | 'clear'): void {
-        if (action === 'selectAll') this.setSelection(selectAll(this.rowOrder()));
+        if (action === 'selectAll') {
+            this.setSelection(selectAll(this.rowOrder()));
+            if (this.selection.selected.length && !this.dockKind) this.openRowDock('template');
+        }
         else if (action === 'clear') {
             this.setSelection(clearSelection());
             if (this.dockKind && this.placedEditor.classList.contains('open')) this.closeDock();
@@ -4639,9 +4606,10 @@ export class AkariDaihonWidget extends BaseWidget {
         }
         const count = next.selected.length;
         if (this.tplButton) this.tplButton.disabled = count === 0;
-        this.selectionBar.hidden = count === 0;
-        this.selectionCount.textContent = `${count} 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）`;
-        this.updateSelectionMerge();
+        if (this.dockKind === 'row') {
+            if (count === 0) this.closeDock();
+            else this.renderDock();
+        }
         if (!sync) return;
         const payload = selectionSyncPayload(this.editUri?.normalizePath().toString() ?? '', next);
         window.dispatchEvent(new CustomEvent(DAIHON_SELECTION_CHANGED_EVENT, { detail: payload }));
@@ -4910,8 +4878,9 @@ export class AkariDaihonWidget extends BaseWidget {
         this.qcButton.className = 'akari-daihon-qc ok';
         this.qcButton.textContent = 'QC ✓';
         this.selection = EMPTY_SELECTION;
-        this.selectionBar.hidden = true;
-        this.selectionCount.textContent = '';
+        this.dockKind = undefined;
+        this.placedEditor.classList.remove('open');
+        this.rowsNode.classList.remove('docked');
         this.rowsNode.replaceChildren();
         this.elements.clear();
         const empty = document.createElement('div');

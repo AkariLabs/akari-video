@@ -177,7 +177,7 @@ test('範囲変更/全体/削除は各 1 手で undo・redo。timeDomain を書�
 test('範囲カードは行に挿入せずパネル下端に重なる', () => {
   const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
   assert.match(source, /this\.rowsRegion\.append\(this\.rowsNode, this\.placedEditor\)/);
-  assert.match(source, /this\.node\.append\(header, this\.rowsRegion, this\.selectionBar, this\.footer\)/);
+  assert.match(source, /this\.node\.append\(header, this\.rowsRegion, this\.footer\)/);
   assert.match(source, /\.akari-daihon-rows-region \{ position:relative; flex:1; min-height:0; overflow:hidden/);
   assert.match(source, /\.akari-daihon-dock \{[^}]*position:absolute;[^}]*bottom:0;[^}]*height:var\(--dockh, 50%\)/);
   assert.match(source, /\.akari-daihon-rows\.docked \{ padding-bottom:calc\(var\(--dockh, 50%\) \+ 8px\)/);
@@ -275,7 +275,8 @@ function fakeNode(tag = 'div') {
   const node = { tag, dataset: {}, children: [], listeners: {}, attributes: {}, style: { setProperty() {} },
     classList: {
       toggle(name, force) { if (force ?? !classes.has(name)) classes.add(name); else classes.delete(name); },
-      add(name) { classes.add(name); }, contains(name) { return classes.has(name); }
+      add(name) { classes.add(name); }, remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); }
     }, hidden: false,
     append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } },
     appendChild(child) { child.parent = this; this.children.push(child); },
@@ -293,8 +294,9 @@ test('札の選択は同じドックの文字タブを表示する', () => {
   const oldDocument = globalThis.document;
   globalThis.document = { createElement: tag => fakeNode(tag) };
   const editor = fakeNode();
-  const tabs = fakeNode(), body = fakeNode(), title = fakeNode();
-  const instance = widget({ placedEditor: editor, dockTabsNode: tabs, dockBody: body, dockTitle: title, dockTab: 'text',
+  const tabs = fakeNode(), body = fakeNode(), title = fakeNode(), hint = fakeNode();
+  const instance = widget({ placedEditor: editor, dockTabsNode: tabs, dockBody: body, dockTitle: title,
+    dockSelectionHint: hint, dockTab: 'text',
     rowsNode: fakeNode(), renderDock: AkariDaihonWidget.prototype.renderDock, placedSelection: 'p2',
     renderPlacedEditor: AkariDaihonWidget.prototype.renderPlacedEditor });
   try {
@@ -308,11 +310,12 @@ test('札の選択は同じドックの文字タブを表示する', () => {
 test('タブ切替はドックの高さを書き換えず行リストにも挿入しない', () => {
   const oldDocument = globalThis.document;
   globalThis.document = { createElement: tag => fakeNode(tag) };
-  const editor = fakeNode(), tabs = fakeNode(), body = fakeNode(), title = fakeNode(), rowsNode = fakeNode();
+  const editor = fakeNode(), tabs = fakeNode(), body = fakeNode(), title = fakeNode(), hint = fakeNode(), rowsNode = fakeNode();
   const inlineWrites = new Map();
   editor.style.setProperty = (key, value) => inlineWrites.set(key, value);
   const rowNodes = [fakeNode(), fakeNode()]; rowsNode.append(...rowNodes);
   const instance = widget({ placedEditor: editor, dockTabsNode: tabs, dockBody: body, dockTitle: title,
+    dockSelectionHint: hint,
     rowsNode, dockKind: 'row', dockTab: 'template', selection: { selected: ['r1'], anchorId: 'r1' },
     renderDock: AkariDaihonWidget.prototype.renderDock,
     renderDockTemplates() { body.append(fakeNode()); }, renderDockLook() { body.append(fakeNode()); },
@@ -343,7 +346,8 @@ test('行の右クリックはドックを開かず、分割は境界選択モ�
     words: [{ text: 'A' }, { text: 'B' }, { text: 'C' }] };
   const selections = [], replaced = [];
   const instance = widget({ rows: [row], dockKind: undefined, closePop() {},
-    setSelection: next => selections.push(next),
+    selection: { selected: [], anchorId: null },
+    setSelection(next) { selections.push(next); this.selection = next; },
     openRowDock() { assert.fail('右クリックではドックを開かない'); },
     splitRow() { assert.fail('境界選択前に分割しない'); },
     replaceRenderedRow: next => replaced.push(next) });
@@ -461,7 +465,7 @@ test('つまみの高さを保存し、再生成した widget が記憶値を読
     assert.equal(styleValues.get('--dockh'), '400px');
     regionHeight = 180;
     restarted.restoreDockHeight();
-    assert.equal(styleValues.get('--dockh'), '180px', '選択バーで行リストが縮んだらその中に収める');
+    assert.equal(styleValues.get('--dockh'), '180px', '行リストの高さに収める');
     values.delete('akari.daihon.dockHeight');
     regionHeight = 400;
     restarted.restoreDockHeight();
@@ -682,6 +686,108 @@ test('添付表示モードはユーザー設定へ保存する', async () => {
   assert.equal(button['aria-pressed'], 'true');
   assert.equal(saved[0][0], 'akari.daihon.attachmentMode');
   assert.equal(saved[0][1], 'text');
+});
+
+test('行の選択は帯を作らず、ドックのヘッダーと解除を更新する', () => {
+  const oldDocument = globalThis.document, oldWindow = globalThis.window, oldEvent = globalThis.CustomEvent;
+  globalThis.document = { createElement: tag => fakeNode(tag) };
+  globalThis.window = { dispatchEvent() {} };
+  globalThis.CustomEvent = class { constructor(type, init) { this.type = type; this.detail = init.detail; } };
+  const node = fakeNode(), editor = fakeNode(), rowsNode = fakeNode();
+  const title = fakeNode(), hint = fakeNode();
+  const instance = widget({ node, placedEditor: editor, rowsNode, dockTitle: title, dockSelectionHint: hint,
+    dockTabsNode: fakeNode(), dockBody: fakeNode(), selection: { selected: [], anchorId: null },
+    elements: new Map(), dockKind: undefined, renderDockTemplates() {}, renderDockTime() {}, renderPlacedText() {},
+    editUri: { normalizePath() { return this; }, toString: () => 'file:///project/edit.json' },
+    commands: { executeCommand: async () => {} } });
+  try {
+    instance.setSelection({ selected: ['r1'], anchorId: 'r1' }, false);
+    instance.openRowDock('template');
+    assert.equal(title.textContent, '発話1');
+    assert.equal(hint.hidden, false);
+    assert.equal(descendants(node).filter(child => child.className === 'akari-daihon-selbar').length, 0);
+    instance.dockTab = 'time';
+    instance.setSelection({ selected: ['r1', 'r2', 'r3'], anchorId: 'r1' }, false);
+    assert.equal(title.textContent, '3 行を選択中');
+    assert.equal(instance.dockTab, 'time');
+    assert.equal(descendants(node).filter(child => child.className === 'akari-daihon-selbar').length, 0);
+    instance.dismissDock();
+    assert.deepEqual(instance.selection.selected, []);
+    assert.equal(instance.dockKind, undefined);
+    instance.handleRowShortcut('selectAll');
+    assert.equal(instance.dockKind, 'row');
+    assert.equal(instance.dockTab, 'template');
+    instance.dismissDock();
+    instance.setSelection({ selected: ['r1'], anchorId: 'r1' }, false);
+    assert.equal(instance.dockKind, undefined, '外部同期の選択ではドックを開かない');
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+    if (oldEvent === undefined) delete globalThis.CustomEvent; else globalThis.CustomEvent = oldEvent;
+  }
+  const source = readFileSync(new URL('../src/browser/daihon/akari-daihon-widget.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /akari-daihon-selbar|selectionBar\s*=|selectionCount\s*=/);
+  assert.match(source, /this\.dockSelectionHint\.textContent = 'Shift=範囲 \/ ⌘=追加'/);
+  assert.match(source, /dockClose\.addEventListener\('click', \(\) => this\.dismissDock\(\)\)/);
+  assert.match(source, /if \(this\.selection\.selected\.length && !this\.dockKind\) this\.openRowDock\('template'\)/);
+});
+
+test('複数行の右クリックは選択を保ち、結合・発話・カットの書き込み経路へ届く', async () => {
+  const oldDocument = globalThis.document, oldWindow = globalThis.window;
+  const menus = [];
+  globalThis.document = { createElement: tag => fakeNode(tag), body: { appendChild: menu => menus.push(menu) } };
+  globalThis.window = { innerWidth: 800, innerHeight: 600 };
+  const calls = { merge: [], fields: [], cuts: [] }, histories = [];
+  const rows = widget().rows.slice(1, 4).map(row => ({ ...row,
+    words: [{ text: '発話', start: row.start + .2, end: row.end - .2 }] }));
+  const instance = widget({ rows, selection: { selected: rows.map(row => row.id), anchorId: rows[0].id },
+    captionExtraById: new Map(),
+    closePop() {}, renderCutCells() {}, cutOperations: [], nextCutOperationId: 1,
+    setSelection(next) { this.selection = next; },
+    async withHistory(label, operation) { histories.push(label); await operation(); },
+    annotationsService: {
+      async mergeCaptions(request) { calls.merge.push(request.captionIds); },
+      async setCaptionFields(request) { calls.fields.push(request); },
+      async applyCutRanges(request) { calls.cuts.push(request); return { beforeSource: '{}', removedFrames: 3 }; }
+    } });
+  try {
+    const open = () => {
+      instance.openRowMenu({ clientX: 40, clientY: 50 }, rows[1]);
+      return menus.at(-1);
+    };
+    let menu = open();
+    assert.deepEqual(instance.selection.selected, rows.map(row => row.id));
+    assert.deepEqual(menu.children.map(button => button.dataset.rowAction),
+      ['cut', 'merge-selected', 'speech-tight']);
+    const action = (name, current = menu) => current.children.find(button => button.dataset.rowAction === name);
+    assert.equal(action('cut').textContent, '選択行をカット');
+    assert.equal(action('merge-selected').textContent, '選択行を結合');
+    assert.equal(action('merge-selected').disabled, false);
+    assert.equal(action('speech-tight').textContent, '発話にぴったり');
+    assert.equal(action('speech-tight').title, '選択行の字幕を語の発話区間だけ表示する');
+    action('speech-tight').listeners.click({ stopPropagation() {} });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls.fields.map(request => [request.captionId, request.displayTiming]),
+      rows.map(row => [row.id, 'speech-tight']));
+    menu = open(); action('cut', menu).listeners.click({ stopPropagation() {} });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(calls.cuts.length, 1);
+    assert.equal(calls.cuts[0].label, '選択行を映像ごとカット');
+    menu = open(); action('merge-selected', menu).listeners.click({ stopPropagation() {} });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(calls.merge, [rows.map(row => row.id)]);
+    assert.ok(histories.includes('字幕を結合'));
+    const separated = widget({ rows: widget().rows.slice(1, 5),
+      selection: { selected: ['r1', 'r3'], anchorId: 'r1' }, closePop() {},
+      setSelection(next) { this.selection = next; } });
+    separated.openRowMenu({ clientX: 40, clientY: 50 }, separated.rows[0]);
+    const disabled = menus.at(-1).children.find(button => button.dataset.rowAction === 'merge-selected');
+    assert.equal(disabled.disabled, true);
+    assert.match(disabled.title, /離れた行/);
+  } finally {
+    if (oldDocument === undefined) delete globalThis.document; else globalThis.document = oldDocument;
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow;
+  }
 });
 
 test('添付の範囲変更は Cmd+Z 相当の 1 手で edit.json 原文へ戻る', async () => {

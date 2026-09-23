@@ -1,0 +1,539 @@
+{
+  "phase": "rerun",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "1 1 行の選択: 帯なし・ヘッダー = 行の文言 + 説明",
+      "pass": true,
+      "detail": {
+        "selbar": {
+          "count": 0,
+          "visibleCount": 0,
+          "box": null,
+          "countText": null,
+          "countBox": null,
+          "countLines": null,
+          "buttons": []
+        },
+        "bands": [],
+        "dock": {
+          "top": 430,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 418,
+          "width": 578
+        },
+        "footer": {
+          "top": 848,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 26,
+          "width": 578
+        },
+        "head": {
+          "box": {
+            "top": 441,
+            "bottom": 472,
+            "left": 814,
+            "right": 1392,
+            "height": 31,
+            "width": 578
+          },
+          "text": "蒸らしは30 秒くらいShift=範囲 / ⌘=追加✕",
+          "lines": 2,
+          "children": [
+            {
+              "className": "akari-daihon-dock-title",
+              "text": "蒸らしは30 秒くらい",
+              "box": {
+                "top": 448.25,
+                "bottom": 464.75,
+                "left": 824,
+                "right": 1254.11,
+                "height": 16.5,
+                "width": 430.11
+              },
+              "lines": 1,
+              "whiteSpace": "nowrap",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "11px"
+            },
+            {
+              "className": "akari-daihon-dock-selection-hint",
+              "text": "Shift=範囲 / ⌘=追加",
+              "box": {
+                "top": 449,
+                "bottom": 464,
+                "left": 1260.11,
+                "right": 1353.84,
+                "height": 15,
+                "width": 93.73
+              },
+              "lines": 1,
+              "whiteSpace": "nowrap",
+              "color": "rgb(163, 163, 163)",
+              "fontSize": "10px"
+            },
+            {
+              "className": "akari-daihon-dock-close",
+              "text": "✕",
+              "box": {
+                "top": 447.75,
+                "bottom": 465.25,
+                "left": 1359.84,
+                "right": 1382,
+                "height": 17.5,
+                "width": 22.16
+              },
+              "lines": 1,
+              "whiteSpace": "normal",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "13.3333px"
+            }
+          ]
+        },
+        "selected": [
+          "c-0005"
+        ]
+      }
+    },
+    {
+      "name": "2 3 行の選択: 帯なし・ヘッダー「3 行を選択中」・ドックの高さとタブは不変",
+      "pass": true,
+      "detail": {
+        "selbar": {
+          "count": 0,
+          "visibleCount": 0,
+          "box": null,
+          "countText": null,
+          "countBox": null,
+          "countLines": null,
+          "buttons": []
+        },
+        "bands": [],
+        "dock": {
+          "top": 430,
+          "bottom": 848,
+          "left": 814,
+          "right": 1392,
+          "height": 418,
+          "width": 578
+        },
+        "footer": {
+          "top": 848,
+          "bottom": 874,
+          "left": 814,
+          "right": 1392,
+          "height": 26,
+          "width": 578
+        },
+        "head": {
+          "box": {
+            "top": 441,
+            "bottom": 472,
+            "left": 814,
+            "right": 1392,
+            "height": 31,
+            "width": 578
+          },
+          "text": "3 行を選択中Shift=範囲 / ⌘=追加✕",
+          "lines": 2,
+          "children": [
+            {
+              "className": "akari-daihon-dock-title",
+              "text": "3 行を選択中",
+              "box": {
+                "top": 448.25,
+                "bottom": 464.75,
+                "left": 824,
+                "right": 1254.11,
+                "height": 16.5,
+                "width": 430.11
+              },
+              "lines": 1,
+              "whiteSpace": "nowrap",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "11px"
+            },
+            {
+              "className": "akari-daihon-dock-selection-hint",
+              "text": "Shift=範囲 / ⌘=追加",
+              "box": {
+                "top": 449,
+                "bottom": 464,
+                "left": 1260.11,
+                "right": 1353.84,
+                "height": 15,
+                "width": 93.73
+              },
+              "lines": 1,
+              "whiteSpace": "nowrap",
+              "color": "rgb(163, 163, 163)",
+              "fontSize": "10px"
+            },
+            {
+              "className": "akari-daihon-dock-close",
+              "text": "✕",
+              "box": {
+                "top": 447.75,
+                "bottom": 465.25,
+                "left": 1359.84,
+                "right": 1382,
+                "height": 17.5,
+                "width": 22.16
+              },
+              "lines": 1,
+              "whiteSpace": "normal",
+              "color": "rgb(229, 229, 229)",
+              "fontSize": "13.3333px"
+            }
+          ]
+        },
+        "tabs": [
+          {
+            "tab": "template",
+            "label": "テンプレ",
+            "active": true
+          },
+          {
+            "tab": "look",
+            "label": "見た目",
+            "active": false
+          },
+          {
+            "tab": "anim",
+            "label": "アニメ",
+            "active": false
+          },
+          {
+            "tab": "emphasis",
+            "label": "強調",
+            "active": false
+          },
+          {
+            "tab": "time",
+            "label": "時刻",
+            "active": false
+          }
+        ],
+        "selected": [
+          "c-0003",
+          "c-0004",
+          "c-0005"
+        ]
+      }
+    },
+    {
+      "name": "3 3 行選択のまま右クリック: 選択行を結合 / 発話にぴったり / 選択行をカット・選択は 3 行のまま",
+      "pass": true,
+      "detail": {
+        "items": [
+          {
+            "text": "選択行をカット",
+            "action": "cut",
+            "disabled": false,
+            "title": null
+          },
+          {
+            "text": "選択行を結合",
+            "action": "merge-selected",
+            "disabled": false,
+            "title": "選択した隣接行を結合"
+          },
+          {
+            "text": "発話にぴったり",
+            "action": "speech-tight",
+            "disabled": false,
+            "title": "選択行の字幕を語の発話区間だけ表示する"
+          }
+        ],
+        "selected": [
+          "c-0003",
+          "c-0004",
+          "c-0005"
+        ]
+      }
+    },
+    {
+      "name": "4 右クリック「選択行を結合」→ 3 行が 1 行 → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "captionsBefore": 10,
+        "captionsAfter": 8,
+        "rowsAfter": 6,
+        "merged": {
+          "id": "c-0003",
+          "text": "豆は挽きたてが一番おいしいお湯は少し冷ましてから注ぎます蒸らしは30 秒くらい",
+          "start": 8,
+          "end": 19.2
+        },
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "5 右クリック「発話にぴったり」→ 3 行とも speech-tight → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "timings": [
+          "speech-tight",
+          "speech-tight",
+          "speech-tight"
+        ],
+        "othersChanged": [],
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "6 右クリック「選択行をカット」→ edit.json に 3 行分のカット → 既存の「↩ 戻す」で byte 一致",
+      "pass": true,
+      "detail": {
+        "label": "選択行をカット",
+        "mainItemsAfterCut": [
+          {
+            "at": 0,
+            "duration": 239,
+            "in": 0,
+            "out": 7.966666666666667
+          },
+          {
+            "at": 239,
+            "duration": 22,
+            "in": 11.233333333333334,
+            "out": 11.966666666666667
+          },
+          {
+            "at": 261,
+            "duration": 22,
+            "in": 15.233333333333333,
+            "out": 15.966666666666667
+          },
+          {
+            "at": 283,
+            "duration": 383,
+            "in": 19.233333333333334,
+            "out": 32
+          }
+        ],
+        "cmdZChangedEdit": false,
+        "restore": "byte-identical after 1 click of ↩ 戻す"
+      }
+    },
+    {
+      "name": "7 ドックのテンプレタブで 3 行に一括適用 → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "presets": [
+          "subtitle-variety",
+          "subtitle-variety",
+          "subtitle-variety"
+        ],
+        "undo": "byte-identical after 1 Cmd+Z"
+      }
+    },
+    {
+      "name": "8 1 行の右クリック: 次の行と結合 / 発話にぴったり / ここで切る が残る",
+      "pass": true,
+      "detail": {
+        "items": [
+          {
+            "text": "ここで切る",
+            "action": "cut",
+            "disabled": false,
+            "title": null
+          },
+          {
+            "text": "分割",
+            "action": "split",
+            "disabled": false,
+            "title": null
+          },
+          {
+            "text": "次の行と結合",
+            "action": "merge-next",
+            "disabled": false,
+            "title": null
+          },
+          {
+            "text": "発話にぴったり",
+            "action": "speech-tight",
+            "disabled": false,
+            "title": "選択行の字幕を語の発話区間だけ表示する"
+          },
+          {
+            "text": "下に行を足す",
+            "action": "insert-below",
+            "disabled": false,
+            "title": null
+          },
+          {
+            "text": "削除",
+            "action": "delete",
+            "disabled": false,
+            "title": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "9 解除: ドックの ✕ / Esc で選択が外れる",
+      "pass": true,
+      "detail": {
+        "close": {
+          "open": false,
+          "selected": [],
+          "selbarVisible": 0
+        },
+        "escape": {
+          "open": false,
+          "selected": [],
+          "selbarVisible": 0
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "rerun-00-idle.png",
+    "rerun-01-select-1.png",
+    "rerun-02-select-3.png",
+    "rerun-03-row-context-3.png",
+    "rerun-04-merged.png",
+    "rerun-05-speech-tight.png",
+    "rerun-06-cut.png",
+    "rerun-07-template-3.png",
+    "rerun-08-row-context-1.png",
+    "rerun-09-cleared.png"
+  ],
+  "idle": {
+    "widget": {
+      "top": 39,
+      "bottom": 874,
+      "left": 814,
+      "right": 1392,
+      "height": 835,
+      "width": 578
+    },
+    "region": {
+      "top": 145,
+      "bottom": 848,
+      "left": 814,
+      "right": 1392,
+      "height": 703,
+      "width": 578
+    },
+    "footer": {
+      "top": 848,
+      "bottom": 874,
+      "left": 814,
+      "right": 1392,
+      "height": 26,
+      "width": 578
+    },
+    "rows": {
+      "top": 145,
+      "bottom": 848,
+      "left": 814,
+      "right": 1392,
+      "height": 703,
+      "width": 578
+    },
+    "dock": {
+      "open": false,
+      "box": {
+        "top": 848,
+        "bottom": 1266,
+        "left": 814,
+        "right": 1392,
+        "height": 418,
+        "width": 578
+      },
+      "title": "",
+      "head": {
+        "box": {
+          "top": 859,
+          "bottom": 890,
+          "left": 814,
+          "right": 1392,
+          "height": 31,
+          "width": 578
+        },
+        "text": "Shift=範囲 / ⌘=追加✕",
+        "lines": 2,
+        "children": [
+          {
+            "className": "akari-daihon-dock-title",
+            "text": "",
+            "box": {
+              "top": 874.5,
+              "bottom": 874.5,
+              "left": 824,
+              "right": 1254.11,
+              "height": 0,
+              "width": 430.11
+            },
+            "lines": 1,
+            "whiteSpace": "nowrap",
+            "color": "rgb(229, 229, 229)",
+            "fontSize": "11px"
+          },
+          {
+            "className": "akari-daihon-dock-selection-hint",
+            "text": "Shift=範囲 / ⌘=追加",
+            "box": {
+              "top": 867,
+              "bottom": 882,
+              "left": 1260.11,
+              "right": 1353.84,
+              "height": 15,
+              "width": 93.73
+            },
+            "lines": 1,
+            "whiteSpace": "nowrap",
+            "color": "rgb(163, 163, 163)",
+            "fontSize": "10px"
+          },
+          {
+            "className": "akari-daihon-dock-close",
+            "text": "✕",
+            "box": {
+              "top": 865.75,
+              "bottom": 883.25,
+              "left": 1359.84,
+              "right": 1382,
+              "height": 17.5,
+              "width": 22.16
+            },
+            "lines": 1,
+            "whiteSpace": "normal",
+            "color": "rgb(229, 229, 229)",
+            "fontSize": "13.3333px"
+          }
+        ]
+      },
+      "tabs": []
+    },
+    "selbar": {
+      "count": 0,
+      "visibleCount": 0,
+      "box": null,
+      "countText": null,
+      "countBox": null,
+      "countLines": null,
+      "buttons": []
+    },
+    "relation": {
+      "dockBottom": 1266,
+      "selbarTop": null,
+      "selbarBottom": null,
+      "footerTop": 848,
+      "bandBelowDockPx": 0,
+      "bandsBetweenDockAndFooter": []
+    },
+    "selected": []
+  },
+  "final": {
+    "captionsUnchanged": true,
+    "editUnchanged": true
+  }
+}

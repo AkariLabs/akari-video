@@ -1,6 +1,6 @@
 export type DockKind = 'row' | 'placed';
 export type DockTab = 'text' | 'template' | 'look' | 'anim' | 'emphasis' | 'time';
-export type DockAction = 'cut' | 'split' | 'merge-next' | 'insert-below' | 'delete' | 'all' | 'duplicate';
+export type DockAction = 'cut' | 'split' | 'merge-selected' | 'merge-next' | 'speech-tight' | 'insert-below' | 'delete' | 'all' | 'duplicate';
 export type LookField = 'color' | 'background' | 'size' | 'spacing' | 'stroke';
 
 export function dockTabs(kind: DockKind): DockTab[] {
@@ -8,9 +8,14 @@ export function dockTabs(kind: DockKind): DockTab[] {
         : ['text', 'template', 'look', 'anim'];
 }
 
+export function rowDockTitle(count: number, text: string): string {
+    return count > 1 ? `${count} 行を選択中` : text;
+}
+
 export function dockActions(kind: DockKind, available: Partial<Record<DockAction, boolean>>): DockAction[] {
     const order: DockAction[] = kind === 'row'
-        ? ['cut', 'split', 'merge-next', 'insert-below', 'delete'] : ['all', 'duplicate', 'delete'];
+        ? ['cut', 'split', 'merge-selected', 'merge-next', 'speech-tight', 'insert-below', 'delete']
+        : ['all', 'duplicate', 'delete'];
     return order.filter(action => available[action]);
 }
 
