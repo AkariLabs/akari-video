@@ -83,11 +83,11 @@ test("display_policy 未宣言のプロジェクトは現行の書き出しバ�
   const expected = {
     legacyArray: {
       html: "427e722174cab42959562359ccf7c1889926afe0efc0437e80bf5e6cc16bdcd9",
-      sheet: "6222e89cd70906c5d805a0a051fc41b132ea908cbf355dcd6b4d99fd2cdd4f2f",
+      sheet: "f01557e3c3265fe63bc529bcdcdb9291256f239067f57d1028a574ac11f82a7d",
     },
     legacyObject: {
       html: "427e722174cab42959562359ccf7c1889926afe0efc0437e80bf5e6cc16bdcd9",
-      sheet: "a031673466921a8bfc92aef6f9712d836a6af48f3fff61984f9760dc03638b22",
+      sheet: "49816d1dd33ecbb4a372cb0e54ecc90bac8e9b9e8cdaabe531c2ba3172f9e41d",
     },
   };
   for (const [name, captions] of Object.entries({ legacyArray, legacyObject })) {

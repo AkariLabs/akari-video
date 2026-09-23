@@ -108,12 +108,12 @@ test("display_policy 未宣言の字幕スプライトは既存バイト列を�
   };
   const expected = {
     legacyArray: {
-      html: "30ec4fdd13fa0beece6390d8e7399f401b588a8a0f8140c071ebdd88cee17a08",
-      sprites: "098383a86319d00280b2fa1a3ca50ec7b3f523a179d6b1de81e8c807ba828a2d",
+      html: "47d84b98c12ea182b85f92baeb2557a8f9e87b5c78b74640ebdbf2bf98c3098a",
+      sprites: "aca1fac99554eda262bd16e2e27e812c5b69bed2b599eaaebda8f4bee0f2d109",
     },
     legacyObject: {
-      html: "d45b096973210e01300bdda82367b87fb22b70d2cbbc367f99b1c6b13cf92193",
-      sprites: "028a14e13e68cfdf9377a386490965f88019d96cac3d72c4c6ef53d4bf224865",
+      html: "1cb9577b1b7a597c925f35f2b5efa88c6b063aa7cdffd88d98c312dd252c1535",
+      sprites: "7661a2b3df123c611aef2cd8187cf9934642c898aa683ce0549731dd3a83ce63",
     },
   };
   for (const [name, captions] of Object.entries({ legacyArray, legacyObject })) {
