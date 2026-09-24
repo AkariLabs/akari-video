@@ -209,7 +209,7 @@ test('scrubBgm は既存 envelope の参照エラーを 0 dB へ隔離する', (
     assert.match(scrubBgm,
         /let envelopeDb = 0;\s*try \{[\s\S]*?envelopeDbAt\([\s\S]*?\}\s*catch \(_error\) \{\s*envelopeDb = 0;\s*\}/);
     assert.match(scrubBgm,
-        /dbToLinear\(decoded\.bgm\.gainDb \+ envelopeDb\)\s*\* fadeMultiplierAt\(timelineTime\)/);
+        /dbToLinear\(bgm\.gainDb \+ envelopeDb\)\s*\* fadeMultiplierAt\(bgm, timelineTime\)/);
 });
 
 test('seek・transport・設定変更の scrub 配線を固定する', () => {

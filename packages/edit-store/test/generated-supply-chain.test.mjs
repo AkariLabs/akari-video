@@ -44,6 +44,7 @@ const expectedSources = [
   'track-order.ts',
   'track-transition-compatibility.ts',
   'track-z.ts',
+  'transform-keyframe-edit.ts',
   'transform.ts',
   'transition-visual.ts',
   'transition-vocabulary.ts',

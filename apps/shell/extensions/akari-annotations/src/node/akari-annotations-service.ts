@@ -13,13 +13,14 @@ import { toAnchorCaptions, withoutItemAnchors } from '@akari-video/edit-store/li
 import { list as listHistory, restore as restoreHistory, snapshot as snapshotHistory } from '@akari-video/edit-store/lib/history-store';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { createReadStream, promises as fs } from 'fs';
 import { basename, dirname, join, relative, sep, extname, isAbsolute, resolve } from 'path';
+import { homedir, tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { NarrationCliManager } from './narration-cli';
-import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult } from '../common/akari-annotations-protocol';
+import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult, VoiceAvatar, VoiceCheckResult, VoiceCopyRequest, VoiceCreateRequest, VoiceScript, VoiceTryRequest, VoiceProfileSummary } from '../common/akari-annotations-protocol';
 import {
     ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
     AkariAnnotationsClient,
@@ -220,7 +221,131 @@ interface CanvasStrokeRecord {
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected readonly narrationCli = new NarrationCliManager();
+    protected readonly voiceTempPaths = new Set<string>();
+    protected readonly voiceCreatedProfiles = new Set<string>();
+    protected readonly voiceCreatedPaths = new Map<string, string>();
+    protected readonly voiceRecordings = new Map<string, { path: string; size: number }>();
     protected readonly stillGeneration = new StillGenerationManager(path => this.findGenerationAsset(path));
+
+    async voiceAvatars(): Promise<{ avatars: VoiceAvatar[] }> {
+        const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+        const creatorRoot = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/creator-root/src/index.mjs')).toString());
+        const directory = join(resolve(creatorRoot.resolveAkariHome(process.env)), 'avatars');
+        const entries = await fs.readdir(directory, { withFileTypes: true }).catch(() => []);
+        const avatars: VoiceAvatar[] = [];
+        for (const entry of entries) {
+            if (!entry.isDirectory() || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(entry.name)) continue;
+            try {
+                const avatar = JSON.parse(await fs.readFile(join(directory, entry.name, 'avatar.json'), 'utf8')) as {
+                    id?: unknown; display_name?: unknown
+                };
+                if (avatar.id !== entry.name) continue;
+                avatars.push({ id: entry.name,
+                    ...(typeof avatar.display_name === 'string' && avatar.display_name.trim()
+                        ? { displayName: avatar.display_name.trim() } : {}) });
+            } catch { /* avatar.json のないディレクトリ・壊れた定義は一覧に出さない。 */ }
+        }
+        return { avatars: avatars.sort((a, b) => a.id.localeCompare(b.id, 'en')) };
+    }
+    async voiceScripts(): Promise<{ scripts: VoiceScript[] }> { return this.narrationCli.voiceScripts(); }
+    async voiceProfiles(avatar?: string): Promise<{ profiles: VoiceProfileSummary[] }> { return this.narrationCli.voiceProfiles(avatar); }
+    async voiceCheck(request: { audioPath: string; script: VoiceScript['id'] }): Promise<VoiceCheckResult> {
+        return this.narrationCli.voiceCheck(request.audioPath, request.script);
+    }
+    async voiceCreate(request: VoiceCreateRequest): Promise<{ status: string; profile: string; path: string }> {
+        if (request.consentSelf !== true) throw new Error('本人の声への同意が必要です。');
+        const result = await this.narrationCli.voiceCreate(request);
+        this.voiceCreatedProfiles.add(result.profile);
+        this.voiceCreatedPaths.set(result.profile, result.path);
+        return result;
+    }
+    async voiceCopy(request: VoiceCopyRequest): Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }> {
+        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+        return this.narrationCli.voiceCopy(request);
+    }
+    async voiceTry(request: VoiceTryRequest): Promise<{ path: string; duration_s: number; engine: VoiceCopyRequest['engine'] }> {
+        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+        const result = await this.narrationCli.voiceTry(request);
+        this.voiceTempPaths.add(result.path);
+        return result;
+    }
+    async voiceExtend(request: { profile: string; audioPath: string }): Promise<{ path: string; score?: number; warnings?: string[] }> {
+        if (!this.voiceCreatedProfiles.has(request.profile)) throw new Error('追加録音の保存先がありません。');
+        return this.narrationCli.voiceExtend(request.profile, request.audioPath);
+    }
+    async voiceFinalize(request: { profile: string; label: string }): Promise<void> {
+        if (!this.voiceCreatedProfiles.has(request.profile)) throw new Error('保存する声がありません。');
+        await this.narrationCli.voiceRename(request.profile, request.label);
+        this.voiceCreatedProfiles.delete(request.profile);
+        this.voiceCreatedPaths.delete(request.profile);
+    }
+    async voiceStorageRoot(): Promise<{ root: string; home: string }> {
+        const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+        const creatorRoot = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/creator-root/src/index.mjs')).toString());
+        return { root: resolve(creatorRoot.resolveAkariHome(process.env)), home: resolve(process.env.HOME || homedir()) };
+    }
+    async voiceDefaultProfile(): Promise<string | undefined> {
+        const { root } = await this.voiceStorageRoot();
+        const avatars = await fs.readdir(join(root, 'avatars'), { withFileTypes: true }).catch(() => []);
+        for (const avatar of avatars) {
+            if (!avatar.isDirectory()) continue;
+            try {
+                const config = JSON.parse(await fs.readFile(join(root, 'avatars', avatar.name, 'voice', 'voice.json'), 'utf8')) as { default_profile?: string };
+                if (config.default_profile) return config.default_profile;
+            } catch { /* このアバターに既定の声が無い。 */ }
+        }
+        return undefined;
+    }
+    async voiceBeginRecording(extension: 'webm' | 'wav' | 'm4a' | 'mp3'): Promise<{ token: string }> {
+        if (!['webm', 'wav', 'm4a', 'mp3'].includes(extension)) throw new Error('録音形式が不正です。');
+        const directory = await fs.mkdtemp(join(tmpdir(), 'akari-voice-recording-'));
+        const path = join(directory, `recording.${extension}`);
+        await fs.writeFile(path, Buffer.alloc(0), { mode: 0o600 });
+        const token = randomUUID();
+        this.voiceRecordings.set(token, { path, size: 0 });
+        this.voiceTempPaths.add(path);
+        return { token };
+    }
+    async voiceAppendRecording(request: { token: string; chunk: string }): Promise<void> {
+        const recording = this.voiceRecordings.get(request.token);
+        if (!recording || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(request.chunk)
+            || request.chunk.length > 350_000) throw new Error('録音データが不正です。');
+        const bytes = Buffer.from(request.chunk, 'base64');
+        if (recording.size + bytes.length > 30_000_000) throw new Error('録音データが大きすぎます。');
+        await fs.appendFile(recording.path, bytes);
+        recording.size += bytes.length;
+    }
+    async voiceFinishRecording(token: string): Promise<{ path: string }> {
+        const recording = this.voiceRecordings.get(token);
+        if (!recording || recording.size === 0) throw new Error('録音データがありません。');
+        this.voiceRecordings.delete(token);
+        return { path: recording.path };
+    }
+    async voiceAbortRecording(token: string): Promise<void> {
+        const recording = this.voiceRecordings.get(token);
+        if (!recording) return;
+        this.voiceRecordings.delete(token);
+        this.voiceTempPaths.delete(recording.path);
+        await fs.rm(dirname(recording.path), { recursive: true, force: true });
+    }
+    async voiceDiscard(request: { tempPaths: string[]; profile?: string; irodoriUrl?: string }): Promise<void> {
+        try {
+            if (request.profile && this.voiceCreatedProfiles.has(request.profile)) {
+                await this.narrationCli.voiceDelete(request.profile, request.irodoriUrl);
+                this.voiceCreatedProfiles.delete(request.profile);
+                this.voiceCreatedPaths.delete(request.profile);
+            }
+        } finally {
+            for (const path of request.tempPaths) {
+                if (!this.voiceTempPaths.has(path)) continue;
+                const directory = dirname(path);
+                if (resolve(dirname(directory)) !== resolve(tmpdir()) || !basename(directory).startsWith('akari-voice-')) continue;
+                this.voiceTempPaths.delete(path);
+                for (const [token, recording] of this.voiceRecordings) if (recording.path === path) this.voiceRecordings.delete(token);
+                await fs.rm(directory, { recursive: true, force: true });
+            }
+        }
+    }
 
     async probeImageRoutes(routes?: ImageRouteState['id'][]): Promise<ImageRouteState[]> { return this.stillGeneration.probeImageRoutes(routes); }
     async startGenerateStill(request: StartGenerateStillRequest): Promise<GenerateStillResult> {

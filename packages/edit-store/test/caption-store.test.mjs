@@ -37,6 +37,17 @@ const caption = (id, start, text, extra = {}) => ({
   ...extra
 });
 
+test('background.fit は captions.json の読み書きで保持する', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '短い', {
+    text_style: { background: { color: '#111111', fit: 'frame' } }
+  })]);
+  assert.equal(parseCaptions(source).captions[0].textStyle.background.fit, 'frame');
+  const inserted = insertCaptionLine('[]', caption('c-0002', 0, '長い', {
+    textStyle: { background: { color: '#111111', fit: 'frame' } }
+  }));
+  assert.equal(JSON.parse(inserted)[0].text_style.background.fit, 'frame');
+});
+
 test('style を karaoke に設定しても edited は立たない', () => {
   const source = JSON.stringify([caption('c-0001', 0, '本文')]);
   const record = JSON.parse(updateCaptionFieldsInSource(source, 'c-0001', { style: 'karaoke' }))[0];

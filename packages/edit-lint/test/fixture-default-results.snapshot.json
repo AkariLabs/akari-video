@@ -3125,30 +3125,92 @@
       ]
     },
     "v2-audio-bgm-items-invalid": {
-      "exit_code": 1,
-      "verdict": "fail",
+      "exit_code": 0,
+      "verdict": "pass",
       "findings": [
         {
-          "severity": "error",
-          "check": "v2.audio-bgm-multiple",
-          "message": "BGM music-1 [0, 30)、music-2 [30, 60)。重なり: なし。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。",
+          "severity": "warning",
+          "check": "audio.bgm.file",
+          "message": "bgm path does not resolve to a regular file: assets/music.wav",
+          "path": "assets/music.wav"
+        },
+        {
+          "severity": "info",
+          "check": "timeline.duration-derived",
+          "message": "尺を overlays / 字幕 / 音声の終端 2 秒から導出した",
           "path": "edit.json#tracks"
         }
       ],
-      "skipped": []
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.sfx is empty; nothing to check against the music grid"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
     },
     "v2-audio-bgm-multiple-invalid": {
-      "exit_code": 1,
-      "verdict": "fail",
+      "exit_code": 0,
+      "verdict": "pass",
       "findings": [
         {
-          "severity": "error",
-          "check": "v2.audio-bgm-multiple",
-          "message": "BGM music-1 [0, 30)、music-2 [30, 60)。重なり: なし。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。",
+          "severity": "warning",
+          "check": "audio.bgm.file",
+          "message": "bgm path does not resolve to a regular file: assets/music.wav",
+          "path": "assets/music.wav"
+        },
+        {
+          "severity": "info",
+          "check": "timeline.duration-derived",
+          "message": "尺を overlays / 字幕 / 音声の終端 2 秒から導出した",
           "path": "edit.json#tracks"
         }
       ],
-      "skipped": []
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.sfx is empty; nothing to check against the music grid"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
     },
     "v2-audio-track-overlap-invalid": {
       "exit_code": 1,

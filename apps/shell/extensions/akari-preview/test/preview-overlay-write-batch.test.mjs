@@ -16,9 +16,11 @@ test('batch handler reads, resolves, lints and writes once in that order', () =>
   assert.match(handler, /catch \(error\)[\s\S]*ok: false/);
   assert.match(handler, /type: 'akari-preview-overlay-write-batch-response'[\s\S]*ok: true/);
 });
-test('single and batch handlers share the host serialization queue', () => {
-  assert.match(source, /if \(this\.isOverlayWriteRequest\(message\)\) \{\s*this\.overlayWriteTail = this\.overlayWriteTail\.then\(\(\) => this\.handleOverlayWrite\(widget, message\)\);/);
-  assert.match(source, /if \(this\.isOverlayWriteBatchRequest\(message\)\) \{\s*this\.overlayWriteTail = this\.overlayWriteTail\.then\(\(\) => this\.handleOverlayWriteBatch\(widget, message\)\);/);
+test('overlay, batch, layer and cut writes share the host serialization queue', () => {
+  for (const [guard, handler] of [
+    ['OverlayWrite', 'handleOverlayWrite'], ['OverlayWriteBatch', 'handleOverlayWriteBatch'],
+    ['LayerWrite', 'handleLayerWrite'], ['CutWrite', 'handleCutWrite']
+  ]) assert.match(source, new RegExp(`if \\(this\\.is${guard}Request\\(message\\)\\) \\{\\s*this\\.previewItemWriteTail = this\\.previewItemWriteTail\\.then\\(\\(\\) => this\\.${handler}\\(widget, message\\)\\);`));
 });
 test('batch guard requires nonempty writes and object patches; bridge matches pending response kind', () => {
   const guard = section('    protected isOverlayWriteBatchRequest(', '    protected isOverlayWriteRequest(');

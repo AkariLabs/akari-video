@@ -57,6 +57,21 @@ const handleControl = timelineMethod('handleKeyframeControl', {
     keyframeRowPropertyOf, keyframeValueAt, objectKeyframeValue, validateInspectorPerspective,
     enterFocusScope: (_rows, itemId) => ({ rootId: itemId })
 });
+
+test('inspector keyframe seats reflect explicit points at the current frame', () => {
+    const seat = inspectorMethod('keyframeSeatOptions');
+    const snapshot = { kind: 'item', id: 'card', outputStart: 0, playheadSeconds: 0,
+        keyframes: [{ t: 0, transform: { x: -58, scale: 1.12, scaleX: 1.18, scaleY: 1.08 } },
+            { t: 180, transform: { x: -58 } }] };
+    const widget = { model: { fps: 30, keyframeSelection: undefined } };
+    for (const field of ['x', 'scale', 'scaleX', 'scaleY']) {
+        assert.equal(seat.call(widget, snapshot, `transform-${field}`, 100).active, true, field);
+    }
+    assert.equal(seat.call(widget, snapshot, 'transform-rotate', 17).active, false);
+    snapshot.playheadSeconds = 3;
+    assert.equal(seat.call(widget, snapshot, 'transform-scaleX', 118).active, false);
+    assert.equal(seat.call(widget, snapshot, 'transform-x', -58).active, false);
+});
 function context() {
     return {
         document: fixture(), fps: 10, playheadT: 2, selectionModel: {},
@@ -115,6 +130,23 @@ test('leaf navigation and reveal select and scroll the single object row', async
     }
 });
 
+test('width toggle removes its existing point even when another row is selected', async () => {
+    const widget = context();
+    item(widget.document).keyframes = [
+        { t: 20, transform: { x: -58, scale: 1.12, scaleX: 1.18, scaleY: 1.08 } },
+        { t: 100, transform: { x: -58 } }
+    ];
+    widget.selectionModel.keyframeSelection = { itemId: 'visual-1', property: 'transform.scale', times: [20] };
+    assert.deepEqual(await handleControl.call(widget, {
+        action: 'toggle', itemId: 'visual-1', property: 'transform.scaleX', value: 1.18
+    }), { ok: true });
+    const point = item(widget.document).keyframes.find(value => value.t === 20).transform;
+    assert.equal(point.scaleX, undefined);
+    assert.equal(point.scale, 1.12);
+    assert.equal(point.scaleY, 1.08);
+    assert.equal(point.x, -58);
+});
+
 function inspectorMethod(name) {
     const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
     const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
@@ -151,14 +183,15 @@ function dom(callback) {
 const seatOptions = inspectorMethod('keyframeSeatOptions');
 const appendRow = inspectorMethod('appendRow');
 
-test('all crop and perspective number rows render seats using raw scalar values and row selection', () => dom(() => {
+test('all crop and perspective number rows render seats at the current point', () => dom(() => {
     for (const name of ['crop-x', 'crop-y', 'crop-w', 'crop-h',
         ...['tl', 'tr', 'bl', 'br'].flatMap(corner => ['x', 'y'].map(axis => `perspective-${corner}-${axis}`))]) {
         const requests = [];
         const property = name.replaceAll('-', '.');
         const rowProperty = keyframeRowPropertyOf(property);
         const snapshot = visualSnapshot('layer', { keyframes: [{ t: 20, crop, perspective }] });
-        const model = { keyframeSelection: { itemId: snapshot.id, property: rowProperty }, requestKeyframe: r => requests.push(r) };
+        snapshot.playheadSeconds = snapshot.outputStart + 20 / 30;
+        const model = { fps: 30, keyframeSelection: { itemId: snapshot.id, property: rowProperty }, requestKeyframe: r => requests.push(r) };
         const keyframe = seatOptions.call({ model }, snapshot, name, 0.7);
         assert.equal(keyframe.active, true);
         assert.equal(keyframe.hasKeyframes, true);

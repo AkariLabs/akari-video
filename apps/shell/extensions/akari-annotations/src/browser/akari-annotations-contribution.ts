@@ -31,12 +31,16 @@ import {
 import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
+import { AkariVoiceCloneDialog } from './voice-clone/akari-voice-clone-dialog';
+import { voiceDefaultAvatar } from '../common/voice-clone-model';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     PLACE_TEXT,
     READ_ALOUD,
+    VOICE_CREATE,
     ADD_MATERIAL_AT_PLAYHEAD,
     ADD_MATERIAL_AT_POINT,
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
@@ -180,6 +184,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     @inject(FileService)
     protected readonly fileService!: FileService;
+
+    @inject(PreferenceService)
+    protected readonly preferences!: PreferenceService;
 
     @inject(WorkspaceService)
     protected readonly workspaceService!: WorkspaceService;
@@ -344,6 +351,15 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     registerCommands(commands: CommandRegistry): void {
         this.getShortcutKeybindings().registerCommands(commands);
+        commands.registerCommand(VOICE_CREATE, {
+            execute: async (options: { avatar?: string } = {}) => {
+                const { avatars } = await this.annotationsService.voiceAvatars();
+                const avatar = voiceDefaultAvatar(avatars, options.avatar);
+                if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(avatar)) throw new Error('アバター ID が不正です。');
+                return new AkariVoiceCloneDialog(this.annotationsService, this.fileService, this.preferences,
+                    avatar, avatars.find(item => item.id === avatar)?.displayName).open();
+            }
+        });
         commands.registerCommand(PLACE_TEXT, {
             execute: async (options: PlaceTextOptions = {}, editUri?: string) => {
                 const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;

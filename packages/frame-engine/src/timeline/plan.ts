@@ -202,10 +202,9 @@ function usableKeyframeCount(keyframes: FrameEngineCut['keyframes']): number {
 }
 
 /**
- * issue #39: a cut declaring `crop`, `perspective`, or two or more usable keyframes is drawn with the
- * layer-style geometry (natural source size × scale, crop window, box-centered rotate) — the same rule
- * the shell preview (`cutHasLayerStyleVisual`) and legacy render-cut (`hasCutLayerStyleVisual`) use.
- * transform / opacity alone keep the fit-basis path untouched.
+ * A cut with crop, perspective, wipe, or two usable keyframes enters the shared visual evaluator.
+ * Transform-only keyframes keep the unkeyed fit geometry; crop/perspective/wipe use the source-sized
+ * crop-local box. The shell preview applies the same cut-only decision.
  */
 export function hasCutLayerStyleVisual(cut: Pick<FrameEngineCut, 'crop' | 'perspective' | 'keyframes' | 'motion'>): boolean {
   return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2
@@ -418,7 +417,7 @@ function interpolateFraming(
  * （cut.crop / cut.transform / cut.opacity）へ上書きする。perspective は読まない（build 時に warn 済み）。
  */
 function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): ResolvedCutVisual {
-  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform);
+  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform, true);
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
     x: finite(staticCrop.x, 0),
@@ -447,9 +446,11 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
       rotateDegrees: transform.rotateDegrees
     },
     opacity: clamp(animated?.opacity ?? finite(cut.opacity, 1), 0, 1),
-    layerStyle: {
-      crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height }
-    }
+    // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
+    ...(cut.crop || animated?.crop || cut.perspective || animated?.perspective
+      || cut.motion?.in?.preset === 'wipe' || cut.motion?.out?.preset === 'wipe'
+      ? { layerStyle: { crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height } } }
+      : {})
   };
 }
 

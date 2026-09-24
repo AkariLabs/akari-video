@@ -62,7 +62,7 @@ IRODORI_MODEL_DEVICE=mps IRODORI_CODEC_DEVICE=mps \
   `text` / `language:"Japanese"` / `speaker_voice_embedding_file_url` / `reference_text` /
   `max_new_tokens:2048` を POST する
 - 声プロファイルが無ければ先に [voice-profile-setup.md](voice-profile-setup.md) を行う
-- `FAL_KEY` は `~/.config/akari-video/credentials.env` から読む。無ければ KEY 名と置き場を案内して
+- `FAL_KEY` は `~/.akari/credentials.env` から読む（旧 `~/.config/akari-video/credentials.env` も読む）。無ければ KEY 名と置き場を案内して
   exit 1（API キー直叩き禁止・manage-connections 経由のみ。ハードルール 5）
 - 実行前に見積り（文字数 × $0.09 / 1000 字）を stderr に表示する。**`--yes` を明示しない限り送信せず
   exit 2**（費用宣言 → 明示承認、ハードルール 4）

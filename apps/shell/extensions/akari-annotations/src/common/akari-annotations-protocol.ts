@@ -15,13 +15,30 @@ export interface NarrationEngine {
 export interface NarrationVoice { id: string; label: string; default?: boolean; group?: string }
 export interface NarrationEnginesResult { version: number; engines: NarrationEngine[] }
 export interface NarrationVoicesResult { version: number; engine: string; voices: NarrationVoice[] }
+export type VoiceEngine = 'irodori' | 'fal-qwen3';
+export interface VoiceScript { id: 'quick-v1' | 'extended-v1'; text: string }
+export interface VoiceCheckResult { pass: boolean; reasons: string[]; checks: {
+    duration: { value_s: number; ok: boolean }; level: { peak_db: number; mean_db: number; ok: boolean };
+    noise: { floor_db: number; ok: boolean; warn: boolean };
+    script: { ok: boolean | 'unavailable'; score?: number; backend?: string | null; verdict?: string };
+} }
+export interface VoiceCreateRequest { avatar: string; id: string; label: string; audioPath: string;
+    script: VoiceScript['id']; consentSelf: boolean; consentCloud: boolean }
+export interface VoiceCopyRequest { profile: string; engine: VoiceEngine; irodoriUrl?: string; approved?: boolean }
+export interface VoiceTryRequest extends VoiceCopyRequest { text: string; reading?: string }
+export interface VoiceProfileSummary { id: string; avatar: string | null; label: string; engines: string[];
+    legacy?: boolean; created_at?: string | null; duration_s?: number | null;
+    copies?: Record<string, { stale?: boolean }>;
+    consent?: { self_voice?: boolean; cloud_upload?: boolean } | string;
+    verification?: { status?: string; score?: number } }
+export interface VoiceAvatar { id: string; displayName?: string }
 export interface VerifyNarrationRequest { projectRootUri: string; audio: string; text: string; reading?: string }
 export interface VerifyNarrationResult { version: number; status: 'ok'; id: string | null; score: number;
     verdict: 'ok' | 'check' | 'ng'; expected: string; heard: string;
     diffs: Array<{ expected: string; heard: string }>; backend: string; elapsed_s: number; reading?: string }
 export interface NarrationVerificationBackend { status: 'ok' | 'unavailable'; backend?: string; reason?: string }
 export interface GenerateNarrationRequest {
-    projectRootUri: string; engine: string; voice: string; speed?: number; style?: string; irodoriUrl?: string;
+    projectRootUri: string; engine: string; voice: string; profile?: string; speed?: number; style?: string; irodoriUrl?: string;
     script: string; reading: string; captionId?: string | null; t: number; approved?: boolean;
 }
 export interface GenerateNarrationResult {
@@ -841,6 +858,22 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 }
 
 export interface AkariAnnotationsService {
+    voiceAvatars(): Promise<{ avatars: VoiceAvatar[] }>;
+    voiceScripts(): Promise<{ scripts: VoiceScript[] }>;
+    voiceProfiles(avatar?: string): Promise<{ profiles: VoiceProfileSummary[] }>;
+    voiceDefaultProfile(): Promise<string | undefined>;
+    voiceStorageRoot(): Promise<{ root: string; home: string }>;
+    voiceCheck(request: { audioPath: string; script: VoiceScript['id'] }): Promise<VoiceCheckResult>;
+    voiceCreate(request: VoiceCreateRequest): Promise<{ status: string; profile: string; path: string }>;
+    voiceCopy(request: VoiceCopyRequest): Promise<{ status: string; profile: string; engine: VoiceEngine }>;
+    voiceTry(request: VoiceTryRequest): Promise<{ path: string; duration_s: number; engine: VoiceEngine }>;
+    voiceExtend(request: { profile: string; audioPath: string }): Promise<{ path: string; score?: number; warnings?: string[] }>;
+    voiceFinalize(request: { profile: string; label: string }): Promise<void>;
+    voiceBeginRecording(extension: 'webm' | 'wav' | 'm4a' | 'mp3'): Promise<{ token: string }>;
+    voiceAppendRecording(request: { token: string; chunk: string }): Promise<void>;
+    voiceFinishRecording(token: string): Promise<{ path: string }>;
+    voiceAbortRecording(token: string): Promise<void>;
+    voiceDiscard(request: { tempPaths: string[]; profile?: string; irodoriUrl?: string }): Promise<void>;
     listNarrationEngines(projectRootUri: string, irodoriUrl?: string): Promise<NarrationEnginesResult>;
     listNarrationVoices(projectRootUri: string, engine: string, irodoriUrl?: string): Promise<NarrationVoicesResult>;
     startNarrationEngine(projectRootUri: string, engine: string): Promise<{ status: string }>;

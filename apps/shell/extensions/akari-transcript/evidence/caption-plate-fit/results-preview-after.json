@@ -1,0 +1,972 @@
+{
+  "phase": "after",
+  "runs": [
+    {
+      "mode": "frame-engine",
+      "project": "p-none",
+      "background": {
+        "color": "#ff0000"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 47.92,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 47.92,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 48,
+            "plateLeft": 520,
+            "plateRow": 338,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.107
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 250.42,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 250.42,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 250,
+            "plateLeft": 419,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.556
+          }
+        }
+      ]
+    },
+    {
+      "mode": "frame-engine",
+      "project": "p-frame",
+      "background": {
+        "color": "#ff0000",
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    },
+    {
+      "mode": "frame-engine",
+      "project": "p-frame-block",
+      "background": {
+        "color": "#ff0000",
+        "mode": "block",
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 399.83,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 399.83,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 399.83,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 399.83,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    },
+    {
+      "mode": "frame-engine",
+      "project": "p-frame-pad16",
+      "background": {
+        "color": "#ff0000",
+        "padding_px": 16,
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 329,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 329,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    },
+    {
+      "mode": "frame-engine",
+      "project": "p-pad16",
+      "background": {
+        "color": "#ff0000",
+        "padding_px": 16
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 45,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 45,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 45,
+            "plateLeft": 521,
+            "plateRow": 330,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.1
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 247.5,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 247.5,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 248,
+            "plateLeft": 420,
+            "plateRow": 329,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.551
+          }
+        }
+      ]
+    },
+    {
+      "mode": "frame-engine",
+      "project": "p-frame-w100",
+      "background": {
+        "color": "#ff0000",
+        "width_pct": 100,
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": "true",
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    },
+    {
+      "mode": "legacy",
+      "project": "p-none",
+      "background": {
+        "color": "#ff0000"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 47.92,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 47.92,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 48,
+            "plateLeft": 520,
+            "plateRow": 338,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.107
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 250.42,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 250.42,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 250,
+            "plateLeft": 419,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.556
+          }
+        }
+      ]
+    },
+    {
+      "mode": "legacy",
+      "project": "p-frame",
+      "background": {
+        "color": "#ff0000",
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    },
+    {
+      "mode": "legacy",
+      "project": "p-frame-block",
+      "background": {
+        "color": "#ff0000",
+        "mode": "block",
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 399.83,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 399.83,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 399.83,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 399.83,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    },
+    {
+      "mode": "legacy",
+      "project": "p-frame-pad16",
+      "background": {
+        "color": "#ff0000",
+        "padding_px": 16,
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 329,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 329,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    },
+    {
+      "mode": "legacy",
+      "project": "p-pad16",
+      "background": {
+        "color": "#ff0000",
+        "padding_px": 16
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 45,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 45,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 45,
+            "plateLeft": 521,
+            "plateRow": 330,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.1
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 247.5,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 247.5,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 248,
+            "plateLeft": 420,
+            "plateRow": 329,
+            "plateHeightPx": 35,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.551
+          }
+        }
+      ]
+    },
+    {
+      "mode": "legacy",
+      "project": "p-frame-w100",
+      "background": {
+        "color": "#ff0000",
+        "width_pct": 100,
+        "fit": "frame"
+      },
+      "samples": [
+        {
+          "time": 0.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "短い",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        },
+        {
+          "time": 1.5,
+          "dom": {
+            "frameEngineActive": null,
+            "frameWidth": 450,
+            "frameLeft": 36,
+            "captionPlateBoxes": [
+              {
+                "left": 18,
+                "width": 414
+              }
+            ],
+            "lines": [
+              {
+                "text": "これは少し長めの字幕の行です",
+                "lineWidth": 414,
+                "beforeLeft": "0px",
+                "beforeRight": "0px",
+                "beforeWidth": 414,
+                "plateExtWidth": null,
+                "background": "rgba(0, 0, 0, 0)"
+              }
+            ]
+          },
+          "pixels": {
+            "plateWidthPx": 414,
+            "plateLeft": 337,
+            "plateRow": 337,
+            "plateHeightPx": 26,
+            "frameWidthPx": 450,
+            "frameLeft": 319,
+            "ratio": 0.92
+          }
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "after-frame-engine-p-none-0.5.png",
+    "after-frame-engine-p-none-1.5.png",
+    "after-frame-engine-p-frame-0.5.png",
+    "after-frame-engine-p-frame-1.5.png",
+    "after-frame-engine-p-frame-block-0.5.png",
+    "after-frame-engine-p-frame-block-1.5.png",
+    "after-frame-engine-p-frame-pad16-0.5.png",
+    "after-frame-engine-p-frame-pad16-1.5.png",
+    "after-frame-engine-p-pad16-0.5.png",
+    "after-frame-engine-p-pad16-1.5.png",
+    "after-frame-engine-p-frame-w100-0.5.png",
+    "after-frame-engine-p-frame-w100-1.5.png",
+    "after-legacy-p-none-0.5.png",
+    "after-legacy-p-none-1.5.png",
+    "after-legacy-p-frame-0.5.png",
+    "after-legacy-p-frame-1.5.png",
+    "after-legacy-p-frame-block-0.5.png",
+    "after-legacy-p-frame-block-1.5.png",
+    "after-legacy-p-frame-pad16-0.5.png",
+    "after-legacy-p-frame-pad16-1.5.png",
+    "after-legacy-p-pad16-0.5.png",
+    "after-legacy-p-pad16-1.5.png",
+    "after-legacy-p-frame-w100-0.5.png",
+    "after-legacy-p-frame-w100-1.5.png"
+  ],
+  "status": "measured"
+}

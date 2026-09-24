@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, readFile, copyFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile, readFile, copyFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -189,7 +189,9 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
   const priorFetch = globalThis.fetch;
   const priorRun = process.env.VOICEVOX_RUN;
   const priorCredentials = process.env.AKARI_CREDENTIALS_FILE;
+  const priorFalKey = process.env.FAL_KEY;
   try {
+    delete process.env.FAL_KEY;
     process.env.AKARI_CREDENTIALS_FILE = join(scratch, 'credentials.env');
     process.env.VOICEVOX_RUN = join(scratch, 'run');
     let up = false;
@@ -225,6 +227,175 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
     globalThis.fetch = priorFetch;
     if (priorRun === undefined) delete process.env.VOICEVOX_RUN; else process.env.VOICEVOX_RUN = priorRun;
     if (priorCredentials === undefined) delete process.env.AKARI_CREDENTIALS_FILE; else process.env.AKARI_CREDENTIALS_FILE = priorCredentials;
+    if (priorFalKey === undefined) delete process.env.FAL_KEY; else process.env.FAL_KEY = priorFalKey;
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('engines の fal availability は一時 HOME / AKARI_HOME の fal の写しだけを数える', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-fal-availability-'));
+  const inspect = async (name, { fal = false, irodori = false, legacy = false, key = true, userProfileOnly = false } = {}) => {
+    const root = join(scratch, name);
+    const home = join(root, 'home');
+    const akariHome = join(root, 'separate-akari-home');
+    const env = { AKARI_CREDENTIALS_FILE: join(root, 'missing-credentials.env'),
+      ...(userProfileOnly ? { USERPROFILE: home } : { HOME: home }),
+      ...(!userProfileOnly ? { AKARI_HOME: akariHome } : {}),
+      ...(key ? { FAL_KEY: 'test-only-key' } : {}) };
+    if (fal || irodori) {
+      const dir = join(userProfileOnly ? join(home, '.akari') : akariHome, 'avatars', 'person', 'voice', 'sample');
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, 'meta.json'), JSON.stringify({ version: 2, profile: 'sample',
+        engines: { ...(fal ? { 'fal-qwen3': { embedding_source_url: 'https://example.invalid/embedding' } } : {}),
+          ...(irodori ? { irodori: { voice_id: 'sample' } } : {}) } }));
+    }
+    if (legacy) {
+      const dir = join(home, '.config', 'akari-video', 'voice-profiles', 'old');
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, 'meta.json'), JSON.stringify({ profile: 'old', embedding_source_url: 'https://example.invalid/old' }));
+    }
+    const output = collectLogs();
+    const result = await runNarrationCommand(['engines', '--json'], { ...output,
+      engineRuntime: { env, fetchImpl: async () => ({ ok: false }), pidPath: join(root, 'missing-voicevox.pid'),
+        isProcessAlive: () => false } });
+    assert.equal(result.exitCode, 0, output.errors.join('\n'));
+    assert.equal(output.lines.length, 1);
+    assert.equal(output.lines[0].includes('test-only-key'), false);
+    return JSON.parse(output.lines[0]).engines.find(engine => engine.id === 'fal-qwen3').availability;
+  };
+  try {
+    assert.deepEqual(await inspect('new-fal', { fal: true }),
+      { state: 'available', label: '声プロファイルを使用できます', detail: { profiles_with_fal: 1 } });
+    assert.deepEqual(await inspect('irodori-only', { irodori: true }),
+      { state: 'needs', label: 'fal の写しがある声がありません（自分の声をつくる）', detail: { profiles_with_fal: 0 } });
+    assert.deepEqual(await inspect('legacy-only', { legacy: true }),
+      { state: 'available', label: '声プロファイルを使用できます', detail: { profiles_with_fal: 1 } });
+    assert.deepEqual(await inspect('empty'),
+      { state: 'needs', label: 'fal の写しがある声がありません（自分の声をつくる）', detail: { profiles_with_fal: 0 } });
+    assert.deepEqual(await inspect('no-key', { fal: true, key: false }),
+      { state: 'unconfigured', label: 'fal の鍵を登録', detail: { profiles_with_fal: 1 } });
+    assert.deepEqual(await inspect('userprofile-only', { fal: true, userProfileOnly: true }),
+      { state: 'available', label: '声プロファイルを使用できます', detail: { profiles_with_fal: 1 } });
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('壊れた meta.json があっても engines --json は fal を needs にして一覧を返す', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-broken-profile-'));
+  try {
+    const home = join(scratch, 'home');
+    const akariHome = join(scratch, 'akari');
+    const valid = join(akariHome, 'avatars', 'person', 'voice', 'valid');
+    const broken = join(home, '.config', 'akari-video', 'voice-profiles', 'broken');
+    await mkdir(valid, { recursive: true });
+    await mkdir(broken, { recursive: true });
+    await writeFile(join(valid, 'meta.json'), JSON.stringify({ version: 2, profile: 'valid',
+      engines: { 'fal-qwen3': { embedding_source_url: 'https://example.invalid/embedding' } } }));
+    await writeFile(join(broken, 'meta.json'), '{ invalid json');
+    const output = collectLogs();
+    const result = await runNarrationCommand(['engines', '--json'], { ...output,
+      engineRuntime: { env: { HOME: home, AKARI_HOME: akariHome, FAL_KEY: 'test-only-key' },
+        fetchImpl: async () => ({ ok: false }), pidPath: join(scratch, 'missing-voicevox.pid'), isProcessAlive: () => false } });
+    assert.equal(result.exitCode, 0, output.errors.join('\n'));
+    assert.equal(output.lines.length, 1);
+    const engines = JSON.parse(output.lines[0]).engines;
+    assert.deepEqual(engines.map(engine => engine.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
+    assert.equal(typeof engines[0].availability.state, 'string');
+    assert.equal(typeof engines[2].availability.state, 'string');
+    assert.deepEqual(engines[3].availability,
+      { state: 'needs', label: 'fal の写しがある声がありません（自分の声をつくる）', detail: { profiles_with_fal: 0 } });
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('voices --engine fal-qwen3 は一時 HOME / AKARI_HOME の fal の声だけを返す', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-fal-voices-'));
+  const home = join(scratch, 'home');
+  const akariHome = join(scratch, 'akari');
+  const env = { HOME: home, AKARI_HOME: akariHome };
+  const inspect = async () => {
+    const output = collectLogs();
+    const result = await runNarrationCommand(['voices', '--engine', 'fal-qwen3', '--json'], {
+      ...output, engineRuntime: { env },
+    });
+    assert.equal(result.exitCode, 0, output.errors.join('\n'));
+    assert.equal(output.lines.length, 1);
+    return JSON.parse(output.lines[0]).voices;
+  };
+  try {
+    assert.deepEqual(await inspect(), []);
+
+    const fal = join(akariHome, 'avatars', 'person', 'voice', 'new-fal');
+    const irodori = join(akariHome, 'avatars', 'person', 'voice', 'local-only');
+    await mkdir(fal, { recursive: true });
+    await mkdir(irodori, { recursive: true });
+    await writeFile(join(fal, 'meta.json'), JSON.stringify({ version: 2, label: '新しい声',
+      engines: { 'fal-qwen3': { embedding_source_url: 'https://example.invalid/new' } } }));
+    await writeFile(join(irodori, 'meta.json'), JSON.stringify({ version: 2, label: '彩だけ',
+      engines: { irodori: { voice_id: 'local-only' } } }));
+    assert.deepEqual(await inspect(), [{ id: 'new-fal', label: '新しい声' }]);
+
+    const legacy = join(home, '.config', 'akari-video', 'voice-profiles', 'old-fal');
+    await mkdir(legacy, { recursive: true });
+    await writeFile(join(legacy, 'meta.json'), JSON.stringify({ embedding_source_url: 'https://example.invalid/old' }));
+    assert.deepEqual(await inspect(), [
+      { id: 'new-fal', label: '新しい声' },
+      { id: 'old-fal', label: 'old-fal', legacy: true },
+    ]);
+
+    const broken = join(akariHome, 'avatars', 'person', 'voice', 'broken');
+    await mkdir(broken, { recursive: true });
+    await writeFile(join(broken, 'meta.json'), '{ invalid json');
+    assert.deepEqual(await inspect(), []);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test('engines の fal availability は共通鍵の新旧・指定・環境変数を反映し、鍵を表示しない', async () => {
+  const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-credentials-'));
+  const names = ['HOME', 'AKARI_HOME', 'AKARI_CREDENTIALS_FILE', 'FAL_KEY', 'VOICEVOX_RUN'];
+  const prior = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const oldFetch = globalThis.fetch;
+  try {
+    process.env.HOME = scratch;
+    process.env.AKARI_HOME = join(scratch, 'akari');
+    process.env.VOICEVOX_RUN = join(scratch, 'missing-run');
+    delete process.env.AKARI_CREDENTIALS_FILE; delete process.env.FAL_KEY;
+    globalThis.fetch = async () => ({ ok: false });
+    const newer = join(process.env.AKARI_HOME, 'credentials.env');
+    const older = join(scratch, '.config', 'akari-video', 'credentials.env');
+    const explicit = join(scratch, 'explicit.env');
+    const { mkdir } = await import('node:fs/promises');
+    await mkdir(join(scratch, '.config', 'akari-video'), { recursive: true });
+    await mkdir(process.env.AKARI_HOME, { recursive: true });
+    const inspect = async () => {
+      const output = collectLogs();
+      assert.equal((await runNarrationCommand(['engines', '--json'], { ...output,
+        engineRuntime: { pidPath: join(scratch, 'pid'), isProcessAlive: () => false } })).exitCode, 0);
+      const raw = output.lines[0];
+      for (const key of ['old-dummy', 'new-dummy', 'explicit-dummy', 'env-dummy']) assert.equal(raw.includes(key), false);
+      const engines = JSON.parse(raw).engines;
+      const state = engines.find(engine => engine.id === 'gemini-tts').availability.state;
+      if (state === 'unconfigured') assert.equal(engines.find(engine => engine.id === 'fal-qwen3').availability.state, 'unconfigured');
+      return state;
+    };
+    assert.equal(await inspect(), 'unconfigured');
+    await writeFile(older, 'FAL_KEY=old-dummy'); assert.equal(await inspect(), 'available');
+    await writeFile(newer, 'FAL_KEY=new-dummy'); assert.equal(await inspect(), 'available');
+    await writeFile(explicit, 'FAL_KEY=explicit-dummy'); process.env.AKARI_CREDENTIALS_FILE = explicit;
+    assert.equal(await inspect(), 'available');
+    process.env.FAL_KEY = 'env-dummy'; assert.equal(await inspect(), 'available');
+    delete process.env.FAL_KEY;
+    const unreadable = join(scratch, 'unreadable-credentials');
+    await mkdir(unreadable);
+    process.env.AKARI_CREDENTIALS_FILE = unreadable;
+    assert.equal(await inspect(), 'unconfigured');
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const name of names) { if (prior[name] === undefined) delete process.env[name]; else process.env[name] = prior[name]; }
     await rm(scratch, { recursive: true, force: true });
   }
 });

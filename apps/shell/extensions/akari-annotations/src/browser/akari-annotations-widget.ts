@@ -17,7 +17,9 @@ import {
 import { HOVER_POPUP_DELAY_MS, hoverPopupGeometry } from '../common/hover-popup-geometry';
 import { createCaptionHoverPreview } from '../common/caption-hover-preview';
 import { visualHoverMode } from '../common/visual-hover-mode';
-import { selectGenerationSidecarForSource, setCaptionTimingLine } from '@akari-video/edit-store';
+import { evaluatedItemTransform, resolvePreviewItemWrite, resolvePreviewItemWriteBatch,
+    selectGenerationSidecarForSource, setCaptionTimingLine,
+    type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
@@ -149,6 +151,9 @@ import {
     removeCaptionLine
 } from '../common/caption-store';
 import { captionCueOriginalStylePatch, captionCueStylePresetId, captionPresetAwareStylePatch } from './inspector/caption-style-effects';
+import { effectiveMyStyleLook, myStyleApplyNotice, placedMyStyleTextStyle,
+    replaceMyStyleLookInSource, appendMyStyleUsage, newMyStyleUid, newMyStyleSlug, myStyleOutputHeight,
+    type MyStyleUsageEntry } from './my-style-look';
 import {
     EditAudioBgm,
     EditAudioNarration,
@@ -196,6 +201,8 @@ import {
     prepareV2KeyframeDistribution,
     removeV2Keyframe,
     setV2Keyframe,
+    activateV2ItemTransformKeyframe,
+    writeV2ItemTransformAt,
     setV2SegmentEasing,
     ungroupTreeV2Item,
     updateAudioSfxPreferV2,
@@ -304,6 +311,7 @@ import {
     LibraryTransitionDragPayload,
     LibraryAssetDragPayload,
     LibraryTextStyleDragPayload,
+    LibraryMyStyleDragPayload,
     LibraryTextDragPayload,
     parseLibraryDragPayload,
     libraryAssetGhostPayload,
@@ -1169,7 +1177,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
     protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
-    protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | undefined;
+    protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | undefined;
     protected libraryTextStyleOutputDuration = 0;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
@@ -1349,11 +1357,40 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     @postConstruct()
     protected init(): void {
+        const openMyStyleSave = (event: Event): void => {
+            const id = (event as CustomEvent<{ captionId?: string }>).detail?.captionId;
+            void this.openMyStyleSaveDialog(id);
+        };
+        const applyMyStyle = (event: Event): void => { void this.applyMyStyle((event as CustomEvent).detail); };
+        window.addEventListener('akari.mystyle.open-save', openMyStyleSave);
+        window.addEventListener('akari.mystyle.apply', applyMyStyle);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener('akari.mystyle.open-save', openMyStyleSave);
+            window.removeEventListener('akari.mystyle.apply', applyMyStyle);
+        }));
         this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => { void this.finishMaterialSwap(false); }));
         this.toDispose.push({ dispose: () => { void this.finishMaterialSwap(false); } });
         if (!this.commandRegistry.getCommand(GET_TIMELINE_PLAYHEAD.id)) {
             this.toDispose.push(this.commandRegistry.registerCommand(GET_TIMELINE_PLAYHEAD, {
                 execute: () => this.playheadT
+            }));
+        }
+        if (!this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')) {
+            this.toDispose.push(this.commandRegistry.registerCommand({ id: 'akari.annotations.commitPreviewTransform' }, {
+                execute: async (editUri: string, command: PreviewItemWriteCommand | PreviewItemWriteCommand[]) => {
+                    if (!this.location?.editUri || this.normalizeUri(editUri) !== this.normalizeUri(this.location.editUri.toString())) {
+                        return false;
+                    }
+                    await this.commitEditMutation('プレビューで変形を変更', doc => {
+                        const source = JSON.stringify(doc);
+                        const resolved = Array.isArray(command)
+                            ? resolvePreviewItemWriteBatch(source, command)
+                            : resolvePreviewItemWrite(source, command);
+                        if (!resolved.candidateText) throw new Error('変形の書き込み結果がありません。');
+                        return JSON.parse(resolved.candidateText) as EditV2Document;
+                    });
+                    return true;
+                }
             }));
         }
         this.toDispose.push(this.contextKeys.onDidChange(event => {
@@ -2794,7 +2831,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.materialDragPayload = libraryAssetGhostPayload(payload);
                 return;
             }
-            if (payload?.kind === 'textstyle' || payload?.kind === 'text') {
+            if (payload?.kind === 'textstyle' || payload?.kind === 'text' || payload?.kind === 'mystyle') {
                 this.libraryTextStyleDragPayload = payload;
                 this.libraryTextStyleOutputDuration = this.editDocument
                     ? timelineDurationSeconds(this.readEdit(JSON.stringify(this.editDocument))).seconds : 0;
@@ -3552,6 +3589,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadCaptions();
                     this.hideNotice();
                     this.footer.textContent = '字幕を更新しました。';
+                    return { ok: true };
+                }
+                case 'caption-style-my-style': {
+                    const ids = [...new Set(request.targets?.map(target => {
+                        if (target.kind !== 'caption') throw new Error('字幕以外にはマイスタイルを当てられません。');
+                        return target.id;
+                    }) ?? [request.id])];
+                    const captionsUri = location.captionsUri;
+                    if (!location.editUri) throw new Error('edit.json がありません。');
+                    const editUri = location.editUri.toString();
+                    const before = (await this.fileService.readFile(captionsUri)).value.toString();
+                    const after = replaceMyStyleLookInSource(before, ids, request.value);
+                    const write = async (captionsSource: string): Promise<void> => {
+                        await this.annotationsService.writeEditSnapshot({
+                            editUri, projectRootUri: location.root.toString(),
+                            captionsUri: captionsUri.toString(), captionsSource
+                        });
+                    };
+                    await write(after);
+                    this.pushHistory({ label: 'マイスタイルを当てる',
+                        undo: async () => { await write(before); await this.reloadCaptions(); },
+                        redo: async () => { await write(after); await this.reloadCaptions(); } });
+                    await this.reloadCaptions();
+                    this.hideNotice();
+                    this.footer.textContent = 'マイスタイルを当てました。';
                     return { ok: true };
                 }
                 case 'caption-style-color':
@@ -4506,7 +4568,113 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /** 両方の入口から呼ぶ即置き。ファイルの新規作成も 1 手の履歴に含める。 */
-    async placeText(options: PlaceTextOptions = {}): Promise<string | undefined> {
+    protected async applyMyStyle(detail: { style?: { uid?: string; revision?: number;
+        parts?: Array<{ kind: string; text_style?: unknown }> }; ids?: string[] } | undefined): Promise<void> {
+        const style = detail?.style;
+        if (!style || !Array.isArray(style.parts)) return;
+        const look = style.parts.find(part => part.kind === 'look');
+        const ids = detail?.ids ?? this.selectionModel.selectedCaptionIds;
+        if (!ids.length) { this.showNotice('字幕を選んでください。'); return; }
+        if (look) {
+            const result = await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: ids[0],
+                value: (look.text_style && typeof look.text_style === 'object' ? look.text_style : {}) as Record<string, unknown>,
+                targets: ids.map(id => ({ kind: 'caption' as const, id })) });
+            if (!result.ok) { this.showNotice(result.message ?? 'スタイルを当てられませんでした。'); return; }
+            await this.recordMyStyleUsage(style, ids);
+        }
+        const notice = myStyleApplyNotice(style.parts);
+        if (notice) this.showNotice(notice);
+    }
+
+    protected async recordMyStyleUsage(style: { uid?: string; revision?: number;
+        parts?: Array<{ kind: string }> }, captionIds: readonly string[]): Promise<void> {
+        if (!this.location || !style.uid || !style.revision) return;
+        const uri = this.location.root.resolve('.akari/style-usage.json');
+        const source = await this.fileService.exists(uri) ? (await this.fileService.readFile(uri)).value.toString() : undefined;
+        const entry: MyStyleUsageEntry = { caption_ids: [...new Set(captionIds)], style_uid: style.uid,
+            revision: style.revision, parts: (style.parts ?? []).filter(part => part.kind === 'look').map(part => part.kind),
+            applied_at: new Date().toISOString() };
+        await this.fileService.createFolder(uri.parent);
+        await this.fileService.writeFile(uri, BinaryBuffer.fromString(appendMyStyleUsage(source, entry)));
+    }
+
+    protected async openMyStyleSaveDialog(captionId?: string): Promise<void> {
+        const id = captionId ?? this.selectionModel.selectedCaptionIds[0];
+        const caption = this.captions.find(item => item.id === id);
+        if (!caption) { this.showNotice('字幕を選んでください。'); return; }
+        document.querySelector('[data-akari-my-style-dialog]')?.remove();
+        const dialog = document.createElement('div');
+        dialog.setAttribute('data-akari-my-style-dialog', '');
+        dialog.setAttribute('role', 'dialog');
+        dialog.setAttribute('aria-label', 'マイスタイルに保存');
+        Object.assign(dialog.style, { position: 'fixed', zIndex: '100000', left: '50%', top: '50%',
+            transform: 'translate(-50%, -50%)', width: 'min(360px, 90vw)', padding: '16px',
+            background: 'var(--theia-editor-background)', color: 'var(--theia-foreground)',
+            border: '1px solid var(--theia-widget-border)', borderRadius: '8px', boxShadow: '0 12px 30px #0008' });
+        dialog.innerHTML = `<strong>マイスタイルに保存</strong>
+            <label style="display:block;margin-top:12px">名前<input data-akari-my-style-name style="display:block;width:100%;box-sizing:border-box" maxlength="80"></label>
+            <label style="display:block;margin-top:10px">使いどころ<textarea data-akari-my-style-when style="display:block;width:100%;box-sizing:border-box" rows="2" placeholder="どんな場面で使うか"></textarea></label>
+            <div style="margin-top:12px">保存する部品</div>
+            <label style="display:block"><input type="checkbox" data-akari-my-style-part-input="look" checked> 見た目 <small>（位置は含めない）</small></label>
+            <label style="display:block;opacity:.55"><input type="checkbox" data-akari-my-style-part-input="motion" disabled> 動き（近日）</label>
+            <label style="display:block;opacity:.55"><input type="checkbox" data-akari-my-style-part-input="sfx" disabled> 効果音（近日）</label>
+            <label style="display:block;opacity:.55"><input type="checkbox" data-akari-my-style-part-input="fx" disabled> 画面効果（近日）</label>
+            <label style="display:block;opacity:.55"><input type="checkbox" data-akari-my-style-part-input="decor" disabled> 装飾（近日）</label>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button type="button" class="theia-button secondary" data-akari-my-style-cancel>キャンセル</button><button type="button" class="theia-button main" data-akari-my-style-save>保存</button></div>`;
+        document.body.appendChild(dialog);
+        const name = dialog.querySelector<HTMLInputElement>('[data-akari-my-style-name]')!;
+        const when = dialog.querySelector<HTMLTextAreaElement>('[data-akari-my-style-when]')!;
+        const saveButton = dialog.querySelector<HTMLButtonElement>('[data-akari-my-style-save]')!;
+        name.value = caption.text.slice(0, 40) || 'マイスタイル';
+        const close = (): void => { document.removeEventListener('keydown', keyboard, true); dialog.remove(); };
+        let saving = false;
+        const save = async (): Promise<void> => {
+            if (saving) return;
+            if (!name.value.trim() || !when.value.trim()) { this.showNotice('名前と使いどころを入力してください。'); return; }
+            const lookChecked = dialog.querySelector<HTMLInputElement>('[data-akari-my-style-part-input="look"]')?.checked;
+            if (!lookChecked) { this.showNotice('保存する部品を選んでください。'); return; }
+            saving = true;
+            saveButton.disabled = true;
+            let height: number;
+            try {
+                if (!this.location?.editUri) throw new Error('edit.json がありません。');
+                height = myStyleOutputHeight((await this.fileService.readFile(this.location.editUri)).value.toString());
+            } catch (error) {
+                saving = false; saveButton.disabled = false;
+                this.showNotice(error instanceof Error ? error.message : String(error)); return;
+            }
+            const now = new Date().toISOString();
+            const style = { schema: 'akari-style', version: 1, revision: 1, uid: newMyStyleUid(),
+                id: newMyStyleSlug(name.value.trim()), name: name.value.trim(),
+                when_to_use: when.value.trim(), sample_text: caption.text, created_at: now, updated_at: now,
+                tags: [], visibility: 'private', price: null, requires: [], provenance: {},
+                license: { spdx: 'LicenseRef-user-owned', scope: 'private-owned',
+                    attribution_required: false, ai_training_allowed: false },
+                parts: [{ kind: 'look', scope: 'caption', mode: 'modify',
+                    text_style: effectiveMyStyleLook(this.defaultTextStyle, caption.textStyle, height) }] };
+            const pending = new Promise<void>((resolve, reject) => {
+                window.dispatchEvent(new CustomEvent('akari.mystyle.save', { detail: { style, resolve, reject } }));
+            });
+            void pending.then(() => { close(); this.showNotice('マイスタイルに保存しました。'); }, error => {
+                saving = false;
+                saveButton.disabled = false;
+                this.showNotice(`保存できません: ${error instanceof Error ? error.message : String(error)}`);
+            });
+        };
+        const keyboard = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') { event.preventDefault(); close(); }
+            else if (event.key === 'Enter' && dialog.contains(event.target as Node) && !event.isComposing) {
+                event.preventDefault(); void save();
+            }
+        };
+        document.addEventListener('keydown', keyboard, true);
+        dialog.querySelector('[data-akari-my-style-cancel]')?.addEventListener('click', close);
+        saveButton.addEventListener('click', () => { void save(); });
+        name.focus();
+    }
+
+    async placeText(options: PlaceTextOptions & { myStyle?: { uid?: string; revision?: number;
+        parts: Array<{ kind: string; text_style?: unknown }> } } = {}): Promise<string | undefined> {
         const location = this.location;
         if (!location?.editUri || this.placingText) return undefined;
         this.placingText = true;
@@ -4514,11 +4682,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const editSource = (await this.fileService.readFile(location.editUri)).value.toString();
             const source = await this.fileService.exists(location.captionsUri)
                 ? (await this.fileService.readFile(location.captionsUri)).value.toString() : '{"captions": []}';
-            const captions = parseCaptions(source).captions;
+            const parsedCaptions = parseCaptions(source);
+            const captions = parsedCaptions.captions;
             const duration = timelineDurationSeconds(readInternalEdit(editSource, {
                 hasCaptions: captions.length > 0, captions: toAnchorCaptions(captions)
             })).seconds;
             const caption = placeTextCaption(options, this.playheadT, duration, captions.map(item => item.id));
+            const look = options.myStyle?.parts.find(part => part.kind === 'look');
+            if (look) {
+                caption.textStyle = placedMyStyleTextStyle(caption.textStyle, look.text_style,
+                    parsedCaptions.defaultTextStyle);
+                caption.stylePreset = undefined;
+            }
             await this.withHistory('文字を置く', async () => {
                 await this.annotationsService.insertCaption({
                     captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
@@ -4531,10 +4706,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.playhead.style.left = `${this.percent(caption.start)}%`;
             await this.requestSeek(caption.start, { domain: 'output' });
             this.publishPrimaryPreviewSelection({ kind: 'caption', id: caption.id });
+            const notice = options.myStyle && myStyleApplyNotice(options.myStyle.parts);
+            if (look && options.myStyle) await this.recordMyStyleUsage(options.myStyle, [caption.id]);
+            if (notice) this.showNotice(notice);
             return caption.id;
         } catch (error) {
             const message = this.errorMessage(error);
             this.messages.warn(message);
+            if (options.myStyle && message.includes('layout')) this.showNotice(message);
             return undefined;
         } finally {
             this.placingText = false;
@@ -5113,9 +5292,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 treeSelection,
                 raw?.source?.kind === 'caption' ? raw.source.id : undefined
             );
-            this.selectionModel.snapshot = captionId
+            const selectedSnapshot = captionId
                 ? this.snapshotForSelection({ kind: 'caption', id: captionId })
                 : this.treeItemSnapshot(treeSelection, raw);
+            this.selectionModel.snapshot = this.withEvaluatedTransform?.(selectedSnapshot) ?? selectedSnapshot;
             this.selectionModel.fps = this.fps;
             return;
         }
@@ -5126,8 +5306,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.selectionModel.snapshot = undefined;
             return;
         }
-        this.selectionModel.snapshot = snapshot;
+        this.selectionModel.snapshot = this.withEvaluatedTransform?.(snapshot) ?? snapshot;
         this.selectionModel.fps = this.fps;
+    }
+
+    protected withEvaluatedTransform(snapshot: TimelineItemSelectionSnapshot | TimelineWorldSelection | undefined):
+        TimelineItemSelectionSnapshot | TimelineWorldSelection | undefined {
+        if (!snapshot || (snapshot.kind !== 'cut' && snapshot.kind !== 'layer'
+            && snapshot.kind !== 'overlay' && snapshot.kind !== 'item')) return snapshot;
+        const id = snapshot.kind === 'cut' ? this.cutItemId(snapshot.index) : snapshot.id;
+        const raw = this.rawKeyframeItem(id);
+        if (!raw || !Array.isArray(raw.keyframes) || !raw.keyframes.some((point: Record<string, unknown>) => point.transform)) {
+            return { ...snapshot, playheadSeconds: this.playheadT };
+        }
+        const frame = Math.round((this.playheadT - snapshot.outputStart) * this.fps);
+        const transform = evaluatedItemTransform(raw as never, frame);
+        if (snapshot.kind === 'overlay') {
+            return { ...snapshot, playheadSeconds: this.playheadT, payload: { ...snapshot.payload, transform } };
+        }
+        return { ...snapshot, playheadSeconds: this.playheadT, transform };
     }
 
     protected treeItemSnapshot(
@@ -6207,7 +6404,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const start = point.zone === 'header-column'
                 ? Math.max(0, this.playheadT)
                 : textStyleDropStart(point.x, rect.left, rect.width, this.viewStart, this.visibleDuration());
-            const options = textPayload.kind === 'text' ? textPlaceOptions(start) : textStylePlaceOptions(textPayload, start);
+            const options = textPayload.kind === 'textstyle' ? textStylePlaceOptions(textPayload, start)
+                : textPayload.kind === 'mystyle' ? { ...textPlaceOptions(start), myStyle: textPayload.style }
+                    : textPlaceOptions(start);
             void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, options, this.location.editUri.toString());
             return;
         }
@@ -6309,11 +6508,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return payload?.kind === 'asset' ? payload : undefined;
     }
 
-    protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | undefined {
+    protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | undefined {
         if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
         const raw = transfer.getData(LIBRARY_DRAG_MIME);
         const payload = raw ? parseLibraryDragPayload(raw) : this.libraryTextStyleDragPayload;
-        return payload?.kind === 'textstyle' || payload?.kind === 'text' ? payload : undefined;
+        return payload?.kind === 'textstyle' || payload?.kind === 'text' || payload?.kind === 'mystyle' ? payload : undefined;
     }
 
     protected updateTextStyleDropGhost(clientX: number): void {
@@ -10963,7 +11162,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected staticKeyframeValue(raw: Record<string, any> | undefined, property: KeyframeProperty): unknown {
         if (property.startsWith('transform.')) {
             const key = property.substring('transform.'.length);
-            return raw?.transform?.[key] ?? (key === 'scale' ? 1 : 0);
+            return raw?.transform?.[key] ?? (key.startsWith('scale') ? raw?.transform?.scale ?? 1 : 0);
         }
         if (property === 'crop' || property === 'perspective') return objectKeyframeValue(raw, property, 0, undefined, []);
         return raw?.[property] ?? 1;
@@ -11207,6 +11406,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return { ok: true };
             }
             if (request.action === 'write') {
+                if (property.startsWith('transform.')) {
+                    const field = property.substring('transform.'.length) as TransformField;
+                    if (typeof request.value !== 'number' || !Number.isFinite(request.value)) {
+                        throw new Error('変形の値が不正です。');
+                    }
+                    await this.commitEditMutation('変形キーフレームを変更', doc => writeV2ItemTransformAt(doc, {
+                        itemId, t, patch: { [field]: request.value! },
+                        ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
+                    }));
+                    return { ok: true };
+                }
                 if (property !== 'crop' && property !== 'perspective') {
                     throw new Error('数値行の書き込み対象が不正です。');
                 }
@@ -11227,10 +11437,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
                 await this.removeSelectedKeyframes();
             } else {
-                await this.setTimelineKeyframe(itemId, property, t,
-                    property === 'crop' || property === 'perspective'
-                        ? objectKeyframeValue(raw, request.property, t, request.value, points)
-                        : request.value ?? this.staticKeyframeValue(raw, property));
+                if (property.startsWith('transform.')) {
+                    await this.commitEditMutation('キーフレームを打つ', doc => activateV2ItemTransformKeyframe(doc, {
+                        itemId, t, field: property.substring('transform.'.length) as TransformField,
+                        ...(this.hydratedKeyframes(itemId) ? { hydratedPoints: this.hydratedKeyframes(itemId) } : {})
+                    }));
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId, property, times: [t],
+                        easing: this.segmentEasingAt(itemId, property, t)
+                    };
+                } else {
+                    await this.setTimelineKeyframe(itemId, property, t,
+                        property === 'crop' || property === 'perspective'
+                            ? objectKeyframeValue(raw, request.property, t, request.value, points)
+                            : request.value ?? this.staticKeyframeValue(raw, property));
+                }
             }
             return { ok: true };
         } catch (error) {
@@ -12147,7 +12368,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected commitEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
+            captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         if (!options?.trial && this.materialSwap) {
             return this.finishMaterialSwap(false).then(() => this.commitEditMutation(label, mutate, options));
@@ -12160,7 +12382,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async performEditMutation(
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
-        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean; captions?: { before: string; after: string } }
+        options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
+            captions?: { before: string; after: string } }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
@@ -17010,6 +17233,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.visualPlaying = request.playing;
         this.visualThumbnails.setPaused(this.visualPlaying || this.visualPointerDown);
         this.playheadT = Math.max(0, request.time!);
+        if (this.selectionModel.snapshot && !request.playing
+            && ['cut', 'layer', 'overlay', 'item', 'world'].includes(this.selectionModel.snapshot.kind)) {
+            const current = this.selectionModel.snapshot;
+            const updated = this.withEvaluatedTransform(current as TimelineItemSelectionSnapshot | TimelineWorldSelection);
+            if (updated !== current) this.selectionModel.snapshot = updated;
+        }
         const inspectorSnapshot = this.selectionModel.snapshot;
         if (inspectorSnapshot?.kind === 'audio') {
             (inspectorSnapshot as AudioSelectionSnapshot).playheadSeconds = this.playheadT;

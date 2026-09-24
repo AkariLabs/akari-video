@@ -1,0 +1,676 @@
+{
+  "fixture": {
+    "output": [
+      640,
+      360
+    ],
+    "source": [
+      100,
+      160
+    ],
+    "video": "H.264",
+    "sampleSeconds": 1
+  },
+  "tolerance": {
+    "selectionCornerPx": 0.5,
+    "previewContent": "exact raw pixels in screenshot crop x=22,y=90,w=486,h=273",
+    "export": "PNG byte equality"
+  },
+  "groups": [
+    {
+      "media": "still",
+      "before": {
+        "zero": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "one": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "two-same": {
+          "nw": {
+            "x": 380.0625,
+            "y": 276.5
+          },
+          "ne": {
+            "x": 503.9375,
+            "y": 276.5
+          },
+          "se": {
+            "x": 503.9375,
+            "y": 476.5
+          },
+          "sw": {
+            "x": 380.0625,
+            "y": 476.5
+          }
+        },
+        "two-different": {
+          "nw": {
+            "x": 380.0625,
+            "y": 276.5
+          },
+          "ne": {
+            "x": 503.9375,
+            "y": 276.5
+          },
+          "se": {
+            "x": 503.9375,
+            "y": 476.5
+          },
+          "sw": {
+            "x": 380.0625,
+            "y": 476.5
+          }
+        }
+      },
+      "after": {
+        "zero": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "one": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "two-same": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "two-different": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        }
+      },
+      "screenshots": {
+        "before": {
+          "zero": "086e7d0c949b2272031f422076438b4b",
+          "one": "086e7d0c949b2272031f422076438b4b",
+          "two-same": "3a9dc6aae110a52dfa1112c8fc6254b0",
+          "two-different": "3a9dc6aae110a52dfa1112c8fc6254b0"
+        },
+        "after": {
+          "zero": "086e7d0c949b2272031f422076438b4b",
+          "one": "086e7d0c949b2272031f422076438b4b",
+          "two-same": "086e7d0c949b2272031f422076438b4b",
+          "two-different": "086e7d0c949b2272031f422076438b4b"
+        }
+      },
+      "afterMaxCornerDeltaPx": 0,
+      "afterPreviewContentExact": true
+    },
+    {
+      "media": "video",
+      "before": {
+        "zero": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "one": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "two-same": {
+          "nw": {
+            "x": 380.0625,
+            "y": 276.5
+          },
+          "ne": {
+            "x": 503.9375,
+            "y": 276.5
+          },
+          "se": {
+            "x": 503.9375,
+            "y": 476.5
+          },
+          "sw": {
+            "x": 380.0625,
+            "y": 476.5
+          }
+        },
+        "two-different": {
+          "nw": {
+            "x": 380.0625,
+            "y": 276.5
+          },
+          "ne": {
+            "x": 503.9375,
+            "y": 276.5
+          },
+          "se": {
+            "x": 503.9375,
+            "y": 476.5
+          },
+          "sw": {
+            "x": 380.0625,
+            "y": 476.5
+          }
+        }
+      },
+      "after": {
+        "zero": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "one": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "two-same": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        },
+        "two-different": {
+          "nw": {
+            "x": 37.5,
+            "y": 149.625
+          },
+          "ne": {
+            "x": 846.5,
+            "y": 149.625
+          },
+          "se": {
+            "x": 846.5,
+            "y": 603.375
+          },
+          "sw": {
+            "x": 37.5,
+            "y": 603.375
+          }
+        }
+      },
+      "screenshots": {
+        "before": {
+          "zero": "f29d1217d3bdf04890b50698040c6e6b",
+          "one": "f29d1217d3bdf04890b50698040c6e6b",
+          "two-same": "498fc3445c14cbb710876d5eab7d4ee9",
+          "two-different": "498fc3445c14cbb710876d5eab7d4ee9"
+        },
+        "after": {
+          "zero": "f29d1217d3bdf04890b50698040c6e6b",
+          "one": "f29d1217d3bdf04890b50698040c6e6b",
+          "two-same": "f29d1217d3bdf04890b50698040c6e6b",
+          "two-different": "f29d1217d3bdf04890b50698040c6e6b"
+        }
+      },
+      "afterMaxCornerDeltaPx": 0,
+      "afterPreviewContentExact": true
+    }
+  ],
+  "exportRows": [
+    {
+      "media": "still",
+      "engine": "osr",
+      "before": {
+        "zero": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61",
+        "twoSame": "cc5e78ddad256534304d02b41d81192963a42aa3a8254c2aa5fc8a8663d7b9c1"
+      },
+      "after": {
+        "zero": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61",
+        "twoSame": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61"
+      },
+      "launcherTier": 2,
+      "zeroUnchanged": true,
+      "sameEqualsZero": true,
+      "onePointRejection": true
+    },
+    {
+      "media": "still",
+      "engine": "gpu",
+      "before": {
+        "zero": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61",
+        "twoSame": "cc5e78ddad256534304d02b41d81192963a42aa3a8254c2aa5fc8a8663d7b9c1"
+      },
+      "after": {
+        "zero": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61",
+        "twoSame": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61"
+      },
+      "launcherTier": 2,
+      "zeroUnchanged": true,
+      "sameEqualsZero": true,
+      "onePointRejection": true
+    },
+    {
+      "media": "video",
+      "engine": "osr",
+      "before": {
+        "zero": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595",
+        "twoSame": "e86d87357e6df45e0ba66256d2cec2b6554336b7316f6dffcb0740202e1f032d"
+      },
+      "after": {
+        "zero": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595",
+        "twoSame": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595"
+      },
+      "launcherTier": 2,
+      "zeroUnchanged": true,
+      "sameEqualsZero": true,
+      "onePointRejection": true
+    },
+    {
+      "media": "video",
+      "engine": "gpu",
+      "before": {
+        "zero": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595",
+        "twoSame": "e86d87357e6df45e0ba66256d2cec2b6554336b7316f6dffcb0740202e1f032d"
+      },
+      "after": {
+        "zero": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595",
+        "twoSame": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595"
+      },
+      "launcherTier": 2,
+      "zeroUnchanged": true,
+      "sameEqualsZero": true,
+      "onePointRejection": true
+    }
+  ],
+  "toggles": {
+    "before": {
+      "before": {
+        "nw": {
+          "x": 37.5,
+          "y": 149.625
+        },
+        "ne": {
+          "x": 846.5,
+          "y": 149.625
+        },
+        "se": {
+          "x": 846.5,
+          "y": 603.375
+        },
+        "sw": {
+          "x": 37.5,
+          "y": 603.375
+        }
+      },
+      "after": {
+        "nw": {
+          "x": 380.0625,
+          "y": 276.5
+        },
+        "ne": {
+          "x": 503.9375,
+          "y": 276.5
+        },
+        "se": {
+          "x": 503.9375,
+          "y": 476.5
+        },
+        "sw": {
+          "x": 380.0625,
+          "y": 476.5
+        }
+      },
+      "preToggleObservation": "zero-state observation of same saved edit"
+    },
+    "after": {
+      "before": {
+        "nw": {
+          "x": 37.5,
+          "y": 149.625
+        },
+        "ne": {
+          "x": 846.5,
+          "y": 149.625
+        },
+        "se": {
+          "x": 846.5,
+          "y": 603.375
+        },
+        "sw": {
+          "x": 37.5,
+          "y": 603.375
+        }
+      },
+      "after": {
+        "nw": {
+          "x": 37.5,
+          "y": 149.625
+        },
+        "ne": {
+          "x": 846.5,
+          "y": 149.625
+        },
+        "se": {
+          "x": 846.5,
+          "y": 603.375
+        },
+        "sw": {
+          "x": 37.5,
+          "y": 603.375
+        }
+      }
+    }
+  },
+  "lifecycle": {
+    "before": {
+      "electronPid": 69049,
+      "cdpPort": 9495,
+      "cdpOwnerPid": 69049,
+      "pidMatch": true,
+      "pidGone": true,
+      "portClosed": true
+    },
+    "after": {
+      "electronPid": 47741,
+      "cdpOwnerPid": 47741,
+      "port": 9495,
+      "pidMatch": true,
+      "pidGone": true,
+      "portClosed": true
+    }
+  },
+  "staticCropBaseline": {
+    "commit": "8d96eed5",
+    "rows": [
+      {
+        "media": "still",
+        "source": [
+          100,
+          160
+        ],
+        "output": [
+          640,
+          360
+        ],
+        "crop": {
+          "x": 0.1,
+          "y": 0.1,
+          "w": 0.75,
+          "h": 0.75
+        },
+        "scale": 2.25,
+        "beforeCorners": {
+          "nw": {
+            "x": 336.4453125,
+            "y": 206.71875
+          },
+          "ne": {
+            "x": 547.546875,
+            "y": 206.71875
+          },
+          "se": {
+            "x": 547.546875,
+            "y": 546.28125
+          },
+          "sw": {
+            "x": 336.4453125,
+            "y": 546.28125
+          }
+        },
+        "afterCorners": {
+          "nw": {
+            "x": 336.4453125,
+            "y": 206.71875
+          },
+          "ne": {
+            "x": 547.546875,
+            "y": 206.71875
+          },
+          "se": {
+            "x": 547.546875,
+            "y": 546.28125
+          },
+          "sw": {
+            "x": 336.4453125,
+            "y": 546.28125
+          }
+        },
+        "maxCornerDeltaPx": 0,
+        "beforePreviewPixelMd5": "ac2b0b49c1375a975a4907effdd5b3c3",
+        "afterPreviewPixelMd5": "ac2b0b49c1375a975a4907effdd5b3c3",
+        "export": [
+          {
+            "engine": "osr",
+            "launcherTier": 2,
+            "baseSha256": "377c4c7c172ce80756601300f06c097604d857734acc52694878cb6f23cada0f",
+            "afterSha256": "377c4c7c172ce80756601300f06c097604d857734acc52694878cb6f23cada0f",
+            "byteEqual": true
+          },
+          {
+            "engine": "gpu",
+            "launcherTier": 2,
+            "baseSha256": "377c4c7c172ce80756601300f06c097604d857734acc52694878cb6f23cada0f",
+            "afterSha256": "377c4c7c172ce80756601300f06c097604d857734acc52694878cb6f23cada0f",
+            "byteEqual": true
+          }
+        ]
+      },
+      {
+        "media": "video",
+        "source": [
+          100,
+          160
+        ],
+        "output": [
+          640,
+          360
+        ],
+        "crop": {
+          "x": 0.1,
+          "y": 0.1,
+          "w": 0.75,
+          "h": 0.75
+        },
+        "scale": 2.25,
+        "beforeCorners": {
+          "nw": {
+            "x": 336.4453125,
+            "y": 206.71875
+          },
+          "ne": {
+            "x": 547.546875,
+            "y": 206.71875
+          },
+          "se": {
+            "x": 547.546875,
+            "y": 546.28125
+          },
+          "sw": {
+            "x": 336.4453125,
+            "y": 546.28125
+          }
+        },
+        "afterCorners": {
+          "nw": {
+            "x": 336.4453125,
+            "y": 206.71875
+          },
+          "ne": {
+            "x": 547.546875,
+            "y": 206.71875
+          },
+          "se": {
+            "x": 547.546875,
+            "y": 546.28125
+          },
+          "sw": {
+            "x": 336.4453125,
+            "y": 546.28125
+          }
+        },
+        "maxCornerDeltaPx": 0,
+        "beforePreviewPixelMd5": "4ef3525bfef16e9a47fe6d588ceae7ab",
+        "afterPreviewPixelMd5": "4ef3525bfef16e9a47fe6d588ceae7ab",
+        "export": [
+          {
+            "engine": "osr",
+            "launcherTier": 2,
+            "baseSha256": "ccf5ccca8227e77e4547506433fbb8d02eebca5013e12dbf026a0e588d5008c0",
+            "afterSha256": "ccf5ccca8227e77e4547506433fbb8d02eebca5013e12dbf026a0e588d5008c0",
+            "byteEqual": true
+          },
+          {
+            "engine": "gpu",
+            "launcherTier": 2,
+            "baseSha256": "ccf5ccca8227e77e4547506433fbb8d02eebca5013e12dbf026a0e588d5008c0",
+            "afterSha256": "ccf5ccca8227e77e4547506433fbb8d02eebca5013e12dbf026a0e588d5008c0",
+            "byteEqual": true
+          }
+        ]
+      }
+    ],
+    "baselineLifecycle": {
+      "electronPid": 6839,
+      "cdpOwnerPid": 6839,
+      "port": 9495,
+      "pidGone": true,
+      "portClosed": true
+    }
+  }
+}

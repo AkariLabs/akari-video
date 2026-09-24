@@ -1,0 +1,365 @@
+{
+  "mode": "before",
+  "rows": [
+    {
+      "media": "still",
+      "state": "zero",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "osr",
+          "resolved": "osr"
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            }
+          ]
+        },
+        "edit_sha256": "2b350c1aabad7fdc498ac2f1ec864922ff52453c65d092a0367082521923190a"
+      },
+      "sha256": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61",
+      "bytes": 2601
+    },
+    {
+      "media": "still",
+      "state": "zero",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "gpu",
+          "resolved": "gpu"
+        },
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            30
+          ]
+        },
+        "edit_sha256": "2b350c1aabad7fdc498ac2f1ec864922ff52453c65d092a0367082521923190a"
+      },
+      "sha256": "666470a8c29f25266495dc2b68c0311104fb8d2a03730ded8e52c85a9e0a1e61",
+      "bytes": 2601
+    },
+    {
+      "media": "still",
+      "state": "one",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 1,
+      "error": null,
+      "failure": "v2 schema requires at least 2 keyframes"
+    },
+    {
+      "media": "still",
+      "state": "one",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 1,
+      "error": null,
+      "failure": "v2 schema requires at least 2 keyframes"
+    },
+    {
+      "media": "still",
+      "state": "two-same",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "osr",
+          "resolved": "osr"
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            }
+          ]
+        },
+        "edit_sha256": "be19c298f9dc4091e6b96d4347e78e81f4c4ba7a79205be317fb786bd1811abe"
+      },
+      "sha256": "cc5e78ddad256534304d02b41d81192963a42aa3a8254c2aa5fc8a8663d7b9c1",
+      "bytes": 1329
+    },
+    {
+      "media": "still",
+      "state": "two-same",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "gpu",
+          "resolved": "gpu"
+        },
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            30
+          ]
+        },
+        "edit_sha256": "be19c298f9dc4091e6b96d4347e78e81f4c4ba7a79205be317fb786bd1811abe"
+      },
+      "sha256": "cc5e78ddad256534304d02b41d81192963a42aa3a8254c2aa5fc8a8663d7b9c1",
+      "bytes": 1329
+    },
+    {
+      "media": "still",
+      "state": "two-different",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "osr",
+          "resolved": "osr"
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            }
+          ]
+        },
+        "edit_sha256": "a3efd690559835b6f135893f5629a443862e2c3a503499bd7cf8521a6faa88c8"
+      },
+      "sha256": "cc5e78ddad256534304d02b41d81192963a42aa3a8254c2aa5fc8a8663d7b9c1",
+      "bytes": 1329
+    },
+    {
+      "media": "still",
+      "state": "two-different",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "gpu",
+          "resolved": "gpu"
+        },
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            30
+          ]
+        },
+        "edit_sha256": "a3efd690559835b6f135893f5629a443862e2c3a503499bd7cf8521a6faa88c8"
+      },
+      "sha256": "cc5e78ddad256534304d02b41d81192963a42aa3a8254c2aa5fc8a8663d7b9c1",
+      "bytes": 1329
+    },
+    {
+      "media": "video",
+      "state": "zero",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "osr",
+          "resolved": "osr"
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            }
+          ]
+        },
+        "edit_sha256": "2d2752c19c3702b896fca864a00ea164d3d63b868921f95dfa9fa55b82d630aa"
+      },
+      "sha256": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595",
+      "bytes": 2262
+    },
+    {
+      "media": "video",
+      "state": "zero",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "gpu",
+          "resolved": "gpu"
+        },
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            30
+          ]
+        },
+        "edit_sha256": "2d2752c19c3702b896fca864a00ea164d3d63b868921f95dfa9fa55b82d630aa"
+      },
+      "sha256": "e9cf4d51d4b2bf1594efce40a9655a26f87357f4d5f514cc1df48f0353110595",
+      "bytes": 2262
+    },
+    {
+      "media": "video",
+      "state": "one",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 1,
+      "error": null,
+      "failure": "v2 schema requires at least 2 keyframes"
+    },
+    {
+      "media": "video",
+      "state": "one",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 1,
+      "error": null,
+      "failure": "v2 schema requires at least 2 keyframes"
+    },
+    {
+      "media": "video",
+      "state": "two-same",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "osr",
+          "resolved": "osr"
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            }
+          ]
+        },
+        "edit_sha256": "ec6cbb8b5bf21cc6d30ff5c6f4f7d4a4759ad9515ea5e9115b22e482f9ec0b3d"
+      },
+      "sha256": "e86d87357e6df45e0ba66256d2cec2b6554336b7316f6dffcb0740202e1f032d",
+      "bytes": 1417
+    },
+    {
+      "media": "video",
+      "state": "two-same",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "gpu",
+          "resolved": "gpu"
+        },
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            30
+          ]
+        },
+        "edit_sha256": "ec6cbb8b5bf21cc6d30ff5c6f4f7d4a4759ad9515ea5e9115b22e482f9ec0b3d"
+      },
+      "sha256": "e86d87357e6df45e0ba66256d2cec2b6554336b7316f6dffcb0740202e1f032d",
+      "bytes": 1417
+    },
+    {
+      "media": "video",
+      "state": "two-different",
+      "engine": "osr",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "osr",
+          "resolved": "osr"
+        },
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            }
+          ]
+        },
+        "edit_sha256": "3fbd16c2c4f63a0521b0c57037555de84c113e519ba0867a684fb3b8ea9ae2d3"
+      },
+      "sha256": "e86d87357e6df45e0ba66256d2cec2b6554336b7316f6dffcb0740202e1f032d",
+      "bytes": 1417
+    },
+    {
+      "media": "video",
+      "state": "two-different",
+      "engine": "gpu",
+      "launcher_tier": 2,
+      "exit": 0,
+      "error": null,
+      "receipt": {
+        "engine": {
+          "requested": "gpu",
+          "resolved": "gpu"
+        },
+        "verify": {
+          "mode": "frame-engine-readback",
+          "matched": true,
+          "frameNumbers": [
+            30
+          ]
+        },
+        "edit_sha256": "3fbd16c2c4f63a0521b0c57037555de84c113e519ba0867a684fb3b8ea9ae2d3"
+      },
+      "sha256": "e86d87357e6df45e0ba66256d2cec2b6554336b7316f6dffcb0740202e1f032d",
+      "bytes": 1417
+    }
+  ]
+}

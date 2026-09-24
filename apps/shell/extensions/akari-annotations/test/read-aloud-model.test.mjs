@@ -1,6 +1,42 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationEstimate, batchNarrationEstimate, batchRetryAction, compareNarrationDuration, defaultOverflowAction, irodoriCustomVoiceMissing, prepareReadAloudEngine, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations } from '../lib/common/read-aloud-model.js';
+import { narrationEstimate, batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, orderedVoiceProfiles, prepareReadAloudEngine, readAloudPreviewPlan, readAloudProvenanceLabel, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations, voiceProfileConsent } from '../lib/common/read-aloud-model.js';
+
+test('配置後はクレジットを優先し、無ければ自分の声の名前を表示する', () => {
+    const profiles = [{ id: 'sample', label: 'サンプルの声' }];
+    assert.equal(readAloudProvenanceLabel({ credit: 'VOICEVOX:キャラ', voice: 'profile:sample' }, profiles), 'VOICEVOX:キャラ');
+    assert.equal(readAloudProvenanceLabel({ voice: 'profile:sample' }, profiles), '自分の声（サンプルの声）');
+    assert.equal(readAloudProvenanceLabel({ voice: 'profile:unknown' }, profiles), 'profile:unknown');
+});
+
+test('fal needs は鍵あり、既定の声を先頭にし同意なしは選べない', () => {
+    const engine = state => ({ id: 'fal-qwen3', availability: { state } });
+    assert.equal(falKeyAvailable(engine('needs')), true);
+    assert.equal(falKeyAvailable(engine('available')), true);
+    assert.equal(falKeyAvailable(engine('unconfigured')), false);
+    const rows = orderedVoiceProfiles([
+        { id: 'owner-ja', label: '旧', engines: [], consent: '本人' },
+        { id: 'silent', label: '無同意', engines: [] },
+        { id: 'sample', label: '既定', engines: [], consent: { self_voice: true } }
+    ], 'sample');
+    assert.deepEqual(rows.map(row => [row.profile.id, row.selectable]),
+        [['sample', true], ['owner-ja', true], ['silent', false]]);
+});
+
+test('自分の声は同意、接続、鍵、古い写しで作り手を決める', () => {
+    const profile = { id: 'p', label: '私', engines: ['irodori', 'fal-qwen3'],
+        consent: { self_voice: true }, copies: { irodori: { stale: false }, 'fal-qwen3': { stale: false } } };
+    assert.deepEqual(chooseVoiceCopy(profile, true, true), { engine: 'irodori', stale: false });
+    assert.deepEqual(chooseVoiceCopy(profile, false, true), { engine: 'fal-qwen3', stale: false });
+    profile.copies.irodori.stale = true;
+    assert.deepEqual(chooseVoiceCopy(profile, true, true), { engine: 'fal-qwen3', stale: false });
+    assert.deepEqual(chooseVoiceCopy(profile, true, false), { engine: 'irodori', stale: true });
+    assert.deepEqual(chooseVoiceCopy(profile, false, false), { stale: false });
+    assert.deepEqual(chooseVoiceCopy({ ...profile, consent: { self_voice: false } }, true, true), { stale: false });
+    assert.equal(voiceProfileConsent({ ...profile, legacy: true, consent: { self_voice: true } }), true);
+    assert.equal(voiceProfileConsent({ ...profile, legacy: true, consent: '本人の声' }), true);
+    assert.equal(voiceProfileConsent({ ...profile, legacy: true, consent: ' ' }), false);
+});
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

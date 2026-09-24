@@ -1,4 +1,45 @@
-import type { NarrationEngine, NarrationVoice } from './akari-annotations-protocol';
+import type { NarrationEngine, NarrationVoice, VoiceProfileSummary, VoiceEngine } from './akari-annotations-protocol';
+
+export function voiceProfileConsent(profile: VoiceProfileSummary): boolean {
+    return typeof profile.consent === 'string' ? profile.consent.trim().length > 0 : profile.consent?.self_voice === true;
+}
+
+/** CLI は鍵だけある環境でも needs を返すことがある。 */
+export function falKeyAvailable(engine: Pick<NarrationEngine, 'id' | 'availability'> | undefined): boolean {
+    return engine?.id === 'fal-qwen3' && engine.availability.state !== 'unconfigured';
+}
+
+export function orderedVoiceProfiles(profiles: readonly VoiceProfileSummary[], defaultProfile?: string):
+    Array<{ profile: VoiceProfileSummary; selectable: boolean }> {
+    const rows = profiles.filter(profile => !profile.legacy || !profiles.some(other => other.id === profile.id && !other.legacy));
+    const index = rows.findIndex(profile => profile.id === defaultProfile);
+    if (index > 0) rows.unshift(...rows.splice(index, 1));
+    return rows.map(profile => ({ profile, selectable: voiceProfileConsent(profile) }));
+}
+
+export function readAloudProvenanceLabel(provenance: Record<string, unknown> | undefined,
+    profiles: readonly VoiceProfileSummary[]): string {
+    const credit = typeof provenance?.credit === 'string' ? provenance.credit.trim() : '';
+    if (credit) return credit;
+    const voice = typeof provenance?.voice === 'string' ? provenance.voice : '';
+    if (voice.startsWith('profile:')) {
+        const id = voice.slice('profile:'.length);
+        const profile = profiles.find(item => item.id === id);
+        return profile ? `自分の声（${profile.label}）` : voice;
+    }
+    return voice || '—';
+}
+
+export function chooseVoiceCopy(profile: VoiceProfileSummary, irodoriAvailable: boolean, falAvailable: boolean):
+    { engine?: VoiceEngine; stale: boolean } {
+    if (!voiceProfileConsent(profile)) return { stale: false };
+    const local = profile.engines.includes('irodori');
+    const cloud = profile.engines.includes('fal-qwen3');
+    if (local && irodoriAvailable && profile.copies?.irodori?.stale !== true) return { engine: 'irodori', stale: false };
+    if (cloud && falAvailable) return { engine: 'fal-qwen3', stale: profile.copies?.['fal-qwen3']?.stale === true };
+    if (local && irodoriAvailable) return { engine: 'irodori', stale: true };
+    return { stale: false };
+}
 
 export function selectReadAloudEngine(engines: readonly NarrationEngine[], preferred?: string): NarrationEngine | undefined {
     const available = engines.filter(engine => engine.availability.state === 'available'
@@ -100,7 +141,7 @@ export function readAloudPreviewPlan(engine: NarrationEngine, reading: string): 
         needsApproval: true,
         confirm: {
             title: '費用承認',
-            msg: `$${quote.usd.toFixed(3)}（as_of ${engine.price?.as_of ?? '未確認'}）で gemini-tts（fal）に 読み原稿 ${quote.chars} 字 を送ります。費用承認しますか`,
+            msg: `$${quote.usd.toFixed(3)}（as_of ${engine.price?.as_of ?? '未確認'}）で ${engine.id === 'fal-qwen3' ? 'クラウド（fal）' : 'Gemini（fal）'} に 読み原稿 ${quote.chars} 字 を送ります。費用承認しますか`,
             ok: '費用承認する', cancel: 'キャンセル'
         }
     };

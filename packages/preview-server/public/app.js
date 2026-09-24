@@ -4225,6 +4225,7 @@ const CAPTION_STYLE_VARS = [
   '--plate-block-pad-x', '--plate-block-pad-y',
   '--plate-ext-bg', '--plate-ext-radius', '--plate-ext-width', '--plate-ext-height',
   '--plate-offset-x', '--plate-offset-y', '--plate-block-bg', '--plate-block-radius',
+  '--caption-plate-fit',
   '--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
   '--caption-translate', '--caption-scale', '--caption-rotate',
   '--caption-justify-content', '--caption-align-items',
@@ -4497,6 +4498,12 @@ function injectCaptionStyles() {
 .akari-caption__line::before { content:""; position:absolute; inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px)); z-index:-1; border-radius:var(--plate-ext-radius,10px); background:var(--plate-ext-bg,transparent); transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px)); }
 .akari-caption__block { display:flex; flex-direction:column; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); gap:var(--plate-gap,4px); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-block-radius,10px); background:var(--plate-block-bg,transparent); }
 .akari-caption__block .akari-caption__line { width:auto; max-width:none; margin:0; padding:0; border-radius:0; background:transparent; }
+.akari-caption--frame-fit .akari-caption__plate { left:4%; right:4%; width:auto; }
+.akari-caption--frame-fit .akari-caption__line { box-sizing:border-box; width:100%; max-width:none; margin:0; }
+.akari-caption--frame-fit .akari-caption__line::before { left:0; right:0; }
+.akari-caption--frame-fit .akari-caption__block { box-sizing:border-box; width:100%; max-width:none; margin:0; }
+.caption-row-plate.akari-caption-resolved.akari-caption--frame-fit { left:4%; right:4%; width:auto; box-sizing:border-box; }
+.caption-row-plate.akari-caption-resolved.akari-caption--frame-fit .akari-caption__resolved-line { box-sizing:border-box; width:100%; max-width:none; margin:0; background:var(--plate-bg,var(--plate-ext-bg,transparent)); border-radius:var(--plate-radius,var(--plate-ext-radius,0)); }
 .akari-caption--reveal .akari-caption__plate { display:grid; }
 .akari-caption__reveal-group { grid-area:1 / 1; display:flex; flex-direction:column; gap:4px; opacity:0; animation:akari-caption-reveal var(--akari-reveal-dur,0.2s) var(--akari-reveal-delay,0s) linear both paused; }
 @keyframes akari-caption-reveal {
@@ -4613,6 +4620,10 @@ function renderCaptionRow(active, captionPlate) {
   // 座布団 block モード: 行群を 1 枚板ラッパーで包む（shell / render-cut と同じ構造）
   const blockMode = (active.text_style?.background?.mode
     ?? summary?.default_text_style?.background?.mode) === 'block';
+  const frameFit = active.style_vars?.['--caption-plate-fit'] === 'frame'
+    || (active.text_style?.background?.fit ?? summary?.default_text_style?.background?.fit) === 'frame';
+  const frameClass = frameFit ? ' akari-caption--frame-fit' : '';
+  captionPlate.classList.toggle('akari-caption--frame-fit', frameFit);
   const wrapPlate = inner => blockMode ? `<div class="akari-caption__block">${inner}</div>` : inner;
   injectCaptionStyles();
   if (captionsResolvedTimeline && active.word_styles?.length && active.words?.length) {
@@ -4624,7 +4635,7 @@ function renderCaptionRow(active, captionPlate) {
     const start = Number(active.start) || 0;
     const end = Number(active.end) || (words[words.length - 1]?.end ?? start);
     const lines = groupWordsIntoDisplayLines(words, captionLineBudget());
-    captionPlate.innerHTML = `<div class="akari-caption akari-caption--reveal"><div class="akari-caption__plate">${
+    captionPlate.innerHTML = `<div class="akari-caption akari-caption--reveal${frameClass}"><div class="akari-caption__plate">${
       wrapPlate(renderRevealGroupsMarkup(lines, start, end, line =>
         line.map(w => {
           const ew = findMatchingEmphasis(w, emphasisWords);
@@ -4636,7 +4647,7 @@ function renderCaptionRow(active, captionPlate) {
   } else if (wordStyle && hasWords) {
     const start = Number(active.start) || 0;
     const lines = groupWordsIntoLines(words, captionLineBudget());
-    captionPlate.innerHTML = `<div class="akari-caption akari-caption--${wordStyle}"><div class="akari-caption__plate">${
+    captionPlate.innerHTML = `<div class="akari-caption akari-caption--${wordStyle}${frameClass}"><div class="akari-caption__plate">${
       wrapPlate(lines.map(line => `<p class="akari-caption__line">${
         line.map(w => {
           const ew = findMatchingEmphasis(w, emphasisWords);
@@ -4652,7 +4663,7 @@ function renderCaptionRow(active, captionPlate) {
     } else {
       // 無指定字幕は render-cut のプレーン fragment と同じ静的な行分割で描く
       const lines = splitCaptionLines(displayText, captionLineBudgetFor(active));
-      captionPlate.innerHTML = `<div class="akari-caption"><div class="akari-caption__plate">${
+      captionPlate.innerHTML = `<div class="akari-caption${frameClass}"><div class="akari-caption__plate">${
         wrapPlate(lines.map(line => `<p class="akari-caption__line">${esc(line)}</p>`).join(''))
       }</div></div>`;
     }

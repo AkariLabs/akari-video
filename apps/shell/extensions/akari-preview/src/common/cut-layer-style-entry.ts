@@ -68,12 +68,14 @@ export function cutLayerStyleEntryTransform(
 export function cutLayerStyleBoxPx(
     natural: CutLayerStyleSize,
     crop: CutLayerStyleCrop,
-    scale: number
+    scale: number,
+    scaleY?: number
 ): CutLayerStyleSize {
     const width = Number.isFinite(natural.width) && natural.width > 0 ? natural.width : 0;
     const height = Number.isFinite(natural.height) && natural.height > 0 ? natural.height : 0;
     const cropW = Number.isFinite(crop.w) && crop.w > 0 ? Math.min(1, crop.w) : 1;
     const cropH = Number.isFinite(crop.h) && crop.h > 0 ? Math.min(1, crop.h) : 1;
     const factor = Number.isFinite(scale) && scale > 0 ? scale : 1;
-    return { width: width * cropW * factor, height: height * cropH * factor };
+    const yFactor = Number.isFinite(scaleY) && scaleY! > 0 ? scaleY! : factor;
+    return { width: width * cropW * factor, height: height * cropH * yFactor };
 }

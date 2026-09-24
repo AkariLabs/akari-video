@@ -56,6 +56,7 @@ export interface WebAudioSidecar {
 
 export interface WebAudioScheduleDeclaration {
     bgm?: WebAudioDecodedItem;
+    bgms?: WebAudioDecodedItem[];
     sfx?: WebAudioDecodedItem[];
     narration?: WebAudioDecodedItem[];
     speech?: WebAudioSpeechDeclaration[];
@@ -203,26 +204,27 @@ export function buildWebAudioSchedule(input: WebAudioScheduleInput): WebAudioSch
     };
     const items: WebAudioScheduledItem[] = [];
 
-    const bgm = audio.bgm;
-    if (bgm && isAudioItemAudible(undefined, bgm)) {
-        const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
-        if (scheduled) items.push(scheduled);
-        if (bgm.ducking === true && finitePositive(bgm.durationSec)) {
-            const clipStartSec = typeof bgm.t === 'number' && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-            const clipDurationSec = finitePositive(bgm.duration)
-                ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-            if (clipDurationSec > 0) {
-                warnUnduckedTarget(typeof bgm.id === 'string' && bgm.id ? bgm.id : 'bgm',
-                    clipStartSec, clipDurationSec);
+    for (const bgm of audio.bgms ?? (audio.bgm ? [audio.bgm] : [])) {
+        if (bgm && isAudioItemAudible(undefined, bgm)) {
+            const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings);
+            if (scheduled) items.push(scheduled);
+            if (bgm.ducking === true && finitePositive(bgm.durationSec)) {
+                const clipStartSec = typeof bgm.t === 'number' && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+                const clipDurationSec = finitePositive(bgm.duration)
+                    ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+                if (clipDurationSec > 0) {
+                    warnUnduckedTarget(typeof bgm.id === 'string' && bgm.id ? bgm.id : 'bgm',
+                        clipStartSec, clipDurationSec);
+                }
             }
-        }
-        if (bgm.ducking === undefined && duckKeys.length > 0 && finitePositive(bgm.durationSec)) {
-            const clipStartSec = typeof bgm.t === 'number' && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-            const clipDurationSec = finitePositive(bgm.duration)
-                ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-            if (clipDurationSec > 0 && duckIntervals.some(interval =>
-                interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
-                warnings.push(`audio bgm ${typeof bgm.id === 'string' && bgm.id ? bgm.id : 'bgm'} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+            if (bgm.ducking === undefined && duckKeys.length > 0 && finitePositive(bgm.durationSec)) {
+                const clipStartSec = typeof bgm.t === 'number' && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+                const clipDurationSec = finitePositive(bgm.duration)
+                    ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+                if (clipDurationSec > 0 && duckIntervals.some(interval =>
+                    interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+                    warnings.push(`audio bgm ${typeof bgm.id === 'string' && bgm.id ? bgm.id : 'bgm'} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+                }
             }
         }
     }

@@ -9,6 +9,7 @@ export type LegacyAudioDeclaration = Record<string, unknown>;
  */
 export interface LegacyAudioView {
     bgm?: LegacyAudioDeclaration;
+    bgms?: LegacyAudioDeclaration[];
     sfx: LegacyAudioDeclaration[];
     narration: LegacyAudioDeclaration[];
     speech?: LegacyAudioDeclaration[];
@@ -16,7 +17,8 @@ export interface LegacyAudioView {
 
 /**
  * 内部表現の audio item だけから legacy audio 形を組み立てる純関数。
- * render-cut の互換射影と同じく legacy.index 順で処理し、bgm は単数として後勝ちにする。
+ * render-cut の互換射影と同じく legacy.index 順で処理し、BGM は開始時刻順に並べる。
+ * 単数 bgm は最初の 1 本を返す互換値。
  */
 export function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView {
     const ordered = internal.tracks
@@ -30,7 +32,8 @@ export function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView 
     const sfx: LegacyAudioDeclaration[] = [];
     const narration: LegacyAudioDeclaration[] = [];
     const speech: LegacyAudioDeclaration[] = [];
-    let bgm: LegacyAudioDeclaration | undefined;
+    const bgms: LegacyAudioDeclaration[] = [];
+    const bgmItemIds: string[] = [];
 
     for (const item of ordered) {
         if (item.legacy.value === undefined) continue;
@@ -44,15 +47,19 @@ export function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView 
                 narration.push(declaration);
                 break;
             case 'bgm':
-                bgm = declaration;
+                bgms.push(declaration);
+                bgmItemIds.push(item.id);
                 break;
             default:
                 break;
         }
     }
 
+    if (bgms.length > 1) bgms.forEach((bgm, index) => { bgm.id = bgmItemIds[index]; });
+
     return {
-        ...(bgm !== undefined ? { bgm } : {}),
+        ...(bgms.length > 1 ? { bgms: bgms.sort((a, b) => Number(a.t ?? 0) - Number(b.t ?? 0)) } : {}),
+        ...(bgms.length ? { bgm: bgms[0] } : {}),
         sfx,
         narration,
         ...(speech.length ? { speech } : {})

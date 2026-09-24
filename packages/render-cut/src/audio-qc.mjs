@@ -35,6 +35,8 @@ export const AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP = 1.5;
 // wrong, so exceeding must clear a small tolerance before it counts as a real overshoot (task
 // 2026-08-17-render-cut-true-peak-guard 裁定 A).
 export const TRUE_PEAK_EXCEEDED_TOLERANCE_DB = 0.1;
+// Keep in parity with status-core/integrity.mjs's self-contained receipt validation.
+export const INTEGRATED_LOUDNESS_TOLERANCE_LU = 1.0;
 
 export function hasExplicitTruePeakDbtp(master) {
   return typeof master?.true_peak_dbtp === "number" && Number.isFinite(master.true_peak_dbtp);
@@ -115,19 +117,17 @@ export function buildAudioQc({
   const measuredTruePeak = decoded.normalized.input_tp;
   const truePeakExceeded = typeof measuredTruePeak === "number"
     && measuredTruePeak > configured.true_peak_dbtp + TRUE_PEAK_EXCEEDED_TOLERANCE_DB;
+  const loudnessInRange = typeof decoded.normalized.input_i === "number"
+    && Math.abs(decoded.normalized.input_i - configured.integrated_lufs) <= INTEGRATED_LOUDNESS_TOLERANCE_LU;
   return {
     configured,
     filter_report: filterReport,
     decoded_measurement: decoded,
     tool_version: toolVersion,
     ...(versionError ? { tool_version_error: boundedMessage(versionError) } : {}),
-    // Deliberately stays "INCONCLUSIVE" even when truePeakExceeded is true: status-core/
-    // integrity.mjs's validateAudioQc treats any other verdict string as a structural integrity
-    // problem (closed-world check on the successful-measurement branch), so a new verdict value
-    // would misreport a legitimate receipt as malformed rather than surfacing the overshoot. The
-    // overshoot is instead an additive `warnings` entry below — readable from the receipt alone,
-    // same as the task's decision-tree fallback requires.
-    verdict: "INCONCLUSIVE",
+    verdict: loudnessInRange && typeof measuredTruePeak === "number" && !truePeakExceeded
+      && typeof toolVersion === "string" && toolVersion.trim() !== ""
+      ? "PASS" : "INCONCLUSIVE",
     ...(hasExplicitTruePeakDbtp(master) ? {
       true_peak_margin: {
         overshoot_margin_dbtp: AAC_TRUE_PEAK_OVERSHOOT_MARGIN_DBTP,

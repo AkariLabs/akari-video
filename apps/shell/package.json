@@ -379,7 +379,7 @@
     ],
     "mac": {
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "話しかけて編集する（AKARI バイブ）ためにマイクを使います。音声は端末の外へ送りません。",
+        "NSMicrophoneUsageDescription": "話しかけて編集する（AKARI バイブ）ときと、自分の声を読み上げに使うための録音にマイクを使います。録音はこの PC に保存し、クラウドで声をつくるときだけ送ります。",
         "NSSpeechRecognitionUsageDescription": "話した言葉を端末内で文字にするために使います。"
       },
       "icon": "resources/icons/icon.icns",

@@ -3,8 +3,8 @@ import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { CommandService } from '@theia/core/lib/common';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import type { AkariAnnotationsService, GenerateNarrationResult, NarrationEngine, NarrationVoice, VerifyNarrationResult } from '../../common/akari-annotations-protocol';
-import { batchNarrationEstimate, batchRetryAction, compareNarrationDuration, defaultOverflowAction, irodoriCustomVoiceMissing, narrationEstimate, prepareReadAloudEngine, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice, type OverflowChoice, type ReadAloudRow } from '../../common/read-aloud-model';
+import type { AkariAnnotationsService, GenerateNarrationResult, NarrationEngine, NarrationVoice, VerifyNarrationResult, VoiceProfileSummary } from '../../common/akari-annotations-protocol';
+import { batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, narrationEstimate, orderedVoiceProfiles, prepareReadAloudEngine, readAloudPreviewPlan, readAloudProvenanceLabel, selectReadAloudEngine, selectReadAloudVoice, voiceProfileConsent, type OverflowChoice, type ReadAloudRow } from '../../common/read-aloud-model';
 
 export interface ReadAloudTarget {
     captionIds: string[]; captionId?: string; text: string; start: number; end?: number;
@@ -46,6 +46,12 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
     protected engines: NarrationEngine[] = [];
     protected engine?: NarrationEngine;
     protected voices: NarrationVoice[] = [];
+    protected profiles: VoiceProfileSummary[] = [];
+    protected defaultProfile?: string;
+    protected selectedProfile?: VoiceProfileSummary;
+    protected voiceMode = false;
+    protected readonly profileSelect = element('select');
+    protected readonly voiceLabel = element('label', '声');
     protected result?: GenerateNarrationResult;
     protected audioUrl?: string;
     protected running = false;
@@ -84,7 +90,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         this.body.append(this.cards);
         this.voiceSelect.setAttribute('aria-label', '声');
         this.voiceSelect.addEventListener('change', () => { this.invalidate(); this.updateStyleInput(); this.updateEstimate(); void this.saveVoice(); });
-        this.body.append(element('label', '声'), this.voiceSelect);
+        this.body.append(this.voiceLabel, this.voiceSelect);
         this.speed.type = 'range'; this.speed.min = '0.5'; this.speed.max = '2'; this.speed.step = '0.05'; this.speed.value = '1';
         this.speedRow.append(element('span', '速さ '), this.speed, element('span', '1.00×'));
         this.speed.addEventListener('input', () => { this.speedRow.lastElementChild!.textContent = `${Number(this.speed.value).toFixed(2)}×`; this.invalidate(); });
@@ -149,7 +155,8 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         this.updatePreviewAvailability();
     }
     protected updatePreviewAvailability(): void {
-        this.previewButton.disabled = !this.engine || !this.voiceSelect.value || this.customVoiceMissing() || this.running;
+        this.previewButton.disabled = !this.engine || !this.voiceSelect.value || this.customVoiceMissing() || this.running
+            || this.voiceMode && !this.selectedProfile;
     }
     protected invalidate(): void {
         this.result = undefined; this.placeButton.disabled = true; this.resultNode.replaceChildren();
@@ -161,21 +168,25 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
     protected async refreshEngines(): Promise<readonly NarrationEngine[]> {
         try {
             const response = await this.service.listNarrationEngines(this.target.projectRootUri, this.irodoriUrl());
-            this.engines = response.engines.filter(engine => ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id));
-            const preferred = this.engine?.id ?? this.preferences.get<string>('akari.narration.engine', 'voicevox');
+            this.engines = response.engines.filter(engine => ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3'].includes(engine.id));
+            const fetched = await this.service.voiceProfiles();
+            this.defaultProfile = await this.service.voiceDefaultProfile();
+            const ordered = orderedVoiceProfiles(fetched.profiles, this.defaultProfile);
+            this.profiles = ordered.map(row => row.profile);
+            const preferred = this.voiceMode ? `voice:${this.selectedProfile?.id ?? ''}` : this.engine?.id ?? this.preferences.get<string>('akari.narration.engine', 'voicevox');
             const selected = selectReadAloudEngine(this.engines, preferred);
             let remoteHost = '接続先を確認';
             try { remoteHost = new URL(this.irodoriUrl()).host; } catch { /* 保存済み URL が不正でも他カードは描画する。 */ }
             this.cards.replaceChildren();
-            for (const engine of this.engines) {
+            for (const engine of this.engines.filter(item => item.id !== 'fal-qwen3')) {
                 const card = element('section'); card.dataset.engine = engine.id;
                 Object.assign(card.style, { flex: '1', padding: '10px', border: '1px solid #777', borderRadius: '8px', opacity: engine.availability.state === 'available' || engine.id === 'voicevox' && engine.availability.state === 'needs' ? '1' : '.65' });
                 const radio = element('input'); radio.type = 'radio'; radio.name = 'read-aloud-engine'; radio.value = engine.id;
                 radio.disabled = engine.availability.state !== 'available'
                     && !(engine.id === 'voicevox' && engine.availability.state === 'needs');
-                radio.checked = selected?.id === engine.id;
+                radio.checked = !preferred.startsWith('voice:') && selected?.id === engine.id;
                 radio.addEventListener('change', () => void this.chooseEngine(engine));
-                card.append(radio, element('strong', engine.label));
+                card.append(radio, element('strong', engine.id === 'irodori' ? '彩（自分の PC）' : engine.label));
                 if (engine.experimental) { const pill = element('span', 'お試し'); pill.dataset.akariExperimental = 'true'; pill.style.marginLeft = '6px'; card.append(pill); }
                 card.append(element('div', engine.place === 'network' ? `別の PC · ${engine.availability.detail?.url ?? remoteHost}` : engine.place === 'local' ? 'この Mac · 無料' :
                     `クラウド · fal.ai 経由 · $${engine.price?.usd_per_1000_chars ?? 0} / 1000 字${engine.price?.verified === false ? '（暫定）' : ''}`));
@@ -190,7 +201,50 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                 if (engine.id === 'irodori') badge.style.display = 'block';
                 card.append(badge); this.cards.append(card);
             }
-            if (selected && this.engine?.id === selected.id) this.engine = selected;
+            const card = element('section'); card.dataset.engine = 'voice';
+            Object.assign(card.style, { flex: '1', padding: '10px', border: '1px solid #777', borderRadius: '8px' });
+            const radio = element('input'); radio.type = 'radio'; radio.name = 'read-aloud-engine'; radio.value = 'voice';
+            radio.checked = preferred.startsWith('voice:');
+            radio.addEventListener('change', () => void this.chooseProfile(
+                this.profiles.find(profile => profile.id === this.profileSelect.value && voiceProfileConsent(profile))?.id
+                ?? this.profiles.find(voiceProfileConsent)?.id ?? ''));
+            card.append(radio, element('strong', '🎙 自分の声'));
+            this.profileSelect.setAttribute('aria-label', '自分の声');
+            this.profileSelect.replaceChildren(...ordered.map(({ profile, selectable }) => {
+                const option = element('option', `${profile.label}${profile.legacy ? ' · 旧い場所' : ''}`);
+                option.value = profile.id; option.disabled = !selectable; return option;
+            }));
+            const create = element('option', '＋ 新しくつくる…'); create.value = '__create__'; this.profileSelect.append(create);
+            this.profileSelect.onchange = () => {
+                if (this.profileSelect.value === '__create__') void this.commands.executeCommand('akari.voice.create').then(() => this.refreshEngines());
+                else void this.chooseProfile(this.profileSelect.value);
+            };
+            card.append(this.profileSelect);
+            if (!this.profiles.length) {
+                const empty = element('button', 'まだありません · つくる');
+                empty.addEventListener('click', () => void this.commands.executeCommand('akari.voice.create').then(() => this.refreshEngines()));
+                card.append(empty);
+            }
+            const badge = element('div'); badge.dataset.voiceCopyBadge = 'true'; badge.hidden = true;
+            card.append(badge); this.cards.append(card);
+            if (preferred.startsWith('voice:') && this.profiles.length) {
+                const valid = this.profiles.filter(voiceProfileConsent);
+                const id = valid.some(profile => profile.id === preferred.slice(6)) ? preferred.slice(6)
+                    : valid.find(profile => profile.id === this.defaultProfile)?.id ?? valid[0]?.id;
+                if (!id) { if (selected) await this.chooseEngine(selected); return this.engines; }
+                this.profileSelect.value = id;
+                const profile = this.profiles.find(item => item.id === id);
+                const copy = profile && chooseVoiceCopy(profile,
+                    this.engines.some(item => item.id === 'irodori' && item.availability.state === 'available'),
+                    falKeyAvailable(this.engines.find(item => item.id === 'fal-qwen3')));
+                if (profile && this.voiceMode && this.selectedProfile?.id === id && copy?.engine === this.engine?.id) {
+                    this.selectedProfile = profile;
+                    this.engine = this.engines.find(item => item.id === copy.engine);
+                    this.renderVoiceBadge(!voiceProfileConsent(profile) ? '本人の同意がありません' : !copy.engine ? '写しがありません' :
+                        copy.stale ? '古い写し（60 秒を足した後に作り直していません）' :
+                        copy.engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）', !copy.engine);
+                } else await this.chooseProfile(id);
+            } else if (selected && !this.voiceMode && this.engine?.id === selected.id) this.engine = selected;
             else if (selected) await this.chooseEngine(selected);
         } catch (error) { this.notice.textContent = String(error); }
         return this.engines;
@@ -226,7 +280,8 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         await this.ensureVoicevoxReady();
         await this.refreshEngines();
         await this.ensureVoicevoxReady();
-        if (this.engine?.id !== engine.id || this.engine.availability.state !== 'available') {
+        if (this.engine?.id !== engine.id || this.engine.availability.state !== 'available'
+            && !falKeyAvailable(this.engine)) {
             throw new Error(`${engine.label} を利用できません。`);
         }
     }
@@ -234,6 +289,8 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
     protected async chooseEngine(engine: NarrationEngine): Promise<void> {
         if (engine.availability.state !== 'available'
             && !(engine.id === 'voicevox' && engine.availability.state === 'needs')) return;
+        this.voiceMode = false; this.selectedProfile = undefined;
+        this.voiceLabel.style.display = this.voiceSelect.style.display = '';
         this.engine = engine; this.invalidate();
         this.previewButton.disabled = true;
         this.cards.querySelectorAll<HTMLInputElement>('input[type=radio]').forEach(radio => { radio.checked = radio.value === engine.id; });
@@ -259,6 +316,41 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             this.updateEstimate();
         } catch (error) { this.notice.textContent = String(error); }
     }
+    protected async chooseProfile(id: string): Promise<void> {
+        const profile = this.profiles.find(item => item.id === id);
+        if (!profile || !voiceProfileConsent(profile)) return;
+        const local = this.engines.find(item => item.id === 'irodori');
+        const cloud = this.engines.find(item => item.id === 'fal-qwen3');
+        const choice = chooseVoiceCopy(profile, local?.availability.state === 'available', falKeyAvailable(cloud));
+        this.voiceMode = true; this.selectedProfile = profile;
+        this.profileSelect.value = id;
+        this.cards.querySelectorAll<HTMLInputElement>('input[type=radio]').forEach(radio => { radio.checked = radio.value === 'voice'; });
+        this.renderVoiceBadge(!choice.engine ? '写しがありません' :
+            choice.stale ? '古い写し（60 秒を足した後に作り直していません）' : choice.engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）', !choice.engine);
+        this.invalidate();
+        this.voiceLabel.style.display = this.voiceSelect.style.display = 'none';
+        this.voiceSelect.replaceChildren();
+        const option = element('option', profile.label); option.value = profile.id; this.voiceSelect.append(option); this.voiceSelect.value = profile.id;
+        this.engine = choice.engine ? this.engines.find(item => item.id === choice.engine) : undefined;
+        this.speedRow.style.display = this.engine?.supports?.speed ? '' : 'none';
+        this.styleRow.style.display = 'none';
+        if (this.engine) {
+            const plan = readAloudPreviewPlan(this.engine, this.readingText());
+            this.previewButton.textContent = this.batchRows.length > 1 ? this.engine.place === 'cloud' ? '費用を見てまとめて作る…' : 'まとめて作る' : plan.buttonLabel;
+            this.footnote.textContent = plan.footnote;
+        }
+        else { this.estimate.textContent = '写しがありません'; this.footnote.textContent = '設定「読み上げ」→ 自分の声で写しを確認してください。'; }
+        this.updateEstimate(); this.updatePreviewAvailability();
+        if (choice.engine) await this.preferences.set('akari.narration.engine', `voice:${id}`, PreferenceScope.User);
+    }
+    protected renderVoiceBadge(label: string, missing: boolean): void {
+        const host = this.cards.querySelector<HTMLElement>('[data-voice-copy-badge]');
+        if (!host) return;
+        host.hidden = !label;
+        const pill = element(missing ? 'button' : 'span', label);
+        if (missing) pill.addEventListener('click', () => void this.commands.executeCommand('akari.settings.open', 'narration'));
+        host.replaceChildren(pill);
+    }
     protected async saveVoice(): Promise<void> {
         if (!this.engine) return;
         const saved = this.preferences.get<Record<string, string>>('akari.narration.voice', {});
@@ -270,7 +362,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             ? batchNarrationEstimate(this.engine, this.batchRows.map(state => state.reading))
             : narrationEstimate(this.engine, this.readingText());
         const voice = this.voices.find(item => item.id === this.voiceSelect.value);
-        this.estimate.textContent = `${this.engine.label} · ${this.batchRows.length > 1 ? this.batchRows.length : 1} 行 · 合計 ${quote.chars} 字 · ${quote.label}${this.engine.id === 'voicevox' && voice?.group ? ` · クレジット VOICEVOX:${voice.group}` : ''}`;
+        this.estimate.textContent = `${this.voiceMode ? '🎙 自分の声' : this.engine.label} · ${this.batchRows.length > 1 ? this.batchRows.length : 1} 行 · 合計 ${quote.chars} 字 · ${quote.label}${this.engine.id === 'voicevox' && voice?.group ? ` · クレジット VOICEVOX:${voice.group}` : ''}`;
     }
 
     protected async preview(): Promise<void> {
@@ -288,7 +380,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
         try {
             await this.prepareGenerationEngine(engine);
             const result = await this.service.generateNarration({ projectRootUri: this.target.projectRootUri,
-                engine: engine.id, voice: this.voiceSelect.value, speed: engine.supports?.speed ? Number(this.speed.value) : undefined,
+                engine: engine.id, voice: this.voiceSelect.value, profile: this.voiceMode ? this.selectedProfile?.id : undefined, speed: engine.supports?.speed ? Number(this.speed.value) : undefined,
                 style: engine.id === 'gemini-tts' || engine.id === 'irodori' && this.voiceSelect.value === 'custom' ? this.styleInput.value : undefined,
                 irodoriUrl: engine.id === 'irodori' ? this.irodoriUrl() : undefined, script: this.script(), reading,
                 captionId: this.target.captionId ?? null, t: this.target.start, approved });
@@ -322,9 +414,10 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
                 add('keep', 'そのまま置く（はみ出しは QC に残す）', false);
                 this.resultNode.append(options);
             }
-            this.placeButton.disabled = false;
         } catch (error) { this.notice.textContent = String(error); }
-        finally { await this.refreshEngines(); this.running = false; this.updatePreviewAvailability(); this.previewButton.textContent = plan.buttonLabel; }
+        finally { await this.refreshEngines(); this.running = false;
+            this.placeButton.disabled = !this.result;
+            this.updatePreviewAvailability(); this.previewButton.textContent = plan.buttonLabel; }
     }
 
     protected async verifySingle(): Promise<void> {
@@ -513,7 +606,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
             state.status = 'running'; this.renderBatchRows();
             try {
                 const generate = (speed?: number) => this.service.generateNarration({ projectRootUri: this.target.projectRootUri,
-                    engine: engine.id, voice: this.voiceSelect.value, speed: speed ?? (engine.supports?.speed ? Number(this.speed.value) : undefined),
+                    engine: engine.id, voice: this.voiceSelect.value, profile: this.voiceMode ? this.selectedProfile?.id : undefined, speed: speed ?? (engine.supports?.speed ? Number(this.speed.value) : undefined),
                     style: engine.id === 'gemini-tts' || engine.id === 'irodori' && this.voiceSelect.value === 'custom' ? this.styleInput.value : undefined,
                     irodoriUrl: engine.id === 'irodori' ? this.irodoriUrl() : undefined,
                     script: state.row.text, reading: state.reading, captionId: state.row.id, t: state.row.outputStart!, approved });
@@ -551,7 +644,7 @@ export class AkariReadAloudDialog extends AbstractDialog<ReadAloudPlacement[] | 
     protected showDone(placements: ReadAloudPlacement[]): void {
         const extended = placements.filter(item => item.extendEnd !== undefined).length;
         const overflow = placements.filter(item => (item.overflow ?? 0) > 0).length;
-        const credits = [...new Set(placements.map(item => String(item.result.provenance?.credit ?? '')).filter(Boolean))];
+        const credits = [...new Set(placements.map(item => readAloudProvenanceLabel(item.result.provenance, this.profiles)))];
         this.body.replaceChildren(element('h2', '置いた'), element('div', `${placements.length} 件を置いた · 伸ばした行 ${extended} · はみ出しのまま ${overflow}`),
             element('div', `provenance: ${credits.join(' / ')}`));
         this.foot.replaceChildren();

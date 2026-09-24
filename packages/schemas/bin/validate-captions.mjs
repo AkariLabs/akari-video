@@ -615,7 +615,7 @@ function validateTextBackgroundStyle(value, label) {
   const allowedKeys = new Set([
     "color", "opacity", "radius_px", "mode",
     // textstyle v0 の座布団拡張
-    "padding_px", "width_pct", "height_pct", "offset_x", "offset_y",
+    "padding_px", "width_pct", "height_pct", "offset_x", "offset_y", "fit",
   ]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
@@ -642,6 +642,9 @@ function validateTextBackgroundStyle(value, label) {
   }
   if (hasOwn(value, "mode") && value.mode !== "per-line" && value.mode !== "block") {
     fail(`${label}.mode は per-line または block である必要があります`);
+  }
+  if (hasOwn(value, "fit") && value.fit !== "text" && value.fit !== "frame") {
+    fail(`${label}.fit は text または frame である必要があります`);
   }
 }
 

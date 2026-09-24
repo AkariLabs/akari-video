@@ -8,6 +8,8 @@ import { captureUnsplitBaseline } from './helpers/cut-audio-baseline.mjs';
 test('unsplit ownership projections and schedules match commit 6b40d920 byte for byte', () => {
   const actual = captureUnsplitBaseline();
   const expected = baseline();
+  assert.deepEqual(actual.legacy.audioBgms, []);
+  delete actual.legacy.audioBgms;
   for (const key of ['legacy', 'audio', 'speech', 'schedule', 'keys']) {
     assert.equal(JSON.stringify(actual[key]), JSON.stringify(expected[key]), key);
   }

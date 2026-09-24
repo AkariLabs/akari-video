@@ -98,6 +98,47 @@ test("background.mode 省略と per-line 明示は出力が完全同値", () => 
   assert.deepEqual(explicitPerLine.vars, withoutMode.vars);
 });
 
+test('background.fit frame は width_pct より枠幅を優先し block にも効く', () => {
+  for (const mode of ['per-line', 'block']) {
+    for (const paddingPx of [undefined, 16]) {
+      const background = { color: '#111111', mode,
+        ...(paddingPx === undefined ? {} : { padding_px: paddingPx }) };
+      const [prior] = generateCaptionOverlays([caption({ background: { ...background, width_pct: 100 } })], []);
+      const [text] = generateCaptionOverlays([caption({ background: { ...background, width_pct: 100, fit: 'text' } })], []);
+      const [frame] = generateCaptionOverlays([caption({ background: { ...background, fit: 'frame' } })], []);
+      const [frameWithWidth] = generateCaptionOverlays([caption({ background: { ...background, width_pct: 100, fit: 'frame' } })], []);
+      assert.equal(text.html, prior.html);
+      assert.deepEqual(text.vars, prior.vars);
+      assert.equal(frameWithWidth.html, frame.html);
+      assert.deepEqual(frameWithWidth.vars, frame.vars);
+      assert.equal(frame.vars['--plate-ext-width'], undefined);
+      assert.match(frame.html, /\.akari-caption__plate \{ left: 4%; right: 4%; width: auto; \}/u);
+      assert.match(frame.html, /\.akari-caption__line \{ box-sizing: border-box; width: 100%;/u);
+      assert.match(frame.html, /\.akari-caption__block \{ box-sizing: border-box; width: 100%;/u);
+    }
+  }
+  const heightOnly = { color: '#111111', fit: 'frame', height_pct: 30 };
+  const [height] = generateCaptionOverlays([caption({ background: heightOnly })], []);
+  const [heightWithWidth] = generateCaptionOverlays([caption({ background: { ...heightOnly, width_pct: 100 } })], []);
+  assert.equal(heightWithWidth.html, height.html);
+  assert.deepEqual(heightWithWidth.vars, height.vars);
+  assert.equal(height.vars['--plate-ext-height'], '30%');
+});
+
+test('単語演出 fragment でも frame + width_pct は frame 単独と同一', () => {
+  const cue = {
+    ...caption({ background: { color: '#111111', fit: 'frame' } }),
+    style: 'karaoke',
+    words: [{ start: 0, end: 1, text: '字' }, { start: 1, end: 2, text: '幕' }]
+  };
+  const [frame] = generateCaptionOverlays([cue], []);
+  const [withWidth] = generateCaptionOverlays([{
+    ...cue, text_style: { background: { color: '#111111', fit: 'frame', width_pct: 100 } }
+  }], []);
+  assert.equal(withWidth.html, frame.html);
+  assert.deepEqual(withWidth.vars, frame.vars);
+});
+
 test("background.mode block は複数行を単一 wrapper と block 専用 var で包む", () => {
   const [overlay] = generateCaptionOverlays([
     {

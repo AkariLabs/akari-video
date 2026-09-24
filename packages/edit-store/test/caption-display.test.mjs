@@ -35,6 +35,28 @@ import {
 const testRoot = dirname(fileURLToPath(import.meta.url));
 const styleParity = JSON.parse(await readFile(join(testRoot, 'fixtures/caption-style-validation-parity.json'), 'utf8'));
 
+test('background.fit は text の従来変数を保ち frame のみ枠基準を宣言する', () => {
+  const base = { background: { color: '#111111', width_pct: 100, padding_px: 16 } };
+  const prior = resolveCaptionStyleForOutput(base, { width: 1280, height: 720 }).vars;
+  const text = resolveCaptionStyleForOutput({ background: { ...base.background, fit: 'text' } }, { width: 1280, height: 720 }).vars;
+  assert.deepEqual(text, prior);
+  assert.equal(prior['--plate-ext-width'], '100%');
+  for (const paddingPx of [undefined, 16]) {
+    const background = { color: '#111111', fit: 'frame',
+      ...(paddingPx === undefined ? {} : { padding_px: paddingPx }) };
+    const frame = resolveCaptionStyleForOutput({ background }, { width: 1280, height: 720 }).vars;
+    const withWidth = resolveCaptionStyleForOutput({ background: { ...background, width_pct: 100 } }, { width: 1280, height: 720 }).vars;
+    assert.deepEqual(withWidth, frame);
+    assert.equal(withWidth['--plate-ext-width'], undefined);
+  }
+  const withHeight = resolveCaptionStyleForOutput({ background: { color: '#111111', fit: 'frame', height_pct: 30 } }, { width: 1280, height: 720 }).vars;
+  const withHeightAndWidth = resolveCaptionStyleForOutput({ background: { color: '#111111', fit: 'frame', height_pct: 30, width_pct: 100 } }, { width: 1280, height: 720 }).vars;
+  assert.deepEqual(withHeightAndWidth, withHeight);
+  assert.equal(withHeight['--plate-ext-height'], '30%');
+  assert.equal(withHeight['--plate-ext-width'], undefined);
+  assert.throws(() => validateCaptionTextStyle({ background: { fit: 'foo' } }), /fit/u);
+});
+
 const policy = {
   mode: 'single_line_sequential',
   algorithm: 'a4-ja-two-fragment-v1',

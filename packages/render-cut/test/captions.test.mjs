@@ -149,6 +149,25 @@ test("resolved caption overlay renders display_lines as sibling line paragraphs"
   assert.match(overlay.html, /<p class="akari-caption__line">one &amp;<\/p><p class="akari-caption__line"> two<\/p>/u);
 });
 
+test('resolved caption の frame 座布団も字幕枠の幅を使う', () => {
+  const cue = { id: 'c-fit', source_cue_id: 'c-fit', start: 0, end: 1, text: '短い' };
+  const background = { color: '#111111', fit: 'frame' };
+  const output = { width: 1280, height: 720 };
+  const [frame] = generateResolvedCaptionOverlays({ display_cues: [{ ...cue,
+    style_vars: captionTextStyleVars({ background }, output) }] });
+  const [frameWithWidth] = generateResolvedCaptionOverlays({ display_cues: [{ ...cue,
+    style_vars: captionTextStyleVars({ background: { ...background, width_pct: 100 } }, output) }] });
+  const [text] = generateResolvedCaptionOverlays({ display_cues: [{ ...cue,
+    style_vars: captionTextStyleVars({ background: { color: '#111111' } }, output) }] });
+  assert.equal(frameWithWidth.html, frame.html);
+  assert.deepEqual(frameWithWidth.vars, frame.vars);
+  assert.equal(frame.vars['--plate-ext-width'], undefined);
+  assert.match(frame.html, /\.akari-caption--single-line \.akari-caption__plate \{ left: 4%; right: 4%; width: auto;/u);
+  assert.match(frame.html, /\.akari-caption--single-line \.akari-caption__line \{ box-sizing: border-box; width: 100%;/u);
+  assert.match(frame.html, /background: var\(--plate-bg, var\(--plate-ext-bg, transparent\)\)/u);
+  assert.doesNotMatch(text.html, /box-sizing: border-box; width: 100%;/u);
+});
+
 test("resolved caption overlay renders word preset spans without changing cues that omit word_styles", () => {
   const legacy = renderResolvedSingleLineCaption("AKARI Video", ["AKARI Video"]);
   assert.equal(legacy, renderResolvedSingleLineCaption("AKARI Video", ["AKARI Video"], {}));

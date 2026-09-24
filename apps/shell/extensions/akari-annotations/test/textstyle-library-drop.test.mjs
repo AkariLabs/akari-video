@@ -12,6 +12,13 @@ test('textstyle payload だけを検証し、stylePreset と start に変換す�
   }
 });
 
+test('マイスタイルのドラッグは部品を値のまま運ぶ', () => {
+  const payload = { kind: 'mystyle', style: { parts: [{ kind: 'look', text_style: { color: '#ff1744' } },
+    { kind: 'motion', animation: { in: { id: 'pop' } } }] } };
+  assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);
+  assert.equal(parseLibraryDragPayload({ kind: 'mystyle', style: { parts: [{}] } }), undefined);
+});
+
 test('落下横位置を可視区間の出力時刻へ換算する', () => {
   assert.equal(textStyleDropStart(450, 100, 700, 5, 20), 15);
   assert.equal(textStyleDropStart(100, 100, 700, 5, 20), 5);

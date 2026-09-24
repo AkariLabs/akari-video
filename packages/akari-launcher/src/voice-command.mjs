@@ -11,11 +11,13 @@ import { resolveAkariHome as fallbackResolveAkariHome } from './update-check.mjs
 // モノレポと配布物の両方で既存の資産解決を使う。creator-root が欠けた配布物でも
 // voice 以外の CLI 起動を妨げないよう、同じ AKARI_HOME 規約の launcher 実装へ戻す。
 let resolveAkariHome = fallbackResolveAkariHome;
+let readCreatorCredentials;
 try {
   const creatorRootModulePath = resolveLauncherAssets().creatorRootModulePath;
   if (creatorRootModulePath) {
     const module = await import(pathToFileURL(creatorRootModulePath).href);
     if (typeof module.resolveAkariHome === 'function') resolveAkariHome = module.resolveAkariHome;
+    readCreatorCredentials = module.readCredentials;
   }
 } catch {
   // 部分的な vendor や壊れた optional module でもランチャー全体は起動させる。
@@ -44,6 +46,14 @@ function newRoot(env) { return path.join(home(env), 'avatars'); }
 function profileDir(env, avatar, id) { return path.join(newRoot(env), requireId(avatar, '--avatar'), 'voice', requireId(id, '--id')); }
 function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 function writePrivateJson(file, value) { fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 }); fs.chmodSync(file, 0o600); }
+function writePrivateJsonAtomic(file, value) {
+  const temporary = path.join(path.dirname(file), `.meta-${crypto.randomUUID()}.tmp`);
+  try {
+    fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600, flag: 'wx' });
+    fs.chmodSync(temporary, 0o600);
+    fs.renameSync(temporary, file);
+  } finally { fs.rmSync(temporary, { force: true }); }
+}
 function normalizeLegacyConsent(value) {
   const object = value !== null && typeof value === 'object' && !Array.isArray(value) ? value : null;
   const recorded = typeof value === 'string' ? value.trim().length > 0 : object ? Object.keys(object).length > 0 : false;
@@ -78,7 +88,7 @@ export function resolveVoiceProfile(id, env = process.env) {
   if (fs.existsSync(file)) return { dir, meta: normalizeMeta(readJson(file), true), legacy: true };
   throw new VoiceError(`声プロファイルが見つかりません: ${id}`);
 }
-function listProfiles(env, avatar) {
+export function listProfiles(env, avatar) {
   const items = [];
   const avatars = newRoot(env);
   if (fs.existsSync(avatars)) for (const person of fs.readdirSync(avatars, { withFileTypes: true })) {
@@ -104,6 +114,7 @@ function listProfiles(env, avatar) {
 function profileSummary(meta, id, avatar, legacy) {
   return { id, label: meta.label ?? id, avatar, legacy, created_at: meta.created_at ?? null,
     duration_s: meta.reference?.duration_s ?? null, engines: Object.keys(meta.engines ?? {}),
+    copies: Object.fromEntries(Object.entries(meta.engines ?? {}).map(([name, copy]) => [name, { stale: copy?.stale === true }])),
     consent: { self_voice: meta.consent?.self_voice === true, cloud_upload: meta.consent?.cloud_upload === true },
     verification: meta.reference?.verification ?? { status: 'unavailable' } };
 }
@@ -166,19 +177,11 @@ function endpoint(value, env) {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new VoiceError('彩サーバー URL が不正です');
   return { base: `${url.origin}${url.pathname.replace(/\/+$/, '')}`, server: `${url.hostname}:${url.port || (url.protocol === 'https:' ? '443' : '80')}` };
 }
-function readFalKey(env) {
-  // narration-command.mjs と同じ credentials.env の読み方。鍵は出力しない。
-  const file = path.resolve(env.AKARI_CREDENTIALS_FILE ?? path.join(env.HOME || os.homedir(), '.config', 'akari-video', 'credentials.env'));
-  let source;
-  try { source = fs.readFileSync(file, 'utf8'); } catch { throw new VoiceError('FAL_KEY が未設定です'); }
-  for (const original of source.split(/\r?\n/)) {
-    const line = original.trim(); if (!line || line.startsWith('#')) continue;
-    const separator = line.indexOf('='); if (separator < 1 || line.slice(0, separator).trim() !== 'FAL_KEY') continue;
-    let value = line.slice(separator + 1).trim();
-    if (value.length >= 2 && (value.startsWith('"') && value.endsWith('"') || value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
-    if (value) return value;
-  }
-  throw new VoiceError('FAL_KEY が未設定です');
+export function readFalKey(env = process.env) {
+  if (env.FAL_KEY) return env.FAL_KEY;
+  if (typeof readCreatorCredentials !== 'function') throw new VoiceError('作業場の鍵読み取りモジュールが見つかりません');
+  try { return readCreatorCredentials(env).values.get('FAL_KEY') || null; }
+  catch { throw new VoiceError('credentials.env を読めません'); }
 }
 function durationFromWav(buffer) {
   if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE') return null;
@@ -193,6 +196,7 @@ function probeDuration(file) {
 function parse(args) {
   const sub = args[0];
   const allowed = { scripts: [], check: ['audio', 'script', 'backend'], create: ['avatar', 'id', 'label', 'audio', 'script', 'consent-self', 'consent-cloud'],
+    rename: ['profile', 'label'], extend: ['profile', 'audio', 'script', 'backend'],
     copy: ['profile', 'engine', 'irodori-url', 'yes'], try: ['profile', 'engine', 'text', 'reading', 'irodori-url', 'yes'],
     profiles: ['avatar'], delete: ['profile', 'keep-server', 'irodori-url'], 'migrate-legacy': ['profile', 'avatar'] };
   if (!Object.hasOwn(allowed, sub)) throw new VoiceError('不明な voice サブコマンドです');
@@ -272,6 +276,69 @@ async function execute(sub, o, runtime, env) {
   }
   need(o, 'profile');
   const record = resolveVoiceProfile(o.profile, env);
+  if (sub === 'rename') {
+    need(o, 'label');
+    if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
+    const label = o.label.trim();
+    if (!label) throw new VoiceError('表示名を指定してください');
+    if (record.meta.version !== 2 || record.meta.profile !== o.profile) throw new VoiceError('声の記録が不正です');
+    writePrivateJsonAtomic(path.join(record.dir, 'meta.json'), { ...record.meta, label });
+    return { status: 'ok', profile: o.profile, label };
+  }
+  if (sub === 'extend') {
+    need(o, 'audio', 'script');
+    if (o.script !== 'extended-v1') throw new VoiceError('追加原稿は extended-v1 を指定してください');
+    if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
+    if (record.meta.version !== 2 || record.meta.profile !== o.profile || record.meta.reference?.script_version !== 'quick-v1') {
+      throw new VoiceError('追加できる quick-v1 の正本がありません');
+    }
+    const recording = safeReference(record);
+    if (path.basename(recording) !== 'ref-recording.wav') throw new VoiceError('正本は wav である必要があります');
+    const original = fs.readFileSync(recording);
+    if (record.meta.reference.sha256 && crypto.createHash('sha256').update(original).digest('hex') !== record.meta.reference.sha256) {
+      throw new VoiceError('正本の録音が保存時から変わっています');
+    }
+    const checked = await checkVoiceRecording(o, runtime);
+    if (!checked.pass) throw new VoiceError('追加録音のチェックに合格していません', { check: checked, reasons: checked.reasons });
+    const staged = path.join(record.dir, `.ref-recording-${crypto.randomUUID()}.wav`);
+    const previous = path.join(record.dir, 'ref-recording.prev.wav');
+    try {
+      if (runtime.concatAudio) await runtime.concatAudio(recording, o.audio, staged);
+      else {
+        const result = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', recording, '-i', o.audio,
+          '-filter_complex', '[0:a][1:a]concat=n=2:v=0:a=1', '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', staged]);
+        if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : '録音を連結できません');
+      }
+      fs.chmodSync(staged, 0o600);
+      const text = `${VOICE_SCRIPTS['quick-v1']}${VOICE_SCRIPTS['extended-v1']}`;
+      let verification;
+      if (runtime.verifyCombined) verification = await runtime.verifyCombined(staged, text, o.backend ?? 'auto');
+      else {
+        const { verifyNarrationAudio } = await import('./narration-command.mjs');
+        const result = await verifyNarrationAudio(staged, text, o.backend ?? 'auto', runtime.verifyRuntime);
+        verification = result.code === 3 ? { status: 'unavailable' } : result.code ? { status: 'error' } : result.result;
+      }
+      if (verification.status === 'error' || verification.status === 'unavailable' && checked.checks.script.ok !== 'unavailable') {
+        throw new VoiceError('連結後の原稿照合ができません');
+      }
+      if (verification.score !== undefined && verification.score < 0.7) throw new VoiceError('連結後の原稿一致率が 70% 未満です');
+      const level = audioLevels(staged, runtime);
+      const bytes = fs.readFileSync(staged);
+      const nextMeta = { ...record.meta, reference_text: text,
+        reference: { ...record.meta.reference, sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+          duration_s: Number(level.duration_s.toFixed(3)), script_version: 'quick-v1+extended-v1',
+          verification: verification.score !== undefined ? { score: verification.score, backend: verification.backend } : { status: 'unavailable' },
+          level: { peak_db: level.peak_db, mean_db: level.mean_db, floor_db: level.floor_db } },
+        engines: Object.fromEntries(Object.entries(record.meta.engines ?? {}).map(([name, copy]) => [name, { ...copy, stale: true }])) };
+      fs.writeFileSync(previous, original, { mode: 0o600 }); fs.chmodSync(previous, 0o600);
+      fs.renameSync(staged, recording);
+      try { writePrivateJsonAtomic(path.join(record.dir, 'meta.json'), nextMeta); }
+      catch (error) { fs.writeFileSync(recording, original, { mode: 0o600 }); throw error; }
+      return { status: 'ok', profile: o.profile, duration_s: nextMeta.reference.duration_s,
+        ...(verification.score !== undefined ? { score: verification.score } : {}),
+        warnings: Object.keys(nextMeta.engines).length ? ['写しが古くなりました。akari voice copy で写しを作り直してください'] : [] };
+    } finally { fs.rmSync(staged, { force: true }); }
+  }
   if (sub === 'copy') {
     need(o, 'engine'); if (!['irodori', 'fal-qwen3'].includes(o.engine)) throw new VoiceError('作り手が不明です');
     if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
@@ -285,6 +352,7 @@ async function execute(sub, o, runtime, env) {
       if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError('ローカルの原稿照合が 70% 以上ではありません');
       if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval', estimate_usd: CLONE_ESTIMATE_USD });
       const key = runtime.falKey ?? readFalKey(env);
+      if (!key) throw new VoiceError('FAL_KEY が未設定です');
       const data = fs.readFileSync(recording);
       const response = await fetchImpl(FAL_CLONE_URL, { method: 'POST', headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ audio_url: `data:audio/wav;base64,${data.toString('base64')}`, reference_text: record.meta.reference_text }) });
@@ -318,6 +386,7 @@ async function execute(sub, o, runtime, env) {
       const estimate = Number(((o.reading ?? o.text).length * 0.09 / 1000).toFixed(6));
       if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval', estimate_usd: estimate });
       const key = runtime.falKey ?? readFalKey(env);
+      if (!key) throw new VoiceError('FAL_KEY が未設定です');
       const response = await fetchImpl(FAL_TTS_URL, { method: 'POST', headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: o.reading ?? o.text, language: 'Japanese', speaker_voice_embedding_file_url: copy.embedding_source_url,
           reference_text: record.meta.reference_text, max_new_tokens: 2048 }) });
@@ -357,7 +426,7 @@ export async function runVoiceCommand(args, commandOptions = {}) {
   const logError = commandOptions.logError ?? console.error;
   const env = commandOptions.env ?? process.env;
   if (!args.length || args.includes('--help') || args.includes('-h')) {
-    log('使い方: akari voice <scripts|check|create|copy|try|profiles|delete|migrate-legacy> [options] --json');
+    log('使い方: akari voice <scripts|check|create|rename|extend|copy|try|profiles|delete|migrate-legacy> [options] --json');
     return { exitCode: 0 };
   }
   try {

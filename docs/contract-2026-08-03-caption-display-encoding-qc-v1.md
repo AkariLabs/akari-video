@@ -109,6 +109,7 @@ scaled, matching the reference-pixel path.
 | `background.offset_x`, `background.offset_y` | `--plate-offset-x` / `--plate-offset-y` | yes |
 | `letter_spacing_em` | `--caption-letter-spacing` (`em`) | no |
 | `max_width_pct`, `background.width_pct`, `background.height_pct` | `--caption-line-max-width` / `--plate-ext-*` (`%`) | no |
+| `background.fit` | `text` (default) keeps the existing text-sized plate; `frame` spans the caption frame inside its 4% side margins, takes precedence over `width_pct`, and preserves vertical padding in per-line and block modes | no |
 | `line_height`, `shadow.opacity`, `shadow.angle_deg`, `glow.density`, `background.opacity` | unitless | no |
 | `position.x`, `position.y` | frame ratio 0..1 | no |
 
@@ -137,18 +138,24 @@ CLI flag > edit field > legacy default. The returned `requested` and `effective`
 is used by every video-encoding stage. The audio-only final mix/mux records its reason and uses
 `-c:v copy`.
 
-## 3. Audio QC evidence, not conformance
+## 3. Audio QC verdict and evidence
+
+Changed 2026-09-24 (field report B-7): an in-target decoded measurement now yields PASS.
 
 `audio.master.true_peak_dbtp` is optional in `[-9, 0]` and defaults to the existing -1.5 dBTP.
 Whenever `audio.master` is an object, the immutable render receipt requires `audio_qc`. It preserves
 the real loudnorm filter report separately from a second-process decode measurement of the finished
 artifact. Raw FFmpeg strings and normalized `finite number | "-inf"` values are both retained.
 
-Successful measurement remains `INCONCLUSIVE`; it is not a loudness PASS. Full status carries a
-warning, and `akari accept` displays configured targets, filter output, and decoded measurement
-before checksum confirmation. Parse, field, process, or 1 MiB capture failures become the closed
-`MEASUREMENT_ERROR` shape, keep a content-addressed artifact and receipt when structurally possible,
-leave render state in `phase:error`, return exit 1, and cannot produce an integrity candidate.
+Successful measurement yields `PASS` when `decoded_measurement.normalized.input_i` is within
+±1.0 LU of the configured integrated loudness, `input_tp` is no more than 0.1 dB above the
+configured true peak, both measurements are finite numbers, and `tool_version` is present.
+Otherwise the verdict is `INCONCLUSIVE`; existing valid `INCONCLUSIVE` receipts remain valid.
+Full status and `akari accept` request human audio review only for `INCONCLUSIVE`.
+`PASS` is an audio QC verdict; final human acceptance of the artifact remains a separate record.
+Parse, field, process, or 1 MiB capture failures retain the closed `MEASUREMENT_ERROR` shape,
+keep a content-addressed artifact and receipt when structurally possible, leave render state in
+`phase:error`, return exit 1, and cannot produce an integrity candidate.
 
 ### 3.1 True peak AAC overshoot guard (2026-08-17, task 2026-08-17-render-cut-true-peak-guard)
 
@@ -169,20 +176,15 @@ dBTP default is unchanged and unmargined:
   high-transient material where even the margined target still decodes above 0 dBFS (this is what
   the next mitigation exists to catch).
 - **Overshoot detection.** When `decoded_measurement.normalized.input_tp` exceeds
-  `configured.true_peak_dbtp` by more than a 0.1 dB tolerance, `buildAudioQc` appends an additive
-  `audio_qc.warnings: ["TRUE_PEAK_EXCEEDED: ..."]` entry — readable from the receipt alone, no
-  human needs to eyeball the two numbers. `verdict` deliberately **stays `"INCONCLUSIVE"`**, not a
-  new value: `packages/akari-launcher/src/status-core/integrity.mjs` (mirrored at
-  `plugin/runtime/status-core/integrity.mjs`) closed-world-validates the successful-measurement
-  branch and rejects any verdict string other than `"INCONCLUSIVE"` as a structural integrity
-  problem, and `accept-command.mjs` keys its human-review warning off that exact string. A new
-  verdict value would have misreported a legitimate receipt as malformed instead of surfacing the
-  overshoot, so exceeding true peak is additive evidence on an otherwise-`INCONCLUSIVE` receipt, not
-  a verdict of its own.
+  `configured.true_peak_dbtp` by more than 0.1 dB, `buildAudioQc` adds an
+  `audio_qc.warnings: ["TRUE_PEAK_EXCEEDED: ..."]` entry to the receipt and sets the verdict to
+  `INCONCLUSIVE`. `packages/akari-launcher/src/status-core/integrity.mjs` (mirrored at
+  `plugin/runtime/status-core/integrity.mjs`) recalculates the PASS conditions from the receipt's
+  configured target, decoded measurement, and tool version; a mismatch is a structural error.
 
-Both fields are additive to the existing `configured` / `filter_report` / `decoded_measurement`
-triple — nothing already reading `audio_qc` needs to change, and their absence (when
-`true_peak_dbtp` is left at its default, or when nothing exceeded) is the unchanged legacy shape.
+These two fields are additive to the existing `configured` / `filter_report` /
+`decoded_measurement` fields. No margin is recorded when `true_peak_dbtp` is omitted, and no
+overshoot warning is recorded when the measured peak does not exceed the threshold.
 
 ## 4. Recipe boundary and evidence grade
 

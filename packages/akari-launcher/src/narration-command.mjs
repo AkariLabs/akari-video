@@ -7,7 +7,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveLauncherAssets } from "./repo-assets.mjs";
-import { resolveVoiceProfile } from "./voice-command.mjs";
+import { listProfiles, readFalKey, resolveVoiceProfile } from "./voice-command.mjs";
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
 const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
@@ -385,49 +385,11 @@ function relativeOutputPath(id, engine) {
   return `out/narration/${id}.${extensionFor(engine)}`;
 }
 
-// --- credentials.env（fal-qwen3 用。skills/analyze-footage/bin/transcribe-cloud.mjs と同型） ---
-
-function credentialsPath() {
-  return path.resolve(
-    process.env.AKARI_CREDENTIALS_FILE
-      ?? path.join(os.homedir(), ".config", "akari-video", "credentials.env"),
-  );
-}
-
-function readCredentials() {
-  let source;
-  try {
-    source = fs.readFileSync(credentialsPath(), "utf8");
-  } catch (error) {
-    if (error?.code === "ENOENT") return new Map();
-    throw new PublicError("credentials.env を読めません");
-  }
-  const values = new Map();
-  for (const originalLine of source.split(/\r?\n/)) {
-    const line = originalLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const separator = line.indexOf("=");
-    if (separator < 1) continue;
-    const name = line.slice(0, separator).trim();
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) continue;
-    let value = line.slice(separator + 1).trim();
-    if (
-      value.length >= 2
-      && ((value.startsWith('"') && value.endsWith('"'))
-        || (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    values.set(name, value);
-  }
-  return values;
-}
-
 function resolveFalKey() {
-  const secret = readCredentials().get("FAL_KEY");
+  const secret = readFalKey(process.env);
   if (!secret) {
     throw new PublicError(
-      `FAL_KEY が未設定です。${credentialsPath()} に FAL_KEY=... を 1 行追加してください`
+      `FAL_KEY が未設定です。<AKARI_HOME>/credentials.env に FAL_KEY=... を 1 行追加してください`
       + "（取得先: https://fal.ai/dashboard/keys）。",
     );
   }
@@ -804,6 +766,21 @@ async function synthesizeIrodori(readingText, options, fetchImpl = fetch) {
   return buffer;
 }
 
+function resolveProfileEnv(runtime = {}) {
+  const env = runtime.env || process.env;
+  const homeDir = env.HOME || env.USERPROFILE || os.homedir();
+  return { ...env, HOME: homeDir, AKARI_HOME: env.AKARI_HOME || path.join(homeDir, ".akari") };
+}
+
+function listFalProfiles(runtime = {}) {
+  try {
+    return listProfiles(resolveProfileEnv(runtime)).filter((profile) => profile.legacy || profile.engines.includes("fal-qwen3"));
+  } catch {
+    // listProfiles はメタデータの読み取り失敗時に throw する。CLI の一覧は維持する。
+    return [];
+  }
+}
+
 async function listEngines(runtime = {}) {
   let voicevox;
   const state = await probeVoicevox(runtime.fetchImpl || fetch);
@@ -821,12 +798,13 @@ async function listEngines(runtime = {}) {
       ? { state: "needs", label: "VOICEVOX を起動します（自動）", detail }
       : { state: "unconfigured", label: "VOICEVOX をインストール", detail: { ...detail, setup_url: "https://voicevox.hiroshiba.jp/" } };
   }
-  const configured = Boolean(readCredentials().get("FAL_KEY"));
+  let configured = false;
+  try { configured = Boolean(readFalKey(runtime.env || process.env)); }
+  catch { /* 配布物の creator-root や鍵ファイルを読めなくても一覧は返す。 */ }
   const falAvailability = configured
     ? { state: "available", label: "fal を使用できます" }
     : { state: "unconfigured", label: "fal の鍵を登録" };
-  const profilesDir = path.join(os.homedir(), ".config", "akari-video", "voice-profiles");
-  const hasProfiles = fs.existsSync(profilesDir) && fs.readdirSync(profilesDir, { withFileTypes: true }).some((entry) => entry.isDirectory());
+  const profilesWithFal = listFalProfiles(runtime).length;
   let endpoint;
   try { endpoint = irodoriEndpoint(runtime.irodoriUrl, runtime.env || process.env); }
   catch (error) { if (!(error instanceof PublicError)) throw error; }
@@ -841,11 +819,11 @@ async function listEngines(runtime = {}) {
         : irodoriAvailable
         ? { state: "available", label: "お試し · 接続済み", detail: { url: endpoint.server } }
         : { state: "unconfigured", label: "Irodori サーバーにつながりません（お試し）", detail: { setup_url: IRODORI_SETUP_URL } } },
-    { id: "fal-qwen3", label: "fal Qwen3-TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? falAvailability : hasProfiles ? { state: "available", label: "声プロファイルを使用できます" } : { state: "needs", label: "声プロファイルを作成" }, credit_required: false, supports: { speed: false, style: false } },
+    { id: "fal-qwen3", label: "fal Qwen3-TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? { ...falAvailability, detail: { profiles_with_fal: profilesWithFal } } : profilesWithFal ? { state: "available", label: "声プロファイルを使用できます", detail: { profiles_with_fal: profilesWithFal } } : { state: "needs", label: "fal の写しがある声がありません（自分の声をつくる）", detail: { profiles_with_fal: 0 } }, credit_required: false, supports: { speed: false, style: false } },
   ] };
 }
 
-async function listVoices(engine) {
+async function listVoices(engine, runtime = {}) {
   if (engine === "irodori") return [...IRODORI_RECIPES.map(({ id, label, default: isDefault }) => ({ id, label, ...(isDefault ? { default: true } : {}) })),
     { id: "custom", label: "自分で書く（声の指示）" }];
   if (engine === "gemini-tts") return GEMINI_VOICES;
@@ -863,9 +841,7 @@ async function listVoices(engine) {
     }
   }
   if (engine === "fal-qwen3") {
-    const profilesDir = path.join(os.homedir(), ".config", "akari-video", "voice-profiles");
-    return fs.existsSync(profilesDir) ? fs.readdirSync(profilesDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory()).map((entry) => ({ id: entry.name, label: entry.name })) : [];
+    return listFalProfiles(runtime).map(({ id, label, legacy }) => ({ id, label, ...(legacy ? { legacy: true } : {}) }));
   }
   throw new PublicError(`声一覧に対応していないエンジンです: ${engine}`, 2);
 }
@@ -909,7 +885,7 @@ async function runDryRun(options, readingText, io) {
     emit({
       dry_run: true, engine: options.engine, output_path: outputPath,
       estimated_cost_usd: estimateGeminiTtsCostUsd(readingText.length),
-      request: { endpoint: GEMINI_TTS_URL, headers: { Authorization: `Key ${maskKey(readCredentials().get("FAL_KEY"))}` },
+      request: { endpoint: GEMINI_TTS_URL, headers: { Authorization: `Key ${maskKey(readFalKey(process.env))}` },
         body: { prompt: readingText, voice: options.voice, model: "gemini-2.5-flash-tts", output_format: "mp3", language_code: "Japanese (Japan)", ...(options.style ? { style_instructions: options.style } : {}) } },
     }, io.log);
     return;
@@ -1101,7 +1077,7 @@ export async function runNarrationCommand(args, commandOptions = {}) {
     try {
       const { engine, irodoriUrl } = parseListArguments(args);
       printCompactJson(args[0] === "engines" ? await listEngines({ ...commandOptions.engineRuntime, irodoriUrl }) :
-        { version: 1, engine, voices: await listVoices(engine) }, io.log);
+        { version: 1, engine, voices: await listVoices(engine, commandOptions.engineRuntime) }, io.log);
       return { exitCode: 0 };
     } catch (error) {
       const message = error instanceof PublicError ? error.message : "声一覧を取得できませんでした";

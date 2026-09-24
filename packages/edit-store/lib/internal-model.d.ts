@@ -236,6 +236,7 @@ export interface LegacyEditView {
     audioNarration: EditAudioNarration[];
     audioSpeech?: EditAudioNarration[];
     audioBgm?: EditAudioBgm;
+    audioBgms: EditAudioBgm[];
     timeline?: {
         tracks: EditTimelineTrack[];
     };

@@ -21,6 +21,7 @@ export declare function parseEdit(source: string): {
     audioSfx: EditAudioSfx[];
     audioNarration: EditAudioNarration[];
     audioBgm?: EditAudioBgm;
+    audioBgms: EditAudioBgm[];
     timeline?: {
         tracks: EditTimelineTrack[];
     };

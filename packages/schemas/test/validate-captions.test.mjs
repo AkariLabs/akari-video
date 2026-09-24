@@ -29,6 +29,15 @@ function runValue(value) {
   return runPath(path);
 }
 
+test('background.fit accepts text/frame and rejects unknown values', () => {
+  for (const fit of ['text', 'frame']) {
+    assert.equal(runValue([{ ...styleParity.caption, text_style: { background: { fit } } }]).status, 0);
+  }
+  const invalid = runValue([{ ...styleParity.caption, text_style: { background: { fit: 'foo' } } }]);
+  assert.notEqual(invalid.status, 0);
+  assert.match(invalid.stderr, /background\.fit/u);
+});
+
 for (const example of [
   "captions-text-style-omitted-valid",
   "captions-text-style-default-only-valid",

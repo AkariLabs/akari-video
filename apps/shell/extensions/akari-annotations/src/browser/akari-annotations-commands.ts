@@ -100,3 +100,4 @@ export const ADD_MATERIAL_AT_POINT: Command = {
 
 export const PLACE_TEXT: Command = { id: PLACE_TEXT_COMMAND_ID, label: '文字を置く', category: 'タイムライン' };
 export const READ_ALOUD: Command = { id: 'akari.caption.readAloud', label: '読み上げ' };
+export const VOICE_CREATE: Command = { id: 'akari.voice.create', label: '自分の声をつくる…' };

@@ -218,3 +218,21 @@ test('short trimmed regular audio creates its original stream without requesting
     assert.equal(model.summary.audio.sfx[0].src, 'file:///project/sfx.wav');
     assert.equal('sidecarState' in model.summary.audio.sfx[0], false);
 });
+
+test('v2 BGM clips both reach EditSummary in start-time order', async () => {
+    const edit = {
+        version: 2, output: { width: 320, height: 180, fps: 30 },
+        sources: [{ id: 'one', path: 'one.wav' }, { id: 'two', path: 'two.wav' }],
+        tracks: [
+            { id: 'late', lane: 'audio', items: [{ id: 'second', role: 'bgm', at: 90, duration: 90,
+                ducking: true, source: { kind: 'media', src: 'two', in: 0, out: 3 } }] },
+            { id: 'early', lane: 'audio', items: [{ id: 'first', role: 'bgm', at: 0, duration: 90,
+                ducking: true, source: { kind: 'media', src: 'one', in: 0, out: 3 } }] },
+        ],
+    };
+    const f = createPreviewAudioHost(() => ({ state: 'not-needed' }), undefined, edit);
+    const model = await f.load();
+    assert.deepEqual(JSON.parse(JSON.stringify(model.summary.audio.bgms.map(item => [item.t, item.duration]))), [[0, 3], [3, 3]]);
+    assert.equal(model.summary.audio.bgm.src, model.summary.audio.bgms[0].src);
+    assert.equal(model.summary.audio.bgms[1].ducking, true);
+});

@@ -1,0 +1,140 @@
+{
+  "status": "pass",
+  "executedAt": "2026-09-23T18:23:30.118Z",
+  "cdp": {
+    "port": 19671,
+    "launchedPid": 98783,
+    "connectedPid": 98783,
+    "pidMatched": true
+  },
+  "voicevox": {
+    "engine": "headless",
+    "port": 50021,
+    "pid": 97483,
+    "startedByScript": true,
+    "stoppedByScript": true,
+    "processGone": true,
+    "portClosedAtEnd": true
+  },
+  "electron": {
+    "processGone": true,
+    "portClosed": true
+  },
+  "fakeIrodori": {
+    "closed": true,
+    "portClosed": true,
+    "inProcess": true
+  },
+  "checks": [
+    {
+      "name": "コマンドで開き、同意 1 まで次へ不可",
+      "pass": true,
+      "measured": {
+        "before": false,
+        "after": true,
+        "nextInitiallyDisabled": true,
+        "defaultAvatar": "sample"
+      },
+      "seconds": 0.51
+    },
+    {
+      "name": "偽マイク録音が 15 秒以上でレベルメーターが動く",
+      "pass": true,
+      "measured": {
+        "elapsed": "00:17",
+        "meterPeak": 18
+      },
+      "seconds": 18.1
+    },
+    {
+      "name": "ローカル確認 4 行と SpeechAnalyzer 原稿照合",
+      "pass": true,
+      "measured": {
+        "rows": [
+          "✓  長さ: 17.1 秒（15〜120 秒）",
+          "✓  音の大きさ: ピーク -13.86 dB · 平均 -33.86 dB",
+          "✓  まわりの音: 無音部分 -70.81 dB",
+          "✓  原稿どおりか: 聞き取り一致 72%（speech-analyzer）"
+        ],
+        "nextEnabled": true
+      },
+      "seconds": 3.17
+    },
+    {
+      "name": "彩が既定選択され fal は無効",
+      "pass": true,
+      "measured": {
+        "cards": [
+          {
+            "id": "irodori",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal-qwen3",
+            "checked": false,
+            "disabled": true
+          }
+        ],
+        "fakeUrl": "loopback"
+      },
+      "seconds": 0.13
+    },
+    {
+      "name": "聞き比べ B に偽彩の wav が入る",
+      "pass": true,
+      "measured": {
+        "src": "blob:",
+        "readyState": 4,
+        "duration": 1,
+        "count": 2,
+        "requests": [
+          "copy",
+          "try"
+        ]
+      },
+      "seconds": 1.36
+    },
+    {
+      "name": "保存後の正本と写しを隔離 HOME で確認",
+      "pass": true,
+      "measured": {
+        "profile": "sample-narration",
+        "avatar": "sample",
+        "initialLabel": "サンプル（ナレーション）",
+        "pathShown": true,
+        "version": 2,
+        "selfVoice": true,
+        "engines": [
+          "irodori"
+        ],
+        "recordingBytes": 1641678
+      },
+      "seconds": 0.31
+    },
+    {
+      "name": "途中で閉じた正本が消える",
+      "pass": true,
+      "measured": {
+        "before": [
+          "sample-narration",
+          "sample-narration-2"
+        ],
+        "after": [
+          "sample-narration"
+        ],
+        "deleteRequests": 1
+      },
+      "seconds": 0.32
+    },
+    {
+      "name": "ファイル持ち込みで確かめるまで進む",
+      "pass": true,
+      "measured": {
+        "rows": 4,
+        "via": "DOM.setFileInputFiles"
+      },
+      "seconds": 1.66
+    }
+  ]
+}

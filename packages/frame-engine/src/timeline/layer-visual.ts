@@ -47,6 +47,7 @@ export function computeLayerKeyframesVisual(
   keyframes: readonly LayerKeyframe[] | undefined,
   layerLocalSeconds: number,
   statics: LayerKeyframe['transform'] = {},
+  cutStaticFallback = false,
 ): {
   transform: ResolvedLayerVisual['transform'] | null;
   crop: ResolvedLayerVisual['crop'] | null;
@@ -71,15 +72,17 @@ export function computeLayerKeyframesVisual(
           : ((name === 'scaleX' || name === 'scaleY') ? (point.transform?.scale ?? statics?.[name] ?? statics?.scale ?? fallback) : fallback),
       t,
     );
-  const rawScale = transformPoints.length ? leaf('scale', 1) : 1;
+  const staticLeaf = (name: 'x' | 'y' | 'scale' | 'rotate', fallback: number) =>
+    cutStaticFallback && finite(statics?.[name]) ? statics[name]! : fallback;
+  const rawScale = transformPoints.length ? leaf('scale', staticLeaf('scale', 1)) : 1;
   const transform = transformPoints.length
     ? {
-        x: leaf('x', 0),
-        y: leaf('y', 0),
+        x: leaf('x', staticLeaf('x', 0)),
+        y: leaf('y', staticLeaf('y', 0)),
         scale: rawScale > 0 ? rawScale : 1,
         ...((statics?.scaleX !== undefined || statics?.scaleY !== undefined || transformPoints.some(point => point.transform?.scaleX !== undefined || point.transform?.scaleY !== undefined))
           ? { scaleX: Math.max(Number.EPSILON, leaf('scaleX', 1)), scaleY: Math.max(Number.EPSILON, leaf('scaleY', 1)) } : {}),
-        rotateDegrees: leaf('rotate', 0),
+        rotateDegrees: leaf('rotate', staticLeaf('rotate', 0)),
       }
     : null;
   const cropPoints = points.filter(

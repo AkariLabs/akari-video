@@ -1264,9 +1264,9 @@ function validateEditV2(edit, findings) {
         }
       }
     }
-    addFinding(findings, {
+    if (overlaps.length) addFinding(findings, {
       severity: "error", check: "v2.audio-bgm-multiple",
-      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.length ? overlaps.join('、') : 'なし'}。現在のミックスは BGM を 1 本だけ扱うため、曲を詰めて繋ぐ場合は音源側で 1 ファイルに編集してください。`,
+      message: `BGM ${bgmItems.map(describe).join('、')}。重なり: ${overlaps.length ? overlaps.join('、') : 'なし'}。BGM の時間が重ならないように配置してください。`,
       path: "edit.json#tracks",
     });
   }
@@ -4938,7 +4938,7 @@ function validateCaptionBackgroundStyle(value, label, findings, path) {
   const allowed = [
     "color", "opacity", "radius_px", "mode",
     // textstyle v0 の座布団拡張: 一律余白 / 文字box比での拡張 / 座布団だけの平行移動
-    "padding_px", "width_pct", "height_pct", "offset_x", "offset_y",
+    "padding_px", "width_pct", "height_pct", "offset_x", "offset_y", "fit",
   ];
   for (const field of Object.keys(value)) {
     if (!allowed.includes(field)) {
@@ -4996,6 +4996,9 @@ function validateCaptionBackgroundStyle(value, label, findings, path) {
       `${label}.mode must be either per-line or block`,
       path,
     );
+  }
+  if (Object.hasOwn(value, "fit") && value.fit !== "text" && value.fit !== "frame") {
+    captionFinding(findings, "captions.text-style", `${label}.fit must be either text or frame`, path);
   }
 }
 

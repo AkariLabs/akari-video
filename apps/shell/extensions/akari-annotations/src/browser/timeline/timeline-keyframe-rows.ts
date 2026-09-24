@@ -1,5 +1,5 @@
 export const DEFAULT_KEYFRAME_PROPERTIES = [
-    'transform.x', 'transform.y', 'transform.scale', 'transform.rotate', 'opacity'
+    'transform.x', 'transform.y', 'transform.scale', 'transform.scaleX', 'transform.scaleY', 'transform.rotate', 'opacity'
 ] as const;
 export const EDITABLE_KEYFRAME_PROPERTIES = [...DEFAULT_KEYFRAME_PROPERTIES, 'crop', 'perspective'] as const;
 
@@ -46,6 +46,8 @@ const LABELS: Record<KeyframeProperty, string> = {
     'transform.x': 'X',
     'transform.y': 'Y',
     'transform.scale': '拡縮',
+    'transform.scaleX': '幅',
+    'transform.scaleY': '高さ',
     'transform.rotate': '回転',
     opacity: '不透明度',
     crop: 'クロップ',

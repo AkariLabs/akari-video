@@ -24,6 +24,7 @@ import { audioArgsForCodec, containerForCodec } from "./encode-preset.mjs";
 
 const require = createRequire(import.meta.url);
 const {
+  projectLegacyAudioView,
   isAudioItemAudible,
   isCutAudioAudible,
   composeEnvelopesDb,
@@ -125,8 +126,11 @@ export function buildPlan({
         finalDurationSeconds,
       })
     : null;
+  const projectedAudio = projectLegacyAudioView(normalizedInternalEdit);
+  const projectedBgms = Array.isArray(edit.audio?.bgms) ? edit.audio.bgms
+    : projectedAudio.bgms ?? (projectedAudio.bgm ? [projectedAudio.bgm] : []);
   const audioMix = buildAudioMixCommand({
-    edit,
+    edit: projectedBgms.length > 1 ? { ...edit, audio: { ...edit.audio, bgms: projectedBgms } } : edit,
     projectRoot,
     inputPath: codec === "png" ? join(compositePath, "audio.wav") : compositePath,
     outputPath: codec === "png" ? join(temporaryDirectory, "final-audio.wav") : finalPath,
@@ -210,7 +214,7 @@ export function buildAudioMixCommand({
   const hasNarration = narrationTracks.length > 0;
   const master = normalizeMasterPlan(edit.audio?.master);
   const duckKeys = normalizeDuckKeys(edit.audio?.duck_keys);
-  const hasDuckTarget = audio.bgm?.ducking === true || audio.sfx.some(item => item?.ducking === true);
+  const hasDuckTarget = audio.bgms.some(item => item?.ducking === true) || audio.sfx.some(item => item?.ducking === true);
   const speech = hasDuckTarget
     ? resolveSpeechDuckIntervals({ edit, projectRoot, duckKeys })
     : { intervals: [], warnings: [] };
@@ -266,10 +270,10 @@ export function buildAudioMixCommand({
     return `${clipFilters.join(",")},`;
   };
 
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master && codec !== "prores422") {
+  if (audio.bgms.length === 0 && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master && codec !== "prores422") {
     return {
       operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration,
-      hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
+      hasAudibleAudio: audio.bgms.length > 0 || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
       envelopes, envelope: envelopeProvenance(), clip_fx: clipFxProvenance(),
     };
   }
@@ -283,7 +287,7 @@ export function buildAudioMixCommand({
     "-i",
     inputPath,
   ];
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master) {
+  if (audio.bgms.length === 0 && audio.sfx.length === 0 && !hasNarration && !hasSpeech && !master) {
     args.push(
       "-map", "0:v:0", "-map", "0:a:0", "-t", formatNumber(duration),
       "-c:v", "copy", ...audioArgsForCodec(codec), outputPath,
@@ -369,56 +373,58 @@ export function buildAudioMixCommand({
     else speechLabel = "[speech]";
   }
 
-  let bgmLabel = null;
-  if (audio.bgm && Number(audio.bgm.t ?? 0) < duration) {
-    const bgmStart = Math.max(0, Number(audio.bgm.t ?? 0));
+  for (const [bgmIndex, bgm] of audio.bgms.entries()) {
+    if (Number(bgm.t ?? 0) >= duration) continue;
+    const bgmSuffix = audio.bgms.length === 1 ? "" : String(bgmIndex);
+    let bgmLabel = null;
+    const bgmStart = Math.max(0, Number(bgm.t ?? 0));
     const bgmDuration = Math.min(duration - bgmStart,
-      Number(audio.bgm.duration) > 0 ? Number(audio.bgm.duration) : duration - bgmStart);
-    if (audio.bgm.ducking === true) warnUnduckedTarget(audio.bgm.id ?? "bgm", bgmStart, bgmDuration);
-    if (audio.bgm.ducking === undefined && duckKeys.length > 0 && duckIntervals.some(interval =>
+      Number(bgm.duration) > 0 ? Number(bgm.duration) : duration - bgmStart);
+    if (bgm.ducking === true) warnUnduckedTarget(bgm.id ?? "bgm", bgmStart, bgmDuration);
+    if (bgm.ducking === undefined && duckKeys.length > 0 && duckIntervals.some(interval =>
       interval.startSec < bgmStart + bgmDuration && interval.endSec > bgmStart)) {
-      warnings.push(`audio bgm ${audio.bgm.id ?? "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+      warnings.push(`audio bgm ${bgm.id ?? "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
     }
-    const bgmSourcePath = resolve(projectRoot, audio.bgm.path);
-    const bgmIn = resolveBgmInSeconds(audio.bgm, ffprobeCommand, bgmSourcePath);
+    const bgmSourcePath = resolve(projectRoot, bgm.path);
+    const bgmIn = resolveBgmInSeconds(bgm, ffprobeCommand, bgmSourcePath);
     warnings.push(...bgmIn.warnings);
     if (bgmIn.seconds > 0) args.push("-ss", formatNumber(bgmIn.seconds));
     args.push("-stream_loop", "-1", "-i", bgmSourcePath);
-    const bgmFade = resolveBgmFadeSeconds(audio.bgm, bgmDuration);
+    const bgmFade = resolveBgmFadeSeconds(bgm, bgmDuration);
     warnings.push(...bgmFade.warnings);
     // afade は volume/atrim に直結し、その後に決定論 envelope を amultiply する。
     // 乗算同士なので可換だが、この順序を契約として固定する。
     const bgmInputIndex = inputIndex++;
-    const bgmClipFx = clipFxPrefix(audio.bgm, audio.bgm.id ?? "bgm");
+    const bgmClipFx = clipFxPrefix(bgm, bgm.id ?? "bgm");
     const bgmEnvelope = createClipEnvelope({
-      item: audio.bgm,
-      intervals: audio.bgm.ducking === true ? duckIntervals : [],
+      item: bgm,
+      intervals: bgm.ducking === true ? duckIntervals : [],
       clipStartSec: bgmStart,
       clipDurationSec: bgmDuration,
     });
     if (bgmEnvelope) {
       const envelopeInput = appendEnvelopeInput({
-        args, workDirectory, label: "bgm", envelope: bgmEnvelope, durationSec: bgmDuration,
+        args, workDirectory, label: `bgm${bgmSuffix}`, envelope: bgmEnvelope, durationSec: bgmDuration,
         envelopes, inputIndex,
       });
       inputIndex += 1;
-      if (bgmEnvelope.keyframed) keyframedItems.add(audio.bgm.id ?? "bgm");
-      if (bgmEnvelope.ducked) duckedItems.add(audio.bgm.id ?? "bgm");
+      if (bgmEnvelope.keyframed) keyframedItems.add(bgm.id ?? "bgm");
+      if (bgmEnvelope.ducked) duckedItems.add(bgm.id ?? "bgm");
       filters.push(
-        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base${bgmSuffix}]`,
       );
-      filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_bgm]`);
-      filters.push(`[bgm_base][env_bgm]amultiply[bgm_env]`);
-      bgmLabel = "[bgm_env]";
+      filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_bgm${bgmSuffix}]`);
+      filters.push(`[bgm_base${bgmSuffix}][env_bgm${bgmSuffix}]amultiply[bgm_env${bgmSuffix}]`);
+      bgmLabel = `[bgm_env${bgmSuffix}]`;
     } else {
       filters.push(
-        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)}[bgm]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(bgmDuration)}${buildBgmFadeSuffix(bgmFade, bgmDuration)}[bgm${bgmSuffix}]`,
       );
-      bgmLabel = "[bgm]";
+      bgmLabel = `[bgm${bgmSuffix}]`;
     }
     if (bgmStart > 0) {
-      filters.push(`${bgmLabel}adelay=${Math.round(bgmStart * 1000)}:all=1[bgm_delayed]`);
-      bgmLabel = "[bgm_delayed]";
+      filters.push(`${bgmLabel}adelay=${Math.round(bgmStart * 1000)}:all=1[bgm_delayed${bgmSuffix}]`);
+      bgmLabel = `[bgm_delayed${bgmSuffix}]`;
     }
     labels.push(bgmLabel);
   }
@@ -540,7 +546,7 @@ export function buildAudioMixCommand({
   );
   return {
     operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration,
-    hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
+    hasAudibleAudio: audio.bgms.length > 0 || audio.sfx.length > 0 || hasNarration || hasSpeech || Boolean(master),
     envelopes,
     envelope: envelopeProvenance(),
     clip_fx: clipFxProvenance(),
@@ -817,10 +823,12 @@ function appendEnvelopeInput({
 }
 
 function normalizeAudioPlan(audio) {
-  if (!audio) return { bgm: null, sfx: [] };
+  if (!audio) return { bgms: [], sfx: [] };
   const normalize = (value) => (typeof value === "string" ? { path: value } : value);
   return {
-    bgm: audio.bgm && isAudioItemAudible(undefined, audio.bgm) ? normalize(audio.bgm) : null,
+    bgms: (Array.isArray(audio.bgms) ? audio.bgms : audio.bgm ? [audio.bgm] : [])
+      .map(normalize).filter(item => isAudioItemAudible(undefined, item))
+      .sort((a, b) => Number(a.t ?? 0) - Number(b.t ?? 0)),
     sfx: Array.isArray(audio.sfx) ? audio.sfx.map(normalize).filter(item => isAudioItemAudible(undefined, item)) : [],
   };
 }

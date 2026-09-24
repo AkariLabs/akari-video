@@ -7,14 +7,17 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
+import { placedMyStyleTextStyle, myStyleApplyNotice, appendMyStyleUsage } from '../lib/browser/my-style-look.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds } from '@akari-video/edit-store';
 
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const declaration = source.statements.find(item => ts.isClassDeclaration(item) && item.name.text === 'AkariAnnotationsWidget');
-const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'window', 'CustomEvent', `${code}; return Widget;`)(
+const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'myStyleApplyNotice', 'appendMyStyleUsage', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
     placeTextCaption, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
+    placedMyStyleTextStyle, myStyleApplyNotice, appendMyStyleUsage,
+    { fromString: value => value },
     { dispatchEvent() {} }, class { constructor(type, options) { this.type = type; this.detail = options.detail; } });
 
 // Keep the real RPC, file reads and edit-store surgery; replace only post-write lint/git I/O.
@@ -28,7 +31,8 @@ class Service extends AkariAnnotationsServiceImpl {
         return { committed: false };
     }
 }
-const uri = path => ({ toString: () => pathToFileURL(path).toString() });
+const uri = path => ({ toString: () => pathToFileURL(path).toString(),
+    resolve: child => uri(join(path, child)), parent: { toString: () => pathToFileURL(join(path, '..')).toString() } });
 const edit = { version: 2, output: { width: 320, height: 180, fps: 30 }, sources: [],
     tracks: [{ id: 'v', lane: 'visual', items: [{ id: 'card', at: 0, duration: 300, source: { kind: 'html', path: 'card.html' } }] }] };
 async function fixture(t, captions) {
@@ -44,7 +48,9 @@ async function fixture(t, captions) {
         fileService: {
             readFile: async path => ({ value: await readFile(fileURLToPath(path.toString())) }),
             exists: async path => { try { await access(fileURLToPath(path.toString())); return true; } catch { return false; } },
-            delete: async path => unlink(fileURLToPath(path.toString()))
+            delete: async path => unlink(fileURLToPath(path.toString())),
+            createFolder: async path => mkdir(fileURLToPath(path.toString()), { recursive: true }),
+            writeFile: async (path, value) => writeFile(fileURLToPath(path.toString()), value)
         },
         async reloadEdit() {}, async reloadCaptions() {},
         selectCaptions: (_uri, ids) => selection.push(ids), requestSeek: async (...args) => seeks.push(args),
@@ -91,6 +97,49 @@ test('missing captions.json: one insertion includes preset, selects/seeks, one u
     await assert.rejects(readFile(f.captionsPath), { code: 'ENOENT' });
     await f.history[0].redo();
     assert.equal(await readFile(f.captionsPath, 'utf8'), after);
+});
+
+test('マイスタイルの＋とドラッグは見た目を挿入時に書き、undo 1 回で元へ戻る', async t => {
+    const f = await fixture(t);
+    const myStyle = { uid: '01K5ZXY1234ABCDEFGHJKMNPQRS', revision: 1,
+      parts: [{ kind: 'look', text_style: { color: '#ff1744', reference_height_px: 1920,
+        stroke: { color: '#ffffff', width_px: 6 }, background: { color: '#111111', opacity: 0.7 } } },
+        { kind: 'motion', animation: { in: { id: 'pop' } } }] };
+    const id = await f.widget.placeText({ start: 1, myStyle });
+    assert.equal(id, 'c-0001', f.warnings.join(' / '));
+    assert.equal(f.history.length, 1);
+    assert.equal(f.service.writes.length, 1);
+    const after = JSON.parse(await readFile(f.captionsPath, 'utf8')).captions[0];
+    assert.equal(after.text_style.color, '#ff1744');
+    assert.deepEqual(after.text_style.stroke, { color: '#ffffff', width_px: 6 });
+    assert.deepEqual(after.text_style.position, { y: .4625 });
+    assert.equal(after.text_style.reference_height_px, 1920);
+    const usage = JSON.parse(await readFile(join(f.root, '.akari/style-usage.json'), 'utf8'));
+    assert.deepEqual(usage.entries[0].caption_ids, [id]);
+    assert.equal(usage.entries[0].style_uid, myStyle.uid);
+    assert.deepEqual(f.notices, ['動き は v0 では当てません。見た目を当てました。']);
+    await f.history[0].undo();
+    await assert.rejects(readFile(f.captionsPath), { code: 'ENOENT' });
+    const replacedId = await f.widget.placeText({ start: 1, stylePreset: 'title-impact', myStyle });
+    const replaced = JSON.parse(await readFile(f.captionsPath, 'utf8')).captions[0];
+    assert.equal(replaced.id, replacedId);
+    assert.equal('style_preset' in replaced, false);
+    assert.equal(replaced.text_style.reference_height_px, 1920);
+});
+
+test('置いた文字は既定 layout との衝突を挿入前に通知し、字幕を変更しない', async t => {
+    const before = JSON.stringify({ default_text_style: { layout: { mode: 'reference-pixel',
+        reference_width_px: 1920, reference_height_px: 1080, left_px: 261, width_px: 1120,
+        bottom_px: 29, text_align: 'center', max_lines: 1 } }, captions: [] });
+    const f = await fixture(t, before);
+    const id = await f.widget.placeText({ myStyle: { uid: '01K5ZXY1234ABCDEFGHJKMNPQRS', revision: 1,
+        parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] } });
+    assert.equal(id, undefined);
+    assert.match(f.warnings.join(' / '), /layout.*基準高さ/);
+    assert.match(f.notices.join(' / '), /layout.*基準高さ/);
+    assert.equal(await readFile(f.captionsPath, 'utf8'), before);
+    assert.equal(f.service.writes.length, 0);
+    assert.equal(f.history.length, 0);
 });
 
 test('overlapping spoken captions are allowed; undo preserves the original bytes and metadata', async t => {

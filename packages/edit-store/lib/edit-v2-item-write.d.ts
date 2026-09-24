@@ -16,7 +16,7 @@ export interface PreviewItemCropPatch {
 export interface PreviewItemPerspectivePatch {
     corners: [number, number][];
 }
-export type PreviewItemWriteCommand = {
+export type PreviewItemWriteCommand = ({
     kind: 'overlay';
     itemId: string;
     patch: {
@@ -44,6 +44,8 @@ export type PreviewItemWriteCommand = {
         /** 出力プレビューの辺バークロップ。cuts[] に crop の席があるのは v2 だけ。 */
         crop?: PreviewItemCropPatch;
     };
+}) & {
+    playheadSeconds?: number;
 };
 export interface PreviewItemWriteResolution {
     /** edit.json を更新する patch があるときだけ返す。 */

@@ -20,7 +20,7 @@ description: 原稿テキストから VOICEVOX（ローカル・ゼロ円の既�
 3. **生成には読み原稿（かな化）を使い、script / reading を該当行の Edit か edit-store のスクリプト API で両方 edit.json に記録する**
 4. **有償レーン（fal）は費用宣言 → 明示承認後のみ実行する。** ElevenLabs は凍結中 — 選択肢として
    提示すること自体をしない
-5. **API キー直叩き禁止・manage-connections 経由のみ。** doctor が `ok` でないレーンは提示しない
+5. **API キー直叩き禁止・manage-connections 経由のみ。** `FAL_KEY` の置き場は `~/.akari/credentials.env`（旧 `~/.config/akari-video/credentials.env` も読み取り可）。doctor が `ok` でないレーンは提示しない
 6. **provenance.provider は必須。** 例: `"provenance": {"provider": "voicevox", "credit": "VOICEVOX:ずんだもん"}`。fal なら `"provider": "fal"`、収録音声なら `"provider": "human"`。VOICEVOX 系の声は credit 欄も必須
 
 ## 実行順と目次

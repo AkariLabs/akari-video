@@ -6,12 +6,14 @@ export type LegacyAudioDeclaration = Record<string, unknown>;
  */
 export interface LegacyAudioView {
     bgm?: LegacyAudioDeclaration;
+    bgms?: LegacyAudioDeclaration[];
     sfx: LegacyAudioDeclaration[];
     narration: LegacyAudioDeclaration[];
     speech?: LegacyAudioDeclaration[];
 }
 /**
  * 内部表現の audio item だけから legacy audio 形を組み立てる純関数。
- * render-cut の互換射影と同じく legacy.index 順で処理し、bgm は単数として後勝ちにする。
+ * render-cut の互換射影と同じく legacy.index 順で処理し、BGM は開始時刻順に並べる。
+ * 単数 bgm は最初の 1 本を返す互換値。
  */
 export declare function projectLegacyAudioView(internal: InternalEdit): LegacyAudioView;

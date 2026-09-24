@@ -26,7 +26,7 @@ const CAPTION_STYLE_KEYS = new Set([
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
 const CAPTION_BACKGROUND_KEYS = new Set([
     'color', 'opacity', 'radius_px', 'mode',
-    'padding_px', 'width_pct', 'height_pct', 'offset_x', 'offset_y'
+    'padding_px', 'width_pct', 'height_pct', 'offset_x', 'offset_y', 'fit'
 ]);
 const CAPTION_ALIGN_VALUES = new Set(['left', 'center', 'right']);
 const CAPTION_VERTICAL_ALIGN_VALUES = new Set(['top', 'middle', 'bottom']);
@@ -767,6 +767,10 @@ function validateCaptionBackground(value: unknown, label: string): void {
     if (Object.prototype.hasOwnProperty.call(value, 'mode')
         && value.mode !== 'per-line' && value.mode !== 'block') {
         fail('INVALID_TEXT_STYLE', `${label}.mode must be per-line or block`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'fit')
+        && value.fit !== 'text' && value.fit !== 'frame') {
+        fail('INVALID_TEXT_STYLE', `${label}.fit must be text or frame`);
     }
     // textstyle v0 の座布団拡張。padding_px は文字box からの一律余白、width_pct / height_pct は
     // 文字box比での拡張（どちらかを指定すると padding_px より優先される）、offset_* は座布団だけの平行移動。
@@ -1550,7 +1554,9 @@ function normalizeCaptionLineTextStyle(value: unknown): UnknownRecord {
             ...(finiteNumber(value.background.offset_x) ? { offset_x: value.background.offset_x } : {}),
             ...(finiteNumber(value.background.offset_y) ? { offset_y: value.background.offset_y } : {}),
             ...(value.background.mode === 'per-line' || value.background.mode === 'block'
-                ? { mode: value.background.mode } : {})
+                ? { mode: value.background.mode } : {}),
+            ...(value.background.fit === 'text' || value.background.fit === 'frame'
+                ? { fit: value.background.fit } : {})
         } } : {}),
         ...(typeof value.zone === 'string' ? { zone: value.zone } : {})
     };
@@ -1571,7 +1577,8 @@ export function mergeCaptionLineTextStyles(base: unknown, override: unknown): Un
 }
 
 export function usesPercentageBackground(background: unknown): boolean {
-    return isRecord(background) && ((finiteNumber(background.width_pct) && background.width_pct > 0)
+    return isRecord(background) && ((background.fit !== 'frame'
+        && finiteNumber(background.width_pct) && background.width_pct > 0)
         || (finiteNumber(background.height_pct) && background.height_pct > 0));
 }
 
@@ -1702,6 +1709,9 @@ function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number)
     const px = (value: number): number => scaleCaptionPx(value, scale);
     const extendedBackground = usesExtendedPerLineBackground(style.background);
     const percentageBackground = usesPercentageBackground(style.background);
+    if (isRecord(style.background) && style.background.fit === 'frame') {
+        vars['--caption-plate-fit'] = 'frame';
+    }
     if (typeof style.color === 'string') vars['--caption-color'] = style.color;
     if (finiteNumber(style.size_px)) vars['--caption-font-size'] = `${px(style.size_px)}px`;
     if (isRecord(style.stroke) && (typeof style.stroke.color === 'string' || finiteNumber(style.stroke.width_px))) {
@@ -1735,8 +1745,10 @@ function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number)
     if (finiteNumber(style.max_width_pct)) vars['--caption-line-max-width'] = `${style.max_width_pct}%`;
     if (style.vertical) vars['--caption-writing-mode'] = 'vertical-rl';
     if (extendedBackground && isRecord(style.background)) {
-        vars['--plate-ext-width'] = percentageBackground
-            ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+        if (style.background.fit !== 'frame') {
+            vars['--plate-ext-width'] = percentageBackground
+                ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+        }
         vars['--plate-ext-height'] = percentageBackground
             ? `${style.background.height_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
         if (finiteNumber(style.background.offset_x)) vars['--plate-offset-x'] = `${px(style.background.offset_x)}px`;

@@ -42,9 +42,8 @@ export async function runAcceptCommand(argv, options = {}) {
   const candidate = before.candidate;
   const phrase = `ACCEPT ${candidate.artifact_sha256}`;
   log(`Artifact: ${candidate.artifact}\nArtifact SHA-256: ${candidate.artifact_sha256}\nReceipt: ${candidate.receipt}\nReceipt SHA-256: ${candidate.receipt_sha256}\n`);
-  if (candidate.audio_qc?.verdict === "INCONCLUSIVE") {
-    log(`WARNING: audio_qc is INCONCLUSIVE; this is not an audio conformance PASS.\nConfigured: ${JSON.stringify(candidate.audio_qc.configured)}\nFilter report: ${JSON.stringify(candidate.audio_qc.filter_report)}\nDecoded artifact measurement: ${JSON.stringify(candidate.audio_qc.decoded_measurement)}\n`);
-  }
+  const audioQcMessage = formatAudioQcAcceptance(candidate.audio_qc);
+  if (audioQcMessage) log(audioQcMessage);
 
   const prompt = options.prompt ?? promptFromTTY;
   let actorId;
@@ -86,6 +85,14 @@ export async function runAcceptCommand(argv, options = {}) {
     error(`acceptance was not recorded: ${messageOf(cause)}`);
     return { exitCode: 1, status };
   }
+}
+
+export function formatAudioQcAcceptance(audioQc) {
+  if (audioQc?.verdict === "PASS") return "Audio QC: PASS.\n";
+  if (audioQc?.verdict === "INCONCLUSIVE") {
+    return `WARNING: audio_qc is INCONCLUSIVE; this is not an audio conformance PASS.\nConfigured: ${JSON.stringify(audioQc.configured)}\nFilter report: ${JSON.stringify(audioQc.filter_report)}\nDecoded artifact measurement: ${JSON.stringify(audioQc.decoded_measurement)}\n`;
+  }
+  return "";
 }
 
 export function parseAcceptArguments(argv, cwd = process.cwd()) {

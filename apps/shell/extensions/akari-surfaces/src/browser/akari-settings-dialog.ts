@@ -35,7 +35,8 @@ import { describeToolInstallOutcome, formatInstallProgressLabel } from '../commo
 import { computeDownloadPercent, formatDownloadProgressLabel } from '../common/tool-install-progress';
 import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
 import { AkariHomeCommands } from './akari-home-command-contribution';
-import { AkariNarrationEnginesService, NarrationEngineRow } from '../common/narration-engines-protocol';
+import { AkariNarrationEnginesService, NarrationEngineRow, SettingsVoiceAvatar, SettingsVoiceProfile } from '../common/narration-engines-protocol';
+import { falKeyAvailable, settingsVoiceEngineValue, voiceAvatarLabel, voiceSettingsActions } from '../common/voice-settings-model';
 import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
@@ -120,6 +121,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected diagnosticPathCustomized = false;
     protected credentialsPath = '';
     protected narrationState: { engines: NarrationEngineRow[]; voicevoxCaskAvailable: boolean } | undefined;
+    protected voiceProfiles: SettingsVoiceProfile[] = [];
+    protected voiceProfilesLoaded = false;
+    protected voiceAvatars: SettingsVoiceAvatar[] = [];
+    protected narrationRefreshGeneration = 0;
     protected narrationLoading = false;
     protected narrationBusy = '';
     protected narrationError = '';
@@ -994,9 +999,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const connectionsButton = action('接続と API キーへ', () => this.showSection('connections'), { small: true });
         connectionsButton.setAttribute('data-akari-narration-action', 'connections');
         geminiCard.actions.append(connectionsButton);
-        const irodori = engineCard('irodori', '彩（Irodori-TTS）', this.narrationLoading ? '確認中…' :
+        const irodori = engineCard('irodori', '彩（自分の PC）', this.narrationLoading ? '確認中…' :
             irodoriState?.availability.state === 'available' ? 'お試し · 接続済み' : 'つながりません',
-            'Irodori-TTS（MIT）を別に起動したサーバーにつないで使います。GPU のある PC（Windows + NVIDIA 推奨）で動かすのがおすすめです。この Mac では重くて実用的でないことがあります。');
+            'Irodori-TTS（MIT）を別に起動したサーバーにつないで使います。Mac の MPS でも使えます（M1 で 2 回目以降、1 文 15 秒前後）。');
         const experimentalPill = statusPill('お試し', 'neutral');
         experimentalPill.setAttribute('data-akari-experimental', 'true');
         irodori.card.querySelector('strong')?.after(experimentalPill);
@@ -1038,12 +1043,73 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             { label: 'AMD GPU（ROCm）', command: 'uv sync --extra rocm' },
             { label: 'CPU のみ', command: 'uv sync --extra cpu' }
         ]);
-        setupSteps('macOS', [{ label: 'GPU 用 extra はありません。CPU 実行は重いため、GPU のある別 PC を推奨します。', command: 'uv sync' }]);
+        setup.append(element('h4', 'macOS（Apple Silicon）'),
+            commandLine('git clone https://github.com/Aratako/Irodori-TTS-Server.git'),
+            commandLine('cd Irodori-TTS-Server'), commandLine('uv sync --extra cpu'),
+            commandLine('cp .env.example .env'),
+            commandLine('IRODORI_MODEL_DEVICE=mps IRODORI_CODEC_DEVICE=mps uv run --no-sync python -m irodori_openai_tts --host 0.0.0.0 --port 8088'),
+            element('p', '初回はモデル約 3.3 GB。2 回目以降は 1 文 15 秒前後（M1 実測 2026-09-24）。'));
         setup.append(element('p', '別の PC から使うときは、AKARI の接続先に http://<その PC の IP>:8088 を入れ、ファイアウォールで 8088 を開けてください。'));
         irodori.card.append(setup);
         const officialIrodori = action('公式リポジトリを開く', () => this.windows.openNewWindow('https://github.com/Aratako/Irodori-TTS-Server', { external: true }), { small: true });
         officialIrodori.setAttribute('data-akari-narration-action', 'irodori-official'); irodori.actions.append(officialIrodori);
         section.append(groupCard('エンジン', vv.card, geminiCard.card, irodori.card));
+        const voicesSection = groupCard('自分の声');
+        const createVoice = action('自分の声をつくる…', () => void this.commands.executeCommand('akari.voice.create').then(() => this.refreshNarrationState()), { small: true });
+        createVoice.setAttribute('data-akari-voice-action', 'create');
+        voicesSection.append(settingRow('自分の声', '録音を正本として保存します', createVoice));
+        if (!this.voiceProfilesLoaded) voicesSection.append(settingsNote(this.narrationError ? '声の一覧を取得できませんでした。' : '読み込み中…'));
+        const profiles = this.voiceProfiles.filter(profile => !profile.legacy || !this.voiceProfiles.some(other => other.id === profile.id && !other.legacy));
+        for (const profile of profiles) {
+            const buttons = element('div'); Object.assign(buttons.style, { display: 'flex', gap: '6px', flexWrap: 'wrap' });
+            const choices = voiceSettingsActions(profile, irodoriState?.availability.state === 'available',
+                falKeyAvailable(this.narrationState?.engines.find(engine => engine.id === 'fal-qwen3')));
+            const addButton = (label: string, id: string, callback: () => void): void => {
+                const button = action(label, callback, { small: true }); button.setAttribute('data-akari-voice-action', id); buttons.append(button);
+            };
+            if (choices.migrate) addButton('新しい場所へ移す', 'migrate', () => void this.voiceAction(async () => {
+                if (!await this.confirmVoiceAction('新しい場所へ移す', 'コピーします。旧い場所は残ります', '移す')) return;
+                await this.narrationService.voiceMigrateLegacy(profile.id);
+            }));
+            if (choices.rename) {
+                const name = element('input'); name.value = profile.label; name.setAttribute('aria-label', `${profile.label} の名前`); buttons.append(name);
+                addButton('名前を変える', 'rename', () => void this.voiceAction(() => this.narrationService.voiceRename(profile.id, name.value)));
+            }
+            const copy = (engine: 'irodori' | 'fal-qwen3'): void => void this.voiceAction(async () => {
+                let approved = false;
+                if (engine === 'fal-qwen3') {
+                    approved = await new ConfirmDialog({ title: '費用承認', msg: 'クラウド（fal）に録音を送って写しを作ります。見積 約 $0.01。続けますか？',
+                        ok: '費用承認する', cancel: 'キャンセル' }).open();
+                    if (!approved) return;
+                }
+                await this.narrationService.voiceCopy({ profile: profile.id, engine, approved,
+                    irodoriUrl: engine === 'irodori' ? this.preferences.get(AKARI_NARRATION_IRODORI_URL) : undefined });
+            });
+            if (choices.addIrodori) addButton('写しを足す… 彩（自分の PC）', 'copy-irodori', () => copy('irodori'));
+            if (choices.addFal) addButton('写しを足す… クラウド（fal）', 'copy-fal', () => copy('fal-qwen3'));
+            if (choices.remakeIrodori) addButton('作り直す · 彩（自分の PC）', 'remake-irodori', () => copy('irodori'));
+            if (choices.remakeFal) addButton('作り直す · クラウド（fal）', 'remake-fal', () => copy('fal-qwen3'));
+            if (choices.remove) addButton('消す', 'delete', () => void this.voiceAction(async () => {
+                if (!await this.confirmVoiceAction('自分の声を消す', '手元の録音と彩の登録を消します。クラウドで作った声は fal 側に残ります', '消す')) return;
+                await this.narrationService.voiceDelete(profile.id, this.preferences.get(AKARI_NARRATION_IRODORI_URL));
+            }));
+            const row = settingRow(profile.label, undefined, buttons);
+            row.setAttribute('data-akari-voice-profile', profile.id);
+            Object.assign(row.style, { gridTemplateColumns: 'minmax(0, 1fr)', gap: '8px' });
+            const control = row.querySelector<HTMLElement>('.akari-set-row-control');
+            if (control) control.style.justifyContent = 'flex-start';
+            const detail = element('div', `${voiceAvatarLabel(profile.avatar, this.voiceAvatars)} · ${profile.created_at?.slice(0, 10) ?? '日付不明'} · ${profile.duration_s?.toFixed(1) ?? '—'} 秒`);
+            detail.className = 'akari-set-row-desc';
+            const pills = element('div'); Object.assign(pills.style, { display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' });
+            for (const engine of profile.engines) {
+                pills.append(statusPill(engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）', 'neutral'));
+                if (profile.copies?.[engine]?.stale) pills.append(statusPill('古い', 'warn'));
+            }
+            if (profile.legacy) pills.append(statusPill('旧い場所', 'warn'));
+            row.querySelector('.akari-set-row-text')?.append(detail, pills);
+            voicesSection.append(row);
+        }
+        section.append(voicesSection);
         if (this.narrationError) section.append(settingsNote(this.narrationError));
         const engine = this.preferences.get(AKARI_NARRATION_ENGINE);
         const voiceValue = this.preferences.get(AKARI_NARRATION_VOICE);
@@ -1057,8 +1123,13 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 dropdown({ label: '既定のエンジン', options: [
                     { value: 'voicevox', label: 'VOICEVOX · この Mac · 無料' },
                     { value: 'gemini-tts', label: 'Gemini 2.5 Flash TTS · fal.ai 経由 · 従量' },
-                    { value: 'irodori', label: '彩 · お試し' }
-                ], value: engine === 'gemini-tts' || engine === 'irodori' ? engine : 'voicevox',
+                    { value: 'irodori', label: '彩 · お試し' },
+                    ...profiles.filter(profile => typeof profile.consent === 'string' ? profile.consent.trim() : profile.consent?.self_voice)
+                        .map(profile => ({ value: `voice:${profile.id}`, label: `自分の声（${profile.label}）` })),
+                    ...(!this.voiceProfilesLoaded && typeof engine === 'string' && engine.startsWith('voice:')
+                        && !profiles.some(profile => `voice:${profile.id}` === engine)
+                        ? [{ value: engine, label: '自分の声（読み込み中…）' }] : [])
+                ], value: settingsVoiceEngineValue(engine, profiles, this.voiceProfilesLoaded),
                 onChange: value => this.savePreference(AKARI_NARRATION_ENGINE, value) })),
             settingRow('Gemini の既定の声', 'Gemini 2.5 Flash TTS で使う声',
                 dropdown({ label: 'Gemini の既定の声', options: GEMINI_NARRATION_VOICES.map(id => ({ value: id, label: id })),
@@ -1076,11 +1147,43 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected async refreshNarrationState(): Promise<void> {
+        const generation = ++this.narrationRefreshGeneration;
         this.narrationLoading = true;
         this.renderNarration();
-        try { this.narrationState = await this.narrationService.narrationEngines(this.preferences.get<string>(AKARI_NARRATION_IRODORI_URL, 'http://127.0.0.1:8088')); this.narrationError = ''; }
-        catch (error) { this.narrationError = error instanceof Error ? error.message : '状態を取得できませんでした。'; }
-        finally { this.narrationLoading = false; if (!this.isDisposed) this.renderNarration(); }
+        try { const [state, profiles, avatars] = await Promise.all([
+            this.narrationService.narrationEngines(this.preferences.get<string>(AKARI_NARRATION_IRODORI_URL, 'http://127.0.0.1:8088')),
+            this.narrationService.voiceProfiles(), this.narrationService.voiceAvatars()]);
+            if (generation === this.narrationRefreshGeneration) {
+                this.narrationState = state; this.voiceProfiles = profiles.profiles; this.voiceProfilesLoaded = true;
+                this.voiceAvatars = avatars.avatars; this.narrationError = '';
+            } }
+        catch (error) { if (generation === this.narrationRefreshGeneration)
+            this.narrationError = error instanceof Error ? error.message : '状態を取得できませんでした。'; }
+        finally { if (generation === this.narrationRefreshGeneration) {
+            this.narrationLoading = false; if (!this.isDisposed) this.renderNarration();
+        } }
+    }
+    protected async voiceAction(callback: () => Promise<void>): Promise<void> {
+        try { await callback(); await this.refreshNarrationState(); }
+        catch (error) { this.narrationError = String(error); this.renderNarration(); }
+    }
+    protected confirmVoiceAction(title: string, message: string, confirmLabel: string): Promise<boolean> {
+        return new Promise(resolve => {
+            const overlay = element('div'); overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-label', title);
+            overlay.setAttribute('data-akari-voice-confirmation', 'true');
+            Object.assign(overlay.style, { position: 'fixed', inset: '0', zIndex: '1000', background: '#0009',
+                display: 'flex', alignItems: 'center', justifyContent: 'center' });
+            const panel = element('div'); Object.assign(panel.style, { background: '#242832', border: '1px solid #777',
+                borderRadius: '10px', padding: '20px', maxWidth: '440px', display: 'flex', flexDirection: 'column', gap: '12px' });
+            panel.append(element('strong', title), element('p', message));
+            const buttons = element('div'); Object.assign(buttons.style, { display: 'flex', gap: '8px', justifyContent: 'flex-end' });
+            const finish = (accepted: boolean): void => { overlay.remove(); resolve(accepted); };
+            const cancel = action('キャンセル', () => finish(false), { small: true });
+            const accept = action(confirmLabel, () => finish(true), { small: true });
+            accept.setAttribute('data-akari-voice-confirm', 'true');
+            buttons.append(cancel, accept); panel.append(buttons); overlay.append(panel); this.node.append(overlay);
+            accept.focus();
+        });
     }
 
     protected async operateVoicevox(operation: 'start' | 'stop'): Promise<void> {

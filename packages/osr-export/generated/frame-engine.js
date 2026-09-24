@@ -2403,7 +2403,8 @@ ${indent}`);
             opacity: updates.background?.opacity,
             radius_px: updates.background?.radiusPx,
             padding_px: updates.background?.paddingPx,
-            mode: updates.background?.mode
+            mode: updates.background?.mode,
+            fit: updates.background?.fit
           }, `\u5B57\u5E55 ${captionId} \u306E text_style.background`);
           textStyle = updateAnimationStyleObject(textStyle, updates.animation, `\u5B57\u5E55 ${captionId} \u306E text_style.animation`);
           nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
@@ -3086,6 +3087,9 @@ ${indent}`);
           if (value.background.mode === "per-line" || value.background.mode === "block") {
             background.mode = value.background.mode;
           }
+          if (value.background.fit === "text" || value.background.fit === "frame") {
+            background.fit = value.background.fit;
+          }
           if (Object.keys(background).length > 0) {
             style.background = background;
           }
@@ -3272,7 +3276,8 @@ ${indent}`);
               ...style.background.heightPct !== void 0 ? { height_pct: style.background.heightPct } : {},
               ...style.background.offsetX !== void 0 ? { offset_x: style.background.offsetX } : {},
               ...style.background.offsetY !== void 0 ? { offset_y: style.background.offsetY } : {},
-              ...style.background.mode !== void 0 ? { mode: style.background.mode } : {}
+              ...style.background.mode !== void 0 ? { mode: style.background.mode } : {},
+              ...style.background.fit !== void 0 ? { fit: style.background.fit } : {}
             }
           } : {},
           ...style.zone !== void 0 ? { zone: style.zone } : {},
@@ -3308,7 +3313,7 @@ ${indent}`);
         return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
       }
       function validateTextStylePatch(updates) {
-        const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.animation !== void 0;
+        const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
         if (!hasUpdate) {
           throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
@@ -3384,6 +3389,9 @@ ${indent}`);
         if (updates.background?.mode !== void 0 && updates.background.mode !== null && updates.background.mode !== "per-line" && updates.background.mode !== "block") {
           throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
+        if (updates.background?.fit !== void 0 && updates.background.fit !== null && updates.background.fit !== "text" && updates.background.fit !== "frame") {
+          throw new Error("\u5B57\u5E55\u306E\u5EA7\u5E03\u56E3\u306E\u5E45\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
         if (updates.zone !== void 0 && updates.zone !== null && !exports.CAPTION_ZONES.includes(updates.zone)) {
           throw new Error("\u5B57\u5E55\u306E\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
         }
@@ -3432,7 +3440,8 @@ ${indent}`);
               ...updates.background.opacity !== void 0 && updates.background.opacity !== null ? { opacity: updates.background.opacity } : {},
               ...updates.background.radiusPx !== void 0 && updates.background.radiusPx !== null ? { radius_px: updates.background.radiusPx } : {},
               ...updates.background.paddingPx !== void 0 && updates.background.paddingPx !== null ? { padding_px: updates.background.paddingPx } : {},
-              ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {}
+              ...updates.background.mode !== void 0 && updates.background.mode !== null ? { mode: updates.background.mode } : {},
+              ...updates.background.fit !== void 0 && updates.background.fit !== null ? { fit: updates.background.fit } : {}
             }
           } : {},
           ...updates.animation && Object.values(updates.animation).some((value) => value !== void 0 && value !== null) ? {
@@ -4184,7 +4193,8 @@ ${indent}`);
         "width_pct",
         "height_pct",
         "offset_x",
-        "offset_y"
+        "offset_y",
+        "fit"
       ]);
       var CAPTION_ALIGN_VALUES = /* @__PURE__ */ new Set(["left", "center", "right"]);
       var CAPTION_VERTICAL_ALIGN_VALUES = /* @__PURE__ */ new Set(["top", "middle", "bottom"]);
@@ -4753,6 +4763,9 @@ ${indent}`);
         }
         if (Object.prototype.hasOwnProperty.call(value, "mode") && value.mode !== "per-line" && value.mode !== "block") {
           fail("INVALID_TEXT_STYLE", `${label}.mode must be per-line or block`);
+        }
+        if (Object.prototype.hasOwnProperty.call(value, "fit") && value.fit !== "text" && value.fit !== "frame") {
+          fail("INVALID_TEXT_STYLE", `${label}.fit must be text or frame`);
         }
         for (const key of ["padding_px", "width_pct", "height_pct"]) {
           if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNonNegative2(value[key])) {
@@ -5454,7 +5467,8 @@ ${indent}`);
             ...finiteNumber2(value.background.width_pct) ? { width_pct: value.background.width_pct } : {},
             ...finiteNumber2(value.background.offset_x) ? { offset_x: value.background.offset_x } : {},
             ...finiteNumber2(value.background.offset_y) ? { offset_y: value.background.offset_y } : {},
-            ...value.background.mode === "per-line" || value.background.mode === "block" ? { mode: value.background.mode } : {}
+            ...value.background.mode === "per-line" || value.background.mode === "block" ? { mode: value.background.mode } : {},
+            ...value.background.fit === "text" || value.background.fit === "frame" ? { fit: value.background.fit } : {}
           } } : {},
           ...typeof value.zone === "string" ? { zone: value.zone } : {}
         };
@@ -5473,7 +5487,7 @@ ${indent}`);
         return Object.keys(merged).length > 0 ? merged : null;
       }
       function usesPercentageBackground(background) {
-        return isRecord2(background) && (finiteNumber2(background.width_pct) && background.width_pct > 0 || finiteNumber2(background.height_pct) && background.height_pct > 0);
+        return isRecord2(background) && (background.fit !== "frame" && finiteNumber2(background.width_pct) && background.width_pct > 0 || finiteNumber2(background.height_pct) && background.height_pct > 0);
       }
       function usesExtendedPerLineBackground(background) {
         if (!isRecord2(background) || background.mode === "block")
@@ -5563,6 +5577,9 @@ ${indent}`);
         const px = (value) => scaleCaptionPx(value, scale);
         const extendedBackground = usesExtendedPerLineBackground(style.background);
         const percentageBackground = usesPercentageBackground(style.background);
+        if (isRecord2(style.background) && style.background.fit === "frame") {
+          vars["--caption-plate-fit"] = "frame";
+        }
         if (typeof style.color === "string")
           vars["--caption-color"] = style.color;
         if (finiteNumber2(style.size_px))
@@ -5602,7 +5619,9 @@ ${indent}`);
         if (style.vertical)
           vars["--caption-writing-mode"] = "vertical-rl";
         if (extendedBackground && isRecord2(style.background)) {
-          vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+          if (style.background.fit !== "frame") {
+            vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
+          }
           vars["--plate-ext-height"] = percentageBackground ? `${style.background.height_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
           if (finiteNumber2(style.background.offset_x))
             vars["--plate-offset-x"] = `${px(style.background.offset_x)}px`;
@@ -6796,6 +6815,228 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/transform-keyframe-edit.js
+  var require_transform_keyframe_edit = __commonJS({
+    "packages/edit-store/lib/transform-keyframe-edit.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.evaluatedItemTransform = evaluatedItemTransform;
+      exports.hasTransformKeyframe = hasTransformKeyframe;
+      exports.activateItemTransformKeyframe = activateItemTransformKeyframe;
+      exports.writeItemTransformAt = writeItemTransformAt;
+      var FIELDS = ["x", "y", "scale", "scaleX", "scaleY", "rotate"];
+      var DEFAULTS = { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 };
+      var finite7 = (value) => typeof value === "number" && Number.isFinite(value);
+      var isMedia = (item) => item.source.kind === "media";
+      var pointsOf = (item) => Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.t - b.t) : [];
+      var frameOf = (item, frame) => Math.min(item.duration, Math.max(0, Math.round(frame)));
+      function eased(point, field, u2, media) {
+        const raw = point.easing;
+        const name = typeof raw === "string" ? raw : raw?.[`transform.${field}`] ?? raw?.transform ?? "linear";
+        if (media)
+          return name === "ease-in-out" ? u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2 : u2;
+        if (name === "hold")
+          return 0;
+        if (name === "ease-in-out" || name === "in-out-cubic")
+          return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
+        if (name === "in-quad")
+          return u2 * u2;
+        if (name === "out-quad")
+          return 1 - (1 - u2) ** 2;
+        if (name === "in-out-quad")
+          return u2 < 0.5 ? 2 * u2 * u2 : 1 - (-2 * u2 + 2) ** 2 / 2;
+        if (name === "in-cubic")
+          return u2 ** 3;
+        if (name === "out-cubic")
+          return 1 - (1 - u2) ** 3;
+        if (name === "in-quart")
+          return u2 ** 4;
+        if (name === "out-quart")
+          return 1 - (1 - u2) ** 4;
+        if (name === "in-out-quart")
+          return u2 < 0.5 ? 8 * u2 ** 4 : 1 - (-2 * u2 + 2) ** 4 / 2;
+        if (name === "in-expo")
+          return u2 === 0 ? 0 : 2 ** (10 * u2 - 10);
+        if (name === "out-expo")
+          return u2 === 1 ? 1 : 1 - 2 ** (-10 * u2);
+        if (name === "in-out-expo")
+          return u2 === 0 || u2 === 1 ? u2 : u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
+        if (name === "in-back")
+          return 2.70158 * u2 ** 3 - 1.70158 * u2 ** 2;
+        if (name === "out-back")
+          return 1 + 2.70158 * (u2 - 1) ** 3 + 1.70158 * (u2 - 1) ** 2;
+        if (name === "in-out-back") {
+          const c = 1.70158 * 1.525;
+          return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
+        }
+        if (name === "out-bounce") {
+          const n2 = 7.5625, d2 = 2.75;
+          if (u2 < 1 / d2)
+            return n2 * u2 * u2;
+          if (u2 < 2 / d2)
+            return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
+          if (u2 < 2.5 / d2)
+            return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
+          return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
+        }
+        if (name === "out-elastic")
+          return u2 === 0 || u2 === 1 ? u2 : 2 ** (-10 * u2) * Math.sin((u2 * 10 - 0.75) * (2 * Math.PI / 3)) + 1;
+        const match = typeof name === "string" ? name.match(/^cubic-bezier\(([^,]+),([^,]+),([^,]+),([^,]+)\)$/u) : null;
+        if (match) {
+          const [x1, y1, x22, y2] = match.slice(1).map(Number);
+          if ([x1, y1, x22, y2].every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
+            const curve = (p2, a, b) => 3 * (1 - p2) ** 2 * p2 * a + 3 * (1 - p2) * p2 ** 2 * b + p2 ** 3;
+            let low = 0, high = 1;
+            for (let i2 = 0; i2 < 32; i2++) {
+              const mid = (low + high) / 2;
+              if (curve(mid, x1, x22) < u2)
+                low = mid;
+              else
+                high = mid;
+            }
+            return curve((low + high) / 2, y1, y2);
+          }
+        }
+        return u2;
+      }
+      function valueAt2(points, frame, field, fallback, media, statics) {
+        const declared = points.flatMap((point) => {
+          const transform = point.transform;
+          if (!transform)
+            return [];
+          let value = transform[field];
+          if (!finite7(value) && (field === "scaleX" || field === "scaleY")) {
+            value = transform.scale ?? (media ? statics[field] ?? statics.scale ?? 1 : fallback);
+          }
+          if (!finite7(value) && media)
+            value = DEFAULTS[field];
+          return finite7(value) ? [{ point, value }] : [];
+        });
+        if (!declared.length)
+          return fallback;
+        if (frame <= declared[0].point.t)
+          return declared[0].value;
+        const last = declared[declared.length - 1];
+        if (frame >= last.point.t)
+          return last.value;
+        for (let i2 = 1; i2 < declared.length; i2++) {
+          const right = declared[i2], left = declared[i2 - 1];
+          if (frame > right.point.t)
+            continue;
+          const span = right.point.t - left.point.t;
+          const u2 = span > 0 ? eased(right.point, field, (frame - left.point.t) / span, media) : 1;
+          return left.value + (right.value - left.value) * u2;
+        }
+        return last.value;
+      }
+      function evaluatedItemTransform(item, frame) {
+        const staticValue = item.transform ?? {};
+        const base = {
+          x: staticValue.x ?? 0,
+          y: staticValue.y ?? 0,
+          scale: staticValue.scale ?? 1,
+          scaleX: staticValue.scaleX ?? staticValue.scale ?? 1,
+          scaleY: staticValue.scaleY ?? staticValue.scale ?? 1,
+          rotate: staticValue.rotate ?? 0
+        };
+        const points = pointsOf(item), media = isMedia(item);
+        if (points.length < 2 || !points.some((point) => point.transform))
+          return base;
+        const at2 = frameOf(item, frame);
+        return Object.fromEntries(FIELDS.map((field) => [
+          field,
+          valueAt2(points, at2, field, media && field !== "scaleX" && field !== "scaleY" ? DEFAULTS[field] : base[field], media, staticValue)
+        ]));
+      }
+      function hasTransformKeyframe(item, field) {
+        return pointsOf(item).some((point) => finite7(point.transform?.[field]));
+      }
+      function validPatch(patch) {
+        for (const [field, value] of Object.entries(patch)) {
+          if (!FIELDS.includes(field) || !finite7(value) || (field === "scale" || field === "scaleX" || field === "scaleY") && value <= 0) {
+            throw new Error(`Invalid transform.${field}`);
+          }
+        }
+      }
+      function normalizedAxisPatch(current, patch) {
+        if (patch.scale === void 0 || patch.scaleX !== void 0 || patch.scaleY !== void 0)
+          return patch;
+        const previous = Math.sqrt(current.scaleX * current.scaleY);
+        const ratio = previous > 0 ? patch.scale / previous : 1;
+        return { ...patch, scaleX: current.scaleX * ratio, scaleY: current.scaleY * ratio };
+      }
+      function fullMediaPoint(item, point) {
+        if (!point.transform)
+          return { ...point };
+        return { ...point, transform: evaluatedItemTransform(item, point.t) };
+      }
+      function activateItemTransformKeyframe(item, frame, field) {
+        const at2 = frameOf(item, frame), before = evaluatedItemTransform(item, at2);
+        const points = pointsOf(item);
+        if (hasTransformKeyframe(item, field) && points.some((point) => point.t === at2 && finite7(point.transform?.[field])))
+          return item;
+        const next = points.map((point) => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
+        const value = isMedia(item) ? { ...before } : field === "scale" ? { scale: Math.sqrt(before.scaleX * before.scaleY), scaleX: before.scaleX, scaleY: before.scaleY } : { [field]: before[field] };
+        const seat = next.find((point) => point.t === at2);
+        if (seat)
+          seat.transform = { ...seat.transform, ...value };
+        else
+          next.push({ t: at2, transform: value });
+        if (next.length === 1) {
+          next.push({ t: at2 === 0 ? item.duration : 0, transform: { ...value } });
+        }
+        return { ...item, keyframes: next.sort((a, b) => a.t - b.t) };
+      }
+      function writeItemTransformAt(item, frame, input) {
+        validPatch(input);
+        const at2 = frameOf(item, frame), current = evaluatedItemTransform(item, at2);
+        const patch = normalizedAxisPatch(current, input);
+        const animated = new Set(FIELDS.filter((field) => hasTransformKeyframe(item, field)));
+        if (patch.scale !== void 0 && (animated.has("scaleX") || animated.has("scaleY")))
+          animated.add("scale");
+        if (animated.has("scale")) {
+          animated.add("scaleX");
+          animated.add("scaleY");
+        }
+        const base = { ...item.transform };
+        const pointPatch = {};
+        for (const field of FIELDS) {
+          const value = patch[field];
+          if (value === void 0)
+            continue;
+          if (animated.has(field))
+            pointPatch[field] = value;
+          else
+            base[field] = value;
+        }
+        if (patch.scaleX !== void 0 || patch.scaleY !== void 0) {
+          if (animated.has("scale")) {
+            pointPatch.scaleX ??= current.scaleX;
+            pointPatch.scaleY ??= current.scaleY;
+          }
+          const x3 = pointPatch.scaleX ?? base.scaleX ?? base.scale ?? current.scaleX;
+          const y2 = pointPatch.scaleY ?? base.scaleY ?? base.scale ?? current.scaleY;
+          if (animated.has("scale"))
+            pointPatch.scale = Math.sqrt(x3 * y2);
+          else if (base.scaleX !== void 0 || base.scaleY !== void 0)
+            base.scale = Math.sqrt(x3 * y2);
+        }
+        let keyframes = pointsOf(item);
+        if (Object.keys(pointPatch).length) {
+          keyframes = keyframes.map((point) => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
+          let seat = keyframes.find((point) => point.t === at2);
+          if (!seat) {
+            seat = { t: at2 };
+            keyframes.push(seat);
+          }
+          seat.transform = { ...isMedia(item) ? current : seat.transform, ...pointPatch };
+          keyframes.sort((a, b) => a.t - b.t);
+        }
+        return { ...item, transform: base, ...keyframes.length ? { keyframes } : {} };
+      }
+    }
+  });
+
   // packages/edit-store/lib/edit-v2-item-write.js
   var require_edit_v2_item_write = __commonJS({
     "packages/edit-store/lib/edit-v2-item-write.js"(exports) {
@@ -6805,6 +7046,7 @@ ${indent}`);
       exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
       var edit_v2_1 = require_edit_v2();
       var transform_1 = require_transform();
+      var transform_keyframe_edit_1 = require_transform_keyframe_edit();
       var isRecord2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
       var recordOf = (value) => isRecord2(value) ? value : {};
       var stringifyEdit = (value) => `${JSON.stringify(value, void 0, 2)}
@@ -6908,6 +7150,18 @@ ${indent}`);
         if (!target)
           throw new Error(`\u30A2\u30A4\u30C6\u30E0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${itemId}`);
         const item = target.item;
+        const writeTransform = (patch) => {
+          const seconds = command.playheadSeconds;
+          if (Number.isFinite(seconds) && Array.isArray(item.keyframes) && item.keyframes.some((point) => point.transform)) {
+            const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+            const frame = Math.round(seconds * edit.output.fps) - start;
+            const updated = (0, transform_keyframe_edit_1.writeItemTransformAt)(item, frame, patch);
+            item.transform = updated.transform;
+            item.keyframes = updated.keyframes;
+          } else {
+            item.transform = mergeTransform(item.transform, patch);
+          }
+        };
         if (command.kind === "overlay") {
           if ("text" in command.patch) {
             if (typeof command.patch.text !== "string") {
@@ -6962,7 +7216,7 @@ ${indent}`);
             }
             if (!command.patch.transform)
               return {};
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             return { candidateText: stringifyEdit(edit) };
           }
         }
@@ -6998,12 +7252,12 @@ ${indent}`);
             throw new Error(`\u56F3\u5F62\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
           }
           if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
           }
         } else if (command.kind === "layer") {
           if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
           }
           if (command.patch.crop) {
@@ -7025,7 +7279,7 @@ ${indent}`);
             throw new Error(`\u6620\u50CF\u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
           }
           if (command.patch.transform) {
-            item.transform = mergeTransform(item.transform, command.patch.transform);
+            writeTransform(command.patch.transform);
             editChanged = true;
           }
           if (command.patch.crop) {
@@ -8420,7 +8674,7 @@ ${indent}`);
         const audioSfx = [];
         const audioNarration = [];
         const audioSpeech = [];
-        let audioBgm;
+        const audioBgms = [];
         for (const track of internal.tracks) {
           if (track.lane === "audio" && !(0, audio_ownership_1.isAudioItemAudible)(track, void 0))
             continue;
@@ -8445,7 +8699,7 @@ ${indent}`);
                     audioSpeech.push({ index: item.legacy.index, value });
                     break;
                   case "bgm":
-                    audioBgm = value;
+                    audioBgms.push(value);
                     break;
                   case "layers":
                     layers.push({ index: item.legacy.index, value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value });
@@ -8482,7 +8736,8 @@ ${indent}`);
           audioSfx: byDeclarationOrder(audioSfx),
           audioNarration: byDeclarationOrder(audioNarration),
           ...audioSpeech.length ? { audioSpeech: byDeclarationOrder(audioSpeech) } : {},
-          ...audioBgm ? { audioBgm } : {},
+          audioBgms: audioBgms.sort((a, b) => (a.t ?? 0) - (b.t ?? 0)),
+          ...audioBgms.length ? { audioBgm: audioBgms[0] } : {},
           ...internal.tracksDeclared ? { timeline: { tracks: declaredTracks } } : {},
           fps: internal.output.fps,
           warnings: internal.warnings
@@ -8526,7 +8781,8 @@ ${indent}`);
         const sfx = [];
         const narration = [];
         const speech = [];
-        let bgm;
+        const bgms = [];
+        const bgmItemIds = [];
         for (const item of ordered) {
           if (item.legacy.value === void 0)
             continue;
@@ -8543,14 +8799,20 @@ ${indent}`);
               narration.push(declaration);
               break;
             case "bgm":
-              bgm = declaration;
+              bgms.push(declaration);
+              bgmItemIds.push(item.id);
               break;
             default:
               break;
           }
         }
+        if (bgms.length > 1)
+          bgms.forEach((bgm, index) => {
+            bgm.id = bgmItemIds[index];
+          });
         return {
-          ...bgm !== void 0 ? { bgm } : {},
+          ...bgms.length > 1 ? { bgms: bgms.sort((a, b) => Number(a.t ?? 0) - Number(b.t ?? 0)) } : {},
+          ...bgms.length ? { bgm: bgms[0] } : {},
           sfx,
           narration,
           ...speech.length ? { speech } : {}
@@ -9346,23 +9608,24 @@ ${indent}`);
           }
         };
         const items = [];
-        const bgm = audio.bgm;
-        if (bgm && (0, audio_ownership_1.isAudioItemAudible)(void 0, bgm)) {
-          const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings2);
-          if (scheduled)
-            items.push(scheduled);
-          if (bgm.ducking === true && finitePositive4(bgm.durationSec)) {
-            const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-            const clipDurationSec = finitePositive4(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-            if (clipDurationSec > 0) {
-              warnUnduckedTarget(typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm", clipStartSec, clipDurationSec);
+        for (const bgm of audio.bgms ?? (audio.bgm ? [audio.bgm] : [])) {
+          if (bgm && (0, audio_ownership_1.isAudioItemAudible)(void 0, bgm)) {
+            const scheduled = scheduleBgm(bgm, timelineDurationSec, startAtSec, duckIntervals, warnings2);
+            if (scheduled)
+              items.push(scheduled);
+            if (bgm.ducking === true && finitePositive4(bgm.durationSec)) {
+              const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+              const clipDurationSec = finitePositive4(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+              if (clipDurationSec > 0) {
+                warnUnduckedTarget(typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm", clipStartSec, clipDurationSec);
+              }
             }
-          }
-          if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive4(bgm.durationSec)) {
-            const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
-            const clipDurationSec = finitePositive4(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
-            if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
-              warnings2.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+            if (bgm.ducking === void 0 && duckKeys.length > 0 && finitePositive4(bgm.durationSec)) {
+              const clipStartSec = typeof bgm.t === "number" && Number.isFinite(bgm.t) && bgm.t > 0 ? bgm.t : 0;
+              const clipDurationSec = finitePositive4(bgm.duration) ? Math.min(timelineDurationSec - clipStartSec, bgm.duration) : timelineDurationSec - clipStartSec;
+              if (clipDurationSec > 0 && duckIntervals.some((interval) => interval.startSec < clipStartSec + clipDurationSec && interval.endSec > clipStartSec)) {
+                warnings2.push(`audio bgm ${typeof bgm.id === "string" && bgm.id ? bgm.id : "bgm"} overlaps duck key intervals (duck_keys: ${JSON.stringify(duckKeys)}) but ducking is not enabled; set "ducking": true on the item to duck it under narration`);
+              }
             }
           }
         }
@@ -12097,6 +12360,7 @@ ${indent}`);
           layers,
           audioSfx,
           audioNarration,
+          audioBgms: audioBgm ? [audioBgm] : [],
           ...audioBgm ? { audioBgm } : {},
           ...timeline ? { timeline } : {},
           fps,
@@ -12249,6 +12513,7 @@ ${indent}`);
       Object.defineProperty(exports, "normalizeTransform", { enumerable: true, get: function() {
         return transform_1.normalizeTransform;
       } });
+      __exportStar(require_transform_keyframe_edit(), exports);
     }
   });
 
@@ -19704,7 +19969,7 @@ void main() {
     }
     return pick(last);
   }
-  function computeLayerKeyframesVisual(keyframes, layerLocalSeconds, statics = {}) {
+  function computeLayerKeyframesVisual(keyframes, layerLocalSeconds, statics = {}, cutStaticFallback = false) {
     const points = (keyframes ?? []).filter((point) => finite(point?.t) && point.t >= 0).slice().sort((left, right) => left.t - right.t);
     if (points.length < 2) return null;
     const t = finite(layerLocalSeconds) ? layerLocalSeconds : 0;
@@ -19716,13 +19981,14 @@ void main() {
       (point) => finite(point.transform?.[name]) ? point.transform[name] : name === "scaleX" || name === "scaleY" ? point.transform?.scale ?? statics?.[name] ?? statics?.scale ?? fallback : fallback,
       t
     );
-    const rawScale = transformPoints.length ? leaf("scale", 1) : 1;
+    const staticLeaf = (name, fallback) => cutStaticFallback && finite(statics?.[name]) ? statics[name] : fallback;
+    const rawScale = transformPoints.length ? leaf("scale", staticLeaf("scale", 1)) : 1;
     const transform = transformPoints.length ? {
-      x: leaf("x", 0),
-      y: leaf("y", 0),
+      x: leaf("x", staticLeaf("x", 0)),
+      y: leaf("y", staticLeaf("y", 0)),
       scale: rawScale > 0 ? rawScale : 1,
       ...statics?.scaleX !== void 0 || statics?.scaleY !== void 0 || transformPoints.some((point) => point.transform?.scaleX !== void 0 || point.transform?.scaleY !== void 0) ? { scaleX: Math.max(Number.EPSILON, leaf("scaleX", 1)), scaleY: Math.max(Number.EPSILON, leaf("scaleY", 1)) } : {},
-      rotateDegrees: leaf("rotate", 0)
+      rotateDegrees: leaf("rotate", staticLeaf("rotate", 0))
     } : null;
     const cropPoints = points.filter(
       (point) => point.crop && finite(point.crop.x) && finite(point.crop.y) && finite(point.crop.w) && point.crop.w > 0 && finite(point.crop.h) && point.crop.h > 0
@@ -23049,7 +23315,7 @@ void main() {
     };
   }
   function layerStyleVisualAt(cut, localSeconds) {
-    const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform);
+    const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform, true);
     const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const crop = animated?.crop ?? {
       x: finite4(staticCrop.x, 0),
@@ -23078,9 +23344,8 @@ void main() {
         rotateDegrees: transform.rotateDegrees
       },
       opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
-      layerStyle: {
-        crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height }
-      }
+      // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
+      ...cut.crop || animated?.crop || cut.perspective || animated?.perspective || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe" ? { layerStyle: { crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height } } } : {}
     };
   }
   function motionTransform(transform, motion2) {
@@ -30435,9 +30700,10 @@ caused by: ${cause.stack}`;
         durationSec: item.durationSec,
         ...!item.sidecar ? { sidecar: void 0 } : {}
       }));
-      const bgm = normalized.find((_3, index) => scheduled[index]?.kind === "bgm");
+      const bgms = normalized.filter((_3, index) => scheduled[index]?.kind === "bgm");
       return {
-        ...bgm ? { bgm } : {},
+        bgms,
+        ...bgms.length ? { bgm: bgms[0] } : {},
         sfx: normalized.filter((_3, index) => scheduled[index]?.kind === "sfx"),
         narration: normalized.filter((_3, index) => scheduled[index]?.kind === "narration")
       };

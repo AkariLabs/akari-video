@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "profile": "sample",
+  "duration_s": 90.123,
+  "score": 0.942,
+  "warnings": [
+    "写しが古くなりました。akari voice copy で写しを作り直してください"
+  ]
+}

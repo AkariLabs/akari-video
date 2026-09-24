@@ -52,6 +52,7 @@ export interface TimelineOverlaySelection {
     kind: 'overlay';
     id: string;
     outputStart: number;
+    playheadSeconds?: number;
     duration: number;
     track?: number;
     payload: Record<string, unknown>;
@@ -90,6 +91,7 @@ export interface TimelineLayerSelection {
     sourceKind?: string;
     durationFrames: number;
     outputStart: number;
+    playheadSeconds?: number;
     duration: number;
     src?: string;
     preset?: string;
@@ -122,6 +124,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     mask?: string;
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     outputStart: number;
+    playheadSeconds?: number;
     duration: number;
     durationFrames: number;
     transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
@@ -360,6 +363,7 @@ type InspectorWriteOperation =
     | { kind: 'caption-style-bg-radius'; id: string; value: number }
     | { kind: 'caption-style-bg-mode'; id: string; value: CaptionBackgroundMode }
     | { kind: 'caption-style-zone'; id: string; value: CaptionZone }
+    | { kind: 'caption-style-my-style'; id: string; value: Record<string, unknown> }
     | { kind: 'sfx-gain'; id: string; value: number | null }
     | { kind: 'sfx-fade-in'; id: string; value: number | null }
     | { kind: 'sfx-fade-out'; id: string; value: number | null }

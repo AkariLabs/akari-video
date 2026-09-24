@@ -624,8 +624,8 @@ for (const [fixture, expectedCheck] of [
   ["v2-audio-track-overlap-invalid", "v2.track-no-overlap"],
   ["v2-lane-source-invalid", "v2.lane-source"],
   ["v2-item-duration-zero-invalid", "v2.item-duration"],
-  ["v2-audio-bgm-multiple-invalid", "v2.audio-bgm-multiple"],
-  ["v2-audio-bgm-items-invalid", "v2.audio-bgm-multiple"],
+  ["v2-audio-bgm-multiple-invalid", null],
+  ["v2-audio-bgm-items-invalid", null],
   ["edit-v2-cut-audio-split-valid", null],
   ["edit-v2-cut-audio-link-missing-invalid", "v2.audio-link-target"],
   ["edit-v2-cut-audio-link-not-media-invalid", "v2.audio-link-target-kind"],
@@ -642,8 +642,9 @@ for (const [fixture, expectedCheck] of [
         return;
       }
       const executed = run(join(fixtures, fixture));
-      assert.equal(executed.status, 1, executed.stderr);
+      assert.equal(executed.status, expectedCheck === null ? 0 : 1, executed.stderr);
       const result = parseResult(executed);
+      if (expectedCheck === null) { assert.equal(result.verdict, 'pass'); return; }
       assert.ok(
         result.findings.some(
           (finding) => finding.check === expectedCheck && finding.severity === "error",
