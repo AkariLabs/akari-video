@@ -358,7 +358,7 @@ import {
 } from './timeline/timeline-keyframe-rows';
 import { objectKeyframeValue } from './timeline/object-keyframe-value';
 import { createAkariNoticeBanner } from './akari-notice-banner';
-import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
+import { matchesPreviewZOrderSelection, NudgeCommitSession, planZOrderMove, ZOrderOperation } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { validateInspectorPerspective } from './inspector/perspective-fields';
@@ -2585,28 +2585,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (this.selection) this.showNotice('この操作は v2 のみです。');
                     return;
                 }
-                const tracks = (this.editDocument.tracks as Array<Record<string, unknown>>).flatMap(track =>
-                    typeof track.id === 'string' ? [{
-                        id: track.id, lane: track.lane, name: track.name, items: track.items
-                    }] : []);
-                const plan = planAdjacentVisualTrackMove(tracks, id, event.key === ']' ? 1 : -1);
-                if (!plan.targetTrackId || plan.atFrames === undefined) return;
-                let createdTrackId: string | undefined;
-                void this.commitEditMutation('クリップを前後へ移動', doc => {
-                    const result = moveTreeV2Item(
-                        doc, id, { track: plan.targetTrackId! }, { at: plan.atFrames! }
-                    );
-                    createdTrackId = result.createdTrackId;
-                    return result.document;
-                }).then(() => {
-                    if (createdTrackId) {
-                        const name = this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId;
-                        this.showNotice(`${name} を追加しました`);
-                    } else {
-                        this.hideNotice();
-                    }
-                    this.footer.textContent = 'クリップを前後へ移動しました。';
-                }).catch(error => this.showNotice(`移動できません: ${this.errorMessage(error)}`));
+                this.moveSelectedZOrder(id, event.key === ']' ? 'forward' : 'backward', 'クリップを前後へ移動');
                 return;
             }
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'g') {
@@ -4936,6 +4915,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.runRegisteredShortcut({ key: 'g', metaKey: true, ctrlKey: false,
             shiftKey: kind === 'ungroup', altKey: false, isComposing: false,
             preventDefault: () => undefined, stopPropagation: () => undefined } as KeyboardEvent);
+    }
+
+    runPreviewZOrderCommand(editUri: string, op: ZOrderOperation, selectedIds: readonly string[]): void {
+        if (!this.canHandlePlaybackTick(editUri)) return;
+        const selection = this.selection;
+        const id = selection?.kind === 'cut' ? this.cutItemId(selection.index)
+            : selection && 'id' in selection ? selection.id : undefined;
+        if (!matchesPreviewZOrderSelection(id, selectedIds, this.multiSelection.length > 0)) return;
+        this.moveSelectedZOrder(id, op, '重なり順を変更');
+    }
+
+    protected moveSelectedZOrder(id: string, op: ZOrderOperation, label: string): void {
+        if (!this.editDocument || id.includes('#')) return;
+        const plan = planZOrderMove(this.editDocument, id, op);
+        if (plan.blocked) {
+            this.footer.textContent = plan.blocked === 'front' ? 'いちばん前面です' : 'いちばん背面です';
+            return;
+        }
+        if (!plan.target) return;
+        const target = plan.target;
+        let createdTrackId: string | undefined;
+        void this.commitEditMutation(label, doc => {
+            const result = 'track' in target
+                ? moveTreeV2Item(doc, id, target, { at: plan.atFrames! })
+                : moveTreeV2Item(doc, id, target);
+            createdTrackId = result.createdTrackId;
+            return result.document;
+        }).then(() => {
+            if (createdTrackId) {
+                const name = this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId;
+                this.showNotice(`${name} を追加しました`);
+            } else {
+                this.hideNotice();
+            }
+            this.footer.textContent = `${label}しました。`;
+        }).catch(error => this.showNotice(`移動できません: ${this.errorMessage(error)}`));
     }
 
     notifyPreviewBagGrouping(editUri: string): void {

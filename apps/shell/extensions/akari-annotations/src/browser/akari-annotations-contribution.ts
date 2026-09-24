@@ -483,6 +483,18 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         };
         window.addEventListener('akari.preview.groupCommand', onPreviewGroupCommand);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.preview.groupCommand', onPreviewGroupCommand) });
+        const onPreviewZOrderCommand = (event: Event): void => {
+            const request = (event as CustomEvent<{
+                editUri: string; op: 'front' | 'forward' | 'backward' | 'back'; selectedIds: string[]
+            }>).detail;
+            if (request?.editUri && ['front', 'forward', 'backward', 'back'].includes(request.op)
+                && Array.isArray(request.selectedIds) && request.selectedIds.length === 1
+                && typeof request.selectedIds[0] === 'string') {
+                this.timelineWidget?.runPreviewZOrderCommand(request.editUri, request.op, request.selectedIds);
+            }
+        };
+        window.addEventListener('akari.preview.zOrderCommand', onPreviewZOrderCommand);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.preview.zOrderCommand', onPreviewZOrderCommand) });
         const onPreviewGroupUnavailable = (event: Event): void => {
             const request = (event as CustomEvent<{ editUri: string }>).detail;
             if (request?.editUri) this.timelineWidget?.notifyPreviewBagGrouping(request.editUri);

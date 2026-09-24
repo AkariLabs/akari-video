@@ -151,7 +151,7 @@ import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { layerDeclaredGeometryHitAt, resolveLayerDeclaredSize } from '../common/layer-declared-geometry';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
-import { buildPreviewContextMenuMessage, previewGroupMenuVisible } from '../common/preview-context-menu';
+import { buildPreviewContextMenuMessage, PREVIEW_Z_ORDER_MENU_ITEMS, previewGroupMenuVisible, previewZOrderMenuVisible } from '../common/preview-context-menu';
 import {
     buildCaptionAnimatorSummaryFields,
     CaptionAnimatorSummary,
@@ -1071,6 +1071,7 @@ const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
 const ANNOTATE_PREVIEW_AT_POINT_COMMAND: Command = { id: 'akari.preview.annotateAtPoint' };
 const GROUP_PREVIEW_COMMAND: Command = { id: 'akari.preview.group' };
 const UNGROUP_PREVIEW_COMMAND: Command = { id: 'akari.preview.ungroup' };
+const Z_ORDER_PREVIEW_MENU = [...WEBVIEW_CONTEXT_MENU, 'akari-preview-z-order'];
 const SET_PREVIEW_FULLSCREEN_COMMAND: Command = { id: 'akari.preview.setFullscreen' };
 const SET_PREVIEW_VIEW_ZOOM_COMMAND: Command = { id: 'akari.preview.setViewZoom' };
 const SET_PREVIEW_PLAYBACK_RATE_COMMAND: Command = { id: 'akari.preview.setPlaybackRate' };
@@ -1453,6 +1454,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }));
             this.lifecycleDisposables.push(this.menuModelRegistry.registerMenuAction(WEBVIEW_CONTEXT_MENU, {
                 commandId: command.id, label
+            }));
+        }
+        for (const { id, label, op, order } of PREVIEW_Z_ORDER_MENU_ITEMS) {
+            this.lifecycleDisposables.push(this.commandRegistry.registerCommand({ id }, {
+                isVisible: (context?: typeof this.previewGroupMenuContext) =>
+                    context === this.previewGroupMenuContext && previewZOrderMenuVisible(context),
+                execute: (context?: typeof this.previewGroupMenuContext) => {
+                    if (!context || context !== this.previewGroupMenuContext || !previewZOrderMenuVisible(context)) return;
+                    window.dispatchEvent(new CustomEvent('akari.preview.zOrderCommand', {
+                        detail: { editUri: context.editUri, op, selectedIds: context.selectedIds }
+                    }));
+                }
+            }));
+            this.lifecycleDisposables.push(this.menuModelRegistry.registerMenuAction(Z_ORDER_PREVIEW_MENU, {
+                commandId: id, label, order
             }));
         }
         this.reviewSessionRecordingIndicator = new ReviewSessionRecordingIndicator();
