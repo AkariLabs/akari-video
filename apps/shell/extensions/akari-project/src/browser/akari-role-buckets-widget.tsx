@@ -2452,7 +2452,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return;
         }
         const { key, id, category, title } = item;
-        const payload = { kind: 'asset', key, id, category, title };
+        const size = item as AssetCatalogViewItem & { width?: number; height?: number; durationSeconds?: number; locked?: boolean };
+        const payload = { kind: 'asset', key, id, category, title,
+            ...(typeof size.width === 'number' ? { width: size.width } : {}),
+            ...(typeof size.height === 'number' ? { height: size.height } : {}),
+            ...(item.previewUrl ? { thumb: item.previewUrl } : {}),
+            ...(typeof size.durationSeconds === 'number' ? { durationSeconds: size.durationSeconds } : {}),
+            ...(size.locked || item.state === 'locked' ? { locked: true } : {}) };
         event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));

@@ -1,0 +1,277 @@
+{
+ "cardSpec": "css:[data-akari-library-transition=\"dissolve\"]",
+ "dropSpec": "stage:0.5,0.5",
+ "at": "2026-09-24T20:00:10.396Z",
+ "card": {
+  "x": 87,
+  "y": 232,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283,
+   "y": 39,
+   "w": 1100,
+   "h": 584
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 1100,
+   "h": 584
+  },
+  "inner": {
+   "x": 110.890625,
+   "y": 16.00390625,
+   "w": 878.21875,
+   "h": 493.9921875,
+   "offsetW": 878,
+   "offsetH": 494,
+   "transform": "matrix(1, 0, 0, 1, -439.109, -246.996)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 393.890625,
+   "y": 55.00390625,
+   "w": 878.21875,
+   "h": 493.9921875
+  }
+ },
+ "drop": {
+  "x": 833,
+  "y": 302,
+  "outputPx": {
+   "x": 640,
+   "y": 360
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1100,
+     "h": 584
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 377.7,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 543.2,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 708.7,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 874.2,
+     "w": 36,
+     "h": 25
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "transition",
+  "id": "dissolve",
+  "name": "ディゾルブ"
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1100,
+     "h": 584
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "rect": {
+     "x": 718,
+     "y": 279,
+     "w": 230,
+     "h": 46
+    },
+    "border": "dashed rgb(251, 146, 60) 2px",
+    "text": "カットの境目に置いてください"
+   }
+  ],
+  "times": [
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 377.7,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 543.2,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 708.7,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 874.2,
+     "w": 36,
+     "h": 25
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 20252,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 377.7,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 543.2,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 708.7,
+     "w": 36,
+     "h": 25
+    }
+   },
+   {
+    "text": "→",
+    "rect": {
+     "x": 135.5,
+     "y": 874.2,
+     "w": 36,
+     "h": 25
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": false,
+ "newItems": [],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 3,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioAfter": null,
+ "newSources": [],
+ "notices": [
+  "トランジションはタイムラインのカットの境目に落としてください。",
+  "トランジションはタイムラインのカットの境目に落としてください。",
+  "トランジションはタイムラインのカットの境目に落としてください。"
+ ]
+}

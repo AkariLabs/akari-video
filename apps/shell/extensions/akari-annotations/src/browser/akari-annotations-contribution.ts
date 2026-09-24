@@ -363,7 +363,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(PLACE_TEXT, {
             execute: async (options: PlaceTextOptions = {}, editUri?: string) => {
                 const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
-                const widget = editUri ? (location ? await this.attachAt(location) : undefined)
+                const widget = editUri ? (location ? await this.configureQuietTimeline(location) : undefined)
                     : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
                 if (!widget) {
                     this.messages.warn('タイムラインを開いてから文字を置いてください。');
@@ -449,6 +449,16 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(ADD_MATERIAL_AT_POINT, {
             execute: (request: unknown) => this.addMaterialAtPoint(request)
+        });
+        commands.registerCommand({ id: 'akari.timeline.addMaterialAtOutputPoint' }, {
+            execute: async (request: { relativePath?: string; kind?: string; t?: number;
+                transform?: { x: number; y: number }; editUri?: string }) => {
+                const location = (await this.locateAll()).find(item => item.editUri?.toString() === request?.editUri);
+                if (!location) return this.messages.warn('プロジェクトを特定できません。');
+                const widget = await this.configureQuietTimeline(location);
+                await widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
+                    request?.transform);
+            }
         });
         const onPlaybackTick = (event: Event): void => {
             const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
@@ -944,6 +954,15 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         if (!this.timelineWidget || this.timelineWidget.isDisposed) this.timelineWidget = widget;
         this.review.location = this.timelineWidget.timelineLocation;
         if (!widget.isAttached) this.shell.addWidget(widget, { area: 'bottom' });
+        return widget;
+    }
+
+    protected async configureQuietTimeline(location: ProjectLocation): Promise<AkariAnnotationsWidget> {
+        const widget = this.findTimelineWidget(location)
+            ?? await this.widgetManager.getOrCreateWidget<AkariAnnotationsWidget>(AkariAnnotationsWidget.FACTORY_ID,
+                { editUri: location.editUri?.toString() });
+        this.trackTimelineWidget(widget);
+        await widget.configure(location, uri => this.refreshLocationEditUri(uri));
         return widget;
     }
 

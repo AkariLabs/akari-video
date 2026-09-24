@@ -1,0 +1,27 @@
+{
+ "output": {
+  "width": 1280,
+  "height": 720,
+  "fps": 30
+ },
+ "track": {
+  "id": "v1",
+  "lane": "visual"
+ },
+ "item": {
+  "id": "image-1",
+  "at": 60,
+  "duration": 150,
+  "source": {
+   "kind": "media",
+   "src": "src-1",
+   "in": 0,
+   "out": 5
+  }
+ },
+ "hasTransform": false,
+ "source": {
+  "id": "src-1",
+  "path": "assets/still/bg-aurora-mesh/bg.png"
+ }
+}

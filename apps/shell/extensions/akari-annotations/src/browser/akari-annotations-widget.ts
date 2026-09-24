@@ -1,4 +1,7 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
+import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
+import { topVisualTarget } from './preview-material-placement';
+import { probePreviewMediaDimensions } from './preview-media-dimensions';
 import { AkariReadAloudDialog, type ReadAloudPlacement } from './read-aloud/akari-read-aloud-dialog';
 import { selectReadAloudRows, staleNarrations } from '../common/read-aloud-model';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
@@ -1182,6 +1185,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
     protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
+    protected libraryLockedDragKey: string | undefined;
     protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | undefined;
     protected libraryTextStyleOutputDuration = 0;
     protected materialDragLastClientX = 0;
@@ -2808,8 +2812,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // ライブラリ D&D のミラー受信。未知 kind / 未知 transition id は純ロジック側で fail-soft に拒否し、
         // 以前の有効ドラッグ状態も残さない。素材は既存の素材ゴースト、transition は境界受け皿へ渡す。
         const onLibraryDragStart = (event: Event): void => {
-            const payload = parseLibraryDragPayload((event as CustomEvent<unknown>).detail);
+            const detail = (event as CustomEvent<unknown>).detail;
+            const payload = parseLibraryDragPayload(detail);
             this.clearLibraryTransitionDragState();
+            const locked = detail as { locked?: boolean; key?: string } | undefined;
+            if (locked?.locked === true && typeof locked.key === 'string') {
+                this.libraryLockedDragKey = locked.key;
+                return;
+            }
             if (payload?.kind === 'asset') {
                 this.libraryAssetDragPayload = payload;
                 this.materialDragPayload = libraryAssetGhostPayload(payload);
@@ -2828,10 +2838,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
         const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
         const onWindowLibraryDrop = (): void => {
-            if (this.libraryDragPayload || this.libraryAssetDragPayload || this.libraryTextStyleDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
+            if (this.libraryDragPayload || this.libraryAssetDragPayload || this.libraryTextStyleDragPayload || this.libraryLockedDragKey) queueMicrotask(() => this.clearLibraryTransitionDragState());
         };
         const onWindowLibraryDragLeave = (event: DragEvent): void => {
-            if ((!this.libraryDragPayload && !this.libraryAssetDragPayload && !this.libraryTextStyleDragPayload) || event.relatedTarget !== null) return;
+            if ((!this.libraryDragPayload && !this.libraryAssetDragPayload && !this.libraryTextStyleDragPayload
+                && !this.libraryLockedDragKey) || event.relatedTarget !== null) return;
             const outsideViewport = event.clientX <= 0 || event.clientY <= 0
                 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
             if (outsideViewport) this.clearLibraryTransitionDragState();
@@ -2849,6 +2860,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             window.removeEventListener('dragleave', onWindowLibraryDragLeave, true);
             window.removeEventListener('blur', onWindowBlur);
             this.libraryDragPayload = undefined;
+            this.libraryLockedDragKey = undefined;
         }));
     }
 
@@ -4736,7 +4748,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const duration = timelineDurationSeconds(readInternalEdit(editSource, {
                 hasCaptions: captions.length > 0, captions: toAnchorCaptions(captions)
             })).seconds;
-            const caption = placeTextCaption(options, this.playheadT, duration, captions.map(item => item.id));
+            const output = (JSON.parse(editSource) as { output?: { width?: number; height?: number } }).output;
+            const placement = options.center && typeof output?.width === 'number' && output.width > 0
+                && typeof output.height === 'number' && output.height > 0
+                ? centeredPreviewTextPlacement({ point: options.center,
+                    output: { width: output!.width!, height: output!.height! }, text: options.text,
+                    stylePreset: options.stylePreset,
+                    myStyleLook: options.myStyle?.parts.find(part => part.kind === 'look')?.text_style,
+                    defaultStyle: parsedCaptions.defaultTextStyle }) : undefined;
+            const caption = placeTextCaption(placement ? { ...options, ...placement } : options,
+                this.playheadT, duration, captions.map(item => item.id));
             const look = options.myStyle?.parts.find(part => part.kind === 'look');
             const motion = options.myStyle?.parts.find(part => part.kind === 'motion');
             if (look) {
@@ -5990,6 +6011,43 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.placeMaterialAtTarget(payload, target, clientX);
     }
 
+    async addMaterialAtOutputPoint(relativePath: string, kind: string, t: number,
+        transform?: { x: number; y: number }): Promise<void> {
+        if (!Number.isFinite(t)) {
+            this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
+            return;
+        }
+        if (kind === 'audio') {
+            await this.addMaterialAt(relativePath, kind, t, 0);
+            return;
+        }
+        if (kind !== 'image' && kind !== 'video') return;
+        const outputWidth = (this.editDocument?.output as { width?: number } | undefined)?.width;
+        if (!transform || !Number.isFinite(transform.x) || !Number.isFinite(transform.y)
+            || !(outputWidth && outputWidth > 0)) {
+            this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
+            return;
+        }
+        const dimensions = this.location?.editUri ? await probePreviewMediaDimensions({
+            resolveUri: async () => {
+                await this.refreshReferenceMediaUris(undefined, [relativePath]);
+                return this.resolveEditMediaUri(relativePath, this.location!.editUri!).toString();
+            },
+            probe: uri => this.annotationsService.probeSourceDimensions({ path: uri })
+        }) : undefined;
+        const sourceWidth = dimensions?.width;
+        if (!(sourceWidth && sourceWidth > 0)) {
+            await this.addMaterialAt(relativePath, kind, t, 0, {
+                transform: { ...transform, scale: 1 }, placeOnTop: true
+            });
+            this.messages.warn('素材の大きさを取得できなかったため、既定の大きさで置きました。');
+            return;
+        }
+        await this.addMaterialAt(relativePath, kind, t, 0, {
+            transform: { ...transform, scale: outputWidth / (4 * sourceWidth) }, placeOnTop: true
+        });
+    }
+
     /**
      * 素材追加の共通実装（task 2026-08-10-material-dnd-timeline 指示6、
      * task 2026-08-18-timeline-dnd-p0p1 で本編カット・音源行生成・尺の非クランプへ拡張）。
@@ -6016,6 +6074,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         options?: {
             durationSeconds?: number; insertTrack?: number; insertIndex?: number;
             zone?: MaterialDropZone; createAudioTrack?: boolean; targetTrackId?: string;
+            transform?: { x: number; y: number; scale: number }; placeOnTop?: boolean;
         }
     ): Promise<void> {
         if (this.materialSwap) await this.finishMaterialSwap(false);
@@ -6232,6 +6291,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 duration,
                 source: { kind: 'media', src: source.id, in: 0, out: Math.max(1 / this.fps, durationSeconds) }
             };
+            if (options?.transform) item.transform = options.transform;
             const lane = 'visual';
             if (options?.insertIndex !== undefined) {
                 value = insertV2Track(value, { index: options.insertIndex, lane });
@@ -6239,6 +6299,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 value = insertV2Item(value, String(created.id), item);
             } else {
                 let targetTrackId = options?.targetTrackId;
+                if (options?.placeOnTop) {
+                    const top = topVisualTarget(value.tracks as Array<Record<string, unknown>>,
+                        { at: item.at as number, duration });
+                    if (top.insertIndex !== undefined) {
+                        value = insertV2Track(value, { index: top.insertIndex, lane });
+                        targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[top.insertIndex].id);
+                    } else targetTrackId = top.targetTrackId;
+                }
                 if (!targetTrackId) {
                     const tracks = value.tracks as Array<Record<string, unknown>>;
                     const target = tracks.find(candidate => candidate.lane === lane && Array.isArray(candidate.items));
@@ -6277,6 +6345,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                 }
             });
+            if (options?.placeOnTop) this.applySelection({ kind: 'layer', id: String(item.id) });
             this.hideNotice();
             this.footer.textContent = `${successNote}${overlapNote}${beyondNote}${fallbackNote}`;
             this.revealOutputPreview();
@@ -6327,6 +6396,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isMaterialDragTransfer(transfer: DataTransfer | null): boolean {
+        if (this.libraryLockedDragKey && transfer?.types.includes(LIBRARY_DRAG_MIME)) return true;
+        if (transfer?.types.includes(LIBRARY_DRAG_MIME)) {
+            try {
+                const candidate = JSON.parse(transfer.getData(LIBRARY_DRAG_MIME)) as { locked?: boolean; key?: string };
+                if (candidate?.locked === true && typeof candidate.key === 'string') return true;
+            } catch { /* invalid payload */ }
+        }
         return !!transfer && (transfer.types.includes(MATERIAL_DRAG_MIME)
             || (transfer.types.includes(LIBRARY_DRAG_MIME)
                 && (this.readLibraryAssetDropPayload(transfer) !== undefined || this.readLibraryTextStyleDropPayload?.(transfer) !== undefined)));
@@ -6474,6 +6550,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
+        const rawLibrary = event.dataTransfer?.types?.includes(LIBRARY_DRAG_MIME)
+            ? event.dataTransfer.getData(LIBRARY_DRAG_MIME) : undefined;
+        let lockedKey: string | undefined;
+        try {
+            const candidate = (rawLibrary ? JSON.parse(rawLibrary) : this.libraryDragPayload) as
+                { locked?: boolean; key?: string } | undefined;
+            lockedKey = candidate?.locked === true ? candidate.key : this.libraryLockedDragKey;
+        } catch { /* invalid payload */ }
+        if (lockedKey) {
+            this.hideMaterialGhost();
+            void this.commands.executeCommand('akari.library.showPremiumPrompt', { key: lockedKey })
+                .catch(() => this.messages.warn('この素材を使うには購入が必要です。'));
+            return;
+        }
         const textPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
         if (textPayload) {
             this.hideMaterialGhost();
@@ -6754,6 +6844,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected clearLibraryTransitionDragState(): void {
+        this.libraryLockedDragKey = undefined;
         const hadTextStyle = this.libraryTextStyleDragPayload !== undefined;
         if (this.libraryTextStyleDragPayload) {
             this.libraryTextStyleDragPayload = undefined;
