@@ -14,8 +14,11 @@
 presets/luts/
   index.jsonl        # 1 プリセット 1 行。id・name・when_to_use・tags・params・source を持つ。AI が読むのはここだけ
   bake-luts.mjs      # PRESETS テーブルから .cube を決定的に再生成するスクリプト
+  bake-previews.mjs  # LUT とトランジションの見本を純 JS で再生成する入口
+  reference-frame.webp # 全 LUT で共有する合成図案（160×180）
   <id>/
     <id>.cube         # 3D LUT 本体（LUT_3D_SIZE 33）。render-cut が読む
+    preview.webp      # 左半分が元色・右半分が LUT 適用後（320×180）
 ```
 
 ## エントリ
@@ -44,9 +47,24 @@ presets/luts/
 
 ```
 node presets/luts/bake-luts.mjs
+node presets/luts/bake-previews.mjs
 ```
 
 `bake-luts.mjs` 内の `PRESETS` テーブルを編集すれば、パラメータを調整のうえ決定的に再生成できます。
+見本は `.cube` を三線形補間して焼きます。WebP と確認用 PNG の生成は Node 標準機能と
+`presets/luts/` の純 JS だけで完結します。再生成のたびに同じバイト列になります。
+
+## 見本の基準フレーム
+
+権利の確認が必要な写真は使わず、空・日差し・緑・人物の肌色・暗部を含む 8 色の
+図案を `preview-art.mjs` で決定論的に合成し、`reference-frame.webp` に同梱しています。
+空は縦方向、肌は暗部から明部へ、画面下のグレー帯は黒から白へ、限られた色を
+規則的に並べた階調です。
+左右には同じ構図を置き、
+右だけ各 LUT を強さ 1.0 で適用します。見本は画素値を比較しやすい色票であり、
+実写の肌色や質感の最終確認は実素材で行ってください。
+
+一覧の確認画像は `evidence/v1-preset-previews/contact-sheet.png` です。
 
 ## 検証（新しい LUT を焼いたら通す）
 
