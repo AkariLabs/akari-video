@@ -31,16 +31,17 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     parent.appendChild(header);
 
     const strip = document.createElement('div');
-    strip.className = 'akari-inspector-ai-material-tabs';
+    strip.className = 'akari-inspector-tab-strip';
     strip.setAttribute('role', 'tablist');
     strip.setAttribute('aria-label', '素材のインスペクター');
     for (const tab of [{ id: 'generation', label: 'AI' }, { id: 'info', label: '情報' }] as const) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `akari-inspector-ai-material-tab${options.tab === tab.id ? ' akari-inspector-ai-material-tab-active' : ''}`;
+        button.className = 'akari-inspector-tab';
         button.textContent = tab.label;
         button.setAttribute('role', 'tab');
         button.setAttribute('aria-selected', String(options.tab === tab.id));
+        if (options.tab === tab.id) button.className += ' is-active';
         button.setAttribute('data-akari-inspector-ai-tab', tab.id);
         button.addEventListener('click', () => options.onTab(tab.id));
         strip.appendChild(button);

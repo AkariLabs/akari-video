@@ -1,0 +1,343 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "frame name absent from textContent and title",
+      "passed": true,
+      "measured": {
+        "textContent": "音声空の枠（音）",
+        "title": "空の枠（音） — 音の空の枠",
+        "badge": "空の枠（音）"
+      }
+    },
+    {
+      "name": "planned audio badge visible",
+      "passed": true,
+      "measured": "空の枠（音）"
+    },
+    {
+      "name": "ordinary audio name visible",
+      "passed": true,
+      "measured": {
+        "textContent": "音声ordinary-narration ordinary.wav",
+        "title": "ordinary-narration ordinary.wav"
+      }
+    },
+    {
+      "name": "clip tab style observed",
+      "passed": true,
+      "measured": {
+        "selected": {
+          "backgroundColor": "rgb(26, 26, 26)",
+          "borderRadius": "6px",
+          "borderBottom": "0px none rgb(229, 229, 229)",
+          "color": "rgb(229, 229, 229)",
+          "fontWeight": "600",
+          "padding": "6px 2px 5px"
+        },
+        "inactive": {
+          "backgroundColor": "rgba(0, 0, 0, 0)",
+          "borderRadius": "6px",
+          "borderBottom": "0px none rgb(163, 163, 163)",
+          "color": "rgb(163, 163, 163)",
+          "fontWeight": "400",
+          "padding": "6px 2px 5px"
+        },
+        "strip": {
+          "borderBottom": "1px solid rgba(255, 255, 255, 0.13)",
+          "backgroundColor": "rgb(20, 20, 20)"
+        },
+        "geometry": {
+          "headerBottom": 132,
+          "stripTop": 138
+        },
+        "roles": {
+          "strip": "tablist",
+          "selected": "tab",
+          "inactive": "tab"
+        }
+      }
+    },
+    {
+      "name": "material tab below header",
+      "passed": true,
+      "measured": {
+        "headerBottom": 104.5,
+        "stripTop": 110.5
+      }
+    },
+    {
+      "name": "clip and material computed tab styles equal",
+      "passed": true,
+      "measured": {
+        "clip": {
+          "selected": {
+            "backgroundColor": "rgb(26, 26, 26)",
+            "borderRadius": "6px",
+            "borderBottom": "0px none rgb(229, 229, 229)",
+            "color": "rgb(229, 229, 229)",
+            "fontWeight": "600",
+            "padding": "6px 2px 5px"
+          },
+          "inactive": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderRadius": "6px",
+            "borderBottom": "0px none rgb(163, 163, 163)",
+            "color": "rgb(163, 163, 163)",
+            "fontWeight": "400",
+            "padding": "6px 2px 5px"
+          },
+          "strip": {
+            "borderBottom": "1px solid rgba(255, 255, 255, 0.13)",
+            "backgroundColor": "rgb(20, 20, 20)"
+          },
+          "geometry": {
+            "headerBottom": 132,
+            "stripTop": 138
+          },
+          "roles": {
+            "strip": "tablist",
+            "selected": "tab",
+            "inactive": "tab"
+          }
+        },
+        "material": {
+          "selected": {
+            "backgroundColor": "rgb(26, 26, 26)",
+            "borderRadius": "6px",
+            "borderBottom": "0px none rgb(229, 229, 229)",
+            "color": "rgb(229, 229, 229)",
+            "fontWeight": "600",
+            "padding": "6px 2px 5px"
+          },
+          "inactive": {
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderRadius": "6px",
+            "borderBottom": "0px none rgb(163, 163, 163)",
+            "color": "rgb(163, 163, 163)",
+            "fontWeight": "400",
+            "padding": "6px 2px 5px"
+          },
+          "strip": {
+            "borderBottom": "1px solid rgba(255, 255, 255, 0.13)",
+            "backgroundColor": "rgb(20, 20, 20)"
+          },
+          "geometry": {
+            "headerBottom": 104.5,
+            "stripTop": 110.5
+          },
+          "roles": {
+            "strip": "tablist",
+            "selected": "tab",
+            "inactive": "tab"
+          }
+        },
+        "equal": true
+      }
+    }
+  ],
+  "stages": [
+    {
+      "name": "fixture",
+      "passed": true,
+      "durationMs": 675
+    },
+    {
+      "name": "CDP target",
+      "passed": true,
+      "durationMs": 1943
+    },
+    {
+      "name": "timeline audio",
+      "passed": true,
+      "durationMs": 3570
+    },
+    {
+      "name": "clip tabs",
+      "passed": true,
+      "durationMs": 2069
+    },
+    {
+      "name": "material tabs",
+      "passed": true,
+      "durationMs": 1687
+    }
+  ],
+  "clicks": [
+    {
+      "name": "video clip",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "material card",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-audio-frame-timeline.png",
+      "bytes": 17123,
+      "scale": 1
+    },
+    {
+      "name": "02-clip-tabs.png",
+      "bytes": 29749,
+      "scale": 1
+    },
+    {
+      "name": "03-material-tabs.png",
+      "bytes": 58207,
+      "scale": 1
+    },
+    {
+      "name": "04-tabs-side-by-side.png",
+      "bytes": 66633,
+      "width": 320
+    }
+  ],
+  "quietWaits": [
+    {
+      "name": "timeline audio",
+      "quiet": true,
+      "durationMs": 502
+    },
+    {
+      "name": "01-audio-frame-timeline.png capture",
+      "quiet": true,
+      "durationMs": 503
+    },
+    {
+      "name": "video clip attempt 1",
+      "quiet": true,
+      "durationMs": 503
+    },
+    {
+      "name": "02-clip-tabs.png capture",
+      "quiet": true,
+      "durationMs": 1157
+    },
+    {
+      "name": "material card attempt 1",
+      "quiet": true,
+      "durationMs": 503
+    },
+    {
+      "name": "03-material-tabs.png capture",
+      "quiet": true,
+      "durationMs": 566
+    }
+  ],
+  "toastDismissals": [
+    {
+      "closed": 0,
+      "remaining": 0
+    },
+    {
+      "closed": 0,
+      "remaining": 0
+    },
+    {
+      "closed": 0,
+      "remaining": 0
+    },
+    {
+      "closed": 0,
+      "remaining": 0
+    },
+    {
+      "closed": 0,
+      "remaining": 0
+    }
+  ],
+  "tabsStyle": {
+    "clip": {
+      "selected": {
+        "backgroundColor": "rgb(26, 26, 26)",
+        "borderRadius": "6px",
+        "borderBottom": "0px none rgb(229, 229, 229)",
+        "color": "rgb(229, 229, 229)",
+        "fontWeight": "600",
+        "padding": "6px 2px 5px"
+      },
+      "inactive": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderRadius": "6px",
+        "borderBottom": "0px none rgb(163, 163, 163)",
+        "color": "rgb(163, 163, 163)",
+        "fontWeight": "400",
+        "padding": "6px 2px 5px"
+      },
+      "strip": {
+        "borderBottom": "1px solid rgba(255, 255, 255, 0.13)",
+        "backgroundColor": "rgb(20, 20, 20)"
+      },
+      "geometry": {
+        "headerBottom": 132,
+        "stripTop": 138
+      },
+      "roles": {
+        "strip": "tablist",
+        "selected": "tab",
+        "inactive": "tab"
+      }
+    },
+    "material": {
+      "selected": {
+        "backgroundColor": "rgb(26, 26, 26)",
+        "borderRadius": "6px",
+        "borderBottom": "0px none rgb(229, 229, 229)",
+        "color": "rgb(229, 229, 229)",
+        "fontWeight": "600",
+        "padding": "6px 2px 5px"
+      },
+      "inactive": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "borderRadius": "6px",
+        "borderBottom": "0px none rgb(163, 163, 163)",
+        "color": "rgb(163, 163, 163)",
+        "fontWeight": "400",
+        "padding": "6px 2px 5px"
+      },
+      "strip": {
+        "borderBottom": "1px solid rgba(255, 255, 255, 0.13)",
+        "backgroundColor": "rgb(20, 20, 20)"
+      },
+      "geometry": {
+        "headerBottom": 104.5,
+        "stripTop": 110.5
+      },
+      "roles": {
+        "strip": "tablist",
+        "selected": "tab",
+        "inactive": "tab"
+      }
+    },
+    "equal": true
+  },
+  "timingsMs": {
+    "fixture": 675,
+    "CDP target": 1943,
+    "timeline audio": 3570,
+    "clip tabs": 2069,
+    "material tabs": 1687
+  },
+  "fixture": {
+    "project": "<TEMP>/project",
+    "framePath": "assets/generated/frame-audio-fixture.wav",
+    "ordinaryPath": "assets/ordinary.wav"
+  },
+  "audio": {
+    "frame": {
+      "textContent": "音声空の枠（音）",
+      "title": "空の枠（音） — 音の空の枠",
+      "badge": "空の枠（音）"
+    },
+    "ordinary": {
+      "textContent": "音声ordinary-narration ordinary.wav",
+      "title": "ordinary-narration ordinary.wav"
+    }
+  },
+  "killedPid": 97511
+}

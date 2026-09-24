@@ -2750,9 +2750,6 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-material-header { display: flex; flex-direction: column; gap: 3px; padding: 12px 10px 10px; background: var(--akari-card); border-bottom: 1px solid var(--akari-line-inner); }
 .akari-inspector-ai-material-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .akari-inspector-ai-material-kind { color: var(--akari-muted); font-size: 11px; }
-.akari-inspector-ai-material-tabs { display: flex; border-bottom: 1px solid var(--akari-line); }
-.akari-inspector-widget button.akari-inspector-ai-material-tab { flex: 1; padding: 9px 6px; border-radius: 0; color: var(--akari-muted); }
-.akari-inspector-widget button.akari-inspector-ai-material-tab-active { color: var(--akari-accent); border-bottom: 2px solid var(--akari-accent); font-weight: 700; }
 .akari-inspector-ai-material-info, .akari-inspector-ai-material-empty { padding: 12px 10px; color: var(--akari-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .akari-inspector-ai-material-info p { margin: 0 0 8px; }
 .akari-inspector-ai-narration-panel { display: grid; gap: 11px; min-width: 0; padding: 8px 2px 14px; }

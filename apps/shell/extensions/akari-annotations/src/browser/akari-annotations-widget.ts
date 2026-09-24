@@ -8391,8 +8391,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    private readonly audioFrameLabels = new WeakMap<HTMLElement, { label: HTMLElement; title: string }>();
+
     protected applyAudioGenerationChip(element: HTMLElement, path: string): void {
-        this.applyGenerationChip(element, this.generationForPath(path));
+        const generation = this.generationForPath(path);
+        const plannedAudio = generation?.state === 'planned'
+            && generation.meta?.kind === 'audio' && generation.meta.status === 'planned';
+        const label = element.querySelector<HTMLElement>(':scope > .akari-annotations-segment-label');
+        if (plannedAudio) {
+            if (label) {
+                this.audioFrameLabels.set(element, { label, title: element.title });
+                label.remove();
+            }
+            // keyedStripSegment sets the filename as the tooltip on every render.
+            element.title = '';
+        } else {
+            const saved = this.audioFrameLabels.get(element);
+            if (saved) {
+                if (!label) element.appendChild(saved.label);
+                element.title = saved.title;
+                this.audioFrameLabels.delete(element);
+            }
+        }
+        this.applyGenerationChip(element, generation);
     }
 
     protected appendGenerationRetry(element: HTMLElement, header: HTMLElement, badge: HTMLElement, duration?: HTMLElement | null): void {
