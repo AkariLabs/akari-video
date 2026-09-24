@@ -18,10 +18,11 @@ description: 原稿テキストから VOICEVOX（ローカル・ゼロ円の既�
 2. **参照音声を外部送信する前のローカル whisper 照合ガード必須。** スキップはオーナー明示指示時のみ、
    かつその旨を記録する
 3. **生成には読み原稿（かな化）を使い、script / reading を該当行の Edit か edit-store のスクリプト API で両方 edit.json に記録する**
-4. **有償レーン（fal）は費用宣言 → 明示承認後のみ実行する。** ElevenLabs は凍結中 — 選択肢として
-   提示すること自体をしない
+4. **有償レーン（fal）は費用宣言 → 明示承認後のみ実行する。** 見積不可のエンジンも
+   `--yes` なしでは送信しない
 5. **API キー直叩き禁止・manage-connections 経由のみ。** `FAL_KEY` の置き場は `~/.akari/credentials.env`（旧 `~/.config/akari-video/credentials.env` も読み取り可）。doctor が `ok` でないレーンは提示しない
 6. **provenance.provider は必須。** 例: `"provenance": {"provider": "voicevox", "credit": "VOICEVOX:ずんだもん"}`。fal なら `"provider": "fal"`、収録音声なら `"provider": "human"`。VOICEVOX 系の声は credit 欄も必須
+7. **fal に渡す参照音声は正本 wav の data URI。** 20 MB を超える正本は送信前に止める
 
 ## 実行順と目次
 

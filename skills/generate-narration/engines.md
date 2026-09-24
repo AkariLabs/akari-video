@@ -4,11 +4,11 @@
 
 ```
 akari narration generate \
-  --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3> \
+  --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2> \
   --reading-file <読み原稿.txt> [--script-file <表示原稿.txt>] \
   --t <タイムライン秒> [--gain-db 0] [--id n-0001] \
   [--speaker 3]              # voicevox 用（既定 3 = ずんだもん/ノーマル）
-  [--profile owner-ja]       # fal-qwen3 / irodori の登録済み自声用
+  [--profile <id>]           # 自分の声（irodori / fal-qwen3 / minimax / chatterbox / index-tts-2）
   [--dry-run] [--yes] [--apply]
 ```
 
@@ -16,7 +16,7 @@ akari narration generate \
 - `--script-file` は任意。渡した場合、表示原稿として `script` に記録される
 - `--id` を省略すると、`<projectDir>/edit.json` の `audio.narration[]` にある既存 id の最大値 + 1
   （無ければ `n-0001`）を自動採番する
-- 出力音声は `<projectDir>/out/narration/<id>.<wav|mp3>` に保存される（voicevox / irodori は wav、fal-qwen3 / gemini-tts は mp3）
+- 出力音声は `<projectDir>/out/narration/<id>.<wav|mp3>` に保存される（voicevox / irodori / chatterbox は wav、ほかの fal TTS は mp3）
 - `--apply` を付けると `edit.json` の `audio.narration[]` にエントリを追加し（`audio` / `narration` が
   無ければ作る）、直後に `packages/schemas/bin/validate-edit.mjs` を実行する。NG なら書き込みを
   ロールバックする
@@ -79,7 +79,7 @@ IRODORI_MODEL_DEVICE=mps IRODORI_CODEC_DEVICE=mps \
 ## エンジン一覧・声一覧の JSON 口
 
 - `akari narration engines --json` は接続状態を含むエンジン一覧を返す。VOICEVOX の起動はしない。
-- `akari narration voices --engine <voicevox|gemini-tts|irodori|fal-qwen3> --json` は声一覧を返す。VOICEVOX の声取得時だけ必要に応じて起動する。
+- `akari narration voices --engine <id> --json` は声一覧を返す。VOICEVOX の声取得時だけ必要に応じて起動する。
 - `akari narration generate ... --json` は stdout に結果 JSON を 1 行で返し、経過ログを stderr に出す。Gemini の費用承認待ちは exit 2 と `status: needs_approval` を返す。
 
 ## VOICEVOX の常駐起動と停止
@@ -96,10 +96,34 @@ IRODORI_MODEL_DEVICE=mps IRODORI_CODEC_DEVICE=mps \
 - verdict は `ok`（0.9 以上）、`check`（0.7 以上）、`ng`（0.7 未満）。**根拠のない初期値。較正は calibration/ で行う。**
 - `--record <dir>` を明示したときだけ、そのディレクトリの `narration-verify.jsonl` に期待文、読み原稿、聞き取り、score、verdict、engine、voice、backend、時刻を 1 行 JSON で追記する。ポップアップからは指定しない。
 
-## ElevenLabs（凍結中）
+## fal の追加 5 エンジン
 
-ElevenLabs は今回のスキルではアダプタを実装しない。凍結中のため、実行時にも選択肢として提示しない
-（ハードルール 4）。`.akari/connections.json` の `elevenlabs` エントリ自体は既存のまま変更しない。
+`--engine` の値を替えて使う。fal の鍵と `--yes` が必要。`--profile` を使う場合は本人同意・
+cloud_upload 同意・原稿照合 0.7 以上を要求する。`chatterbox` と `index-tts-2` は正本の wav を
+毎回 `data:audio/wav;base64` の参照音声として送る。`minimax-2.6-hd` は先に
+`akari voice copy --profile <id> --engine minimax-2.6-hd --yes` で写しを登録する。
+正本が 20 MB を超える場合は送信前に exit 2 とする。
+
+| engine | fal endpoint | 既定の声と根拠 | クローン | 価格の入力値・確認 |
+|---|---|---|---|---|
+| `gemini-3.1-flash-tts` | `fal-ai/gemini-3.1-flash-tts` | Leda。既存 Gemini と同じ 30 声を維持 | なし | トークン建ての調査値のみ。字数換算できず見積不可、verified false |
+| `elevenlabs-v3` | `fal-ai/elevenlabs/tts/eleven-v3` | Rachel。schema の既定値。日本語は `language_code: ja` | なし | 調査値 $0.10 / 1000 字、verified false。1 回 5000 字まで |
+| `minimax-2.6-hd` | `fal-ai/minimax/speech-2.6-hd` | Wise_Woman。schema の `voice_setting` 既定値。`language_boost: Japanese` | registered | 調査の「$0.85 / 生成」は単位不明。見積不可、verified false |
+| `chatterbox` | `fal-ai/chatterbox/text-to-speech/multilingual` | `japanese`。多言語版 schema の voice 言語コード | per-request | 調査値 $0.025 / 1000 字、verified false。1 回 300 字まで |
+| `index-tts-2` | `fal-ai/index-tts-2/text-to-speech` | 既定声なし。`--profile` 必須 | per-request | 調査値 $0.002 / 秒、verified false。5 字/秒で概算 |
+
+Chatterbox の多言語版 schema は `voice: japanese`、参照音声時は `voice` に data URI と
+`custom_audio_language: japanese` を指定する。Index TTS 2 の `emotional_audio_url` は schema に
+あるが本実装では送らない。参照音声の data URI は既存の fal Qwen3 clone と同じ形式で、
+schema の説明も禁止していない。fal storage への別アップロードはしない。
+
+## エンジンの足し方（表の 1 行）
+
+fal の OpenAPI schema を `packages/akari-launcher/fixtures/narration/openapi/` に保存してから、
+`packages/akari-launcher/src/tts-engines.mjs` に `row(id, label, endpoint, { price, voices,
+default_voice, supports, buildPayload })` を追加する。`buildPayload` は保存した schema の required
+を満たすことを `tts-engines.test.mjs` で確認する。新しい clone 方式を増やすときは
+`voice-command.mjs` の同意・照合・承認ガードも確認する。
 
 ## `--dry-run`
 

@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { resolveAkariHome as fallbackResolveAkariHome } from './update-check.mjs';
+import { FAL_TTS_ENGINES, referenceDataUri } from './tts-engines.mjs';
 
 // モノレポと配布物の両方で既存の資産解決を使う。creator-root が欠けた配布物でも
 // voice 以外の CLI 起動を妨げないよう、同じ AKARI_HOME 規約の launcher 実装へ戻す。
@@ -98,7 +99,7 @@ export function listProfiles(env, avatar) {
     for (const entry of fs.readdirSync(voiceDir, { withFileTypes: true })) {
       if (!entry.isDirectory() || !ID.test(entry.name)) continue;
       const file = path.join(voiceDir, entry.name, 'meta.json');
-      if (fs.existsSync(file)) items.push(profileSummary(normalizeMeta(readJson(file)), entry.name, person.name, false));
+      if (fs.existsSync(file)) items.push(profileSummary(normalizeMeta(readJson(file)), entry.name, person.name, false, env));
     }
   }
   const old = legacyRoot(env);
@@ -107,16 +108,27 @@ export function listProfiles(env, avatar) {
     const file = path.join(old, entry.name, 'meta.json');
     if (!fs.existsSync(file)) continue;
     const meta = normalizeMeta(readJson(file), true);
-    if (!avatar || avatar === meta.avatar || !meta.avatar) items.push(profileSummary(meta, entry.name, meta.avatar ?? null, true));
+    if (!avatar || avatar === meta.avatar || !meta.avatar) items.push(profileSummary(meta, entry.name, meta.avatar ?? null, true, env));
   }
   return items.sort((a, b) => a.id.localeCompare(b.id) || Number(a.legacy) - Number(b.legacy));
 }
-function profileSummary(meta, id, avatar, legacy) {
+function profileSummary(meta, id, avatar, legacy, env) {
+  const ready = meta.consent?.self_voice === true && meta.consent?.cloud_upload === true &&
+    meta.reference?.verification?.score >= 0.7;
+  let key = false;
+  try { key = Boolean(readFalKey(env)); } catch { /* 一覧では鍵の不在を表す */ }
+  const usable_engines = [
+    ...(meta.engines?.irodori?.voice_id && !meta.engines.irodori.stale ? ['irodori'] : []),
+    ...FAL_TTS_ENGINES.filter(engine => engine.supports.clone === 'per-request' ? key && ready :
+      engine.supports.clone === 'registered' && key && ready && !meta.engines?.[engine.id]?.stale &&
+      (engine.id === 'fal-qwen3' ? Boolean(meta.engines?.[engine.id]?.embedding_source_url) :
+        Boolean(meta.engines?.[engine.id]?.custom_voice_id))).map(engine => engine.id),
+  ];
   return { id, label: meta.label ?? id, avatar, legacy, created_at: meta.created_at ?? null,
     duration_s: meta.reference?.duration_s ?? null, engines: Object.keys(meta.engines ?? {}),
     copies: Object.fromEntries(Object.entries(meta.engines ?? {}).map(([name, copy]) => [name, { stale: copy?.stale === true }])),
     consent: { self_voice: meta.consent?.self_voice === true, cloud_upload: meta.consent?.cloud_upload === true },
-    verification: meta.reference?.verification ?? { status: 'unavailable' } };
+    verification: meta.reference?.verification ?? { status: 'unavailable' }, usable_engines };
 }
 function audioLevels(audio, runtime) {
   if (runtime.measureAudio) return runtime.measureAudio(audio);
@@ -340,26 +352,39 @@ async function execute(sub, o, runtime, env) {
     } finally { fs.rmSync(staged, { force: true }); }
   }
   if (sub === 'copy') {
-    need(o, 'engine'); if (!['irodori', 'fal-qwen3'].includes(o.engine)) throw new VoiceError('作り手が不明です');
+    need(o, 'engine'); if (!['irodori', 'fal-qwen3', 'minimax-2.6-hd'].includes(o.engine)) throw new VoiceError('作り手が不明です');
     if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
     if (record.meta.consent?.self_voice !== true) throw new VoiceError('本人の声への同意記録がありません');
     const recording = safeReference(record);
     if (record.meta.reference?.sha256 && crypto.createHash('sha256').update(fs.readFileSync(recording)).digest('hex') !== record.meta.reference.sha256) {
       throw new VoiceError('正本の録音が保存時から変わっています');
     }
-    if (o.engine === 'fal-qwen3') {
+    if (o.engine === 'fal-qwen3' || o.engine === 'minimax-2.6-hd') {
       if (record.meta.consent?.cloud_upload !== true) throw new VoiceError('クラウド送信への同意がありません');
       if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError('ローカルの原稿照合が 70% 以上ではありません');
-      if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval', estimate_usd: CLONE_ESTIMATE_USD });
+      if (o.engine === 'minimax-2.6-hd' && !(record.meta.reference?.duration_s >= 10)) throw new VoiceError('MiniMax の参照音声は 10 秒以上必要です');
+      if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval',
+        estimate_usd: o.engine === 'fal-qwen3' ? CLONE_ESTIMATE_USD : null,
+        ...(o.engine === 'minimax-2.6-hd' ? { reason: '見積不可' } : {}) });
       const key = runtime.falKey ?? readFalKey(env);
       if (!key) throw new VoiceError('FAL_KEY が未設定です');
       const data = fs.readFileSync(recording);
-      const response = await fetchImpl(FAL_CLONE_URL, { method: 'POST', headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audio_url: `data:audio/wav;base64,${data.toString('base64')}`, reference_text: record.meta.reference_text }) });
+      let audioUrl;
+      try { audioUrl = o.engine === 'minimax-2.6-hd' ? referenceDataUri(data) : `data:audio/wav;base64,${data.toString('base64')}`; }
+      catch (error) { throw new VoiceError(error.message); }
+      const response = await fetchImpl(o.engine === 'fal-qwen3' ? FAL_CLONE_URL : 'https://fal.run/fal-ai/minimax/voice-clone', {
+        method: 'POST', headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(o.engine === 'fal-qwen3' ? { audio_url: audioUrl, reference_text: record.meta.reference_text } : { audio_url: audioUrl }) });
       if (!response.ok) throw new VoiceError(`fal API が HTTP ${response.status} を返しました`);
-      const embedding_source_url = (await response.json())?.speaker_embedding?.url;
-      if (!embedding_source_url) throw new VoiceError('fal API の応答に speaker_embedding.url がありません');
-      record.meta.engines['fal-qwen3'] = { embedding_source_url, created_at: now };
+      const result = await response.json();
+      if (o.engine === 'fal-qwen3') {
+        const embedding_source_url = result?.speaker_embedding?.url;
+        if (!embedding_source_url) throw new VoiceError('fal API の応答に speaker_embedding.url がありません');
+        record.meta.engines['fal-qwen3'] = { embedding_source_url, created_at: now };
+      } else {
+        if (!result?.custom_voice_id) throw new VoiceError('fal API の応答に custom_voice_id がありません');
+        record.meta.engines['minimax-2.6-hd'] = { custom_voice_id: result.custom_voice_id, created_at: now };
+      }
     } else {
       const target = endpoint(o['irodori-url'], env), form = new FormData();
       form.set('voice_id', `akari-${o.profile}`); form.set('file', new Blob([fs.readFileSync(recording)], { type: 'audio/wav' }), path.basename(recording));

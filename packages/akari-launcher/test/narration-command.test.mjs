@@ -110,7 +110,7 @@ test('彩 URL が不正でも engines 全体は exit 0、彩だけ unconfigured�
       const output = collectLogs();
       assert.equal((await runNarrationCommand(args, output)).exitCode, 0);
       const engines = JSON.parse(output.lines[0]).engines;
-      assert.deepEqual(engines.map(row => row.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
+      assert.deepEqual(engines.map(row => row.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3', 'gemini-3.1-flash-tts', 'elevenlabs-v3', 'minimax-2.6-hd', 'chatterbox', 'index-tts-2']);
       assert.equal(engines[2].availability.state, 'unconfigured');
       assert.match(engines[2].availability.label, /接続先 URL が正しくありません/);
       assert.match(engines[2].availability.detail.setup_url, /Irodori-TTS-Server/);
@@ -205,7 +205,7 @@ test('engines JSON: VOICEVOX の available / needs / unconfigured と fal 鍵状
       return JSON.parse(output.lines[0]);
     };
     let result = await get();
-    assert.deepEqual(result.engines.map(engine => engine.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
+    assert.deepEqual(result.engines.map(engine => engine.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3', 'gemini-3.1-flash-tts', 'elevenlabs-v3', 'minimax-2.6-hd', 'chatterbox', 'index-tts-2']);
     assert.equal(result.engines[0].availability.state, 'unconfigured');
     assert.deepEqual(result.engines[0].availability.detail.running, false);
     assert.deepEqual(result.engines[0].availability.detail.app_found, false);
@@ -300,7 +300,7 @@ test('壊れた meta.json があっても engines --json は fal を needs に�
     assert.equal(result.exitCode, 0, output.errors.join('\n'));
     assert.equal(output.lines.length, 1);
     const engines = JSON.parse(output.lines[0]).engines;
-    assert.deepEqual(engines.map(engine => engine.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
+    assert.deepEqual(engines.map(engine => engine.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3', 'gemini-3.1-flash-tts', 'elevenlabs-v3', 'minimax-2.6-hd', 'chatterbox', 'index-tts-2']);
     assert.equal(typeof engines[0].availability.state, 'string');
     assert.equal(typeof engines[2].availability.state, 'string');
     assert.deepEqual(engines[3].availability,
