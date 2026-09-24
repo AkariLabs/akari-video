@@ -31,14 +31,25 @@ export function filterLibraryCatalogItems(
         .filter(item => folder === undefined || item.folder === folder);
 }
 
+/**
+ * `presetFilter` を渡すと、同梱のプリセット・トランジションを key（`<種類>/<id>`）ごとに
+ * 検索の右のフィルターで数える（省略時は出どころだけで数える従来の挙動）。
+ * `transitionIds` はトランジションを 1 件ずつ判定するための id の一覧。
+ */
 export function countLibraryCategory(
     category: LibraryCategoryDefinition, source: LibrarySourceFilter, items: readonly AssetCatalogViewItem[],
-    presets: PresetShowcase, transitionCount: number, packs: readonly CatalogPack[]
+    presets: PresetShowcase, transitionCount: number, packs: readonly CatalogPack[],
+    presetFilter?: (key: string) => boolean, transitionIds?: readonly string[]
 ): number | undefined {
     if (category.status === 'soon') { return undefined; }
-    if (category.key === 'transition') { return includesLibraryLab(source) ? transitionCount : 0; }
+    if (category.key === 'transition') {
+        if (presetFilter && transitionIds) return transitionIds.filter(id => presetFilter(`transition/${id}`)).length;
+        return includesLibraryLab(source) ? transitionCount : 0;
+    }
     if (category.key === 'textstyle' || category.key === 'textanim' || category.key === 'lut') {
-        return includesLibraryLab(source) ? presets[category.key].length : 0;
+        const kind = category.key;
+        if (presetFilter) return presets[kind].filter(item => presetFilter(`${kind}/${item.id}`)).length;
+        return includesLibraryLab(source) ? presets[kind].length : 0;
     }
     const filtered = filterLibrarySources(items, source);
     if (category.key === 'pack') { return groupCatalogItemsByPack(filtered, packs).groups.length; }

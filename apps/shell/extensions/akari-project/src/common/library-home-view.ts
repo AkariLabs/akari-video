@@ -17,7 +17,7 @@ export interface LibraryGroupDefinition {
     readonly categories: readonly LibraryCategoryDefinition[];
 }
 
-const TIMELINE_ADD_HINT = 'タイムラインへドラッグ、＋でプレイヘッド位置に追加';
+const TIMELINE_ADD_HINT = 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く';
 
 /** ライブラリホームの宣言順・語彙・操作導線の正本。 */
 export const LIBRARY_GROUPS = [
@@ -36,17 +36,17 @@ export const LIBRARY_GROUPS = [
             { key: 'sfx', label: 'SFX', icon: '♫', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'audio:sfx' },
             { key: 'broll', label: 'B-roll', icon: '▶', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'broll' },
             { key: 'image', label: '画像', icon: '▦', hint: TIMELINE_ADD_HINT, status: 'live', chipKey: 'still' },
-            { key: 'overlay', label: 'オーバーレイ', icon: '✦', hint: '「使う」でプロジェクトに追加', status: 'live', chipKey: 'overlay' },
-            { key: 'scene3d', label: '3D・アバター', icon: '⬡', hint: '「使う」でプロジェクトに追加', status: 'live', chipKey: 'scene3d' },
+            { key: 'overlay', label: 'オーバーレイ', icon: '✦', hint: '右クリックの「取り込む」でプロジェクトに追加', status: 'live', chipKey: 'overlay' },
+            { key: 'scene3d', label: '3D・アバター', icon: '⬡', hint: '右クリックの「取り込む」でプロジェクトに追加', status: 'live', chipKey: 'scene3d' },
             { key: 'pack', label: 'パック', icon: '▤', hint: 'パック内の素材をまとめて取り込み', status: 'live' }
         ]
     },
     {
         label: '文字・飾り',
         categories: [
-            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: 'タイムラインへドラッグ、＋でプレイヘッド位置に置く', status: 'live', chipKey: 'preset:textstyle' },
+            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く', status: 'live', chipKey: 'preset:textstyle' },
             { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選択中のテロップに適用（次のラウンドで有効化）', status: 'live', chipKey: 'preset:textanim' },
-            { key: 'font', label: 'フォント', icon: 'Aa', hint: '「使う」でこのプロジェクトのフォントに追加', status: 'live', chipKey: 'font' },
+            { key: 'font', label: 'フォント', icon: 'Aa', hint: '右クリックの「取り込む」でこのプロジェクトのフォントに追加', status: 'live', chipKey: 'font' },
             { key: 'shapes', label: '図形', icon: '◇', hint: '図形素材は近日利用できるようになります', status: 'soon' },
             { key: 'stamps', label: 'スタンプ', icon: '✶', hint: 'スタンプ素材は近日利用できるようになります', status: 'soon' }
         ]

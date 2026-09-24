@@ -1,4 +1,5 @@
 import { LibraryImportPlan, LibraryImportResult } from '../common/library-import';
+import { libraryFavoritesPath, readLibraryFavorites, setLibraryFavorite } from './library-favorites-store';
 import { AssetSite, AssetSiteListing, AssetSiteRecommendation, siteUrlAllowed } from '../common/asset-sites';
 import { libraryImportScript, libraryPacksScript, libraryImportWaveformScript } from './library-import-scripts';
 import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
@@ -523,6 +524,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
                     description: parsed.description,
                     tags: parsed.tags ?? [],
                     licenseSpdx: parsed.license?.spdx,
+                    ...(parsed.license?.scope ? { licenseScope: parsed.license.scope } : {}),
+                    ...(typeof parsed.license?.attribution_required === 'boolean'
+                        ? { licenseAttributionRequired: parsed.license.attribution_required } : {}),
+                    ...(parsed.author ? { author: parsed.author } : {}),
                     whenToUse: parsed.when_to_use,
                     sourceUrl: parsed.source?.url,
                     previewUrl: localPreviewUrl ?? parsed.source?.preview_url,
@@ -878,6 +883,14 @@ process.stdout.write(JSON.stringify(await readLibraryUsage()));
 `);
         if (result.code !== 0) throw new Error(result.stderr || '使用記録を読めませんでした');
         return JSON.parse(result.stdout);
+    }
+
+    async getLibraryFavorites(): Promise<string[]> {
+        return readLibraryFavorites(libraryFavoritesPath());
+    }
+
+    async setLibraryFavorite(key: string, favorite: boolean): Promise<string[]> {
+        return setLibraryFavorite(libraryFavoritesPath(), key, favorite === true);
     }
 
     async checkLibrary(projectUri?: string): Promise<{ ok: number; warnings: import('../common/akari-project-protocol').LibraryCheckFinding[]; errors: import('../common/akari-project-protocol').LibraryCheckFinding[] }> {

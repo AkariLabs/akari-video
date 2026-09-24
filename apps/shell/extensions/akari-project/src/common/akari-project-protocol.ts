@@ -131,6 +131,14 @@ export interface AssetCatalogViewItem {
     title: string;
     tags: string[];
     licenseSpdx?: string;
+    /** meta.json license.scope（自由文字列。ライセンスの 2 軸は library-license.ts が導出する）。 */
+    licenseScope?: string;
+    /** meta.json license.attribution_required。 */
+    licenseAttributionRequired?: boolean;
+    /** meta.json author（情報カードの「作成」）。 */
+    author?: string;
+    /** resolver の置き場素材の CREDIT.txt 1 行目（クレジットをコピー）。 */
+    creditText?: string;
     previewUrl?: string;
     /**
      * origin='resolver' の実体 URL（http(s) URL または file: URI）。
@@ -372,6 +380,10 @@ export interface AkariProjectService {
     placeLibraryAsset(source: LibraryAssetPlacementSource, projectUri: string): Promise<AssetResolveOutcome>;
     recordLibraryUsage(category: string, id: string, projectUri: string): Promise<void>;
     getLibraryUsage(): Promise<Record<string, { count: number; lastUsedAt: string; projects: string[] }>>;
+    /** ★ お気に入りの key 一覧（利用者ごと。library-favorites.ts）。 */
+    getLibraryFavorites(): Promise<string[]>;
+    /** ★ を付ける / 外す。保存後の一覧を返す。 */
+    setLibraryFavorite(key: string, favorite: boolean): Promise<string[]>;
     checkLibrary(projectUri?: string): Promise<{ ok: number; warnings: LibraryCheckFinding[]; errors: LibraryCheckFinding[] }>;
     projectCredits(projectUri: string): Promise<string[]>;
     getStoreConnectionStatus(): Promise<StoreConnectionStatus>;

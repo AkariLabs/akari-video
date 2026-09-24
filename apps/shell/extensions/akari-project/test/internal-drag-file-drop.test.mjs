@@ -102,18 +102,25 @@ test('dragenter は dragover と同じ OS ファイル判定へ渡す', () => {
 
 test('素材・ライブラリ・プリセットのカード画像はネイティブの画像ドラッグを起動しない', () => {
     let images = 0;
-    for (const name of ['renderMaterialCard', 'renderCatalogCard', 'renderCatalogListRow', 'renderPresetShowcaseCard', 'renderPresetShowcaseListRow']) {
-        const method = widget.members.find(member => member.name?.getText(source) === name);
-        assert.ok(method, name);
+    const visitImages = (file, root, label) => {
         const visit = node => {
-            if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(source) === 'img') {
+            if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(file) === 'img') {
                 images++;
-                const draggable = node.attributes.properties.find(attr => attr.name?.getText(source) === 'draggable');
-                assert.equal(draggable?.initializer?.expression?.kind, ts.SyntaxKind.FalseKeyword, name);
+                const draggable = node.attributes.properties.find(attr => attr.name?.getText(file) === 'draggable');
+                assert.equal(draggable?.initializer?.expression?.kind, ts.SyntaxKind.FalseKeyword, label);
             }
             ts.forEachChild(node, visit);
         };
-        visit(method);
+        visit(root);
+    };
+    for (const name of ['renderMaterialCard', 'renderCatalogCard', 'renderCatalogListRow', 'renderPresetShowcaseCard', 'renderPresetShowcaseListRow']) {
+        const method = widget.members.find(member => member.name?.getText(source) === name);
+        assert.ok(method, name);
+        visitImages(source, method, name);
     }
-    assert.equal(images, 3);
+    // ライブラリのカード（グリッド・リスト共通のサムネ）は library-card-view.tsx へ切り出した。
+    const view = ts.createSourceFile('library-card-view.tsx',
+        readFileSync(new URL('../src/browser/library-card-view.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    visitImages(view, view, 'library-card-view');
+    assert.equal(images, 2);
 });

@@ -65,11 +65,7 @@ import {
 } from '../common/catalog-reader';
 import { composeCatalogAskAgentPrompt, composeCatalogImportPrompt, composeCatalogPackImportPrompt } from '../common/catalog-context-packet';
 import {
-    assetDistributionBadgeText,
-    assetStateBadgeText,
-    assetStateBadgeTitle,
     catalogCardUiEventTarget,
-    catalogPurchaseActionText,
     CatalogPackGroup,
     deriveCatalogEmptyStateKind,
     deriveCatalogResolverNotice,
@@ -79,10 +75,23 @@ import {
     summarizeCatalogPackDistribution
 } from '../common/asset-catalog-view';
 import {
-    countLibraryCategory, filterLibraryCatalogItems, filterLibrarySources, includesLibraryLab,
-    LIBRARY_SOURCE_FILTERS, LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankRecentLibraryItems
+    countLibraryCategory, filterLibraryCatalogItems,
+    LibrarySourceFilter, recentLibraryEntries, RecentLibraryEntry, rankRecentLibraryItems
 } from '../common/library-source-view';
-import { libraryCardContextMenuItems, libraryRemovalWarning } from '../common/library-card-context-menu-items';
+import { libraryRemovalWarning } from '../common/library-card-context-menu-items';
+import {
+    EMPTY_LIBRARY_FILTER, filterLibraryItems, isLibraryItemCached, isPremiumLocked, LibraryFilterSectionKey, LibraryFilterState,
+    presetMatchesLibraryFilter, toggleLibraryFilterOption
+} from '../common/library-filter';
+import {
+    isPlaceableLibraryCategory, libraryAssetInfoCard, libraryCardMenuEntries, LibraryInfoCardModel, LibraryMenuActionId,
+    LibraryMenuTarget, libraryMenuTargetKey, libraryPresetInfoCard, premiumPromptText
+} from '../common/library-card-menu';
+import { libraryCreditLine, LibraryLicenseSheet } from '../common/library-license';
+import {
+    LibraryAssetCard, LibraryCardStyles, LibraryDotsCorner, LibraryFilterButton, LibraryFilterPopover, LibraryInfoCard,
+    LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
+} from './library-card-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
 import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
@@ -592,7 +601,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected catalogLoading = false;
     protected libraryImportRequest?: { paths: string[] };
     protected catalogQuery = '';
+    /** 出どころ（フィルターの 1 節目）。他の 3 節は libraryFilterRest。 */
     protected librarySourceFilter: LibrarySourceFilter = 'all';
+    protected libraryFilterRest: Omit<LibraryFilterState, 'source'> = { price: [], license: [], status: [] };
+    protected libraryFilterAnchor?: DOMRect;
+    /** ★ お気に入りの key（利用者ごと。AKARI_HOME/library-favorites.json）。 */
+    protected libraryFavorites = new Set<string>();
+    /** ⋯ = 情報カード。anchor は押したカードの矩形（周りを暗くして、このカードだけ残す）。 */
+    protected libraryInfo?: { target: LibraryMenuTarget; anchor: DOMRect; keywordsExpanded: boolean };
+    protected libraryLicense?: { sheet: LibraryLicenseSheet; credit?: string };
+    /** 未購入のプレミアムを使おうとしたときの促しのシート（素材の key）。 */
+    protected libraryPremiumPrompt?: string;
     protected libraryFolderFilter: string | undefined;
     /** プロジェクト面の素材名フィルタ。catalogQuery とは面ごとに独立して保持する。 */
     protected materialQuery = '';
@@ -1968,13 +1987,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
-        const [view, presetShowcase, usage, myStyles] = await Promise.all([
+        const [view, presetShowcase, usage, myStyles, favorites] = await Promise.all([
             this.projectService.getAssetCatalogView(preferenceRoot),
             this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
             this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>)),
-            this.projectService.listMyStyles().catch(() => [] as MyStyle[])
+            this.projectService.listMyStyles().catch(() => [] as MyStyle[]),
+            this.projectService.getLibraryFavorites().catch(() => [] as string[])
         ]);
-        this.assetCatalogItems = view.items.map(item => ({ ...item,
+        this.libraryFavorites = new Set(favorites);
+        this.assetCatalogItems = view.items.map(item => ({ ...item, favorite: this.libraryFavorites.has(item.key),
             usageCount: usage[item.key]?.count ?? 0, lastUsedAt: usage[item.key]?.lastUsedAt }));
         this.catalogPacks = view.packs;
         this.catalogResolver = view.resolver;
@@ -1983,6 +2004,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.myStyles = myStyles;
         this.catalogLoading = false;
         this.update();
+    }
+
+    /** 促しのシートをコマンドから開くとき、一覧をまだ読んでいなければ読む。 */
+    public assetCatalogLoaded(): boolean {
+        return this.assetCatalogItems.length > 0;
     }
 
     public async refreshStoreConnectionStatus(): Promise<void> {
@@ -2048,8 +2074,34 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected filteredCatalogItems(): AssetCatalogViewItem[] {
-        return rankRecentLibraryItems(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter),
+        return rankRecentLibraryItems(this.applyLibraryFilter(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, this.catalogCategory, this.libraryFolderFilter)),
             item => this.catalogQuery && item.title.toLocaleLowerCase().includes(this.catalogQuery.toLocaleLowerCase()) ? 1 : 0);
+    }
+
+    /** 検索の右のフィルター（4 節）の今の状態。出どころは librarySourceFilter を正とする。 */
+    protected libraryFilter(): LibraryFilterState {
+        return { source: this.librarySourceFilter, ...this.libraryFilterRest };
+    }
+
+    protected applyLibraryFilter(items: readonly AssetCatalogViewItem[]): AssetCatalogViewItem[] {
+        return filterLibraryItems(items, this.libraryFilter(), this.libraryFavorites);
+    }
+
+    protected presetPassesLibraryFilter(key: string, source: 'lab' | 'own' = 'lab'): boolean {
+        return presetMatchesLibraryFilter(key, this.libraryFilter(), this.libraryFavorites, source);
+    }
+
+    protected toggleLibraryFilterOption(section: LibraryFilterSectionKey, option: string): void {
+        const next = toggleLibraryFilterOption(this.libraryFilter(), section, option);
+        this.librarySourceFilter = next.source;
+        this.libraryFilterRest = { price: next.price, license: next.license, status: next.status };
+        this.update();
+    }
+
+    protected clearLibraryFilter(): void {
+        this.librarySourceFilter = EMPTY_LIBRARY_FILTER.source;
+        this.libraryFilterRest = { price: [], license: [], status: [] };
+        this.update();
     }
 
     protected catalogCategoryChips(): CatalogCategoryChip[] {
@@ -2066,7 +2118,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected filteredPresetShowcaseItems(kind: PresetShowcaseKind): PresetShowcaseItem[] {
-        return includesLibraryLab(this.librarySourceFilter) ? filterPresetShowcaseItems(this.presetShowcase[kind], this.catalogQuery) : [];
+        return filterPresetShowcaseItems(this.presetShowcase[kind], this.catalogQuery)
+            .filter(item => this.presetPassesLibraryFilter(`${kind}/${item.id}`));
     }
 
     protected setCatalogQuery(query: string): void {
@@ -2109,8 +2162,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected libraryCategoryCount(category: LibraryCategoryDefinition): number | undefined {
-        return countLibraryCategory(category, this.librarySourceFilter, this.assetCatalogItems,
-            this.presetShowcase, TRANSITION_VOCABULARY.length, this.catalogPacks);
+        return countLibraryCategory(category, this.librarySourceFilter, this.applyLibraryFilter(this.assetCatalogItems),
+            this.presetShowcase, TRANSITION_VOCABULARY.length, this.catalogPacks, key => this.presetPassesLibraryFilter(key),
+            TRANSITION_VOCABULARY.map(transition => transition.id));
     }
 
     /** `akari.catalog.listCategories` の実体。UI 状態は変えない読み取り専用メソッド。 */
@@ -2357,6 +2411,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** カタログ key を既存 resolver で取り込み、配置可能な主メディアだけ返す。 */
     async resolveCatalogMaterial(key: string, options?: { preferExisting?: boolean }): Promise<{ relativePath: string; kind: MaterialKind; cached?: boolean } | undefined> {
+        // 未購入のプレミアム: 置かずに促しのシート（Lab で見る）を出す。
+        if (this.showPremiumPrompt(key)) return undefined;
         if (await this.commandService?.executeCommand<boolean>('akari.library.isMoving')) { this.messages.warn('素材を移動しています。終わるまでお待ちください。'); return undefined; }
         const root = this.workflow.workspaceRoot;
         if (!root) {
@@ -2365,7 +2421,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const item = this.assetCatalogItems.find(entry => entry.key === key);
         if (!item || !canPlaceLibraryAsset(item)) {
-            this.messages.warn(item?.state === 'locked' ? '未購入の素材は直接置けません。' : 'この素材は直接置けません');
+            this.messages.warn('この素材は直接置けません');
             return undefined;
         }
         if (this.resolvingAssetKeys.has(key)) {
@@ -2442,8 +2498,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
+    /** 未購入のプレミアムもドラッグできる（payload に locked を載せ、受け口が促しのシートへ分岐する）。 */
     protected canDragCatalogAsset(item: AssetCatalogViewItem): boolean {
-        return this.libraryCategory !== 'pack' && canPlaceLibraryAsset(item);
+        return this.libraryCategory !== 'pack' && (canPlaceLibraryAsset(item) || (isPremiumLocked(item) && isPlaceableLibraryCategory(item)));
     }
 
     protected handleCatalogAssetDragStart(event: React.DragEvent<HTMLElement>, item: AssetCatalogViewItem): void {
@@ -2453,6 +2510,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         const { key, id, category, title } = item;
         const payload = { kind: 'asset', key, id, category, title };
+        if (isPremiumLocked(item)) Object.assign(payload, { locked: true });
+        if (isPremiumLocked(item) && item.price) Object.assign(payload, { price: item.price });
         event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
@@ -2670,6 +2729,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     request={this.libraryImportRequest} consumed={() => { this.libraryImportRequest = undefined; }} pick={mode => this.pickLibraryImport(mode)}
                     imported={result => this.finishLibraryImport(result)} stopAudio={() => this.stopCatalogAudio()} />}
                 {this.renderLintBadge()}
+                {this.renderLibraryOverlays()}
             </div>
         );
     }
@@ -2850,27 +2910,33 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         );
                     })}
                 </div>
-                {this.topView === 'catalog' && !this.materialSwap && this.renderLibrarySourceFilters()}
-                <input
-                    type='search'
-                    value={query}
-                    onChange={event => this.topView === 'materials'
-                        ? this.setMaterialQuery(event.target.value)
-                        : this.setCatalogQuery(event.target.value)}
-                    onClick={event => event.stopPropagation()}
-                    placeholder={this.topView === 'materials' ? 'プロジェクト内を検索' : 'ライブラリを検索'}
-                    aria-label={this.topView === 'materials' ? 'プロジェクト内の素材を検索' : 'ライブラリを検索'}
-                    data-akari-panel-search={this.topView}
-                    style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '5px 8px',
-                        background: AKARI_SURFACE.raised,
-                        color: AKARI_INK,
-                        border: AKARI_BORDER.hairline,
-                        borderRadius: `${AKARI_RADIUS.panel}px`
-                    }}
-                />
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'stretch' }}>
+                    <input
+                        type='search'
+                        value={query}
+                        onChange={event => this.topView === 'materials'
+                            ? this.setMaterialQuery(event.target.value)
+                            : this.setCatalogQuery(event.target.value)}
+                        onClick={event => event.stopPropagation()}
+                        placeholder={this.topView === 'materials' ? 'プロジェクト内を検索' : 'ライブラリを検索'}
+                        aria-label={this.topView === 'materials' ? 'プロジェクト内の素材を検索' : 'ライブラリを検索'}
+                        data-akari-panel-search={this.topView}
+                        style={{
+                            flex: '1 1 auto',
+                            minWidth: 0,
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '5px 8px',
+                            background: AKARI_SURFACE.raised,
+                            color: AKARI_INK,
+                            border: AKARI_BORDER.hairline,
+                            borderRadius: `${AKARI_RADIUS.panel}px`
+                        }}
+                    />
+                    {this.topView === 'catalog' && !this.materialSwap && <LibraryFilterButton filter={this.libraryFilter()}
+                        open={!!this.libraryFilterAnchor}
+                        onToggle={() => this.toggleLibraryFilterPopover()} />}
+                </div>
             </div>
         );
     }
@@ -3227,28 +3293,6 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    protected renderLibrarySourceFilters(): React.ReactNode {
-        return (
-            <div aria-label='素材の出どころ' role='group' style={{ display: 'flex', gap: '3px' }}>
-                {LIBRARY_SOURCE_FILTERS.map(source => (
-                    <button
-                        key={source.key}
-                        type='button'
-                        data-source-filter={source.key}
-                        aria-pressed={this.librarySourceFilter === source.key}
-                        onClick={() => { this.librarySourceFilter = source.key; this.update(); }}
-                        style={{
-                            flex: '1 1 auto', padding: '4px 2px', fontSize: '0.72em', cursor: 'pointer',
-                            borderRadius: `${AKARI_RADIUS.chip}px`, color: AKARI_INK,
-                            border: this.librarySourceFilter === source.key ? AKARI_BORDER.accent : AKARI_BORDER.ghost,
-                            background: this.librarySourceFilter === source.key ? AKARI_SURFACE.elevated : 'transparent'
-                        }}
-                    >{source.label}</button>
-                ))}
-            </div>
-        );
-    }
-
     protected openRecentLibraryEntry(entry: RecentLibraryEntry): void {
         this.catalogQuery = '';
         this.selectLibraryCategory(entry.category);
@@ -3258,7 +3302,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderRecentLibraryStrip(): React.ReactNode {
-        const entries = recentLibraryEntries(this.assetCatalogItems, this.librarySourceFilter);
+        const entries = recentLibraryEntries(this.applyLibraryFilter(this.assetCatalogItems), 'all');
         if (!entries.length) { return undefined; }
         return (
             <section data-recent-strip style={{ paddingTop: '8px' }}>
@@ -3292,10 +3336,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected renderLibraryHome(): React.ReactNode {
         const query = this.catalogQuery.trim();
         if (query) {
+            const presets = (kind: PresetShowcaseKind): PresetShowcaseItem[] =>
+                this.presetShowcase[kind].filter(item => this.presetPassesLibraryFilter(`${kind}/${item.id}`));
             const hits = searchLibraryHome(query, {
-                catalogItems: filterLibrarySources(this.assetCatalogItems, this.librarySourceFilter),
-                presetShowcase: includesLibraryLab(this.librarySourceFilter) ? this.presetShowcase : { textstyle: [], textanim: [], lut: [] },
-                transitions: includesLibraryLab(this.librarySourceFilter) ? TRANSITION_VOCABULARY : []
+                catalogItems: this.applyLibraryFilter(this.assetCatalogItems),
+                presetShowcase: { textstyle: presets('textstyle'), textanim: presets('textanim'), lut: presets('lut') },
+                transitions: TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`))
             });
             return (
                 <div data-akari-library-home data-akari-library-search-results={hits.length} style={{ padding: '8px 10px 12px' }}>
@@ -3611,7 +3657,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderLibraryPackBody(): React.ReactNode {
-        const filtered = rankRecentLibraryItems(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, 'all'));
+        const filtered = rankRecentLibraryItems(this.applyLibraryFilter(filterLibraryCatalogItems(this.assetCatalogItems, this.librarySourceFilter, this.catalogQuery, 'all')));
         const { groups } = groupCatalogItemsByPack(filtered, this.catalogPacks);
         const totalGroups = groupCatalogItemsByPack(this.assetCatalogItems, this.catalogPacks).groups.length;
         return (
@@ -3649,7 +3695,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderTransitionLibrary(): React.ReactNode {
         const normalizedQuery = this.catalogQuery.trim().toLowerCase();
-        const filtered = TRANSITION_VOCABULARY.filter(transition => includesLibraryLab(this.librarySourceFilter) && (!normalizedQuery
+        const filtered = TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`) && (!normalizedQuery
             || [transition.labelJa, transition.id, transition.category].join(' ').toLowerCase().includes(normalizedQuery)));
         const categories = Array.from(new Set(TRANSITION_VOCABULARY.map(transition => transition.category)));
         return (
@@ -3678,15 +3724,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                         draggable
                                         data-akari-library-transition={transition.id}
                                         data-akari-library-category='transition'
+                                        data-akari-library-card='grid'
+                                        data-akari-favorite={this.libraryFavorites.has(`transition/${transition.id}`) ? 'true' : undefined}
                                         title={`${transition.labelJa} — カット境界へドラッグ`}
                                         onDragStart={event => this.handleLibraryTransitionDragStart(event, transition)}
                                         onDragEnd={() => this.handleLibraryTransitionDragEnd()}
+                                        onContextMenu={event => this.openLibraryMenuAt(event, { kind: 'transition', key: `transition/${transition.id}` })}
                                         style={{
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
+                                            position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', minWidth: 0,
                                             padding: '9px 5px 7px', cursor: 'grab', borderRadius: `${AKARI_RADIUS.panel}px`,
                                             background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost
                                         }}
                                     >
+                                        <LibraryDotsCorner label={transition.labelJa}
+                                            onOpen={anchor => this.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, anchor)} />
                                         <span aria-hidden='true' style={{
                                             display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '25px',
                                             borderRadius: `${AKARI_RADIUS.chip}px`, background: AKARI_SURFACE.card,
@@ -3928,77 +3979,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    /** 状態バッジ（origin='resolver' のみ）。左上のサムネオーバーレイに乗せる小片を返す。 */
-    protected renderAssetStateBadge(item: AssetCatalogViewItem): React.ReactNode {
-        const label = assetStateBadgeText(item);
-        if (!item.state || !label) {
-            return undefined;
-        }
-        return (
-            <span
-                title={assetStateBadgeTitle(item)}
-                style={{
-                    position: 'absolute',
-                    top: '4px',
-                    left: '4px',
-                    padding: '1px 5px',
-                    borderRadius: `${AKARI_RADIUS.chip}px`,
-                    fontSize: '0.72em',
-                    fontWeight: 600,
-                    background: item.state === 'locked' ? 'var(--theia-badge-background)' : AKARI_SURFACE.raised,
-                    color: item.state === 'locked' ? 'var(--theia-badge-foreground)' : AKARI_INK,
-                    border: AKARI_BORDER.hairline
-                }}
-            >
-                {label}
-            </span>
-        );
-    }
-
-    /**
-     * 分類バッジ（origin='local' のみ）。左上のサムネオーバーレイに乗せる小片を返す。
-     * resolver カードの状態バッジ（renderAssetStateBadge）とは origin で排他のため
-     * 同じ左上スロットを共有してよい。
-     */
-    protected renderAssetDistributionBadge(item: AssetCatalogViewItem): React.ReactNode {
-        if (item.origin !== 'local') {
-            return undefined;
-        }
-        const label = assetDistributionBadgeText(item.distribution, item.sourceAcquisition);
-        if (!label) {
-            return undefined;
-        }
-        return (
-            <span
-                data-akari-catalog-distribution={item.distribution}
-                style={{
-                    position: 'absolute',
-                    top: '4px',
-                    left: '4px',
-                    padding: '1px 5px',
-                    borderRadius: `${AKARI_RADIUS.chip}px`,
-                    fontSize: '0.72em',
-                    fontWeight: 600,
-                    background: AKARI_SURFACE.raised,
-                    color: AKARI_INK,
-                    border: AKARI_BORDER.hairline
-                }}
-            >
-                {label}
-            </span>
-        );
-    }
-
     protected isSiteSubscription(item: AssetCatalogViewItem): boolean {
         return item.tags.includes('license:subscription') || item.machineTags?.includes('license:subscription') === true;
-    }
-
-    protected renderSiteSubscriptionBadge(item: AssetCatalogViewItem, compact = false): React.ReactNode {
-        return this.isSiteSubscription(item)
-            ? <span data-akari-site-subscription style={{ ...(compact ? { flex: '0 0 auto' } : { position: 'absolute', top: 4, right: 4 }),
-                padding: '1px 5px', background: AKARI_SURFACE.raised, border: AKARI_BORDER.hairline,
-                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.72em' }}>サブスク</span>
-            : undefined;
     }
 
     /**
@@ -4052,118 +4034,187 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         );
     }
 
-    /** カード下部のアクション行。origin で「使う」（resolver）か「取り込む/頼む」（local）かを切り替える。 */
-    protected renderCatalogCardActions(item: AssetCatalogViewItem): React.ReactNode {
-        if (this.materialSwap && canPlaceLibraryAsset(item)) return undefined;
-        const actionRowStyle: React.CSSProperties = {
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '4px',
-            width: '100%',
-            maxWidth: '100%',
-            minWidth: 0,
-            overflow: 'hidden'
-        };
-        const buttonStyle: React.CSSProperties = {
-            minWidth: 0,
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            boxSizing: 'border-box',
-            fontSize: '0.78em',
-            padding: '2px 4px'
-        };
-        const addButton = !this.materialSwap && this.canDragCatalogAsset(item) ? (
-            <button type='button' className='theia-button secondary'
-                data-akari-catalog-action='add' aria-label={`${item.title} をプレイヘッド位置に追加`}
-                title='プレイヘッド位置に追加' disabled={this.resolvingAssetKeys.has(item.key)}
-                style={buttonStyle}
-                onClick={event => { event.stopPropagation(); void this.addCatalogAssetAtPlayhead(item); }}>
-                ＋
-            </button>
-        ) : undefined;
-        if (item.origin === 'local') {
-            return (
-                <div data-akari-catalog-actions style={actionRowStyle}>
-                    {addButton}
-                    {!item.installed && (
-                        <button
-                            type='button'
-                            className='theia-button secondary'
-                            title={`${item.title} をエージェントに取り込ませる`}
-                            data-akari-catalog-action='import'
-                            style={{ ...buttonStyle, flex: '1 1 0' }}
-                            onClick={() => void this.importCatalogItem(item)}
-                        >
-                            取り込む
-                        </button>
-                    )}
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        title={`${item.title} についてエージェントに頼む`}
-                        data-akari-catalog-action='ask'
-                        style={{ ...buttonStyle, flex: '1 1 0' }}
-                        onClick={() => void this.askAgentAboutCatalogItem(item)}
-                    >
-                        頼む
-                    </button>
-                </div>
-            );
-        }
-        if (item.state === 'locked') {
-            // 「使う」（resolveAsset）は実行しない — 価格とストアの商品ページを案内するだけ
-            // （task.md B-2）。クリックでブラウザを開く（decision: 案内文だけでなく実際に
-            // 購入できる場所へ連れて行く方が親切と判断）。
-            const price = item.price ?? 0;
-            const url = storeProductUrl(this.storeConnection.url, item.id);
-            const text = catalogPurchaseActionText(price, this.catalogViewMode, url);
-            return (
-                <div data-akari-catalog-actions style={actionRowStyle}>
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        title={text.title}
-                        data-akari-catalog-action='purchase'
-                        style={{ ...buttonStyle, flex: '1 1 auto', width: '100%' }}
-                        onClick={() => this.windowService.openNewWindow(url, { external: true })}
-                    >
-                        {text.label}
-                    </button>
-                </div>
-            );
-        }
-        const resolving = this.resolvingAssetKeys.has(item.key);
-        return (
-            <div data-akari-catalog-actions style={actionRowStyle}>
-                {addButton}
-                <button
-                    type='button'
-                    className='theia-button'
-                    disabled={resolving}
-                    title={item.state === 'cached' ? `${item.title} はプロジェクトに配置済みです` : `${item.title} を取得してプロジェクトに配置します`}
-                    data-akari-catalog-action='use'
-                    style={{ ...buttonStyle, flex: '1 1 auto', width: '100%' }}
-                    onClick={() => void this.useAssetCatalogItem(item)}
-                >
-                    {resolving ? '取得中…' : '使う'}
-                </button>
-            </div>
-        );
-    }
-
     protected renderCatalogItem(item: AssetCatalogViewItem): React.ReactNode {
         return this.catalogViewMode === 'list' ? this.renderCatalogListRow(item) : this.renderCatalogCard(item);
     }
 
-    protected openLibraryCardMenu(item: AssetCatalogViewItem, x: number, y: number): void {
-        const items = libraryCardContextMenuItems(item);
-        if (!items.length) return;
-        openAkariContextMenu({ x, y, items, onSelect: id => {
-            if (id === 'reveal') void this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir!));
-            if (id === 'remove-library') void this.removeLibraryItem(item);
-        } });
+    // --- ライブラリのカード: 右クリック = 操作のメニュー / ⋯ = 情報カード / ★ / 促しのシート ----------
+
+    protected libraryMenuTargetItem(target: LibraryMenuTarget): { preset?: PresetShowcaseItem; style?: MyStyle } {
+        if (target.kind === 'textstyle' || target.kind === 'textanim' || target.kind === 'lut') {
+            const id = target.key.slice(target.kind.length + 1);
+            return { preset: this.presetShowcase[target.kind].find(item => item.id === id) };
+        }
+        if (target.kind === 'mystyle') return { style: this.myStyles.find(style => `mystyle/${style.id}` === target.key) };
+        return {};
+    }
+
+    /** 右クリック。どの棚のカードにも同じ形のメニュー（library-card-menu.ts）。 */
+    protected openLibraryMenuAt(event: React.MouseEvent<HTMLElement>, target: LibraryMenuTarget): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const card = (event.currentTarget.closest('[data-akari-library-card]') as HTMLElement | null) ?? event.currentTarget;
+        const entries = libraryCardMenuEntries(target, this.libraryFavorites.has(libraryMenuTargetKey(target)));
+        if (!entries.length) return;
+        openAkariContextMenu({ x: event.clientX, y: event.clientY, items: entries,
+            onSelect: id => void this.runLibraryAction(target, id as LibraryMenuActionId, card) });
+    }
+
+    protected libraryInfoModel(target: LibraryMenuTarget): LibraryInfoCardModel | undefined {
+        const favorite = this.libraryFavorites.has(libraryMenuTargetKey(target));
+        if (target.kind === 'asset') {
+            const chip = catalogItemCategoryChipKey(target.item);
+            const category = (LIBRARY_GROUPS as readonly LibraryGroupDefinition[]).flatMap(group => group.categories)
+                .find(candidate => candidate.chipKey === chip);
+            const item = this.assetCatalogItems.find(entry => entry.key === target.item.key) ?? target.item;
+            return libraryAssetInfoCard(item, category?.label ?? item.category, favorite);
+        }
+        if (target.kind === 'transition') {
+            const transition = TRANSITION_VOCABULARY.find(entry => `transition/${entry.id}` === target.key);
+            return transition && libraryPresetInfoCard({ key: target.key, kind: 'transition', name: transition.labelJa,
+                categoryLabel: 'トランジション', tags: [transition.category] }, favorite);
+        }
+        const { preset, style } = this.libraryMenuTargetItem(target);
+        if (preset) {
+            return libraryPresetInfoCard({ key: target.key, kind: preset.kind, name: preset.name,
+                categoryLabel: this.libraryCategoryDefinition(preset.kind).label, tags: [preset.category, ...preset.tags].filter(Boolean) as string[] }, favorite);
+        }
+        if (style) {
+            return libraryPresetInfoCard({ key: target.key, kind: 'mystyle', name: style.name, categoryLabel: 'マイスタイル',
+                tags: [style.when_to_use, ...style.parts.map(part => myStylePartLabel(part.kind))], author: style.author }, favorite);
+        }
+        return undefined;
+    }
+
+    /** ⋯ = 情報カード。押したカードだけを残して周りを暗くし、横に情報カードを出す。 */
+    protected openLibraryInfo(target: LibraryMenuTarget, anchor: HTMLElement): void {
+        this.stopCatalogAudio();
+        this.libraryFilterAnchor = undefined;
+        this.libraryInfo = { target, anchor: anchor.getBoundingClientRect(), keywordsExpanded: false };
+        this.update();
+    }
+
+    protected closeLibraryInfo = (): void => {
+        if (!this.libraryInfo) return;
+        this.libraryInfo = undefined;
+        this.update();
+    };
+
+    protected async runLibraryAction(target: LibraryMenuTarget, id: LibraryMenuActionId, anchor?: HTMLElement): Promise<void> {
+        const key = libraryMenuTargetKey(target);
+        if (id === 'favorite') { await this.toggleLibraryFavorite(key); return; }
+        if (id === 'info') { if (anchor) this.openLibraryInfo(target, anchor); return; }
+        if (target.kind === 'asset') {
+            const item = this.assetCatalogItems.find(entry => entry.key === key) ?? target.item;
+            if (id === 'lab') this.openLibraryLab(item);
+            else if (id === 'place') {
+                if (isPremiumLocked(item)) this.showPremiumPrompt(item.key);
+                else await this.addCatalogAssetAtPlayhead(item);
+            } else if (id === 'import') await this.useAssetCatalogItem(item);
+            else if (id === 'agent-import') await this.importCatalogItem(item);
+            else if (id === 'ask') await this.askAgentAboutCatalogItem(item);
+            else if (id === 'reveal' && item.libraryDir) await this.revealInFileManagerCommand(URI.fromFilePath(item.libraryDir));
+            else if (id === 'remove-library') await this.removeLibraryItem(item);
+            return;
+        }
+        const { preset, style } = this.libraryMenuTargetItem(target);
+        if (preset && id === 'place-text') await this.addTextStyleAtPlayhead(preset);
+        if (style) {
+            if (id === 'apply') this.openMyStyleApply(style, anchor ?? this.node);
+            else if (id === 'place-text') await this.addMyStyleAtPlayhead(style);
+            else if (id === 'rename') await this.renameMyStyle(style);
+            else if (id === 'delete') await this.deleteMyStyle(style);
+        }
+    }
+
+    /** ★ を付ける / 外す（利用者ごとに保存。edit.json には入れない）。 */
+    protected async toggleLibraryFavorite(key: string): Promise<void> {
+        const favorite = !this.libraryFavorites.has(key);
+        try {
+            this.libraryFavorites = new Set(await this.projectService.setLibraryFavorite(key, favorite));
+            this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key ? { ...entry, favorite } : entry);
+            this.update();
+        } catch (error) {
+            this.messages.error(`お気に入りを保存できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    protected openLibraryLab(item: AssetCatalogViewItem): void {
+        this.windowService.openNewWindow(storeProductUrl(this.storeConnection.url, item.id), { external: true });
+    }
+
+    /**
+     * プレミアムの促しのシート（コマンド `akari.library.showPremiumPrompt`）。未購入の素材を
+     * 置こう・使おうとした時点で出す。置かない。
+     */
+    public showPremiumPrompt(key: string): boolean {
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || !isPremiumLocked(item)) return false;
+        this.libraryInfo = undefined;
+        this.libraryPremiumPrompt = key;
+        this.update();
+        return true;
+    }
+
+    protected openLibraryLicense(model: LibraryInfoCardModel, target: LibraryMenuTarget): void {
+        const item = target.kind === 'asset' ? this.assetCatalogItems.find(entry => entry.key === target.item.key) ?? target.item : undefined;
+        this.libraryLicense = { sheet: model.license, credit: item && model.license.credit ? libraryCreditLine(item) : undefined };
+        this.update();
+    }
+
+    protected async copyLibraryCredit(text: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(text);
+            this.messages.info('クレジットをコピーしました');
+        } catch (error) {
+            this.messages.error(`クレジットをコピーできませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    protected toggleLibraryFilterPopover(): void {
+        if (this.libraryFilterAnchor) {
+            this.libraryFilterAnchor = undefined;
+        } else {
+            const button = this.node.querySelector<HTMLElement>('[data-akari-library-filter-button]');
+            this.libraryFilterAnchor = button?.getBoundingClientRect();
+        }
+        this.update();
+    }
+
+    /** 浮く部品（情報カード・ライセンスの窓・フィルター・促しのシート）。document.body へ出す。 */
+    protected renderLibraryOverlays(): React.ReactNode {
+        const info = this.libraryInfo;
+        const model = info && this.libraryInfoModel(info.target);
+        const premium = this.libraryPremiumPrompt ? this.assetCatalogItems.find(entry => entry.key === this.libraryPremiumPrompt) : undefined;
+        const prompt = premium && premiumPromptText(premium);
+        return <>
+            <LibraryCardStyles />
+            {this.libraryFilterAnchor && this.topView === 'catalog' && <LibraryFilterPopover filter={this.libraryFilter()} anchor={this.libraryFilterAnchor}
+                onToggleOption={(section, option) => this.toggleLibraryFilterOption(section, option)}
+                onClear={() => this.clearLibraryFilter()}
+                onClose={() => { this.libraryFilterAnchor = undefined; this.update(); }} />}
+            {info && model && <LibraryInfoCard model={model} anchor={info.anchor} keywordsExpanded={info.keywordsExpanded}
+                favorite={this.libraryFavorites.has(model.key)}
+                onToggleKeywords={() => { this.libraryInfo = { ...info, keywordsExpanded: !info.keywordsExpanded }; this.update(); }}
+                onAction={id => {
+                    if (id !== 'favorite') this.closeLibraryInfo();
+                    void this.runLibraryAction(info.target, id);
+                }}
+                onOpenLicense={() => this.openLibraryLicense(model, info.target)}
+                onCreator={model.creatorSource ? () => {
+                    this.librarySourceFilter = model.creatorSource!;
+                    this.catalogQuery = '';
+                    this.closeLibraryInfo();
+                } : undefined}
+                onClose={this.closeLibraryInfo} />}
+            {this.libraryLicense && <LibraryLicenseDialog sheet={this.libraryLicense.sheet}
+                onCopyCredit={this.libraryLicense.credit ? () => void this.copyLibraryCredit(this.libraryLicense!.credit!) : undefined}
+                onMore={url => this.windowService.openNewWindow(url, { external: true })}
+                onClose={() => { this.libraryLicense = undefined; this.update(); }} />}
+            {premium && prompt && <LibraryPremiumSheet title={prompt.title} body={prompt.body} actionLabel={prompt.action}
+                onLab={() => { this.libraryPremiumPrompt = undefined; this.update(); this.openLibraryLab(premium); }}
+                onClose={() => { this.libraryPremiumPrompt = undefined; this.update(); }} />}
+        </>;
     }
 
     protected async removeLibraryItem(item: AssetCatalogViewItem): Promise<void> {
@@ -4217,15 +4268,24 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected renderMyStyles(): React.ReactNode {
         const query = this.catalogQuery.trim().toLocaleLowerCase();
-        const styles = this.myStyles.filter(style => !query || `${style.name} ${style.when_to_use}`.toLocaleLowerCase().includes(query));
+        const styles = this.myStyles.filter(style => (!query || `${style.name} ${style.when_to_use}`.toLocaleLowerCase().includes(query))
+            && this.presetPassesLibraryFilter(`mystyle/${style.id}`, 'own'));
         return <section data-akari-my-style-shelf>
             <div style={{ padding: '7px 10px', fontSize: '0.76em', fontWeight: 700, borderBottom: AKARI_BORDER.hairline }}>マイスタイル</div>
             {styles.length === 0 && <p style={{ opacity: 0.7, padding: '8px 10px', fontSize: '0.78em' }}>保存したスタイルはまだありません。</p>}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '6px', padding: '8px 10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '8px 10px' }}>
                 {styles.map(style => {
                     const sampleStyle = myStyleSamplePresentation(style) as React.CSSProperties;
-                    return <div key={style.id} data-akari-my-style-card={style.id} draggable
-                        onMouseEnter={event => this.playMyStyleSample(event.currentTarget, style)}
+                    const key = `mystyle/${style.id}`;
+                    const target: LibraryMenuTarget = { kind: 'mystyle', key };
+                    const info = this.libraryInfo?.target;
+                    return <LibrarySimpleCard key={style.id} cardKey={key} name={style.name} layout='grid' faceHeight='48px'
+                        title={`${style.name} — ${style.when_to_use}`}
+                        favorite={this.libraryFavorites.has(key)}
+                        infoOpen={info?.kind === 'mystyle' && info.key === key}
+                        attributes={{ 'data-akari-my-style-card': style.id }}
+                        draggable
+                        onMouseEnter={event => this.playMyStyleSample(event.currentTarget as HTMLDivElement, style)}
                         onMouseLeave={event => event.currentTarget.querySelector('[data-akari-my-style-preview]')?.getAnimations().forEach(animation => animation.cancel())}
                         onDragStart={event => {
                             const payload = { kind: 'mystyle', style };
@@ -4234,65 +4294,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
                         }}
                         onDragEnd={() => this.handleLibraryTransitionDragEnd()}
-                        style={{ minWidth: 0, padding: '7px', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost }}>
-                        <div style={{ height: '44px', display: 'flex', justifyContent: 'center', alignItems: 'center',
-                            overflow: 'hidden', background: AKARI_SURFACE.card, borderRadius: `${AKARI_RADIUS.chip}px` }}>
-                            <span data-akari-my-style-preview style={{ ...sampleStyle, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {style.sample_text || style.name}
-                            </span>
-                        </div>
-                        <div data-akari-my-style-badge style={{ marginTop: '5px', fontSize: '0.67em', opacity: 0.7 }}>マイスタイル</div>
-                        <strong style={{ display: 'block', fontSize: '0.8em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{style.name}</strong>
-                        <div style={{ fontSize: '0.7em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{style.when_to_use}</div>
-                        <div style={{ display: 'flex', gap: '3px', overflow: 'hidden', whiteSpace: 'nowrap', margin: '4px 0' }}>
-                            {style.parts.map((part, index) => {
-                                const applicable = defaultMyStyleParts([part]).length > 0;
-                                return <span key={`${part.kind}-${index}`} data-akari-my-style-part={part.kind}
-                                style={{ display: 'inline-block', flexShrink: 0, padding: '1px 4px', borderRadius: `${AKARI_RADIUS.chip}px`,
-                                    background: 'var(--theia-badge-background)', opacity: applicable ? 1 : 0.55,
-                                    fontSize: '0.66em' }}>
-                                {myStylePartLabel(part.kind)}{applicable ? '' : '（当てない）'}</span>;
-                            })}
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'nowrap', justifyContent: 'space-between', gap: '2px' }}>
-                            {this.renderMyStyleAction('apply', style.id, 'codicon-check', '選択した字幕に当てる', button =>
-                                this.openMyStyleApply(style, button))}
-                            {this.renderMyStyleAction('add', style.id, 'codicon-add', 'プレイヘッド位置に置く', () => { void this.addMyStyleAtPlayhead(style); })}
-                            {this.renderMyStyleAction('rename', style.id, 'codicon-edit', '名前を変更', () => { void this.renameMyStyle(style); })}
-                            {this.renderMyStyleAction('delete', style.id, 'codicon-trash', '削除', () => { void this.deleteMyStyle(style); })}
-                        </div>
-                    </div>;
+                        onContextMenu={event => this.openLibraryMenuAt(event, target)}
+                        onInfo={anchor => this.openLibraryInfo(target, anchor)}
+                        face={<span data-akari-my-style-preview style={{ ...sampleStyle, maxWidth: '86%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {style.sample_text || style.name}
+                        </span>} />;
                 })}
             </div>
         </section>;
     }
 
-    protected renderMyStyleAction(action: 'apply' | 'add' | 'rename' | 'delete', id: string,
-        icon: string, label: string, onClick: (button: HTMLButtonElement) => void): React.ReactNode {
-        const toggleTip = (element: HTMLButtonElement, visible: boolean): void => {
-            element.querySelector<HTMLElement>('[data-akari-my-style-tip]')!.style.display = visible ? 'block' : 'none';
-        };
-        return <button type='button' key={action} aria-label={label}
-            data-akari-my-style-apply={action === 'apply' ? id : undefined}
-            data-akari-my-style-add={action === 'add' ? id : undefined}
-            data-akari-my-style-rename={action === 'rename' ? id : undefined}
-            data-akari-my-style-delete={action === 'delete' ? id : undefined}
-            style={{ position: 'relative', width: '28px', height: '26px', flex: '0 0 28px', minWidth: '28px',
-                padding: '2px', border: AKARI_BORDER.hairline, borderRadius: `${AKARI_RADIUS.chip}px`,
-                background: AKARI_SURFACE.card, color: AKARI_INK, cursor: 'pointer' }}
-            onMouseEnter={event => toggleTip(event.currentTarget, true)}
-            onMouseLeave={event => toggleTip(event.currentTarget, false)}
-            onFocus={event => toggleTip(event.currentTarget, true)}
-            onBlur={event => toggleTip(event.currentTarget, false)}
-            onClick={event => { event.stopPropagation(); onClick(event.currentTarget); }}>
-            <span className={`codicon ${icon}`} aria-hidden='true' />
-            <span data-akari-my-style-tip style={{ display: 'none', position: 'absolute', bottom: 'calc(100% + 3px)', left: 0,
-                padding: '4px 6px', whiteSpace: 'nowrap', background: AKARI_SURFACE.card, border: AKARI_BORDER.hairline,
-                color: AKARI_INK, pointerEvents: 'none', zIndex: 20, fontSize: '11px' }}>{label}</span>
-        </button>;
-    }
-
-    protected openMyStyleApply(style: MyStyle, button: HTMLButtonElement): void {
+    protected openMyStyleApply(style: MyStyle, button: HTMLElement): void {
         this.closeMyStyleApplyPopover?.();
         const supported = defaultMyStyleParts(style.parts);
         const apply = (selectedParts: string[]): void => {
@@ -4449,271 +4461,97 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
     }
 
-    protected renderTextStyleAddButton(item: PresetShowcaseItem): React.ReactNode {
-        return item.kind === 'textstyle' ? (
-            <button type='button' className='theia-button secondary'
-                data-akari-catalog-action='add' aria-label={`${item.name} をプレイヘッド位置に置く`}
-                title='プレイヘッド位置に置く'
-                style={{ fontSize: '0.78em', padding: '2px 4px', flex: '0 0 auto' }}
-                onClick={event => { event.stopPropagation(); void this.addTextStyleAtPlayhead(item); }}>
-                ＋
-            </button>
-        ) : undefined;
-    }
-
     protected renderPresetShowcaseListRow(item: PresetShowcaseItem): React.ReactNode {
-        const detail = item.kind === 'textstyle'
-            ? [item.category, ...item.tags.slice(0, 2)].filter(Boolean).join(' · ')
-            : item.description;
-        return (
-            <div
-                key={`${item.kind}/${item.id}`}
-                title={this.presetShowcaseTitle(item)}
-                data-akari-catalog-preset-item={`${item.kind}/${item.id}`}
-                data-akari-catalog-item={item.kind === 'textstyle' ? `textstyle/${item.id}` : undefined}
-                draggable={item.kind === 'textstyle' ? true : undefined}
-                onDragStart={item.kind === 'textstyle' ? event => this.handleTextStyleDragStart(event, item) : undefined}
-                onDragEnd={item.kind === 'textstyle' ? () => this.handleLibraryTransitionDragEnd() : undefined}
-                data-akari-catalog-preset-list-row
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    minWidth: 0,
-                    padding: '5px 6px',
-                    borderRadius: `${AKARI_RADIUS.panel}px`,
-                    background: AKARI_SURFACE.raised,
-                    border: AKARI_BORDER.ghost
-                }}
-            >
-                <div style={{ width: '54px', height: '32px', flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px`, background: AKARI_SURFACE.card }}>
-                    {item.sampleText
-                        ? <span draggable={item.kind === 'textstyle' ? false : undefined} style={{ maxWidth: '48px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em', fontWeight: 700 }}>{item.sampleText}</span>
-                        : <span draggable={item.kind === 'textstyle' ? false : undefined} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ opacity: 0.55 }} />}
-                </div>
-                <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                    <span style={{ fontSize: '0.69em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</span>
-                    {item.sampleText && <span data-akari-preset-sample-text style={{ fontSize: '0.68em', opacity: 0.82, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sampleText}</span>}
-                </div>
-                {this.renderTextStyleAddButton(item)}
-            </div>
-        );
+        return this.renderPresetLibraryCard(item, 'list');
     }
 
     protected renderPresetShowcaseCard(item: PresetShowcaseItem): React.ReactNode {
-        const detail = item.kind === 'textstyle' ? item.category : item.description;
-        return (
-            <div
-                key={`${item.kind}/${item.id}`}
-                title={this.presetShowcaseTitle(item)}
-                data-akari-catalog-preset-item={`${item.kind}/${item.id}`}
-                data-akari-catalog-item={item.kind === 'textstyle' ? `textstyle/${item.id}` : undefined}
-                draggable={item.kind === 'textstyle' ? true : undefined}
-                onDragStart={item.kind === 'textstyle' ? event => this.handleTextStyleDragStart(event, item) : undefined}
-                onDragEnd={item.kind === 'textstyle' ? () => this.handleLibraryTransitionDragEnd() : undefined}
-                style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost }}
-            >
-                <div style={{ aspectRatio: '16 / 9', display: 'flex', alignItems: 'center', justifyContent: 'center', background: AKARI_SURFACE.card }}>
-                    {item.sampleText
-                        ? <span draggable={item.kind === 'textstyle' ? false : undefined} style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px', fontSize: '0.8em', fontWeight: 700 }}>{item.sampleText}</span>
-                        : <span draggable={item.kind === 'textstyle' ? false : undefined} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: '1.45em', opacity: 0.5 }} />}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '5px' }}>
-                    <span style={{ fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                    <span style={{ fontSize: '0.68em', opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</span>
-                    {item.sampleText && <span data-akari-preset-sample-text style={{ fontSize: '0.67em', opacity: 0.82, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.sampleText}</span>}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', fontSize: '0.66em', overflow: 'hidden' }}>
-                        {item.tags.slice(0, 3).map(tag => (
-                            <span key={tag} style={{ padding: '0 4px', borderRadius: `${AKARI_RADIUS.chip}px`, background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>{tag}</span>
-                        ))}
-                    </div>
-                    {this.renderTextStyleAddButton(item)}
-                </div>
-            </div>
-        );
+        return this.renderPresetLibraryCard(item, 'grid');
+    }
+
+    /** プリセットのカード = 見本 + 名前 + ⋯（タグ・説明・＋は情報カードと右クリックへ）。 */
+    protected renderPresetLibraryCard(item: PresetShowcaseItem, layout: 'grid' | 'list'): React.ReactNode {
+        const key = `${item.kind}/${item.id}`;
+        const target: LibraryMenuTarget = { kind: item.kind, key };
+        const textstyle = item.kind === 'textstyle';
+        const info = this.libraryInfo?.target;
+        return <LibrarySimpleCard key={key} cardKey={key} name={item.name} layout={layout}
+            title={this.presetShowcaseTitle(item)}
+            favorite={this.libraryFavorites.has(key)}
+            infoOpen={info?.kind === item.kind && info.key === key}
+            attributes={{
+                'data-akari-catalog-preset-item': key,
+                'data-akari-catalog-item': textstyle ? `textstyle/${item.id}` : undefined,
+                'data-akari-catalog-preset-list-row': layout === 'list' ? true : undefined
+            }}
+            draggable={textstyle ? true : undefined}
+            onDragStart={textstyle ? event => this.handleTextStyleDragStart(event, item) : undefined}
+            onDragEnd={textstyle ? () => this.handleLibraryTransitionDragEnd() : undefined}
+            onContextMenu={event => this.openLibraryMenuAt(event, target)}
+            onInfo={anchor => this.openLibraryInfo(target, anchor)}
+            face={item.sampleText
+                ? <span draggable={false} data-akari-preset-sample-text style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    padding: '0 4px', fontSize: layout === 'list' ? '0.69em' : '0.86em', fontWeight: 800 }}>{item.sampleText}</span>
+                : <span draggable={false} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: layout === 'list' ? '1em' : '1.45em', opacity: 0.5 }} />} />;
     }
 
     protected renderCatalogListRow(item: AssetCatalogViewItem): React.ReactNode {
         const pickCandidate = this.generationCatalogCandidate(item);
-        const thumbnailBroken = this.catalogBrokenThumbnails.has(item.key);
-        const previewUrl = item.previewUrl;
-        const primaryTag = item.tags[0];
-        const uiEventTarget = catalogCardUiEventTarget(item);
-        const categoryLabel = this.catalogCategoryChips()
-            .find(chip => chip.category === catalogItemCategoryChipKey(item))?.label ?? item.category;
-        return (
-            <div
-                key={item.key}
-                title={item.title}
-                {...this.generationPickCardProps(pickCandidate)}
-                draggable={!this.generationPick.request && this.canDragCatalogAsset(item)}
-                onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
-                onDragEnd={() => this.handleLibraryTransitionDragEnd()}
-                onContextMenu={event => { event.preventDefault(); this.openLibraryCardMenu(item, event.clientX, event.clientY); }}
-                data-akari-catalog-item={item.key}
-                data-akari-catalog-item-state={item.state ?? 'local'}
-                data-akari-catalog-list-row
-                data-akari-ui={uiEventTarget.target}
-                data-akari-ui-label={uiEventTarget.label}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    minWidth: 0,
-                    padding: '5px 6px',
-                    borderRadius: `${AKARI_RADIUS.panel}px`,
-                    background: AKARI_SURFACE.raised,
-                    border: AKARI_BORDER.ghost
-                }}
-            >
-                <div style={{
-                    position: 'relative',
-                    width: '42px',
-                    height: '28px',
-                    flex: '0 0 auto',
-                    overflow: 'hidden',
-                    borderRadius: `${AKARI_RADIUS.chip}px`,
-                    background: AKARI_SURFACE.card,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}>
-                    {previewUrl && !thumbnailBroken
-                        ? <img
-                            src={previewUrl}
-                            alt=''
-                            draggable={false}
-                            onError={() => this.handleCatalogThumbnailError(item)}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        : <span className={this.catalogPlaceholderIcon(item.category)} aria-hidden='true' style={{ opacity: 0.55 }} />}
-                </div>
-                <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                    <span style={{ fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.title}
-                    </span>
-                    <span style={{ fontSize: '0.69em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {categoryLabel}{primaryTag ? ` · ${primaryTag}` : ''}
-                    </span>
-                    {this.renderCatalogAudioError(item)}
-                </div>
-                {this.renderSiteSubscriptionBadge(item, true)}
-                {this.renderGenerationPickBadge(pickCandidate)}
-                <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '46%' }}>
-                    {!this.generationPick.request && item.category === 'audio' && item.mediaUrl && (
-                        <button
-                            type='button'
-                            className='theia-button secondary'
-                            title={this.playingCatalogAudioKey === item.key ? '停止' : '試聴する'}
-                            aria-label={this.playingCatalogAudioKey === item.key ? `${item.title} の再生を停止` : `${item.title} を試聴`}
-                            data-akari-catalog-audio-toggle
-                            data-akari-catalog-audio-playing={this.playingCatalogAudioKey === item.key ? 'true' : 'false'}
-                            style={{ padding: '2px 5px' }}
-                            onClick={event => { event.stopPropagation(); this.toggleCatalogAudio(item); }}
-                        >
-                            <span className={this.playingCatalogAudioKey === item.key ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' />
-                        </button>
-                    )}
-                    {!!item.usageCount && <small data-akari-library-usage>{item.usageCount} 回</small>}
-                    <div style={{ minWidth: 0, maxWidth: '100%' }}>{!this.generationPick.request && this.renderCatalogCardActions(item)}</div>
-                </div>
-            </div>
-        );
+        return <LibraryAssetCard key={item.key} {...this.libraryAssetCardProps(item, 'list',
+            this.generationPickCardProps(pickCandidate), this.renderGenerationPickBadge(pickCandidate), !this.generationPick.request)} />;
     }
 
+    /**
+     * カード = 顔 + 名前 + ⋯（描画は library-card-view.tsx）。ライセンス・タグ・カテゴリ・使用回数・＋・使う・
+     * 価格はカードに出さない（情報カード・右クリック・フィルター・書き出しの門へ移した）。
+     */
     protected renderCatalogCard(item: AssetCatalogViewItem): React.ReactNode {
         const pickCandidate = this.generationCatalogCandidate(item);
-        const thumbnailBroken = this.catalogBrokenThumbnails.has(item.key);
-        const previewUrl = item.previewUrl;
-        const tags = item.tags.slice(0, 3);
-        const uiEventTarget = catalogCardUiEventTarget(item);
+        return <LibraryAssetCard key={item.key} {...this.libraryAssetCardProps(item, 'grid',
+            this.generationPickCardProps(pickCandidate), this.renderGenerationPickBadge(pickCandidate), !this.generationPick.request)} />;
+    }
+
+    protected libraryAssetCardProps(item: AssetCatalogViewItem, layout: 'grid' | 'list',
+        pickProps: React.HTMLAttributes<HTMLDivElement>, pickBadge: React.ReactNode, interactive: boolean): React.ComponentProps<typeof LibraryAssetCard> {
+        const info = this.libraryInfo?.target;
+        return {
+            item, layout, pickProps, pickBadge, interactive,
+            premium: isPremiumLocked(item),
+            cached: isLibraryItemCached(item),
+            favorite: this.libraryFavorites.has(item.key),
+            thumbnailBroken: this.catalogBrokenThumbnails.has(item.key),
+            placeholderIcon: this.catalogPlaceholderIcon(item.category),
+            draggable: interactive && this.canDragCatalogAsset(item),
+            infoOpen: info?.kind === 'asset' && info.item.key === item.key,
+            audioControl: layout === 'grid' ? this.renderCatalogAudioControl(item) : this.renderCatalogAudioListControl(item),
+            audioError: this.renderCatalogAudioError(item),
+            uiTarget: catalogCardUiEventTarget(item),
+            onDragStart: event => this.handleCatalogAssetDragStart(event, item),
+            onDragEnd: () => this.handleLibraryTransitionDragEnd(),
+            onContextMenu: event => {
+                if (this.generationPick.request) return;
+                this.openLibraryMenuAt(event, { kind: 'asset', item });
+            },
+            onInfo: anchor => this.openLibraryInfo({ kind: 'asset', item }, anchor),
+            onThumbnailError: () => this.handleCatalogThumbnailError(item)
+        };
+    }
+
+    protected renderCatalogAudioListControl(item: AssetCatalogViewItem): React.ReactNode {
+        if (item.category !== 'audio' || !item.mediaUrl) return undefined;
+        const playing = this.playingCatalogAudioKey === item.key;
         return (
-            <div
-                key={item.key}
-                title={item.title}
-                {...this.generationPickCardProps(pickCandidate)}
-                draggable={!this.generationPick.request && this.canDragCatalogAsset(item)}
-                onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
-                onDragEnd={() => this.handleLibraryTransitionDragEnd()}
-                onContextMenu={event => { event.preventDefault(); this.openLibraryCardMenu(item, event.clientX, event.clientY); }}
-                data-akari-catalog-item={item.key}
-                data-akari-catalog-item-state={item.state ?? 'local'}
-                // docs/contract-2026-08-11-review-session-ui-events.md #2: asset:<catalog key> opt-in target.
-                data-akari-ui={uiEventTarget.target}
-                data-akari-ui-label={uiEventTarget.label}
+            <button type='button' title={playing ? '停止' : '試聴する'}
+                aria-label={playing ? `${item.title} の再生を停止` : `${item.title} を試聴`}
+                data-akari-catalog-audio-toggle data-akari-catalog-audio-playing={playing ? 'true' : 'false'}
+                onClick={event => { event.stopPropagation(); this.toggleCatalogAudio(item); }}
                 style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minWidth: 0,
-                    borderRadius: `${AKARI_RADIUS.panel}px`,
-                    overflow: 'hidden',
-                    background: AKARI_SURFACE.raised,
-                    border: AKARI_BORDER.ghost
-                }}
-            >
-                <div
-                    style={{
-                        position: 'relative',
-                        aspectRatio: '16 / 9',
-                        background: AKARI_SURFACE.card,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
-                >
-                    {previewUrl && !thumbnailBroken
-                        ? <img
-                            src={previewUrl}
-                            alt=''
-                            draggable={false}
-                            onError={() => this.handleCatalogThumbnailError(item)}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                        : <span
-                            className={this.catalogPlaceholderIcon(item.category)}
-                            aria-hidden='true'
-                            style={{ fontSize: '1.45em', opacity: 0.5 }}
-                        />}
-                    {this.renderAssetStateBadge(item)}
-                    {libraryCardContextMenuItems(item).length > 0 && <button type='button' aria-label={`${item.title} のメニュー`}
-                        style={{ position: 'absolute', right: 4, top: 4, zIndex: 2 }}
-                        onClick={event => { event.stopPropagation(); this.openLibraryCardMenu(item, event.clientX, event.clientY); }}>⋯</button>}
-                    {this.renderAssetDistributionBadge(item)}
-                    {this.renderSiteSubscriptionBadge(item)}
-                    {!this.generationPick.request && this.renderCatalogAudioControl(item)}
-                </div>
-                {this.renderGenerationPickBadge(pickCandidate)}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '5px' }}>
-                    <span style={{ fontSize: '0.78em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.title}
-                    </span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', fontSize: '0.66em', opacity: 0.85, overflow: 'hidden' }}>
-                        <span>{item.category}</span>
-                        {!!item.usageCount && <span data-akari-library-usage>{item.usageCount} 回</span>}
-                        {tags.map(tag => (
-                            <span
-                                key={tag}
-                                style={{
-                                    padding: '0 4px',
-                                    borderRadius: `${AKARI_RADIUS.chip}px`,
-                                    background: 'var(--theia-badge-background)',
-                                    color: 'var(--theia-badge-foreground)'
-                                }}
-                            >
-                                {tag}
-                            </span>
-                        ))}
-                        {item.licenseSpdx && (
-                            <span style={{ padding: '0 4px', borderRadius: `${AKARI_RADIUS.chip}px`, border: AKARI_BORDER.hairline }}>
-                                {item.licenseSpdx}
-                            </span>
-                        )}
-                    </div>
-                    {this.renderCatalogAudioError(item)}
-                    {!this.generationPick.request && this.renderCatalogCardActions(item)}
-                </div>
-            </div>
+                    flex: '0 0 auto', width: '24px', height: '24px', padding: 0, margin: 0, borderRadius: '50%', border: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--theia-button-background)', color: 'var(--theia-button-foreground)', cursor: 'pointer'
+                }}>
+                <span className={playing ? 'codicon codicon-debug-stop' : 'codicon codicon-play'} aria-hidden='true' style={{ fontSize: '12px' }} />
+            </button>
         );
     }
 

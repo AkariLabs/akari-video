@@ -68,12 +68,12 @@ test('LIBRARY_GROUPS: ラベル・soon・chipKey 対応を固定する', () => {
 test('LIBRARY_GROUPS: 操作導線の文言を固定する', () => {
     const categories = Object.fromEntries(LIBRARY_GROUPS.flatMap(group => group.categories.map(category => [category.key, category])));
     for (const key of ['bgm', 'sfx', 'broll', 'image']) {
-        assert.equal(categories[key].hint, 'タイムラインへドラッグ、＋でプレイヘッド位置に追加');
+        assert.equal(categories[key].hint, 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く');
     }
     for (const key of ['overlay', 'scene3d']) {
-        assert.equal(categories[key].hint, '「使う」でプロジェクトに追加');
+        assert.equal(categories[key].hint, '右クリックの「取り込む」でプロジェクトに追加');
     }
-    assert.equal(categories.textstyle.hint, 'タイムラインへドラッグ、＋でプレイヘッド位置に置く');
+    assert.equal(categories.textstyle.hint, 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く');
     assert.equal(categories.textanim.hint, '選択中のテロップに適用（次のラウンドで有効化）');
     assert.equal(categories.transition.hint, 'タイムラインのカット境界へドラッグして適用');
     assert.equal(categories.lut.hint, '選択中のカットに適用（強さはインスペクター）');

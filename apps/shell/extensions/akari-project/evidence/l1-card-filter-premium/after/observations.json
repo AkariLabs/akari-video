@@ -1,0 +1,311 @@
+{
+  "mode": "after",
+  "verified": [
+    "cards-image-summary",
+    "cards-image",
+    "cardChecks",
+    "infoCard",
+    "info-card",
+    "infoKeywordsAll",
+    "info-card-bgm",
+    "licenseDialog",
+    "license-dialog",
+    "creditCopied",
+    "right-click-menu",
+    "menuPlaceable",
+    "menuPremium",
+    "right-click-menu-premium",
+    "menuLabFree",
+    "favoriteSaved",
+    "filterPremium",
+    "filterCommercialCached",
+    "filterBadge",
+    "filter-popover",
+    "filterFavorite",
+    "filterFavoriteOwn",
+    "premiumPrompt",
+    "premium-prompt",
+    "premiumNotPlaced",
+    "premiumPromptByCommand",
+    "premiumDragPayload",
+    "mystyle",
+    "menuMyStyle",
+    "right-click-menu-mystyle",
+    "menuTextStyle",
+    "cards-bgm",
+    "cards-broll",
+    "list-image",
+    "list-image-summary",
+    "cards-image-summary-light",
+    "cards-image-light",
+    "infoCard-light",
+    "info-card-light",
+    "info-card-bgm-light",
+    "licenseDialog-light",
+    "license-dialog-light",
+    "right-click-menu-light",
+    "filter-popover-light",
+    "premiumPrompt-light",
+    "premium-prompt-light",
+    "mystyle-light"
+  ],
+  "passed": true,
+  "cards-image-summary": [
+    {
+      "key": "still/mountain-morning",
+      "text": "朝の山並み",
+      "draggable": "true",
+      "crown": false,
+      "mark": "cached",
+      "dots": true,
+      "buttons": [
+        "朝の山並み の情報"
+      ]
+    },
+    {
+      "key": "still/sunset-coast",
+      "text": "夕暮れの海岸",
+      "draggable": "true",
+      "crown": false,
+      "mark": "cached",
+      "dots": true,
+      "buttons": [
+        "夕暮れの海岸 の情報"
+      ]
+    },
+    {
+      "key": "still/lab-paper-texture",
+      "text": "紙のテクスチャ",
+      "draggable": "true",
+      "crown": false,
+      "mark": "remote",
+      "dots": true,
+      "buttons": [
+        "紙のテクスチャ の情報"
+      ]
+    },
+    {
+      "key": "still/premium-gold-frame",
+      "text": "金色の飾り枠",
+      "draggable": "true",
+      "crown": true,
+      "mark": null,
+      "dots": true,
+      "buttons": [
+        "金色の飾り枠 の情報"
+      ]
+    }
+  ],
+  "cards-image": "after/cards-image.png",
+  "cardChecks": {
+    "noLicenseTagUsageButtons": true,
+    "crownOnlyPremium": true,
+    "sourceRowRemoved": true,
+    "marks": {
+      "still/mountain-morning": "cached",
+      "still/sunset-coast": "cached",
+      "still/lab-paper-texture": "remote",
+      "still/premium-gold-frame": null
+    }
+  },
+  "infoCard": {
+    "text": "夕暮れの海岸 自 作成: 自分の素材 この作成元の素材をもっと見る 無料 自分で追加した素材 画像 風景 夕方 海 空 すべてのキーワードを表示 プレイヘッドに置く 取り込むだけ（置かない）",
+    "spotlight": 1
+  },
+  "info-card": "after/info-card.png",
+  "infoKeywordsAll": [
+    "画像",
+    "風景",
+    "夕方",
+    "海",
+    "空",
+    "旅行",
+    "夏"
+  ],
+  "info-card-bgm": "after/info-card-bgm.png",
+  "licenseDialog": "クレジットを書けば使えます 作者の名前（帰属表示）を載せれば、商用にも使えます。 ライセンス権限の内容： 個人・商用どちらの動画にも使えます。 動画の概要欄などに、作者名とライセンスを書いてください（「クレジットをコピー」で出せます）。 加工もできます（加工したことも書くと親切です）。 このライセンスについて詳しくはこちら（CC BY 4.0（帰属表示）） クレジットをコピー 閉じる",
+  "license-dialog": "after/license-dialog.png",
+  "creditCopied": "Music: Bright Morning / Music Lab (CC BY 4.0)",
+  "right-click-menu": "after/right-click-menu.png",
+  "menuPlaceable": [
+    "place",
+    "import",
+    "favorite",
+    "info",
+    "reveal",
+    "remove-library"
+  ],
+  "menuPremium": [
+    "lab",
+    "place",
+    "favorite",
+    "info"
+  ],
+  "right-click-menu-premium": "after/right-click-menu-premium.png",
+  "menuLabFree": [
+    "place",
+    "import",
+    "favorite",
+    "info"
+  ],
+  "favoriteSaved": {
+    "schema": "akari-library-favorites/v0",
+    "keys": [
+      "still/mountain-morning"
+    ]
+  },
+  "filterPremium": [
+    "still/premium-gold-frame"
+  ],
+  "filterCommercialCached": [
+    "still/mountain-morning"
+  ],
+  "filterBadge": "2",
+  "filter-popover": "after/filter-popover.png",
+  "filterFavorite": [
+    "still/mountain-morning"
+  ],
+  "filterFavoriteOwn": [],
+  "premiumPrompt": "「金色の飾り枠」は Lab のプレミアムです ¥2,980 で購入すると、このライブラリからそのまま置けるようになります。パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。 検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます 閉じる Lab で見る",
+  "premium-prompt": "after/premium-prompt.png",
+  "premiumNotPlaced": {
+    "editJsonUnchanged": true
+  },
+  "premiumPromptByCommand": "「シネマティックな BGM」は Lab のプレミアムです ¥1,480 で購入すると、このライブラリからそのまま置けるようになります。パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。 検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます 閉じる Lab で見る",
+  "premiumDragPayload": {
+    "detail": {
+      "kind": "asset",
+      "key": "still/premium-gold-frame",
+      "id": "premium-gold-frame",
+      "category": "still",
+      "title": "金色の飾り枠",
+      "locked": true,
+      "price": 2980
+    },
+    "draggable": "true"
+  },
+  "mystyle": "after/mystyle.png",
+  "menuMyStyle": [
+    "apply",
+    "place-text",
+    "favorite",
+    "info",
+    "rename",
+    "delete"
+  ],
+  "right-click-menu-mystyle": "after/right-click-menu-mystyle.png",
+  "menuTextStyle": [
+    "place-text",
+    "favorite",
+    "info"
+  ],
+  "cards-bgm": "after/cards-bgm.png",
+  "cards-broll": "after/cards-broll.png",
+  "list-image": "after/list-image.png",
+  "list-image-summary": [
+    {
+      "key": "still/mountain-morning",
+      "text": "朝の山並み",
+      "draggable": "true",
+      "crown": false,
+      "mark": "cached",
+      "dots": true,
+      "buttons": [
+        "朝の山並み の情報"
+      ]
+    },
+    {
+      "key": "still/sunset-coast",
+      "text": "夕暮れの海岸",
+      "draggable": "true",
+      "crown": false,
+      "mark": "cached",
+      "dots": true,
+      "buttons": [
+        "夕暮れの海岸 の情報"
+      ]
+    },
+    {
+      "key": "still/lab-paper-texture",
+      "text": "紙のテクスチャ",
+      "draggable": "true",
+      "crown": false,
+      "mark": "remote",
+      "dots": true,
+      "buttons": [
+        "紙のテクスチャ の情報"
+      ]
+    },
+    {
+      "key": "still/premium-gold-frame",
+      "text": "金色の飾り枠",
+      "draggable": "true",
+      "crown": true,
+      "mark": null,
+      "dots": true,
+      "buttons": [
+        "金色の飾り枠 の情報"
+      ]
+    }
+  ],
+  "cards-image-summary-light": [
+    {
+      "key": "still/mountain-morning",
+      "text": "朝の山並み",
+      "draggable": "true",
+      "crown": false,
+      "mark": "cached",
+      "dots": true,
+      "buttons": [
+        "朝の山並み の情報"
+      ]
+    },
+    {
+      "key": "still/sunset-coast",
+      "text": "夕暮れの海岸",
+      "draggable": "true",
+      "crown": false,
+      "mark": "cached",
+      "dots": true,
+      "buttons": [
+        "夕暮れの海岸 の情報"
+      ]
+    },
+    {
+      "key": "still/lab-paper-texture",
+      "text": "紙のテクスチャ",
+      "draggable": "true",
+      "crown": false,
+      "mark": "remote",
+      "dots": true,
+      "buttons": [
+        "紙のテクスチャ の情報"
+      ]
+    },
+    {
+      "key": "still/premium-gold-frame",
+      "text": "金色の飾り枠",
+      "draggable": "true",
+      "crown": true,
+      "mark": null,
+      "dots": true,
+      "buttons": [
+        "金色の飾り枠 の情報"
+      ]
+    }
+  ],
+  "cards-image-light": "after/cards-image-light.png",
+  "infoCard-light": {
+    "text": "夕暮れの海岸 自 作成: 自分の素材 この作成元の素材をもっと見る 無料 自分で追加した素材 画像 風景 夕方 海 空 すべてのキーワードを表示 プレイヘッドに置く 取り込むだけ（置かない）",
+    "spotlight": 1
+  },
+  "info-card-light": "after/info-card-light.png",
+  "info-card-bgm-light": "after/info-card-bgm-light.png",
+  "licenseDialog-light": "クレジットを書けば使えます 作者の名前（帰属表示）を載せれば、商用にも使えます。 ライセンス権限の内容： 個人・商用どちらの動画にも使えます。 動画の概要欄などに、作者名とライセンスを書いてください（「クレジットをコピー」で出せます）。 加工もできます（加工したことも書くと親切です）。 このライセンスについて詳しくはこちら（CC BY 4.0（帰属表示）） クレジットをコピー 閉じる",
+  "license-dialog-light": "after/license-dialog-light.png",
+  "right-click-menu-light": "after/right-click-menu-light.png",
+  "filter-popover-light": "after/filter-popover-light.png",
+  "premiumPrompt-light": "「金色の飾り枠」は Lab のプレミアムです ¥2,980 で購入すると、このライブラリからそのまま置けるようになります。パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。 検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます 閉じる Lab で見る",
+  "premium-prompt-light": "after/premium-prompt-light.png",
+  "mystyle-light": "after/mystyle-light.png"
+}
