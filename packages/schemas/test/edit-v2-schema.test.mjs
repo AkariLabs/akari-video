@@ -214,6 +214,47 @@ test("shape source accepts the minimal and fully parameterized v0 vocabulary", (
   }
 });
 
+test("shape v1 accepts copied paths, line parts, bubbles, and gradients with closed ranges", () => {
+  const edit=fixture('edit-v2-shape-minimal-valid');
+  const item=edit.tracks.find(t=>t.lane==='visual').items[0];
+  item.source={kind:'shape',shape:'path',params:{path:{d:'M0 0L100 0L100 100L0 100Z',vb:[100,100]},preset:'basic-square',cornerRadius:40,dash:'dot',fill:{type:'linear',angle:90,stops:[{color:'#ff000080',offset:0},{color:'#0000ff',offset:1}]},strokeWidth:20}};
+  assert.equal(validate(edit),true,JSON.stringify(validate.errors));
+  item.source={kind:'shape',shape:'line',params:{dash:'dot',startCap:'triangle',endCap:'diamond',startCapFilled:true,endCapFilled:false,lineCap:'round',strokeWidth:4}};
+  assert.equal(validate(edit),true,JSON.stringify(validate.errors));
+  item.source={kind:'shape',shape:'bubble',params:{style:'burst',count:48,depth:60,jitter:70,seed:7,tail:'dots',tailAngle:360,tailLength:40,tailWidth:30,tailCurve:-50}};
+  assert.equal(validate(edit),true,JSON.stringify(validate.errors));
+  for (const invalid of [
+    {kind:'shape',shape:'path',params:{}},
+    {kind:'shape',shape:'path',params:{path:{d:'M0 0Q10 10 20 20',vb:[100,100]}}},
+    {kind:'shape',shape:'bubble',params:{count:49}},
+    {kind:'shape',shape:'line',params:{dash:'dots'}},
+    {kind:'shape',shape:'path',params:{path:{d:'M0 0L10 10',vb:[100,100]},fill:{type:'radial',stops:[{color:'#000000',offset:0}]}}},
+  ]) { item.source=invalid; assert.equal(validate(edit),false,JSON.stringify(invalid)); }
+});
+
+test("v0 shape corner radius remains readable while path radius stops at 100", () => {
+  const edit=fixture('edit-v2-shape-minimal-valid');
+  const item=edit.tracks[0].items[0];
+  item.source.params={strokeWidth:150};
+  assert.equal(validate(edit),true,JSON.stringify(validate.errors));
+  item.source.params.cornerRadius=150;
+  assert.equal(validate(edit),true,'rect keeps its unused v0 corner radius');
+  item.source.shape='rounded-rect';
+  assert.equal(validate(edit),true,'rounded-rect keeps the v0 pixel radius');
+  item.source.params.preset='basic-square';
+  assert.equal(validate(edit),false);
+  assert.ok(validate.errors.some(e=>e.instancePath.endsWith('/strokeWidth')));
+  delete item.source.params.strokeWidth;
+  assert.equal(validate(edit),true,'rounded-rect pixel radius also survives other v1 fields');
+  item.source.shape='rect';
+  assert.equal(validate(edit),true,'rect radius stays ignored with a v1 marker');
+  item.source={kind:'shape',shape:'path',params:{path:{d:'M0 0L100 0L100 100L0 100Z',vb:[100,100]},cornerRadius:100}};
+  assert.equal(validate(edit),true,JSON.stringify(validate.errors));
+  item.source.params.cornerRadius=101;
+  assert.equal(validate(edit),false,'path radius is a v1 percentage');
+  assert.ok(validate.errors.some(e=>e.instancePath.endsWith('/cornerRadius')));
+});
+
 for (const [name, expectedPath, expectedKeyword] of [
   ["edit-v2-shape-unknown-invalid", "/source/shape", "enum"],
   ["edit-v2-shape-param-key-invalid", "/source/params", "additionalProperties"],

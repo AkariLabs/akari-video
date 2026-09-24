@@ -1,0 +1,296 @@
+// Deterministic bubble geometry in placed pixel coordinates.
+function bblRand(seed) {
+  let a = (((seed | 0) * 2654435761) ^ 0x9e3779b9) >>> 0;
+  return () => {
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+} // mulberry32（同じ seed なら毎回同じ形）
+// 楕円を弧長で等分して引く表: at(s) = [x, y, 外向きの法線 x, y]（s = 0〜1・上から時計回り）
+function bblEllipse(A, B) {
+  const M = 1440, raw = [], cum = [0];
+  for (let i = 0; i <= M; i++) {
+    const t = i / M * 2 * Math.PI;
+    raw.push([A * Math.sin(t), -B * Math.cos(t), t]);
+    if (i) cum.push(cum[i - 1] + Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]));
+  }
+  const L = cum[M];
+  const at = (s) => {
+    s = ((s % 1) + 1) % 1;
+    const tg = s * L;
+    let lo = 0, hi = M;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] <= tg) lo = mid;
+      else hi = mid;
+    }
+    const f = (tg - cum[lo]) / ((cum[hi] - cum[lo]) || 1);
+    const t = raw[lo][2] + (raw[hi][2] - raw[lo][2]) * f;
+    const x = A * Math.sin(t), y = -B * Math.cos(t);
+    const nx = x / (A * A), ny = y / (B * B), nl = Math.hypot(nx, ny) || 1;
+    return [x, y, nx / nl, ny / nl];
+  };
+  return { at, L };
+}
+// 外形の箱をぴったり 2A × 2B・中心 = 原点に当て直す
+function bblNorm(P, A, B) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  P.forEach(([x, y]) => {
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  });
+  const sx = 2 * A / ((x1 - x0) || 1),
+    sy = 2 * B / ((y1 - y0) || 1),
+    cx = (x0 + x1) / 2,
+    cy = (y0 + y1) / 2;
+  return P.map(([x, y]) => [(x - cx) * sx, (y - cy) * sy]);
+}
+// 本体の外周 = 密な点列（上から時計回り）
+function bblBody(A, B, p) {
+  const st = p.style,
+    rnd = bblRand(p.seed || 0),
+    jit = (p.jitter || 0) / 100,
+    dep = (p.depth || 0) / 100,
+    m = Math.min(A, B),
+    P = [];
+  if (st === 'rect' || st === 'round') {
+    const r = st === 'round' ? m * .35 : 0, step = Math.max(1, (A + B) / 60);
+    const line = (x0, y0, x1, y1) => {
+      const k = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / step));
+      for (let i = 0; i < k; i++) P.push([x0 + (x1 - x0) * i / k, y0 + (y1 - y0) * i / k]);
+    };
+    const arc = (cx, cy, a0) => {
+      if (!r) return;
+      for (let i = 0; i < 12; i++) {
+        const a = (a0 + 90 * i / 12) * Math.PI / 180;
+        P.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+      }
+    };
+    line(0, -B, A - r, -B);
+    arc(A - r, -B + r, -90);
+    line(A, -B + r, A, B - r);
+    arc(A - r, B - r, 0);
+    line(A - r, B, -A + r, B);
+    arc(-A + r, B - r, 90);
+    line(-A, B - r, -A, -B + r);
+    arc(-A + r, -B + r, 180);
+    line(-A + r, -B, 0, -B);
+    return P;
+  }
+  const E = bblEllipse(A, B), n = Math.max(3, Math.round(p.count || 12));
+  if (st === 'spike' || st === 'burst') {
+    const bu = st === 'burst', dp = dep * m * (bu ? .8 : .5), pts = [];
+    const o0 = .5 / n * .37; // 真上をトゲの先にしない（少しずらす）
+    for (let i = 0; i < n; i++) {
+      const s1 = (i + (rnd() - .5) * jit * (bu ? .6 : .4)) / n + o0,
+        s2 = (i + .5 + (rnd() - .5) * jit * (bu ? .36 : .3)) / n + o0;
+      const t = E.at(s1), pull = dp * rnd() * jit * (bu ? .9 : .45);
+      pts.push([t[0] - t[2] * pull, t[1] - t[3] * pull]);
+      const v = E.at(s2), dv = dp * (1 - rnd() * jit * (bu ? .45 : .3));
+      pts.push([v[0] - v[2] * dv, v[1] - v[3] * dv]);
+    }
+    pts.forEach((a, i) => {
+      const b = pts[(i + 1) % pts.length];
+      for (let j = 0; j < 6; j++) {
+        P.push([a[0] + (b[0] - a[0]) * j / 6, a[1] + (b[1] - a[1]) * j / 6]);
+      }
+    });
+    return bblNorm(P, A, B);
+  }
+  if (st === 'cloud') {
+    const bf = .35 + .6 * dep, h0 = E.L / n / 2 * bf * .9, V = [];
+    const TAU = 2 * Math.PI, nm = (x) => ((x % TAU) + TAU) % TAU;
+    for (let i = 0; i < n; i++) {
+      const q = E.at((i + (rnd() - .5) * jit * .5) / n);
+      V.push([q[0] - q[2] * h0, q[1] - q[3] * h0]);
+    }
+    for (let i = 0; i < n; i++) {
+      const a = V[i],
+        b = V[(i + 1) % n],
+        dx = b[0] - a[0],
+        dy = b[1] - a[1],
+        c = Math.hypot(dx, dy) || 1,
+        no = [dy / c, -dx / c];
+      const h = Math.max(.5, Math.min(c / 2 * .95, c / 2 * bf * (1 + (rnd() - .5) * jit * .7))),
+        R = (c * c / 4 + h * h) / (2 * h),
+        mx = (a[0] + b[0]) / 2,
+        my = (a[1] + b[1]) / 2,
+        cx = mx - no[0] * (R - h),
+        cy = my - no[1] * (R - h);
+      const a0 = Math.atan2(a[1] - cy, a[0] - cx),
+        a1 = Math.atan2(b[1] - cy, b[0] - cx),
+        ap = Math.atan2(my + no[1] * h - cy, mx + no[0] * h - cx),
+        d1 = nm(ap - a0),
+        d2 = nm(a1 - a0),
+        sw = d1 < d2 ? d2 : d2 - TAU;
+      const k = Math.max(8, Math.ceil(Math.abs(sw) * R / 2));
+      for (let j = 0; j < k; j++) {
+        const q = a0 + sw * j / k;
+        P.push([cx + R * Math.cos(q), cy + R * Math.sin(q)]);
+      }
+    }
+    return bblNorm(P, A, B);
+  }
+  if (st === 'wave') {
+    const N = Math.max(480, n * 14), amp = dep * m * .12, Wa = [];
+    for (let i = 0; i < n; i++) Wa.push(1 + (rnd() - .5) * jit * 1.4);
+    for (let i = 0; i < N; i++) {
+      const s = i / N,
+        q = E.at(s),
+        w = s * n,
+        o = amp * Wa[Math.floor(w) % n] * Math.sin(2 * Math.PI * w);
+      P.push([q[0] + q[2] * o, q[1] + q[3] * o]);
+    }
+    return bblNorm(P, A, B);
+  }
+  for (let i = 0; i < 480; i++) {
+    const q = E.at(i / 480);
+    P.push([q[0], q[1]]);
+  }
+  return P;
+} // ellipse
+// 本体 + しっぽ。返り値 = {subs:[点列…], tip, x0,y0,x1,y1}
+function bblGeom(A, B, p) {
+  const P = bblBody(A, B, p), S_ = (A + B) / 2, N = P.length, subs = [];
+  let tip = null;
+  const tail = p.tail || 'none';
+  if (tail === 'none') subs.push(P);
+  else {
+    const phi = (p.tailAngle || 0) * Math.PI / 180,
+      dx = Math.sin(phi),
+      dy = -Math.cos(phi),
+      qx = Math.cos(phi),
+      qy = Math.sin(phi),
+      c = Math.max(-1, Math.min(1, (p.tailCurve || 0) / 100)),
+      L = Math.max(2, (p.tailLength || 0) / 100 * 1.5 * S_);
+    let i0 = 0, best = -2;
+    P.forEach((q, i) => {
+      const r = Math.hypot(q[0], q[1]) || 1, cs = (q[0] * dx + q[1] * dy) / r;
+      if (cs > best) {
+        best = cs;
+        i0 = i;
+      }
+    });
+    const rp = P[i0][0] * dx + P[i0][1] * dy, base = [dx * rp, dy * rp]; // 本体の縁の、しっぽの向きの点
+    if (tail === 'point') {
+      const hw = Math.max(2, (p.tailWidth || 0) / 100 * S_ * .9) / 2,
+        inb = (q) => Math.abs(q[0] * dy - q[1] * dx) < hw && (q[0] * dx + q[1] * dy) > 0;
+      let ia = i0, ib = i0, k = 0;
+      while (k < N / 3 && inb(P[(ia - 1 + N) % N])) {
+        ia = (ia - 1 + N) % N;
+        k++;
+      }
+      ia = (ia - 1 + N) % N;
+      k = 0;
+      while (k < N / 3 && inb(P[(ib + 1) % N])) {
+        ib = (ib + 1) % N;
+        k++;
+      }
+      ib = (ib + 1) % N;
+      const Pa = P[ia],
+        Pb = P[ib],
+        R0 = [(Pa[0] + Pb[0]) / 2, (Pa[1] + Pb[1]) / 2],
+        fw = L * (1 - .15 * Math.abs(c));
+      tip = [base[0] + dx * fw + qx * c * L * .6, base[1] + dy * fw + qy * c * L * .6];
+      const ctl = [base[0] + dx * L * .5, base[1] + dy * L * .5];
+      const Qa = [ctl[0] + (Pa[0] - R0[0]) * .35, ctl[1] + (Pa[1] - R0[1]) * .35],
+        Qb = [ctl[0] + (Pb[0] - R0[0]) * .35, ctl[1] + (Pb[1] - R0[1]) * .35];
+      const quad = (a, q, b) => {
+        const o = [];
+        for (let j = 1; j < 18; j++) {
+          const t = j / 18, u = 1 - t;
+          o.push([
+            u * u * a[0] + 2 * u * t * q[0] + t * t * b[0],
+            u * u * a[1] + 2 * u * t * q[1] + t * t * b[1],
+          ]);
+        }
+        return o;
+      };
+      const out = [];
+      for (let j = ib; j !== ia; j = (j + 1) % N) out.push(P[j]);
+      out.push(Pa, ...quad(Pa, Qa, tip), tip, ...quad(tip, Qb, Pb));
+      subs.push(out);
+    } // 本体とつながった 1 本の輪郭
+    else {
+      subs.push(P);
+      const rd = S_ * (.06 + .16 * (p.tailWidth || 0) / 100),
+        rs = [rd, rd * .66, rd * .42],
+        g = 1.5 + L * .16,
+        cen = [];
+      let d = 0;
+      const minD = (x, y) => {
+        let mn = 1e9;
+        for (const q of P) {
+          const e = Math.hypot(q[0] - x, q[1] - y);
+          if (e < mn) mn = e;
+        }
+        return mn;
+      };
+      rs.forEach((r, i) => {
+        d += (i ? rs[i - 1] : 0) + g + r;
+        const pos = () => {
+          const lat = c * d * d / (L + rd * 3) * .5;
+          return [base[0] + dx * d + qx * lat, base[1] + dy * d + qy * lat];
+        };
+        let q = pos();
+        for (let it = 0; it < 30; it++) {
+          const md = minD(q[0], q[1]);
+          if (md >= r + g * .8) break;
+          d += r + g * .8 - md + .5;
+          q = pos();
+        }
+        cen.push([q[0], q[1], r]);
+      }); // 本体と重ならない
+      cen.forEach(([x, y, r]) => {
+        const o = [];
+        for (let j = 0; j < 40; j++) {
+          const a = j / 40 * 2 * Math.PI;
+          o.push([x + r * Math.sin(a), y - r * Math.cos(a)]);
+        }
+        subs.push(o);
+      });
+      tip = [cen[2][0], cen[2][1]];
+    }
+  }
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  subs.forEach((s) =>
+    s.forEach(([x, y]) => {
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    })
+  );
+  return { subs, tip, x0, y0, x1, y1 };
+}
+// 箱（W×H px）にぴったり入る本体の大きさ A, B を探す（しっぽの長さは本体の大きさに比例するので、数回の当て直しで決まる）
+function bblFit(W, H, p) {
+  let A = W / 2, B = H / 2, g = null;
+  for (let i = 0; i < 80; i++) {
+    g = bblGeom(A, B, p);
+    const ex = W / ((g.x1 - g.x0) || 1), ey = H / ((g.y1 - g.y0) || 1);
+    if (Math.abs(ex - 1) < 1e-7 && Math.abs(ey - 1) < 1e-7) break;
+    A *= ex;
+    B *= ey;
+    if (i === 79) g = bblGeom(A, B, p);
+  }
+  return { A, B, g };
+}
+const bblD = (g, sx, sy, ox, oy) =>
+  g.subs.map((s) =>
+    'M' + s.map((q) =>
+      (+((q[0] - g.x0) * sx + ox).toFixed(2)) + ' ' + (+((q[1] - g.y0) * sy + oy).toFixed(2))
+    ).join('L') + 'Z'
+  ).join('');
+export function bubblePath(width, height, params) {
+  const p = {
+    ...params,
+    style: { rounded: 'round', jagged: 'spike', wobble: 'wave' }[params.style] || params.style,
+  };
+  const f = bblFit(width, height, p), g = f.g;
+  return bblD(g, width / ((g.x1 - g.x0) || 1), height / ((g.y1 - g.y0) || 1), 0, 0);
+}

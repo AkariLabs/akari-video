@@ -1,3 +1,5 @@
+import { validateShapeSource } from './shape-source-validation';
+
 export type LaneV2 = 'visual' | 'audio';
 
 export interface OutputV2 {
@@ -117,19 +119,43 @@ export interface HtmlSourceV2 {
 }
 
 export type ShapeKindV0 = 'rect' | 'rounded-rect' | 'ellipse' | 'line' | 'arrow' | 'speech-bubble';
+export type ShapeKindV1 = ShapeKindV0 | 'path' | 'bubble';
+export type ShapePaintV1 = string | {
+    type: 'linear' | 'radial'; angle?: number;
+    stops: Array<{ color: string; offset: number }>;
+};
+export type ShapeCapV1 = 'none' | 'triangle' | 'chevron' | 'bar' | 'square' | 'circle' | 'diamond';
 
 export interface ShapeParamsV0 {
     width?: number;
     height?: number;
-    fill?: string;
-    stroke?: string;
+    fill?: ShapePaintV1;
+    stroke?: ShapePaintV1;
     strokeWidth?: number;
     cornerRadius?: number;
+    path?: { d: string; vb: [number, number]; rule?: 'nonzero' | 'evenodd' };
+    preset?: string;
+    dash?: 'solid' | 'dash' | 'dot';
+    startCap?: ShapeCapV1;
+    endCap?: ShapeCapV1;
+    startCapFilled?: boolean;
+    endCapFilled?: boolean;
+    lineCap?: 'butt' | 'round';
+    style?: 'ellipse' | 'rounded' | 'rect' | 'jagged' | 'burst' | 'cloud' | 'wobble';
+    count?: number;
+    depth?: number;
+    jitter?: number;
+    seed?: number;
+    tail?: 'point' | 'dots' | 'none';
+    tailAngle?: number;
+    tailLength?: number;
+    tailWidth?: number;
+    tailCurve?: number;
 }
 
 export interface ShapeSourceV2 {
     kind: 'shape';
-    shape: ShapeKindV0;
+    shape: ShapeKindV1;
     params?: ShapeParamsV0;
 }
 
@@ -372,9 +398,6 @@ type UnknownRecord = Record<string, unknown>;
 const BLEND_MODES = new Set<BlendModeV2>([
     'normal', 'screen', 'multiply', 'add', 'difference',
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
-]);
-const SHAPE_KINDS = new Set<ShapeKindV0>([
-    'rect', 'rounded-rect', 'ellipse', 'line', 'arrow', 'speech-bubble'
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
@@ -739,27 +762,7 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             }
             return;
         case 'shape':
-            requireExactKeys(value, new Set(['kind', 'shape', 'params']), path);
-            if (!SHAPE_KINDS.has(value.shape as ShapeKindV0)) {
-                throw invalid(`${path}.shape`, '未対応の shape です');
-            }
-            if (hasOwn(value, 'params')) {
-                requireRecord(value.params, `${path}.params`);
-                requireExactKeys(value.params, new Set([
-                    'width', 'height', 'fill', 'stroke', 'strokeWidth', 'cornerRadius'
-                ]), `${path}.params`);
-                for (const key of ['width', 'height']) {
-                    if (hasOwn(value.params, key)) requirePositiveNumber(value.params[key], `${path}.params.${key}`);
-                }
-                for (const key of ['fill', 'stroke']) {
-                    if (hasOwn(value.params, key) && typeof value.params[key] !== 'string') {
-                        throw invalid(`${path}.params.${key}`, '文字列である必要があります');
-                    }
-                }
-                for (const key of ['strokeWidth', 'cornerRadius']) {
-                    if (hasOwn(value.params, key)) requireNonNegativeNumber(value.params[key], `${path}.params.${key}`);
-                }
-            }
+            validateShapeSource(value,path);
             return;
         case 'telop':
             requireExactKeys(value, new Set(['kind', 'preset', 'params', 'baked', 'from']), path);

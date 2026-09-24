@@ -1,0 +1,2 @@
+PASS: <tmp>/edit.json (1 findings, 6 skipped)
+- [info] timeline.duration-derived: 尺を overlays / 字幕 / 音声の終端 2 秒から導出した (edit.json#tracks)

@@ -15,6 +15,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
+import { isInlineOverlayHtml, isSourceCompatibleWithLane } from "./shape-lane.mjs";
 import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../render-cut/src/fragment-assets.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
@@ -1340,9 +1341,7 @@ function validateEditV2(edit, findings) {
       }
 
       const kind = isRecord(item.source) ? item.source.kind : undefined;
-      const compatible = track.lane === "audio"
-        ? kind === "media"
-        : track.lane === "visual" && ["media", "html", "telop", "filter", "group", "captions", "caption"].includes(kind);
+      const compatible = isSourceCompatibleWithLane(track.lane, kind);
       if (!compatible) {
         addFinding(findings, {
           severity: "error",
@@ -4019,6 +4018,7 @@ async function validateReferences(edit, findings, paths, ignoredSourceIds = new 
   }
   if (Array.isArray(edit?.overlays)) {
     for (const [index, overlay] of edit.overlays.entries()) {
+      if (isInlineOverlayHtml(overlay?.html)) continue;
       references.push({
         label: `overlays[${index}].html`,
         value: overlay?.html,

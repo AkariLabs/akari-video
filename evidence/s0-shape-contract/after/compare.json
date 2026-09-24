@@ -1,0 +1,9 @@
+{
+  "fixture": "fixtures/after-shelf.json（export 側は下地の media 段を 1 段足した写し — render-cut は sources が空だと拒否するため。下地は背景の図形で全面が隠れる）",
+  "export": { "command": "render-cut <project> --engine auto", "engine": "osr（GPU 不適格: SVG の xmlns が absolute-external-url）", "frameAt": "1.0s" },
+  "preview": "after-shelf-stage.png（出力プレビューのステージ 332×186.75 CSS px・DPR 2 = 664×372）",
+  "ssim_rgb_all": 0.958004,
+  "psnr_rgb_avg_db": 24.923476,
+  "shapeMaskIoU": {"bgExport":245,"bgPreview":245,"maskExport":40698,"maskPreview":41553,"iou":0.9318},
+  "note": "書き出しフレームを 664×372 へ面積平均で縮めて比較。マスク = 背景の輝度との差が 40 を超える画素。色の差はスクリーンショットと H.264（yuv420p）の色変換の差で、図形以外の背景・旧データでも同じ傾向"
+}

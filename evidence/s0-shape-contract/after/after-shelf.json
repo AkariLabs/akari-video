@@ -1,0 +1,223 @@
+{
+  "label": "after-shelf",
+  "edit": "after-shelf.json",
+  "port": 9543,
+  "openAttempts": [
+    {
+      "ok": true
+    }
+  ],
+  "previewBuilt": true,
+  "observed": {
+    "stage": {
+      "x": 36,
+      "y": 179.125,
+      "width": 332,
+      "height": 186.75
+    },
+    "overlayCount": 11,
+    "items": {
+      "bg": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 36,
+          "top": 179.125,
+          "width": 332,
+          "height": 186.75
+        },
+        "svg": {
+          "left": 36,
+          "top": 179.125,
+          "width": 332,
+          "height": 186.75,
+          "viewBox": "0 0 1920 1080"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1920\" height=\"1080\" viewBox=\"0 0 1920 1080\" style=\"pointer-events: none !important;\"><rect x=\"0\" y=\"0\" width=\"1920\" height=\"1080\" fill=\"#f5f5f4\" stroke=\"none\" stroke-width=\"0\" style=\"pointer-events: none !important;\"></rect></svg>"
+      },
+      "s-star": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 46.375,
+          "top": 187.7708282470703,
+          "width": 332,
+          "height": 186.74998474121094
+        },
+        "svg": {
+          "left": 46.375,
+          "top": 187.7708282470703,
+          "width": 44.95832824707031,
+          "height": 44.958343505859375,
+          "viewBox": "0 0 260 260"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"260\" height=\"260\" viewBox=\"0 0 260 260\" style=\"pointer-events: none !important;\"><path d=\"M130 0L162.146 97.222L260 99.297L182.011 161.492L210.351 260L130 201.222L49.649 260L77.989 161.492L0 99.297L97.854 97.222L130 0Z\" fill-rule=\"nonzero\" fill=\"#a6a6a6"
+      },
+      "s-heart": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 129.375,
+          "top": 187.7708282470703,
+          "width": 332,
+          "height": 186.74998474121094
+        },
+        "svg": {
+          "left": 129.375,
+          "top": 187.7708282470703,
+          "width": 44.95832824707031,
+          "height": 41.5,
+          "viewBox": "0 0 260 240"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"260\" height=\"240\" viewBox=\"0 0 260 240\" style=\"pointer-events: none !important;\"><path d=\"M130 240C50.866 180.754 0 130.382 0 71.107C0 29.638 31.089 0 67.821 0C96.089 0 118.687 17.777 130 44.456C141.313 17.777 163.911 0 192.179 0C228.911 0 260 29.638 26"
+      },
+      "s-rounded-40": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 212.375,
+          "top": 187.7708282470703,
+          "width": 332,
+          "height": 186.74998474121094
+        },
+        "svg": {
+          "left": 212.375,
+          "top": 187.7708282470703,
+          "width": 55.33331298828125,
+          "height": 38.04167175292969,
+          "viewBox": "0 0 320 220"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"320\" height=\"220\" viewBox=\"0 0 320 220\" style=\"pointer-events: none !important;\"><path d=\"M44 0L276 0C300.301 0 320 19.699 320 44L320 176C320 200.301 300.301 220 276 220L44 220C19.699 220 0 200.301 0 176L0 44C0 19.699 19.699 0 44 0Z\" fill-rule=\"nonzero\""
+      },
+      "s-shout": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 295.375,
+          "top": 187.7708282470703,
+          "width": 332,
+          "height": 186.74998474121094
+        },
+        "svg": {
+          "left": 295.375,
+          "top": 187.7708282470703,
+          "width": 58.791656494140625,
+          "height": 41.5,
+          "viewBox": "0 0 340 240"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"340\" height=\"240\" viewBox=\"0 0 340 240\" style=\"pointer-events: none !important;\"><defs style=\"pointer-events: none !important;\"><clipPath id=\"sh-0073002d00730068006f00750074-clip\" style=\"pointer-events: none !important;\"><path d=\"M93.2 174.66L89.08 176."
+      },
+      "s-dash-arrows": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 46.375,
+          "top": 250.02084350585938,
+          "width": 332,
+          "height": 186.75
+        },
+        "svg": {
+          "left": 46.375,
+          "top": 250.02084350585938,
+          "width": 62.25,
+          "height": 10.375,
+          "viewBox": "0 0 360 60"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"360\" height=\"60\" viewBox=\"0 0 360 60\" style=\"pointer-events: none !important;\"><line x1=\"15.36\" y1=\"30\" x2=\"344.64\" y2=\"30\" fill=\"none\" stroke=\"#000000\" stroke-width=\"8\" stroke-linecap=\"butt\" stroke-dasharray=\"24 16\" style=\"pointer-events: none !importa"
+      },
+      "s-gradient-circle": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 129.375,
+          "top": 250.02084350585938,
+          "width": 332,
+          "height": 186.75
+        },
+        "svg": {
+          "left": 129.375,
+          "top": 250.02084350585938,
+          "width": 44.95832824707031,
+          "height": 44.95831298828125,
+          "viewBox": "0 0 260 260"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"260\" height=\"260\" viewBox=\"0 0 260 260\" style=\"pointer-events: none !important;\"><defs style=\"pointer-events: none !important;\"><linearGradient id=\"sh-0073002d006700720061006400690065006e0074002d0063006900720063006c0065-fill\" gradientUnits=\"userSpaceOnU"
+      },
+      "s-hexagon-ring": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 212.375,
+          "top": 250.02084350585938,
+          "width": 332,
+          "height": 186.75
+        },
+        "svg": {
+          "left": 212.375,
+          "top": 250.02084350585938,
+          "width": 48.41668701171875,
+          "height": 44.95831298828125,
+          "viewBox": "0 0 280 260"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"280\" height=\"260\" viewBox=\"0 0 280 260\" style=\"pointer-events: none !important;\"><defs style=\"pointer-events: none !important;\"><clipPath id=\"sh-0073002d00680065007800610067006f006e002d00720069006e0067-clip\" style=\"pointer-events: none !important;\"><pat"
+      },
+      "v0-rect": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 46.375,
+          "top": 312.27081298828125,
+          "width": 332,
+          "height": 186.75003051757812
+        },
+        "svg": {
+          "left": 46.375,
+          "top": 312.27081298828125,
+          "width": 51.875,
+          "height": 34.5833740234375,
+          "viewBox": "0 0 300 200"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"300\" height=\"200\" viewBox=\"0 0 300 200\" style=\"pointer-events: none !important;\"><rect x=\"0\" y=\"0\" width=\"300\" height=\"200\" fill=\"#f97316\" stroke=\"none\" stroke-width=\"0\" style=\"pointer-events: none !important;\"></rect></svg>"
+      },
+      "v0-rounded-rect": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 129.375,
+          "top": 312.27081298828125,
+          "width": 332,
+          "height": 186.75003051757812
+        },
+        "svg": {
+          "left": 129.375,
+          "top": 312.27081298828125,
+          "width": 51.875,
+          "height": 34.5833740234375,
+          "viewBox": "0 0 300 200"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"300\" height=\"200\" viewBox=\"0 0 300 200\" style=\"pointer-events: none !important;\"><rect x=\"0\" y=\"0\" width=\"300\" height=\"200\" rx=\"24\" ry=\"24\" fill=\"#0ea5e9\" stroke=\"none\" stroke-width=\"0\" style=\"pointer-events: none !important;\"></rect></svg>"
+      },
+      "v0-arrow": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 212.375,
+          "top": 312.27081298828125,
+          "width": 332,
+          "height": 186.75003051757812
+        },
+        "svg": {
+          "left": 212.375,
+          "top": 312.27081298828125,
+          "width": 55.33331298828125,
+          "height": 13.8333740234375,
+          "viewBox": "0 0 320 80"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"320\" height=\"80\" viewBox=\"0 0 320 80\" style=\"pointer-events: none !important;\"><path d=\"M 0 40 H 280 M 280 0 L 320 40 L 280 80\" fill=\"none\" stroke=\"#111827\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" style=\"pointer-events: none !imp"
+      }
+    }
+  },
+  "shot": "after-shelf-stage.png",
+  "allMounted": true,
+  "consoleErrors": []
+}

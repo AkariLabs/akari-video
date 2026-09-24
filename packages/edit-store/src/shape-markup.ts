@@ -1,4 +1,5 @@
 import { ShapeSourceV2 } from './edit-v2';
+import { shapeMarkupV1 } from './shape-markup-v1';
 
 const DEFAULT_WIDTH = 600;
 const DEFAULT_HEIGHT = 340;
@@ -31,8 +32,14 @@ function filledShapeAttributes(fill: string, stroke: string | undefined, strokeW
 }
 
 /** 図形語彙 v0 を、環境に依存しない 1 行のインライン SVG へ降下する。 */
-export function shapeMarkup(source: ShapeSourceV2): string {
+export function shapeMarkup(source: ShapeSourceV2, itemId?: string, outputWidth?: number, transform?: {scale?: number; scaleX?: number; scaleY?: number}): string {
     const params = source.params ?? {};
+    if (source.shape === 'path' || source.shape === 'bubble'
+        || params.preset !== undefined || params.dash !== undefined || params.startCap !== undefined
+        || params.endCap !== undefined || params.startCapFilled !== undefined || params.endCapFilled !== undefined
+        || params.lineCap !== undefined || typeof params.fill === 'object' || typeof params.stroke === 'object') {
+        return shapeMarkupV1(source, itemId, outputWidth, transform);
+    }
     const width = positiveNumber(params.width, DEFAULT_WIDTH);
     const height = positiveNumber(
         params.height,

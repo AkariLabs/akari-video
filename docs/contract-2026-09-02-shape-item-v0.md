@@ -1,5 +1,7 @@
 # contract — 図形アイテム v0（edit.json v2 `shape` ソースとインライン SVG 降下）
 
+拡張された保存形と降下は [図形アイテム v1](./contract-2026-09-25-shape-item-v1.md) を参照。v0 データの描画は維持する。
+
 - 状態: 実装済み（データ契約 + edit-store 降下。パネル露出・インスペクター UI は後続）
 - 決定日: 2026-09-02
 - 実装: `packages/schemas/edit.schema.json`（`itemSourceShapeV2` / `itemV2Shape`）/

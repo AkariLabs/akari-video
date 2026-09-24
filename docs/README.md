@@ -160,6 +160,7 @@ All contracts follow the
 | [contract-2026-09-02-audio-clip-fx-v1.md](./contract-2026-09-02-audio-clip-fx-v1.md) | Audio clip FX v1 — speed (rubberband, pitch-preserving), pitch_semitones, denoise (fft / nlm), lowcut_hz; preview matches export via the FLAC sidecar (recipe v2) |
 | [contract-2026-09-02-asset-reference-model.md](./contract-2026-09-02-asset-reference-model.md) | Asset reference model v0 — machine-wide shared library (`~/.akari/assets`), the per-project reference ledger `.akari/asset-references.json`, resolver fallback in render-cut / edit-lint, and the `akari-assets bundle` materialization command (Japanese) |
 | [contract-2026-09-02-shape-item-v0.md](./contract-2026-09-02-shape-item-v0.md) | Shape item v0 — edit.json v2 `shape` source (rect / rounded-rect / ellipse / line / arrow / speech-bubble) lowered by edit-store to a deterministic inline-SVG html overlay, so no renderer changes (Japanese) |
+| [contract-2026-09-25-shape-item-v1.md](./contract-2026-09-25-shape-item-v1.md) | Shape item v1 — copied paths, proportional corners, line caps, bubbles, gradients, and inside strokes (Japanese) |
 | [contract-2026-09-13-extension-kit-v0.md](./contract-2026-09-13-extension-kit-v0.md) | Extension kit v0 — manifest requirements, Store installation, symlink composition, local Claude marketplace, and updates (Japanese) |
 | [contract-2026-09-25-image-ai-v0.md](./contract-2026-09-25-image-ai-v0.md) | Image AI v0 — one BYOK key, fal provider port, upscale alternatives with scoped edit binding and persistent provenance (Japanese) |
 

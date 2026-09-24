@@ -1,0 +1,29 @@
+{
+  "label": "before-direct",
+  "edit": "before-direct.json",
+  "port": 9543,
+  "openAttempts": [
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    },
+    {
+      "ok": true
+    }
+  ],
+  "previewBuilt": false,
+  "windowShot": "before-direct-window.png",
+  "consoleErrors": [
+    "root WARN [akari-preview] failed to configure created preview widget <file> TypeError: Cannot read properties of undefined (reading 'trimStart')\n    at U (<file>)\n    at <file>\n    at Array.map (<anonymous>)\n    at <file>\n    at Array.flatMap ",
+    "root WARN [akari-preview] open attempt 1 failed; retrying <file> TypeError: Cannot read properties of undefined (reading 'trimStart')\n    at U (<file>)\n    at <file>\n    at Array.map (<anonymous>)\n    at <file>\n    at Array.flatMap (<anonymous",
+    "root ERROR [akari-preview] failed to open preview <file> TypeError: Cannot read properties of undefined (reading 'trimStart')\n    at U (<file>)\n    at <file>\n    at Array.map (<anonymous>)\n    at <file>\n    at Array.flatMap (<anonymous>)\n    a"
+  ]
+}

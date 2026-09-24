@@ -156,6 +156,7 @@
 | [contract-2026-09-02-audio-clip-fx-v1.md](./contract-2026-09-02-audio-clip-fx-v1.md) | 音声クリップ FX v1 — speed（rubberband・ピッチ保持）・pitch_semitones・denoise（fft / nlm）・lowcut_hz。プレビューは FLAC サイドカー（recipe v2）で書き出しと一致 |
 | [contract-2026-09-02-asset-reference-model.md](./contract-2026-09-02-asset-reference-model.md) | 素材の参照モデル v0 — マシン単位の共有ライブラリ（`~/.akari/assets`）・プロジェクトの参照台帳 `.akari/asset-references.json`・render-cut / edit-lint のフォールバック解決・実体化コマンド `akari-assets bundle` |
 | [contract-2026-09-02-shape-item-v0.md](./contract-2026-09-02-shape-item-v0.md) | 図形アイテム v0 — edit.json v2 の `shape` ソース（rect / rounded-rect / ellipse / line / arrow / speech-bubble）を edit-store が決定論インライン SVG の html オーバーレイへ降下（レンダラ無改修） |
+| [contract-2026-09-25-shape-item-v1.md](./contract-2026-09-25-shape-item-v1.md) | 図形アイテム v1 — 値で写す path・角の丸み・線の端・吹き出し・グラデーション・内側の枠線 |
 | [contract-2026-09-13-extension-kit-v0.md](./contract-2026-09-13-extension-kit-v0.md) | 拡張キット v0 — manifest 要件・Store 導入・symlink 合成・Claude ローカル marketplace・更新 |
 | [contract-2026-09-25-image-ai-v0.md](./contract-2026-09-25-image-ai-v0.md) | 画像の AI v0 — キー 1 本・fal 差し替え口・対象だけの版照合・由来付き別案の再表示 |
 
