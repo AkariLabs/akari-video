@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import * as visual from '../lib/common/caption-visual-contract.js';
+import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../lib/common/caption-text-animation-recipes.js';
 import { captionEntryAnimationsSettled } from '../lib/common/caption-hit-region.js';
 import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.js';
 const require = createRequire(import.meta.url);
@@ -24,20 +25,18 @@ function section(text, from, to) {
     assert.ok(start >= 0 && end > start, `missing webview section: ${from}`);
     // Evaluate the host template first, exactly as previewBootstrapScript does. The second VM
     // has only browser globals/stubs, so accidental references to host module names fail.
-    return vm.runInNewContext('`' + text.slice(start, end) + '`', visual);
+    return vm.runInNewContext('`' + text.slice(start, end) + '`', {
+        ...visual, PREVIEW_CAPTION_ANIMATION_RECIPES
+    });
 }
 
 export function harness({ text = source, cues = [], engine = true, available = true, emphasisWords = [], applyAnimator, output, selectedIds = [] } = {}) {
     const calls = [];
+    const hitRegions = [];
     const warnings = [];
     const selectionEffects = [];
-    let html = '';
     let writes = 0;
-    let nodes = [];
-    const plateAttributes = new Set();
-    const plateChildren = [];
     const listeners = new Map();
-    const animations = [{ pause() {}, currentTime: 0, effect: { getComputedTiming: () => ({ endTime: 0 }) } }];
     const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
     const layer = { children: [], insertBefore(child, before) {
         child.parentElement = this; const at = this.children.indexOf(child);
@@ -45,8 +44,75 @@ export function harness({ text = source, cues = [], engine = true, available = t
         const index = before ? this.children.indexOf(before) : this.children.length;
         this.children.splice(index, 0, child);
     } };
+    const makePlate = () => {
+        let html = '';
+        let nodes = [];
+        const plateAttributes = new Set();
+        const plateChildren = [];
+        const animations = [{ pause() {}, currentTime: 0, effect: { getComputedTiming: () => ({ endTime: 0 }) } }];
+        const plate = {
+            id: 'caption-plate', dataset: {}, animations,
+            remove() {
+                const siblings = this.parentElement?.children ?? layer.children;
+                const index = siblings.indexOf(this);
+                if (index >= 0) siblings.splice(index, 1);
+                this.parentElement = null;
+            },
+            setAttribute(name) { plateAttributes.add(name); },
+            removeAttribute(name) { plateAttributes.delete(name); },
+            hasAttribute(name) { return plateAttributes.has(name); },
+            style: { removeProperty() {}, setProperty() {} },
+            classList: { toggle() {}, contains() { return false; } },
+            get innerHTML() { return html; },
+            set innerHTML(value) { html = value; nodes = []; plateChildren.length = 0; writes++; },
+            set textContent(value) { html = escape(value); nodes = []; plateChildren.length = 0; writes++; },
+            children: plateChildren,
+            appendChild(child) { child.parentElement = this; plateChildren.push(child); return child; },
+            getAnimations: () => animations,
+            querySelectorAll(selector) {
+                if (selector === '.akari-caption-handle-box, .akari-caption-handle') {
+                    return plateChildren.flatMap(child => [child, ...child.children]);
+                }
+                if (selector === '.akari-caption-handle') {
+                    return plateChildren.flatMap(child => child.children);
+                }
+                assert.equal(selector, '.akari-caption__char');
+                if (!nodes.length) nodes = [...html.matchAll(/<span class="akari-caption__char" data-akari-char="(\d+)">([\s\S]*?)<\/span>/g)]
+                    .map(match => {
+                        const node = { index: Number(match[1]), html: match[2] };
+                        if (applyAnimator) {
+                            const values = {};
+                            node.style = new Proxy(values, { get: (target, key) => {
+                                if (key === 'getPropertyPriority') return () => '';
+                                if (key === 'setProperty') return (name, value) => { target[name] = value; };
+                                if (key === 'removeProperty') return name => { delete target[name]; };
+                                return target[key] ?? '';
+                            } });
+                            node.tagName = 'span';
+                            node.parentElement = plate;
+                            node.closest = selector => selector === '.akari-caption__char' ? node : null;
+                            node.ownerDocument = { defaultView: { getComputedStyle: () => ({ opacity: node.style.opacity || '1' }) } };
+                        }
+                        return node;
+                    });
+                return nodes;
+            },
+            querySelector(selector) {
+                if (selector === '.akari-caption-handle-box') {
+                    return plateChildren.find(child => child.className === 'akari-caption-handle-box') ?? null;
+                }
+                return null;
+            }
+        };
+        return plate;
+    };
+    const plate = makePlate();
+    const animations = plate.animations;
     const createElement = tagName => {
-        if (tagName === 'div' && !layer.children.includes(plate)) return plate;
+        if (tagName === 'div') {
+            if (!layer.children.includes(plate)) return plate;
+            return makePlate();
+        }
         const attributes = new Map();
         const children = [];
         return {
@@ -55,61 +121,12 @@ export function harness({ text = source, cues = [], engine = true, available = t
             getAttribute(name) { return attributes.get(name) ?? null; },
             appendChild(child) { child.parentElement = this; children.push(child); return child; },
             remove() {
-                const siblings = this.parentElement?.children ?? plateChildren;
+                const siblings = this.parentElement?.children ?? [];
                 const index = siblings.indexOf(this);
                 if (index >= 0) siblings.splice(index, 1);
                 this.parentElement = null;
             }
         };
-    };
-    const plate = {
-        id: 'caption-plate', dataset: {},
-        remove() { const i = layer.children.indexOf(this); if (i >= 0) layer.children.splice(i, 1); },
-        setAttribute(name) { plateAttributes.add(name); },
-        removeAttribute(name) { plateAttributes.delete(name); },
-        hasAttribute(name) { return plateAttributes.has(name); },
-        style: { removeProperty() {}, setProperty() {} },
-        classList: { toggle() {}, contains() { return false; } },
-        get innerHTML() { return html; },
-        set innerHTML(value) { html = value; nodes = []; plateChildren.length = 0; writes++; },
-        set textContent(value) { html = escape(value); nodes = []; plateChildren.length = 0; writes++; },
-        children: plateChildren,
-        appendChild(child) { child.parentElement = this; plateChildren.push(child); return child; },
-        getAnimations: () => animations,
-        querySelectorAll(selector) {
-            if (selector === '.akari-caption-handle-box, .akari-caption-handle') {
-                return plateChildren.flatMap(child => [child, ...child.children]);
-            }
-            if (selector === '.akari-caption-handle') {
-                return plateChildren.flatMap(child => child.children);
-            }
-            assert.equal(selector, '.akari-caption__char');
-            if (!nodes.length) nodes = [...html.matchAll(/<span class="akari-caption__char" data-akari-char="(\d+)">([\s\S]*?)<\/span>/g)]
-                .map(match => {
-                    const node = { index: Number(match[1]), html: match[2] };
-                    if (applyAnimator) {
-                        const values = {};
-                        node.style = new Proxy(values, { get: (target, key) => {
-                            if (key === 'getPropertyPriority') return () => '';
-                            if (key === 'setProperty') return (name, value) => { target[name] = value; };
-                            if (key === 'removeProperty') return name => { delete target[name]; };
-                            return target[key] ?? '';
-                        } });
-                        node.tagName = 'span';
-                        node.parentElement = plate;
-                        node.closest = selector => selector === '.akari-caption__char' ? node : null;
-                        node.ownerDocument = { defaultView: { getComputedStyle: () => ({ opacity: node.style.opacity || '1' }) } };
-                    }
-                    return node;
-                });
-            return nodes;
-        },
-        querySelector(selector) {
-            if (selector === '.akari-caption-handle-box') {
-                return plateChildren.find(child => child.className === 'akari-caption-handle-box') ?? null;
-            }
-            return null;
-        }
     };
     const noop = () => {};
     const summary = { output: output ?? { width: 1920, height: 1080, fps: 30 } };
@@ -125,7 +142,9 @@ export function harness({ text = source, cues = [], engine = true, available = t
                 calls.push({ root, declaration, animationTime: animations[0].currentTime });
                 applyAnimator?.(root, declaration);
             } } } : {}),
-            akari: { ...(engine ? { frameEngineClock: clock } : {}), runtime: { tick: noop },
+            akari: { ...(engine ? { frameEngineClock: clock } : {}), interaction: {
+                syncOverlayHitRegion: target => hitRegions.push(target)
+            }, runtime: { tick: noop },
                 playbackTick: noop, audioMeterTick: noop, reviewTransport: noop, reportAltAll: noop }
         },
         initial: { summary }, summary, captions: cues, outputTime: 0, isPlaying: false,
@@ -162,7 +181,7 @@ export function harness({ text = source, cues = [], engine = true, available = t
     vm.runInContext(section(text, 'const tick = (immediatePlaybackTick', 'const runTickGuarded ='), context);
     vm.runInContext(section(text, 'const seekTimelineTime =', 'const applyInitialPosition ='), context);
     return {
-        plate, calls, warnings, context, selectionEffects,
+        plate, plates: layer.children, calls, warnings, context, selectionEffects, animations, hitRegions,
         get writes() { return writes; },
         run: code => vm.runInContext(code, context),
         // Execute the real low-level seek body, without seekTimelineTime's extra tick.

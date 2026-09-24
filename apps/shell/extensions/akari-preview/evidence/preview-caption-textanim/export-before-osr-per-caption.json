@@ -1,0 +1,296 @@
+{
+  "phase": "before",
+  "engine": "osr",
+  "mode": "per-caption",
+  "status": "done",
+  "captions": [
+    {
+      "id": "c-0001",
+      "renderSeconds": 39,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0001-in",
+          "t": 0.3,
+          "sha256": "f6655c747002132c"
+        },
+        {
+          "name": "c-0001-loop",
+          "t": 1.5,
+          "sha256": "4a52688d0da9d66f"
+        },
+        {
+          "name": "c-0001-out",
+          "t": 2.7,
+          "sha256": "9bd8642d8a538ff5"
+        }
+      ]
+    },
+    {
+      "id": "c-0002",
+      "renderSeconds": 9,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0002-in",
+          "t": 0.3,
+          "sha256": "cb30a0e529736f12"
+        },
+        {
+          "name": "c-0002-loop",
+          "t": 1.5,
+          "sha256": "28e8f1aab8480b23"
+        },
+        {
+          "name": "c-0002-out",
+          "t": 2.7,
+          "sha256": "81081881146527b7"
+        }
+      ]
+    },
+    {
+      "id": "c-0003",
+      "renderSeconds": 9,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0003-in",
+          "t": 0.3,
+          "sha256": "95fe4f95b59b632b"
+        },
+        {
+          "name": "c-0003-loop",
+          "t": 1.5,
+          "sha256": "4878ebe9080f2b6e"
+        },
+        {
+          "name": "c-0003-out",
+          "t": 2.7,
+          "sha256": "bfff58a34bb293ef"
+        }
+      ]
+    },
+    {
+      "id": "c-0004",
+      "renderSeconds": 7,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0004-in",
+          "t": 0.3,
+          "sha256": "b6b4e24888a2a214"
+        },
+        {
+          "name": "c-0004-loop",
+          "t": 1.5,
+          "sha256": "111cfc7187189921"
+        },
+        {
+          "name": "c-0004-out",
+          "t": 2.7,
+          "sha256": "f9661c53552e56ff"
+        }
+      ]
+    },
+    {
+      "id": "c-0005",
+      "renderSeconds": 20,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0005-in",
+          "t": 0.3,
+          "sha256": "7a24387f4c32ebea"
+        },
+        {
+          "name": "c-0005-loop",
+          "t": 1.5,
+          "sha256": "c752eb61838c5247"
+        },
+        {
+          "name": "c-0005-out",
+          "t": 2.7,
+          "sha256": "171a56484721b5ce"
+        }
+      ]
+    },
+    {
+      "id": "c-0006",
+      "renderSeconds": 12,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0006-in",
+          "t": 0.3,
+          "sha256": "70b54beccfe5da18"
+        },
+        {
+          "name": "c-0006-loop",
+          "t": 1.5,
+          "sha256": "50169ad0e35ecdbc"
+        },
+        {
+          "name": "c-0006-out",
+          "t": 2.7,
+          "sha256": "248f94f5e371687e"
+        }
+      ]
+    },
+    {
+      "id": "c-0007",
+      "renderSeconds": 17,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0007-in",
+          "t": 0.3,
+          "sha256": "bb6e789e5732f67e"
+        },
+        {
+          "name": "c-0007-loop",
+          "t": 1.5,
+          "sha256": "451d484d08a5ca74"
+        },
+        {
+          "name": "c-0007-out",
+          "t": 2.7,
+          "sha256": "c3c525e8978893cb"
+        }
+      ]
+    },
+    {
+      "id": "c-0008",
+      "renderSeconds": 22,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0008-in",
+          "t": 0.3,
+          "sha256": "67e8ad2a687e2dd3"
+        },
+        {
+          "name": "c-0008-loop",
+          "t": 1.5,
+          "sha256": "ec66ec7569009088"
+        },
+        {
+          "name": "c-0008-out",
+          "t": 2.7,
+          "sha256": "8b421e2095248c07"
+        }
+      ]
+    },
+    {
+      "id": "c-0009",
+      "renderSeconds": 25,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0009-in",
+          "t": 0.3,
+          "sha256": "d7fc4aea8b397954"
+        },
+        {
+          "name": "c-0009-loop",
+          "t": 1.5,
+          "sha256": "1d825eb93735aecc"
+        },
+        {
+          "name": "c-0009-out",
+          "t": 2.7,
+          "sha256": "daed54b2621c0016"
+        }
+      ]
+    },
+    {
+      "id": "c-0010",
+      "renderSeconds": 10,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0010-in",
+          "t": 0.3,
+          "sha256": "98ac1c5b077a5a52"
+        },
+        {
+          "name": "c-0010-loop",
+          "t": 1.5,
+          "sha256": "ab24c793e5465048"
+        },
+        {
+          "name": "c-0010-out",
+          "t": 2.7,
+          "sha256": "a3509379fdaba2d4"
+        }
+      ]
+    },
+    {
+      "id": "c-0011",
+      "renderSeconds": 9,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0011-in",
+          "t": 0.3,
+          "sha256": "c748223cfb4312fd"
+        },
+        {
+          "name": "c-0011-loop",
+          "t": 1.5,
+          "sha256": "4693dac654bc9541"
+        },
+        {
+          "name": "c-0011-out",
+          "t": 2.7,
+          "sha256": "115ba0794ff5499d"
+        }
+      ]
+    },
+    {
+      "id": "c-0012",
+      "renderSeconds": 8,
+      "exit": 0,
+      "selectedEngine": "osr",
+      "warnings": [],
+      "frames": [
+        {
+          "name": "c-0012-in",
+          "t": 0.3,
+          "sha256": "cfef9306e01f7ab1"
+        },
+        {
+          "name": "c-0012-loop",
+          "t": 1.5,
+          "sha256": "e1fdb9d698707699"
+        },
+        {
+          "name": "c-0012-out",
+          "t": 2.7,
+          "sha256": "e1fdb9d698707699"
+        }
+      ]
+    }
+  ]
+}

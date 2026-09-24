@@ -27,5 +27,5 @@ test('recreated rows restore selection after replacing caption contents', () => 
   assert.match(row, /captionPlate\.innerHTML =[\s\S]*applyCaptionRowSelectionAttrs\(captionPlate, caption\);/u);
   const attrs = source.slice(source.indexOf('const applyCaptionRowSelectionAttrs ='), source.indexOf('const setCaptionAltAll ='));
   assert.match(attrs, /selectedCaptionIds\.has\(id\)/u);
-  assert.match(attrs, /for \(const row of captionRows\.values\(\)\) applyCaptionRowSelectionAttrs\(row\.plate, row\.caption\)/u);
+  assert.match(attrs, /for \(const row of captionRows\.values\(\)\) \{[\s\S]*applyCaptionRowSelectionAttrs\(row\.plate, row\.caption\)/u);
 });

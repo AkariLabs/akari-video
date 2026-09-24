@@ -1,0 +1,518 @@
+{
+  "phase": "after",
+  "status": "done",
+  "frame": {
+    "x": 296.78125,
+    "y": 16.00390625,
+    "w": 732.4375,
+    "h": 411.99609375
+  },
+  "captures": [],
+  "playback": {
+    "sampleCount": 156,
+    "distinctOpacity": 19,
+    "distinctTransform": 25,
+    "samples": [
+      {
+        "now": 12118,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 12217,
+        "opacity": "0.177556",
+        "transform": "matrix(1, 0, 0, 1, 0, -0.69667)",
+        "textanim": [
+          "akari-anim-fade-up@66.7/paused",
+          "akari-anim-float@66.7/paused",
+          "akari-anim-fade-up@66.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@66.7",
+          "akari-anim-float@66.7",
+          "akari-anim-fade-up@66.7"
+        ]
+      },
+      {
+        "now": 12315,
+        "opacity": "0.415726",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@166.7/paused",
+          "akari-anim-float@166.7/paused",
+          "akari-anim-fade-up@166.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@166.7",
+          "akari-anim-float@166.7",
+          "akari-anim-fade-up@166.7"
+        ]
+      },
+      {
+        "now": 12415,
+        "opacity": "0.622982",
+        "transform": "matrix(1, 0, 0, 1, 0, -2.78667)",
+        "textanim": [
+          "akari-anim-fade-up@266.7/paused",
+          "akari-anim-float@266.7/paused",
+          "akari-anim-fade-up@266.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@266.7",
+          "akari-anim-float@266.7",
+          "akari-anim-fade-up@266.7"
+        ]
+      },
+      {
+        "now": 12516,
+        "opacity": "0.795409",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.83167)",
+        "textanim": [
+          "akari-anim-fade-up@366.7/paused",
+          "akari-anim-float@366.7/paused",
+          "akari-anim-fade-up@366.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@366.7",
+          "akari-anim-float@366.7",
+          "akari-anim-fade-up@366.7"
+        ]
+      },
+      {
+        "now": 12615,
+        "opacity": "0.924501",
+        "transform": "matrix(1, 0, 0, 1, 0, -4.87667)",
+        "textanim": [
+          "akari-anim-fade-up@466.7/paused",
+          "akari-anim-float@466.7/paused",
+          "akari-anim-fade-up@466.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@466.7",
+          "akari-anim-float@466.7",
+          "akari-anim-fade-up@466.7"
+        ]
+      },
+      {
+        "now": 12717,
+        "opacity": "0.994508",
+        "transform": "matrix(1, 0, 0, 1, 0, -5.92167)",
+        "textanim": [
+          "akari-anim-fade-up@566.7/paused",
+          "akari-anim-float@566.7/paused",
+          "akari-anim-fade-up@566.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@566.7",
+          "akari-anim-float@566.7",
+          "akari-anim-fade-up@566.7"
+        ]
+      },
+      {
+        "now": 12817,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -6.96667)",
+        "textanim": [
+          "akari-anim-fade-up@666.7/paused",
+          "akari-anim-float@666.7/paused",
+          "akari-anim-fade-up@666.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@666.7",
+          "akari-anim-float@666.7",
+          "akari-anim-fade-up@666.7"
+        ]
+      },
+      {
+        "now": 12917,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -8.01167)",
+        "textanim": [
+          "akari-anim-fade-up@766.7/paused",
+          "akari-anim-float@766.7/paused",
+          "akari-anim-fade-up@766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@766.7",
+          "akari-anim-float@766.7",
+          "akari-anim-fade-up@766.7"
+        ]
+      },
+      {
+        "now": 13015,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -7.66333)",
+        "textanim": [
+          "akari-anim-fade-up@866.7/paused",
+          "akari-anim-float@866.7/paused",
+          "akari-anim-fade-up@866.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@866.7",
+          "akari-anim-float@866.7",
+          "akari-anim-fade-up@866.7"
+        ]
+      },
+      {
+        "now": 13115,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -6.61833)",
+        "textanim": [
+          "akari-anim-fade-up@966.7/paused",
+          "akari-anim-float@966.7/paused",
+          "akari-anim-fade-up@966.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@966.7",
+          "akari-anim-float@966.7",
+          "akari-anim-fade-up@966.7"
+        ]
+      },
+      {
+        "now": 13217,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -5.57333)",
+        "textanim": [
+          "akari-anim-fade-up@1066.7/paused",
+          "akari-anim-float@1066.7/paused",
+          "akari-anim-fade-up@1066.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1066.7",
+          "akari-anim-float@1066.7",
+          "akari-anim-fade-up@1066.7"
+        ]
+      },
+      {
+        "now": 13317,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -4.52833)",
+        "textanim": [
+          "akari-anim-fade-up@1166.7/paused",
+          "akari-anim-float@1166.7/paused",
+          "akari-anim-fade-up@1166.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1166.7",
+          "akari-anim-float@1166.7",
+          "akari-anim-fade-up@1166.7"
+        ]
+      },
+      {
+        "now": 13417,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.48333)",
+        "textanim": [
+          "akari-anim-fade-up@1266.7/paused",
+          "akari-anim-float@1266.7/paused",
+          "akari-anim-fade-up@1266.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1266.7",
+          "akari-anim-float@1266.7",
+          "akari-anim-fade-up@1266.7"
+        ]
+      },
+      {
+        "now": 13516,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -2.43833)",
+        "textanim": [
+          "akari-anim-fade-up@1366.7/paused",
+          "akari-anim-float@1366.7/paused",
+          "akari-anim-fade-up@1366.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1366.7",
+          "akari-anim-float@1366.7",
+          "akari-anim-fade-up@1366.7"
+        ]
+      },
+      {
+        "now": 13617,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.39333)",
+        "textanim": [
+          "akari-anim-fade-up@1466.7/paused",
+          "akari-anim-float@1466.7/paused",
+          "akari-anim-fade-up@1466.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1466.7",
+          "akari-anim-float@1466.7",
+          "akari-anim-fade-up@1466.7"
+        ]
+      },
+      {
+        "now": 13717,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -0.34833)",
+        "textanim": [
+          "akari-anim-fade-up@1566.7/paused",
+          "akari-anim-float@1566.7/paused",
+          "akari-anim-fade-up@1566.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1566.7",
+          "akari-anim-float@1566.7",
+          "akari-anim-fade-up@1566.7"
+        ]
+      },
+      {
+        "now": 13815,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -0.69667)",
+        "textanim": [
+          "akari-anim-fade-up@1666.7/paused",
+          "akari-anim-float@1666.7/paused",
+          "akari-anim-fade-up@1666.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1666.7",
+          "akari-anim-float@1666.7",
+          "akari-anim-fade-up@1666.7"
+        ]
+      },
+      {
+        "now": 13917,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      },
+      {
+        "now": 14017,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      },
+      {
+        "now": 14117,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      },
+      {
+        "now": 14218,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      },
+      {
+        "now": 14317,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      },
+      {
+        "now": 14417,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      },
+      {
+        "now": 14519,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      },
+      {
+        "now": 14616,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+        "textanim": [
+          "akari-anim-fade-up@1766.7/paused",
+          "akari-anim-float@1766.7/paused",
+          "akari-anim-fade-up@1766.7/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@1766.7",
+          "akari-anim-float@1766.7",
+          "akari-anim-fade-up@1766.7"
+        ]
+      }
+    ],
+    "paused": {
+      "opacity": "1",
+      "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+      "clipPath": "none",
+      "textanim": [
+        "akari-anim-fade-up@1766.7",
+        "akari-anim-float@1766.7",
+        "akari-anim-fade-up@1766.7"
+      ]
+    },
+    "pausedLocalMs": 1766.7,
+    "reseek": {
+      "opacity": "1",
+      "transform": "matrix(1, 0, 0, 1, 0, -1.74167)",
+      "clipPath": "none",
+      "textanim": [
+        "akari-anim-fade-up@1766.7",
+        "akari-anim-float@1766.7",
+        "akari-anim-fade-up@1766.7"
+      ]
+    },
+    "pausedEqualsSeek": true,
+    "frameStep": [
+      {
+        "step": 1,
+        "localMs": 233.3,
+        "pose": {
+          "opacity": "0.557484",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.43833)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@233.3",
+            "akari-anim-float@233.3",
+            "akari-anim-fade-up@233.3"
+          ]
+        },
+        "seekPose": {
+          "opacity": "0.557484",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.43833)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@233.3",
+            "akari-anim-float@233.3",
+            "akari-anim-fade-up@233.3"
+          ]
+        },
+        "equal": true
+      },
+      {
+        "step": 2,
+        "localMs": 266.7,
+        "pose": {
+          "opacity": "0.622981",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.78667)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@266.7",
+            "akari-anim-float@266.7",
+            "akari-anim-fade-up@266.7"
+          ]
+        },
+        "seekPose": {
+          "opacity": "0.622981",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.78667)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@266.7",
+            "akari-anim-float@266.7",
+            "akari-anim-fade-up@266.7"
+          ]
+        },
+        "equal": true
+      },
+      {
+        "step": 3,
+        "localMs": 300,
+        "pose": {
+          "opacity": "0.684643",
+          "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@300",
+            "akari-anim-float@300",
+            "akari-anim-fade-up@300"
+          ]
+        },
+        "seekPose": {
+          "opacity": "0.684643",
+          "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@300",
+            "akari-anim-float@300",
+            "akari-anim-fade-up@300"
+          ]
+        },
+        "equal": true
+      }
+    ]
+  },
+  "interaction": null,
+  "screenshots": [],
+  "pid": 89958,
+  "calibration": {
+    "iframe": {
+      "left": 57,
+      "top": 39,
+      "width": 1326,
+      "height": 501.890625
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "phase": "after",
+  "status": "done",
+  "frame": {
+    "x": 296.78125,
+    "y": 16.00390625,
+    "w": 732.4375,
+    "h": 411.99609375
+  },
+  "captures": [],
+  "playback": null,
+  "interaction": null,
+  "screenshots": [
+    "after-overlap-t0.3.png"
+  ],
+  "pid": 85870,
+  "calibration": {
+    "iframe": {
+      "left": 57,
+      "top": 39,
+      "width": 1326,
+      "height": 501.890625
+    }
+  },
+  "overlap": [
+    {
+      "t": 0.3,
+      "o-top": {
+        "opacity": "0.684643",
+        "transform": "matrix(0.461665, -0.704536, 0.704536, 0.461665, 0, 0)",
+        "clipPath": "none",
+        "textanim": [
+          "akari-anim-spin-in@300",
+          "akari-anim-spin-in@300"
+        ]
+      },
+      "o-mid": {
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "textanim": []
+      },
+      "o-bottom": {
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, 7.19013)",
+        "clipPath": "none",
+        "textanim": [
+          "akari-anim-fade-up@300",
+          "akari-anim-fade-up@300"
+        ]
+      }
+    },
+    {
+      "t": 1.5,
+      "o-top": {
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "clipPath": "none",
+        "textanim": [
+          "akari-anim-spin-in@1500",
+          "akari-anim-spin-in@1500"
+        ]
+      },
+      "o-mid": {
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "textanim": []
+      },
+      "o-bottom": {
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "clipPath": "none",
+        "textanim": [
+          "akari-anim-fade-up@1500",
+          "akari-anim-fade-up@1500"
+        ]
+      }
+    },
+    {
+      "t": 2.7,
+      "o-top": {
+        "opacity": "0.684643",
+        "transform": "matrix(0.461665, -0.704536, 0.704536, 0.461665, 0, 0)",
+        "clipPath": "none",
+        "textanim": [
+          "akari-anim-spin-in@2700",
+          "akari-anim-spin-in@2700"
+        ]
+      },
+      "o-mid": {
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "textanim": []
+      },
+      "o-bottom": {
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, 7.19013)",
+        "clipPath": "none",
+        "textanim": [
+          "akari-anim-fade-up@2700",
+          "akari-anim-fade-up@2700"
+        ]
+      }
+    }
+  ]
+}

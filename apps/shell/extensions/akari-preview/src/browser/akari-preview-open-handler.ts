@@ -138,6 +138,7 @@ import {
     RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE,
     RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
 } from '../common/caption-visual-contract';
+import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../common/caption-text-animation-recipes';
 import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
 import { computeAdjustCssVisual } from '../common/adjust-css-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
@@ -7508,6 +7509,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-row-plate:empty { display: none; }
 .caption-row-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
 .caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+.caption-row-plate[data-selected] .akari-caption__plate[data-akari-textanim], .caption-row-plate.akari-caption-host--editing .akari-caption__plate[data-akari-textanim] { animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; }
 .caption-row-plate[data-output-caption] .akari-caption__plate { width: var(--caption-width, 92%); right: auto; }
 .caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }
 .caption-row-plate[data-selected], .caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: none; }
@@ -15906,7 +15908,65 @@ body { display: grid; place-items: center; padding: 32px; }
                 return '<span class="' + className + '" style="' + vars + '">'
                     + renderText(word.text) + '</span>';
             };
-            const renderStyledCaptionFragment = caption => {
+            // Mirrors render-cut/src/captions.mjs buildCaptionAnimation. The recipe table is
+            // injected by the host because the sandboxed webview cannot import render-cut.
+            const captionAnimationRecipes = ${JSON.stringify(PREVIEW_CAPTION_ANIMATION_RECIPES)};
+            const buildPreviewCaptionAnimation = (animation, overlayDuration, onWarning) => {
+                if (!animation || typeof animation !== 'object') return null;
+                const parts = [];
+                const keyframes = new Map();
+                const ampValues = [];
+                const resolveSlot = (slot, kind) => {
+                    if (!slot) return;
+                    const recipe = captionAnimationRecipes[slot.id];
+                    if (!recipe) {
+                        onWarning?.('unknown textanim id "' + slot.id + '" (' + kind + ' slot); slot ignored');
+                        return;
+                    }
+                    keyframes.set(slot.id, recipe);
+                    if (slot.amp !== undefined) ampValues.push(slot.amp);
+                    if (kind === 'loop') {
+                        const period = slot.duration_sec ?? 1.6;
+                        parts.push('akari-anim-' + slot.id + ' ' + formatCaptionSeconds(period)
+                            + 's linear 0s infinite both paused');
+                        return;
+                    }
+                    const duration = Math.min(slot.duration_sec ?? 0.6, Math.max(0.05, overlayDuration));
+                    const ease = slot.ease ?? 'ease-out';
+                    if (kind === 'in') {
+                        parts.push('akari-anim-' + slot.id + ' ' + formatCaptionSeconds(duration)
+                            + 's ' + ease + ' 0s 1 normal both paused');
+                    } else {
+                        const delay = Math.max(0, overlayDuration - duration);
+                        parts.push('akari-anim-' + slot.id + ' ' + formatCaptionSeconds(duration)
+                            + 's ' + ease + ' ' + formatCaptionSeconds(delay)
+                            + 's 1 reverse forwards paused');
+                    }
+                };
+                resolveSlot(animation.in, 'in');
+                resolveSlot(animation.loop, 'loop');
+                resolveSlot(animation.out, 'out');
+                if (parts.length === 0) return null;
+                const keyframesCss = [...keyframes.entries()]
+                    .map(([id, recipe]) => '    @keyframes akari-anim-' + id + ' { ' + recipe + ' }')
+                    .join('\\n');
+                return {
+                    animationCss: parts.join(', '),
+                    keyframesCss,
+                    ampCss: ampValues.length > 0 ? '--akari-anim-amp: ' + ampValues[0] + ';' : ''
+                };
+            };
+            const captionTextAnimationPlateAttrs = animation => animation
+                ? ' data-akari-textanim style="'
+                    + ((animation.ampCss || '') + 'animation:' + animation.animationCss + ';')
+                        .replaceAll('&', '&amp;').replaceAll('"', '&quot;')
+                        .replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+                    + '"'
+                : '';
+            const captionTextAnimationKeyframesCss = animation => animation
+                ? animation.keyframesCss
+                : '';
+            const renderStyledCaptionFragment = (caption, captionAnimation = null) => {
                 const renderChars = captionCharRenderer(caption.animator);
                 const style = caption.style;
                 const textStyleActive = Boolean(caption.textStyle
@@ -15978,9 +16038,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     + revealWordCss
                     + revealCss
                     + emphasisCss
-                    + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
+                    + captionTextAnimationKeyframesCss(captionAnimation)
+                    + '</style><div class="akari-caption__plate"'
+                    + captionTextAnimationPlateAttrs(captionAnimation) + '>' + plateMarkup + '</div></div>';
             };
-            const renderPlainCaptionFragment = caption => {
+            const renderPlainCaptionFragment = (caption, captionAnimation = null) => {
                 const renderChars = captionCharRenderer(caption.animator);
                 const renderText = renderChars || escapeCaptionHtml;
                 if (caption.resolvedTimeline) {
@@ -16051,7 +16113,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
                     + frameFitCss
-                    + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';
+                    + captionTextAnimationKeyframesCss(captionAnimation)
+                    + '</style><div class="akari-caption__plate"'
+                    + captionTextAnimationPlateAttrs(captionAnimation) + '>' + plateMarkup + '</div></div>';
             };
             const captionStyleVariableNames = ${JSON.stringify(RESOLVED_CAPTION_STYLE_VARIABLE_NAMES)};
             const applyCaptionStyleVars = (caption, captionPlate) => {
@@ -16093,7 +16157,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 syncCaptionHandleBox(captionPlate);
             };
             const applyCaptionSelectionAttrs = () => {
-                for (const row of captionRows.values()) applyCaptionRowSelectionAttrs(row.plate, row.caption);
+                for (const row of captionRows.values()) {
+                    const wasSelected = row.plate.hasAttribute('data-selected');
+                    applyCaptionRowSelectionAttrs(row.plate, row.caption);
+                    if (row.captionTextAnimation && wasSelected !== row.plate.hasAttribute('data-selected')) {
+                        // Re-seek the newly enabled animation before measuring its actual ink box.
+                        row.captionHitRegionPending = true;
+                        renderCaptionRow(row.caption, row);
+                        if (row.plate.hasAttribute('data-selected')) row.captionHitRegionPending = false;
+                    }
+                }
             };
             const setCaptionAltAll = on => {
                 if (captionAltAll === on) return;
@@ -16114,6 +16187,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (caption !== row.renderedCaption) {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
+                    const captionAnimation = caption && !caption.resolvedTimeline && caption.textStyle?.animation
+                        ? buildPreviewCaptionAnimation(caption.textStyle.animation, caption.end - caption.start,
+                            message => console.warn('[akari-preview] captions.json item '
+                                + (caption.sourceCueId || caption.id || '(unknown)') + ' ' + message))
+                        : null;
+                    row.captionTextAnimation = Boolean(captionAnimation);
                     const hasEmphasis = Boolean(caption && Array.isArray(caption.words)
                         && caption.words.some(word => findMatchingEmphasis(word)));
                     const hasCaptionWords = Boolean(caption && Array.isArray(caption.words)
@@ -16133,8 +16212,8 @@ body { display: grid; place-items: center; padding: 32px; }
                                 || caption.style === 'reveal-word'
                                 || hasEmphasis || wantsCaptionReveal);
                         const captionHtml = usesWords
-                            ? renderStyledCaptionFragment(caption)
-                            : renderPlainCaptionFragment(caption);
+                            ? renderStyledCaptionFragment(caption, captionAnimation)
+                            : renderPlainCaptionFragment(caption, captionAnimation);
                         captionPlate.innerHTML = caption.runs?.length
                             ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
                     } else {

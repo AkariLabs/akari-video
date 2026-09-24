@@ -1,0 +1,201 @@
+{
+  "phase": "before",
+  "engine": "gpu",
+  "status": "done",
+  "renderSeconds": 40,
+  "selectedEngine": "gpu",
+  "rasterizer": {
+    "planned": "gpu",
+    "adopted": "gpu",
+    "attempts": [
+      {
+        "method": "gpu",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "warnings": [],
+  "frames": [
+    {
+      "name": "c-0001-in",
+      "t": 0.3,
+      "sha256": "80c577c62c9d1161"
+    },
+    {
+      "name": "c-0001-loop",
+      "t": 1.5,
+      "sha256": "fb2a82f90cf48307"
+    },
+    {
+      "name": "c-0001-out",
+      "t": 2.7,
+      "sha256": "7c9fcd2628388d74"
+    },
+    {
+      "name": "c-0002-in",
+      "t": 4.3,
+      "sha256": "69aaaa28b19db7c0"
+    },
+    {
+      "name": "c-0002-loop",
+      "t": 5.5,
+      "sha256": "fc3ea69ef92be68d"
+    },
+    {
+      "name": "c-0002-out",
+      "t": 6.7,
+      "sha256": "c1326f922d26f239"
+    },
+    {
+      "name": "c-0003-in",
+      "t": 8.3,
+      "sha256": "51832e149775e98a"
+    },
+    {
+      "name": "c-0003-loop",
+      "t": 9.5,
+      "sha256": "c6b181d52f46f2b2"
+    },
+    {
+      "name": "c-0003-out",
+      "t": 10.7,
+      "sha256": "c6d3e98f26a46a2e"
+    },
+    {
+      "name": "c-0004-in",
+      "t": 12.3,
+      "sha256": "68081165c2649782"
+    },
+    {
+      "name": "c-0004-loop",
+      "t": 13.5,
+      "sha256": "c74285e039fd21cf"
+    },
+    {
+      "name": "c-0004-out",
+      "t": 14.7,
+      "sha256": "069e10e181083151"
+    },
+    {
+      "name": "c-0005-in",
+      "t": 16.3,
+      "sha256": "4056359536e7fd0e"
+    },
+    {
+      "name": "c-0005-loop",
+      "t": 17.5,
+      "sha256": "c93574a7cf8ef1be"
+    },
+    {
+      "name": "c-0005-out",
+      "t": 18.7,
+      "sha256": "febafeff744a3c7c"
+    },
+    {
+      "name": "c-0006-in",
+      "t": 20.3,
+      "sha256": "a998336e280c991a"
+    },
+    {
+      "name": "c-0006-loop",
+      "t": 21.5,
+      "sha256": "64d93c7600a3a7e8"
+    },
+    {
+      "name": "c-0006-out",
+      "t": 22.7,
+      "sha256": "dfbbb820a3eb4c05"
+    },
+    {
+      "name": "c-0007-in",
+      "t": 24.3,
+      "sha256": "1ada1103294ead20"
+    },
+    {
+      "name": "c-0007-loop",
+      "t": 25.5,
+      "sha256": "9cb8db4384350f45"
+    },
+    {
+      "name": "c-0007-out",
+      "t": 26.7,
+      "sha256": "0f7821e5f589859a"
+    },
+    {
+      "name": "c-0008-in",
+      "t": 28.3,
+      "sha256": "01d0eb556d3b2f2d"
+    },
+    {
+      "name": "c-0008-loop",
+      "t": 29.5,
+      "sha256": "b0a99b1f747b16a4"
+    },
+    {
+      "name": "c-0008-out",
+      "t": 30.7,
+      "sha256": "00fd63bf2cc9c29a"
+    },
+    {
+      "name": "c-0009-in",
+      "t": 32.3,
+      "sha256": "e2f989ae68995f04"
+    },
+    {
+      "name": "c-0009-loop",
+      "t": 33.5,
+      "sha256": "e2f989ae68995f04"
+    },
+    {
+      "name": "c-0009-out",
+      "t": 34.7,
+      "sha256": "2857c0b3a85f3786"
+    },
+    {
+      "name": "c-0010-in",
+      "t": 36.3,
+      "sha256": "cca91261a483f2ec"
+    },
+    {
+      "name": "c-0010-loop",
+      "t": 37.5,
+      "sha256": "44efc74b58e984f0"
+    },
+    {
+      "name": "c-0010-out",
+      "t": 38.7,
+      "sha256": "4c183b3a1890acc9"
+    },
+    {
+      "name": "c-0011-in",
+      "t": 40.3,
+      "sha256": "dcb49656e8b4d311"
+    },
+    {
+      "name": "c-0011-loop",
+      "t": 41.5,
+      "sha256": "44abc115c595067b"
+    },
+    {
+      "name": "c-0011-out",
+      "t": 42.7,
+      "sha256": "5bb5ab001049b2f6"
+    },
+    {
+      "name": "c-0012-in",
+      "t": 44.3,
+      "sha256": "102fee68aa3ef594"
+    },
+    {
+      "name": "c-0012-loop",
+      "t": 45.5,
+      "sha256": "102fee68aa3ef594"
+    },
+    {
+      "name": "c-0012-out",
+      "t": 46.7,
+      "sha256": "70f209fc4ce7cf63"
+    }
+  ]
+}

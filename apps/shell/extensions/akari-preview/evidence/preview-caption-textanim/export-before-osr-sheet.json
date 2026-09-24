@@ -1,0 +1,201 @@
+{
+  "phase": "before",
+  "engine": "osr",
+  "status": "done",
+  "renderSeconds": 596,
+  "selectedEngine": "osr",
+  "rasterizer": {
+    "planned": "osr",
+    "adopted": "osr",
+    "attempts": [
+      {
+        "method": "osr",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "warnings": [],
+  "frames": [
+    {
+      "name": "c-0001-in",
+      "t": 0.3,
+      "sha256": "6884cc04de0d7aad"
+    },
+    {
+      "name": "c-0001-loop",
+      "t": 1.5,
+      "sha256": "f16389121ea845cf"
+    },
+    {
+      "name": "c-0001-out",
+      "t": 2.7,
+      "sha256": "f16389121ea845cf"
+    },
+    {
+      "name": "c-0002-in",
+      "t": 4.3,
+      "sha256": "e86ba077a0506e80"
+    },
+    {
+      "name": "c-0002-loop",
+      "t": 5.5,
+      "sha256": "689b5095954b0641"
+    },
+    {
+      "name": "c-0002-out",
+      "t": 6.7,
+      "sha256": "689b5095954b0641"
+    },
+    {
+      "name": "c-0003-in",
+      "t": 8.3,
+      "sha256": "5139588cdbb1c8db"
+    },
+    {
+      "name": "c-0003-loop",
+      "t": 9.5,
+      "sha256": "5d4347362da8cf2b"
+    },
+    {
+      "name": "c-0003-out",
+      "t": 10.7,
+      "sha256": "5d4347362da8cf2b"
+    },
+    {
+      "name": "c-0004-in",
+      "t": 12.3,
+      "sha256": "49efe8c6a98836de"
+    },
+    {
+      "name": "c-0004-loop",
+      "t": 13.5,
+      "sha256": "20a8c9bdc52b6442"
+    },
+    {
+      "name": "c-0004-out",
+      "t": 14.7,
+      "sha256": "20a8c9bdc52b6442"
+    },
+    {
+      "name": "c-0005-in",
+      "t": 16.3,
+      "sha256": "d1681fcde079acfd"
+    },
+    {
+      "name": "c-0005-loop",
+      "t": 17.5,
+      "sha256": "2f93c484c9a65c70"
+    },
+    {
+      "name": "c-0005-out",
+      "t": 18.7,
+      "sha256": "1377291512ad6967"
+    },
+    {
+      "name": "c-0006-in",
+      "t": 20.3,
+      "sha256": "5394f30a8526ef36"
+    },
+    {
+      "name": "c-0006-loop",
+      "t": 21.5,
+      "sha256": "f2520eeed7ac575f"
+    },
+    {
+      "name": "c-0006-out",
+      "t": 22.7,
+      "sha256": "f876204ae3114bf1"
+    },
+    {
+      "name": "c-0007-in",
+      "t": 24.3,
+      "sha256": "02ed05188b493dbe"
+    },
+    {
+      "name": "c-0007-loop",
+      "t": 25.5,
+      "sha256": "fb1c437d5a80674b"
+    },
+    {
+      "name": "c-0007-out",
+      "t": 26.7,
+      "sha256": "fb1c437d5a80674b"
+    },
+    {
+      "name": "c-0008-in",
+      "t": 28.3,
+      "sha256": "4e86f6cb27ee8688"
+    },
+    {
+      "name": "c-0008-loop",
+      "t": 29.5,
+      "sha256": "2252833ddf7aeb82"
+    },
+    {
+      "name": "c-0008-out",
+      "t": 30.7,
+      "sha256": "2252833ddf7aeb82"
+    },
+    {
+      "name": "c-0009-in",
+      "t": 32.3,
+      "sha256": "e5f9e92ce8b18040"
+    },
+    {
+      "name": "c-0009-loop",
+      "t": 33.5,
+      "sha256": "f432631cabb53343"
+    },
+    {
+      "name": "c-0009-out",
+      "t": 34.7,
+      "sha256": "c6d1360022de1d53"
+    },
+    {
+      "name": "c-0010-in",
+      "t": 36.3,
+      "sha256": "493adf9592bd80a0"
+    },
+    {
+      "name": "c-0010-loop",
+      "t": 37.5,
+      "sha256": "aec71ea034628b73"
+    },
+    {
+      "name": "c-0010-out",
+      "t": 38.7,
+      "sha256": "a18baee66f9f3988"
+    },
+    {
+      "name": "c-0011-in",
+      "t": 40.3,
+      "sha256": "3b683f3a41514dad"
+    },
+    {
+      "name": "c-0011-loop",
+      "t": 41.5,
+      "sha256": "97218d2ade90bb5c"
+    },
+    {
+      "name": "c-0011-out",
+      "t": 42.7,
+      "sha256": "97218d2ade90bb5c"
+    },
+    {
+      "name": "c-0012-in",
+      "t": 44.3,
+      "sha256": "4e8b91c46c921ade"
+    },
+    {
+      "name": "c-0012-loop",
+      "t": 45.5,
+      "sha256": "6af0320fbd7873a2"
+    },
+    {
+      "name": "c-0012-out",
+      "t": 46.7,
+      "sha256": "6af0320fbd7873a2"
+    }
+  ]
+}

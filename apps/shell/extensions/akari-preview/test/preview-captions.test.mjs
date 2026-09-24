@@ -53,7 +53,7 @@ test('無装飾字幕も fragment 経路で描画する（plain 流し込みに�
         extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'
     ), 'utf8');
     assert.ok(!source.includes("captionPlate.textContent = caption ? caption.text : ''"));
-    assert.ok(source.includes('renderPlainCaptionFragment(caption)'));
+    assert.ok(source.includes('renderPlainCaptionFragment(caption, captionAnimation)'));
 });
 
 test('shell resolved-caption fragment and managed variables come from the checked source contract', () => {

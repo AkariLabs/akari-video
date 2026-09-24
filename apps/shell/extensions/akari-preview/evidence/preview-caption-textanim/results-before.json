@@ -1,0 +1,1595 @@
+{
+  "phase": "before",
+  "status": "done",
+  "frame": {
+    "x": 296.78125,
+    "y": 16.00390625,
+    "w": 732.4375,
+    "h": 411.99609375
+  },
+  "captures": [
+    {
+      "id": "c-0001",
+      "name": "c-0001-in",
+      "phase": "in",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 0.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 588.6,
+          "y": 364.8,
+          "w": 148.7,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ふわっと上へ"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0001",
+      "name": "c-0001-loop",
+      "phase": "loop",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 1.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 588.6,
+          "y": 364.8,
+          "w": 148.7,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ふわっと上へ"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0001",
+      "name": "c-0001-out",
+      "phase": "out",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 2.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 588.6,
+          "y": 364.8,
+          "w": 148.7,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ふわっと上へ"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002-in",
+      "phase": "in",
+      "anim": "pop",
+      "loop": "breath",
+      "t": 4.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "ポンと出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002-loop",
+      "phase": "loop",
+      "anim": "pop",
+      "loop": "breath",
+      "t": 5.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "ポンと出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002-out",
+      "phase": "out",
+      "anim": "pop",
+      "loop": "breath",
+      "t": 6.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "ポンと出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0003",
+      "name": "c-0003-in",
+      "phase": "in",
+      "anim": "typewriter",
+      "loop": "wobble",
+      "t": 8.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "タイプ印字です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0003",
+      "name": "c-0003-loop",
+      "phase": "loop",
+      "anim": "typewriter",
+      "loop": "wobble",
+      "t": 9.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "タイプ印字です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0003",
+      "name": "c-0003-out",
+      "phase": "out",
+      "anim": "typewriter",
+      "loop": "wobble",
+      "t": 10.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "タイプ印字です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-in",
+      "phase": "in",
+      "anim": "slide-left",
+      "loop": "float",
+      "t": 12.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "横から入る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-loop",
+      "phase": "loop",
+      "anim": "slide-left",
+      "loop": "float",
+      "t": 13.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "横から入る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-out",
+      "phase": "out",
+      "anim": "slide-left",
+      "loop": "float",
+      "t": 14.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "横から入る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005-in",
+      "phase": "in",
+      "anim": "zoom-pop",
+      "loop": "hologram",
+      "t": 16.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 589,
+          "y": 364.8,
+          "w": 148.1,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.9977722167969,
+          "y": 381.9857177734375
+        },
+        "text": "ズームで弾む"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005-loop",
+      "phase": "loop",
+      "anim": "zoom-pop",
+      "loop": "hologram",
+      "t": 17.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 589,
+          "y": 364.8,
+          "w": 148.1,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.9977722167969,
+          "y": 381.9857177734375
+        },
+        "text": "ズームで弾む"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005-out",
+      "phase": "out",
+      "anim": "zoom-pop",
+      "loop": "hologram",
+      "t": 18.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 589,
+          "y": 364.8,
+          "w": 148.1,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.9977722167969,
+          "y": 381.9857177734375
+        },
+        "text": "ズームで弾む"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0006",
+      "name": "c-0006-in",
+      "phase": "in",
+      "anim": "bounce",
+      "loop": "wobble",
+      "t": 20.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "跳ねて出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0006",
+      "name": "c-0006-loop",
+      "phase": "loop",
+      "anim": "bounce",
+      "loop": "wobble",
+      "t": 21.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "跳ねて出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0006",
+      "name": "c-0006-out",
+      "phase": "out",
+      "anim": "bounce",
+      "loop": "wobble",
+      "t": 22.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857177734375
+        },
+        "text": "跳ねて出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0007",
+      "name": "c-0007-in",
+      "phase": "in",
+      "anim": "spin-in",
+      "loop": "float",
+      "t": 24.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 588.9,
+          "y": 364.8,
+          "w": 148.3,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 381.9857177734375
+        },
+        "text": "くるっと回る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0007",
+      "name": "c-0007-loop",
+      "phase": "loop",
+      "anim": "spin-in",
+      "loop": "float",
+      "t": 25.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 588.9,
+          "y": 364.8,
+          "w": 148.3,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 381.9857177734375
+        },
+        "text": "くるっと回る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0007",
+      "name": "c-0007-out",
+      "phase": "out",
+      "anim": "spin-in",
+      "loop": "float",
+      "t": 26.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 588.9,
+          "y": 364.8,
+          "w": 148.3,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 381.9857177734375
+        },
+        "text": "くるっと回る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0008",
+      "name": "c-0008-in",
+      "phase": "in",
+      "anim": "rotate-in",
+      "loop": "breath",
+      "t": 28.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 578.3,
+          "y": 364.8,
+          "w": 169.4,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 381.9857177734375
+        },
+        "text": "少し回って出る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0008",
+      "name": "c-0008-loop",
+      "phase": "loop",
+      "anim": "rotate-in",
+      "loop": "breath",
+      "t": 29.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 578.3,
+          "y": 364.8,
+          "w": 169.4,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 381.9857177734375
+        },
+        "text": "少し回って出る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0008",
+      "name": "c-0008-out",
+      "phase": "out",
+      "anim": "rotate-in",
+      "loop": "breath",
+      "t": 30.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 578.3,
+          "y": 364.8,
+          "w": 169.4,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 381.9857177734375
+        },
+        "text": "少し回って出る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0009",
+      "name": "c-0009-in",
+      "phase": "in",
+      "anim": "wipe-left",
+      "loop": "float",
+      "t": 32.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ワイプで出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0009",
+      "name": "c-0009-loop",
+      "phase": "loop",
+      "anim": "wipe-left",
+      "loop": "float",
+      "t": 33.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ワイプで出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0009",
+      "name": "c-0009-out",
+      "phase": "out",
+      "anim": "wipe-left",
+      "loop": "float",
+      "t": 34.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ワイプで出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0010",
+      "name": "c-0010-in",
+      "phase": "in",
+      "anim": "drop-in",
+      "loop": "float",
+      "t": 36.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "上から落ちる発見"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0010",
+      "name": "c-0010-loop",
+      "phase": "loop",
+      "anim": "drop-in",
+      "loop": "float",
+      "t": 37.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "上から落ちる発見"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0010",
+      "name": "c-0010-out",
+      "phase": "out",
+      "anim": "drop-in",
+      "loop": "float",
+      "t": 38.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "上から落ちる発見"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0011",
+      "name": "c-0011-in",
+      "phase": "in",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 40.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ここが一番の見所"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0011",
+      "name": "c-0011-loop",
+      "phase": "loop",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 41.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ここが一番の見所"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0011",
+      "name": "c-0011-out",
+      "phase": "out",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 42.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "ここが一番の見所"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0012",
+      "name": "c-0012-in",
+      "phase": "in",
+      "anim": null,
+      "loop": null,
+      "t": 44.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "動かない字幕です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0012",
+      "name": "c-0012-loop",
+      "phase": "loop",
+      "anim": null,
+      "loop": null,
+      "t": 45.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "動かない字幕です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0012",
+      "name": "c-0012-out",
+      "phase": "out",
+      "anim": null,
+      "loop": null,
+      "t": 46.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "動かない字幕です"
+      },
+      "stableBetweenSeeks": true
+    }
+  ],
+  "playback": {
+    "sampleCount": 159,
+    "distinctOpacity": 1,
+    "distinctTransform": 1,
+    "samples": [
+      {
+        "now": 238187,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238286,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238387,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238488,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238588,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238685,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238786,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238886,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 238987,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239084,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239186,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239286,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239386,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239486,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239585,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239686,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239784,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239886,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 239985,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240086,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240188,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240285,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240386,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240486,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240585,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240686,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      },
+      {
+        "now": 240788,
+        "opacity": "1",
+        "transform": "none",
+        "textanim": [],
+        "any": []
+      }
+    ],
+    "paused": {
+      "opacity": "1",
+      "transform": "none",
+      "clipPath": "none",
+      "textanim": []
+    },
+    "pausedLocalMs": null,
+    "frameStep": [
+      {
+        "step": 1,
+        "localMs": null,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        }
+      },
+      {
+        "step": 2,
+        "localMs": null,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        }
+      },
+      {
+        "step": 3,
+        "localMs": null,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        }
+      }
+    ]
+  },
+  "interaction": {
+    "id": "c-0002",
+    "t": 4.3,
+    "steps": [
+      {
+        "label": "シーク直後（未選択・登場の途中）",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        }
+      },
+      {
+        "label": "選択中",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        }
+      },
+      {
+        "label": "ドラッグ中（押したまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 617.8,
+          "y": 334.8,
+          "w": 170.5,
+          "h": 34.4
+        }
+      },
+      {
+        "label": "ドラッグ後（選択のまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 617.8,
+          "y": 334.8,
+          "w": 170.5,
+          "h": 34.4
+        }
+      },
+      {
+        "label": "拡縮つまみ操作中（押したまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "回転つまみ操作中（押したまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "つまみ操作後（選択のまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "選択を外した後",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "ダブルクリックの文字編集中",
+        "selected": true,
+        "editing": true,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "Escape で編集を抜けた後",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "選択を外した後（編集のあと）",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "同じ時刻へシークし直した姿（基準）",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      }
+    ]
+  },
+  "screenshots": [
+    "before-interaction-1-unselected.png",
+    "before-interaction-2-selected.png",
+    "before-interaction-3-deselected.png",
+    "before-interaction-4-editing.png"
+  ],
+  "pid": 23906,
+  "calibration": {
+    "sx": 1,
+    "sy": 1,
+    "dx": 57,
+    "dy": 39,
+    "iframe": {
+      "left": 57,
+      "top": 39,
+      "width": 1326,
+      "height": 501.890625
+    }
+  }
+}

@@ -1,0 +1,2508 @@
+{
+  "phase": "after",
+  "status": "done",
+  "frame": {
+    "x": 296.78125,
+    "y": 16.00390625,
+    "w": 450,
+    "h": 253.125
+  },
+  "captures": [
+    {
+      "id": "c-0001",
+      "name": "c-0001-in",
+      "phase": "in",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 0.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+        "clipPath": "none",
+        "animationName": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up",
+        "plateAnimation": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 588.6,
+          "y": 363,
+          "w": 148.7,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 380.19183349609375
+        },
+        "text": "ふわっと上へ"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0001",
+      "name": "c-0001-loop",
+      "phase": "loop",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 1.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.045)",
+        "clipPath": "none",
+        "animationName": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up",
+        "plateAnimation": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 588.6,
+          "y": 364.2,
+          "w": 148.7,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.3877868652344
+        },
+        "text": "ふわっと上へ"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0001",
+      "name": "c-0001-out",
+      "phase": "out",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 2.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, 7.19013)",
+        "clipPath": "none",
+        "animationName": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up",
+        "plateAnimation": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 588.6,
+          "y": 368.9,
+          "w": 148.7,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 386.10003662109375
+        },
+        "text": "ふわっと上へ"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002-in",
+      "phase": "in",
+      "anim": "pop",
+      "loop": "breath",
+      "t": 4.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.97",
+        "transform": "matrix(1.01125, 0, 0, 1.01125, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-pop, akari-anim-breath, akari-anim-pop",
+        "plateAnimation": "akari-anim-pop, akari-anim-breath, akari-anim-pop | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-pop",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-breath",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-pop",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 576.8,
+          "y": 364.6,
+          "w": 172.4,
+          "h": 34.7
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857482910156
+        },
+        "text": "ポンと出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002-loop",
+      "phase": "loop",
+      "anim": "pop",
+      "loop": "breath",
+      "t": 5.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.99",
+        "transform": "matrix(1.00375, 0, 0, 1.00375, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-pop, akari-anim-breath, akari-anim-pop",
+        "plateAnimation": "akari-anim-pop, akari-anim-breath, akari-anim-pop | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-pop",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-breath",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-pop",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.4,
+          "y": 364.7,
+          "w": 171.1,
+          "h": 34.5
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.98573303222656
+        },
+        "text": "ポンと出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002-out",
+      "phase": "out",
+      "anim": "pop",
+      "loop": "breath",
+      "t": 6.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.91914",
+        "transform": "matrix(1.12501, 0, 0, 1.12501, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-pop, akari-anim-breath, akari-anim-pop",
+        "plateAnimation": "akari-anim-pop, akari-anim-breath, akari-anim-pop | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-pop",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-breath",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-pop",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 567.1,
+          "y": 362.7,
+          "w": 191.8,
+          "h": 38.6
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.9857482910156
+        },
+        "text": "ポンと出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0003",
+      "name": "c-0003-in",
+      "phase": "in",
+      "anim": "typewriter",
+      "loop": "wobble",
+      "t": 8.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(0.999976, -0.00698126, 0.00698126, 0.999976, 0, 0)",
+        "clipPath": "inset(0px 31.5357% 0px 0px)",
+        "animationName": "akari-anim-typewriter, akari-anim-wobble, akari-anim-typewriter",
+        "plateAnimation": "akari-anim-typewriter, akari-anim-wobble, akari-anim-typewriter | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-typewriter",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wobble",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-typewriter",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.6,
+          "y": 364.2,
+          "w": 170.7,
+          "h": 35.5
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "タイプ印字です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0003",
+      "name": "c-0003-loop",
+      "phase": "loop",
+      "anim": "typewriter",
+      "loop": "wobble",
+      "t": 9.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(0.999781, -0.0209424, 0.0209424, 0.999781, 0, 0)",
+        "clipPath": "inset(0px 0% 0px 0px)",
+        "animationName": "akari-anim-typewriter, akari-anim-wobble, akari-anim-typewriter",
+        "plateAnimation": "akari-anim-typewriter, akari-anim-wobble, akari-anim-typewriter | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-typewriter",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wobble",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-typewriter",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.4,
+          "y": 363,
+          "w": 171.1,
+          "h": 37.9
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.98573303222656
+        },
+        "text": "タイプ印字です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0003",
+      "name": "c-0003-out",
+      "phase": "out",
+      "anim": "typewriter",
+      "loop": "wobble",
+      "t": 10.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(0.999976, 0.00698126, -0.00698126, 0.999976, 0, 0)",
+        "clipPath": "inset(0px 31.5357% 0px 0px)",
+        "animationName": "akari-anim-typewriter, akari-anim-wobble, akari-anim-typewriter",
+        "plateAnimation": "akari-anim-typewriter, akari-anim-wobble, akari-anim-typewriter | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-typewriter",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wobble",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-typewriter",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.6,
+          "y": 364.2,
+          "w": 170.7,
+          "h": 35.5
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "タイプ印字です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-in",
+      "phase": "in",
+      "anim": "slide-left",
+      "loop": "float",
+      "t": 12.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+        "clipPath": "none",
+        "animationName": "akari-anim-slide-left, akari-anim-float, akari-anim-slide-left",
+        "plateAnimation": "akari-anim-slide-left, akari-anim-float, akari-anim-slide-left | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-slide-left",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-slide-left",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.8,
+          "y": 363,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 380.19183349609375
+        },
+        "text": "横から入る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-loop",
+      "phase": "loop",
+      "anim": "slide-left",
+      "loop": "float",
+      "t": 13.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.045)",
+        "clipPath": "none",
+        "animationName": "akari-anim-slide-left, akari-anim-float, akari-anim-slide-left",
+        "plateAnimation": "akari-anim-slide-left, akari-anim-float, akari-anim-slide-left | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-slide-left",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-slide-left",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.8,
+          "y": 364.2,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 381.3877868652344
+        },
+        "text": "横から入る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-out",
+      "phase": "out",
+      "anim": "slide-left",
+      "loop": "float",
+      "t": 14.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 14.3803, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-slide-left, akari-anim-float, akari-anim-slide-left",
+        "plateAnimation": "akari-anim-slide-left, akari-anim-float, akari-anim-slide-left | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-slide-left",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-slide-left",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 586,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 671.2286071777344,
+          "y": 381.9857177734375
+        },
+        "text": "横から入る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005-in",
+      "phase": "in",
+      "anim": "zoom-pop",
+      "loop": "hologram",
+      "t": 16.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.84375",
+        "transform": "matrix(1, 0, 0, 1, 0.7125, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-zoom-pop, akari-anim-hologram, akari-anim-zoom-pop",
+        "plateAnimation": "akari-anim-zoom-pop, akari-anim-hologram, akari-anim-zoom-pop | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-zoom-pop",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-hologram",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-zoom-pop",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 589.4,
+          "y": 364.8,
+          "w": 148.1,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.4054870605469,
+          "y": 381.9857177734375
+        },
+        "text": "ズームで弾む"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005-loop",
+      "phase": "loop",
+      "anim": "zoom-pop",
+      "loop": "hologram",
+      "t": 17.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.984375",
+        "transform": "matrix(1, 0, 0, 1, -0.178125, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-zoom-pop, akari-anim-hologram, akari-anim-zoom-pop",
+        "plateAnimation": "akari-anim-zoom-pop, akari-anim-hologram, akari-anim-zoom-pop | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-zoom-pop",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-hologram",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-zoom-pop",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 588.9,
+          "y": 364.8,
+          "w": 148.1,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.8958740234375,
+          "y": 381.9857177734375
+        },
+        "text": "ズームで弾む"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005-out",
+      "phase": "out",
+      "anim": "zoom-pop",
+      "loop": "hologram",
+      "t": 18.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.881216",
+        "transform": "matrix(1.03448, 0, 0, 1.03448, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-zoom-pop, akari-anim-hologram, akari-anim-zoom-pop",
+        "plateAnimation": "akari-anim-zoom-pop, akari-anim-hologram, akari-anim-zoom-pop | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-zoom-pop",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-hologram",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-zoom-pop",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 586.4,
+          "y": 364.2,
+          "w": 153.2,
+          "h": 35.5
+        },
+        "grab": {
+          "x": 662.9976806640625,
+          "y": 381.98573303222656
+        },
+        "text": "ズームで弾む"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0006",
+      "name": "c-0006-in",
+      "phase": "in",
+      "anim": "bounce",
+      "loop": "wobble",
+      "t": 20.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.985804",
+        "transform": "matrix(0.999976, -0.00698126, 0.00698126, 0.999976, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-bounce, akari-anim-wobble, akari-anim-bounce",
+        "plateAnimation": "akari-anim-bounce, akari-anim-wobble, akari-anim-bounce | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-bounce",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wobble",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-bounce",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.6,
+          "y": 364.2,
+          "w": 170.7,
+          "h": 35.5
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "跳ねて出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0006",
+      "name": "c-0006-loop",
+      "phase": "loop",
+      "anim": "bounce",
+      "loop": "wobble",
+      "t": 21.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(0.999781, -0.0209424, 0.0209424, 0.999781, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-bounce, akari-anim-wobble, akari-anim-bounce",
+        "plateAnimation": "akari-anim-bounce, akari-anim-wobble, akari-anim-bounce | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-bounce",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wobble",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-bounce",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.4,
+          "y": 363,
+          "w": 171.1,
+          "h": 37.9
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.98573303222656
+        },
+        "text": "跳ねて出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0006",
+      "name": "c-0006-out",
+      "phase": "out",
+      "anim": "bounce",
+      "loop": "wobble",
+      "t": 22.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.985804",
+        "transform": "matrix(1, 0, 0, 1, 0, 7.59399)",
+        "clipPath": "none",
+        "animationName": "akari-anim-bounce, akari-anim-wobble, akari-anim-bounce",
+        "plateAnimation": "akari-anim-bounce, akari-anim-wobble, akari-anim-bounce | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-bounce",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wobble",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-bounce",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.8,
+          "y": 369.2,
+          "w": 170.5,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663.0000305175781,
+          "y": 386.3311462402344
+        },
+        "text": "跳ねて出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0007",
+      "name": "c-0007-in",
+      "phase": "in",
+      "anim": "spin-in",
+      "loop": "float",
+      "t": 24.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+        "clipPath": "none",
+        "animationName": "akari-anim-spin-in, akari-anim-float, akari-anim-spin-in",
+        "plateAnimation": "akari-anim-spin-in, akari-anim-float, akari-anim-spin-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-spin-in",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-spin-in",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 588.9,
+          "y": 363,
+          "w": 148.3,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 380.19183349609375
+        },
+        "text": "くるっと回る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0007",
+      "name": "c-0007-loop",
+      "phase": "loop",
+      "anim": "spin-in",
+      "loop": "float",
+      "t": 25.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.045)",
+        "clipPath": "none",
+        "animationName": "akari-anim-spin-in, akari-anim-float, akari-anim-spin-in",
+        "plateAnimation": "akari-anim-spin-in, akari-anim-float, akari-anim-spin-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-spin-in",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-spin-in",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 588.9,
+          "y": 364.2,
+          "w": 148.3,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 662.997802734375,
+          "y": 381.3877868652344
+        },
+        "text": "くるっと回る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0007",
+      "name": "c-0007-out",
+      "phase": "out",
+      "anim": "spin-in",
+      "loop": "float",
+      "t": 26.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(0.461665, -0.704536, 0.704536, 0.461665, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-spin-in, akari-anim-float, akari-anim-spin-in",
+        "plateAnimation": "akari-anim-spin-in, akari-anim-float, akari-anim-spin-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-spin-in",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-spin-in",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 616.7,
+          "y": 321.8,
+          "w": 92.7,
+          "h": 120.3
+        },
+        "grab": {
+          "x": 662.9989624023438,
+          "y": 381.9873046875
+        },
+        "text": "くるっと回る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0008",
+      "name": "c-0008-in",
+      "phase": "in",
+      "anim": "rotate-in",
+      "loop": "breath",
+      "t": 28.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.97",
+        "transform": "matrix(1.01125, 0, 0, 1.01125, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-rotate-in, akari-anim-breath, akari-anim-rotate-in",
+        "plateAnimation": "akari-anim-rotate-in, akari-anim-breath, akari-anim-rotate-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-rotate-in",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-breath",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-rotate-in",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 577.4,
+          "y": 364.6,
+          "w": 171.3,
+          "h": 34.7
+        },
+        "grab": {
+          "x": 662.9977416992188,
+          "y": 381.9857482910156
+        },
+        "text": "少し回って出る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0008",
+      "name": "c-0008-loop",
+      "phase": "loop",
+      "anim": "rotate-in",
+      "loop": "breath",
+      "t": 29.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.99",
+        "transform": "matrix(1.00375, 0, 0, 1.00375, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-rotate-in, akari-anim-breath, akari-anim-rotate-in",
+        "plateAnimation": "akari-anim-rotate-in, akari-anim-breath, akari-anim-rotate-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-rotate-in",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-breath",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-rotate-in",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 578,
+          "y": 364.7,
+          "w": 170,
+          "h": 34.5
+        },
+        "grab": {
+          "x": 662.9977722167969,
+          "y": 381.98573303222656
+        },
+        "text": "少し回って出る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0008",
+      "name": "c-0008-out",
+      "phase": "out",
+      "anim": "rotate-in",
+      "loop": "breath",
+      "t": 30.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(0.966353, -0.0639188, 0.0639188, 0.966353, 0, 0)",
+        "clipPath": "none",
+        "animationName": "akari-anim-rotate-in, akari-anim-breath, akari-anim-rotate-in",
+        "plateAnimation": "akari-anim-rotate-in, akari-anim-breath, akari-anim-rotate-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-rotate-in",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-breath",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-rotate-in",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 580.1,
+          "y": 360,
+          "w": 165.9,
+          "h": 44
+        },
+        "grab": {
+          "x": 662.9978637695312,
+          "y": 381.9858856201172
+        },
+        "text": "少し回って出る"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0009",
+      "name": "c-0009-in",
+      "phase": "in",
+      "anim": "wipe-left",
+      "loop": "float",
+      "t": 32.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+        "clipPath": "inset(0px 0px 0px 31.5357%)",
+        "animationName": "akari-anim-wipe-left, akari-anim-float, akari-anim-wipe-left",
+        "plateAnimation": "akari-anim-wipe-left, akari-anim-float, akari-anim-wipe-left | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-wipe-left",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wipe-left",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 363,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 380.19183349609375
+        },
+        "text": "ワイプで出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0009",
+      "name": "c-0009-loop",
+      "phase": "loop",
+      "anim": "wipe-left",
+      "loop": "float",
+      "t": 33.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.045)",
+        "clipPath": "inset(0px 0px 0px 0%)",
+        "animationName": "akari-anim-wipe-left, akari-anim-float, akari-anim-wipe-left",
+        "plateAnimation": "akari-anim-wipe-left, akari-anim-float, akari-anim-wipe-left | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-wipe-left",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wipe-left",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 364.2,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.3877868652344
+        },
+        "text": "ワイプで出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0009",
+      "name": "c-0009-out",
+      "phase": "out",
+      "anim": "wipe-left",
+      "loop": "float",
+      "t": 34.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -5.225)",
+        "clipPath": "inset(0px 0px 0px 31.5357%)",
+        "animationName": "akari-anim-wipe-left, akari-anim-float, akari-anim-wipe-left",
+        "plateAnimation": "akari-anim-wipe-left, akari-anim-float, akari-anim-wipe-left | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-wipe-left",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-wipe-left",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 361.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 378.99591064453125
+        },
+        "text": "ワイプで出る字幕"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0010",
+      "name": "c-0010-in",
+      "phase": "in",
+      "anim": "drop-in",
+      "loop": "float",
+      "t": 36.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.881216",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+        "clipPath": "none",
+        "animationName": "akari-anim-drop-in, akari-anim-float, akari-anim-drop-in",
+        "plateAnimation": "akari-anim-drop-in, akari-anim-float, akari-anim-drop-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-drop-in",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-drop-in",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 363,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 380.19183349609375
+        },
+        "text": "上から落ちる発見"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0010",
+      "name": "c-0010-loop",
+      "phase": "loop",
+      "anim": "drop-in",
+      "loop": "float",
+      "t": 37.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.045)",
+        "clipPath": "none",
+        "animationName": "akari-anim-drop-in, akari-anim-float, akari-anim-drop-in",
+        "plateAnimation": "akari-anim-drop-in, akari-anim-float, akari-anim-drop-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-drop-in",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-drop-in",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 364.2,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.3877868652344
+        },
+        "text": "上から落ちる発見"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0010",
+      "name": "c-0010-out",
+      "phase": "out",
+      "anim": "drop-in",
+      "loop": "float",
+      "t": 38.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.881216",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.20371)",
+        "clipPath": "none",
+        "animationName": "akari-anim-drop-in, akari-anim-float, akari-anim-drop-in",
+        "plateAnimation": "akari-anim-drop-in, akari-anim-float, akari-anim-drop-in | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-drop-in",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-drop-in",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          },
+          {
+            "name": "akari-emphasis-one-char-bang",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__emphasis-char"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 363,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 380.1524963378906
+        },
+        "text": "上から落ちる発見"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0011",
+      "name": "c-0011-in",
+      "phase": "in",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 40.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, -3.135)",
+        "clipPath": "none",
+        "animationName": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up",
+        "plateAnimation": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 300,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 363,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 380.19183349609375
+        },
+        "text": "ここが一番の見所"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0011",
+      "name": "c-0011-loop",
+      "phase": "loop",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 41.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "matrix(1, 0, 0, 1, 0, -1.045)",
+        "clipPath": "none",
+        "animationName": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up",
+        "plateAnimation": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 1500,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 364.2,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.3877868652344
+        },
+        "text": "ここが一番の見所"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0011",
+      "name": "c-0011-out",
+      "phase": "out",
+      "anim": "fade-up",
+      "loop": "float",
+      "t": 42.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "0.684643",
+        "transform": "matrix(1, 0, 0, 1, 0, 7.19013)",
+        "clipPath": "none",
+        "animationName": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up",
+        "plateAnimation": "akari-anim-fade-up, akari-anim-float, akari-anim-fade-up | 0.6s, 1.6s, 0.6s | 0s, 0s, 2.4s | paused, paused, paused",
+        "anims": [
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-float",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          },
+          {
+            "name": "akari-anim-fade-up",
+            "ct": 2700,
+            "ps": "paused",
+            "target": "akari-caption__plate"
+          }
+        ],
+        "box": {
+          "x": 566.9,
+          "y": 368.9,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 386.10003662109375
+        },
+        "text": "ここが一番の見所"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0012",
+      "name": "c-0012-in",
+      "phase": "in",
+      "anim": null,
+      "loop": null,
+      "t": 44.3,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "動かない字幕です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0012",
+      "name": "c-0012-loop",
+      "phase": "loop",
+      "anim": null,
+      "loop": null,
+      "t": 45.5,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "動かない字幕です"
+      },
+      "stableBetweenSeeks": true
+    },
+    {
+      "id": "c-0012",
+      "name": "c-0012-out",
+      "phase": "out",
+      "anim": null,
+      "loop": null,
+      "t": 46.7,
+      "state": {
+        "selected": false,
+        "editing": false,
+        "opacity": "1",
+        "transform": "none",
+        "clipPath": "none",
+        "animationName": "none",
+        "plateAnimation": null,
+        "anims": [],
+        "box": {
+          "x": 566.9,
+          "y": 364.8,
+          "w": 192.2,
+          "h": 34.4
+        },
+        "grab": {
+          "x": 663,
+          "y": 381.9857177734375
+        },
+        "text": "動かない字幕です"
+      },
+      "stableBetweenSeeks": true
+    }
+  ],
+  "playback": {
+    "sampleCount": 156,
+    "distinctOpacity": 1,
+    "distinctTransform": 1,
+    "samples": [
+      {
+        "now": 250404,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 250503,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 250604,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 250704,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 250804,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 250904,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251003,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251105,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251203,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251304,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251403,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251504,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251603,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251703,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251803,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 251904,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252003,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252104,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252203,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252304,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252403,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252503,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252603,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252703,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252803,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      },
+      {
+        "now": 252903,
+        "opacity": "0",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "textanim": [
+          "akari-anim-fade-up@0/paused",
+          "akari-anim-float@0/paused",
+          "akari-anim-fade-up@0/paused"
+        ],
+        "any": [
+          "akari-anim-fade-up@0",
+          "akari-anim-float@0",
+          "akari-anim-fade-up@0"
+        ]
+      }
+    ],
+    "paused": {
+      "opacity": "0",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "clipPath": "none",
+      "textanim": [
+        "akari-anim-fade-up@0",
+        "akari-anim-float@0",
+        "akari-anim-fade-up@0"
+      ]
+    },
+    "pausedLocalMs": 0,
+    "reseek": {
+      "opacity": "0",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "clipPath": "none",
+      "textanim": [
+        "akari-anim-fade-up@0",
+        "akari-anim-float@0",
+        "akari-anim-fade-up@0"
+      ]
+    },
+    "pausedEqualsSeek": true,
+    "frameStep": [
+      {
+        "step": 1,
+        "localMs": 200,
+        "pose": {
+          "opacity": "0.488349",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.09)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@200",
+            "akari-anim-float@200",
+            "akari-anim-fade-up@200"
+          ]
+        },
+        "seekPose": {
+          "opacity": "0.488349",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.09)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@200",
+            "akari-anim-float@200",
+            "akari-anim-fade-up@200"
+          ]
+        },
+        "equal": true
+      },
+      {
+        "step": 2,
+        "localMs": 200,
+        "pose": {
+          "opacity": "0.488349",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.09)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@200",
+            "akari-anim-float@200",
+            "akari-anim-fade-up@200"
+          ]
+        },
+        "seekPose": {
+          "opacity": "0.488349",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.09)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@200",
+            "akari-anim-float@200",
+            "akari-anim-fade-up@200"
+          ]
+        },
+        "equal": true
+      },
+      {
+        "step": 3,
+        "localMs": 200,
+        "pose": {
+          "opacity": "0.488349",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.09)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@200",
+            "akari-anim-float@200",
+            "akari-anim-fade-up@200"
+          ]
+        },
+        "seekPose": {
+          "opacity": "0.488349",
+          "transform": "matrix(1, 0, 0, 1, 0, -2.09)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-fade-up@200",
+            "akari-anim-float@200",
+            "akari-anim-fade-up@200"
+          ]
+        },
+        "equal": true
+      }
+    ]
+  },
+  "interaction": {
+    "id": "c-0002",
+    "t": 4.3,
+    "steps": [
+      {
+        "label": "シーク直後（未選択・登場の途中）",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "0.97",
+          "transform": "matrix(1.01125, 0, 0, 1.01125, 0, 0)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-pop@300",
+            "akari-anim-breath@300",
+            "akari-anim-pop@300"
+          ]
+        },
+        "box": {
+          "x": 576.8,
+          "y": 364.6,
+          "w": 172.4,
+          "h": 34.7
+        }
+      },
+      {
+        "label": "選択中",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-pop@300",
+            "akari-anim-breath@300",
+            "akari-anim-pop@300"
+          ]
+        },
+        "box": {
+          "x": 577.8,
+          "y": 364.8,
+          "w": 170.5,
+          "h": 34.4
+        }
+      },
+      {
+        "label": "ドラッグ中（押したまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-pop@300",
+            "akari-anim-breath@300",
+            "akari-anim-pop@300"
+          ]
+        },
+        "box": {
+          "x": 617.8,
+          "y": 334.8,
+          "w": 170.5,
+          "h": 34.4
+        }
+      },
+      {
+        "label": "ドラッグ後（選択のまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 617.7,
+          "y": 334.8,
+          "w": 170.5,
+          "h": 34.4
+        }
+      },
+      {
+        "label": "拡縮つまみ操作中（押したまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "回転つまみ操作中（押したまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "つまみ操作後（選択のまま）",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "選択を外した後",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "0.97",
+          "transform": "matrix(1.01125, 0, 0, 1.01125, 0, 0)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-pop@300",
+            "akari-anim-breath@300",
+            "akari-anim-pop@300"
+          ]
+        },
+        "box": {
+          "x": 585.3,
+          "y": 328.3,
+          "w": 235.3,
+          "h": 47.4
+        }
+      },
+      {
+        "label": "ダブルクリックの文字編集中",
+        "selected": true,
+        "editing": true,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-pop@300",
+            "akari-anim-breath@300",
+            "akari-anim-pop@300"
+          ]
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "Escape で編集を抜けた後",
+        "selected": true,
+        "editing": false,
+        "pose": {
+          "opacity": "1",
+          "transform": "none",
+          "clipPath": "none",
+          "textanim": []
+        },
+        "box": {
+          "x": 586.6,
+          "y": 328.5,
+          "w": 232.7,
+          "h": 46.9
+        }
+      },
+      {
+        "label": "選択を外した後（編集のあと）",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "0.97",
+          "transform": "matrix(1.01125, 0, 0, 1.01125, 0, 0)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-pop@300",
+            "akari-anim-breath@300",
+            "akari-anim-pop@300"
+          ]
+        },
+        "box": {
+          "x": 585.3,
+          "y": 328.3,
+          "w": 235.3,
+          "h": 47.4
+        }
+      },
+      {
+        "label": "同じ時刻へシークし直した姿（基準）",
+        "selected": false,
+        "editing": false,
+        "pose": {
+          "opacity": "0.97",
+          "transform": "matrix(1.01125, 0, 0, 1.01125, 0, 0)",
+          "clipPath": "none",
+          "textanim": [
+            "akari-anim-pop@300",
+            "akari-anim-breath@300",
+            "akari-anim-pop@300"
+          ]
+        },
+        "box": {
+          "x": 585.3,
+          "y": 328.3,
+          "w": 235.3,
+          "h": 47.4
+        }
+      }
+    ]
+  },
+  "screenshots": [
+    "after-interaction-1-unselected.png",
+    "after-interaction-2-selected.png",
+    "after-interaction-3-deselected.png",
+    "after-interaction-4-editing.png"
+  ],
+  "pid": 43657,
+  "calibration": {
+    "sx": 1,
+    "sy": 1,
+    "dx": 57,
+    "dy": 39,
+    "iframe": {
+      "left": 57,
+      "top": 39,
+      "width": 1326,
+      "height": 501.890625
+    }
+  }
+}
