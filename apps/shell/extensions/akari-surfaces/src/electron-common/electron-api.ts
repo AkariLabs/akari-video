@@ -62,6 +62,11 @@ export class UpdaterRequestTracker {
 
 export type { ShellUpdaterEvent } from '../common/shell-update-applier';
 
+export interface ShellUpdaterCheckRequest {
+    userInitiated: true;
+    channel?: 'stable' | 'prerelease';
+}
+
 export interface ElectronAkariUpdaterApi {
     /** main プロセスが直近に観測したイベント。ホーム widget が後から生成された場合の初期同期用（無ければ undefined）。 */
     getLastEvent(): Promise<ShellUpdaterEvent | undefined>;
@@ -69,8 +74,8 @@ export interface ElectronAkariUpdaterApi {
     onEvent(listener: (event: ShellUpdaterEvent) => void): () => void;
     /** 「今すぐ再起動して適用」ボタン: electron-updater の quitAndInstall を main プロセスへ委ねる。 */
     restartAndInstall(): Promise<void>;
-    /** 「更新する」ボタン: electron-updater のチェック（→ autoDownload で自動 DL）を即時発火する。結果はイベント購読側に流れる。 */
-    checkForUpdatesNow(): Promise<void>;
+    /** 「更新する」ボタン: 通知に表示した channel を手動確認に使う。自動チェックの設定は変更しない。結果はイベント購読側に流れる。 */
+    checkForUpdatesNow(request?: ShellUpdaterCheckRequest): Promise<void>;
 }
 
 declare global {

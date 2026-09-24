@@ -40,6 +40,7 @@ import {
     UpdateStatus,
     evaluateUpdateStatus,
     parseUpdateCache,
+    resolveUpdateDownloadUrl,
     withDismissedVersion
 } from '../common/update-feed';
 import {
@@ -48,6 +49,7 @@ import {
     beginUserInitiatedUpdaterCheck,
     checkForShellUpdatesOnHomeShow,
     INITIAL_SHELL_UPDATER_UI_STATE,
+    reconcileVisibleUpdateEvent,
     resolveUpdateButtonAction,
     shouldOpenUpdaterBrowserFallback,
     ShellUpdaterUiState
@@ -462,6 +464,7 @@ export class AkariHomeWidget extends ReactWidget {
         // 同期メソッド（内部の IPC 呼び出しは fire-and-forget）— 起動をブロックしない。
         // 未署名の開発ビルド（`window.electronAkariUpdater` 不在）では何もせず沈黙する。
         this.updateToast.onDownload = this.downloadUpdate;
+        this.updateToast.onOpenBrowser = () => this.openUpdateDownloadInBrowser();
         this.updateToast.onRestart = this.restartAndApplyUpdate;
         this.updateToast.onDismiss = () => void this.dismissUpdate();
         this.initUpdaterEvents();
@@ -1712,8 +1715,13 @@ export class AkariHomeWidget extends ReactWidget {
         const action = resolveUpdateButtonAction(this.updaterUiState, api !== undefined);
         if (action === 'check' && api) {
             this.updaterUiState = beginUserInitiatedUpdaterCheck(this.updaterUiState);
+            this.syncUpdateToast();
             this.update();
-            void api.checkForUpdatesNow().catch(() => {
+            const channel = this.updateStatus.channel ?? this.updateRawCache?.feed?.channel;
+            void api.checkForUpdatesNow({
+                userInitiated: true,
+                channel: channel === 'stable' || channel === 'prerelease' ? channel : undefined
+            }).catch(() => {
                 this.applyUpdaterEvent({ kind: 'error', reason: '更新処理を開始できませんでした' });
             });
             return;
@@ -1723,6 +1731,7 @@ export class AkariHomeWidget extends ReactWidget {
                 this.updaterUiState,
                 'アプリ内更新機能を利用できませんでした'
             );
+            this.syncUpdateToast();
             this.update();
             this.openUpdateDownloadInBrowser();
         }
@@ -1737,8 +1746,9 @@ export class AkariHomeWidget extends ReactWidget {
      * バイナリ配布物のダウンロードが実ブラウザのダウンロードマネージャを経由しない。
      */
     protected openUpdateDownloadInBrowser(): void {
-        if (this.updateStatus.downloadUrl) {
-            this.windowService.openNewWindow(this.updateStatus.downloadUrl, { external: true });
+        const url = this.updateStatus.downloadUrl ?? resolveUpdateDownloadUrl(this.updateRawCache?.feed, this.resolveShellPlatformKey());
+        if (url) {
+            this.windowService.openNewWindow(url, { external: true });
         }
     }
 
@@ -1778,8 +1788,9 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     protected applyUpdaterEvent(event: ShellUpdaterEvent): void {
-        const shouldOpenFallback = shouldOpenUpdaterBrowserFallback(this.updaterUiState, event);
-        this.updaterUiState = applyShellUpdaterEvent(this.updaterUiState, event);
+        const resolvedEvent = reconcileVisibleUpdateEvent(this.updaterUiState, event, this.updateStatus.latestVersion);
+        const shouldOpenFallback = shouldOpenUpdaterBrowserFallback(this.updaterUiState, resolvedEvent);
+        this.updaterUiState = applyShellUpdaterEvent(this.updaterUiState, resolvedEvent);
         this.syncUpdateToast();
         if (shouldOpenFallback) {
             // ユーザーが明示的に「更新する」を押した再試行の失敗だけ、理由を表示して
@@ -1805,8 +1816,12 @@ export class AkariHomeWidget extends ReactWidget {
         const notesUrl = this.updateStatus.notesUrl ?? this.updateRawCache?.feed?.notes_url;
         this.updateToast.setState(stage && version ? {
             stage, version, notesUrl,
+            channel: this.updateStatus.channel ?? this.updateRawCache?.feed?.channel,
             summary: this.updateStatus.summary,
-            sizeLabel: this.updateStatus.sizeLabel
+            sizeLabel: this.updateStatus.sizeLabel,
+            checking: !!this.updaterUiState.checkRequestedByUser,
+            fallbackReason: this.updaterUiState.fallbackReason,
+            downloadUrl: this.updateStatus.downloadUrl ?? resolveUpdateDownloadUrl(this.updateRawCache?.feed, this.resolveShellPlatformKey())
         } : undefined, { dismissed: this.updateStatus.dismissed });
     }
 

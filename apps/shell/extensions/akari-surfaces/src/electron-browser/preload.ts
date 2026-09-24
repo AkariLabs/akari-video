@@ -5,6 +5,7 @@ import {
     CHANNEL_UPDATER_GET_STATE,
     CHANNEL_UPDATER_RESTART,
     ElectronAkariUpdaterApi,
+    ShellUpdaterCheckRequest,
     ShellUpdaterEvent
 } from '../electron-common/electron-api';
 
@@ -16,7 +17,7 @@ const api: ElectronAkariUpdaterApi = {
         return () => ipcRenderer.removeListener(CHANNEL_UPDATER_EVENT, handler);
     },
     restartAndInstall: (): Promise<void> => ipcRenderer.invoke(CHANNEL_UPDATER_RESTART),
-    checkForUpdatesNow: (): Promise<void> => ipcRenderer.invoke(CHANNEL_UPDATER_CHECK)
+    checkForUpdatesNow: (request?: ShellUpdaterCheckRequest): Promise<void> => ipcRenderer.invoke(CHANNEL_UPDATER_CHECK, request)
 };
 
 export function preload(): void {

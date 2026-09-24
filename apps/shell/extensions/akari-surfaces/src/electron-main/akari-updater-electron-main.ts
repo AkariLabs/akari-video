@@ -10,6 +10,7 @@ import {
     FALLBACK_APP_UPDATE_YML_FILENAME,
     FALLBACK_FEED_OPTIONS,
     isAppTranslocationPath,
+    resolveUpdaterCheckChannel,
     resolveUpdateChannel,
     resolveShellUpdaterErrorReason,
     ShellUpdaterEvent,
@@ -58,9 +59,10 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
             // IPC ハンドラを待たせても意味がなく、終了自体が「結果」になる）。
             autoUpdater.quitAndInstall();
         });
-        ipcMain.handle(CHANNEL_UPDATER_CHECK, async (): Promise<void> => {
+        ipcMain.handle(CHANNEL_UPDATER_CHECK, async (_event, request: unknown): Promise<void> => {
             // 結果はイベント（CHANNEL_UPDATER_EVENT）でレンダラーへ流れるため await しない。
-            this.safeCheck(true);
+            const candidate = request && typeof request === 'object' ? request as { userInitiated?: unknown; channel?: unknown } : undefined;
+            this.safeCheck(candidate?.userInitiated === true, candidate?.channel);
         });
 
         try {
@@ -151,17 +153,27 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         }
     }
 
-    protected safeCheck(manual = false): void {
-        if (this.activeDownload) { return; }
+    protected safeCheck(manual = false, offeredChannel?: unknown): void {
+        if (this.activeDownload) {
+            if (manual) { this.emit({ kind: 'update-available', version: this.activeDownload.version }); }
+            return;
+        }
         const settings = this.readUpdateSettings();
-        autoUpdater.allowPrerelease = settings.channel === 'prerelease';
+        const channel = resolveUpdaterCheckChannel(settings.channel, manual, offeredChannel);
+        autoUpdater.allowPrerelease = channel === 'prerelease';
         if (!manual && !settings.autoCheck) { return; }
         if (isAppTranslocationPath(process.execPath)) {
             this.recordUpdaterError('App Translocation を検知しました', new Error('App Translocation'));
             return;
         }
+        if (manual) { this.appendUpdaterLog('手動更新確認', `channel=${channel}`); }
         const startedAt = Date.now();
         autoUpdater.checkForUpdates().then(result => {
+            if (manual) { this.appendUpdaterLog('手動更新結果', `available=${!!result?.isUpdateAvailable} version=${result?.updateInfo?.version ?? 'unknown'}`); }
+            if (manual && !result) {
+                this.recordUpdaterError('手動更新を開始できませんでした', new Error('このビルドではアプリ内更新を利用できません'));
+                return;
+            }
             if (!this.activeDownload && result?.isUpdateAvailable && result.cancellationToken && result.downloadPromise) {
                 this.watchDownload(result, startedAt);
             }

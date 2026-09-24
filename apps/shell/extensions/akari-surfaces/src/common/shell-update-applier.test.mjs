@@ -20,8 +20,10 @@ import {
     FALLBACK_UPDATER_CACHE_DIR_NAME,
     INITIAL_SHELL_UPDATER_UI_STATE,
     isAppTranslocationPath,
+    reconcileVisibleUpdateEvent,
     resolveAllowPrerelease,
     resolveShellUpdaterErrorReason,
+    resolveUpdaterCheckChannel,
     resolveUpdateButtonAction,
     resolveUpdateChannel,
     shouldApplyFeedUrlFallback,
@@ -145,6 +147,22 @@ test('failed 中の更新ボタンも API があればまず再試行し、明�
     assert.equal(shouldOpenUpdaterBrowserFallback(checking, error), true);
     const fallback = applyShellUpdaterEvent(checking, error);
     assert.equal(formatUpdaterFallbackText(fallback), 'アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: still offline）');
+});
+
+test('安定版設定でも、通知でプレリリースを明示ダウンロードしたときはその channel を確認する', () => {
+    assert.equal(resolveUpdaterCheckChannel('stable', false, 'prerelease'), 'stable');
+    assert.equal(resolveUpdaterCheckChannel('stable', true, 'prerelease'), 'prerelease');
+    assert.equal(resolveUpdaterCheckChannel('prerelease', true, 'stable'), 'stable');
+    assert.equal(resolveUpdaterCheckChannel('stable', true, 'invalid'), 'stable');
+});
+
+test('通知の新版を手動確認して更新なしなら無反応にせず、配布物への縮退を発火する', () => {
+    const checking = beginUserInitiatedUpdaterCheck(INITIAL_SHELL_UPDATER_UI_STATE);
+    const event = reconcileVisibleUpdateEvent(checking, { kind: 'update-not-available' }, '0.1.82');
+    assert.equal(event.kind, 'error');
+    assert.equal(shouldOpenUpdaterBrowserFallback(checking, event), true);
+    assert.match(formatUpdaterFallbackText(applyShellUpdaterEvent(checking, event)), /v0\.1\.82/);
+    assert.deepEqual(reconcileVisibleUpdateEvent(INITIAL_SHELL_UPDATER_UI_STATE, { kind: 'update-not-available' }, '0.1.82'), { kind: 'update-not-available' });
 });
 
 test('ホーム表示時の updater 再チェックは DL 済み状態による分岐を持たず、API を 1 回だけ発火する', async () => {

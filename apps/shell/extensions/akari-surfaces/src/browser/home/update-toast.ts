@@ -10,10 +10,14 @@ import { UPDATER_CANCEL_REQUEST_FILENAME } from '../../electron-common/electron-
 export interface UpdateToastState {
     stage: UpdateStage;
     version: string;
+    channel?: string;
     notesUrl?: string;
     summary?: string;
     sizeLabel?: string;
     progress?: number;
+    checking?: boolean;
+    fallbackReason?: string;
+    downloadUrl?: string;
 }
 
 /** Theia notification item cannot show the app icon or per-version dismissal. Keep this tiny view outside Home so tab changes do not hide it. */
@@ -29,6 +33,7 @@ export class AkariUpdateToast {
     @inject(FileService) protected readonly files!: FileService;
     @inject(EnvVariablesServer) protected readonly env!: EnvVariablesServer;
     onDownload: () => void = () => undefined;
+    onOpenBrowser: () => void = () => undefined;
     onRestart: () => void = () => undefined;
     onDismiss: () => void = () => undefined;
 
@@ -144,7 +149,7 @@ export class AkariUpdateToast {
             icon.src = AKARI_APP_ICON;
             icon.onerror = () => { const logo = this.element('strong', '', 'AKARI'); icon.replaceWith(logo); };
             icon.alt = 'AKARI Video';
-            head.append(icon, this.element('strong', 'akari-update-title', state.stage === 'ready' ? `v${state.version} の準備ができました` : state.stage === 'downloading' ? `v${state.version} をダウンロード中` : `新しい版があります — v${state.version}`));
+            head.append(icon, this.element('strong', 'akari-update-title', state.stage === 'ready' ? `v${state.version} の準備ができました` : state.stage === 'downloading' ? `v${state.version} をダウンロード中` : `新しい版${state.channel === 'prerelease' ? '（プレリリース）' : ''}があります — v${state.version}`));
             const close = this.button('×', () => { this.visible = false; this.onDismiss(); this.render(); });
             close.className = 'akari-update-close';
             close.setAttribute('aria-label', 'この版は出さない');
@@ -153,7 +158,11 @@ export class AkariUpdateToast {
             const copy = this.element('p', 'akari-update-copy');
             if (state.stage === 'found') {
                 const details = [state.summary, state.sizeLabel ? `約 ${state.sizeLabel}` : undefined].filter(Boolean);
-                copy.textContent = details.length ? details.join(' · ') : '新しい版をダウンロードできます。';
+                const reason = state.fallbackReason && state.fallbackReason.length > 180
+                    ? `${state.fallbackReason.slice(0, 180)}…` : state.fallbackReason;
+                copy.textContent = state.checking ? '更新を確認しています…' : reason
+                    ? `アプリ内更新を開始できませんでした（${reason}）。${state.downloadUrl ? 'ブラウザから取得できます。' : '配布先を確認してください。'}`
+                    : details.length ? details.join(' · ') : '新しい版をダウンロードできます。';
                 if (state.notesUrl && /^https?:\/\//i.test(state.notesUrl)) {
                     const link = this.element('a', '', '変更点');
                     link.href = state.notesUrl;
@@ -181,7 +190,18 @@ export class AkariUpdateToast {
             }
             toast.appendChild(copy);
             const actions = this.element('div', 'akari-update-actions');
-            if (state.stage === 'found') { actions.append(this.button('後で', () => this.later()), this.button('ダウンロード', () => this.onDownload(), true)); }
+            if (state.stage === 'found') {
+                actions.append(this.button('後で', () => this.later()));
+                if (state.checking) {
+                    const checking = this.button('確認中…', () => undefined, true);
+                    checking.disabled = true;
+                    actions.append(checking);
+                } else if (state.fallbackReason && state.downloadUrl) {
+                    actions.append(this.button('ブラウザでダウンロード', () => this.onOpenBrowser(), true));
+                } else {
+                    actions.append(this.button(state.fallbackReason ? '再試行' : 'ダウンロード', () => this.onDownload(), true));
+                }
+            }
             if (state.stage === 'downloading') { actions.append(this.button('やめる', () => { void this.cancelDownload().catch(error => console.error('[akari-surfaces] 更新の取消要求に失敗しました:', error)); })); }
             if (state.stage === 'ready') { actions.append(this.button('次に起動したとき', () => this.later()), this.button('更新して再起動', () => this.onRestart(), true)); }
             toast.appendChild(actions);

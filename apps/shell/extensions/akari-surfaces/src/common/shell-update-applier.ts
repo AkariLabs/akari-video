@@ -170,6 +170,27 @@ export function beginUserInitiatedUpdaterCheck(state: ShellUpdaterUiState): Shel
     return { downloaded: false, checkRequestedByUser: true };
 }
 
+/** 手動操作では通知に表示した版の channel を使う。自動チェックは利用者の設定を守る。 */
+export function resolveUpdaterCheckChannel(
+    preference: 'stable' | 'prerelease',
+    manual: boolean,
+    offeredChannel: unknown
+): 'stable' | 'prerelease' {
+    return manual && (offeredChannel === 'stable' || offeredChannel === 'prerelease') ? offeredChannel : preference;
+}
+
+/** 通知に新版があるのに updater が「更新なし」と返したら、手動 DL へ引き継ぐ。 */
+export function reconcileVisibleUpdateEvent(
+    state: ShellUpdaterUiState,
+    event: ShellUpdaterEvent,
+    offeredVersion: string | undefined
+): ShellUpdaterEvent {
+    if (event.kind === 'update-not-available' && state.checkRequestedByUser && offeredVersion) {
+        return { kind: 'error', reason: `通知に表示した v${offeredVersion} をアプリ内更新で見つけられませんでした` };
+    }
+    return event;
+}
+
 /** ホーム表示時の再チェック。DL 済み状態を含め UI 状態では抑止せず、失敗は沈黙する。 */
 export function checkForShellUpdatesOnHomeShow(
     api: Pick<{ checkForUpdatesNow(): Promise<void> }, 'checkForUpdatesNow'> | undefined
