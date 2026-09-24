@@ -146,10 +146,12 @@ export interface GenerationValidationResult {
 export interface WriteGenerationDraftRequest extends ValidateGenerationInputsRequest {
     projectRootUri: string;
     itemId: string;
+    fromImage?: string;
 }
 export interface StartGenerateVideoRequest {
     projectRootUri: string;
     itemId: string;
+    fromImage?: string;
     approved?: boolean;
 }
 export interface GenerationProcessRequest { projectRootUri: string; itemId: string; }

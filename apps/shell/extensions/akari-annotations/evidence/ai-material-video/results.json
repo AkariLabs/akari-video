@@ -1,0 +1,68 @@
+{
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "FAL_KEY removed before Electron launch",
+      "passed": true,
+      "observed": false
+    },
+    {
+      "name": "original image card remains",
+      "passed": true,
+      "observed": true
+    }
+  ],
+  "clicks": [
+    {
+      "name": "image card",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "video form",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "cost approval",
+      "attempt": 1,
+      "passed": false,
+      "error": "Error: Timed out: cost approval target"
+    },
+    {
+      "name": "cost approval",
+      "attempt": 2,
+      "passed": false,
+      "error": "Error: Timed out: cost approval target"
+    },
+    {
+      "name": "cost approval",
+      "attempt": 3,
+      "passed": false,
+      "error": "Error: Timed out: cost approval target"
+    }
+  ],
+  "screenshots": [
+    {
+      "filename": "01-image-video-tile.png",
+      "bytes": 124317
+    },
+    {
+      "filename": "02-image-video-form.png",
+      "bytes": 115945
+    }
+  ],
+  "fakeCli": {
+    "configured": true,
+    "falKeyPresent": false,
+    "invocations": 0
+  },
+  "measurements": {},
+  "fixture": {
+    "project": "<TEMP>/project",
+    "image": "assets/still.png",
+    "timeline": "assets/ordinary.mp4"
+  },
+  "error": "Error: Timed out: cost approval target",
+  "killedPid": 11641
+}

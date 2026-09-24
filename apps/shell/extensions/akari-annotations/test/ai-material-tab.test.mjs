@@ -60,9 +60,10 @@ for (const kind of ['audio', 'video']) {
   }));
 }
 
-test('画像素材はタイル 0 枚で案内 1 行、情報タブにパスと種類', () => withDom(() => {
+test('画像素材は動画にするタイルを表示し、情報タブにパスと種類', () => withDom(() => {
   const selection = materialSelectionFromDetail(detail('image', 'assets/still.png'));
-  assert.deepEqual(describeAiTiles(aiActionCatalog([]), 'material-image'), []);
+  assert.deepEqual(describeAiTiles(aiActionCatalog([{ id: 'video', kind: 'video' }]), 'material-image')
+    .flatMap(group => group.tiles.map(tile => [tile.label, tile.enabled])), [['動画にする', true]]);
   const root = new Node('div');
   let selectedTab;
   const options = { selection, tab: 'generation', view: 'tiles', summary: { state: 'none', segments: [], total: 0 },
@@ -70,7 +71,7 @@ test('画像素材はタイル 0 枚で案内 1 行、情報タブにパスと�
     onView: () => {}, onDialogResult: () => {} };
   appendAiMaterialView(root, options);
   assert.equal(all(root, byData('data-akari-inspector-ai-tile', 'transcribe')).length, 0);
-  assert.equal(all(root, byText('この素材で使える AI はまだありません')).length, 1);
+  assert.equal(all(root, byText('この素材で使える AI はまだありません')).length, 0);
   find(root, byData('data-akari-inspector-ai-tab', 'info')).click();
   assert.equal(selectedTab, 'info');
   const info = new Node('div');

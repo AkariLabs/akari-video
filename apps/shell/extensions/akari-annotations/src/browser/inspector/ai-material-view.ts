@@ -16,6 +16,8 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     commands: Pick<CommandService, 'executeCommand'>;
     onTab: (tab: 'generation' | 'info') => void;
     onView: (view: AiTabView) => void;
+    onVideoForm: (parent: HTMLElement) => void;
+    createdPath?: string;
     onDialogResult: (result: 'opened' | 'running' | 'cancelled') => void;
 }): void {
     const { selection } = options;
@@ -70,9 +72,20 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
         });
         return;
     }
+    if (options.view === 'video' && selection.mediaKind === 'image') {
+        appendAiBack(parent, '動画にする', () => options.onView('tiles'));
+        options.onVideoForm(parent);
+        if (options.createdPath) {
+            const message = document.createElement('p');
+            message.className = 'akari-inspector-ai-material-created';
+            message.textContent = `新しい素材 ${options.createdPath.split('/').pop()} を作りました（${options.createdPath}）`;
+            parent.appendChild(message);
+        }
+        return;
+    }
     const targetKind = `material-${selection.mediaKind}`;
     const groups = selection.mediaKind === 'other' ? [] : describeAiTiles(
-        aiActionCatalog([]), targetKind as 'material-audio' | 'material-video' | 'material-image'
+        aiActionCatalog(selection.mediaKind === 'image' ? [{ id: 'video', kind: 'video' }] : []), targetKind as 'material-audio' | 'material-video' | 'material-image'
     );
     if (!groups.length) {
         const empty = document.createElement('p');
@@ -81,6 +94,6 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
         parent.appendChild(empty);
         return;
     }
-    appendAiTiles(parent, groups, id => { if (id === 'transcribe') options.onView('transcribe'); },
+    appendAiTiles(parent, groups, id => { if (id === 'transcribe' || id === 'video') options.onView(id); },
         options.summary.state === 'done');
 }

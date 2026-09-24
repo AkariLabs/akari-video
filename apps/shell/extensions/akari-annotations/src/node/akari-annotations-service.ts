@@ -754,16 +754,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     async writeGenerationDraft(request: WriteGenerationDraftRequest): Promise<{ ok: true; path: string }> {
-        if (!request?.projectRootUri || !request?.itemId || !request?.modelId) {
+        if (!request?.projectRootUri || (!request?.itemId && !request?.fromImage) || !request?.modelId) {
             throw new Error('projectRootUri / itemId / modelId が必要です。');
         }
         const projectRoot = resolve(this.fsPath(request.projectRootUri));
         // Keep the item-id guard used by legacy drafts, but resolve the current source from edit.json.
-        generationDraftPath(projectRoot, request.itemId);
-        const edit = JSON.parse(await fs.readFile(join(projectRoot, 'edit.json'), 'utf8'));
-        const item = (edit.tracks ?? []).flatMap(track => track.items ?? [])
+        if (!request.fromImage) generationDraftPath(projectRoot, request.itemId);
+        const edit = request.fromImage ? null : JSON.parse(await fs.readFile(join(projectRoot, 'edit.json'), 'utf8'));
+        const item = (edit?.tracks ?? []).flatMap(track => track.items ?? [])
             .find(candidate => candidate.id === request.itemId);
-        const source = item?.source?.kind === 'media'
+        const source = request.fromImage ? { path: request.fromImage } : item?.source?.kind === 'media'
             ? (edit.sources ?? []).find(candidate => candidate.id === item.source.src) : undefined;
         if (!source?.path) throw new Error('生成対象の素材が見つかりません。');
         const path = resolve(projectRoot, `${source.path}.meta.json`);
@@ -771,7 +771,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             const rel = relative(root, target);
             return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
         };
-        if (!within(path, projectRoot)) throw new Error('素材はプロジェクト内で指定してください。');
+        if (!within(path, projectRoot) || (request.fromImage && (isAbsolute(request.fromImage)
+            || request.fromImage.split(/[\\/]/u).includes('..')))) throw new Error('素材はプロジェクト内で指定してください。');
         let original: string;
         let imported = false;
         try {
@@ -878,7 +879,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult> {
         if (request?.approved !== true) throw new Error('費用承認が必要です。');
         try {
-            return await this.generationCli.start(this.fsPath(request.projectRootUri), request.itemId);
+            return request.fromImage
+                ? await this.generationCli.startFromImage(this.fsPath(request.projectRootUri), request.fromImage)
+                : await this.generationCli.start(this.fsPath(request.projectRootUri), request.itemId);
         } catch (error) {
             return { ok: false, reason: error instanceof Error ? error.message : String(error), stdout: '' };
         }

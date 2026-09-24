@@ -29,10 +29,15 @@ export interface AiAction {
     reasonWhenDisabled: string;
     output: 'image' | 'video' | 'audio' | 'captions';
     placement: 'replace' | 'new-material' | 'captions' | 'new-clip';
+    placementFor?: Partial<Record<AiTargetKind, AiAction['placement']>>;
     routes: readonly AiRoute[];
 }
 export interface AiTile { id: string; label: string; image: AiImage; enabled: boolean; reason?: string; done?: boolean }
 export interface AiTileGroup { group: AiActionGroup; tiles: AiTile[] }
+
+export function aiActionPlacement(action: AiAction, target: AiTargetKind): AiAction['placement'] {
+    return action.placementFor?.[target] ?? action.placement;
+}
 
 /** Video routes use the generation model catalog; transcription delegates engine choice to the daihon dialog. */
 export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngines?: readonly NarrationEngine[]): AiAction[] {
@@ -46,9 +51,10 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
             { id: 'grok', label: 'Grok', kind: 'cli', cost: 'free' }]
     }, {
         id: 'video', group: 'make', label: '動画にする', image: 'video',
-        visibleFor: ['still', 'empty-frame', 'video', 'generated-video', 'gap'],
-        accepts: ['still', 'empty-frame', 'generated-video', 'gap'],
+        visibleFor: ['still', 'empty-frame', 'video', 'generated-video', 'gap', 'material-image'],
+        accepts: ['still', 'empty-frame', 'generated-video', 'gap', 'material-image'],
         reasonWhenDisabled: '静止画か空の枠で使えます', output: 'video', placement: 'replace',
+        placementFor: { 'material-image': 'new-material' },
         routes: models.filter(row => row.kind === 'video').map(row => ({
             id: row.id, label: row.family || row.id,
             kind: (row.provider ?? row.id.split(':')[0]) === 'fal' ? 'api'

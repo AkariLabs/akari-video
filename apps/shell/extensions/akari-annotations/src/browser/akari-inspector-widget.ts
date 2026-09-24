@@ -2628,6 +2628,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected transcribeDurationLookupKey?: string;
     protected materialSelection?: AkariMaterialSelection;
     protected materialTab: 'generation' | 'info' = 'generation';
+    protected readonly materialCreated = new Map<string, string>();
+    protected readonly materialGenerationStatus = new Map<string, { state: 'loading' | 'error'; reason?: string }>();
     protected audioPlanned = false;
     protected generationDefaultModel = 'fal:h3-i2v';
     protected readonly generationDrafts = new Map<string, GenerationDraft>();
@@ -3918,7 +3920,15 @@ export class AkariInspectorWidget extends BaseWidget {
         this.transcribeEngineLoading = false;
         this.transcribeMediaDuration = undefined;
         this.transcribeDurationLookupKey = undefined;
+        if (selection.mediaKind === 'image' && !this.generationDrafts?.has(`material:${selection.relativePath}`)) {
+            this.materialGenerationStatus?.set(`material:${selection.relativePath}`, { state: 'loading' });
+        }
         this.render();
+        if (selection.mediaKind === 'image') {
+            const identity = { key: `material:${selection.relativePath}`, itemId: `material:${selection.relativePath}`,
+                sourcePath: selection.relativePath, duration: 5 };
+            if (!this.generationLoads?.has(identity.key)) void this.loadGeneration?.(identity);
+        }
         if (selection.mediaKind !== 'audio' && selection.mediaKind !== 'video') return;
         void this.layerAudioService.readTranscriptSummary({
             projectRootUri: selection.projectRoot, relativePath: selection.relativePath
@@ -3943,6 +3953,21 @@ export class AkariInspectorWidget extends BaseWidget {
                 summary: this.transcribeSummary, running: this.transcribeRunning, commands: this.commandRegistry,
                 onTab: tab => { this.materialTab = tab; this.render(); },
                 onView: view => { this.aiView = view; this.transcribePolling = false; this.render(); },
+                createdPath: this.materialCreated?.get(materialSelection.relativePath),
+                onVideoForm: () => {
+                    const key = `material:${materialSelection.relativePath}`;
+                    const snapshot = { kind: 'cut', itemId: key, sourcePath: materialSelection.relativePath,
+                        outputStart: 0, outputEnd: this.generationDrafts.get(key)?.output.duration_s ?? 5 } as unknown as TimelineCutSelection;
+                    const fields = this.generationSectionFields(snapshot);
+                    if (fields) this.appendSection({ id: 'generation', label: '動画にする', fields }, snapshot, 'cut');
+                    else {
+                        const status = document.createElement('p');
+                        status.className = 'akari-inspector-ai-material-status';
+                        const state = this.materialGenerationStatus?.get(key);
+                        status.textContent = state?.state === 'error' ? state.reason ?? 'フォームを読み込めませんでした。' : '読み込み中';
+                        this.body.appendChild(status);
+                    }
+                },
                 onDialogResult: result => {
                     if (this.materialSelection !== materialSelection) return;
                     this.transcribeRunning = result === 'running';
@@ -5395,7 +5420,10 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             await this.workspaceService.ready;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (!root) return;
+            if (!root) {
+                if (identity.key.startsWith('material:')) throw new Error('プロジェクトが開かれていません。');
+                return;
+            }
             if (this.generationCatalog.length === 0) {
                 const [catalog, defaults] = await Promise.all([
                     this.layerAudioService.readGenerationCatalog(),
@@ -5411,7 +5439,7 @@ export class AkariInspectorWidget extends BaseWidget {
             const snapshot = this.model.snapshot;
             const selectedId = snapshot?.kind === 'cut' ? snapshot.itemId : snapshot?.kind === 'layer' ? snapshot.id : undefined;
             const selectedPath = snapshot?.kind === 'cut' ? snapshot.sourcePath : snapshot?.kind === 'layer' ? snapshot.src : undefined;
-            if (selectedId === identity.itemId && selectedPath !== identity.sourcePath) return;
+            if (!identity.key.startsWith('material:') && selectedId === identity.itemId && selectedPath !== identity.sourcePath) return;
             const normalize = (path: string): string => path.trim().replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
             const sourceMeta = sidecars.entries.find(entry => normalize(entry.sourcePath) === normalize(identity.sourcePath))?.meta;
             this.generationTabMeta.set(identity.key, sourceMeta ?? {});
@@ -5439,11 +5467,14 @@ export class AkariInspectorWidget extends BaseWidget {
                     if (parsed && typeof parsed === 'object' && typeof parsed.modelId === 'string') draft = parsed;
                 } catch { /* A missing legacy draft is the normal first-open state. */ }
             }
-            await this.loadGenerationNeighbors(identity);
+            if (!identity.key.startsWith('material:')) await this.loadGenerationNeighbors(identity);
             const model = this.generationCatalog.find(row => row.id === draft?.modelId)
                 ?? this.generationCatalog.find(row => row.id === this.generationDefaultModel)
                 ?? this.generationCatalog[0];
             if (!model) throw new Error('動画生成モデルがカタログにありません。');
+            if (identity.key.startsWith('material:') && Number(draft?.output.duration_s) > 0) {
+                identity.duration = Number(draft!.output.duration_s);
+            }
             if (!draft) draft = {
                 modelId: model.id,
                 inputs: {
@@ -5474,10 +5505,15 @@ export class AkariInspectorWidget extends BaseWidget {
             if (state === 'generating' && job?.started_at && Number.isFinite(job.stale_after_s)
                 && Date.now() > Date.parse(job.started_at) + Number(job.stale_after_s) * 1000) state = 'stale';
             this.generationStates.set(identity.key, state);
+            if (identity.key.startsWith('material:')) this.materialGenerationStatus.delete(identity.key);
         } catch (error) {
-            this.showFieldNotice(error instanceof Error ? error.message : String(error));
+            if (identity.key.startsWith('material:')) {
+                this.materialGenerationStatus.set(identity.key, { state: 'error', reason: error instanceof Error ? error.message : String(error) });
+                this.generationLoads.delete(identity.key);
+            } else this.showFieldNotice(error instanceof Error ? error.message : String(error));
         }
-        if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
+        if (this.generationIdentity(this.model.snapshot)?.key === identity.key
+            || (this.materialSelection?.mediaKind === 'image' && `material:${this.materialSelection.relativePath}` === identity.key)) this.render();
     }
 
     /** Follow placeholder provenance, never first_frame (which may be an unrelated reference). */
@@ -5796,13 +5832,15 @@ export class AkariInspectorWidget extends BaseWidget {
         const write = previous.catch(() => undefined).then(async () => {
             await this.layerAudioService.writeGenerationDraft({
                 projectRootUri: root.toString(), itemId: identity.itemId,
+                ...(identity.key.startsWith('material:') ? { fromImage: identity.sourcePath } : {}),
                 modelId: draft.modelId, inputs: draft.inputs, output: { ...draft.output, duration_s: identity.duration }
             });
             this.generationTabMeta.set(identity.key, { next: { status: 'planned' } });
         });
         this.generationWrites.set(identity.key, write);
         await write;
-        if (this.generationIdentity(this.model.snapshot)?.key === identity.key) this.render();
+        if (this.generationIdentity(this.model.snapshot)?.key === identity.key
+            || (this.materialSelection?.mediaKind === 'image' && `material:${this.materialSelection.relativePath}` === identity.key)) this.render();
     }
 
     protected async copyAdjacentGenerationDraft(identity: { key: string; itemId: string; sourcePath: string; duration: number; sourceId?: string }): Promise<InspectorWriteResult> {
@@ -5871,9 +5909,23 @@ export class AkariInspectorWidget extends BaseWidget {
             this.generationStates.set(identity.key, 'generating');
             this.render();
             void this.layerAudioService.startGenerateVideo({
-                projectRootUri: root.toString(), itemId: identity.itemId, approved: true
+                projectRootUri: root.toString(), itemId: identity.itemId, approved: true,
+                ...(identity.key.startsWith('material:') ? { fromImage: identity.sourcePath } : {})
             }).then(result => {
+                if (!result.ok && identity.key.startsWith('material:')) {
+                    this.generationStates.set(identity.key, 'failed');
+                    this.render();
+                    this.showFieldNotice(result.reason ?? '生成に失敗しました。');
+                    return;
+                }
                 if (!result.ok) this.showFieldNotice(result.reason ?? '生成に失敗しました。');
+                if (result.ok && identity.key.startsWith('material:')) {
+                    try { this.materialCreated.set(identity.sourcePath, JSON.parse(result.stdout.trim().split('\n').slice(-1)[0]).mp4); }
+                    catch { this.showFieldNotice('生成結果のパスを読み取れませんでした。'); }
+                    this.generationStates.set(identity.key, 'done');
+                    this.render();
+                    return;
+                }
                 this.generationLoads.delete(identity.key);
                 void this.loadGeneration(identity);
             });

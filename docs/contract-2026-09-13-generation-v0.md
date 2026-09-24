@@ -216,6 +216,8 @@ Kling v3 standard i2v / Kling v3 pro i2v / Veo 3.1 first-last / Veo 3.1 referenc
 
 ## 7. 差し替え規則（done になったとき）
 
+素材の画像から `--from-image` で作る動画は `assets/generated/` に新しい素材として増やし、元の画像と `edit.json` は変えない。
+
 空の枠・静止画は AI タブの「静止画」（Codex）で作った絵へ差し替えられる。item と映像・色の設定を保ち、差し替えは undo 1 回で戻る。
 静止画の手段 = Codex / Antigravity / Grok（サインイン経由・従量の鍵は外して呼ぶ）。
 

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -22,6 +22,7 @@ import { applyReplacement, findItem, planReplacement } from "./edit-replace.mjs"
 
 export const usage = [
   "使い方: akari generate video <projectDir> --item <itemId> [options]",
+  "       akari generate video <projectDir> --from-image <relativePath> [options]",
   "  --model <id> --prompt <text> --negative-prompt <text>",
   "  --first-frame <path> --last-frame <path> --reference-image <path>",
   "  --reference-audio <path> --camera <text> --duration <s> --resolution <res>",
@@ -38,7 +39,7 @@ class CliError extends Error {
 }
 
 const VALUES = new Set([
-  "--item", "--model", "--prompt", "--negative-prompt", "--first-frame", "--last-frame",
+  "--item", "--from-image", "--model", "--prompt", "--negative-prompt", "--first-frame", "--last-frame",
   "--reference-image", "--reference-audio", "--camera", "--duration", "--resolution",
   "--aspect", "--audio-out", "--seed", "--extra", "--inputs", "--stale-after",
 ]);
@@ -56,7 +57,7 @@ function parseScalar(value) {
 
 export function parseVideoArguments(argv) {
   const options = {
-    projectDir: null, itemId: null, modelId: null, inputJson: null, prompt: undefined,
+    projectDir: null, itemId: null, fromImage: null, modelId: null, inputJson: null, prompt: undefined,
     negativePrompt: undefined, firstFrame: undefined, lastFrame: undefined,
     referenceImages: [], referenceAudios: [], camera: undefined, duration: undefined,
     resolution: undefined, aspect: undefined, audioOut: undefined, seed: undefined,
@@ -74,6 +75,7 @@ export function parseVideoArguments(argv) {
       if (value === undefined || VALUES.has(value) || FLAGS.has(value)) throw new CliError(`${argument} の値がありません`);
       switch (argument) {
         case "--item": options.itemId = value; break;
+        case "--from-image": options.fromImage = value; break;
         case "--model": options.modelId = value; break;
         case "--prompt": options.prompt = value; break;
         case "--negative-prompt": options.negativePrompt = value; break;
@@ -104,7 +106,8 @@ export function parseVideoArguments(argv) {
     else throw new CliError(`不明な引数です: ${argument}\n${usage}`);
   }
   if (!options.help && !options.projectDir) throw new CliError(`projectDir が必要です\n${usage}`);
-  if (!options.help && !options.itemId) throw new CliError("--item が必要です");
+  if (options.itemId && options.fromImage) throw new CliError("--item と --from-image は同時に指定できません");
+  if (!options.help && !options.itemId && !options.fromImage) throw new CliError("--item か --from-image が必要です");
   if (options.duration !== undefined && (!Number.isFinite(options.duration) || options.duration <= 0)) {
     throw new CliError("--duration は 0 より大きい有限数で指定してください");
   }
@@ -130,6 +133,20 @@ function findSource(edit, sourceId) {
 }
 
 const STILL_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]);
+
+function checkedImage(projectDir, relativePath) {
+  if (path.isAbsolute(relativePath) || relativePath.split(/[\\/]/u).includes("..") || !STILL_EXTENSIONS.has(path.extname(relativePath).toLowerCase())) {
+    throw new CliError("--from-image はプロジェクト内の静止画の相対パスで指定してください");
+  }
+  const absolute = path.resolve(projectDir, relativePath);
+  try {
+    const root = realpathSync(projectDir);
+    const image = realpathSync(absolute);
+    const rel = path.relative(root, image);
+    if (!rel || rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel) || !statSync(image).isFile()) throw new Error();
+  } catch { throw new CliError("--from-image の静止画がプロジェクト内に見つかりません"); }
+  return path.relative(projectDir, absolute).split(path.sep).join("/");
+}
 
 function modelDefault(projectDir) {
   try {
@@ -208,6 +225,16 @@ function nextOutput(projectDir, itemId) {
   }
 }
 
+function nextImageOutput(projectDir, fromImage, ms) {
+  const directory = path.join(projectDir, "assets", "generated");
+  const stem = path.basename(fromImage, path.extname(fromImage));
+  for (let serial = 0; ; serial += 1) {
+    const relative = `assets/generated/${stem}-video-${ms}${serial ? `-${serial}` : ""}.mp4`;
+    const absolute = path.join(projectDir, relative);
+    if (!existsSync(absolute) && !existsSync(`${absolute}.meta.json`)) return { directory, relative, absolute, metaPath: `${absolute}.meta.json` };
+  }
+}
+
 export function probeVideo(filePath, { env = process.env, ffprobe = resolveFfprobe({ env }) } = {}) {
   const raw = execFileSync(ffprobe, [
     "-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height,r_frame_rate", "-of", "json", filePath,
@@ -245,6 +272,7 @@ export async function finalizeGeneratedVideo({
     ...probe,
   };
   const meta = writeDone({ metaPath, result, expanded_prompt: response.expanded_prompt, elapsed_s, now });
+  if (meta.provenance?.tool === "akari generate video --from-image") return { probe, elapsed_s, meta, plan: { out: null, freeze: null } };
   const project = await openProjectImpl(projectDir);
   const item = findItem(project.edit, itemId);
   if (!item || item.source?.kind !== "media") throw new Error(`差し替え対象 item が見つかりません: ${itemId}`);
@@ -263,10 +291,11 @@ export async function runVideoCommand(argv, dependencies = {}) {
   try {
     const options = parseVideoArguments(argv);
     if (options.help) { log(usage); return { exitCode: 0 }; }
-    const project = await (dependencies.openProjectImpl ?? openProject)(options.projectDir);
-    const item = findItem(project.edit, options.itemId);
-    if (!item || item.source?.kind !== "media") throw new CliError(`media item が見つかりません: ${options.itemId}`);
-    const sourceEntry = findSource(project.edit, item.source.src);
+    const fromImage = options.fromImage ? checkedImage(options.projectDir, options.fromImage) : null;
+    const project = fromImage ? null : await (dependencies.openProjectImpl ?? openProject)(options.projectDir);
+    const item = fromImage ? null : findItem(project.edit, options.itemId);
+    if (!fromImage && (!item || item.source?.kind !== "media")) throw new CliError(`media item が見つかりません: ${options.itemId}`);
+    const sourceEntry = fromImage ? { path: fromImage, id: null } : findSource(project.edit, item.source.src);
     if (!sourceEntry) throw new CliError(`source が見つかりません: ${item.source.src}`);
     let supplied;
     if (options.inputJson !== null) {
@@ -320,7 +349,7 @@ export async function runVideoCommand(argv, dependencies = {}) {
     };
     const rawOutput = {
       ...suppliedOutput,
-      duration_s: options.duration ?? suppliedOutput.duration_s ?? (item.source.out - item.source.in),
+      duration_s: options.duration ?? suppliedOutput.duration_s ?? (fromImage ? (model.duration?.default ?? 5) : item.source.out - item.source.in),
       resolution: options.resolution ?? suppliedOutput.resolution ?? null,
       aspect: options.aspect ?? suppliedOutput.aspect ?? null,
       audio_out: options.audioOut ?? suppliedOutput.audio_out ?? null,
@@ -363,20 +392,27 @@ export async function runVideoCommand(argv, dependencies = {}) {
       if (!approved) throw new CliError(`費用承認が必要です（${estimate}）。--yes を付けて再実行`);
     }
     const credentials = (dependencies.resolveFalKeyImpl ?? resolveFalKey)({ env: dependencies.env ?? process.env, credentialsFile: dependencies.credentialsFile });
-    const destination = nextOutput(options.projectDir, options.itemId);
-    await mkdir(destination.directory, { recursive: true });
     const startedDate = (dependencies.now ?? (() => new Date()))();
+    const destination = fromImage ? nextImageOutput(options.projectDir, fromImage, startedDate.getTime()) : nextOutput(options.projectDir, options.itemId);
+    await mkdir(destination.directory, { recursive: true });
     const startedMs = startedDate.getTime();
-    const placeholderReference = makeReference(options.projectDir, sourceEntry.path);
-    const placeholder = { path: placeholderReference.path, sha256: placeholderReference.sha256, item_id: options.itemId };
+    const placeholderReference = fromImage ? null : makeReference(options.projectDir, sourceEntry.path);
+    const placeholder = fromImage ? undefined : { path: placeholderReference.path, sha256: placeholderReference.sha256, item_id: options.itemId };
     const submitted = await submit({ endpoint: mapped.endpoint, body: mapped.body, key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch });
     metaPath = destination.metaPath;
+    const metaInputs = schemaInputs(validation.normalized.inputs);
+    if (fromImage && metaInputs.first_frame && !Object.hasOwn(metaInputs.first_frame, "source_id")) metaInputs.first_frame.source_id = null;
     writeGenerating({
-      metaPath, model, placeholder, inputs: schemaInputs(validation.normalized.inputs), output: validation.normalized.output,
+      metaPath, model, placeholder, inputs: metaInputs, output: validation.normalized.output,
       cost: validation.cost, key_source: credentials.key_source, request_id: submitted.request_id,
       status_url: submitted.status_url, response_url: submitted.response_url,
       started_at: startedDate.toISOString(), stale_after_s: options.staleAfterS,
     });
+    if (fromImage) {
+      const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+      meta.provenance.tool = "akari generate video --from-image";
+      writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
+    }
     await pollStatus({
       statusUrl: submitted.status_url, key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch,
       intervalMs: dependencies.pollIntervalMs ?? 5_000, deadlineMs: options.staleAfterS * 1000,
@@ -390,13 +426,17 @@ export async function runVideoCommand(argv, dependencies = {}) {
       startedMs, openProjectImpl: dependencies.openProjectImpl ?? openProject,
       snapshotImpl: dependencies.snapshotImpl ?? snapshot, probeImpl: dependencies.probeImpl ?? probeVideo,
     });
-    const result = {
+    const result = fromImage ? {
+      from_image: fromImage, mp4: destination.relative,
+      duration_s_actual: completed.probe.duration_s_actual, estimate_usd: validation.cost.estimate_usd,
+      elapsed_s: completed.elapsed_s, meta: path.relative(options.projectDir, metaPath).split(path.sep).join("/"),
+    } : {
       item: options.itemId, mp4: destination.relative,
       duration_s_actual: completed.probe.duration_s_actual, out: completed.plan.out,
       freeze: completed.plan.freeze, estimate_usd: validation.cost.estimate_usd,
       elapsed_s: completed.elapsed_s, meta: path.relative(options.projectDir, metaPath).split(path.sep).join("/"),
     };
-    log(options.json ? JSON.stringify(result) : `生成動画に差し替えました: ${destination.relative}`);
+    log(options.json ? JSON.stringify(result) : fromImage ? `新しい素材を作りました: ${destination.relative}` : `生成動画に差し替えました: ${destination.relative}`);
     return { exitCode: 0, result };
   } catch (error) {
     if (metaPath && existsSync(metaPath)) {

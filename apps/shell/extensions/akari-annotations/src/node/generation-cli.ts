@@ -44,6 +44,12 @@ export class GenerationCliManager {
         return this.run(itemId, ['generate', 'video', projectRoot, '--item', itemId, '--yes', '--json']);
     }
 
+    async startFromImage(projectRoot: string, fromImage: string): Promise<GenerationCliResult> {
+        if (!fromImage || fromImage.startsWith('/') || fromImage.includes('\\') || fromImage.split('/').includes('..')
+            || /^[A-Za-z]:/u.test(fromImage)) throw new Error('fromImage はプロジェクト内の相対パスで指定してください。');
+        return this.run(`from-image:${fromImage}`, ['generate', 'video', projectRoot, '--from-image', fromImage, '--yes', '--json']);
+    }
+
     async resume(projectRoot: string, itemId: string): Promise<GenerationCliResult> {
         return this.run(itemId, ['generate', 'resume', projectRoot, '--item', itemId, '--json']);
     }
