@@ -1,0 +1,23 @@
+{
+  "label": "before",
+  "port": 9553,
+  "open": {
+    "ok": true,
+    "value": true
+  },
+  "tileFound": true,
+  "tile": {
+    "disabled": true,
+    "soon": "true",
+    "title": "図形 — 近日",
+    "text": "◯図形近日"
+  },
+  "panelShot": "before-library-home.png",
+  "tileRect": {
+    "x": 107.6328125,
+    "y": 126.5,
+    "width": 45.640625,
+    "height": 71
+  },
+  "consoleErrors": []
+}

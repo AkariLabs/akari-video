@@ -21,6 +21,7 @@ import { AkariGenerationPickCommandContribution } from './akari-generation-pick-
 import { AkariCatalogCommandContribution } from './akari-catalog-command-contribution';
 import { AssetSiteWidget } from './asset-site-widget';
 import { AssetSiteCommands } from './asset-site-commands';
+import { ShapeShelfService } from './shape-shelf-service';
 
 export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(AkariProjectService).toDynamicValue(ctx =>
@@ -67,6 +68,9 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
         createWidget: () => ctx.container.get(AssetSiteWidget) })).inSingletonScope();
     bind(AssetSiteCommands).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AssetSiteCommands);
+    bind(ShapeShelfService).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(ShapeShelfService);
+    bind(FrontendApplicationContribution).toService(ShapeShelfService);
     bind(PreferenceContribution).toConstantValue({
         schema: {
             type: 'object',

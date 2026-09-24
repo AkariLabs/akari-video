@@ -1,0 +1,73 @@
+[
+  {
+    "id": "shape-1",
+    "preset": "star-5",
+    "shape": "path",
+    "transform": {
+      "x": 300,
+      "y": 99
+    },
+    "width": 360,
+    "height": 342,
+    "fill": "#a6a6a6",
+    "stroke": "none",
+    "strokeWidth": 0
+  },
+  {
+    "id": "shape-2",
+    "preset": "heart-heart",
+    "shape": "path",
+    "transform": {
+      "x": 140,
+      "y": 651.5
+    },
+    "width": 360,
+    "height": 317,
+    "fill": "#a6a6a6",
+    "stroke": "none",
+    "strokeWidth": 0
+  },
+  {
+    "id": "shape-3",
+    "preset": "line-dash-tri-tri",
+    "shape": "line",
+    "transform": {
+      "x": 1260,
+      "y": 234
+    },
+    "width": 360,
+    "height": 72,
+    "fill": "none",
+    "stroke": "#000000",
+    "strokeWidth": 4
+  },
+  {
+    "id": "shape-4",
+    "preset": "manga-shout",
+    "shape": "bubble",
+    "transform": {
+      "x": 1260,
+      "y": 630
+    },
+    "width": 360,
+    "height": 360,
+    "fill": "#ffffff",
+    "stroke": "#000000",
+    "strokeWidth": 5
+  },
+  {
+    "id": "shape-5",
+    "preset": "basic-rounded-square",
+    "shape": "path",
+    "transform": {
+      "x": 780,
+      "y": 360
+    },
+    "width": 360,
+    "height": 360,
+    "fill": "#a6a6a6",
+    "stroke": "none",
+    "strokeWidth": 0,
+    "cornerRadius": 36
+  }
+]

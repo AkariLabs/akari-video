@@ -40,10 +40,10 @@ export function editLintCliCandidates(dirnameValue: string, cwd: string, resourc
 export function presetShowcaseIndexCandidates(
     dirnameValue: string,
     cwd: string,
-    kind: 'luts' | 'textanim' | 'textstyle',
+    kind: 'luts' | 'textanim' | 'textstyle' | 'shapes',
     resourcesPath?: string
 ): string[] {
-    if (!['luts', 'textanim', 'textstyle'].includes(kind)) return [];
+    if (!['luts', 'textanim', 'textstyle', 'shapes'].includes(kind)) return [];
     const relativePath = `presets/${kind}/index.jsonl`;
     const candidates: string[] = [];
     if (resourcesPath) {

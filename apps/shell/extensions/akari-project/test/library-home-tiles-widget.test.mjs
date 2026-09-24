@@ -65,7 +65,8 @@ test('ホームは主要タイルを最上段に 9 枚描き、詳細は既定�
     assert.ok(tiles.slice(1).every(tile => tile.props.draggable === undefined));
     assert.deepEqual(tiles.slice(3).map(node => node.props['data-akari-library-category']),
         ['image', 'broll', 'bgm', 'sfx', 'overlay', 'scene3d']);
-    assert.equal(tiles[1].props['data-akari-library-soon'], 'true');
+    assert.equal(tiles[1].props['data-akari-library-soon'], undefined);
+    assert.equal(tiles[1].props['data-akari-library-category'], 'shapes');
     assert.equal(tiles[2].props['data-akari-library-soon'], 'true');
     assert.equal(nodes(home, node => node.props['data-akari-library-details'] !== undefined).length, 0);
     assert.equal(nodes(home, node => node.props['data-akari-library-details-toggle'] !== undefined)[0].props['aria-expanded'], false);
@@ -111,7 +112,9 @@ test('テキストは引数なし placeText、選ぶタイルはカテゴリ一�
     assert.deepEqual(calls, [['akari.caption.placeText']]);
     handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[5]).props.onClick({ stopPropagation() {} });
     assert.deepEqual(calls[1], ['select', 'bgm']);
-    const soon = handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[1]);
+    handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[1]).props.onClick({ stopPropagation() {} });
+    assert.deepEqual(calls[2], ['select', 'shapes']);
+    const soon = handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[2]);
     assert.equal(soon.props.disabled, true);
     assert.equal(soon.props.onClick, undefined);
     handler.commandService.executeCommand = async () => { throw new Error('失敗'); };

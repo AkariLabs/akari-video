@@ -42,6 +42,7 @@ import {
     READ_ALOUD,
     VOICE_CREATE,
     ADD_MATERIAL_AT_PLAYHEAD,
+    ADD_SHAPE_AT,
     ADD_MATERIAL_AT_POINT,
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
     OPEN_AKARI_ANNOTATIONS,
@@ -434,6 +435,16 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(ADD_MATERIAL_AT_PLAYHEAD, {
             execute: (request: unknown) => this.addMaterialAtPlayhead(request)
+        });
+        commands.registerCommand(ADD_SHAPE_AT, {
+            execute: async (request: unknown) => {
+                const widget = this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
+                if (!widget) {
+                    this.messages.warn('タイムラインを開いてから図形を置いてください。');
+                    return undefined;
+                }
+                return widget.addShapeAt(request);
+            }
         });
         commands.registerCommand({ id: 'akari.timeline.beginMaterialSwap' }, {
             execute: async (request: MaterialSwapTarget) => {

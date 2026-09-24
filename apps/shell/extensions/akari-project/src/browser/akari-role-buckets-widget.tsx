@@ -104,6 +104,9 @@ import { planFontApply, selectedFontStyleFromCaptions } from '../common/library-
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryTextLookPage, LibraryTextLookRow } from './library-text-look-view';
+import { LibraryShapeShelf } from './library-shape-shelf-view';
+import { ShapeShelfService } from './shape-shelf-service';
+import { shapeShelfDragPayload, ShapeShelfPreset } from '../common/shape-shelf';
 import {
     LIBRARY_DETAIL_GROUPS,
     LIBRARY_GROUPS,
@@ -133,6 +136,8 @@ const PARTNER_INJECT_PROMPT_COMMAND_ID = 'akari.partner.injectPrompt';
 // 共有パッケージを作らず文字列を直書きする流儀（PARTNER_INJECT_PROMPT_COMMAND_ID と同じ）。
 // 受け側が未合流でも executeCommand は失敗するだけなので本タスクは成立する（司令塔裁定2）。
 const TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID = 'akari.timeline.addMaterialAtPlayhead';
+// 図形を置くタイムライン側のコマンド（akari-annotations が登録。引数 `{ preset, t?, center?, transform? }`）。
+const TIMELINE_ADD_SHAPE_AT_COMMAND_ID = 'akari.timeline.addShapeAt';
 
 // 素材カード D&D（task 2026-08-10-material-dnd-timeline 司令塔裁定4）。mime 文字列・
 // イベント名は受け側（akari-annotations-widget.ts）と独立にリテラル宣言する
@@ -380,6 +385,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected readonly dialogs!: FileDialogService;
     @inject(WindowService)
     protected readonly windowService!: WindowService;
+    @inject(ShapeShelfService)
+    protected readonly shapeShelf!: ShapeShelfService;
+    /** 図形の棚の「すべて表示」で開いている行。undefined = 棚。 */
+    protected shapeShelfView: string | undefined;
 
     protected readonly generationPick = new GenerationPickController(
         key => this.resolveCatalogMaterial(key), () => this.update()
@@ -660,6 +669,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     @postConstruct()
     protected init(): void {
+        this.toDispose.push(this.shapeShelf.onDidChange(() => this.update()));
         const saveMyStyle = (event: Event): void => {
             const detail = (event as CustomEvent<{ style: MyStyle; resolve: () => void; reject: (error: unknown) => void }>).detail;
             void this.projectService.saveMyStyle(detail.style).then(async () => {
@@ -2158,6 +2168,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.libraryFolderFilter = undefined;
         this.libraryCategory = key;
         this.libraryTextLookOpen = false;
+        this.shapeShelfView = undefined;
         this.catalogCategory = category.chipKey ?? 'all';
         this.update();
     }
@@ -2167,11 +2178,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.libraryFolderFilter = undefined;
         this.libraryCategory = undefined;
         this.libraryTextLookOpen = false;
+        this.shapeShelfView = undefined;
         this.catalogCategory = 'all';
         this.update();
     }
 
     protected libraryCategoryCount(category: LibraryCategoryDefinition): number | undefined {
+        if (category.key === 'shapes') return this.shapeShelf.presets.length;
         return countLibraryCategory(category, this.librarySourceFilter, this.applyLibraryFilter(this.assetCatalogItems),
             this.presetShowcase, TRANSITION_VOCABULARY.length, this.catalogPacks, key => this.presetPassesLibraryFilter(key),
             TRANSITION_VOCABULARY.map(transition => transition.id));
@@ -3352,7 +3365,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const hits = searchLibraryHome(query, {
                 catalogItems: this.applyLibraryFilter(this.assetCatalogItems),
                 presetShowcase: { textstyle: presets('textstyle'), textanim: presets('textanim'), lut: presets('lut') },
-                transitions: TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`))
+                transitions: TRANSITION_VOCABULARY.filter(transition => this.presetPassesLibraryFilter(`transition/${transition.id}`)),
+                shapes: this.shapeShelf?.presets
             });
             return (
                 <div data-akari-library-home data-akari-library-search-results={hits.length} style={{ padding: '8px 10px 12px' }}>
@@ -3443,6 +3457,33 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         } catch (error) {
             this.messages.error(`文字を置けません: ${error instanceof Error ? error.message : String(error)}`);
         }
+    }
+
+    /** 図形の棚（描画は library-shape-shelf-view.tsx）。押す = プレイヘッドの時刻・出力の中央へ置く。 */
+    protected renderShapeShelfPage(): React.ReactNode {
+        return <LibraryShapeShelf presets={this.shapeShelf.presets} recent={this.shapeShelf.recent}
+            loaded={this.shapeShelf.isLoaded} query={this.catalogQuery} view={this.shapeShelfView}
+            onBack={() => this.showLibraryHome()}
+            onShowAll={key => { this.shapeShelfView = key; this.update(); }}
+            onPlace={preset => void this.placeLibraryShape(preset)}
+            onDragStart={(event, preset) => this.handleShapeDragStart(event, preset)}
+            onDragEnd={() => this.handleLibraryTransitionDragEnd()} />;
+    }
+
+    protected async placeLibraryShape(preset: ShapeShelfPreset): Promise<void> {
+        try {
+            // 書き込み・undo・選択・最近使用はタイムライン側（akari.timeline.addShapeAt）が持つ。
+            await this.commandService.executeCommand(TIMELINE_ADD_SHAPE_AT_COMMAND_ID, { preset: preset.id });
+        } catch (error) {
+            this.messages.error(`図形を置けません: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    protected handleShapeDragStart(event: React.DragEvent<HTMLElement>, preset: ShapeShelfPreset): void {
+        const payload = shapeShelfDragPayload(preset);
+        event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'copy';
+        window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
     }
 
     protected renderLibraryPrimaryTile(tile: LibraryPrimaryTile): React.ReactNode {
@@ -3545,6 +3586,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderLibraryCategoryPage(key: LibraryCategoryKey): React.ReactNode {
+        if (key === 'shapes') return this.renderShapeShelfPage();
         const category = this.libraryCategoryDefinition(key);
         const count = this.libraryCategoryCount(category) ?? 0;
         return (

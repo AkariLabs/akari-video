@@ -94,6 +94,15 @@ export const ADD_MATERIAL_AT_PLAYHEAD: Command = {
     id: 'akari.timeline.addMaterialAtPlayhead'
 };
 
+/**
+ * 図形の棚（akari-project）から図形を置く内部コマンド。引数 `{ preset, t?, center?, transform? }`
+ * （t = 出力の秒・省略時はプレイヘッド / center = 図形の中心の出力 px・省略時は出力の中央 /
+ * transform = item の x・y を直接書くとき）。書く item と段の選び方は common/shape-place.ts。戻り値 = 置いた item id。
+ */
+export const ADD_SHAPE_AT: Command = {
+    id: 'akari.timeline.addShapeAt'
+};
+
 /** 地図タブが開いた瞬間に現在の出力秒を取得する内部コマンド。 */
 export const GET_TIMELINE_PLAYHEAD: Command = {
     id: 'akari.timeline.playhead'

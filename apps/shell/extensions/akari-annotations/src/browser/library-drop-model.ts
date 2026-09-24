@@ -29,7 +29,13 @@ export interface LibraryMyStyleDragPayload {
     style: { parts: Array<{ kind: string; text_style?: unknown }> };
 }
 
-export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload;
+/** 図形の棚のタイル。形はドロップ後に `akari.library.shapePreset` で引き直すので preset だけを信じる。 */
+export interface LibraryShapeDragPayload {
+    kind: 'shape';
+    preset: string;
+}
+
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload;
 
 export function textPlaceOptions(start: number): { start: number } {
     return { start };
@@ -79,6 +85,10 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     const candidate = decoded as Record<string, unknown>;
     if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
     if (candidate.kind === 'text') return { kind: 'text' };
+    if (candidate.kind === 'shape') {
+        return typeof candidate.preset === 'string' && candidate.preset.trim()
+            ? { kind: 'shape', preset: candidate.preset } : undefined;
+    }
     if (candidate.kind === 'mystyle') {
         const style = candidate.style as LibraryMyStyleDragPayload['style'] | undefined;
         return style && Array.isArray(style.parts) && style.parts.every(part => part && typeof part.kind === 'string')
