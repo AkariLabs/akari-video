@@ -1,4 +1,5 @@
 import * as React from '@theia/core/shared/react';
+import { ExportLicenseView } from './export-license-view';
 import { OS } from '@theia/core/lib/common/os';
 import {
     describeOutput,
@@ -282,6 +283,7 @@ export function ExportSetupView(props: {
                     </div>
                 </div>
             </div>
+            <ExportLicenseView findings={snapshot.licenseFindings} onCopy={text => session.copyLicenseCredits(text)} />
             <CancelledLeftoverBanner session={session} snapshot={snapshot} />
             <div className='pf'>
                 <button type='button' className='btn ghost' onClick={() => void session.handOffToPartner()}>パートナーに任せる</button>

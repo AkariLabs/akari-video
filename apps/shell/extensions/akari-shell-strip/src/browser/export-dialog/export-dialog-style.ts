@@ -53,6 +53,14 @@ export const EXPORT_DIALOG_CSS = `
 .akari-export-dialog-host .kv span { font:500 11px/1 var(--aed-mono); color:var(--aed-muted); background:var(--aed-elevated); border:1px solid var(--aed-border-subtle); padding:5px 8px; border-radius:6px; }
 .akari-export-dialog-host .kv span b { color:var(--aed-ink); font-weight:600; }
 .akari-export-dialog-host .fine { color:var(--aed-faint); font-size:11px; margin:8px 0 0; line-height:1.5; }
+.akari-export-dialog-host .license-rows { display:flex; flex-direction:column; padding:6px 20px; border-top:1px solid var(--aed-border-subtle); max-height:100px; overflow-y:auto; flex:none; }
+.akari-export-dialog-host .license-row { flex:none; min-height:22px; color:var(--theia-descriptionForeground,var(--aed-muted)); font-size:11px; line-height:22px; }
+.akari-export-dialog-host .license-row.non-commercial { color:var(--theia-errorForeground,var(--aed-bad)); }
+.akari-export-dialog-host .license-row.attribution { color:var(--theia-editorInfo-foreground,var(--aed-ink)); }
+.akari-export-dialog-host .license-main { display:flex; align-items:center; gap:8px; min-width:0; height:22px; }
+.akari-export-dialog-host .license-toggle { flex:1; min-width:0; text-align:left; border:0; background:transparent; color:inherit; cursor:pointer; padding:0; height:20px; line-height:20px; font-size:inherit; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.akari-export-dialog-host .license-copy { flex:none; margin-left:auto; border:1px solid var(--aed-border); border-radius:5px; background:var(--aed-card); color:var(--aed-ink); padding:0 6px; height:20px; line-height:18px; cursor:pointer; font-size:10px; }
+.akari-export-dialog-host .license-row ul { margin:2px 0 4px; padding-left:18px; color:var(--aed-ink); line-height:1.5; }
 .akari-export-dialog-host .outsum { margin-top:12px; border:1px solid var(--aed-border-subtle); border-radius:8px; padding:8px 10px; font-size:11px; color:var(--aed-muted); display:grid; grid-template-columns:auto 1fr; gap:3px 10px; }
 .akari-export-dialog-host .outsum b { color:var(--aed-ink); font-weight:600; font-family:var(--aed-mono); font-size:11px; }
 .akari-export-dialog-host .outsum .h { grid-column:1/3; font-size:10.5px; letter-spacing:.06em; color:var(--aed-faint); font-weight:600; }

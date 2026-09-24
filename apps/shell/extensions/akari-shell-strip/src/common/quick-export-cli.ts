@@ -74,6 +74,11 @@ export function buildEditLintArgs(projectRoot: string): string[] {
     return [projectRoot, '--json'];
 }
 
+/** 書き出し画面の案内だけを読む。保存済みの lint レポートは更新しない。 */
+export function buildLicenseInspectArgs(projectRoot: string): string[] {
+    return [projectRoot, '--json', '--no-reports'];
+}
+
 /**
  * 出力ファイル名からディレクトリ区切り・親ディレクトリ参照を剥がし、
  * 常に 1 段のファイル名に収める（パス脱出防止）。出力先フォルダ自体は

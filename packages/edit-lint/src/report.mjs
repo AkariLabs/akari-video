@@ -11,7 +11,7 @@ export function renderLintReport(result, reportPath, projectRoot) {
       value[finding.severity] += 1;
       return value;
     },
-    { error: 0, warning: 0 },
+    { error: 0, warning: 0, info: 0 },
   );
   const helperPath = relative(projectRoot, fileURLToPath(REPORT_HELPER_URL));
   const reportRelativePath = relative(projectRoot, reportPath);

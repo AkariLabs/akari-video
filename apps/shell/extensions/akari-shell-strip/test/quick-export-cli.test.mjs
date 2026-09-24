@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     buildEditLintArgs,
+    buildLicenseInspectArgs,
     buildQuickExportEncoderChoices,
     buildRenderCutArgs,
     buildRenderCutOutputPath,
@@ -37,6 +38,7 @@ test('buildQuickExportEncoderChoices: OS ごとに対応エンコーダだけを
 
 test('buildEditLintArgs: プロジェクトルート + --json', () => {
     assert.deepEqual(buildEditLintArgs('/tmp/project'), ['/tmp/project', '--json']);
+    assert.deepEqual(buildLicenseInspectArgs('/tmp/project'), ['/tmp/project', '--json', '--no-reports']);
 });
 
 test('sanitizeQuickExportOutputName: 素の名前はそのまま', () => {

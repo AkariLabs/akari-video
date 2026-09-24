@@ -1,0 +1,118 @@
+{
+  "phase": "after",
+  "project": "tmp/libcanvas-e1-*/project",
+  "steps": [
+    {
+      "step": "open-popup",
+      "title": "書き出し",
+      "popupHeight": 664,
+      "leftClipped": false,
+      "licenseRows": [
+        {
+          "kind": "non-commercial",
+          "text": "商用利用できない素材が 1 件（非商用クリップ）",
+          "color": "rgb(244, 135, 113)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "kind": "unknown",
+          "text": "ライセンスが分からない素材が 1 件（出どころ不明のクリップ）",
+          "color": "rgba(204, 204, 204, 0.7)",
+          "background": "rgba(0, 0, 0, 0)"
+        },
+        {
+          "kind": "attribution",
+          "text": "帰属表示が必要な素材が 1 件（帰属表示クリップ）クレジットをコピー",
+          "color": "rgb(89, 164, 249)",
+          "background": "rgba(0, 0, 0, 0)"
+        }
+      ],
+      "mentionsLicense": true,
+      "startButton": {
+        "text": "書き出す — 標準 · 約 10 秒",
+        "disabled": false
+      },
+      "screenshot": "evidence/e1-license-gate/after-popup.png"
+    },
+    {
+      "step": "expand-names",
+      "expanded": {
+        "non-commercial": "非商用クリップ",
+        "unknown": "出どころ不明のクリップ",
+        "attribution": "帰属表示クリップ"
+      },
+      "screenshot": "evidence/e1-license-gate/after-popup-expanded.png"
+    },
+    {
+      "step": "copy-credit",
+      "clickedLabel": "クレジットをコピー",
+      "labelAfter": "コピーしました",
+      "clipboard": "Clip by Example Studio (CC BY 4.0)",
+      "screenshot": "evidence/e1-license-gate/after-copied.png"
+    },
+    {
+      "step": "export-transitions",
+      "transitions": [
+        {
+          "ms": 2,
+          "open": true,
+          "title": "書き出し",
+          "sub": "project · edit.json の出力設定",
+          "mini": null
+        },
+        {
+          "ms": 505,
+          "open": true,
+          "title": "書き出し",
+          "sub": "final.mp4 · 閉じても続きます",
+          "mini": "linting"
+        },
+        {
+          "ms": 1009,
+          "open": true,
+          "title": "書き出し",
+          "sub": "final.mp4 · 閉じても続きます",
+          "mini": "rendering"
+        },
+        {
+          "ms": 9801,
+          "open": true,
+          "title": "書き出し完了",
+          "sub": "exports/final.mp4",
+          "mini": "done"
+        }
+      ]
+    },
+    {
+      "step": "export",
+      "started": "書き出す — 標準 · 約 10 秒",
+      "elapsedMs": 9931,
+      "done": {
+        "open": true,
+        "title": "書き出し完了",
+        "sub": "exports/final.mp4",
+        "mini": "done"
+      },
+      "artifact": "final.mp4",
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_type": "video",
+            "width": 320,
+            "height": 180
+          },
+          {
+            "codec_type": "audio"
+          }
+        ],
+        "format": {
+          "duration": "6.000000"
+        }
+      },
+      "screenshot": "evidence/e1-license-gate/after-done.png"
+    }
+  ],
+  "pid": 94535
+}
