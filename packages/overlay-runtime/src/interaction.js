@@ -91,9 +91,8 @@ function marqueeHits(candidates, rect) {
 
   const stage = document.getElementById("overlay-stage");
   const dragStartDistance = 4;
-  const SNAP_DISTANCE = 8;
-  const SNAP_RELEASE_DISTANCE = 12;
-  const SAFE_MARGIN_RATIO = 0.05;
+  const SNAP_DISTANCE = 6;
+  const SNAP_RELEASE_DISTANCE = 6;
   const DEFAULT_OUTPUT_WIDTH = 1280;
   const DEFAULT_OUTPUT_HEIGHT = 720;
   const NON_RENDERED_HIT_ELEMENTS = new Set([
@@ -145,6 +144,9 @@ function marqueeHits(candidates, rect) {
   let activeDrag = null;
   let activeResize = null;
   let activeRotate = null;
+  let activeLine = null;
+  let rotationBadge = null;
+  let handleHint = null;
   let activeEdit = null;
   let selftestOverlayOverride = null;
   let verticalSnapGuide = null;
@@ -627,6 +629,10 @@ function marqueeHits(candidates, rect) {
       ) {
         pointerEvents = "auto";
       }
+      if (container.dataset.role === 'shape-line' && isVisible && directive !== 'pass') {
+        pointerEvents = ['line', 'path', 'polyline', 'polygon', 'circle', 'rect']
+          .includes(element.tagName.toLowerCase()) ? 'visiblePainted' : 'none';
+      }
       // 明示 catch/pass は優先。自動判定の canvas は window 捕捉でアルファを検査する。
       alphaHitCanvases.delete(element);
       if (element.tagName === "CANVAS" && pointerEvents === "auto" && !directive) {
@@ -693,17 +699,17 @@ function marqueeHits(candidates, rect) {
 
     if (
       !verticalSnapGuide?.isConnected ||
-      verticalSnapGuide.parentElement !== stage
+      verticalSnapGuide.parentElement !== document.body
     ) {
       verticalSnapGuide = createSnapGuide("vertical");
-      stage.appendChild(verticalSnapGuide);
+      document.body.appendChild(verticalSnapGuide);
     }
     if (
       !horizontalSnapGuide?.isConnected ||
-      horizontalSnapGuide.parentElement !== stage
+      horizontalSnapGuide.parentElement !== document.body
     ) {
       horizontalSnapGuide = createSnapGuide("horizontal");
-      stage.appendChild(horizontalSnapGuide);
+      document.body.appendChild(horizontalSnapGuide);
     }
 
     return { vertical: verticalSnapGuide, horizontal: horizontalSnapGuide };
@@ -727,17 +733,27 @@ function marqueeHits(candidates, rect) {
     // translate で線の中心を合わせる。overflow:hidden にクリップされないよう、
     // 表示位置だけをステージ内側へ半ピクセルクランプする。
     const { width, height } = outputSize();
+    const stageRect = stage.getBoundingClientRect();
+    const sx = stageRect.width / width, sy = stageRect.height / height;
     const clampGuidePosition = (target, extent) =>
       Math.min(Math.max(target, 0.5), Math.max(0.5, extent - 0.5));
 
     guides.vertical.hidden = !snapX;
     if (snapX) {
-      guides.vertical.style.left = `${clampGuidePosition(snapX.target, width)}px`;
+      guides.vertical.style.left = `${stageRect.left + clampGuidePosition(snapX.target, width) * sx}px`;
+      guides.vertical.classList.toggle('is-item', snapX.kind === 'item');
+      guides.vertical.style.top = `${stageRect.top + (snapX.guide?.start ?? 0) * sy}px`;
+      guides.vertical.style.bottom = 'auto';
+      guides.vertical.style.height = `${((snapX.guide?.end ?? height) - (snapX.guide?.start ?? 0)) * sy}px`;
     }
 
     guides.horizontal.hidden = !snapY;
     if (snapY) {
-      guides.horizontal.style.top = `${clampGuidePosition(snapY.target, height)}px`;
+      guides.horizontal.style.top = `${stageRect.top + clampGuidePosition(snapY.target, height) * sy}px`;
+      guides.horizontal.classList.toggle('is-item', snapY.kind === 'item');
+      guides.horizontal.style.left = `${stageRect.left + (snapY.guide?.start ?? 0) * sx}px`;
+      guides.horizontal.style.right = 'auto';
+      guides.horizontal.style.width = `${((snapY.guide?.end ?? width) - (snapY.guide?.start ?? 0)) * sx}px`;
     }
   }
 
@@ -852,16 +868,28 @@ function marqueeHits(candidates, rect) {
       handle.setAttribute("aria-hidden", "true");
       frame.appendChild(handle);
     }
+    for (const endpoint of ['start', 'end']) {
+      const handle = document.createElement('span');
+      handle.className = `akari-interaction-handle is-line-${endpoint}`;
+      handle.hidden = true;
+      handle.setAttribute('data-akari-interaction', 'selection-handle');
+      handle.setAttribute('aria-label', endpoint === 'start' ? '線の始点' : '線の終点');
+      frame.appendChild(handle);
+    }
 
-    const stem = document.createElement('span');
-    stem.className = 'akari-interaction-rotate-stem';
-    stem.setAttribute('aria-hidden', 'true');
-    frame.appendChild(stem);
-    const rotate = document.createElement('span');
-    rotate.className = 'akari-interaction-handle is-rotate';
-    rotate.setAttribute('data-akari-interaction', 'selection-handle');
-    rotate.setAttribute('aria-hidden', 'true');
-    frame.appendChild(rotate);
+    for (const [kind, label, path] of [
+      ['rotate', '回転', '<path d="M19 7v5h-5M5 17v-5h5"/><path d="M6.7 9A7 7 0 0 1 19 12M17.3 15A7 7 0 0 1 5 12"/>'],
+      ['move', '移動', '<path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3m-3 17-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3"/>'],
+    ]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `akari-interaction-handle akari-interaction-action is-${kind}`;
+      button.setAttribute('data-akari-interaction', 'selection-handle');
+      button.setAttribute('aria-label', label);
+      button.title = label;
+      button.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+      frame.appendChild(button);
+    }
 
     return frame;
   }
@@ -901,6 +929,12 @@ function marqueeHits(candidates, rect) {
     // interaction.css の .is-locked）。isMovable ではなく isBackgroundRole を見るのは、
     // 選択自体は許すが移動系操作だけを塞ぐという役割分担を CSS 側にも一致させるため。
     selectionFrame.classList.toggle("is-locked", isBackgroundRole(selectedOverlay));
+    selectionFrame.classList.toggle('is-busy', Boolean(activeDrag || activeResize || activeRotate || activeLine));
+    selectionFrame.classList.toggle('is-text', selectedOverlay.dataset.role === 'text');
+    selectionFrame.classList.toggle('is-line', selectedOverlay.dataset.role === 'shape-line');
+    for (const endpoint of selectionFrame.querySelectorAll('.is-line-start, .is-line-end')) {
+      endpoint.hidden = selectedOverlay.dataset.role !== 'shape-line';
+    }
     selectionFrame.dataset.akariSelectionKind = 'leaf';
 
     const usableRect =
@@ -957,6 +991,7 @@ function marqueeHits(candidates, rect) {
 
   function clearSelection() {
     if (activeRotate) cancelRotate();
+    if (activeLine) finishLineEndpoint(true);
     flushNudge();
     hideHover();
     if (selectionTrackingFrame !== null) {
@@ -1258,7 +1293,8 @@ function marqueeHits(candidates, rect) {
       startClientX: event.clientX, startClientY: event.clientY,
       startStagePoint: stageLocalPoint(event.clientX, event.clientY),
       startX: world.x ?? 0, startY: world.y ?? 0, dx: 0, dy: 0,
-      snapX: null, snapY: null, moved: false, writeContext: captureWriteContext() };
+      snapX: null, snapY: null, moved: false, duplicate: event.altKey,
+      writeContext: captureWriteContext() };
     try { container.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
   }
   function moveGroupMembers(drag, dx, dy) {
@@ -1383,6 +1419,15 @@ function marqueeHits(candidates, rect) {
     }
     const targets = drag.targets ?? [{ id: drag.overlayId, node: treeNode(drag.overlayId),
       previousTransform: treeNode(drag.overlayId)?.transform, x: drag.startX, y: drag.startY }];
+    if (drag.duplicate && targets.length === 1) {
+      const target = targets[0];
+      const transform = { x: target.x + drag.dx, y: target.y + drag.dy };
+      moveGroupMembers(drag, 0, 0);
+      const record = enqueueWrite(drag.writeContext, target.id,
+        { transform, duplicate: true }, 'transform');
+      lastTransformWrite = record;
+      return record;
+    }
     const writes = targets.map(target => {
       const transform = { x: target.x + drag.dx, y: target.y + drag.dy };
       target.appliedTransform = target.node?.kind === 'leaf' && containerById(target.id)
@@ -1571,10 +1616,14 @@ function marqueeHits(candidates, rect) {
     const record = enqueueWrite(
       drag.writeContext,
       drag.overlayId,
-      { transform },
+      { transform, ...(drag.duplicate ? { duplicate: true } : {}) },
       "transform"
     );
-    syncLeafTransformOnSuccess(record, drag.overlayId, transform);
+    if (drag.duplicate) {
+      drag.container.style.setProperty('--x', `${drag.startX}px`);
+      drag.container.style.setProperty('--y', `${drag.startY}px`);
+      refreshSelectionFrame();
+    } else syncLeafTransformOnSuccess(record, drag.overlayId, transform);
     lastTransformWrite = record;
     return record;
   }
@@ -1653,6 +1702,21 @@ function marqueeHits(candidates, rect) {
   }
 
   function fragmentVideoBounds(container) {
+    if (container?.dataset?.role === 'shape-line') {
+      const transform = readTransform(container);
+      const left = rotatedLeafCorners(container, null, transform, 'w');
+      const right = rotatedLeafCorners(container, null, transform, 'e');
+      const a = left && stageLocalPoint(left.dragged.x, left.dragged.y);
+      const b = right && stageLocalPoint(right.dragged.x, right.dragged.y);
+      if (a && b) {
+        const stroke = Number(container.querySelector('line')?.getAttribute('stroke-width')) || 1;
+        const radius = stroke * Math.abs(transform.scaleY ?? transform.scale) / 2;
+        const bounds = { left: Math.min(a.x, b.x) - radius, right: Math.max(a.x, b.x) + radius,
+          top: Math.min(a.y, b.y) - radius, bottom: Math.max(a.y, b.y) + radius };
+        return { ...bounds, centerX: (bounds.left + bounds.right) / 2,
+          centerY: (bounds.top + bounds.bottom) / 2 };
+      }
+    }
     const rect = fragmentBounds(container);
     if (!rect) return null;
 
@@ -1715,25 +1779,13 @@ function marqueeHits(candidates, rect) {
     return closest;
   }
 
-  // キャンバス外周 + セーフマージン 5% + センター縦横の共通吸着ターゲット。
+  // キャンバス外周 + センター縦横の共通吸着ターゲット。
   // 移動と四隅 resize の候補がずれないよう、並びを含めここを単一正本にする。
   function canvasSnapTargets() {
     const { width, height } = outputSize();
     return {
-      x: [
-        0,
-        width * SAFE_MARGIN_RATIO,
-        width / 2,
-        width * (1 - SAFE_MARGIN_RATIO),
-        width,
-      ],
-      y: [
-        0,
-        height * SAFE_MARGIN_RATIO,
-        height / 2,
-        height * (1 - SAFE_MARGIN_RATIO),
-        height,
-      ],
+      x: [0, width / 2, width],
+      y: [0, height / 2, height],
     };
   }
 
@@ -1743,24 +1795,17 @@ function marqueeHits(candidates, rect) {
   // 経由でも公開する（㉒ スナップ統一の単一正本）。
   function computeSnapCorrection(bounds, previousSnap) {
     if (!bounds) return { x: null, y: null };
-
-    const targets = canvasSnapTargets();
-    const scale = currentDisplayScale();
-
-    const snapX = closestAxisSnap(
-      [bounds.left, bounds.centerX, bounds.right],
-      targets.x,
-      previousSnap?.x ?? null,
-      scale
-    );
-    const snapY = closestAxisSnap(
-      [bounds.top, bounds.centerY, bounds.bottom],
-      targets.y,
-      previousSnap?.y ?? null,
-      scale
-    );
-
-    return { x: snapX, y: snapY };
+    if (!globalThis.akariHandleGeometry) {
+      const targets = canvasSnapTargets();
+      return { x: closestAxisSnap([bounds.left, bounds.centerX, bounds.right], targets.x,
+        previousSnap?.x ?? null, currentDisplayScale()),
+      y: closestAxisSnap([bounds.top, bounds.centerY, bounds.bottom], targets.y,
+        previousSnap?.y ?? null, currentDisplayScale()) };
+    }
+    const others = stage ? Array.from(stage.children)
+      .filter(element => isSelectable(element) && element !== selectedOverlay)
+      .map(fragmentVideoBounds).filter(Boolean) : [];
+    return globalThis.akariHandleGeometry.snapBounds(bounds, others, outputSize(), currentDisplayScale());
   }
 
   function applyDragSnapping(drag, rawX, rawY, disabled) {
@@ -1937,6 +1982,81 @@ function marqueeHits(candidates, rect) {
     }
   }
 
+  function beginLineEndpoint(event, handleEl) {
+    if (!selectedOverlay || !globalThis.akariHandleGeometry) return;
+    const pose = readTransform(selectedOverlay);
+    const start = rotatedLeafCorners(selectedOverlay, null, pose, 'w');
+    const end = rotatedLeafCorners(selectedOverlay, null, pose, 'e');
+    const rect = unrotatedLeafBounds(selectedOverlay);
+    const left = start?.dragged ?? (rect && edgePoint(rect, 'w'));
+    const right = end?.dragged ?? (rect && edgePoint(rect, 'e'));
+    if (!left || !right) return;
+    const a = stageLocalPoint(left.x, left.y), b = stageLocalPoint(right.x, right.y);
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!a || !b || !pointer) return;
+    const movingEndpoint = handleEl.classList.contains('is-line-start') ? 'start' : 'end';
+    activeLine = { container: selectedOverlay, overlayId: selectedId, pose,
+      fixed: movingEndpoint === 'start' ? b : a,
+      originalMoving: movingEndpoint === 'start' ? a : b,
+      movingEndpoint, handleEl, pointerId: event.pointerId,
+      pointerOffset: { x: (movingEndpoint === 'start' ? a : b).x - pointer.x,
+        y: (movingEndpoint === 'start' ? a : b).y - pointer.y },
+      moved: false, writeContext: captureWriteContext() };
+    try { handleEl.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function updateLineEndpoint(event) {
+    const line = activeLine;
+    if (!line || event.pointerId !== line.pointerId) return;
+    const point = stageLocalPoint(event.clientX, event.clientY);
+    if (!point) return;
+    const others = stage ? Array.from(stage.children)
+      .filter(element => isSelectable(element) && element !== line.container)
+      .map(fragmentVideoBounds).filter(Boolean) : [];
+    const solved = globalThis.akariHandleGeometry.solveLineEndpoint(line.fixed,
+      { x: point.x + line.pointerOffset.x, y: point.y + line.pointerOffset.y },
+      others, outputSize(), currentDisplayScale(), event.metaKey || event.ctrlKey);
+    const pose = globalThis.akariHandleGeometry.lineTransform({ fixed: line.fixed,
+      originalMoving: line.originalMoving, moving: solved.point,
+      movingEndpoint: line.movingEndpoint,
+      stageCenter: { x: stage.clientWidth / 2, y: stage.clientHeight / 2 }, pose: line.pose });
+    if (!pose) return;
+    line.container.style.setProperty('--x', `${pose.x}px`);
+    line.container.style.setProperty('--y', `${pose.y}px`);
+    line.container.style.setProperty('--scale-x', String(pose.scaleX));
+    line.container.style.setProperty('--scale-y', String(pose.scaleY));
+    line.container.style.setProperty('--rotate', `${pose.rotate}deg`);
+    line.moved = true;
+    showSnapGuides(solved.snap.x, solved.snap.y);
+    if (event.cancelable) event.preventDefault();
+  }
+
+  function finishLineEndpoint(cancelled = false) {
+    const line = activeLine;
+    if (!line) return null;
+    activeLine = null;
+    releaseResizePointer(line);
+    hideSnapGuides();
+    if (cancelled || !line.moved) {
+      for (const [name, value] of [['--x', `${line.pose.x}px`], ['--y', `${line.pose.y}px`],
+        ['--scale', String(line.pose.scale)], ['--rotate', `${line.pose.rotate}deg`]]) {
+        line.container.style.setProperty(name, value);
+      }
+      if (line.pose.scaleX === undefined) line.container.style.removeProperty('--scale-x');
+      else line.container.style.setProperty('--scale-x', String(line.pose.scaleX));
+      if (line.pose.scaleY === undefined) line.container.style.removeProperty('--scale-y');
+      else line.container.style.setProperty('--scale-y', String(line.pose.scaleY));
+      refreshSelectionFrame();
+      return null;
+    }
+    const transform = readTransform(line.container);
+    const record = enqueueWrite(line.writeContext, line.overlayId, { transform }, 'transform');
+    syncLeafTransformOnSuccess(record, line.overlayId, transform);
+    lastTransformWrite = record;
+    return record;
+  }
+
   function beginResize(event, container, handleEl) {
     if (activeEdit) void commitEdit();
 
@@ -1985,6 +2105,14 @@ function marqueeHits(candidates, rect) {
       moved: false,
       writeContext: captureWriteContext(),
     };
+    handleHint?.remove();
+    handleHint = document.createElement('div');
+    handleHint.className = 'akari-interaction-hint';
+    handleHint.setAttribute('data-akari-interaction', 'handle-hint');
+    handleHint.textContent = edge ? (container.dataset.role === 'text' ? '折り返し幅' : '形を伸ばす') : '大きさ';
+    handleHint.style.left = `${event.clientX + 12}px`;
+    handleHint.style.top = `${event.clientY + 12}px`;
+    document.body.appendChild(handleHint);
 
     try {
       handleEl.setPointerCapture?.(event.pointerId);
@@ -2038,6 +2166,10 @@ function marqueeHits(candidates, rect) {
       handleEl, pointerId: event.pointerId, oldPose, pose: oldPose, startRect: rect,
       center, startAngle: Math.atan2(pointer.y - center.y, pointer.x - center.x),
       angle: 0, moved: false, writeContext: captureWriteContext() };
+    rotationBadge = document.createElement('div');
+    rotationBadge.className = 'akari-interaction-angle';
+    rotationBadge.setAttribute('data-akari-interaction', 'rotation-angle');
+    document.body.appendChild(rotationBadge);
     try { handleEl.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
     if (event.cancelable) event.preventDefault();
   }
@@ -2049,8 +2181,21 @@ function marqueeHits(candidates, rect) {
     if (!pointer) return;
     let angle = (Math.atan2(pointer.y - rotation.center.y, pointer.x - rotation.center.x)
       - rotation.startAngle) * 180 / Math.PI;
-    if (event.shiftKey) angle = Math.round(angle / 15) * 15;
+    if (globalThis.akariHandleGeometry) {
+      angle = globalThis.akariHandleGeometry.snapAngle(rotation.oldPose.rotate + angle,
+        event.metaKey || event.ctrlKey) - rotation.oldPose.rotate;
+    } else if (event.shiftKey) angle = Math.round(angle / 15) * 15;
     rotation.angle = angle;
+    if (rotationBadge) {
+      rotationBadge.textContent = `${Math.round(globalThis.akariHandleGeometry?.normalizeAngle(rotation.oldPose.rotate + angle)
+        ?? rotation.oldPose.rotate + angle)}°`;
+      rotationBadge.style.left = `${event.clientX + 15}px`;
+      rotationBadge.style.top = `${event.clientY + 17}px`;
+    }
+    const tangent = Math.atan2(event.clientY - (stage.getBoundingClientRect().top + rotation.center.y * currentDisplayScale()),
+      event.clientX - (stage.getBoundingClientRect().left + rotation.center.x * currentDisplayScale())) * 180 / Math.PI + 90;
+    const cursorSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><g transform="rotate(${Math.round(tangent)} 16 16)" fill="none" stroke="white" stroke-width="2"><path d="M5 16a11 11 0 0 1 19-7m3 7a11 11 0 0 1-19 7"/><path d="m21 8 4 1-1-4M11 24l-4-1 1 4"/></g></svg>`;
+    document.body.style.cursor = `url("data:image/svg+xml,${encodeURIComponent(cursorSvg)}") 16 16, crosshair`;
     if (rotation.group) {
       const theta = angle * Math.PI / 180, cosine = Math.cos(theta), sine = Math.sin(theta);
       const cx = rotation.center.x - stage.clientWidth / 2;
@@ -2070,6 +2215,8 @@ function marqueeHits(candidates, rect) {
     if (!activeRotate) return;
     const rotation = activeRotate;
     activeRotate = null;
+    rotationBadge?.remove(); rotationBadge = null;
+    document.body.style.cursor = '';
     releaseResizePointer(rotation);
     if (rotation.group) restoreGroupPose(rotation);
     else {
@@ -2082,6 +2229,8 @@ function marqueeHits(candidates, rect) {
     if (!activeRotate) return null;
     const rotation = activeRotate;
     activeRotate = null;
+    rotationBadge?.remove(); rotationBadge = null;
+    document.body.style.cursor = '';
     releaseResizePointer(rotation);
     if (rotation.group) {
       selectionFrame.style.transform = '';
@@ -2317,7 +2466,7 @@ function marqueeHits(candidates, rect) {
       ? clampScale(resize.startScaleX * (cosine * dx + sine * dy) / x0) : resize.startScaleX;
     let scaleY = useY && Math.abs(y0) > 1e-6
       ? clampScale(resize.startScaleY * (-sine * dx + cosine * dy) / y0) : resize.startScaleY;
-    if (event.altKey) {
+    if (event.metaKey || event.ctrlKey) {
       resize.snapX = null; resize.snapY = null; hideSnapGuides();
     } else if (resize.edge) {
       if (useX) scaleX = axisResizeSnap(resize, 'x', scaleX, scaleY);
@@ -2337,7 +2486,22 @@ function marqueeHits(candidates, rect) {
 
     const pointer = stageLocalPoint(event.clientX, event.clientY);
     if (!pointer) return;
-    if (!resize.group && (resize.edge || event.shiftKey)) {
+    if (!resize.group && !resize.edge && globalThis.akariHandleGeometry) {
+      const scales = globalThis.akariHandleGeometry.anchoredScales({
+        anchor: { x: resize.anchorStageX, y: resize.anchorStageY },
+        dragged: { x: resize.draggedStageX, y: resize.draggedStageY },
+        pointer: { x: pointer.x + resize.pointerOffsetX, y: pointer.y + resize.pointerOffsetY },
+        rotation: resize.rotation * 180 / Math.PI,
+        scaleX: resize.startScaleX, scaleY: resize.startScaleY,
+      });
+      applyAxisResize(resize, scales.scaleX, scales.scaleY);
+      resize.moved = Math.abs(scales.scaleX - resize.startScaleX) > 1e-6
+        || Math.abs(scales.scaleY - resize.startScaleY) > 1e-6;
+      hideSnapGuides();
+      if (event.cancelable) event.preventDefault();
+      return;
+    }
+    if (!resize.group && resize.edge) {
       updateAxisResize(resize, event, pointer);
       return;
     }
@@ -2352,7 +2516,7 @@ function marqueeHits(candidates, rect) {
     if (Math.abs(nextScale - 1) <= SCALE_SNAP_TOLERANCE) nextScale = 1;
 
     if (resize.group) {
-      if (event.altKey) {
+      if (event.metaKey || event.ctrlKey) {
         resize.snapX = null; resize.snapY = null; hideSnapGuides();
       } else {
         const snapped = applyResizeSnap(resize, nextScale);
@@ -2370,7 +2534,7 @@ function marqueeHits(candidates, rect) {
 
     if (!applyResizeTransformAt(resize, nextScale)) return;
 
-    if (event.altKey) {
+    if (event.metaKey || event.ctrlKey) {
       resize.snapX = null;
       resize.snapY = null;
       hideSnapGuides();
@@ -2390,6 +2554,7 @@ function marqueeHits(candidates, rect) {
 
     const resize = activeResize;
     activeResize = null;
+    handleHint?.remove(); handleHint = null;
     if (resize.group) {
       releaseResizePointer(resize);
       hideSnapGuides();
@@ -2413,6 +2578,7 @@ function marqueeHits(candidates, rect) {
 
     const resize = activeResize;
     activeResize = null;
+    handleHint?.remove(); handleHint = null;
     releaseResizePointer(resize);
     hideSnapGuides();
 
@@ -2463,7 +2629,17 @@ function marqueeHits(candidates, rect) {
 
   function onPointerDown(event) {
     if (!interactionEnabled) return;
-    if (event.button !== 0 || activeDrag || activeResize || activeRotate) return;
+    if (event.button !== 0 || activeDrag || activeResize || activeRotate || activeLine) return;
+    if (selectedId && stage && event.target instanceof Element) {
+      const bounds = stage.getBoundingClientRect();
+      const outside = event.clientX < bounds.left || event.clientX > bounds.right
+        || event.clientY < bounds.top || event.clientY > bounds.bottom;
+      const protectedTarget = event.target.closest('button, [role="button"], input, textarea, select, a[href], '
+        + '[data-akari-interaction], [data-akari-ui="preview-scope-breadcrumb"], '
+        + '.caption-row-plate, #caption-select-box, #layer-select-box, #cut-select-box, '
+        + '.transport-controls, [role="menu"]');
+      if (outside && !protectedTarget) { clearSelection(); return; }
+    }
     flushNudge();
     hideHover();
     clickOrigin = { selectedId, scopeId, moved: false, hadMultiple: selectedIds.length > 1 };
@@ -2473,11 +2649,16 @@ function marqueeHits(candidates, rect) {
       const handle = findHandleElement(event.target);
       if (handle) {
         if (selectedIds.length > 1) return;
+        if (handle.classList.contains('is-line-start') || handle.classList.contains('is-line-end')) {
+          beginLineEndpoint(event, handle); return;
+        }
         if (groupSelection) {
           if (handle.classList.contains('is-rotate')) beginRotate(event, handle);
+          else if (handle.classList.contains('is-move')) beginGroupDrag(event, selectedOverlay);
           else beginGroupResize(event, handle);
         } else if (isMovable(selectedOverlay)) {
           if (handle.classList.contains('is-rotate')) beginRotate(event, handle);
+          else if (handle.classList.contains('is-move')) beginLeafDrag(event, selectedOverlay);
           else beginResize(event, selectedOverlay, handle);
         }
         return;
@@ -2518,7 +2699,11 @@ function marqueeHits(candidates, rect) {
     const handleEl = findHandleElement(event.target);
     if (handleEl) {
       if (!isMovable(selectedOverlay)) return;
+      if (handleEl.classList.contains('is-line-start') || handleEl.classList.contains('is-line-end')) {
+        beginLineEndpoint(event, handleEl); return;
+      }
       if (handleEl.classList.contains('is-rotate')) beginRotate(event, handleEl);
+      else if (handleEl.classList.contains('is-move')) beginLeafDrag(event, selectedOverlay);
       else beginResize(event, selectedOverlay, handleEl);
       return;
     }
@@ -2552,6 +2737,11 @@ function marqueeHits(candidates, rect) {
     // pointermove が来た瞬間 activeDrag が動き出してしまう）。
     if (!isMovable(container)) return;
 
+    beginLeafDrag(event, container);
+  }
+
+  function beginLeafDrag(event, container) {
+    if (!container || !isMovable(container)) return;
     const transform = readTransform(container);
     activeDrag = {
       container,
@@ -2565,6 +2755,7 @@ function marqueeHits(candidates, rect) {
       snapX: null,
       snapY: null,
       moved: false,
+      duplicate: event.altKey,
       writeContext: captureWriteContext(),
     };
     hideSnapGuides();
@@ -2594,6 +2785,9 @@ function marqueeHits(candidates, rect) {
       }
     }
     scheduleHover(event);
+    if (activeLine && event.pointerId === activeLine.pointerId) {
+      updateLineEndpoint(event); return;
+    }
     if (activeRotate && event.pointerId === activeRotate.pointerId) {
       updateRotate(event);
       return;
@@ -2632,21 +2826,28 @@ function marqueeHits(candidates, rect) {
         ? currentStagePoint.y - drag.startStagePoint.y
         : deltaY / scale;
     if (drag.group) {
-      moveGroupDrag(drag, videoDeltaX, videoDeltaY, event.altKey);
+      const locked = globalThis.akariHandleGeometry?.axisLock(videoDeltaX, videoDeltaY, event.shiftKey)
+        ?? { x: videoDeltaX, y: videoDeltaY };
+      moveGroupDrag(drag, locked.x, locked.y, event.metaKey || event.ctrlKey);
       if (event.cancelable) event.preventDefault();
       return;
     }
+    const locked = globalThis.akariHandleGeometry?.axisLock(videoDeltaX, videoDeltaY, event.shiftKey)
+      ?? { x: videoDeltaX, y: videoDeltaY };
     applyDragSnapping(
       drag,
-      drag.startX + videoDeltaX,
-      drag.startY + videoDeltaY,
-      event.altKey
+      drag.startX + locked.x,
+      drag.startY + locked.y,
+      event.metaKey || event.ctrlKey
     );
 
     if (event.cancelable) event.preventDefault();
   }
 
   function onPointerUp(event) {
+    if (activeLine && event.pointerId === activeLine.pointerId) {
+      finishLineEndpoint(); return;
+    }
     if (pendingBlank && event.pointerId === pendingBlank.pointerId) {
       const dx = event.clientX - pendingBlank.x, dy = event.clientY - pendingBlank.y;
       if (!pendingBlank.started && dx * dx + dy * dy > dragStartDistance * dragStartDistance) {
@@ -2669,6 +2870,9 @@ function marqueeHits(candidates, rect) {
   }
 
   function onPointerCancel(event) {
+    if (activeLine && event.pointerId === activeLine.pointerId) {
+      finishLineEndpoint(true); return;
+    }
     if (pendingBlank && event.pointerId === pendingBlank.pointerId) { clearMarquee(); return; }
     if (activeRotate && event.pointerId === activeRotate.pointerId) {
       cancelRotate();
@@ -3109,6 +3313,7 @@ function marqueeHits(candidates, rect) {
         if (pendingBlank?.started) { clearMarquee(); handled(); return; }
         if (activeDrag) { cancelDrag(); handled(); return; }
         if (activeResize) { cancelResize(); handled(); return; }
+        if (activeLine) { finishLineEndpoint(true); handled(); return; }
         if (activeRotate) { cancelRotate(); handled(); return; }
         if (activeEdit) { cancelEdit(); handled(); return; }
         if (selectedIds.length > 1) {

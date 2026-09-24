@@ -13,9 +13,48 @@ export interface CaptionHandlePoint {
     y: number;
 }
 
+export function captionWrapWidthDrag(
+    side: 'e' | 'w', start: { left: number; right: number }, deltaX: number,
+    outputWidth: number
+): { widthPct: number; centerX: number } {
+    const width = Math.min(outputWidth, Math.max(8,
+        start.right - start.left + (side === 'e' ? deltaX : -deltaX)));
+    const centerX = side === 'e' ? start.left + width / 2 : start.right - width / 2;
+    return { widthPct: Math.round(width / outputWidth * 10000) / 100,
+        centerX };
+}
+
+export function captionCornerTransform(
+    kind: 'nw' | 'ne' | 'sw' | 'se', layout: { left: number; right: number; top: number; bottom: number },
+    baseScale: number, rotation: number, pointer: CaptionHandlePoint, startPointer?: CaptionHandlePoint
+): { scale: number; left: number; top: number; anchor: CaptionHandlePoint } {
+    const cx = (layout.left + layout.right) / 2;
+    const cy = (layout.top + layout.bottom) / 2;
+    const hx = (layout.right - layout.left) / 2;
+    const hy = (layout.bottom - layout.top) / 2;
+    const sx = kind.endsWith('w') ? -1 : 1;
+    const sy = kind.startsWith('n') ? -1 : 1;
+    const rad = rotation * Math.PI / 180;
+    const c = Math.cos(rad), s = Math.sin(rad);
+    const ax = -sx * hx, ay = -sy * hy;
+    const anchor = { x: cx + baseScale * (c * ax - s * ay),
+        y: cy + baseScale * (s * ax + c * ay) };
+    const vx = 2 * baseScale * (c * sx * hx - s * sy * hy);
+    const vy = 2 * baseScale * (s * sx * hx + c * sy * hy);
+    const px = pointer.x + (startPointer ? anchor.x + vx - startPointer.x : 0);
+    const py = pointer.y + (startPointer ? anchor.y + vy - startPointer.y : 0);
+    const factor = ((px - anchor.x) * vx + (py - anchor.y) * vy) / (vx * vx + vy * vy);
+    const scale = Math.round(Math.min(3, Math.max(0.4,
+        baseScale * (Number.isFinite(factor) ? factor : 1))) * 1000) / 1000;
+    const nextCx = anchor.x - scale * (c * ax - s * ay);
+    const nextCy = anchor.y - scale * (s * ax + c * ay);
+    return { scale, left: nextCx - hx, top: nextCy - hy, anchor };
+}
+
 export interface CaptionPlateTransformPatch {
     scale?: number;
     rotate?: number;
+    wrapWidthPct?: number;
 }
 
 export interface CaptionPlateCuePosition {
@@ -143,6 +182,7 @@ function applyTransform(
             if (patch.rotate === 0) delete style.rotate;
             else style.rotate = patch.rotate;
         }
+        if (patch.wrapWidthPct !== undefined) style.wrap_width_pct = patch.wrapWidthPct;
         if (Object.keys(style).length === 0) delete caption.text_style;
         else caption.text_style = style;
     }

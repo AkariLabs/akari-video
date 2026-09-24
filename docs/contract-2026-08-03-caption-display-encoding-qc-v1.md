@@ -197,3 +197,7 @@ are `partial_run`, never `production_run`.
 Executable specifications live in the edit-store, schemas, edit-lint, render-cut, preview-server,
 shell preview, and launcher test suites. The external A4 verifier accepts an explicitly supplied
 project root and independent manifest; absence of the frozen local fixture is a skip, not a pass.
+
+## 置いた文字の折り返し幅（2026-09-25 追記）
+
+`captions[].text_style.wrap_width_pct` は出力画面幅に対する文字の折り返し幅（0 より大きく 100 以下）を表す。省略時は従来の幅を使う。左右の辺の操作はこの値だけを変更し、`scale` と `size_px` を変更しない。`max_width_pct` は座布団の幅、`max_characters` は文字数による改行であり、この値とは独立する。現在のプレビューは置いた文字（`time_domain: output`）に適用する。書き出し側の対応が入るまではプレビューと書き出しの幅が異なる。

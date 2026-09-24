@@ -104,11 +104,11 @@ test('marquee native pointer gestures', async t => {
     await page.keyboard.up('Shift');
     assert.deepEqual(await ids(page), ['a', 'b']);
   });
-  await scenario('stationary pasteboard click outside the stage keeps the selection', async page => {
+  await scenario('stationary pasteboard click outside the stage clears the selection', async page => {
     await page.evaluate(() => { window.akari.shouldStartPreviewMarquee = () => true; });
     await page.mouse.click(95, 140);
     await page.mouse.click(680, 380);
-    assert.deepEqual(await ids(page), ['a']);
+    assert.deepEqual(await ids(page), []);
   });
   await scenario('group scope and floor limit candidates to direct children', async page => {
     await page.keyboard.down('Control');

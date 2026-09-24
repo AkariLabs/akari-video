@@ -107,7 +107,7 @@ test('leaf X/Y edge handles keep the opposite edge fixed at 0, 30 and 90 degrees
   });
 });
 
-test('Shift corner scales axes independently while plain corner stays proportional', async t => {
+test('corner stays proportional with or without Shift', async t => {
   const browser = await launchBrowser(); t.after(() => browser.close());
   for (const shift of [false, true]) await t.test(`shift=${shift}`, async () => {
     const page = await fixture(browser);
@@ -115,8 +115,7 @@ test('Shift corner scales axes independently while plain corner stays proportion
       const before = await frame(page);
       const writes = await drag(page, before.points.se, 40, 6, shift);
       const transform = writes[0].patch.transform;
-      if (shift) assert.ok(Math.abs(transform.scaleX - transform.scaleY) > 0.1, JSON.stringify(transform));
-      else assert.equal(transform.scaleX, undefined);
+      assert.equal(transform.scaleX, undefined);
     } finally { await page.close(); }
   });
 });

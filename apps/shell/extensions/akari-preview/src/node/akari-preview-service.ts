@@ -418,7 +418,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 }\n${
                     ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT
                 }`, 'utf8'),
-                interaction: read('interaction.js'),
+                interaction: Buffer.from(`${readText('handle-geometry.js')}\n${readText('interaction.js')}`, 'utf8'),
                 interactionCss: readText('interaction.css'),
                 webviewKernel: readFileSync(this.findWebviewKernelBundle()),
                 captionFont: readFileSync(this.findCaptionFontPath())

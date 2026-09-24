@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
+const css = readFileSync(join(here, '..', 'src', 'browser', 'preview-selection-handles-style.ts'), 'utf8');
 
 const section = (from, to) => {
     const start = source.indexOf(from);
@@ -31,26 +32,24 @@ test('cut / layer の両方の選択枠に四辺中央の辺バーが 4 本あ�
     assert.doesNotMatch(source, /data-akari-handle="[news]"/u);
 });
 
-test('cut の選択枠にも layer と同じ回転ハンドル + ステムが出る（パースのトグルは出さない）', () => {
+test('cut と layer は下の回転・移動ボタンを持ち、上のステムを持たない', () => {
     const cutBox = section('<div id="cut-select-box">', '<div id="caption-zone-highlight">');
-    assert.ok(cutBox.includes('class="akari-cut-rotate-stem"'));
+    const layerBox = section('<div id="layer-select-box">', '<div id="layer-crop-box">');
+    assert.doesNotMatch(cutBox, /rotate-stem/u);
+    assert.doesNotMatch(layerBox, /rotate-stem/u);
     assert.ok(cutBox.includes('class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate"'));
-    assert.match(source, /#cut-select-box \.akari-cut-handle-rotate \{[^}]*border-radius: 50%; cursor: grab;/u);
-    assert.match(source, /#cut-select-box \.akari-cut-rotate-stem \{[^}]*background: #4da3ff;/u);
+    assert.ok(cutBox.includes('data-akari-handle="move"'));
+    assert.ok(layerBox.includes('data-akari-handle="move"'));
+    assert.match(css, /#cut-select-box \.akari-cut-handle-move \{ left: calc\(50% \+ 14px\); cursor: move; \}/u);
     // ㉖ パースは frame-engine の base 経路が cut の perspective を未適用なので cut には出さない。
     assert.doesNotMatch(cutBox, /perspective/u);
     assert.doesNotMatch(source, /#cut-select-box[^\n]*perspective/u);
 });
 
-test('辺バーは白地 + 青枠の 28×5 / 5×28 で、frame-engine 面でも操作面として残る', () => {
-    assert.match(
-        source,
-        /#layer-select-box \.akari-crop-edge, #cut-select-box \.akari-crop-edge \{[^}]*border: 1\.5px solid #4da3ff;[^}]*border-radius: 3px;[^}]*background: #fff;[^}]*pointer-events: auto;/u
-    );
-    assert.match(source, /\.akari-crop-edge-n \{[^}]*width: 28px; height: 5px;[^}]*cursor: ns-resize;/u);
-    assert.match(source, /\.akari-crop-edge-s \{[^}]*width: 28px; height: 5px;[^}]*cursor: ns-resize;/u);
-    assert.match(source, /\.akari-crop-edge-e \{[^}]*width: 5px; height: 28px;[^}]*cursor: ew-resize;/u);
-    assert.match(source, /\.akari-crop-edge-w \{[^}]*width: 5px; height: 28px;[^}]*cursor: ew-resize;/u);
+test('辺バーは 14×5 の白いつまみと 6px 広い当たりを持つ', () => {
+    assert.match(css, /\.akari-crop-edge::after, #cut-select-box \.akari-crop-edge::after \{[^}]*width: 14px; height: 5px;/u);
+    assert.match(css, /\.akari-crop-edge-n, #layer-select-box \.akari-crop-edge-s, #cut-select-box \.akari-crop-edge-n, #cut-select-box \.akari-crop-edge-s \{ width: 20px; height: 11px;/u);
+    assert.match(css, /\.akari-crop-edge-e, #layer-select-box \.akari-crop-edge-w, #cut-select-box \.akari-crop-edge-e, #cut-select-box \.akari-crop-edge-w \{ width: 11px; height: 20px;/u);
     assert.match(
         source,
         /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-crop-edge,/u
@@ -64,13 +63,13 @@ test('辺バーは白地 + 青枠の 28×5 / 5×28 で、frame-engine 面でも�
     assert.match(source, /\.akari-crop-edges-off \.akari-crop-edge \{ display: none; \}/u);
 });
 
-test('辺バー / 角点 / 回転の pointerdown は cut と layer で同じ関数へ入る', () => {
-    // 辺バーは 1 本のループで両 box を配線し、同じ beginMediaCropDrag を呼ぶ。
+test('画像の辺は片軸伸縮、cut の辺は切り抜き、角と回転は共通ドラッグへ入る', () => {
     const edgeWiring = section('const cropEdgeHandleElements = [', '// 通常ドラッグは cue 固有位置');
     assert.match(edgeWiring, /layerSelectBox\.querySelectorAll\('\[data-akari-crop-edge\]'\)/u);
     assert.match(edgeWiring, /cutSelectBox\.querySelectorAll\('\[data-akari-crop-edge\]'\)/u);
     assert.match(edgeWiring, /target = cutDragTarget\(\);/u);
-    assert.match(edgeWiring, /target = layerDragTarget\(entry\);/u);
+    assert.match(edgeWiring, /geometry\.anchoredScales\(\{ anchor, dragged,/u);
+    assert.match(edgeWiring, /beginMediaTransformDrag\(layerDragTarget\(entry\), event,/u);
     assert.match(edgeWiring, /beginMediaCropDrag\(target, edge\.element\.getAttribute\('data-akari-crop-edge'\), event\)/u);
     assert.equal((source.match(/const beginMediaCropDrag = /gu) || []).length, 1);
 

@@ -36,6 +36,16 @@ import {
 const testRoot = dirname(fileURLToPath(import.meta.url));
 const styleParity = JSON.parse(await readFile(join(testRoot, 'fixtures/caption-style-validation-parity.json'), 'utf8'));
 
+test('wrap_width_pct is retained for placed text without changing font size', () => {
+  assert.deepEqual(validateCaptionTextStyle({ size_px: 48, wrap_width_pct: 35 }),
+    { size_px: 48, wrap_width_pct: 35 });
+  const resolved = resolveCaptionStyleForOutput({ size_px: 48, wrap_width_pct: 35 },
+    { width: 1280, height: 720 });
+  assert.equal(resolved.vars['--caption-wrap-width'], '35%');
+  assert.equal(resolved.vars['--caption-font-size'], '48px');
+  assert.throws(() => validateCaptionTextStyle({ wrap_width_pct: 101 }), /wrap_width_pct/u);
+});
+
 test('background.fit は text の従来変数を保ち frame のみ枠基準を宣言する', () => {
   const base = { background: { color: '#111111', width_pct: 100, padding_px: 16 } };
   const prior = resolveCaptionStyleForOutput(base, { width: 1280, height: 720 }).vars;

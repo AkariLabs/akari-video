@@ -1,0 +1,9 @@
+{
+  "rotate": ".akari-interaction-action.is-rotate",
+  "move": ".akari-interaction-action.is-move",
+  "lineStart": ".akari-interaction-handle.is-line-start",
+  "lineEnd": ".akari-interaction-handle.is-line-end",
+  "guides": ".akari-interaction-snap-guide:not([hidden])",
+  "hint": ".akari-interaction-hint",
+  "angle": ".akari-interaction-angle"
+}
