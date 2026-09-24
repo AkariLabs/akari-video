@@ -59,11 +59,31 @@ test('見た目の書き込み引数は setCaptionTextStyle の camelCase patch'
   assert.deepEqual(lookPatch('stroke', 3), { stroke: { widthPx: 3, color: '#000000' } });
 });
 
-test('座布団の幅の選択印は行固有値を優先し、未指定は文字幅', () => {
+test('座布団の幅は継承値と選択値の 4 通りで削除か明示値を決める', () => {
+  const textDefault = { background: { fit: 'text' } };
+  const frameDefault = { background: { fit: 'frame' } };
+  assert.deepEqual(lookPatch('fit', 'text', undefined, textDefault), { background: { fit: null } });
+  assert.deepEqual(lookPatch('fit', 'frame', undefined, textDefault), { background: { fit: 'frame' } });
+  assert.deepEqual(lookPatch('fit', 'text', undefined, frameDefault), { background: { fit: 'text' } });
+  assert.deepEqual(lookPatch('fit', 'frame', undefined, frameDefault), { background: { fit: null } });
+  assert.deepEqual(lookPatch('fit', 'text', { background: { fit: 'frame' } }, textDefault),
+    { background: { fit: 'text' } });
+  const selectedRows = [
+    { presetStyle: undefined, defaultStyle: frameDefault },
+    { presetStyle: { background: { fit: 'text' } }, defaultStyle: frameDefault }
+  ];
+  assert.deepEqual(selectedRows.map(row => lookPatch('fit', 'text', row.presetStyle, row.defaultStyle)), [
+    { background: { fit: 'text' } }, { background: { fit: null } }
+  ]);
+});
+
+test('座布団の幅の実効値は行、プリセット、既定の順に解決する', () => {
   assert.equal(currentLookFit({}, {}), 'text');
   assert.equal(currentLookFit({}, { background: { fit: 'frame' } }), 'frame');
   assert.equal(currentLookFit({ background: { fit: 'text' } }, { background: { fit: 'frame' } }), 'text');
   assert.equal(currentLookFit({}, {}, { background: { fit: 'frame' } }), 'frame');
+  assert.equal(currentLookFit({ background: { fit: 'text' } }, {}, { background: { fit: 'frame' } }), 'text');
+  assert.equal(currentLookFit({ background: { fit: 'frame' } }, {}, { background: { fit: 'text' } }), 'frame');
   assert.equal(hasLookCushion({}, {}), false);
   assert.equal(hasLookCushion({ background: { opacity: 1 } }, {}), true);
   assert.equal(hasLookCushion({ background: { opacity: 0 } }, { background: { color: '#111111' } }), false);
@@ -83,6 +103,11 @@ test('見た目タブの選択印と無効判定は再読込した字幕に追�
   assert.deepEqual(dockLookState(restored), {
     textColor: undefined, backgroundColor: '#111111', fit: 'text', fitDisabled: false
   });
+  assert.deepEqual(dockLookState([{ textStyle: {} }], {
+    color: '#ffffff', background: { color: '#facc15', fit: 'frame' }
+  }), {
+    textColor: '#ffffff', backgroundColor: '#facc15', fit: 'frame', fitDisabled: false
+  });
   assert.equal(shouldRefreshLookDock('row', 'look', true), true);
   assert.equal(shouldRefreshLookDock('row', 'look', false), false);
   assert.equal(shouldRefreshLookDock('row', 'template', true), false);
@@ -92,11 +117,15 @@ test('見た目タブの選択印と無効判定は再読込した字幕に追�
   assert.equal(shouldRefreshLookDock('placed', 'look', true), false);
 });
 
-test('色の選択印は行固有値、次にプリセット値を読む', () => {
+test('色の選択印は行固有値、プリセット値、既定値の順に読む', () => {
   assert.equal(currentLookSwatch({ color: '#ffffff' }, { color: '#111111' }, 'color'), '#ffffff');
   assert.equal(currentLookSwatch({}, { color: '#111111' }, 'color'), '#111111');
   assert.equal(currentLookSwatch({ background: { opacity: 0 } },
     { background: { color: '#facc15' } }, 'background'), 'none');
   assert.equal(currentLookSwatch({}, { background: { color: '#facc15' } }, 'background'), '#facc15');
   assert.equal(currentLookSwatch({}, {}, 'background'), 'none');
+  assert.equal(currentLookSwatch({}, {}, 'background', { background: { color: '#38bdf8' } }), '#38bdf8');
+  assert.equal(currentLookSwatch({}, {}, 'color', { color: '#ffffff' }), '#ffffff');
+  assert.equal(currentLookSwatch({ background: { color: '#facc15' } }, {}, 'background',
+    { background: { opacity: 0 } }), 'none');
 });

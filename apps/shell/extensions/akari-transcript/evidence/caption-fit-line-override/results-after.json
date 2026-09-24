@@ -1,0 +1,207 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "1 見た目タブを開いた時点の選択印（既定 frame・既定の座布団の色 #facc15）",
+      "pass": true,
+      "detail": {
+        "fitButtons": [
+          {
+            "value": "text",
+            "label": "文字に合わせる",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "value": "frame",
+            "label": "画面幅",
+            "disabled": false,
+            "pressed": "true"
+          }
+        ],
+        "fitPressed": [
+          "frame"
+        ],
+        "backgroundSelected": [
+          "#facc15"
+        ],
+        "colorSelected": [
+          "#ffffff"
+        ]
+      }
+    },
+    {
+      "name": "2 「文字に合わせる」→ 1 行目の座布団 / captions.json → Cmd+Z 1 手で byte 一致",
+      "pass": true,
+      "detail": {
+        "captionsChanged": true,
+        "row1TextStyle": {
+          "background": {
+            "fit": "text"
+          }
+        },
+        "row2TextStyle": null,
+        "look": {
+          "fitButtons": [
+            {
+              "value": "text",
+              "label": "文字に合わせる",
+              "disabled": false,
+              "pressed": "true"
+            },
+            {
+              "value": "frame",
+              "label": "画面幅",
+              "disabled": false,
+              "pressed": "false"
+            }
+          ],
+          "fitPressed": [
+            "text"
+          ],
+          "backgroundSelected": [
+            "#facc15"
+          ],
+          "colorSelected": [
+            "#ffffff"
+          ]
+        },
+        "notifications": [],
+        "line1": {
+          "captionPlateBoxWidth": 414,
+          "visibleLines": [
+            "短い"
+          ],
+          "lineText": "短い",
+          "lineWidth": 47.92,
+          "lineHeight": 26.66,
+          "fitVar": null,
+          "ratioToPlateBox": 0.116,
+          "pixelYellowRun": 48
+        },
+        "line2": {
+          "captionPlateBoxWidth": 414,
+          "visibleLines": [
+            "これは少し長めの字幕の行です"
+          ],
+          "lineText": "これは少し長めの字幕の行です",
+          "lineWidth": 414,
+          "lineHeight": 26.66,
+          "fitVar": "frame",
+          "ratioToPlateBox": 1,
+          "pixelYellowRun": 414
+        },
+        "undo": "byte-identical after 1 Cmd+Z",
+        "line1AfterUndo": {
+          "captionPlateBoxWidth": 414,
+          "visibleLines": [
+            "短い"
+          ],
+          "lineText": "短い",
+          "lineWidth": 414,
+          "lineHeight": 26.66,
+          "fitVar": "frame",
+          "ratioToPlateBox": 1
+        },
+        "lookAfterUndo": {
+          "fitButtons": [
+            {
+              "value": "text",
+              "label": "文字に合わせる",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "value": "frame",
+              "label": "画面幅",
+              "disabled": false,
+              "pressed": "true"
+            }
+          ],
+          "fitPressed": [
+            "frame"
+          ],
+          "backgroundSelected": [
+            "#facc15"
+          ],
+          "colorSelected": [
+            "#ffffff"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3 「文字に合わせる」→「画面幅」→ 1 行目の fit が消える（既定に従う）",
+      "pass": true,
+      "detail": {
+        "row1TextStyle": null,
+        "byteIdenticalToBefore": true,
+        "look": {
+          "fitButtons": [
+            {
+              "value": "text",
+              "label": "文字に合わせる",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "value": "frame",
+              "label": "画面幅",
+              "disabled": false,
+              "pressed": "true"
+            }
+          ],
+          "fitPressed": [
+            "frame"
+          ],
+          "backgroundSelected": [
+            "#facc15"
+          ],
+          "colorSelected": [
+            "#ffffff"
+          ]
+        },
+        "line1": {
+          "captionPlateBoxWidth": 414,
+          "visibleLines": [
+            "短い"
+          ],
+          "lineText": "短い",
+          "lineWidth": 414,
+          "lineHeight": 26.66,
+          "fitVar": "frame",
+          "ratioToPlateBox": 1
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-look-tab.png",
+    "after-02-line1-after-click.png",
+    "after-02-line2-after-click.png",
+    "after-03-back-to-default.png"
+  ],
+  "previewInitial": {
+    "line1": {
+      "captionPlateBoxWidth": 414,
+      "visibleLines": [
+        "短い"
+      ],
+      "lineText": "短い",
+      "lineWidth": 414,
+      "lineHeight": 26.66,
+      "fitVar": "frame"
+    },
+    "line2": {
+      "captionPlateBoxWidth": 414,
+      "visibleLines": [
+        "これは少し長めの字幕の行です"
+      ],
+      "lineText": "これは少し長めの字幕の行です",
+      "lineWidth": 414,
+      "lineHeight": 26.66,
+      "fitVar": "frame"
+    }
+  }
+}

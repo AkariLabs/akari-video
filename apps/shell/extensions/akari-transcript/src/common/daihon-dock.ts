@@ -33,12 +33,12 @@ export function shouldCloseDockOnEscape(key: string, open: boolean, focusInPanel
     return key === 'Escape' && open && (focusInPanel || focusOnBody);
 }
 
-export function lookPatch(field: LookField, value: string | number): Record<string, unknown> {
+export function lookPatch(field: LookField, value: string | number, presetStyle?: unknown, defaultStyle?: unknown): Record<string, unknown> {
     switch (field) {
         case 'color': return { color: String(value) };
         case 'background': return value === 'none'
             ? { background: { opacity: 0 } } : { background: { color: String(value), opacity: 1 } };
-        case 'fit': return { background: { fit: value === 'frame' ? 'frame' : null } };
+        case 'fit': return { background: { fit: value === currentLookFit(undefined, presetStyle, defaultStyle) ? null : value } };
         case 'size': return { sizePx: Number(value) };
         case 'spacing': return { letterSpacingEm: Number(value) };
         case 'stroke': return { stroke: { widthPx: Number(value), color: '#000000' } };
@@ -75,8 +75,8 @@ export function dockLookState(
 ): DockLookState {
     const single = rows.length === 1 ? rows[0] : undefined;
     return {
-        textColor: currentLookSwatch(single?.textStyle, single?.presetStyle, 'color'),
-        backgroundColor: currentLookSwatch(single?.textStyle, single?.presetStyle, 'background'),
+        textColor: currentLookSwatch(single?.textStyle, single?.presetStyle, 'color', defaultStyle),
+        backgroundColor: currentLookSwatch(single?.textStyle, single?.presetStyle, 'background', defaultStyle),
         fit: currentLookFit(single?.textStyle, single?.presetStyle, defaultStyle),
         fitDisabled: rows.length === 0 || rows.every(row =>
             !hasLookCushion(row.textStyle, row.presetStyle, defaultStyle))
@@ -90,17 +90,20 @@ export function shouldRefreshLookDock(kind: DockKind | undefined, tab: DockTab, 
 const object = (value: unknown): Record<string, unknown> =>
     value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
-export function currentLookSwatch(textStyle: unknown, presetStyle: unknown, field: 'color' | 'background'): string | undefined {
+export function currentLookSwatch(textStyle: unknown, presetStyle: unknown, field: 'color' | 'background', defaultStyle?: unknown): string | undefined {
     const direct = object(textStyle);
     const preset = object(presetStyle);
+    const fallback = object(defaultStyle);
     if (field === 'color') {
         return typeof direct.color === 'string' ? direct.color
-            : typeof preset.color === 'string' ? preset.color : undefined;
+            : typeof preset.color === 'string' ? preset.color
+                : typeof fallback.color === 'string' ? fallback.color : undefined;
     }
-    const background = object(direct.background);
+    const background = {
+        ...object(fallback.background),
+        ...object(preset.background),
+        ...object(direct.background)
+    };
     if (background.opacity === 0) return 'none';
-    if (typeof background.color === 'string') return background.color;
-    const presetBackground = object(preset.background);
-    if (presetBackground.opacity === 0) return 'none';
-    return typeof presetBackground.color === 'string' ? presetBackground.color : 'none';
+    return typeof background.color === 'string' ? background.color : 'none';
 }

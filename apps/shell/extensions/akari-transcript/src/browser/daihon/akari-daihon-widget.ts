@@ -2172,10 +2172,15 @@ export class AkariDaihonWidget extends BaseWidget {
         if (!this.captionsUri || !this.rootUri) return;
         try {
             await this.withHistory('字幕の見た目を変更', async () => {
-                for (const captionId of ids) await this.annotationsService.setCaptionTextStyle({
-                    captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionId,
-                    textStyle: lookPatch(field, value) as Parameters<AkariAnnotationsService['setCaptionTextStyle']>[0]['textStyle']
-                });
+                for (const captionId of ids) {
+                    const caption = this.sourceCaptions.find(item => item.id === captionId);
+                    const presetStyle = caption?.stylePreset ? TEXTSTYLE_CATALOG[caption.stylePreset]?.style : undefined;
+                    await this.annotationsService.setCaptionTextStyle({
+                        captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(), captionId,
+                        textStyle: lookPatch(field, value, presetStyle, this.defaultCaptionTextStyle) as
+                            Parameters<AkariAnnotationsService['setCaptionTextStyle']>[0]['textStyle']
+                    });
+                }
             });
             await this.reload();
             this.notify('字幕の見た目を変更しました');
