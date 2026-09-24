@@ -10,10 +10,10 @@ const css = widget.slice(widget.indexOf('style.textContent = `') + 'style.textCo
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap((match, order) =>
   match[1].split(',').flatMap(raw => {
     const selector = raw.trim();
-    const parsed = /^\.akari-inspector-widget( \.akari-inspector-generation-gap)? button((?::[\w-]+)*)$/.exec(selector);
+    const parsed = /^\.akari-inspector-widget( \.akari-inspector-generation-gap)? button(:not\(\.akari-inspector-ai-tile\))?((?::[\w-]+)*)$/.exec(selector);
     if (!parsed) return [];
-    const states = parsed[2].split(':').filter(Boolean);
-    return [{ selector, order, states, gap: !!parsed[1], specificity: 1 + Number(!!parsed[1]) + states.length,
+    const states = parsed[3].split(':').filter(Boolean);
+    return [{ selector, order, states, gap: !!parsed[1], specificity: 1 + Number(!!parsed[1]) + Number(!!parsed[2]) + states.length,
       declarations: Object.fromEntries(match[2].trim().split(';').filter(Boolean).map(declaration => {
         const colon = declaration.indexOf(':');
         return [declaration.slice(0, colon).trim(), declaration.slice(colon + 1).trim()];

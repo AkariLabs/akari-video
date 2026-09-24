@@ -19,11 +19,12 @@ const SHELL = path.join(REPO, 'apps/shell');
 const ISO = await mkdtemp(path.join(tmpdir(), 'akari-ai-gap-sticky-'));
 const PROJECT = path.join(ISO, 'project');
 const PORT = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice(7) ?? 22227);
+const onlyGapStyle = process.argv.includes('--only=gap-style');
 const results = { status: 'running', steps: [], screenshots: [], clicks: [], requests: [], fakeCliCalls: 0 };
 const clean = value => String(value).replaceAll(ISO, '<TMP>').replaceAll(REPO, '<WORKTREE>')
   .replaceAll(process.env.HOME ?? '', '<HOME>');
-const save = () => writeFile(path.join(ROOT, 'results.json'), clean(JSON.stringify(results, null, 2)) + '\n');
-let electron, cdp;
+const save = () => writeFile(path.join(ROOT, onlyGapStyle ? 'results-r1.json' : 'results.json'), clean(JSON.stringify(results, null, 2)) + '\n');
+let electron, cdp, calls;
 const evaluate = expression => evalOn(cdp, expression);
 async function waitFor(fn, label, ms = 90_000) {
   const until = Date.now() + ms;
@@ -112,6 +113,30 @@ async function step(name, fn) {
 }
 const readEdit = async () => JSON.parse(await readFile(path.join(PROJECT, 'edit.json'), 'utf8'));
 const aiActive = `document.querySelector('[data-akari-ui="tab:inspector-generation"]')?.getAttribute('aria-selected')==='true'`;
+async function tileStyles(selector) {
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5, button: 'none' });
+  return evaluate(`(()=>[...document.querySelectorAll(${JSON.stringify(selector)})]
+    .filter(e=>e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0&&!e.disabled)
+    .map(e=>{const s=getComputedStyle(e);return{id:e.dataset.akariInspectorAiTile,
+      backgroundColor:s.backgroundColor,borderTopColor:s.borderTopColor,
+      borderTopWidth:s.borderTopWidth,borderTopStyle:s.borderTopStyle,
+      color:s.color,borderRadius:s.borderRadius,padding:s.padding}}))()`);
+}
+function compareTileStyles(gapTiles, clipTile) {
+  const fields = ['backgroundColor', 'borderTopColor', 'borderTopWidth', 'borderTopStyle', 'color', 'borderRadius', 'padding'];
+  const comparisons = gapTiles.map(tile => ({ id: tile.id,
+    fields: Object.fromEntries(fields.map(field => [field, { gap: tile[field], stillClip: clipTile[field], equal: tile[field] === clipTile[field] }])) }));
+  for (const comparison of comparisons) for (const field of fields.slice(0, 4)) {
+    assert.equal(comparison.fields[field].equal, true, `${comparison.id} ${field} differs from still clip tile`);
+  }
+  return comparisons;
+}
+async function recordFakeCliCalls() {
+  if (!calls) return;
+  results.fakeCliArguments = (await readFile(calls, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+  results.fakeCliCalls = results.fakeCliArguments.length;
+  results.fakeCliGenerationCalls = results.fakeCliArguments.filter(args => args.some(arg => /^(generate|resume|cancel)$/u.test(arg))).length;
+}
 async function captureFailure() {
   if (cdp) {
     try {
@@ -140,17 +165,34 @@ async function captureFailure() {
   await save();
 }
 async function gapClick() {
+  const expected = `Boolean(document.querySelector('.akari-inspector-generation-gap [data-akari-inspector-ai-tile="still"]')&&document.querySelector('.akari-inspector-generation-gap [data-akari-inspector-ai-tile="video"]'))`;
+  const inspectPoint = () => evaluate(`(()=>{const w=window.__akariGapWidget,r=w.strip.getBoundingClientRect(),l=w.laneLayout.tracks.find(x=>x.id==='video');
+    const x=r.left+(5-w.viewStart)*r.width/w.visibleDuration(),y=r.top+l.top+l.height/2,h=document.elementFromPoint(x,y);
+    const clip=h?.closest('[data-akari-item-kind]'),gapBand=h?.closest('.akari-annotations-gap-band');
+    return{point:{x,y},allowed:!!h&&(w.strip.contains(h)||!!gapBand)&&!clip,
+      hit:h?{tagName:h.tagName,className:String(h.className),data:Object.fromEntries([...h.attributes]
+        .filter(a=>a.name.startsWith('data-')).map(a=>[a.name,a.value]))}:null}})()`);
+  let lastPoint, lastHit;
   for (let attempt = 1; attempt <= 3; attempt++) {
+    if (await evaluate(expected)) return lastPoint ?? (await inspectPoint()).point;
     await settle(); await clearNotifications();
-    const point = await evaluate(`(()=>{const w=window.__akariGapWidget,r=w.strip.getBoundingClientRect(),l=w.laneLayout.tracks.find(x=>x.id==='video');
-      const x=r.left+(5-w.viewStart)*r.width/w.visibleDuration(),y=r.top+l.top+l.height/2,h=document.elementFromPoint(x,y);
-      return h&&w.strip.contains(h)&&!h.closest('[data-akari-item-kind]')?{x,y}:null})()`);
-    if (!point) { await sleep(300); continue; }
-    await realClick(cdp, point.x, point.y);
-    try { await waitUi(`Boolean(document.querySelector('.akari-inspector-generation-gap [data-akari-inspector-ai-tile="still"]')&&document.querySelector('.akari-inspector-generation-gap [data-akari-inspector-ai-tile="video"]'))`, 'gap tiles', 5_000); return point; }
-    catch { if (attempt === 3) throw new Error('gap click did not select the gap'); }
+    if (await evaluate(expected)) return lastPoint ?? (await inspectPoint()).point;
+    let target = await inspectPoint();
+    lastHit = target.hit;
+    if (!target.allowed) {
+      if (await evaluate(expected)) return lastPoint ?? target.point;
+      await clearNotifications(); await settle();
+      if (await evaluate(expected)) return lastPoint ?? target.point;
+      target = await inspectPoint();
+      lastHit = target.hit;
+      if (!target.allowed) continue;
+    }
+    await realClick(cdp, target.point.x, target.point.y);
+    lastPoint = target.point;
+    try { await waitUi(expected, 'gap tiles', 5_000); return lastPoint; }
+    catch { if (await evaluate(expected)) return lastPoint; }
   }
-  throw new Error('gap point is covered');
+  throw new Error(`gap tiles did not appear after three attempts; last hit: ${JSON.stringify(lastHit)}`);
 }
 async function ownedProcesses() {
   const { stdout } = await promisify(execFile)('/bin/ps', ['-axo', 'pid=,command='], { timeout: 5000 });
@@ -167,9 +209,10 @@ try {
   original.tracks[0].items.push({ id: 'still', name: '静止画', at: 300, duration: 90, source: { kind: 'media', src: 'still', in: 0, out: 3 } });
   original.tracks.push({ id: 'audio', lane: 'audio', name: '音声', items: [{ id: 'sound', name: '音声', at: 0, duration: 90, source: { kind: 'media', src: 'audio', in: 0, out: 3 } }] });
   await writeFile(path.join(PROJECT, 'edit.json'), JSON.stringify(original, null, 2) + '\n');
-  const fakeCli = path.join(ISO, 'fake-generate.mjs'), calls = path.join(ISO, 'cli-calls.txt');
+  const fakeCli = path.join(ISO, 'fake-generate.mjs');
+  calls = path.join(ISO, 'cli-calls.txt');
   await writeFile(calls, '');
-  await writeFile(fakeCli, `import{appendFile}from'node:fs/promises';await appendFile(${JSON.stringify(calls)},'called\\n');`);
+  await writeFile(fakeCli, `import{appendFile}from'node:fs/promises';await appendFile(${JSON.stringify(calls)},JSON.stringify(process.argv.slice(2))+'\\n');`);
   const binary = path.join(SHELL, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
   assert.ok((await stat(binary)).isFile(), 'built Electron binary is required');
   electron = spawn(binary, [SHELL, PROJECT, `--remote-debugging-port=${PORT}`,
@@ -212,8 +255,26 @@ try {
     const state = await evaluate(`(()=>{const p=document.querySelector('.akari-inspector-generation-gap');return{heading:p.querySelector('h3')?.textContent,range:p.querySelector('p')?.textContent,ends:[...p.querySelectorAll('.akari-inspector-generation-gap-end')].map(x=>x.textContent),tiles:[...p.querySelectorAll('[data-akari-inspector-ai-tile]')].map(x=>({id:x.dataset.akariInspectorAiTile,disabled:x.getAttribute('aria-disabled')}))}})()`);
     assert.equal(state.heading, 'すき間 · 4.0 秒'); assert.equal(state.ends.length, 2);
     assert.deepEqual(state.tiles, [{ id: 'still', disabled: 'false' }, { id: 'video', disabled: 'false' }]);
+    if (onlyGapStyle) {
+      state.tileStyles = await tileStyles('.akari-inspector-generation-gap [data-akari-inspector-ai-tile]');
+      assert.deepEqual(state.tileStyles.map(tile => tile.id), ['still', 'video']);
+    }
     await shot('01-gap-ai-tiles.png'); return { point, ...state };
   });
+  if (onlyGapStyle) {
+    await step('still clip AI tile style', async () => {
+      await clickUntil('[data-akari-ui="timeline:cut:2"]', `Boolean(document.querySelector('[data-akari-ui="tab:inspector-generation"]'))`, 'still clip');
+      await clickUntil('[data-akari-ui="tab:inspector-generation"]', aiActive, 'open still AI');
+      await waitUi(`Boolean(document.querySelector('.akari-inspector-widget [data-akari-inspector-ai-tile]'))`, 'still clip tiles', 90_000);
+      const tiles = await tileStyles('.akari-inspector-widget [data-akari-inspector-ai-tile]');
+      assert.ok(tiles.length > 0, 'still clip has a visible enabled AI tile');
+      const clipTile = tiles.find(tile => tile.id === 'still') ?? tiles[0];
+      const gapTiles = results.steps[0].measured.tileStyles;
+      const comparisons = compareTileStyles(gapTiles, clipTile);
+      await shot('07-still-clip-ai-tiles-style.png');
+      return { aiSelected: true, clipTile, comparisons };
+    });
+  } else {
   await step('still tile inserts one frame and opens still panel', async () => {
     const deadline = Date.now() + 85_000;
     const click = await clickStillTile();
@@ -255,15 +316,17 @@ try {
     await clickUntil('[data-akari-item-kind="audio"]', aiActive, 'audio stays AI');
     await shot('06-audio-clip-ai.png'); return { aiSelected: true };
   });
-  results.fakeCliCalls = (await readFile(calls, 'utf8')).trim().split('\n').filter(Boolean).length;
-  assert.equal(results.fakeCliCalls, 0); assert.equal(results.requests.length, 0);
-  assert.ok(results.screenshots.length >= 5);
+  }
+  await recordFakeCliCalls();
+  assert.equal(results.fakeCliGenerationCalls, 0); assert.equal(results.requests.length, 0);
+  assert.ok(results.screenshots.length >= (onlyGapStyle ? 2 : 5));
   results.status = 'PASS';
 } catch (error) {
   results.status = 'FAIL'; results.error = clean(error.stack ?? error); process.exitCode = 1;
   await captureFailure();
 } finally {
   cdp?.close(); electron?.stdout.destroy(); electron?.stderr.destroy();
+  await recordFakeCliCalls().catch(error => { results.fakeCliReadError = clean(error.message ?? error); });
   const pids = await ownedProcesses().catch(() => []);
   for (const pid of pids) { try { process.kill(pid, 'SIGTERM'); } catch {} }
   await sleep(1500);

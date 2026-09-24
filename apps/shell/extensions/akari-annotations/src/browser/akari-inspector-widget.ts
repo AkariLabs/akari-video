@@ -2773,15 +2773,15 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-generation-gap-end { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .akari-inspector-generation-gap-end img { width: 100%; height: 72px; object-fit: contain; background: var(--akari-bg); border: 1px solid var(--akari-line); box-sizing: border-box; }
 .akari-inspector-generation-gap-end span { overflow-wrap: anywhere; line-height: 1.5; }
-.akari-inspector-widget .akari-inspector-generation-gap button,
-.akari-inspector-widget .akari-inspector-generation-gap button:hover,
-.akari-inspector-widget .akari-inspector-generation-gap button:active,
-.akari-inspector-widget .akari-inspector-generation-gap button:disabled,
-.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover {
+.akari-inspector-widget .akari-inspector-generation-gap button:not(.akari-inspector-ai-tile),
+.akari-inspector-widget .akari-inspector-generation-gap button:not(.akari-inspector-ai-tile):hover,
+.akari-inspector-widget .akari-inspector-generation-gap button:not(.akari-inspector-ai-tile):active,
+.akari-inspector-widget .akari-inspector-generation-gap button:not(.akari-inspector-ai-tile):disabled,
+.akari-inspector-widget .akari-inspector-generation-gap button:not(.akari-inspector-ai-tile):disabled:hover {
     background: var(--akari-accent); color: var(--akari-bg); border: 1px solid var(--akari-accent); border-radius: 4px; padding: 8px 12px; cursor: pointer;
 }
-.akari-inspector-widget .akari-inspector-generation-gap button:disabled,
-.akari-inspector-widget .akari-inspector-generation-gap button:disabled:hover { opacity: .6; cursor: wait; }
+.akari-inspector-widget .akari-inspector-generation-gap button:not(.akari-inspector-ai-tile):disabled,
+.akari-inspector-widget .akari-inspector-generation-gap button:not(.akari-inspector-ai-tile):disabled:hover { opacity: .6; cursor: wait; }
 
     .akari-generation-batch { padding: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
     .akari-generation-batch h3, .akari-generation-batch p { margin: 0; }

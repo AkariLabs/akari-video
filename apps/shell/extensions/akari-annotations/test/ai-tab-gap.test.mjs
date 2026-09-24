@@ -7,6 +7,19 @@ import { appendAiTiles, appendAiBack, aiTabAvailabilityFor, aiTabViewFor, aiTarg
 import { tabsForKind, initialTabFor, assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+test('gap button CSS excludes AI tiles from every matching rule', () => {
+  const start = source.indexOf('.akari-inspector-generation-gap {');
+  const end = source.indexOf('.akari-generation-batch {', start);
+  assert.ok(start >= 0 && end > start);
+  const gapCss = source.slice(start, end);
+  const buttonSelectors = [...gapCss.matchAll(/([^{}]+)\{[^{}]*\}/g)]
+    .flatMap(([, selectors]) => selectors.split(',').map(selector => selector.trim()))
+    .filter(selector => selector.includes('.akari-inspector-generation-gap') && /\bbutton\b/.test(selector));
+  assert.ok(buttonSelectors.length > 0);
+  for (const selector of buttonSelectors) {
+    assert.match(selector, /button:not\(\.akari-inspector-ai-tile\)/, selector);
+  }
+});
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widget.members.find(node => node.name?.getText(ast) === name).getText(ast);

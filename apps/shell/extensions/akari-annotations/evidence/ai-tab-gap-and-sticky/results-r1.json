@@ -1,0 +1,40 @@
+{
+  "status": "FAIL",
+  "steps": [
+    {
+      "name": "gap heading and two tiles",
+      "pass": false,
+      "error": "Error: gap point is covered\n    at gapClick (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:178:9)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:233:19\n    at async step (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:108:27)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:232:3",
+      "elapsedMs": 8841
+    }
+  ],
+  "screenshots": [],
+  "clicks": [],
+  "requests": [],
+  "fakeCliCalls": 1,
+  "error": "Error: gap point is covered\n    at gapClick (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:178:9)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:233:19\n    at async step (file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:108:27)\n    at async file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:232:3",
+  "failureScreenshot": "error-full.png",
+  "failureState": {
+    "observationError": "eval failed: {\"exceptionId\":1,\"text\":\"Uncaught\",\"lineNumber\":10,\"columnNumber\":59,\"scriptId\":\"161\",\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"SyntaxError\",\"description\":\"SyntaxError: Unexpected token ')'\",\"objectId\":\"5098300727391682272.1.2\"}}",
+    "visualTracks": [
+      {
+        "trackId": "video",
+        "itemIds": [
+          "left",
+          "right",
+          "still"
+        ]
+      }
+    ]
+  },
+  "fakeCliArguments": [
+    [
+      "narration",
+      "engines",
+      "--json",
+      "--irodori-url",
+      "http://127.0.0.1:8088"
+    ]
+  ],
+  "fakeCliGenerationCalls": 0
+}
