@@ -65,8 +65,10 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
         id: 'narration', group: 'make', label: 'ナレーション', image: 'narration',
         visibleFor: ['empty-audio-frame', 'audio'] as AiTargetKind[], accepts: ['empty-audio-frame'] as AiTargetKind[],
         reasonWhenDisabled: '空いている音声の枠で使えます', output: 'audio' as const, placement: 'replace' as const,
-        routes: narrationEngines.filter(engine => ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id))
-            .map(engine => ({ id: engine.id, label: engine.label,
+        routes: narrationEngines.filter(engine => ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id)
+            || engine.id === 'fal-qwen3' && engine.availability.state === 'available')
+            .map(engine => ({ id: engine.id, label: engine.id === 'fal-qwen3'
+                ? `自声 · 有料 · $${engine.price?.usd_per_1000_chars ?? 0} / 1000 字` : engine.label,
                 kind: engine.place === 'cloud' ? 'api' as const : 'local' as const,
                 cost: (engine.price?.usd_per_1000_chars ?? 0) > 0 || engine.place === 'cloud'
                     ? 'paid' as const : 'free' as const }))

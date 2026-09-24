@@ -1,0 +1,94 @@
+{
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "two choices shown before generation",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "same track voice and later clips shifted 45 frames",
+      "passed": true,
+      "measured": {
+        "frame": {
+          "id": "frame-b",
+          "at": 120,
+          "duration": 105,
+          "source": {
+            "kind": "media",
+            "src": "narration-src-1",
+            "in": 0,
+            "out": 3.5
+          },
+          "role": "narration"
+        },
+        "followingAt": 240,
+        "interviewAt": 315
+      }
+    }
+  ],
+  "clicks": [
+    {
+      "name": "select frame-b",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "narration panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "script field",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "choose shift",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "generate shift",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-two-choices.png",
+      "bytes": 246692
+    },
+    {
+      "name": "error-full.png",
+      "bytes": 289610
+    }
+  ],
+  "measurements": {
+    "labelTextIntersect": null,
+    "buttons": []
+  },
+  "fakeCli": {
+    "engines": 1,
+    "voices": 1,
+    "generated": 1,
+    "paidAttempts": 0
+  },
+  "fixture": {
+    "project": "<TEMP>/project",
+    "ids": [
+      "frame-a",
+      "frame-b",
+      "interview"
+    ],
+    "fps": 30
+  },
+  "error": "Error: timed out: shift label",
+  "killedPid": 35900,
+  "electronExited": true
+}

@@ -40,7 +40,7 @@ import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEn
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
 import { appendAiNarrationPanel, chooseAiNarrationVoice, generateAiNarration, initialAiNarrationState, type AiNarrationState } from './inspector/ai-narration-panel';
-import { aiNarrationSourcePath } from '../common/ai-narration-placement';
+import { aiNarrationSourcePath, type NarrationTrack } from '../common/ai-narration-placement';
 import { createInspectorIcon } from './inspector/icons';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
@@ -2604,6 +2604,10 @@ export class AkariInspectorWidget extends BaseWidget {
     protected narrationPlacementNotice?: { clipKey: string; sourcePath: string; label: string };
     protected narrationSourcePath?: string;
     protected narrationSourceCheckVersion = 0;
+    protected narrationEditVersion = 0;
+    protected narrationVerified?: { itemId: string; editVersion: number };
+    protected narrationPlacementContext?: { itemId: string; editVersion: number; tracks: NarrationTrack[]; fps: number };
+    protected narrationEditSnapshot?: { itemId: string; editVersion: number; edit: any };
     protected narrationLoadRevision = 0;
     protected narrationTick?: number;
     protected aiView?: AiTabView;
@@ -2767,6 +2771,9 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-narration-engine-text { display: grid; gap: 3px; font-size: 11px; }
 .akari-inspector-ai-narration-engine-cost, .akari-inspector-ai-narration-engine-availability, .akari-inspector-ai-narration-estimate, .akari-inspector-ai-narration-progress, .akari-inspector-ai-narration-placement { color: var(--akari-muted); font-size: 11px; margin: 0; }
 .akari-inspector-ai-narration-error { color: var(--akari-danger, #e36b6b); font-size: 11px; margin: 0; overflow-wrap: anywhere; }
+.akari-inspector-ai-narration-placement-choice { display: grid; gap: 5px; margin: 0; padding: 8px; border: 1px solid var(--akari-line); border-radius: 5px; font-size: 12px; }
+.akari-inspector-ai-narration-placement-choice[hidden] { display: none; }
+.akari-inspector-ai-narration-placement-option { display: flex; align-items: center; gap: 6px; }
 .akari-inspector-widget button.akari-inspector-ai-narration-button { padding: 8px 10px; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-narration-button:disabled { opacity: .55; cursor: default; }
 .akari-inspector-generation-gap { display: grid; gap: 12px; padding: 12px; min-width: 0; }
@@ -3615,11 +3622,10 @@ export class AkariInspectorWidget extends BaseWidget {
             this.render();
         }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
-            if (this.materialSelection || this.model.snapshot?.kind !== 'audio') return;
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
-            if (root && event.changes.some(change => change.resource.toString() === root.resolve('edit.json').toString())) {
-                this.render();
-            }
+            if (!root || !event.changes.some(change => change.resource.toString() === root.resolve('edit.json').toString())) return;
+            this.narrationEditVersion = (this.narrationEditVersion ?? 0) + 1;
+            if (!this.materialSelection && this.model.snapshot?.kind === 'audio') this.render();
         }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (!event.changes.some(change => /(?:\.inputs\.json|\.meta\.json)$/u.test(change.resource.path.toString()))) return;
@@ -4206,6 +4212,8 @@ export class AkariInspectorWidget extends BaseWidget {
             this.transcribeDurationLookupKey = undefined;
             this.audioPlanned = false;
             this.narrationSourcePath = undefined;
+            this.narrationVerified = undefined;
+            this.narrationPlacementContext = undefined;
             this.transcribeLoading = undefined;
         }
         if (['cut', 'layer', 'item', 'audio'].includes(sectionKind) && !this.transcribeLoading) {
@@ -4354,7 +4362,8 @@ export class AkariInspectorWidget extends BaseWidget {
                         void this.loadAiNarrationVoices(clipKey); this.render(); },
                     generate: () => void this.startAiNarration(clipKey, rowSnapshot.id, rowSnapshot.outputStart),
                     cancel: () => void this.cancelAiNarration(clipKey)
-                });
+                }, this.narrationPlacementContext?.itemId === rowSnapshot.id
+                    ? this.narrationPlacementContext : undefined);
                 return;
             }
         }
@@ -5112,12 +5121,26 @@ export class AkariInspectorWidget extends BaseWidget {
                 await this.workspaceService.ready;
                 const root = this.workspaceService.tryGetRoots()[0]?.resource;
                 if (!root) return;
-                const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+                const editVersion = this.narrationEditVersion ?? 0;
+                const cached = snapshot.kind === 'audio' && this.narrationEditSnapshot?.itemId === snapshot.id
+                    && this.narrationEditSnapshot.editVersion === editVersion ? this.narrationEditSnapshot.edit : undefined;
+                const edit = cached ?? JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
                 const sourcePath = snapshot.kind === 'audio' ? aiNarrationSourcePath(edit, snapshot.id) : undefined;
                 const resolved = resolveAiTranscribeTarget(snapshot, edit);
                 const target = resolved && sourcePath
                     ? { ...resolved, relativePath: sourcePath, name: sourcePath.split('/').pop() || sourcePath } : resolved;
                 if (this.transcribeKey !== key || this.narrationLoadRevision !== revision) return;
+                if (snapshot.kind === 'audio' && editVersion !== (this.narrationEditVersion ?? 0)) {
+                    this.transcribeLoading = undefined;
+                    if (!this.isDisposed) this.render();
+                    return;
+                }
+                if (snapshot.kind === 'audio') {
+                    this.narrationEditSnapshot = { itemId: snapshot.id, editVersion, edit };
+                    this.narrationVerified = { itemId: snapshot.id, editVersion };
+                    this.narrationPlacementContext = { itemId: snapshot.id, editVersion,
+                        tracks: edit.tracks, fps: Number(edit.output?.fps ?? 30) };
+                }
                 if (snapshot.kind === 'audio') this.narrationSourcePath = sourcePath ?? target?.relativePath;
                 const present = target && await this.fileService.exists(root.resolve(target.relativePath));
                 this.transcribeTarget = present ? target : undefined;
@@ -5150,6 +5173,9 @@ export class AkariInspectorWidget extends BaseWidget {
 
     protected async verifyAiNarrationSource(snapshot: InspectorSnapshot, key: string): Promise<void> {
         if (snapshot.kind !== 'audio') return;
+        const editVersion = this.narrationEditVersion ?? 0;
+        if (this.narrationVerified?.itemId === snapshot.id && this.narrationVerified.editVersion === editVersion) return;
+        this.narrationVerified = { itemId: snapshot.id, editVersion };
         const version = ++this.narrationSourceCheckVersion;
         try {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
@@ -5157,7 +5183,14 @@ export class AkariInspectorWidget extends BaseWidget {
             const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
             const sourcePath = aiNarrationSourcePath(edit, snapshot.id);
             if (version !== this.narrationSourceCheckVersion || this.transcribeKey !== key
-                || !sourcePath || sourcePath === this.narrationSourcePath) return;
+                || editVersion !== (this.narrationEditVersion ?? 0)) return;
+            this.narrationPlacementContext = { itemId: snapshot.id, editVersion,
+                tracks: edit.tracks, fps: Number(edit.output?.fps ?? 30) };
+            this.narrationEditSnapshot = { itemId: snapshot.id, editVersion, edit };
+            if (!sourcePath || sourcePath === this.narrationSourcePath) {
+                if (this.aiView === 'narration' && !this.isDisposed) this.render();
+                return;
+            }
             this.narrationSourcePath = undefined;
             this.narrationPlacementNotice = undefined;
             const state = this.narrationStates?.get(this.aiViewClipKey ?? '');
@@ -5166,7 +5199,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.transcribeLoading = undefined;
             this.audioPlanned = false;
             if (!this.isDisposed) this.render();
-        } catch { /* A later timeline render can retry after a transient edit read. */ }
+        } catch { this.narrationVerified = undefined; /* A later timeline render can retry after a transient edit read. */ }
     }
 
     protected async refreshAiTranscript(key: string): Promise<void> {
@@ -5279,7 +5312,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 try {
                     const narration = await this.layerAudioService.listNarrationEngines(root.toString(), this.narrationIrodoriUrl());
                     this.narrationEngines = narration.engines.filter(engine =>
-                        ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id));
+                        ['voicevox', 'gemini-tts', 'irodori'].includes(engine.id)
+                        || engine.id === 'fal-qwen3' && engine.availability.state === 'available');
                 } catch { this.narrationEngines = []; }
                 this.aiCatalogLoaded = true;
                 this.render();

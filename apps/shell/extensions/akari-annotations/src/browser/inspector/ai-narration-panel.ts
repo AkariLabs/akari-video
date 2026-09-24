@@ -1,17 +1,28 @@
 import type { AkariAnnotationsService, NarrationEngine, NarrationVoice } from '../../common/akari-annotations-protocol';
 import { irodoriCustomVoiceMissing, narrationEstimate, readAloudPreviewPlan, selectReadAloudEngine, selectReadAloudVoice } from '../../common/read-aloud-model';
-import { placeAiNarration, type NarrationEdit } from '../../common/ai-narration-placement';
+import { aiNarrationNeedsChoice, placeAiNarration, planAiNarrationPlacement,
+    type NarrationEdit, type NarrationTrack } from '../../common/ai-narration-placement';
 
 export interface AiNarrationState {
     script: string; reading: string; style?: string; engineId: string; voiceId: string;
     voices: NarrationVoice[]; running: boolean; cancelled?: boolean; startedAt?: number; error?: string; placement?: string;
+    placementChoice?: 'lower' | 'shift';
 }
 export interface AiNarrationActions {
     change(): void; chooseEngine(engineId: string): void; generate(): void; cancel(): void;
 }
 
+export function aiNarrationChoiceVisible(state: Pick<AiNarrationState, 'script' | 'reading'>,
+    placement?: { tracks: readonly NarrationTrack[]; itemId: string; fps: number }): boolean {
+    if (!placement || !state.script.trim()) return false;
+    const reading = state.reading.trim() || state.script;
+    const estimatedSeconds = Math.max(0.1, Array.from(reading.trim()).length / 5);
+    return aiNarrationNeedsChoice(placement.tracks, placement.itemId, estimatedSeconds, placement.fps);
+}
+
 export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationState,
-    engines: readonly NarrationEngine[], actions: AiNarrationActions): void {
+    engines: readonly NarrationEngine[], actions: AiNarrationActions,
+    placement?: { tracks: readonly NarrationTrack[]; itemId: string; fps: number }): void {
     const make = <K extends keyof HTMLElementTagNameMap>(tag: K, name: string, content?: string): HTMLElementTagNameMap[K] => {
         const node = document.createElement(tag); node.className = `akari-inspector-ai-narration-${name}`;
         if (content !== undefined) node.textContent = content;
@@ -20,22 +31,23 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
     const panel = make('section', 'panel');
     const scriptLabel = make('label', 'label', '原稿');
     const script = make('textarea', 'textarea'); script.setAttribute('aria-label', '原稿'); script.value = state.script;
-    script.addEventListener('input', () => { state.script = script.value; actions.change(); updateEstimate(); });
+    script.addEventListener('input', () => { state.script = script.value; actions.change(); updateEstimate(); updateChoice(); });
     scriptLabel.append(script);
     const readingLabel = make('label', 'label', '読み（任意）');
     const reading = make('textarea', 'textarea'); reading.setAttribute('aria-label', '読み'); reading.value = state.reading;
-    reading.addEventListener('input', () => { state.reading = reading.value; actions.change(); updateEstimate(); });
+    reading.addEventListener('input', () => { state.reading = reading.value; actions.change(); updateEstimate(); updateChoice(); });
     readingLabel.append(reading);
     panel.append(scriptLabel, readingLabel, make('h4', 'heading', 'エンジン'));
     const cards = make('div', 'engines');
-    for (const engine of engines.filter(row => ['voicevox', 'gemini-tts', 'irodori'].includes(row.id))) {
+    for (const engine of engines.filter(row => ['voicevox', 'gemini-tts', 'irodori'].includes(row.id)
+        || row.id === 'fal-qwen3' && row.availability.state === 'available')) {
         const card = make('label', 'engine');
         const radio = make('input', 'engine-radio'); radio.type = 'radio'; radio.name = 'akari-inspector-ai-narration-engine';
         radio.value = engine.id; radio.checked = engine.id === state.engineId;
         radio.disabled = engine.availability.state !== 'available' && !(engine.id === 'voicevox' && engine.availability.state === 'needs');
         radio.addEventListener('change', () => actions.chooseEngine(engine.id));
         const text = make('span', 'engine-text');
-        text.append(make('strong', 'engine-name', engine.label),
+        text.append(make('strong', 'engine-name', engine.id === 'fal-qwen3' ? '自声' : engine.label),
             make('span', 'engine-cost', engine.place === 'local' ? 'この Mac · 無料'
                 : engine.place === 'network' ? `別の PC · ${engine.availability.detail?.url ?? '接続先を確認'}`
                     : `有料 · $${engine.price?.usd_per_1000_chars ?? 0} / 1000 字${engine.price?.verified === false ? '（暫定）' : ''}`),
@@ -71,6 +83,29 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         estimateNode = make('p', 'estimate', `${engine.label} · ${estimate.chars} 字 · ${estimate.label}`);
         panel.append(estimateNode);
     }
+    const choice = make('fieldset', 'placement-choice');
+    choice.append(make('legend', 'placement-heading', '枠より声が長いとき'));
+    for (const [value, label] of [
+        ['lower', '下の音声トラックに置く（既定）'],
+        ['shift', '後ろのクリップをずらして収める']
+    ] as const) {
+        const option = make('label', 'placement-option');
+        const input = make('input', 'placement-radio'); input.type = 'radio';
+        input.name = 'akari-inspector-ai-narration-placement-choice'; input.value = value;
+        input.checked = (state.placementChoice ?? 'lower') === value;
+        input.disabled = state.running;
+        input.addEventListener('change', () => { state.placementChoice = value; actions.change(); });
+        option.append(input, document.createTextNode(label)); choice.append(option);
+    }
+    const updateChoice = (): void => {
+        choice.hidden = !aiNarrationChoiceVisible(state, placement);
+        if (choice.hidden) {
+            state.placementChoice = 'lower';
+            const lower = choice.querySelector<HTMLInputElement>('input[value="lower"]');
+            if (lower) lower.checked = true;
+        }
+    };
+    updateChoice(); panel.append(choice);
     const button = make('button', 'button', state.running ? '生成中…' : state.error ? 'もう一度' : '声を作る');
     button.type = 'button'; button.disabled = state.running || !state.script.trim() || !state.voiceId || !engine
         || irodoriCustomVoiceMissing(engine.id, state.voiceId, state.style ?? '');
@@ -95,6 +130,7 @@ export async function generateAiNarration(options: {
 }): Promise<string | undefined> {
     const { state, engine } = options;
     const script = state.script; const reading = state.reading.trim() || script;
+    const placementChoice = state.placementChoice ?? 'lower';
     if (!script.trim() || !state.voiceId || irodoriCustomVoiceMissing(engine.id, state.voiceId, state.style ?? '')) return undefined;
     const plan = readAloudPreviewPlan(engine, reading);
     if (plan.needsApproval && !(await options.confirm(plan.confirm!))) return undefined;
@@ -102,6 +138,7 @@ export async function generateAiNarration(options: {
     const result = await options.service.generateNarration({ projectRootUri: options.projectRootUri,
         engine: engine.id, voice: state.voiceId, script, reading, captionId: null,
         t: options.atSeconds, approved: plan.needsApproval,
+        profile: engine.id === 'fal-qwen3' ? state.voiceId : undefined,
         style: engine.id === 'gemini-tts' || engine.id === 'irodori' && state.voiceId === 'custom' ? state.style : undefined,
         irodoriUrl: engine.id === 'irodori' ? options.irodoriUrl : undefined });
     if (state.cancelled) return undefined;
@@ -109,18 +146,18 @@ export async function generateAiNarration(options: {
     let label = '';
     await options.commit('ナレーションを置く', doc => {
         // Recalculate inside the history mutation so intervening timeline edits cannot be overwritten.
-        const placement = planAiNarrationPlacement(doc.tracks, options.itemId, result.duration_s!, options.fps);
+        const placement = planAiNarrationPlacement(doc.tracks, options.itemId, result.duration_s!, options.fps,
+            placementChoice);
         label = placement.label;
-        return placeAiNarration(doc, options.itemId, result.path!, result.duration_s!, options.fps);
+        return placeAiNarration(doc, options.itemId, result.path!, result.duration_s!, options.fps,
+            placementChoice);
     });
     return label;
 }
 
-import { planAiNarrationPlacement } from '../../common/ai-narration-placement';
-
 export function initialAiNarrationState(engines: readonly NarrationEngine[]): AiNarrationState {
     return { script: '', reading: '', style: '', engineId: selectReadAloudEngine(engines)?.id ?? '', voiceId: '',
-        voices: [], running: false };
+        voices: [], running: false, placementChoice: 'lower' };
 }
 export function chooseAiNarrationVoice(state: AiNarrationState, voices: readonly NarrationVoice[]): void {
     state.voices = [...voices]; state.voiceId = selectReadAloudVoice(voices, state.voiceId)?.id ?? '';

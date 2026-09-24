@@ -130,6 +130,7 @@ test('widget: 同じ item の素材が undo / redo で変わると planned と�
     aiTargetKindFor({ hasIdentity: false, audio: true, audioPlanned: widget.audioPlanned }))[0].tiles[0];
   assert.equal(tile().enabled, false);
   doc = empty;
+  widget.narrationEditVersion = 1;
   await widget.verifyAiNarrationSource(snapshot, 'frame-key');
   await widget.reloaded;
   assert.equal(widget.narrationSourcePath, 'assets/generated/frame.wav');
@@ -137,6 +138,7 @@ test('widget: 同じ item の素材が undo / redo で変わると planned と�
   assert.equal(widget.narrationPlacementNotice, undefined);
   assert.equal(widget.narrationStates.get('clip-key').placement, undefined);
   doc = generated;
+  widget.narrationEditVersion = 2;
   await widget.verifyAiNarrationSource(snapshot, 'frame-key');
   await widget.reloaded;
   assert.equal(widget.narrationSourcePath, 'out/narration/n-0001.wav');
@@ -152,7 +154,7 @@ test('widget: 音声選択が残っていても素材表示中は edit.json の�
   let callback;
   const visit = node => {
     if (ts.isCallExpression(node) && node.expression.getText(ast) === 'this.fileService.onDidFilesChange'
-      && node.arguments[0].getText(ast).includes("this.model.snapshot?.kind !== 'audio'")) {
+      && node.arguments[0].getText(ast).includes('this.narrationEditVersion')) {
       callback = node.arguments[0].getText(ast);
     }
     ts.forEachChild(node, visit);

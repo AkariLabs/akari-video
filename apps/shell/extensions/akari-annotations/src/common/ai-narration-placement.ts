@@ -13,7 +13,7 @@ export interface NarrationEdit {
     [key: string]: unknown;
 }
 export interface NarrationPlacement {
-    mode: 'replace' | 'extend' | 'lower-track' | 'new-track';
+    mode: 'replace' | 'extend' | 'shift' | 'lower-track' | 'new-track';
     trackId: string; at: number; durationFrames: number; label: string;
 }
 
@@ -26,7 +26,7 @@ export function aiNarrationSourcePath(edit: Pick<NarrationEdit, 'tracks' | 'sour
 
 /** tracks[0] is the bottom of the timeline; A1 is the audio track nearest video. */
 export function planAiNarrationPlacement(tracks: readonly NarrationTrack[], itemId: string,
-    durationSeconds: number, fps: number): NarrationPlacement {
+    durationSeconds: number, fps: number, choice: 'lower' | 'shift' = 'lower'): NarrationPlacement {
     if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(fps) || fps <= 0) {
         throw new Error('声の長さか fps が正しくありません。');
     }
@@ -48,6 +48,11 @@ export function planAiNarrationPlacement(tracks: readonly NarrationTrack[], item
     const suffix = excess > 0 ? `（枠より ${excess.toFixed(1)} 秒長いため）` : '';
     if (durationFrames <= frame.duration || empty(track, true)) return { mode: durationFrames <= frame.duration ? 'replace' : 'extend',
         trackId: track.id, at: start, durationFrames, label: `${name(track.id)} に置きました${suffix}` };
+    if (choice === 'shift' && aiNarrationNeedsChoice(tracks, itemId, durationSeconds, fps)) {
+        const shiftFrames = durationFrames - frame.duration;
+        return { mode: 'shift', trackId: track.id, at: start, durationFrames,
+            label: `後ろのクリップを ${(shiftFrames / fps).toFixed(1)} 秒ずらして ${name(track.id)} に置きました` };
+    }
     for (let index = trackIndex - 1; index >= 0; index--) {
         const row = tracks[index];
         if (row.lane !== 'audio') break;
@@ -58,13 +63,26 @@ export function planAiNarrationPlacement(tracks: readonly NarrationTrack[], item
         label: `A${audioTracks.length + 1} に置きました${suffix}` };
 }
 
+/** A choice is useful only when extending the frame reaches a later item on its own track. */
+export function aiNarrationNeedsChoice(tracks: readonly NarrationTrack[], itemId: string,
+    durationSeconds: number, fps: number): boolean {
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(fps) || fps <= 0) return false;
+    const track = tracks.find(row => row.items.some(item => item.id === itemId));
+    const frame = track?.items.find(item => item.id === itemId);
+    if (!track || track.lane !== 'audio' || !frame) return false;
+    const frames = Math.max(1, Math.ceil(durationSeconds * fps - 1e-9));
+    const end = frame.at + frame.duration;
+    return frames > frame.duration && track.items.some(item => item.id !== itemId
+        && item.at >= end && item.at < frame.at + frames);
+}
+
 /** One timeline history mutation contains the source, destination track, and item. */
 export function placeAiNarration<T extends NarrationEdit>(doc: T, itemId: string,
-    relativePath: string, durationSeconds: number, fps: number): T {
+    relativePath: string, durationSeconds: number, fps: number, choice: 'lower' | 'shift' = 'lower'): T {
     if (!/^out\/narration\/[\w.-]+\.(?:wav|mp3)$/u.test(relativePath)) {
         throw new Error('声のファイルの場所が正しくありません。');
     }
-    const placement = planAiNarrationPlacement(doc.tracks, itemId, durationSeconds, fps);
+    const placement = planAiNarrationPlacement(doc.tracks, itemId, durationSeconds, fps, choice);
     const next = structuredClone(doc);
     const origin = next.tracks.find(track => track.items.some(item => item.id === itemId))!;
     const original = origin.items.find(item => item.id === itemId)!;
@@ -74,7 +92,14 @@ export function placeAiNarration<T extends NarrationEdit>(doc: T, itemId: string
     next.sources = [...(next.sources ?? []), { id: sourceId, path: relativePath }];
     const item = { ...original, duration: placement.durationFrames, role: 'narration',
         source: { kind: 'media', src: sourceId, in: 0, out: durationSeconds } };
-    if (placement.mode === 'replace' || placement.mode === 'extend') {
+    if (placement.mode === 'replace' || placement.mode === 'extend' || placement.mode === 'shift') {
+        if (placement.mode === 'shift') {
+            const end = original.at + original.duration;
+            const shiftFrames = placement.durationFrames - original.duration;
+            for (const following of origin.items) {
+                if (following.id !== itemId && following.at >= end) following.at += shiftFrames;
+            }
+        }
         origin.items[origin.items.findIndex(row => row.id === itemId)] = item;
         return next;
     }
