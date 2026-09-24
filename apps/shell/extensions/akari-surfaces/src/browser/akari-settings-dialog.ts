@@ -773,7 +773,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 : update?.kind === 'update-available' || update?.kind === 'update-downloaded' ? '更新があります' : 'アップデートを確認できます';
             const checked = info.lastChecked ? new Date(info.lastChecked).toLocaleString('ja-JP') : 'まだ確認していません';
             const main = groupCard(undefined, hero,
-                settingRow(status, `最後に確かめた: ${checked}`, action('アップデートを確認', () => void window.electronAkariUpdater?.checkForUpdatesNow(), { small: true, icon: 'refresh' })),
+                settingRow(status, `最後に確かめた: ${checked}`, action('アップデートを確認', () => void window.electronAkariUpdater?.checkForUpdatesNow({ userInitiated: true }), { small: true, icon: 'refresh' })),
                 settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
                     value: updateSettings?.channel ?? this.preferences.get('akari.update.channel', 'prerelease'), onChange: value => {
                         this.savePreference('akari.update.channel', value);

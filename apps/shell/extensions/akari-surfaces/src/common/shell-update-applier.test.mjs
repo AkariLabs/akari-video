@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 // update-feed.test.mjs と同じ流儀（`src/common/` 同居 — task.md 所有パス境界のため
@@ -147,6 +148,11 @@ test('failed 中の更新ボタンも API があればまず再試行し、明�
     assert.equal(shouldOpenUpdaterBrowserFallback(checking, error), true);
     const fallback = applyShellUpdaterEvent(checking, error);
     assert.equal(formatUpdaterFallbackText(fallback), 'アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: still offline）');
+});
+
+test('設定画面のアップデート確認ボタンは利用者の明示操作として保存済み channel で確認する', () => {
+    const source = readFileSync(new URL('../browser/akari-settings-dialog.ts', import.meta.url), 'utf8');
+    assert.match(source, /action\('アップデートを確認',\s*\(\) => void window\.electronAkariUpdater\?\.checkForUpdatesNow\(\{ userInitiated: true \}\)/);
 });
 
 test('安定版設定でも、通知でプレリリースを明示ダウンロードしたときはその channel を確認する', () => {
