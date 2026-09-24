@@ -110,6 +110,17 @@ test('shape items lower to inline HTML overlays and keep shared visual item beha
   assert.equal(visualContentEndSeconds(internal), 0);
 });
 
+test('shape overlays in a lane and inside a group keep inline markup on the declaration', () => {
+  const source={kind:'shape',shape:'path',params:{width:100,height:100,path:{d:'M0 0L100 0L100 100L0 100Z',vb:[100,100]},fill:'#a6a6a6'}};
+  const leaf=(id)=>({id,at:0,duration:30,source});
+  const internal=readInternalEdit({version:2,output:{width:1920,height:1080,fps:30},sources:[],tracks:[{id:'visual',lane:'visual',items:[leaf('root'),{id:'group',at:0,duration:30,source:{kind:'group'},items:[leaf('child')]}]}]});
+  for (const item of [internal.tracks[0].items[0],internal.tracks[0].items[1].children[0]]) {
+    assert.equal(item.source.kind,'html');
+    assert.equal(item.source.html,undefined);
+    assert.match(item.declaration.html,/^<svg /);
+  }
+});
+
 test('readInternalEdit options.captions re-resolves anchored item caches', () => {
   const edit = base();
   edit.tracks.push({ id: 'overlay', lane: 'visual', items: [{

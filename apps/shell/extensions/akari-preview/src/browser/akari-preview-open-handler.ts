@@ -5234,7 +5234,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                         const task = overlayHtmlTasks.get(rawHtml);
                         if (task) pending.push(task);
-                    } else if (rawHtml.trimStart().startsWith('<')) {
+                    } else if (typeof rawHtml === 'string' && rawHtml.trimStart().startsWith('<')) {
                         overlayHtml.set(rawHtml, rawHtml);
                     }
                 }

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    { "id": "v-group", "lane": "visual", "name": "まとまり", "items": [
+      { "id": "group-1", "at": 0, "duration": 150, "source": { "kind": "group" }, "items": [
+        { "id": "shape-ellipse", "at": 0, "duration": 150,
+          "source": { "kind": "shape", "shape": "ellipse", "params": { "width": 300, "height": 300, "fill": "#2563eb" } } }
+      ] }
+    ] }
+  ]
+}

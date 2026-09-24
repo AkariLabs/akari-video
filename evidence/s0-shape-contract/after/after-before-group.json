@@ -1,0 +1,43 @@
+{
+  "label": "after-before-group",
+  "edit": "before-group.json",
+  "port": 9543,
+  "openAttempts": [
+    {
+      "ok": true
+    }
+  ],
+  "previewBuilt": true,
+  "observed": {
+    "stage": {
+      "x": 36,
+      "y": 179.125,
+      "width": 332,
+      "height": 186.75
+    },
+    "overlayCount": 1,
+    "items": {
+      "shape-ellipse": {
+        "mounted": true,
+        "visibility": "visible",
+        "rect": {
+          "left": 36,
+          "top": 179.125,
+          "width": 332,
+          "height": 186.75
+        },
+        "svg": {
+          "left": 36,
+          "top": 179.125,
+          "width": 77.8125,
+          "height": 77.8125,
+          "viewBox": "0 0 300 300"
+        },
+        "htmlHead": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"300\" height=\"300\" viewBox=\"0 0 300 300\" style=\"pointer-events: none !important;\"><ellipse cx=\"150\" cy=\"150\" rx=\"150\" ry=\"150\" fill=\"#2563eb\" stroke=\"none\" stroke-width=\"0\" style=\"pointer-events: none !important;\"></ellipse></svg>"
+      }
+    }
+  },
+  "shot": "after-before-group-stage.png",
+  "allMounted": true,
+  "consoleErrors": []
+}

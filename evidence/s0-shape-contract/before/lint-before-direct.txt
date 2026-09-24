@@ -1,0 +1,2 @@
+FAIL: <tmp>/edit.json (1 findings, 0 skipped)
+- [error] v2.lane-source: source kind shape is not compatible with lane visual (edit.json#tracks[0].items[0].source.kind)

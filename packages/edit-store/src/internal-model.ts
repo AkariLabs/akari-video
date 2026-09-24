@@ -449,7 +449,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
         if ('items' in track) {
             track.items.forEach(item => {
                 const built = buildV2Item(
-                    item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters,
+                    item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width,
                     overlappingItemIds.has(item.id)
                 );
                 if (built.warning) {
@@ -465,7 +465,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
                     duration: contentDurationFrames,
                     source: { kind: 'captions', path: 'captions.json' }
                 },
-                fps, 0, 'visual', pathOf, chromaKeyOf, legacyIndexCounters
+                fps, 0, 'visual', pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width
             ).item;
             items.push(normalized);
             // BEFORE の内部モデル JSON とバイト等価を保つため、旧 content 由来の派生 items は
@@ -816,6 +816,7 @@ function buildV2Item(
     pathOf: (id: string) => string | undefined,
     chromaKeyOf: (sourceId: string) => unknown,
     legacyIndexCounters: Map<string, number>,
+    outputWidth: number,
     hasOverlappingSibling = false,
     parentAtFrames = 0,
     parentId?: string
@@ -824,11 +825,11 @@ function buildV2Item(
         ? buildV2AudioItem(item as AudioMediaItemV2, fps, ref, pathOf, legacyIndexCounters)
         : buildV2VisualItem(
             item as ItemV2, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling,
-            parentAtFrames, parentId
+            parentAtFrames, parentId, outputWidth
         );
     const children = lane === 'visual' && 'items' in item && Array.isArray(item.items)
         ? item.items.map(child => buildV2Item(
-            child, fps, ref, 'visual', pathOf, chromaKeyOf, legacyIndexCounters, false,
+            child, fps, ref, 'visual', pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, false,
             built.item.atFrames, built.item.id
         ).item)
         : [];
@@ -851,7 +852,8 @@ function buildV2VisualItem(
     legacyIndexCounters: Map<string, number>,
     hasOverlappingSibling = false,
     parentAtFrames = 0,
-    parentId?: string
+    parentId?: string,
+    outputWidth = 1920
 ): { item: InternalItem; warning?: string } {
     const atFrames = parentAtFrames + item.at;
     const durationFrames = item.duration;
@@ -1058,7 +1060,7 @@ function buildV2VisualItem(
             });
         }
         case 'shape': {
-            const html = shapeMarkup(item.source);
+            const html = shapeMarkup(item.source, item.id, outputWidth, item.transform);
             const declaration = {
                 id: item.id, html, htmlPath: 'edit.json', start: at, duration, track: ref, ...common
             };

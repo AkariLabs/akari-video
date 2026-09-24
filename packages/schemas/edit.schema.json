@@ -1516,28 +1516,81 @@
       "required": ["kind", "shape"],
       "properties": {
         "kind": { "const": "shape" },
-        "shape": { "enum": ["rect", "rounded-rect", "ellipse", "line", "arrow", "speech-bubble"] },
+        "shape": { "enum": ["rect", "rounded-rect", "ellipse", "line", "arrow", "speech-bubble", "path", "bubble"] },
         "params": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "width": { "type": "number", "exclusiveMinimum": 0, "default": 600 },
             "height": { "type": "number", "exclusiveMinimum": 0 },
-            "fill": { "type": "string", "default": "#f97316" },
-            "stroke": { "type": "string" },
+            "fill": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/shapeGradientV1" }], "default": "#f97316" },
+            "stroke": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/shapeGradientV1" }] },
             "strokeWidth": { "type": "number", "minimum": 0 },
-            "cornerRadius": { "type": "number", "minimum": 0, "default": 24 }
+            "cornerRadius": { "type": "number", "minimum": 0 },
+            "path": { "type": "object", "additionalProperties": false, "required": ["d", "vb"], "properties": {
+              "d": { "type": "string", "minLength": 1, "maxLength": 100000, "pattern": "^[MLCZ0-9eE+., \\t\\r\\n-]+$" },
+              "vb": { "type": "array", "prefixItems": [{ "type": "number", "exclusiveMinimum": 0 }, { "type": "number", "exclusiveMinimum": 0 }], "items": false },
+              "rule": { "enum": ["nonzero", "evenodd"] }
+            } },
+            "preset": { "type": "string", "minLength": 1 },
+            "dash": { "enum": ["solid", "dash", "dot"] },
+            "startCap": { "enum": ["none", "triangle", "chevron", "bar", "square", "circle", "diamond"] },
+            "endCap": { "enum": ["none", "triangle", "chevron", "bar", "square", "circle", "diamond"] },
+            "startCapFilled": { "type": "boolean" },
+            "endCapFilled": { "type": "boolean" },
+            "lineCap": { "enum": ["butt", "round"] },
+            "style": { "enum": ["ellipse", "rounded", "rect", "jagged", "burst", "cloud", "wobble"] },
+            "count": { "type": "integer", "minimum": 4, "maximum": 48 },
+            "depth": { "type": "number", "minimum": 0, "maximum": 100 },
+            "jitter": { "type": "number", "minimum": 0, "maximum": 100 },
+            "seed": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+            "tail": { "enum": ["point", "dots", "none"] },
+            "tailAngle": { "type": "number", "minimum": 0, "maximum": 360 },
+            "tailLength": { "type": "number", "minimum": 0, "maximum": 100 },
+            "tailWidth": { "type": "number", "minimum": 0, "maximum": 100 },
+            "tailCurve": { "type": "number", "minimum": -100, "maximum": 100 }
           }
         }
       },
       "allOf": [
+        { "if": { "properties": { "shape": { "const": "path" } }, "required": ["shape"] }, "then": { "required": ["params"], "properties": { "params": { "required": ["path"] } } } },
+        { "if": { "anyOf": [
+          { "properties": { "shape": { "enum": ["path", "bubble"] } }, "required": ["shape"] },
+          { "properties": { "params": { "anyOf": [
+            { "required": ["preset"] }, { "required": ["dash"] }, { "required": ["startCap"] }, { "required": ["endCap"] },
+            { "required": ["startCapFilled"] }, { "required": ["endCapFilled"] }, { "required": ["lineCap"] },
+            { "required": ["style"] }, { "required": ["count"] }, { "required": ["depth"] }, { "required": ["jitter"] },
+            { "required": ["seed"] }, { "required": ["tail"] }, { "required": ["tailAngle"] },
+            { "required": ["tailLength"] }, { "required": ["tailWidth"] }, { "required": ["tailCurve"] },
+            { "properties": { "fill": { "type": "object" } }, "required": ["fill"] },
+            { "properties": { "stroke": { "type": "object" } }, "required": ["stroke"] }
+          ] } }, "required": ["params"] }
+        ] }, "then": { "properties": { "params": { "properties": {
+          "strokeWidth": { "maximum": 100 }
+        } } } } },
+        { "if": { "properties": { "shape": { "const": "path" } }, "required": ["shape"] },
+          "then": { "properties": { "params": { "properties": { "cornerRadius": { "maximum": 100 } } } } } },
+        { "if": { "properties": { "shape": { "const": "rounded-rect" } }, "required": ["shape"] },
+          "then": { "properties": { "params": { "properties": { "cornerRadius": { "default": 24 } } } } } },
         {
           "if": { "properties": { "shape": { "enum": ["line", "arrow"] } }, "required": ["shape"] },
           "then": { "properties": { "params": { "properties": { "height": { "default": 80 }, "strokeWidth": { "default": 8 } } } } },
           "else": { "properties": { "params": { "properties": { "height": { "default": 340 }, "strokeWidth": { "default": 0 } } } } }
         }
       ],
-      "$comment": "図形語彙 v0 は素材パネル構想ラウンドで裁定された第一級ソースで、内部では決定論的なインライン SVG を持つ HTML オーバーレイへ降下する。任意 params は追加のみで広げられる閉じた初期語彙とする。"
+      "$comment": "図形ソースは v0 語彙を保ちつつ v1 の path / bubble / 線の端 / グラデーションへ拡張する。edit-store が決定論的なインライン SVG HTML オーバーレイへ降下する。"
+    },
+    "shapeGradientV1": {
+      "type": "object", "additionalProperties": false, "required": ["type", "stops"],
+      "properties": {
+        "type": { "enum": ["linear", "radial"] },
+        "angle": { "type": "number", "minimum": 0, "maximum": 360 },
+        "stops": { "type": "array", "minItems": 2, "maxItems": 5, "items": {
+          "type": "object", "additionalProperties": false, "required": ["color", "offset"],
+          "properties": { "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$" }, "offset": { "type": "number", "minimum": 0, "maximum": 1 } }
+        } }
+      },
+      "allOf": [{ "if": { "properties": { "type": { "const": "linear" } } }, "then": { "required": ["angle"] }, "else": { "not": { "required": ["angle"] } } }]
     },
     "itemSourceTelopV2": {
       "type": "object",

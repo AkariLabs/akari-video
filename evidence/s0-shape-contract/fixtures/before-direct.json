@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    { "id": "v-shape", "lane": "visual", "name": "図形", "items": [
+      { "id": "shape-rect", "at": 0, "duration": 150,
+        "source": { "kind": "shape", "shape": "rect", "params": { "width": 400, "height": 240 } } }
+    ] }
+  ]
+}

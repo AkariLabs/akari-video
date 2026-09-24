@@ -35,6 +35,7 @@ export * from './canonical';
 export * from './tree-ops';
 export * from './item-anchor';
 export * from './shape-markup';
+export * from './shape-preset';
 export * from './cut-ranges';
 export * from './adjust-css-approx';
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps

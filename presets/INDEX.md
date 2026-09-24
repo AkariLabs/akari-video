@@ -14,6 +14,7 @@
 
 ## エントリ
 
+- [shapes](./shapes/INDEX.md) — 図形 219 種・ライン 45 種・漫画の吹き出し 12 種の値コピー用参照表。
 - [looks](./looks/INDEX.md) — ルック 8 種。id から basic / wheels の初期値セットを解決する
 - ATF テロップの参照表は退役。HTML 素材版は Lab で配布します。
 - [textstyle](./textstyle/INDEX.md) — 字幕スタイル（引き続き利用可能）
