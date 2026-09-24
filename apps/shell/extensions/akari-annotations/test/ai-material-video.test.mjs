@@ -22,6 +22,10 @@ class Node {
   click() { this.listeners.get('click')?.(); }
 }
 const find = (node, match) => match(node) ? node : node.children.map(child => find(child, match)).find(Boolean);
+const removeFixture = async (root, originalError) => {
+  try { await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+  catch (error) { if (!originalError) throw error; }
+};
 const selection = { kind: 'material', projectRoot: 'file:///fixture', relativePath: 'assets/still.png', name: 'still.png', mediaKind: 'image' };
 const options = { selection, tab: 'generation', view: 'tiles', summary: { state: 'none', segments: [], total: 0 }, running: false,
   commands: { executeCommand: async () => {} }, onTab: () => {}, onView: () => {}, onDialogResult: () => {}, onVideoForm: () => {} };
@@ -71,6 +75,7 @@ test('node は fromImage を渡し CLI の --item 経路を保つ', async () => 
 
 test('素材の下書きは edit.json が無くても画像の sidecar の next に入る', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'akari-material-draft-'));
+  let failure;
   try {
     await mkdir(path.join(root, 'assets'));
     await writeFile(path.join(root, 'assets/still.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'));
@@ -81,7 +86,8 @@ test('素材の下書きは edit.json が無くても画像の sidecar の next 
     const meta = JSON.parse(await readFile(path.join(root, result.path), 'utf8'));
     assert.equal(meta.next.inputs.prompt, 'A moving garden.');
     assert.equal(meta.next.status, 'planned');
-  } finally { await rm(root, { recursive: true, force: true }); }
+  } catch (error) { failure = error; throw error; }
+  finally { await removeFixture(root, failure); }
 });
 
 const widgetSource = await readFile(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -126,6 +132,13 @@ test('実 widget: L1 fixture の画像を選び動画タイルを押すとフォ
     .map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const require = createRequire(import.meta.url);
   const cssLoader = require.extensions['.css'];
+  const widgets = [];
+  const pendingLoads = [];
+  let failure;
+  const waitFor = async condition => {
+    const deadline = Date.now() + 30_000;
+    while (!condition() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50));
+  };
   class DomNode {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = new Map(); this.attrs = new Map(); this.style = {}; this.className = ''; this.textContent = ''; this.nodeType = 1; }
     append(...nodes) { this.children.push(...nodes); }
@@ -157,6 +170,13 @@ test('実 widget: L1 fixture の画像を選び動画タイルを押すとフォ
     const service = new AkariAnnotationsServiceImpl();
     const uri = value => ({ toString: () => pathToFileURL(value).href, resolve: child => uri(path.join(value, child)), value });
     const wire = (target, layerAudioService) => {
+      widgets.push(target);
+      const loadGeneration = target.loadGeneration.bind(target);
+      target.loadGeneration = (...args) => {
+        const pending = loadGeneration(...args);
+        pendingLoads.push(pending);
+        return pending;
+      };
       target.workspaceService = { ready: Promise.resolve(), tryGetRoots: () => [{ resource: uri(project) }] };
       target.fileService = { read: async resource => ({ value: await readFile(resource.value, 'utf8') }) };
       target.layerAudioService = layerAudioService;
@@ -173,25 +193,29 @@ test('実 widget: L1 fixture の画像を選び動画タイルを押すとフォ
     assert.ok(tile, '動画タイルが出る');
     tile.click();
     assert.equal(widget.body.querySelector('.akari-inspector-ai-material-status')?.textContent, '読み込み中');
-    for (let attempt = 0; attempt < 100 && !widget.body.querySelector('[data-akari-field="generation-model"]'); attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
+    await waitFor(() => !!widget.body.querySelector('[data-akari-field="generation-model"]'));
     assert.ok(widget.body.querySelector('[data-akari-field="generation-model"]'), 'モデル欄が DOM に出る');
+    const currentImage = widget.body.querySelector('[data-akari-generation-action="first-frame-current"]');
+    assert.equal(currentImage?.textContent, 'この素材の絵');
+    assert.notEqual(currentImage?.textContent, 'このクリップの絵');
     await writeFile(path.join(project, '.akari/connections.json'), JSON.stringify({ providers: [], defaults: {}, policy: {}, memory: [] }));
     const broken = new AkariInspectorWidget();
     wire(broken, new AkariAnnotationsServiceImpl());
     broken.selectMaterial({ ...selection, projectRoot: pathToFileURL(project).href });
     broken.body.querySelector('[data-akari-inspector-ai-tile="video"]').click();
-    for (let attempt = 0; attempt < 100 && broken.body.querySelector('.akari-inspector-ai-material-status')?.textContent === '読み込み中'; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
+    await waitFor(() => broken.body.querySelector('.akari-inspector-ai-material-status')?.textContent !== '読み込み中');
     assert.match(broken.body.querySelector('.akari-inspector-ai-material-status')?.textContent ?? '', /policy\.currency/u);
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
+    await Promise.allSettled(pendingLoads);
+    await Promise.allSettled(widgets.flatMap(target => [...target.generationWrites.values()]));
     if (cssLoader) require.extensions['.css'] = cssLoader; else delete require.extensions['.css'];
     for (const [key, descriptor] of previous) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
       else delete globalThis[key];
     }
-    await rm(root, { recursive: true, force: true });
+    await removeFixture(root, failure);
   }
 });

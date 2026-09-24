@@ -3959,6 +3959,12 @@ export class AkariInspectorWidget extends BaseWidget {
                     const snapshot = { kind: 'cut', itemId: key, sourcePath: materialSelection.relativePath,
                         outputStart: 0, outputEnd: this.generationDrafts.get(key)?.output.duration_s ?? 5 } as unknown as TimelineCutSelection;
                     const fields = this.generationSectionFields(snapshot);
+                    const currentImageAction = fields?.flatMap(field => (field as GenerationFieldDef<TimelineCutSelection>).generationChildren ?? [field])
+                        .find(field => field.name === 'first-frame')?.actions?.find(action => action.name === 'current');
+                    if (currentImageAction) {
+                        currentImageAction.label = 'この素材の絵';
+                        currentImageAction.title = 'この素材の絵';
+                    }
                     if (fields) this.appendSection({ id: 'generation', label: '動画にする', fields }, snapshot, 'cut');
                     else {
                         const status = document.createElement('p');
