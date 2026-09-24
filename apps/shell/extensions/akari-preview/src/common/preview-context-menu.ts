@@ -18,6 +18,24 @@ export function previewGroupMenuVisible(
             && context.selectedIds.length === 1;
 }
 
+export function previewZOrderMenuVisible(
+    context: { source?: string; selectedIds?: readonly string[]; selectionKind?: string;
+        selectedNodeKind?: string; scopeNodeKind?: string } | undefined
+): boolean {
+    return context?.source === 'akari-output-preview'
+        && Array.isArray(context.selectedIds) && context.selectedIds.length === 1
+        && (context.selectionKind === 'leaf' || context.selectionKind === 'group')
+        && context.scopeNodeKind !== 'bag'
+        && !context.selectedIds[0].includes('#');
+}
+
+export const PREVIEW_Z_ORDER_MENU_ITEMS = [
+    { id: 'akari.preview.zOrder.front', label: '最前面へ', op: 'front', order: '1' },
+    { id: 'akari.preview.zOrder.forward', label: '前面へ', op: 'forward', order: '2' },
+    { id: 'akari.preview.zOrder.backward', label: '背面へ', op: 'backward', order: '3' },
+    { id: 'akari.preview.zOrder.back', label: '最背面へ', op: 'back', order: '4' }
+] as const;
+
 export interface PreviewContextMenuMessage {
     type: 'akari-preview-context-menu';
     x: number;
