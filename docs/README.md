@@ -162,6 +162,7 @@ All contracts follow the
 | [contract-2026-09-02-shape-item-v0.md](./contract-2026-09-02-shape-item-v0.md) | Shape item v0 — edit.json v2 `shape` source (rect / rounded-rect / ellipse / line / arrow / speech-bubble) lowered by edit-store to a deterministic inline-SVG html overlay, so no renderer changes (Japanese) |
 | [contract-2026-09-13-extension-kit-v0.md](./contract-2026-09-13-extension-kit-v0.md) | Extension kit v0 — manifest requirements, Store installation, symlink composition, local Claude marketplace, and updates (Japanese) |
 | [contract-2026-09-25-image-ai-v0.md](./contract-2026-09-25-image-ai-v0.md) | Image AI v0 — one BYOK key, fal provider port, upscale alternatives with scoped edit binding and persistent provenance (Japanese) |
+| [contract-2026-09-25-color-panel-v0.md](./contract-2026-09-25-color-panel-v0.md) | Color panel v0 — the inspector's color field (search, history, design / brand / photo colors, default solids and gradients), the color-making window, `akari.inspector.openColorPanel`, and the per-user brand kit (Japanese) |
 
 ### Direction notes
 

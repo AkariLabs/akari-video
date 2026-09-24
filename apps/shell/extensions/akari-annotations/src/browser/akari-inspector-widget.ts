@@ -155,6 +155,9 @@ import {
     parseInspectorKnobs
 } from './inspector/knob-resolver';
 import { chromaControlValue, telopParamControlKind } from './inspector/field-mappings';
+import { ColorPanelHost, ColorPanelResolved } from './inspector/color-panel-host';
+import { createColorRowSwatch, swatchBackground } from './inspector/color-panel';
+import { itemPathPatch, Paint, parseColorPanelOpenRequest, parsePaint, TRANSPARENT_PAINT } from './inspector/color-model';
 import type {
     AudioEnvelopeKeyframePayload
 } from '../common/akari-annotations-protocol';
@@ -3123,14 +3126,17 @@ export class AkariInspectorWidget extends BaseWidget {
         gap: 6px;
         align-items: center;
     }
-    .akari-inspector-widget .akari-inspector-color-picker {
-        width: 30px;
+    .akari-inspector-widget button.akari-inspector-color-swatch {
+        width: 24px;
         height: 24px;
-        padding: 1px;
+        margin: 0 3px;
+        padding: 0;
         border: 1px solid var(--akari-line);
-        border-radius: 2px;
-        background: var(--akari-bg);
+        border-radius: 50%;
         cursor: pointer;
+    }
+    .akari-inspector-widget button.akari-inspector-color-swatch:hover {
+        border-color: var(--akari-accent);
     }
     .akari-inspector-widget .akari-inspector-section {
         border: 1px solid var(--akari-line);
@@ -3448,7 +3454,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-row-input:focus-visible,
     .akari-inspector-widget .akari-inspector-number-input:focus-visible,
-    .akari-inspector-widget .akari-inspector-color-picker:focus-visible {
+    .akari-inspector-widget .akari-inspector-color-swatch:focus-visible {
         outline: 1px solid var(--akari-accent);
         outline-offset: -1px;
     }
@@ -4045,6 +4051,7 @@ export class AkariInspectorWidget extends BaseWidget {
         if (this.generationFramePick || this.generationFramePickMessage) this.syncGenerationFramePick();
         if (!snapshot || snapshot.kind === 'multi') this.syncAdjustCompare(undefined, '');
         if (!snapshot) {
+            this.colorPanelHostInstance?.keepFor(undefined);
             this.tabSelectionKey = undefined;
             this.currentTab = undefined;
             this.explicitTabId = undefined;
@@ -4215,6 +4222,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     break;
             }
         }
+        // 色パネル（色の行・akari.inspector.openColorPanel）: 開いている間は同じ列の中身を色パネルにする。
+        if (this.colorPanelHostInstance?.isOpen && this.renderColorPanelMode(sections, rowSnapshot)) return;
         const generationState = generationIdentity ? this.generationStates.get(generationIdentity.key) : undefined;
         const generationDone = !!generationIdentity && this.generationDone?.has(generationIdentity.key) === true;
         const transcribeKey = JSON.stringify([
@@ -6778,7 +6787,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         if (field.inputKind === 'color') {
-            this.appendColorInput(row, fieldName, editValue, commitValue);
+            this.appendColorInput(row, fieldName, editValue, commitValue, field.label);
             parent.appendChild(row);
             return;
         }
@@ -6984,56 +6993,30 @@ export class AkariInspectorWidget extends BaseWidget {
         row: HTMLDivElement,
         fieldName: string,
         editValue: string,
-        commitValue: (nextValue: string, revert: () => void) => Promise<boolean>
+        commitValue: (nextValue: string, revert: () => void) => Promise<boolean>,
+        label = '色'
     ): void {
         const container = document.createElement('div');
         container.className = 'akari-inspector-color-field';
         container.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);
-        const picker = document.createElement('input');
-        picker.type = 'color';
-        picker.className = 'akari-inspector-color-picker';
-        picker.setAttribute('aria-label', 'カラーピッカー');
+        // 丸を押すと、同じ列の中が色パネルに切り替わる（戻るボタンで元の列へ）。色番号はこの欄にも直接打てる。
+        const swatch = createColorRowSwatch(editValue, label,
+            () => this.openColorPanel({ target: { kind: 'field', field: fieldName } }));
         const textInput = document.createElement('input');
         textInput.type = 'text';
         textInput.className = 'akari-inspector-row-input';
         textInput.value = editValue;
-        const pickerColor = (value: string): string | undefined => {
-            const match = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.exec(value);
-            if (!match) {
-                return undefined;
-            }
-            const hex = match[1].length === 3
-                ? match[1].split('').map(character => character + character).join('')
-                : match[1].slice(0, 6);
-            return `#${hex}`;
+        const paintSwatch = (value: string): void => {
+            const paint = parsePaint(value);
+            if (paint !== undefined) swatch.style.background = swatchBackground(paint);
         };
-        picker.value = pickerColor(editValue) ?? '#000000';
         const revert = (): void => {
             textInput.value = editValue;
-            picker.value = pickerColor(editValue) ?? '#000000';
+            paintSwatch(editValue);
         };
-        const commitText = async (): Promise<void> => {
-            const nextValue = textInput.value;
-            const success = await commitValue(nextValue, revert);
-            if (success) {
-                const nextPicker = pickerColor(nextValue);
-                if (nextPicker) {
-                    picker.value = nextPicker;
-                }
-            }
-        };
-        picker.addEventListener('change', () => {
-            textInput.value = picker.value.toUpperCase();
-            void commitValue(textInput.value, revert);
-        });
-        textInput.addEventListener('input', () => {
-            const nextPicker = pickerColor(textInput.value);
-            if (nextPicker) {
-                picker.value = nextPicker;
-            }
-        });
+        textInput.addEventListener('input', () => paintSwatch(textInput.value));
         textInput.addEventListener('blur', () => {
-            void commitText();
+            void commitValue(textInput.value, revert);
         });
         textInput.addEventListener('keydown', event => {
             if (event.key === 'Enter') {
@@ -7045,8 +7028,139 @@ export class AkariInspectorWidget extends BaseWidget {
                 textInput.blur();
             }
         });
-        container.append(picker, textInput);
+        container.append(swatch, textInput);
         row.appendChild(container);
+    }
+
+    // ---- 色パネル（inspector/color-panel*.ts。ここは選択と書き込みへの橋渡しだけ）----
+
+    protected colorPanelHostInstance: ColorPanelHost | undefined;
+
+    protected get colorPanelHost(): ColorPanelHost {
+        if (!this.colorPanelHostInstance) {
+            this.colorPanelHostInstance = new ColorPanelHost({
+                executeCommand: (id, ...args) => this.commandRegistry.executeCommand(id, ...args),
+                readProjectText: async path => {
+                    const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                    if (!root) return undefined;
+                    try { return (await this.fileService.readFile(root.resolve(path))).value.toString(); } catch { return undefined; }
+                },
+                readProjectBytes: async path => {
+                    const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                    if (!root) return undefined;
+                    try { return (await this.fileService.readFile(root.resolve(path))).value.buffer; } catch { return undefined; }
+                },
+                videoFrame: path => this.generationThumbnail(path),
+                notice: message => this.showFieldNotice(message),
+                storage: typeof localStorage === 'undefined' ? undefined : localStorage
+            });
+            this.toDispose.push({ dispose: () => this.colorPanelHostInstance?.close() });
+        }
+        return this.colorPanelHostInstance;
+    }
+
+    /** 今の選択を表す鍵（選択が変わったら色パネルを閉じるため）。 */
+    protected colorPanelSelectionKey(): string | undefined {
+        const snapshot = this.model.snapshot;
+        if (!snapshot) return undefined;
+        if (snapshot.kind === 'multi') {
+            return `multi:${snapshot.items.map(item => item.kind === 'cut' ? `cut:${item.itemId ?? item.index}` : `${item.kind}:${item.id}`).join(',')}`;
+        }
+        if (snapshot.kind === 'cut') return `cut:${snapshot.itemId ?? snapshot.index}`;
+        return 'id' in snapshot ? `${snapshot.kind}:${String((snapshot as { id?: unknown }).id)}` : snapshot.kind;
+    }
+
+    /**
+     * `akari.inspector.openColorPanel` の実体。
+     * 引数 `{ target, allowGradient?, allowTransparent?, title?, toggle? }`（inspector/color-model.ts の ColorPanelOpenRequest）。
+     */
+    openColorPanel(raw: unknown): boolean {
+        const request = parseColorPanelOpenRequest(raw);
+        const key = this.colorPanelSelectionKey();
+        if (!request || !key) {
+            if (!key) this.showFieldNotice('色を変えるものをタイムラインで選んでください。');
+            return false;
+        }
+        const opened = this.colorPanelHost.open(request, key);
+        this.render();
+        return opened;
+    }
+
+    closeColorPanel(): void {
+        if (!this.colorPanelHostInstance?.isOpen) return;
+        this.colorPanelHostInstance.close();
+        this.render();
+    }
+
+    protected renderColorPanelMode(sections: InspectorSection[], rowSnapshot: InspectorSnapshot): boolean {
+        const host = this.colorPanelHost;
+        if (!host.keepFor(this.colorPanelSelectionKey())) return false;
+        const request = host.request!;
+        let resolved: ColorPanelResolved | undefined;
+        if (request.target.kind === 'field') {
+            const name = request.target.field;
+            for (const section of sections) {
+                for (const field of section.fields) {
+                    const fieldName = field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
+                    if (fieldName !== name || field.inputKind !== 'color' || !field.write || field.disabled) continue;
+                    const write = field.write;
+                    const value = (field.getEditValue ?? field.getValue)(rowSnapshot);
+                    resolved = {
+                        title: field.label === '色' ? `${section.label}の色` : field.label,
+                        current: parsePaint(value),
+                        write: async (paint: Paint) => typeof paint === 'string' && paint !== TRANSPARENT_PAINT
+                            ? write(rowSnapshot, paint)
+                            : { ok: false, message: 'この欄は単色だけです。' }
+                    };
+                }
+            }
+        } else {
+            const { itemId, path } = request.target;
+            resolved = {
+                title: '色',
+                current: host.itemValue(itemId, path),
+                write: paint => this.writeItemColor(itemId, path, paint)
+            };
+        }
+        if (!resolved) {
+            host.close();
+            return false;
+        }
+        this.syncAdjustCompare(undefined, '');
+        host.mount(this.body, resolved, () => this.closeColorPanel());
+        return true;
+    }
+
+    /** item の中の色（例 `source.params.fill`）を edit-store 経由で書く（図形の塗り・枠・線の接続口）。 */
+    protected async writeItemColor(itemId: string, path: string, paint: Paint): Promise<InspectorWriteResult> {
+        try {
+            await this.workspaceService.ready;
+            const root = this.workspaceService.tryGetRoots()[0]?.resource;
+            if (!root) return { ok: false, message: 'プロジェクトが開かれていません。' };
+            const uri = root.resolve('edit.json');
+            const store = await import('@akari-video/edit-store');
+            const doc = JSON.parse((await this.fileService.readFile(uri)).value.toString()) as import('@akari-video/edit-store').EditableEditV2;
+            store.readEditV2(doc);
+            store.attachEditHelpers(doc);
+            const item = doc.find(itemId);
+            if (!item) return { ok: false, message: '色を変えるものが見つかりません。' };
+            store.updateItem(doc, itemId, itemPathPatch(item, path, paint));
+            const editSource = store.serializeEdit(doc);
+            // 書く前に読み直して検査する（その項目の契約が受け付けない値で edit.json を壊さない）。
+            try {
+                store.readEditV2(JSON.parse(editSource));
+            } catch {
+                return { ok: false, message: typeof paint === 'string'
+                    ? 'この色はこの項目に保存できません。' : 'この項目には、まだグラデーションを保存できません。' };
+            }
+            // 書き込みは成功すれば戻る（lint は後から届く。committed は常に false なので見ない）。
+            await this.layerAudioService.writeEditSnapshot({
+                editUri: uri.toString(), projectRootUri: root.toString(), editSource
+            });
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: String(error) };
+        }
     }
 
     protected showFieldNotice(message: string): void {

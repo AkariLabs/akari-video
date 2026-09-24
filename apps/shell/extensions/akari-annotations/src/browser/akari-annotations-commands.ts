@@ -25,6 +25,18 @@ export const REVEAL_AKARI_INSPECTOR_FIELD: Command = {
     id: 'akari.inspector.revealField'
 };
 
+/**
+ * インスペクターの列を色パネルに切り替える（docs/contract-2026-09-25-color-panel-v0.md）。
+ * 引数 `{ target: { kind: 'field', field } | { kind: 'item', itemId, path }, allowGradient?, allowTransparent?, title?, toggle? }`。
+ */
+export const OPEN_AKARI_INSPECTOR_COLOR_PANEL: Command = {
+    id: 'akari.inspector.openColorPanel'
+};
+
+export const CLOSE_AKARI_INSPECTOR_COLOR_PANEL: Command = {
+    id: 'akari.inspector.closeColorPanel'
+};
+
 export const OPEN_AKARI_REVIEW_BOARD: Command = {
     id: 'akari.review.board.open',
     label: 'レビューボードを開く'

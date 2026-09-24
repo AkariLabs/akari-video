@@ -32,6 +32,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, DroppedVideo, DroppedVideoImportResult } from '../common/akari-project-protocol';
 import { LIST_MY_STYLES_COMMAND_ID, MyStyleListItem } from '../common/my-style';
+import { BRAND_KIT_ADD_COLOR_COMMAND_ID, BRAND_KIT_GET_COMMAND_ID, BRAND_KIT_REMOVE_COLOR_COMMAND_ID } from '../common/brand-kit';
 import { isDelegatedDragOverInput, isDelegatedDropInput } from '../common/delegated-drop';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { AkariProjectModeService } from './akari-project-mode-service';
@@ -115,6 +116,19 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
 
     protected app?: FrontendApplication;
 
+    /** ブランドキットの読み書きの口（インスペクターの色パネルが文字列の id で呼ぶ）。 */
+    protected registerBrandKitCommands(commands: CommandRegistry): void {
+        commands.registerCommand({ id: BRAND_KIT_GET_COMMAND_ID }, {
+            execute: (): Promise<string[]> => this.projectService.getBrandKitColors()
+        });
+        commands.registerCommand({ id: BRAND_KIT_ADD_COLOR_COMMAND_ID }, {
+            execute: (color: string): Promise<string[]> => this.projectService.updateBrandKitColor('add', color)
+        });
+        commands.registerCommand({ id: BRAND_KIT_REMOVE_COLOR_COMMAND_ID }, {
+            execute: (color: string): Promise<string[]> => this.projectService.updateBrandKitColor('remove', color)
+        });
+    }
+
     registerCommands(commands: CommandRegistry): void {
         commands.registerCommand({ id: LIST_MY_STYLES_COMMAND_ID }, {
             execute: async (): Promise<MyStyleListItem[]> => (await this.projectService.listMyStyles()).map(style => ({
@@ -124,6 +138,7 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
                     ...(part.text_style === undefined ? {} : { text_style: part.text_style }) }))
             }))
         });
+        this.registerBrandKitCommands?.(commands);
         commands.registerCommand(NEW_AKARI_PROJECT, { execute: () => this.createProject() });
         commands.registerCommand(SHOW_AKARI_CHANGES, { execute: () => this.showChanges() });
         commands.registerCommand(TOGGLE_AKARI_DEVELOPER_MODE, {
