@@ -4245,11 +4245,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         <strong style={{ display: 'block', fontSize: '0.8em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{style.name}</strong>
                         <div style={{ fontSize: '0.7em', opacity: 0.7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{style.when_to_use}</div>
                         <div style={{ display: 'flex', gap: '3px', overflow: 'hidden', whiteSpace: 'nowrap', margin: '4px 0' }}>
-                            {style.parts.map((part, index) => <span key={`${part.kind}-${index}`} data-akari-my-style-part={part.kind}
+                            {style.parts.map((part, index) => {
+                                const applicable = defaultMyStyleParts([part]).length > 0;
+                                return <span key={`${part.kind}-${index}`} data-akari-my-style-part={part.kind}
                                 style={{ display: 'inline-block', flexShrink: 0, padding: '1px 4px', borderRadius: `${AKARI_RADIUS.chip}px`,
-                                    background: 'var(--theia-badge-background)', opacity: part.kind === 'look' || part.kind === 'motion' ? 1 : 0.55,
+                                    background: 'var(--theia-badge-background)', opacity: applicable ? 1 : 0.55,
                                     fontSize: '0.66em' }}>
-                                {myStylePartLabel(part.kind)}{part.kind === 'look' || part.kind === 'motion' ? '' : '（当てない）'}</span>)}
+                                {myStylePartLabel(part.kind)}{applicable ? '' : '（当てない）'}</span>;
+                            })}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'nowrap', justifyContent: 'space-between', gap: '2px' }}>
                             {this.renderMyStyleAction('apply', style.id, 'codicon-check', '選択した字幕に当てる', button =>
@@ -4317,14 +4320,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         title.textContent = '当てる部品';
         popover.appendChild(title);
         for (const part of style.parts) {
+            const applicable = defaultMyStyleParts([part]).length > 0;
             const label = document.createElement('label');
             label.style.display = 'block';
             label.style.marginTop = '6px';
             const input = document.createElement('input');
             input.type = 'checkbox';
             input.value = part.kind;
-            input.checked = selected.includes(part.kind);
-            input.disabled = !supported.includes(part.kind);
+            input.checked = applicable && selected.includes(part.kind);
+            input.disabled = !applicable;
             label.append(input, document.createTextNode(` ${myStylePartLabel(part.kind)}${input.disabled ? '（当てない）' : ''}`));
             popover.appendChild(label);
         }

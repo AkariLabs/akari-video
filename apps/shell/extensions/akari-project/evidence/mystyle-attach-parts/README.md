@@ -12,7 +12,7 @@
 |---|---|
 | `scripts/gen-fixture.mjs` | fixture（話した言葉 5 行・0 / 3 / 6 / 9 / 12 秒から 2.5 秒ずつ・15 秒・1280×720・30fps）。`anchored/` = html 装飾を c-0002・c-0003 に手書きのアンカー（全体）/ `anchored-sfx/` = さらに効果音にもアンカー / `spoken/` = c-0001 に見た目 + 動き、効果音 `sfx-a`（0 フレーム）と装飾 `deco-a`（0〜75 フレーム）をアンカー無しで置く。素材はライブラリの参照（`.akari/asset-references.json` に記帳・宣言パス `assets/<category>/<id>/<file>`）/ `library/` = 効果音 `audio/sfx-pop/pop.wav` と装飾 `overlay/deco-frame/deco.html` の実体。映像・効果音は ffmpeg（L1 専用） |
 | `scripts/before.mjs` | 手順 0（BEFORE）の記録（判定なし）。基点 `8ec4c16d` のビルドで実行 |
-| `scripts/after.mjs` | 手順 3（AFTER）の受け入れ条件 22 項目。最終ビルドで 1 回通しで実行 |
+| `scripts/after.mjs` | 手順 3（AFTER）の受け入れ条件 22 項目 + r1 の 3 項目（棚のチップ・参照のままの書き出し 2 つ）。最終ビルドで 1 回通しで実行 |
 | `scripts/cdp-lib.mjs` / `l1-lib.mjs` / `l1-common.mjs` / `common.mjs` / `view.mjs` / `library-home.mjs` | mystyle-motion-part の写し（変更なし） |
 | `results-before.json` / `results-after.json` | 実測値 |
 | `before-*.png` / `after-*.png` | スクリーンショット |
@@ -26,7 +26,9 @@
 | 字幕 c-0003 を選んで Delete | `before-anchored-03-deleted-c-0003.png` | c-0003 は消えるが、アンカーされた装飾 `deco-c3` は **180 フレームのまま残る**。undo 1 回で c-0003 は戻るが、captions.json は fixture と **byte 不一致**（行の再挿入で戻すため） |
 | 効果音にもアンカーを書いた案件 | `before-anchored-sfx-*.png` | 上と同じ（最初に落ちるのは html の anchor）。効果音 `sfx-c2` も c-0002 を動かしても 90 のまま = 音声のアンカーは解決されない（基点の `resolveItemAnchors` は visual のトラックだけ・音声の item のキー集合にも `anchor` が無い） |
 
-## AFTER（最終ビルド・**22/22 pass**・`results-after.json`）
+## AFTER（最終ビルド・r0 の 22 項目はすべて pass・`results-after.json`）
+
+r1 の再実行では全 25 項目中 24 pass。落ちた 1 項目は下の「書き出しとライブラリ参照」を参照。
 
 | 受け入れ条件 | 記録 | 実測 |
 |---|---|---|
@@ -50,10 +52,19 @@
 
 `after-06` / `after-08` / `after-09` の画面写真では、インスペクターやプレビューの操作でタイムラインの仕切りが戻り、帯の行が折りたたまれて写ることがある。判定はファイルのバイト比較と、操作の直前に帯へ実際に当たることで行っている（`after.mjs` の `stripOf` / `chipOf` / `ensureTimeline`）。
 
-## 書き出しとライブラリ参照（基点からの制約）
+## r1: 棚のチップ
 
-render-cut の `loadOverlays` は html をプロジェクト内の実体からだけ読む（ライブラリ参照へのフォールバックが無い）。そのため装飾の素材が参照のまま（実体がプロジェクトに無い）だと、書き出しは `assets/overlay/deco-frame/deco.html could not be read: ENOENT` で止まる。
-これはスタイルを当てていない fixture のまま（参照で置いた `deco-a` だけ）でも同じで、基点からの挙動（`results-after.json` の書き出しの `referenceOnlyPlan`）。この証跡は既存の「素材をまとめる」で参照を実体化してから書き出した。render-cut の src はこのタスクの編集範囲外。
+| 受け入れ条件 | 記録 | 実測 |
+|---|---|---|
+| 棚のカードの部品のチップ | `after-05a-shelf-chips.png` | 保存したスタイルのカードのチップ = 見た目 / 動き / 装飾 / 効果音。どれにも「（当てない）」が付かず、不透明度はすべて 1。当てるときのポップオーバーのラベルにも「（当てない）」なし |
+
+## 書き出しとライブラリ参照（r1）
+
+| 受け入れ条件 | 実測 |
+|---|---|
+| 参照のまま（素材をまとめずに）`render-cut --plan-only` | **exit 0**（r0 では `deco.html could not be read: ENOENT` で exit 2）。render-cut の `loadOverlays` は参照台帳（`.akari/asset-references.json`）とライブラリの置き場で html の実体を読む |
+| 参照のまま（素材をまとめずに）書き出す | **exit 2（FAIL）**。GPU のページ組み立て（`packages/gpu-export/src/page-builder.mjs` の `loadAndBuildGpuPage`・373〜378 行）が装飾の html をプロジェクト内のパスから読み直し ENOENT で止まり、フォールバック先の OSR も同じ（`packages/osr-export/src/page-builder.mjs`・203〜208 行）。どちらも別の Electron プロセスの中で edit.json を読み直すため、render-cut 側から読み込み済みの html を渡す口が無い。gpu-export / osr-export の src はこのタスクの編集範囲外なので直していない |
+| 書き出し（「素材をまとめる」→ render-cut） | 上表の r0 と同じ判定で pass（効果音の立ち上がり = A・B・C の字幕の頭・装飾は字幕の間だけ） |
 
 ## 調べた経緯（判定側の修正）
 

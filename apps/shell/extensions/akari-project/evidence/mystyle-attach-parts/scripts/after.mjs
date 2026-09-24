@@ -273,12 +273,22 @@ try {
     // ===== 3. B・C に当てる =====
     await openShelf(cdp);
     await sleep(1000);
+    // r1: 棚のカードのチップ。当てられる部品（見た目・動き・効果音・装飾）に「（当てない）」を付けない
+    await check('棚のカードの部品のチップ: 見た目・動き・効果音・装飾のどれにも「（当てない）」が付かない', async () => {
+        const chips = await waitFor('shelf chips', () => evalOn(cdp, `(()=>{const b=document.querySelector('[data-akari-my-style-apply='+${S(S(styleId))}+']');if(!b)return null;let card=b;while(card&&!card.querySelector('[data-akari-my-style-part]'))card=card.parentElement;if(!card)return null;card.scrollIntoView({block:'center'});return [...card.querySelectorAll('[data-akari-my-style-part]')].map(e=>({kind:e.dataset.akariMyStylePart,text:e.textContent.trim(),opacity:getComputedStyle(e).opacity}))})()`), 15_000);
+        await shot(cdp, '05a-shelf-chips');
+        const kinds = chips.map(c => c.kind).sort();
+        assert(S(kinds) === S(['decor', 'look', 'motion', 'sfx']), `chips ${S(chips)}`);
+        assert(chips.every(c => !c.text.includes('当てない') && c.opacity === '1'), `chips ${S(chips)}`);
+        return { chips };
+    });
     const beforeApply = await both();
     let applied;
     await check('B・C（c-0002・c-0003）に当てる: 部品のチェック（見た目・動き・効果音・装飾が既定でチェック）→ captions.json + edit.json に印付きの効果音・装飾（B = 90 / C = 180 フレーム）・台帳 parts = {look, motion, sfx, decor}', async () => {
         applied = await applyStyle(cdp, styleId, ['c-0002', 'c-0003'], { shotName: '05-apply-popover' });
         const defaults = Object.fromEntries(applied.popover.inputs.map(i => [i.kind, i.checked && !i.disabled]));
         for (const k of ['look', 'motion', 'sfx', 'decor']) assert(defaults[k], `popover ${k} ${S(applied.popover.inputs)}`);
+        assert(applied.popover.inputs.every(i => !i.label.includes('当てない')), `popover labels ${S(applied.popover.inputs)}`);
         assert(!applied.popover.emoji, 'emoji');
         const rows = await captions(), doc = await edit();
         const detail = {};
@@ -462,11 +472,26 @@ try {
 if (finalState) {
     const exported = path.join(PJ, 'exports', 'attach-parts.mp4'); // 出力はプロジェクト内に限る（render-cut の制約）
     await mkdir(path.dirname(exported), { recursive: true });
+    const renderEnv = { ...process.env, AKARI_HOME: path.join(ISO, 'akari-home') };
+    const tail = r => (r.stderr || r.stdout || '').trim().split('\n').slice(-3).map(l => l.replaceAll(PJ, '<ws>').replaceAll(REPO, '<worktree>'));
+    // r1: 参照のまま（素材をまとめずに）。render-cut の html 読み込み（loadOverlays）は参照台帳でライブラリの実体を読む
+    await check('参照のまま（素材をまとめずに）render-cut --plan-only: html の読み込みで止まらない（exit 0）', async () => {
+        const r = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), PJ, '--plan-only', '--force'], { cwd: REPO, encoding: 'utf8', env: renderEnv });
+        assert(r.status === 0, `plan-only exit ${r.status}: ${S(tail(r))}`);
+        return { exit: r.status, tail: tail(r) };
+    });
+    const referenceOnlyOut = path.join(PJ, 'exports', 'attach-parts-reference-only.mp4');
+    await check('参照のまま（素材をまとめずに）書き出す: render-cut exit 0', async () => {
+        await rm(referenceOnlyOut, { force: true });
+        const r = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), PJ, '--out', referenceOnlyOut, '--force'], { cwd: REPO, encoding: 'utf8', env: renderEnv, timeout: 1_800_000 });
+        const at = [...(r.stderr || '').matchAll(/packages\/[a-z-]+\/src\/[a-z-]+\.mjs:\d+/g)].map(m => m[0]);
+        assert(r.status === 0, `render-cut exit ${r.status}: ${S(tail(r))} at ${S([...new Set(at)])}`);
+        return { exit: r.status, tail: tail(r) };
+    });
     await check('書き出し（「素材をまとめる」→ render-cut）: 効果音の立ち上がり = A・B・C の字幕の頭 / 装飾（枠の色）= 字幕の間だけ', async () => {
         await rm(exported, { force: true });
         const env = { ...process.env, AKARI_HOME: path.join(ISO, 'akari-home') };
-        // render-cut の loadOverlays は html をプロジェクトの実体からだけ読む（ライブラリ参照のフォールバックが無い = 基点から。
-        // スタイルを当てていない fixture のままでも同じ ENOENT）。書き出しの前に既存の「素材をまとめる」で参照を実体化する
+        // r0: 参照のままでは書き出しが html の読み込みで止まったので、既存の「素材をまとめる」で参照を実体化してから書き出す（r1 も比較のため残す）
         const referenceOnly = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), PJ, '--plan-only', '--force'], { cwd: REPO, encoding: 'utf8', env });
         const bundled = spawnSync(process.execPath, [path.join(REPO, 'packages', 'asset-resolver', 'bin', 'akari-assets.mjs'), 'bundle', '--project', PJ], { cwd: REPO, encoding: 'utf8', env });
         assert(bundled.status === 0, `bundle exit ${bundled.status}: ${(bundled.stderr || bundled.stdout).slice(-800)}`);

@@ -1,6 +1,6 @@
 {
   "phase": "after",
-  "base": "8ec4c16d",
+  "base": "a8caef72",
   "checks": [
     {
       "name": "右クリック「字幕にひも付ける…」: 効果音 sfx-a を c-0001 の登場へ（anchor = {caption c-0001, edge start, duration own}・at 0 のまま）",
@@ -174,18 +174,18 @@
       "name": "保存 → style.json の parts = {look, motion, sfx, decor}（順不同）・sfx = 登場 / 素材 audio:sfx-pop・decor = 全体 / 素材 overlay:deco-frame・絶対パスなし",
       "pass": true,
       "detail": {
-        "relativeFile": "styles/my-style-3a8290c8/style.json",
+        "relativeFile": "styles/my-style-e7f9dcdf/style.json",
         "style": {
           "schema": "akari-style",
           "version": 1,
           "revision": 1,
-          "uid": "01M393RAK05FMW80T2WM8CJFZ2",
-          "id": "my-style-3a8290c8",
+          "uid": "01M396TE5H5EB0N9FSDXZD45FW",
+          "id": "my-style-e7f9dcdf",
           "name": "登場でポンと鳴る枠つき",
           "when_to_use": "大事な一言に音と枠を添えたいとき",
           "sample_text": "今日は朝のルーティンを紹介します",
-          "created_at": "2026-09-24T07:05:53.504Z",
-          "updated_at": "2026-09-24T07:05:53.504Z",
+          "created_at": "2026-09-24T07:59:28.432Z",
+          "updated_at": "2026-09-24T07:59:28.432Z",
           "tags": [],
           "visibility": "private",
           "price": null,
@@ -273,6 +273,34 @@
       }
     },
     {
+      "name": "棚のカードの部品のチップ: 見た目・動き・効果音・装飾のどれにも「（当てない）」が付かない",
+      "pass": true,
+      "detail": {
+        "chips": [
+          {
+            "kind": "look",
+            "text": "見た目",
+            "opacity": "1"
+          },
+          {
+            "kind": "motion",
+            "text": "動き",
+            "opacity": "1"
+          },
+          {
+            "kind": "decor",
+            "text": "装飾",
+            "opacity": "1"
+          },
+          {
+            "kind": "sfx",
+            "text": "効果音",
+            "opacity": "1"
+          }
+        ]
+      }
+    },
+    {
       "name": "B・C（c-0002・c-0003）に当てる: 部品のチェック（見た目・動き・効果音・装飾が既定でチェック）→ captions.json + edit.json に印付きの効果音・装飾（B = 90 / C = 180 フレーム）・台帳 parts = {look, motion, sfx, decor}",
       "pass": true,
       "detail": {
@@ -327,7 +355,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0002"
                 }
               }
@@ -345,7 +373,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0002"
                 }
               }
@@ -365,7 +393,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0003"
                 }
               }
@@ -383,7 +411,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0003"
                 }
               }
@@ -395,7 +423,7 @@
             "c-0002",
             "c-0003"
           ],
-          "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+          "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
           "revision": 1,
           "parts": [
             "look",
@@ -403,7 +431,7 @@
             "decor",
             "sfx"
           ],
-          "applied_at": "2026-09-24T07:06:03.286Z"
+          "applied_at": "2026-09-24T07:59:40.846Z"
         }
       }
     },
@@ -425,7 +453,7 @@
             "c-0002",
             "c-0003"
           ],
-          "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+          "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
           "revision": 1,
           "parts": [
             "look",
@@ -433,7 +461,7 @@
             "decor",
             "sfx"
           ],
-          "applied_at": "2026-09-24T07:06:07.608Z"
+          "applied_at": "2026-09-24T07:59:49.405Z"
         }
       }
     },
@@ -456,7 +484,7 @@
               "offset": 0,
               "duration": "caption",
               "attached_by": {
-                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                 "caption": "c-0002"
               }
             }
@@ -474,7 +502,7 @@
               "offset": 0,
               "duration": "own",
               "attached_by": {
-                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                 "caption": "c-0002"
               }
             }
@@ -553,7 +581,7 @@
               "offset": 0,
               "duration": "caption",
               "attached_by": {
-                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                 "caption": "c-0002"
               }
             }
@@ -571,7 +599,7 @@
               "offset": 0,
               "duration": "own",
               "attached_by": {
-                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                 "caption": "c-0002"
               }
             }
@@ -712,7 +740,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0002"
                 }
               }
@@ -730,7 +758,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0002"
                 }
               }
@@ -750,7 +778,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0003"
                 }
               }
@@ -768,7 +796,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
                   "caption": "c-0003"
                 }
               }
@@ -784,6 +812,21 @@
         "exit": 0,
         "summary": null
       }
+    },
+    {
+      "name": "参照のまま（素材をまとめずに）render-cut --plan-only: html の読み込みで止まらない（exit 0）",
+      "pass": true,
+      "detail": {
+        "exit": 0,
+        "tail": [
+          "PLAN: exports/ws.mp4 (15s)"
+        ]
+      }
+    },
+    {
+      "name": "参照のまま（素材をまとめずに）書き出す: render-cut exit 0",
+      "pass": false,
+      "error": "Error: render-cut exit 2: [\"    at async runGpuExport (file://<worktree>/packages/gpu-export/src/electron-main.mjs:153:17)\",\"    at async runCli (file://<worktree>/packages/gpu-export/src/electron-main.mjs:745:9)\",\"render-cut execution error: OSR Electron exited 1 (no signal)\"] at [\"packages/gpu-export/src/page-builder.mjs:378\",\"packages/gpu-export/src/page-builder.mjs:373\",\"packages/gpu-export/src/electron-main.mjs:153\",\"packages/gpu-export/src/electron-main.mjs:745\"]\n    at assert (file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:37:64)\n    at file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:488:9\n    at async check (file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:41:27)\n    at async file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:484:5"
     },
     {
       "name": "書き出し（「素材をまとめる」→ render-cut）: 効果音の立ち上がり = A・B・C の字幕の頭 / 装飾（枠の色）= 字幕の間だけ",
@@ -859,8 +902,8 @@
           }
         },
         "referenceOnlyPlan": {
-          "exit": 2,
-          "error": "render-cut execution error: assets/overlay/deco-frame/deco.html could not be read: ENOENT: no such file or directory, open '<ws>/assets/overlay/deco-frame/deco.html'"
+          "exit": 0,
+          "error": "PLAN: exports/ws.mp4 (15s)"
         },
         "bundle": [
           "実体化しました: audio/sfx-pop -> <work>/ws/assets/audio/sfx-pop",
@@ -880,6 +923,7 @@
     "after-02-attach-dialog-sfx.png",
     "after-03-attach-dialog-decor.png",
     "after-04-save-dialog.png",
+    "after-05a-shelf-chips.png",
     "after-05-apply-popover.png",
     "after-06-applied-timeline.png",
     "after-07-preview-b.png",

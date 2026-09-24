@@ -6,15 +6,52 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { resolveLibraryFallback } from "../src/library-reference.mjs";
+import { extractFragmentAssetReferences } from "../src/fragment-assets.mjs";
 import {
   enumerateDeclaredRenderInputs,
   hashDeclaredRenderInputs,
   resolveDeclaredProjectInput,
 } from "../src/render-inputs.mjs";
-import { renderProject } from "../src/render-cut.mjs";
+import { loadOverlays, renderProject } from "../src/render-cut.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sourceVideo = resolve(here, "../../../test-project/source.mp4");
+
+test("loadOverlays reads a declared HTML overlay from the library and keeps project priority", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-overlay-reference-"));
+  try {
+    const projectRoot = join(root, "project");
+    const home = join(root, "home");
+    const declaredPath = "assets/overlay/frame/frame.html";
+    const libraryFile = join(home, "assets", "overlay", "frame", "frame.html");
+    const libraryImage = join(home, "assets", "overlay", "frame", "art.png");
+    await mkdir(join(projectRoot, ".akari"), { recursive: true });
+    await mkdir(dirname(libraryFile), { recursive: true });
+    await writeFile(libraryFile, '<img src="art.png">', "utf8");
+    await writeFile(libraryImage, "image bytes", "utf8");
+    await writeFile(join(projectRoot, ".akari", "asset-references.json"),
+      JSON.stringify({ version: 0, references: [{ category: "overlay", id: "frame" }] }));
+    const edit = { overlays: [{ id: "frame", html: declaredPath }] };
+    const env = { AKARI_HOME: home };
+    const html = (await loadOverlays(projectRoot, edit, env))[0].html;
+    assert.equal(html, '<img src="art.png">');
+    const [image] = extractFragmentAssetReferences(html, declaredPath);
+    assert.equal(image.path, "assets/overlay/frame/art.png");
+    assert.equal(resolveDeclaredProjectInput(projectRoot, image.path, "fragment image", env),
+      await realpath(libraryImage));
+
+    const projectFile = join(projectRoot, declaredPath);
+    await mkdir(dirname(projectFile), { recursive: true });
+    await writeFile(projectFile, '<div>project</div>', "utf8");
+    assert.equal((await loadOverlays(projectRoot, edit, env))[0].html, '<div>project</div>');
+    await rm(projectFile);
+    await writeFile(join(projectRoot, ".akari", "asset-references.json"),
+      JSON.stringify({ version: 0, references: [] }));
+    await assert.rejects(loadOverlays(projectRoot, edit, env), /could not be resolved.*ENOENT/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 const REFERENCE_CASES = [
   {

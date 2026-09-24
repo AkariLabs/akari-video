@@ -70,6 +70,7 @@ test('ひも付け部品は素材 id のみを保持し、選択可能にする'
       effect: { type: 'invert' } },
   ] }, '2026-09-24T00:00:00.000Z');
   assert.deepEqual(defaultMyStyleParts(style.parts), ['sfx', 'decor', 'fx']);
+  assert.deepEqual(style.parts.map(part => defaultMyStyleParts([part]).length > 0), [true, true, true]);
   assert.deepEqual(ignoredMyStyleParts(style), []);
   assert.deepEqual(parseMyStyle(JSON.parse(JSON.stringify(style))), style);
   const reserved = { kind: 'sfx', mode: 'attach', asset: { category: 'audio', id: 'pop' } };
@@ -81,6 +82,8 @@ test('ひも付け部品は素材 id のみを保持し、選択可能にする'
   assert.deepEqual(mixed.parts.slice(3), [reserved, future, malformed, extended]);
   assert.deepEqual(defaultMyStyleParts(mixed.parts), ['sfx', 'decor', 'fx']);
   assert.deepEqual(ignoredMyStyleParts(mixed), ['sfx', 'decor']);
+  assert.deepEqual(mixed.parts.map(part => defaultMyStyleParts([part]).length > 0),
+    [true, true, true, false, false, false, false]);
 });
 
 test('scope / mode の無い motion は既定値を補って読める', () => {

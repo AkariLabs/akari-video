@@ -215,7 +215,7 @@ export async function renderProject(input, options = {}, io = console) {
   // CLI legacy is retired. API callers still receive the vgpu-specific refusal before
   // capability probing or any render setup; other retired-engine calls keep their refusal.
   if (!["gpu", "osr"].includes(resolvedEngine)) {
-    const overlays = await loadOverlays(projectRoot, edit);
+    const overlays = await loadOverlays(projectRoot, edit, env);
     if (overlays.some(overlay => /data-akari-vgpu-scene/u.test(overlay.html))) {
       throw new RefusalError("vgpu overlays require --engine gpu");
     }
@@ -257,7 +257,7 @@ export async function renderProject(input, options = {}, io = console) {
   const captionLayout = plannedCaptions.layout
     ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
     : null;
-  const loadedOverlays = await loadOverlays(projectRoot, edit);
+  const loadedOverlays = await loadOverlays(projectRoot, edit, env);
   const shouldEvaluateGpu = container.ext === "mp4" && (engineRequested === "gpu" || engineRequested === "auto");
   const gpuEligibility = shouldEvaluateGpu
     ? evaluateGpuEligibility({
@@ -1169,11 +1169,12 @@ async function collectInputReceipts(projectRoot, edit, editText) {
   return receipts;
 }
 
-export async function loadOverlays(projectRoot, edit) {
+export async function loadOverlays(projectRoot, edit, env = process.env) {
   return Promise.all(
     edit.overlays.map(async (overlay) => {
       const sourcePath = overlaySourcePath(overlay);
-      const sourceHtml = await readRequired(resolve(projectRoot, sourcePath), sourcePath);
+      const absolute = resolveDeclaredProjectInput(projectRoot, sourcePath, `overlay:${overlay.id ?? sourcePath}`, env);
+      const sourceHtml = await readRequired(absolute, sourcePath);
       return {
         ...overlay,
         html: isInlineHtml(overlay.html) ? overlay.html : sourceHtml,

@@ -78,6 +78,14 @@ test("path and applies_to pairs are unambiguous for lint lookup", () => {
   assert.deepEqual(new Set(table.fields.flatMap((field) => field.applies_to)), appliesToVocabulary);
 });
 
+test("caption anchor capability includes audio items and their resolved timing", () => {
+  const anchor = table.fields.find(field => field.path === 'tracks[].items[].anchor');
+  assert.ok(anchor);
+  assert.ok(anchor.applies_to.includes('audio'));
+  assert.match(anchor.evidence, /item-anchor\.ts.*audio items/u);
+  assert.match(anchor.evidence, /internal-model\.ts.*audio mix/u);
+});
+
 test("caption animator capabilities consume GPU evaluation and retain non-text runtime warnings", () => {
   for (const suffix of ['animator', 'keyframes[].animator']) {
     const rows = table.fields.filter(field => field.path === `tracks[].items[].${suffix}`);
