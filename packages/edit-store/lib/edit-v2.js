@@ -10,12 +10,12 @@ const SHAPE_KINDS = new Set([
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
-    'motion', 'animator', 'keyframes', 'items', 'mask', 'source', 'audio'
+    'motion', 'animator', 'keyframes', 'items', 'mask', 'source', 'audio', 'anchor'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
     'fade_in', 'fade_out', 'ducking', 'duck_db', 'duck_attack', 'duck_release',
-    'denoise', 'lowcut_hz', 'script', 'reading', 'provenance'
+    'denoise', 'lowcut_hz', 'script', 'reading', 'caption_ref', 'provenance', 'anchor'
 ]);
 /**
  * edit.json v2 だけを検証して内部表現へ読む。v0/v1 の変換は意図的に扱わない。
@@ -165,6 +165,8 @@ function validateAudioItem(value, path, ids, sourceIds) {
         throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
     ids.add(value.id);
     validateItemMetadata(value, path);
+    if (hasOwn(value, 'anchor'))
+        validateItemAnchor(value.anchor, `${path}.anchor`);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
     if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm' && value.role !== 'speech') {
@@ -201,6 +203,9 @@ function validateAudioItem(value, path, ids, sourceIds) {
     }
     if (hasOwn(value, 'reading') && typeof value.reading !== 'string') {
         throw invalid(`${path}.reading`, 'string である必要があります');
+    }
+    if (hasOwn(value, 'caption_ref') && (typeof value.caption_ref !== 'string' || !/^c-\d{4}$/.test(value.caption_ref))) {
+        throw invalid(`${path}.caption_ref`, '字幕 id が必要です');
     }
     if (hasOwn(value, 'provenance'))
         validateNarrationProvenance(value.provenance, `${path}.provenance`);
@@ -262,6 +267,8 @@ function validateItem(value, path, ids, sourceIds) {
         throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
     ids.add(value.id);
     validateItemMetadata(value, path);
+    if (hasOwn(value, 'anchor'))
+        validateItemAnchor(value.anchor, `${path}.anchor`);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
     if (hasOwn(value, 'transform'))
@@ -318,6 +325,35 @@ function validateItemMetadata(value, path) {
         if (hasOwn(value, key) && typeof value[key] !== 'boolean')
             throw invalid(`${path}.${key}`, 'boolean である必要があります');
     }
+}
+function validateItemAnchor(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['caption', 'range', 'offset', 'edge', 'duration', 'attached_by']), path);
+    if (typeof value.caption !== 'string' || !/^c-\d{4}$/.test(value.caption))
+        throw invalid(`${path}.caption`, '字幕 id が必要です');
+    if (hasOwn(value, 'range')) {
+        requireRecord(value.range, `${path}.range`);
+        requireExactKeys(value.range, new Set(['start', 'end']), `${path}.range`);
+        requireNonNegativeNumber(value.range.start, `${path}.range.start`);
+        requireNonNegativeNumber(value.range.end, `${path}.range.end`);
+        if (value.range.end <= value.range.start)
+            throw invalid(`${path}.range`, 'end > start が必要です');
+    }
+    if (hasOwn(value, 'offset') && !Number.isInteger(value.offset))
+        throw invalid(`${path}.offset`, '整数が必要です');
+    if (hasOwn(value, 'edge') && value.edge !== 'start' && value.edge !== 'end')
+        throw invalid(`${path}.edge`, 'start/end が必要です');
+    if (hasOwn(value, 'duration') && value.duration !== 'caption' && value.duration !== 'own')
+        throw invalid(`${path}.duration`, 'caption/own が必要です');
+    if (hasOwn(value, 'attached_by'))
+        validateAttachedBy(value.attached_by, `${path}.attached_by`);
+}
+function validateAttachedBy(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['style_uid', 'caption']), path);
+    requireText(value.style_uid, `${path}.style_uid`);
+    if (typeof value.caption !== 'string' || !/^c-\d{4}$/.test(value.caption))
+        throw invalid(`${path}.caption`, '字幕 id が必要です');
 }
 function validateItemSource(value, path, sourceIds) {
     requireRecord(value, path);

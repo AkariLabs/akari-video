@@ -1546,6 +1546,22 @@ function validateV2ItemAnchors(edit, captionsState, findings) {
     }
   }
 
+  for (const [trackIndex, track] of (Array.isArray(edit.tracks) ? edit.tracks : []).entries()) {
+    const inspect = (items, parentPath) => {
+      for (const [index, item] of (Array.isArray(items) ? items : []).entries()) {
+        if (!isRecord(item)) continue;
+        const path = `${parentPath}[${index}]`;
+        if (isRecord(item.anchor) && isRecord(item.anchor.attached_by)
+          && item.anchor.attached_by.caption !== item.anchor.caption) {
+          addFinding(findings, { severity: 'error', check: 'v2.item-attached-by-anchor',
+            message: 'anchor.attached_by.caption must match anchor.caption', path: `${path}.anchor.attached_by.caption` });
+        }
+        inspect(item.items, `${path}.items`);
+      }
+    };
+    if (isRecord(track)) inspect(track.items, `edit.json#tracks[${trackIndex}].items`);
+  }
+
   if (entries.length === 0) return;
   const resolved = resolveItemAnchors(edit, captions);
   const pathById = new Map(entries.map(entry => [entry.item.id, entry.path]));

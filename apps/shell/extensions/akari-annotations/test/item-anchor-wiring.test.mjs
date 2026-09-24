@@ -96,6 +96,27 @@ test('removeCaption は参照切れを警告し cache を保持する', async ()
     }
 });
 
+test('removeCaption は印付きの効果音と装飾を同じ書き込みで消す', async () => {
+    const edit = anchoredEdit('c-0003', 30, 30);
+    edit.tracks[1].items[0].anchor.attached_by = { style_uid: 'style-one', caption: 'c-0003' };
+    edit.tracks.push({ id: 'sfx', lane: 'audio', items: [{ id: 'sound', at: 30, duration: 5,
+        role: 'sfx', source: { kind: 'media', src: 'main', in: 0, out: .2 },
+        anchor: { caption: 'c-0003', duration: 'own',
+            attached_by: { style_uid: 'style-one', caption: 'c-0003' } } }] });
+    const fixture = await project(edit);
+    const writes = [];
+    try {
+        const service = new AkariAnnotationsServiceImpl();
+        service.setClient({ onWillWrite: value => writes.push(value), onDidWrite() {}, onLintResult() {} });
+        await service.removeCaption({ ...fixture.request, captionId: 'c-0003' });
+        const after = JSON.parse(await readFile(fixture.editPath, 'utf8'));
+        assert.deepEqual(after.tracks[1].items, []);
+        assert.deepEqual(after.tracks[2].items, []);
+        assert.deepEqual(JSON.parse(await readFile(fixture.captionsPath, 'utf8')), []);
+        assert.deepEqual(writes.map(value => new URL(value).pathname.split('/').at(-1)).sort(), ['captions.json', 'edit.json']);
+    } finally { await cleanup(fixture.root); }
+});
+
 for (const [name, invoke] of [
     ['setCaptionTiming', (service, request) => service.setCaptionTiming({
         ...request, captionId: 'c-0003', start: 1.25, end: 2.25,

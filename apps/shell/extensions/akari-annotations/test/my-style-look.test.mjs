@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { effectiveMyStyleLook, effectiveMyStyleMotion, myStyleSaveParts, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle,
   placedMyStyleMotion, appliedMyStyleKinds, unsupportedMyStyleLookFields, replaceMyStyleLookInSource, replaceMyStylePartsInSource, appendMyStyleUsage,
   myStyleOutputHeight, newMyStyleSlug } from '../lib/browser/my-style-look.js';
+import { myStyleAttachedPartsFromEdit, applyMyStyleAttachedParts, detachMovedStyleItem,
+  supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
+import { resolveItemAnchors } from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/caption-store.js';
 import { resolveCaptionReferenceScale, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
 
@@ -19,6 +23,69 @@ test('実効の見た目を解決し、位置と動きを保存しない', () =>
     { color: '#ff1744', stroke: { widthPx: 6 } });
   assert.deepEqual(unsupportedMyStyleLookFields({ color: '#ff1744', italic: true,
     background: { opacity: 0.5, width_pct: 60 } }), ['italic', 'background.width_pct']);
+});
+
+test('ひも付いた効果音・装飾・画面効果を保存し、別の字幕への当て直しで重複しない', () => {
+  const edit = { version: 2, output: { width: 320, height: 180, fps: 10 },
+    sources: [{ id: 'main', path: 'assets/source.mp4' },
+      { id: 'sound', path: 'assets/audio/pop/pop.wav' }],
+    tracks: [
+      { id: 'cut', lane: 'visual', items: [{ id: 'cut-1', at: 0, duration: 100,
+        source: { kind: 'media', src: 'main', in: 0, out: 10 } }] },
+      { id: 'sound-track', lane: 'audio', items: [{ id: 'sound-1', at: 20, duration: 5,
+        role: 'sfx', source: { kind: 'media', src: 'sound', in: 0, out: .5 },
+        anchor: { caption: 'c-0001', duration: 'own' } }] },
+      { id: 'overlay', lane: 'visual', items: [{ id: 'decor-1', at: 20, duration: 20,
+        source: { kind: 'html', path: 'assets/overlay/frame/frame.html' },
+        anchor: { caption: 'c-0001', duration: 'caption' } }] },
+      { id: 'effect', lane: 'visual', items: [{ id: 'fx-1', at: 20, duration: 20,
+        source: { kind: 'filter', filter: { type: 'invert' } },
+        anchor: { caption: 'c-0001', duration: 'caption' } }] },
+      { id: 'captions', lane: 'visual', content: { from: 'captions.json' } },
+    ] };
+  const parts = myStyleAttachedPartsFromEdit(edit, 'c-0001');
+  assert.deepEqual(parts.map(part => part.kind), ['sfx', 'decor', 'fx']);
+  const captions = [{ id: 'c-0001', start: 2, end: 4 }, { id: 'c-0002', start: 5, end: 6 }];
+  const applied = applyMyStyleAttachedParts(edit, captions, ['c-0002'], 'style-one', parts);
+  const resolved = resolveItemAnchors(applied, captions).edit;
+  const again = applyMyStyleAttachedParts(resolved, captions, ['c-0002'], 'style-one', parts);
+  const placed = again.tracks.flatMap(track => track.items ?? []).filter(item => item.anchor?.attached_by?.caption === 'c-0002');
+  assert.deepEqual(placed.map(item => item.source.kind).sort(), ['filter', 'html', 'media']);
+  assert.deepEqual(placed.map(item => item.at), [50, 50, 50]);
+  assert.equal(placed.find(item => item.source.kind === 'html').duration, 10);
+  assert.equal(placed.find(item => item.source.kind === 'media').duration, 5);
+  assert.equal(again.sources.filter(source => source.path === 'assets/audio/pop/pop.wav').length, 1);
+});
+
+test('手で移動した印付き要素は時刻を保ちアンカーと印を外す', () => {
+  const item = { id: 'sound', at: 47, duration: 5, source: { kind: 'media', src: 'sound' },
+    anchor: { caption: 'c-0001', attached_by: { style_uid: 'style-one', caption: 'c-0001' } } };
+  const edit = { output: { fps: 10 }, sources: [], tracks: [{ id: 'audio', lane: 'audio', items: [item] }] };
+  detachMovedStyleItem(edit, 'sound');
+  assert.deepEqual({ at: item.at, duration: item.duration }, { at: 47, duration: 5 });
+  assert.equal('anchor' in item, false);
+  const manual = { id: 'manual', at: 47, duration: 5, source: { kind: 'media', src: 'sound' },
+    anchor: { caption: 'c-0001' } };
+  edit.tracks[0].items.push(manual);
+  detachMovedStyleItem(edit, 'manual');
+  assert.deepEqual(manual.anchor, { caption: 'c-0001' });
+  const widget = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+  const drag = widget.slice(widget.indexOf('protected async commitEditV2Drag('),
+    widget.indexOf('protected async ', widget.indexOf('protected async commitEditV2Drag(') + 10));
+  assert.match(drag, /this\.rawV2Item\(movedId\)\?\.anchor\?\.attached_by/);
+});
+
+test('旧予約形と未来の attach 部品は適用せず保持対象として知らせる', () => {
+  const old = { kind: 'sfx', mode: 'attach', asset: { category: 'audio', id: 'pop' } };
+  const future = { kind: 'decor', mode: 'attach', attach: { at: 'burst', offset_frames: 0 },
+    asset: { category: 'overlay', id: 'frame' }, file: 'frame.html' };
+  const extended = { kind: 'decor', scope: 'caption', mode: 'attach', attach: { at: 'whole', offset_frames: 0 },
+    asset: { category: 'overlay', id: 'frame' }, file: 'frame.html', timeline: 'future' };
+  assert.equal(supportedMyStyleAttachPart(old), false);
+  assert.equal(supportedMyStyleAttachPart(future), false);
+  assert.equal(supportedMyStyleAttachPart(extended), false);
+  assert.deepEqual(appliedMyStyleKinds([old, future, extended], ['sfx', 'decor']), []);
+  assert.match(myStyleApplyNotice([old, future, extended]), /効果音・装飾/);
 });
 
 test('実効の動きを snake_case で保存し、無い字幕は motion を作らない', () => {

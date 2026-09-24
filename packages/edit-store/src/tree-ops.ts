@@ -112,6 +112,7 @@ export function setItemAnchor(
 ): { edit: EditableEditV2; item: ProjectItemV2; changes: ItemAnchorChange[]; warnings: ItemAnchorWarning[] } {
     const item = requireLocation(edit, id).item;
     item.anchor = clone(anchor);
+    if (item.anchor.attached_by?.caption !== anchor.caption) delete item.anchor.attached_by;
     const refreshed = resolveItemAnchors(edit as unknown as EditV2, captions);
     for (const change of refreshed.changes) {
         const changedItem = requireLocation(edit, change.id).item;

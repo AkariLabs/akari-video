@@ -1,4 +1,4 @@
-import type { EditV2, ItemV2 } from './edit-v2';
+import type { AudioMediaItemV2, EditV2, ItemV2, ItemAnchorV2 } from './edit-v2';
 import { projectLegacyEdit, readInternalEdit } from './internal-model';
 import { buildTimelineMap, sourceToOutput, type TimelineSegment } from './timeline-map';
 
@@ -34,7 +34,7 @@ export function toAnchorCaptions(raw: unknown): AnchorCaption[] {
         }));
 }
 
-export type ItemAnchorV2 = NonNullable<ItemV2['anchor']>;
+export type { ItemAnchorV2 } from './edit-v2';
 
 export type ItemAnchorWarningReason =
     | 'caption-not-found'
@@ -58,6 +58,7 @@ export interface ItemAnchorWarning {
 }
 
 type AnchoredItem = Pick<ItemV2, 'at' | 'duration'> & { anchor: ItemAnchorV2 };
+type AnchorItem = ItemV2 | AudioMediaItemV2;
 
 export function resolveItemAnchor(
     item: AnchoredItem,
@@ -83,7 +84,7 @@ export function resolveItemAnchor(
     const startFrames = Math.round(startOut * context.fps);
     const endFrames = Math.round(endOut * context.fps);
     return {
-        at: startFrames + (item.anchor.offset ?? 0) - context.parentAtFrames,
+        at: (item.anchor.edge === 'end' ? endFrames : startFrames) + (item.anchor.offset ?? 0) - context.parentAtFrames,
         duration: (item.anchor.duration ?? 'caption') === 'caption'
             ? Math.max(1, endFrames - startFrames)
             : item.duration
@@ -107,6 +108,28 @@ export function withoutItemAnchors<T>(edit: T): T {
     return tracksChanged ? { ...edit, tracks } as T : edit;
 }
 
+/** Remove only elements explicitly placed by a style for the deleted caption. */
+export function removeStyleAttachedItems(edit: EditV2, captionId: string): EditV2 {
+    let changed = false;
+    const prune = (items: readonly AnchorItem[]): AnchorItem[] => items.flatMap(item => {
+        if (item.anchor?.attached_by?.caption === captionId) {
+            changed = true;
+            return [];
+        }
+        if ('items' in item && Array.isArray(item.items)) {
+            const children = prune(item.items);
+            if (children.length !== item.items.length || children.some((child, index) => child !== item.items![index])) {
+                changed = true;
+                return [{ ...item, items: children as ItemV2[] } as AnchorItem];
+            }
+        }
+        return [item];
+    });
+    const tracks = edit.tracks.map(track => 'items' in track
+        ? { ...track, items: prune(track.items) } : track);
+    return changed ? { ...edit, tracks } as EditV2 : edit;
+}
+
 export function resolveItemAnchors(
     edit: EditV2,
     captions: readonly AnchorCaption[],
@@ -123,7 +146,7 @@ export function resolveItemAnchors(
     const warnings: ItemAnchorWarning[] = [];
     let tracksChanged = false;
     const tracks = edit.tracks.map(track => {
-        if (!('items' in track) || !Array.isArray(track.items) || track.lane !== 'visual') return track;
+        if (!('items' in track) || !Array.isArray(track.items)) return track;
         const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings);
         if (items === track.items) return track;
         tracksChanged = true;
@@ -137,14 +160,14 @@ export function resolveItemAnchors(
 }
 
 function resolveItems(
-    items: readonly ItemV2[],
+    items: readonly AnchorItem[],
     parentAtFrames: number,
     captionById: ReadonlyMap<string, AnchorCaption>,
     segments: readonly TimelineSegment[],
     fps: number,
     changes: ItemAnchorChange[],
     warnings: ItemAnchorWarning[]
-): ItemV2[] | readonly ItemV2[] {
+): AnchorItem[] | readonly AnchorItem[] {
     let changed = false;
     const result = items.map(item => {
         let next = item;
@@ -170,14 +193,14 @@ function resolveItems(
                             before: { at: item.at, duration: item.duration },
                             after: resolution
                         });
-                        next = { ...item, ...resolution } as ItemV2;
+                        next = { ...item, ...resolution } as AnchorItem;
                         changed = true;
                     }
                 }
             }
         }
         const absoluteAtFrames = parentAtFrames + next.at;
-        if (Array.isArray(next.items)) {
+        if ('items' in next && Array.isArray(next.items)) {
             const children = resolveItems(
                 next.items,
                 absoluteAtFrames,
@@ -188,7 +211,7 @@ function resolveItems(
                 warnings
             );
             if (children !== next.items) {
-                next = { ...next, items: children as ItemV2[] } as ItemV2;
+                next = { ...next, items: children as ItemV2[] } as AnchorItem;
                 changed = true;
             }
         }
@@ -220,10 +243,10 @@ function stripItems(items: readonly unknown[]): readonly unknown[] {
 }
 
 function hasItemAnchor(edit: EditV2): boolean {
-    const visit = (items: readonly ItemV2[]): boolean => items.some(item =>
-        item.anchor !== undefined || (Array.isArray(item.items) && visit(item.items))
+    const visit = (items: readonly AnchorItem[]): boolean => items.some(item =>
+        item.anchor !== undefined || ('items' in item && Array.isArray(item.items) && visit(item.items))
     );
-    return edit.tracks.some(track => 'items' in track && track.lane === 'visual' && visit(track.items));
+    return edit.tracks.some(track => 'items' in track && visit(track.items));
 }
 
 function validFps(value: unknown): number | undefined {

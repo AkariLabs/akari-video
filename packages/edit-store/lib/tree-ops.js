@@ -78,6 +78,8 @@ function updateItem(edit, id, patch) {
 function setItemAnchor(edit, id, anchor, captions) {
     const item = requireLocation(edit, id).item;
     item.anchor = clone(anchor);
+    if (item.anchor.attached_by?.caption !== anchor.caption)
+        delete item.anchor.attached_by;
     const refreshed = (0, item_anchor_1.resolveItemAnchors)(edit, captions);
     for (const change of refreshed.changes) {
         const changedItem = requireLocation(edit, change.id).item;

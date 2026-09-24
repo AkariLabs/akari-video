@@ -1,7 +1,7 @@
 ---
 lifecycle: accepted
 created: 2026-09-02
-updated: 2026-09-02
+updated: 2026-09-24
 ---
 
 # edit.json v2 アイテム行アンカー契約 v0
@@ -9,7 +9,7 @@ updated: 2026-09-02
 ## 0. 位置づけ
 
 本契約は、時間の従属 3 分類のうち ②「字幕行に従属するアイテム」を定める。対象は
-`media` / `html` / `telop` / `filter` / `group` の visual item である。字幕行全体または行内の
+`media` / `html` / `telop` / `filter` / `group` の visual item と audio item である。字幕行全体または行内の
 単語相当区間を source 秒で参照し、字幕時刻の変更後に同じ純関数でアイテム時刻を再導出する。
 
 `captions.json.emphasis_words[]` も source 秒の実測区間を持つが、そちらは語の演出宣言である。
@@ -38,6 +38,10 @@ updated: 2026-09-02
   `start < end` とする。省略時は字幕行全体を使う。
 - `offset` は任意の整数フレーム。負数も許す。
 - `duration` は `caption` または `own`。省略時は `caption`。
+- `edge` は `start` または `end`。省略時は `start`。`end` は字幕区間の終端を item の開始位置にする。
+- `anchor.attached_by: { style_uid, caption }` は任意のスタイル配置印である。`caption` は
+  `anchor.caption` と同じ字幕を指す。字幕を削除すると、同じ字幕を指す印付き item を同じ書き込みで消す。
+  印付き item を手で移動すると `anchor` 全体を外し、現在の時刻を保持する。印のない既存アンカーは保持する。
 - `at` / `duration` は従来どおり必須の整数フレームだが、`anchor` があるときは解決結果の
   キャッシュである。正本は `anchor` と参照字幕である。
 - 最上位 item の `at` は出力絶対フレーム。子 item の `at` は従来どおり親相対で、アンカーも
@@ -54,7 +58,7 @@ updated: 2026-09-02
 `end_src = anchor.range?.end ?? caption.end` とし、両端を出力秒へ写す。
 
 ```text
-at = round(start_out * fps) + (offset ?? 0) - parentAtFrames
+at = round((edge === "end" ? end_out : start_out) * fps) + (offset ?? 0) - parentAtFrames
 duration(caption) = max(1, round(end_out * fps) - round(start_out * fps))
 duration(own) = item.duration
 ```
@@ -74,7 +78,7 @@ render-cut / gpu / osr / shell preview / preview-server の各出口は、captio
 再解決する。captions.json が無い場合は従来どおり `at` / `duration` のキャッシュを読む。
 
 字幕の時刻・参照集合を変える `setCaptionTiming` / `shiftCaption` / `insertCaption` /
-`removeCaption` は、captions.json の書き込み後に `refreshItemAnchors` でキャッシュを更新する。
+`removeCaption` は印付き item の除去とアンカー更新を captions.json と edit.json の同じ書き込みで行う。
 `writeEditSnapshot` と preview-server の captions PUT は呼び出し側が再解決の責務を持つ。
 captions.json と edit.json の 2 ファイル間に原子性はなく、途中で停止してキャッシュが古くなった場合は
 lint `v2.item-anchor-stale` が検出する。

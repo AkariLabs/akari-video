@@ -280,15 +280,7 @@ export interface ItemV2Base {
     at: number;
     /** 表示・再生尺（整数フレーム）。 */
     duration: number;
-    anchor?: {
-        caption: string;
-        range?: {
-            start: number;
-            end: number;
-        };
-        offset?: number;
-        duration?: 'caption' | 'own';
-    };
+    anchor?: ItemAnchorV2;
     transform?: TransformV2;
     opacity?: number;
     blend?: BlendModeV2;
@@ -341,6 +333,7 @@ export interface AudioMediaItemV2 {
     at: number;
     /** 出力尺（整数フレーム）。0 は実尺未解決のセンチネル。 */
     duration: number;
+    anchor?: ItemAnchorV2;
     /** 省略時は sfx。 */
     role?: AudioRoleV2;
     /** 同じ edit 内の visual media id。編集上の関連であり時刻・source の正本ではない。 */
@@ -363,7 +356,22 @@ export interface AudioMediaItemV2 {
     duck_release?: number;
     script?: string;
     reading?: string;
+    caption_ref?: string;
     provenance?: NarrationProvenanceV2;
+}
+export interface ItemAnchorV2 {
+    caption: string;
+    range?: {
+        start: number;
+        end: number;
+    };
+    offset?: number;
+    edge?: 'start' | 'end';
+    attached_by?: {
+        style_uid: string;
+        caption: string;
+    };
+    duration?: 'caption' | 'own';
 }
 export interface CaptionTrackContentV2 {
     from: 'captions.json';

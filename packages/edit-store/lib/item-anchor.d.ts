@@ -1,4 +1,4 @@
-import type { EditV2, ItemV2 } from './edit-v2';
+import type { EditV2, ItemV2, ItemAnchorV2 } from './edit-v2';
 import { type TimelineSegment } from './timeline-map';
 export type AnchorCaption = {
     id: string;
@@ -8,7 +8,7 @@ export type AnchorCaption = {
 };
 /** captions.json / CaptionRecord[] をアンカー解決用の最小形へ正規化する。 */
 export declare function toAnchorCaptions(raw: unknown): AnchorCaption[];
-export type ItemAnchorV2 = NonNullable<ItemV2['anchor']>;
+export type { ItemAnchorV2 } from './edit-v2';
 export type ItemAnchorWarningReason = 'caption-not-found' | 'removed-range' | 'no-source-segments' | 'unsupported-kind';
 export type ItemAnchorResolution = {
     at: number;
@@ -45,6 +45,8 @@ export declare function resolveItemAnchor(item: AnchoredItem, context: {
  * anchor が無い入力は同じ参照を返す。
  */
 export declare function withoutItemAnchors<T>(edit: T): T;
+/** Remove only elements explicitly placed by a style for the deleted caption. */
+export declare function removeStyleAttachedItems(edit: EditV2, captionId: string): EditV2;
 export declare function resolveItemAnchors(edit: EditV2, captions: readonly AnchorCaption[], options?: {
     fps?: number;
 }): {
@@ -52,4 +54,3 @@ export declare function resolveItemAnchors(edit: EditV2, captions: readonly Anch
     changes: ItemAnchorChange[];
     warnings: ItemAnchorWarning[];
 };
-export {};

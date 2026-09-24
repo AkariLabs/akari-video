@@ -9,7 +9,7 @@ import {
     type CutRange
 } from '@akari-video/edit-store/lib/cut-ranges';
 import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
-import { toAnchorCaptions, withoutItemAnchors } from '@akari-video/edit-store/lib/item-anchor';
+import { toAnchorCaptions, withoutItemAnchors, removeStyleAttachedItems } from '@akari-video/edit-store/lib/item-anchor';
 import { list as listHistory, restore as restoreHistory, snapshot as snapshotHistory } from '@akari-video/edit-store/lib/history-store';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
@@ -1799,8 +1799,27 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = removeCaptionLine(source, request.captionId);
-        await this.writeProjectFileGuarded(captionsPath, updated);
-        await this.refreshAnchorsAfterCaptionWrite(captionsPath);
+        const editPath = join(dirname(captionsPath), 'edit.json');
+        let editSource: string | undefined;
+        try {
+            const current = await fs.readFile(editPath, 'utf8');
+            if (detectEditVersion(current) === 2) {
+                const parsed = JSON.parse(current);
+                const next = removeStyleAttachedItems(parsed, request.captionId);
+                const refreshed = refreshItemAnchors(next as EditableEditV2, toAnchorCaptions(JSON.parse(updated)));
+                for (const warning of refreshed.warnings) {
+                    console.warn(`[akari-annotations] item anchor ${warning.id}: ${warning.reason}`);
+                }
+                if (next !== parsed || refreshed.changes.length) editSource = `${JSON.stringify(refreshed.edit, null, 2)}\n`;
+            }
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+                console.warn('[akari-annotations] 字幕削除後のアンカー更新をスキップしました。', error);
+            }
+        }
+        await this.writeEditSnapshot({ editUri: URI.fromFilePath(editPath).toString(),
+            projectRootUri: request.projectRootUri, captionsUri: request.captionsUri,
+            captionsSource: updated, ...(editSource ? { editSource } : {}) });
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の複製を取り消し') };
     }
 

@@ -42,9 +42,20 @@
           }
         },
         "offset": { "type": "integer" },
+        "edge": { "enum": ["start", "end"], "default": "start" },
+        "attached_by": { "$ref": "#/$defs/itemAttachedByV2" },
         "duration": { "enum": ["caption", "own"], "default": "caption" }
       },
       "$comment": "source 秒で宣言する。range は参照字幕の [start, end] 内に置き、at / duration は解決キャッシュとする。正本は docs/contract-2026-09-02-item-caption-anchor-v0.md。"
+    },
+    "itemAttachedByV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style_uid", "caption"],
+      "properties": {
+        "style_uid": { "type": "string", "minLength": 1 },
+        "caption": { "type": "string", "pattern": "^c-\\d{4}$" }
+      }
     },
     "nonNegativeInteger": {
       "type": "integer",
@@ -1793,6 +1804,7 @@
         "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
+        "anchor": { "$ref": "#/$defs/itemAnchorV2" },
         "role": { "enum": ["sfx", "narration", "bgm", "speech"] },
         "link": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "mute": { "type": "boolean" },

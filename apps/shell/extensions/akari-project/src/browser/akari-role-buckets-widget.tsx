@@ -645,6 +645,27 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         };
         window.addEventListener('akari.mystyle.save', saveMyStyle);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.mystyle.save', saveMyStyle) });
+        const resolveMyStyleAsset = (event: Event): void => {
+            const detail = (event as CustomEvent<{ projectUri: string; category: string; id: string; file: string;
+                handled?: boolean; resolve: () => void; reject: (error: unknown) => void }>).detail;
+            detail.handled = true;
+            void (async () => {
+                let references = await this.projectService.listProjectAssetReferences(detail.projectUri);
+                let reference = references.find(item => item.category === detail.category && item.id === detail.id);
+                if (!reference) {
+                    const outcome = await this.projectService.resolveAsset(detail.id, detail.projectUri);
+                    if (outcome.success === false) throw new Error(outcome.error);
+                    references = await this.projectService.listProjectAssetReferences(detail.projectUri);
+                    reference = references.find(item => item.category === detail.category && item.id === detail.id);
+                }
+                if (!reference?.files.some(file => file.name === detail.file || file.name.endsWith(`/${detail.file}`))) {
+                    throw new Error('素材ファイルを参照台帳で確認できません。');
+                }
+                detail.resolve();
+            })().catch(detail.reject);
+        };
+        window.addEventListener('akari.mystyle.resolve-asset', resolveMyStyleAsset);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.mystyle.resolve-asset', resolveMyStyleAsset) });
         const changeLibraryLocation = (): void => { void this.commandService.executeCommand('akari.library.changeLocation'); };
         this.node.addEventListener('akari.library.changeLocation', changeLibraryLocation);
         this.toDispose.push({ dispose: () => this.node.removeEventListener('akari.library.changeLocation', changeLibraryLocation) });

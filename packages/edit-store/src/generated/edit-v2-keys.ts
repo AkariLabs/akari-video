@@ -182,6 +182,7 @@ export const ITEM_V2_KEYS_BY_DEFINITION = {
     "locked",
     "at",
     "duration",
+    "anchor",
     "role",
     "link",
     "mute",

@@ -60,6 +60,29 @@ test('motion の形と選択の既定を検証する', () => {
     parts: [{ kind: 'motion', scope: 'clip', mode: 'modify', animation: { in: { id: 'pop' } } }] }), /動き/);
 });
 
+test('ひも付け部品は素材 id のみを保持し、選択可能にする', () => {
+  const style = createMyStyle({ id: 'attach', name: '登場', when_to_use: '強調', sample_text: '文字', parts: [
+    { kind: 'sfx', scope: 'caption', mode: 'attach', attach: { at: 'in', offset_frames: 0 },
+      asset: { category: 'audio', id: 'pop' }, file: 'pop.wav', duration_sec: .3 },
+    { kind: 'decor', scope: 'caption', mode: 'attach', attach: { at: 'whole', offset_frames: 0 },
+      asset: { category: 'overlay', id: 'frame' }, file: 'frame.html' },
+    { kind: 'fx', scope: 'caption', mode: 'attach', attach: { at: 'whole', offset_frames: 0 },
+      effect: { type: 'invert' } },
+  ] }, '2026-09-24T00:00:00.000Z');
+  assert.deepEqual(defaultMyStyleParts(style.parts), ['sfx', 'decor', 'fx']);
+  assert.deepEqual(ignoredMyStyleParts(style), []);
+  assert.deepEqual(parseMyStyle(JSON.parse(JSON.stringify(style))), style);
+  const reserved = { kind: 'sfx', mode: 'attach', asset: { category: 'audio', id: 'pop' } };
+  const future = { kind: 'decor', mode: 'attach', attach: { at: 'burst', offset_frames: 0 },
+    asset: { category: 'overlay', id: 'frame' }, file: 'frame.html' };
+  const malformed = { ...style.parts[0], file: '../bad.wav' };
+  const extended = { ...style.parts[1], timeline: 'future' };
+  const mixed = parseMyStyle({ ...style, parts: [...style.parts, reserved, future, malformed, extended] });
+  assert.deepEqual(mixed.parts.slice(3), [reserved, future, malformed, extended]);
+  assert.deepEqual(defaultMyStyleParts(mixed.parts), ['sfx', 'decor', 'fx']);
+  assert.deepEqual(ignoredMyStyleParts(mixed), ['sfx', 'decor']);
+});
+
 test('scope / mode の無い motion は既定値を補って読める', () => {
   const style = createMyStyle({ id: 'legacy-motion', name: '動き', when_to_use: '強調', sample_text: '文字',
     parts: [{ kind: 'motion', scope: 'caption', mode: 'modify', animation: { in: { id: 'fade-up' } } }] },

@@ -7,16 +7,18 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
-import { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage } from '../lib/browser/my-style-look.js';
+import { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
+    supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds } from '@akari-video/edit-store';
 
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const declaration = source.statements.find(item => ts.isClassDeclaration(item) && item.name.text === 'AkariAnnotationsWidget');
 const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
+const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'supportedMyStyleAttachPart', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
     placeTextCaption, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
     placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
+    supportedMyStyleAttachPart,
     { fromString: value => value },
     { dispatchEvent() {} }, class { constructor(type, options) { this.type = type; this.detail = options.detail; } });
 

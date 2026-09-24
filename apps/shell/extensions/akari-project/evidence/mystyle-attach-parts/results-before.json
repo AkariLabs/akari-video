@@ -1,0 +1,1078 @@
+{
+  "phase": "before",
+  "base": "8ec4c16d",
+  "scenarios": {
+    "anchored": {
+      "steps": [
+        {
+          "label": "opened",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": null
+            }
+          },
+          "editChangedLines": [],
+          "notices": [],
+          "captionsEqualsFixture": true,
+          "editEqualsFixture": true
+        },
+        {
+          "label": "after-move-c-0002",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3.4999999999999996,
+              6
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": null
+            }
+          },
+          "editChangedLines": [
+            "  \"output\": { \"width\": 1280, \"height\": 720, \"fps\": 30 },",
+            "  \"sources\": [",
+            "    { \"id\": \"a\", \"path\": \"assets/base.mp4\" },",
+            "    { \"id\": \"pop\", \"path\": \"assets/pop.wav\" }",
+            "  ],",
+            "  \"tracks\": [",
+            "    { \"id\": \"v-main\", \"lane\": \"visual\", \"name\": \"Base\", \"items\": [",
+            "      { \"id\": \"cut-base\", \"at\": 0, \"duration\": 450, \"source\": { \"kind\": \"media\", \"src\": \"a\", \"in\": 0, \"out\": 15, \"speed\": 1 } }",
+            "    ] },",
+            "    { \"id\": \"v-deco\", \"lane\": \"visual\", \"name\": \"装飾\", \"items\": [",
+            "      { \"id\": \"deco-c2\", \"at\": 90, \"duration\": 75, \"source\": { \"kind\": \"html\", \"path\": \"overlays/deco.html\" }, \"anchor\": { \"caption\": \"c-0002\", \"duration\": \"caption\" } },",
+            "      { \"id\": \"deco-c3\", \"at\": 180, \"duration\": 75, \"source\": { \"kind\": \"html\", \"path\": \"overlays/deco.html\" }, \"anchor\": { \"caption\": \"c-0003\", \"duration\": \"caption\" } }"
+          ],
+          "notices": [],
+          "captionsEqualsFixture": false,
+          "editEqualsFixture": false
+        },
+        {
+          "label": "after-undo-move",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": null
+            }
+          },
+          "editChangedLines": [],
+          "notices": [],
+          "captionsEqualsFixture": true,
+          "editEqualsFixture": true
+        },
+        {
+          "label": "after-delete-c-0003",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": null
+            }
+          },
+          "editChangedLines": [],
+          "notices": [
+            "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED",
+            "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED"
+          ],
+          "captionsEqualsFixture": false,
+          "editEqualsFixture": true
+        },
+        {
+          "label": "after-undo-delete",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": null
+            }
+          },
+          "editChangedLines": [],
+          "notices": [
+            "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED",
+            "字幕の表示設定を解決できないため、設定を無視して表示しています: CAPTION_DISPLAY_RESOLUTION_FAILED"
+          ],
+          "captionsEqualsFixture": false,
+          "editEqualsFixture": true
+        }
+      ],
+      "timelineOpened": {
+        "items": [
+          {
+            "id": "c-0001",
+            "kind": "caption",
+            "text": "今日は朝のルーティンを紹介します",
+            "left": 426,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target akari-annotations-caption-playing"
+          },
+          {
+            "id": "c-0002",
+            "kind": "caption",
+            "text": "まずはコーヒーを淹れるところから",
+            "left": 546,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0003",
+            "kind": "caption",
+            "text": "豆は挽きたてが一番おいしい",
+            "left": 666,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0004",
+            "kind": "caption",
+            "text": "お湯は少し冷ましてから注ぎます",
+            "left": 786,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0005",
+            "kind": "caption",
+            "text": "ここがいちばん大事",
+            "left": 906,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          }
+        ],
+        "kinds": [
+          [
+            "c-0001",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0002",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0003",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0004",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0005",
+            "caption",
+            "t-captions-implied"
+          ]
+        ],
+        "footer": "秒数や語をクリックするとプレビューへシークします。"
+      },
+      "pxPerSec": 39.996875,
+      "dragAttempts": 1,
+      "timelineAfterMove": {
+        "items": [
+          {
+            "id": "c-0001",
+            "kind": "caption",
+            "text": "今日は朝のルーティンを紹介します",
+            "left": 426,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target akari-annotations-caption-playing"
+          },
+          {
+            "id": "c-0002",
+            "kind": "caption",
+            "text": "まずはコーヒーを淹れるところから",
+            "left": 566,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0003",
+            "kind": "caption",
+            "text": "豆は挽きたてが一番おいしい",
+            "left": 666,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0004",
+            "kind": "caption",
+            "text": "お湯は少し冷ましてから注ぎます",
+            "left": 786,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0005",
+            "kind": "caption",
+            "text": "ここがいちばん大事",
+            "left": 906,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          }
+        ],
+        "kinds": [
+          [
+            "c-0001",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0002",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0003",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0004",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0005",
+            "caption",
+            "t-captions-implied"
+          ]
+        ],
+        "footer": "秒数や語をクリックするとプレビューへシークします。"
+      },
+      "undoMoveVia": "Cmd+Z",
+      "timelineAfterDelete": {
+        "items": [
+          {
+            "id": "c-0001",
+            "kind": "caption",
+            "text": "今日は朝のルーティンを紹介します",
+            "left": 426,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target akari-annotations-caption-playing"
+          },
+          {
+            "id": "c-0002",
+            "kind": "caption",
+            "text": "まずはコーヒーを淹れるところから",
+            "left": 546,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0004",
+            "kind": "caption",
+            "text": "お湯は少し冷ましてから注ぎます",
+            "left": 786,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0005",
+            "kind": "caption",
+            "text": "ここがいちばん大事",
+            "left": 906,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          }
+        ],
+        "kinds": [
+          [
+            "c-0001",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0002",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0004",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0005",
+            "caption",
+            "t-captions-implied"
+          ]
+        ],
+        "footer": "秒数や語をクリックするとプレビューへシークします。"
+      },
+      "undoDeleteVia": "akari.timeline.undo",
+      "captionsAfterUndoDelete": "{\n  \"default_text_style\": {\n    \"zone\": \"bottom\"\n  },\n  \"captions\": [\n    {\n      \"id\": \"c-0001\",\n      \"start\": 0,\n      \"end\": 2.5,\n      \"text\": \"今日は朝のルーティンを紹介します\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    },\n    {\n      \"id\": \"c-0002\",\n      \"start\": 3,\n      \"end\": 5.5,\n      \"text\": \"まずはコーヒーを淹れるところから\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    },\n    { \"id\": \"c-0003\", \"start\": 6, \"end\": 8.5, \"text\": \"豆は挽きたてが一番おいしい\", \"speaker\": null, \"sourceRef\": null, \"edited\": false },\n    {\n      \"id\": \"c-0004\",\n      \"start\": 9,\n      \"end\": 11.5,\n      \"text\": \"お湯は少し冷ましてから注ぎます\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    },\n    {\n      \"id\": \"c-0005\",\n      \"start\": 12,\n      \"end\": 14.5,\n      \"text\": \"ここがいちばん大事\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    }\n  ]\n}\n",
+      "status": "ok"
+    },
+    "anchored-sfx": {
+      "steps": [
+        {
+          "label": "opened",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "own"
+              }
+            }
+          },
+          "editChangedLines": [],
+          "notices": [],
+          "captionsEqualsFixture": true,
+          "editEqualsFixture": true
+        },
+        {
+          "label": "after-move-c-0002",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3.4999999999999996,
+              6
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "own"
+              }
+            }
+          },
+          "editChangedLines": [
+            "  \"output\": { \"width\": 1280, \"height\": 720, \"fps\": 30 },",
+            "  \"sources\": [",
+            "    { \"id\": \"a\", \"path\": \"assets/base.mp4\" },",
+            "    { \"id\": \"pop\", \"path\": \"assets/pop.wav\" }",
+            "  ],",
+            "  \"tracks\": [",
+            "    { \"id\": \"v-main\", \"lane\": \"visual\", \"name\": \"Base\", \"items\": [",
+            "      { \"id\": \"cut-base\", \"at\": 0, \"duration\": 450, \"source\": { \"kind\": \"media\", \"src\": \"a\", \"in\": 0, \"out\": 15, \"speed\": 1 } }",
+            "    ] },",
+            "    { \"id\": \"v-deco\", \"lane\": \"visual\", \"name\": \"装飾\", \"items\": [",
+            "      { \"id\": \"deco-c2\", \"at\": 90, \"duration\": 75, \"source\": { \"kind\": \"html\", \"path\": \"overlays/deco.html\" }, \"anchor\": { \"caption\": \"c-0002\", \"duration\": \"caption\" } },",
+            "      { \"id\": \"deco-c3\", \"at\": 180, \"duration\": 75, \"source\": { \"kind\": \"html\", \"path\": \"overlays/deco.html\" }, \"anchor\": { \"caption\": \"c-0003\", \"duration\": \"caption\" } }"
+          ],
+          "notices": [],
+          "captionsEqualsFixture": false,
+          "editEqualsFixture": false
+        },
+        {
+          "label": "after-undo-move",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "own"
+              }
+            }
+          },
+          "editChangedLines": [],
+          "notices": [],
+          "captionsEqualsFixture": true,
+          "editEqualsFixture": true
+        },
+        {
+          "label": "after-delete-c-0003",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "own"
+              }
+            }
+          },
+          "editChangedLines": [],
+          "notices": [],
+          "captionsEqualsFixture": false,
+          "editEqualsFixture": true
+        },
+        {
+          "label": "after-undo-delete",
+          "captions": {
+            "c-0001": [
+              0,
+              2.5
+            ],
+            "c-0002": [
+              3,
+              5.5
+            ],
+            "c-0003": [
+              6,
+              8.5
+            ],
+            "c-0004": [
+              9,
+              11.5
+            ],
+            "c-0005": [
+              12,
+              14.5
+            ]
+          },
+          "items": {
+            "deco-c2": {
+              "track": "v-deco",
+              "at": 90,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "caption"
+              }
+            },
+            "deco-c3": {
+              "track": "v-deco",
+              "at": 180,
+              "duration": 75,
+              "anchor": {
+                "caption": "c-0003",
+                "duration": "caption"
+              }
+            },
+            "sfx-c2": {
+              "track": "a1",
+              "at": 90,
+              "duration": 12,
+              "anchor": {
+                "caption": "c-0002",
+                "duration": "own"
+              }
+            }
+          },
+          "editChangedLines": [],
+          "notices": [],
+          "captionsEqualsFixture": false,
+          "editEqualsFixture": true
+        }
+      ],
+      "timelineOpened": {
+        "items": [
+          {
+            "id": "c-0001",
+            "kind": "caption",
+            "text": "今日は朝のルーティンを紹介します",
+            "left": 426,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target akari-annotations-caption-playing"
+          },
+          {
+            "id": "c-0002",
+            "kind": "caption",
+            "text": "まずはコーヒーを淹れるところから",
+            "left": 546,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0003",
+            "kind": "caption",
+            "text": "豆は挽きたてが一番おいしい",
+            "left": 666,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0004",
+            "kind": "caption",
+            "text": "お湯は少し冷ましてから注ぎます",
+            "left": 786,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0005",
+            "kind": "caption",
+            "text": "ここがいちばん大事",
+            "left": 906,
+            "top": 718.9,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          }
+        ],
+        "kinds": [
+          [
+            "c-0001",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0002",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0003",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0004",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0005",
+            "caption",
+            "t-captions-implied"
+          ]
+        ],
+        "footer": "秒数や語をクリックするとプレビューへシークします。"
+      },
+      "pxPerSec": 39.996875,
+      "dragAttempts": 1,
+      "timelineAfterMove": {
+        "items": [
+          {
+            "id": "c-0001",
+            "kind": "caption",
+            "text": "今日は朝のルーティンを紹介します",
+            "left": 426,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target akari-annotations-caption-playing"
+          },
+          {
+            "id": "c-0002",
+            "kind": "caption",
+            "text": "まずはコーヒーを淹れるところから",
+            "left": 566,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0003",
+            "kind": "caption",
+            "text": "豆は挽きたてが一番おいしい",
+            "left": 666,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0004",
+            "kind": "caption",
+            "text": "お湯は少し冷ましてから注ぎます",
+            "left": 786,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0005",
+            "kind": "caption",
+            "text": "ここがいちばん大事",
+            "left": 906,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          }
+        ],
+        "kinds": [
+          [
+            "c-0001",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0002",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0003",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0004",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0005",
+            "caption",
+            "t-captions-implied"
+          ]
+        ],
+        "footer": "秒数や語をクリックするとプレビューへシークします。"
+      },
+      "undoMoveVia": "Cmd+Z",
+      "timelineAfterDelete": {
+        "items": [
+          {
+            "id": "c-0001",
+            "kind": "caption",
+            "text": "今日は朝のルーティンを紹介します",
+            "left": 426,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target akari-annotations-caption-playing"
+          },
+          {
+            "id": "c-0002",
+            "kind": "caption",
+            "text": "まずはコーヒーを淹れるところから",
+            "left": 546,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0004",
+            "kind": "caption",
+            "text": "お湯は少し冷ましてから注ぎます",
+            "left": 786,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          },
+          {
+            "id": "c-0005",
+            "kind": "caption",
+            "text": "ここがいちばん大事",
+            "left": 906,
+            "top": 815.7,
+            "width": 100,
+            "height": 22,
+            "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-target"
+          }
+        ],
+        "kinds": [
+          [
+            "c-0001",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0002",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0004",
+            "caption",
+            "t-captions-implied"
+          ],
+          [
+            "c-0005",
+            "caption",
+            "t-captions-implied"
+          ]
+        ],
+        "footer": "秒数や語をクリックするとプレビューへシークします。"
+      },
+      "undoDeleteVia": "Cmd+Z",
+      "captionsAfterUndoDelete": "{\n  \"default_text_style\": {\n    \"zone\": \"bottom\"\n  },\n  \"captions\": [\n    {\n      \"id\": \"c-0001\",\n      \"start\": 0,\n      \"end\": 2.5,\n      \"text\": \"今日は朝のルーティンを紹介します\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    },\n    {\n      \"id\": \"c-0002\",\n      \"start\": 3,\n      \"end\": 5.5,\n      \"text\": \"まずはコーヒーを淹れるところから\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    },\n    { \"id\": \"c-0003\", \"start\": 6, \"end\": 8.5, \"text\": \"豆は挽きたてが一番おいしい\", \"speaker\": null, \"sourceRef\": null, \"edited\": false },\n    {\n      \"id\": \"c-0004\",\n      \"start\": 9,\n      \"end\": 11.5,\n      \"text\": \"お湯は少し冷ましてから注ぎます\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    },\n    {\n      \"id\": \"c-0005\",\n      \"start\": 12,\n      \"end\": 14.5,\n      \"text\": \"ここがいちばん大事\",\n      \"speaker\": null,\n      \"sourceRef\": null,\n      \"edited\": false,\n      \"src\": \"a\"\n    }\n  ]\n}\n",
+      "status": "ok"
+    }
+  },
+  "status": "ok"
+}

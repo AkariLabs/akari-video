@@ -1,0 +1,1042 @@
+{
+  "phase": "after",
+  "base": "8ec4c16d",
+  "checks": [
+    {
+      "name": "右クリック「字幕にひも付ける…」: 効果音 sfx-a を c-0001 の登場へ（anchor = {caption c-0001, edge start, duration own}・at 0 のまま）",
+      "pass": true,
+      "detail": {
+        "dialog": {
+          "text": "ひも付ける字幕 / c-0001 今日は朝のルーティンを紹介します / 登場 / 退場 / ひも付ける",
+          "captions": [
+            {
+              "value": "c-0001",
+              "label": "c-0001 今日は朝のルーティンを紹介します"
+            }
+          ],
+          "positions": [
+            {
+              "value": "in",
+              "label": "登場"
+            },
+            {
+              "value": "out",
+              "label": "退場"
+            }
+          ],
+          "position": "in",
+          "emoji": false
+        },
+        "item": {
+          "id": "sfx-a",
+          "at": 0,
+          "duration": 12,
+          "source": {
+            "kind": "media",
+            "src": "pop"
+          },
+          "role": "sfx",
+          "anchor": {
+            "caption": "c-0001",
+            "edge": "start",
+            "duration": "own"
+          },
+          "gain_db": 0
+        }
+      }
+    },
+    {
+      "name": "右クリック「字幕にひも付ける…」: 装飾 deco-a を c-0001 の全体へ（anchor = {caption c-0001, duration caption}・0〜75 フレーム）",
+      "pass": true,
+      "detail": {
+        "dialog": {
+          "text": "ひも付ける字幕 / c-0001 今日は朝のルーティンを紹介します / 登場 / 退場 / 全体 / ひも付ける",
+          "captions": [
+            {
+              "value": "c-0001",
+              "label": "c-0001 今日は朝のルーティンを紹介します"
+            }
+          ],
+          "positions": [
+            {
+              "value": "in",
+              "label": "登場"
+            },
+            {
+              "value": "out",
+              "label": "退場"
+            },
+            {
+              "value": "whole",
+              "label": "全体"
+            }
+          ],
+          "position": "whole",
+          "emoji": false
+        },
+        "item": {
+          "id": "deco-a",
+          "at": 0,
+          "duration": 75,
+          "source": {
+            "kind": "html",
+            "path": "assets/overlay/deco-frame/deco.html"
+          },
+          "anchor": {
+            "caption": "c-0001",
+            "edge": "start",
+            "duration": "caption"
+          }
+        }
+      }
+    },
+    {
+      "name": "保存ダイアログ（ひも付いた要素の無い c-0005）: 効果音・画面効果・装飾は無効 + 説明",
+      "pass": true,
+      "detail": {
+        "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き（この字幕には動きがありません） /  効果音（ひも付いた要素がありません） /  画面効果（ひも付いた要素がありません） /  装飾（ひも付いた要素がありません） / キャンセル / 保存",
+        "name": "ここがいちばん大事",
+        "parts": [
+          {
+            "kind": "look",
+            "checked": true,
+            "disabled": false,
+            "label": "見た目 （位置は含めない）"
+          },
+          {
+            "kind": "motion",
+            "checked": false,
+            "disabled": true,
+            "label": "動き（この字幕には動きがありません）"
+          },
+          {
+            "kind": "sfx",
+            "checked": false,
+            "disabled": true,
+            "label": "効果音（ひも付いた要素がありません）"
+          },
+          {
+            "kind": "fx",
+            "checked": false,
+            "disabled": true,
+            "label": "画面効果（ひも付いた要素がありません）"
+          },
+          {
+            "kind": "decor",
+            "checked": false,
+            "disabled": true,
+            "label": "装飾（ひも付いた要素がありません）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "保存ダイアログ（c-0001）: 見た目・動き・効果音・装飾が有効で既定でチェック・画面効果は無効 + 説明",
+      "pass": true,
+      "detail": {
+        "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き /  効果音 /  画面効果（ひも付いた要素がありません） /  装飾 / キャンセル / 保存",
+        "name": "今日は朝のルーティンを紹介します",
+        "parts": [
+          {
+            "kind": "look",
+            "checked": true,
+            "disabled": false,
+            "label": "見た目 （位置は含めない）"
+          },
+          {
+            "kind": "motion",
+            "checked": true,
+            "disabled": false,
+            "label": "動き"
+          },
+          {
+            "kind": "sfx",
+            "checked": true,
+            "disabled": false,
+            "label": "効果音"
+          },
+          {
+            "kind": "fx",
+            "checked": false,
+            "disabled": true,
+            "label": "画面効果（ひも付いた要素がありません）"
+          },
+          {
+            "kind": "decor",
+            "checked": true,
+            "disabled": false,
+            "label": "装飾"
+          }
+        ]
+      }
+    },
+    {
+      "name": "保存 → style.json の parts = {look, motion, sfx, decor}（順不同）・sfx = 登場 / 素材 audio:sfx-pop・decor = 全体 / 素材 overlay:deco-frame・絶対パスなし",
+      "pass": true,
+      "detail": {
+        "relativeFile": "styles/my-style-3a8290c8/style.json",
+        "style": {
+          "schema": "akari-style",
+          "version": 1,
+          "revision": 1,
+          "uid": "01M393RAK05FMW80T2WM8CJFZ2",
+          "id": "my-style-3a8290c8",
+          "name": "登場でポンと鳴る枠つき",
+          "when_to_use": "大事な一言に音と枠を添えたいとき",
+          "sample_text": "今日は朝のルーティンを紹介します",
+          "created_at": "2026-09-24T07:05:53.504Z",
+          "updated_at": "2026-09-24T07:05:53.504Z",
+          "tags": [],
+          "visibility": "private",
+          "price": null,
+          "requires": [],
+          "provenance": {},
+          "license": {
+            "spdx": "LicenseRef-user-owned",
+            "scope": "private-owned",
+            "attribution_required": false,
+            "ai_training_allowed": false
+          },
+          "parts": [
+            {
+              "kind": "look",
+              "scope": "caption",
+              "mode": "modify",
+              "text_style": {
+                "color": "#FFD400",
+                "size_px": 52,
+                "font_weight": 900,
+                "stroke": {
+                  "color": "#D12B2B",
+                  "width_px": 5
+                },
+                "background": {
+                  "color": "#1E3A8A",
+                  "opacity": 0.85,
+                  "radius_px": 12,
+                  "mode": "block"
+                },
+                "shadow": {
+                  "color": "#000000",
+                  "opacity": 0
+                },
+                "glow": {
+                  "color": "#000000",
+                  "density": 0
+                },
+                "reference_height_px": 720
+              }
+            },
+            {
+              "kind": "motion",
+              "scope": "caption",
+              "mode": "modify",
+              "animation": {
+                "in": {
+                  "id": "fade-up",
+                  "duration_sec": 0.6
+                }
+              }
+            },
+            {
+              "kind": "decor",
+              "scope": "caption",
+              "mode": "attach",
+              "attach": {
+                "at": "whole",
+                "offset_frames": 0
+              },
+              "asset": {
+                "category": "overlay",
+                "id": "deco-frame"
+              },
+              "file": "deco.html"
+            },
+            {
+              "kind": "sfx",
+              "scope": "caption",
+              "mode": "attach",
+              "attach": {
+                "at": "in",
+                "offset_frames": 0
+              },
+              "asset": {
+                "category": "audio",
+                "id": "sfx-pop"
+              },
+              "file": "pop.wav",
+              "duration_sec": 0.4,
+              "gain_db": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "B・C（c-0002・c-0003）に当てる: 部品のチェック（見た目・動き・効果音・装飾が既定でチェック）→ captions.json + edit.json に印付きの効果音・装飾（B = 90 / C = 180 フレーム）・台帳 parts = {look, motion, sfx, decor}",
+      "pass": true,
+      "detail": {
+        "popover": {
+          "rect": {
+            "x": 66,
+            "y": 385,
+            "w": 212,
+            "h": 208
+          },
+          "text": "当てる部品 /  見た目 /  動き /  装飾 /  効果音 / キャンセル / 当てる",
+          "inputs": [
+            {
+              "kind": "look",
+              "checked": true,
+              "disabled": false,
+              "label": "見た目"
+            },
+            {
+              "kind": "motion",
+              "checked": true,
+              "disabled": false,
+              "label": "動き"
+            },
+            {
+              "kind": "decor",
+              "checked": true,
+              "disabled": false,
+              "label": "装飾"
+            },
+            {
+              "kind": "sfx",
+              "checked": true,
+              "disabled": false,
+              "label": "効果音"
+            }
+          ],
+          "emoji": false
+        },
+        "marked": {
+          "c-0002": [
+            {
+              "id": "style-part-1",
+              "lane": "visual",
+              "track": "style-visual-1",
+              "at": 90,
+              "duration": 75,
+              "kind": "html",
+              "anchor": {
+                "caption": "c-0002",
+                "edge": "start",
+                "offset": 0,
+                "duration": "caption",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0002"
+                }
+              }
+            },
+            {
+              "id": "style-part-2",
+              "lane": "audio",
+              "track": "style-audio-1",
+              "at": 90,
+              "duration": 12,
+              "kind": "media",
+              "anchor": {
+                "caption": "c-0002",
+                "edge": "start",
+                "offset": 0,
+                "duration": "own",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0002"
+                }
+              }
+            }
+          ],
+          "c-0003": [
+            {
+              "id": "style-part-3",
+              "lane": "visual",
+              "track": "style-visual-1",
+              "at": 180,
+              "duration": 75,
+              "kind": "html",
+              "anchor": {
+                "caption": "c-0003",
+                "edge": "start",
+                "offset": 0,
+                "duration": "caption",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0003"
+                }
+              }
+            },
+            {
+              "id": "style-part-4",
+              "lane": "audio",
+              "track": "style-audio-1",
+              "at": 180,
+              "duration": 12,
+              "kind": "media",
+              "anchor": {
+                "caption": "c-0003",
+                "edge": "start",
+                "offset": 0,
+                "duration": "own",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0003"
+                }
+              }
+            }
+          ]
+        },
+        "usage": {
+          "caption_ids": [
+            "c-0002",
+            "c-0003"
+          ],
+          "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+          "revision": 1,
+          "parts": [
+            "look",
+            "motion",
+            "decor",
+            "sfx"
+          ],
+          "applied_at": "2026-09-24T07:06:03.286Z"
+        }
+      }
+    },
+    {
+      "name": "当てた直後の undo 1 回 → captions.json と edit.json が当てる前と byte 一致",
+      "pass": true,
+      "detail": {
+        "label": "apply",
+        "captionsEqual": true,
+        "editEqual": true
+      }
+    },
+    {
+      "name": "当て直し → 同じ結果（1 回の書き込み）",
+      "pass": true,
+      "detail": {
+        "usage": {
+          "caption_ids": [
+            "c-0002",
+            "c-0003"
+          ],
+          "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+          "revision": 1,
+          "parts": [
+            "look",
+            "motion",
+            "decor",
+            "sfx"
+          ],
+          "applied_at": "2026-09-24T07:06:07.608Z"
+        }
+      }
+    },
+    {
+      "name": "同じスタイルを B にもう一度当てる → 印付きの要素は置き換え（B = 効果音 1 + 装飾 1 のまま・C は不変・item 総数不変）",
+      "pass": true,
+      "detail": {
+        "totalItems": 8,
+        "b": [
+          {
+            "id": "style-part-1",
+            "lane": "visual",
+            "track": "style-visual-1",
+            "at": 90,
+            "duration": 75,
+            "kind": "html",
+            "anchor": {
+              "caption": "c-0002",
+              "edge": "start",
+              "offset": 0,
+              "duration": "caption",
+              "attached_by": {
+                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "caption": "c-0002"
+              }
+            }
+          },
+          {
+            "id": "style-part-2",
+            "lane": "audio",
+            "track": "style-audio-1",
+            "at": 90,
+            "duration": 12,
+            "kind": "media",
+            "anchor": {
+              "caption": "c-0002",
+              "edge": "start",
+              "offset": 0,
+              "duration": "own",
+              "attached_by": {
+                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "caption": "c-0002"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "タイムラインに印付きの効果音・装飾の帯が出る（B・C の分）",
+      "pass": true,
+      "detail": [
+        {
+          "id": "style-part-3",
+          "left": 658,
+          "top": 756,
+          "width": 96.7,
+          "cls": "strip-overlay strip-hit-target"
+        },
+        {
+          "id": "style-part-1",
+          "left": 542,
+          "top": 756,
+          "width": 96.7,
+          "cls": "strip-overlay strip-hit-target"
+        },
+        {
+          "id": "style-part-4",
+          "left": 658,
+          "top": 936,
+          "width": 15.5,
+          "cls": "strip-audio strip-audio-sfx strip-hit-target"
+        },
+        {
+          "id": "style-part-2",
+          "left": 542,
+          "top": 936,
+          "width": 15.5,
+          "cls": "strip-audio strip-audio-sfx strip-hit-target"
+        }
+      ]
+    },
+    {
+      "name": "出力プレビュー: 装飾は字幕の間だけ見える（B の中 4.25 秒・C の中 7.25 秒は見える / 字幕の外 2.75 秒・9.5 秒は見えない）",
+      "pass": true,
+      "detail": {
+        "4.25": [
+          "style-part-1"
+        ],
+        "7.25": [
+          "style-part-3"
+        ],
+        "2.75": [],
+        "9.5": []
+      }
+    },
+    {
+      "name": "字幕 B をタイムラインで右へドラッグ → B の効果音・装飾も同じだけ動く（書き込み 1 回）",
+      "pass": true,
+      "detail": {
+        "attempts": 1,
+        "b": [
+          3.5,
+          6
+        ],
+        "marked": [
+          {
+            "id": "style-part-1",
+            "lane": "visual",
+            "track": "style-visual-1",
+            "at": 105,
+            "duration": 75,
+            "kind": "html",
+            "anchor": {
+              "caption": "c-0002",
+              "edge": "start",
+              "offset": 0,
+              "duration": "caption",
+              "attached_by": {
+                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "caption": "c-0002"
+              }
+            }
+          },
+          {
+            "id": "style-part-2",
+            "lane": "audio",
+            "track": "style-audio-1",
+            "at": 105,
+            "duration": 12,
+            "kind": "media",
+            "anchor": {
+              "caption": "c-0002",
+              "edge": "start",
+              "offset": 0,
+              "duration": "own",
+              "attached_by": {
+                "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                "caption": "c-0002"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "B を動かした後の undo 1 回 → 2 ファイルとも動かす前と byte 一致",
+      "pass": true,
+      "detail": {
+        "label": "move B",
+        "captionsEqual": true,
+        "editEqual": true
+      }
+    },
+    {
+      "name": "字幕 C を選んで Delete → C の効果音・装飾も消える（B の分・A のひも付け・ほかの要素は残る）",
+      "pass": true,
+      "detail": {
+        "removed": [
+          "style-part-3",
+          "style-part-4"
+        ],
+        "left": [
+          "cut-base",
+          "deco-a",
+          "captions",
+          "sfx-a",
+          "style-part-1",
+          "style-part-2"
+        ]
+      }
+    },
+    {
+      "name": "C を消した後の undo 1 回 → 2 ファイルとも消す前と byte 一致（C・効果音・装飾が戻る）",
+      "pass": true,
+      "detail": {
+        "label": "delete C",
+        "captionsEqual": true,
+        "editEqual": true
+      }
+    },
+    {
+      "name": "印付きの装飾（B の分）を手でドラッグ → anchor と印が外れ普通の要素になる",
+      "pass": true,
+      "detail": {
+        "attempts": 1,
+        "item": {
+          "id": "style-part-1",
+          "at": 99,
+          "duration": 75,
+          "source": {
+            "kind": "html",
+            "path": "assets/overlay/deco-frame/deco.html"
+          }
+        }
+      }
+    },
+    {
+      "name": "手で動かした後の undo 1 回 → byte 一致",
+      "pass": true,
+      "detail": {
+        "label": "hand move marked",
+        "captionsEqual": true,
+        "editEqual": true
+      }
+    },
+    {
+      "name": "印の無いアンカー要素（「字幕にひも付ける」で作った deco-a）を手でドラッグ → anchor は残る（基点と同じ挙動）",
+      "pass": true,
+      "detail": {
+        "attempts": 1,
+        "item": {
+          "id": "deco-a",
+          "at": 9,
+          "duration": 75,
+          "source": {
+            "kind": "html",
+            "path": "assets/overlay/deco-frame/deco.html"
+          },
+          "anchor": {
+            "caption": "c-0001",
+            "edge": "start",
+            "duration": "caption"
+          }
+        }
+      }
+    },
+    {
+      "name": "印の無い要素を動かした後の undo 1 回 → byte 一致",
+      "pass": true,
+      "detail": {
+        "label": "hand move unmarked",
+        "captionsEqual": true,
+        "editEqual": true
+      }
+    },
+    {
+      "name": "書き出し用: B を右へ動かす（効果音・装飾が追従）",
+      "pass": true,
+      "detail": {
+        "captions": {
+          "c-0001": [
+            0,
+            2.5
+          ],
+          "c-0002": [
+            3.5,
+            6
+          ],
+          "c-0003": [
+            6,
+            8.5
+          ],
+          "c-0004": [
+            9,
+            11.5
+          ],
+          "c-0005": [
+            12,
+            14.5
+          ]
+        },
+        "marked": {
+          "c-0001": [],
+          "c-0002": [
+            {
+              "id": "style-part-1",
+              "lane": "visual",
+              "track": "style-visual-1",
+              "at": 105,
+              "duration": 75,
+              "kind": "html",
+              "anchor": {
+                "caption": "c-0002",
+                "edge": "start",
+                "offset": 0,
+                "duration": "caption",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0002"
+                }
+              }
+            },
+            {
+              "id": "style-part-2",
+              "lane": "audio",
+              "track": "style-audio-1",
+              "at": 105,
+              "duration": 12,
+              "kind": "media",
+              "anchor": {
+                "caption": "c-0002",
+                "edge": "start",
+                "offset": 0,
+                "duration": "own",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0002"
+                }
+              }
+            }
+          ],
+          "c-0003": [
+            {
+              "id": "style-part-3",
+              "lane": "visual",
+              "track": "style-visual-1",
+              "at": 180,
+              "duration": 75,
+              "kind": "html",
+              "anchor": {
+                "caption": "c-0003",
+                "edge": "start",
+                "offset": 0,
+                "duration": "caption",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0003"
+                }
+              }
+            },
+            {
+              "id": "style-part-4",
+              "lane": "audio",
+              "track": "style-audio-1",
+              "at": 180,
+              "duration": 12,
+              "kind": "media",
+              "anchor": {
+                "caption": "c-0003",
+                "edge": "start",
+                "offset": 0,
+                "duration": "own",
+                "attached_by": {
+                  "style_uid": "01M393RAK05FMW80T2WM8CJFZ2",
+                  "caption": "c-0003"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "edit-lint（書き出し前の検査）: エラーなし・v2.item-anchor-stale なし",
+      "pass": true,
+      "detail": {
+        "exit": 0,
+        "summary": null
+      }
+    },
+    {
+      "name": "書き出し（「素材をまとめる」→ render-cut）: 効果音の立ち上がり = A・B・C の字幕の頭 / 装飾（枠の色）= 字幕の間だけ",
+      "pass": true,
+      "detail": {
+        "captions": {
+          "c-0001": [
+            0,
+            2.5
+          ],
+          "c-0002": [
+            3.5,
+            6
+          ],
+          "c-0003": [
+            6,
+            8.5
+          ],
+          "c-0004": [
+            9,
+            11.5
+          ],
+          "c-0005": [
+            12,
+            14.5
+          ]
+        },
+        "onsets": [
+          0,
+          3.5,
+          6
+        ],
+        "colors": {
+          "A": {
+            "t": 1.25,
+            "rgb": [
+              252,
+              60,
+              122
+            ]
+          },
+          "B": {
+            "t": 4.75,
+            "rgb": [
+              252,
+              60,
+              122
+            ]
+          },
+          "C": {
+            "t": 7.25,
+            "rgb": [
+              252,
+              60,
+              122
+            ]
+          },
+          "gap-after-A": {
+            "t": 3,
+            "rgb": [
+              37,
+              47,
+              62
+            ]
+          },
+          "after-C": {
+            "t": 9,
+            "rgb": [
+              37,
+              47,
+              62
+            ]
+          }
+        },
+        "referenceOnlyPlan": {
+          "exit": 2,
+          "error": "render-cut execution error: assets/overlay/deco-frame/deco.html could not be read: ENOENT: no such file or directory, open '<ws>/assets/overlay/deco-frame/deco.html'"
+        },
+        "bundle": [
+          "実体化しました: audio/sfx-pop -> <work>/ws/assets/audio/sfx-pop",
+          "実体化しました: overlay/deco-frame -> <work>/ws/assets/overlay/deco-frame"
+        ],
+        "lintExit": 0,
+        "renderTail": [
+          "PROGRESS preview=420 path=<work>/ws/.akari/cache/export-preview/420.jpg",
+          "PROGRESS frame=450 total=450",
+          "PASS: exports/attach-parts.mp4"
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-opened.png",
+    "after-02-attach-dialog-sfx.png",
+    "after-03-attach-dialog-decor.png",
+    "after-04-save-dialog.png",
+    "after-05-apply-popover.png",
+    "after-06-applied-timeline.png",
+    "after-07-preview-b.png",
+    "after-08-moved-b.png",
+    "after-09-deleted-c.png"
+  ],
+  "timelineReachable": {
+    "attempt": 0,
+    "reachable": true
+  },
+  "window": {
+    "w": 1440,
+    "h": 900
+  },
+  "stripsOpened": [
+    {
+      "id": "c-0001",
+      "left": 426,
+      "top": 655.9,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target caption-playing"
+    },
+    {
+      "id": "c-0002",
+      "left": 542,
+      "top": 655.9,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target"
+    },
+    {
+      "id": "c-0003",
+      "left": 658,
+      "top": 655.9,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target"
+    },
+    {
+      "id": "c-0004",
+      "left": 774,
+      "top": 655.9,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target"
+    },
+    {
+      "id": "c-0005",
+      "left": 890,
+      "top": 655.9,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target"
+    },
+    {
+      "id": "deco-a",
+      "left": 426,
+      "top": 681.9,
+      "width": 96.7,
+      "cls": "strip-overlay strip-hit-target"
+    },
+    {
+      "id": "sfx-a",
+      "left": 426,
+      "top": 783.9,
+      "width": 15.5,
+      "cls": "strip-audio strip-audio-sfx strip-hit-target"
+    },
+    {
+      "id": "0",
+      "left": 426,
+      "top": 733.9,
+      "width": 580,
+      "cls": "strip-clip strip-hit-target"
+    }
+  ],
+  "stripsApplied": [
+    {
+      "id": "c-0001",
+      "left": 426,
+      "top": 808,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target caption-playing"
+    },
+    {
+      "id": "c-0002",
+      "left": 542,
+      "top": 808,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target caption-selected"
+    },
+    {
+      "id": "c-0003",
+      "left": 658,
+      "top": 808,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target"
+    },
+    {
+      "id": "c-0004",
+      "left": 774,
+      "top": 808,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target"
+    },
+    {
+      "id": "c-0005",
+      "left": 890,
+      "top": 808,
+      "width": 96.7,
+      "cls": "strip-caption strip-hit-target"
+    },
+    {
+      "id": "deco-a",
+      "left": 426,
+      "top": 834,
+      "width": 96.7,
+      "cls": "strip-overlay strip-hit-target selected"
+    },
+    {
+      "id": "style-part-3",
+      "left": 658,
+      "top": 756,
+      "width": 96.7,
+      "cls": "strip-overlay strip-hit-target"
+    },
+    {
+      "id": "style-part-1",
+      "left": 542,
+      "top": 756,
+      "width": 96.7,
+      "cls": "strip-overlay strip-hit-target"
+    },
+    {
+      "id": "sfx-a",
+      "left": 426,
+      "top": 966,
+      "width": 15.5,
+      "cls": "strip-audio strip-audio-sfx strip-hit-target"
+    },
+    {
+      "id": "style-part-4",
+      "left": 658,
+      "top": 936,
+      "width": 15.5,
+      "cls": "strip-audio strip-audio-sfx strip-hit-target"
+    },
+    {
+      "id": "style-part-2",
+      "left": 542,
+      "top": 936,
+      "width": 15.5,
+      "cls": "strip-audio strip-audio-sfx strip-hit-target"
+    },
+    {
+      "id": "0",
+      "left": 426,
+      "top": 886,
+      "width": 580,
+      "cls": "strip-clip strip-hit-target"
+    }
+  ],
+  "notices": []
+}

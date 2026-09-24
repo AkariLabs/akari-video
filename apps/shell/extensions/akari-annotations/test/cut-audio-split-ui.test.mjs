@@ -24,16 +24,29 @@ const method = name => {
 };
 const names = [
     'linkedCutAudioPair', 'linkedPairForSelection', 'rejectLockedCutAudio', 'performLinkedDeletion',
-    'performDeleteSelected', 'performDeleteSelectedCut', 'performDeleteMultiSelected',
+    'performDeleteSelected', 'performDeleteSelectedCut', 'performDeleteMultiSelected', 'withHistory',
     'commitEditMutation', 'performEditMutation', 'splittableItemId', 'dispatchTimelineClipMenuAction', 'commitDrag', 'commitEditV2Drag',
     'moveV2PreviewItem', 'currentTrackId', 'cutItemId', 'frameAt', 'rawV2Item',
     'trackIdOfItem', 'trackIdOfSelection', 'trackIdOfDrag', 'isTrackLocked', 'showLockedTrack',
     'updateLinkedDragGhost', 'updateDragAltKey', 'withNarrationEnvelope', 'snapshotForSelection',
     'audioEnvelopeFieldsForSnapshot', 'handleInspectorWriteV2', 'handleAudioClipFxWrite',
-    'openTimelineClipContextMenu', 'selectionKey', 'selectedMaterialSwapTarget', 'selectedMaterialSwapItemId'
+    'openTimelineClipContextMenu', 'openCaptionAttachDialog', 'selectionKey', 'selectedMaterialSwapTarget', 'selectedMaterialSwapItemId'
 ];
 const menuEvents = new Map();
 let openedMenu;
+const dialogUi = { created: [], popup: undefined };
+function dialogElement(tag) {
+    const handlers = new Map();
+    const element = { tag, style: {}, value: '', children: [],
+        appendChild(child) { this.children.push(child); if (tag === 'select' && !this.value) this.value = child.value; },
+        addEventListener(name, handler) { handlers.set(name, handler); },
+        dispatch(name) { handlers.get(name)?.(); },
+        remove() { this.removed = true; },
+        contains() { return false; },
+        setAttribute() {} };
+    dialogUi.created.push(element);
+    return element;
+}
 const dependencies = {
     ...require('../lib/common/material-replacement.js'),
     ...kernel, ...mutations, isTrackLocked, lockedTrackMessage, audioClipFxFieldsForSnapshot, updateAudioClipFxDocument,
@@ -44,7 +57,13 @@ const dependencies = {
     buildTimelineClipMenuItems, withAudioTrimMenuItem,
     openTimelineContextMenu: options => { openedMenu = options; },
     closeTimelineContextMenu: () => { openedMenu = undefined; },
+    document: {
+        createElement: dialogElement, querySelector: () => null,
+        body: { appendChild: element => { dialogUi.popup = element; } },
+        addEventListener() {}, removeEventListener() {}
+    },
     window: {
+        innerWidth: 1200, innerHeight: 800,
         addEventListener: (name, fn) => menuEvents.set(name, fn),
         removeEventListener: name => menuEvents.delete(name)
     }
@@ -80,16 +99,31 @@ function fixture(split = true) {
     context.captions = [];
     context.multiSelection = [];
     context.expandedTimelineTreeRows = [];
+    context.captionTreeRow = () => undefined;
     context.localLockedTrackIds = new Set();
     context.footer = {};
     context.notices = [];
     context.history = [];
     context.captionsDisk = '';
-    context.fileService = { readFile: async uri => ({ value: uri === 'captions.json' ? context.captionsDisk : disk }) };
+    context.fileService = { readFile: async uri => ({ value: uri === 'captions.json' ? context.captionsDisk : disk }),
+        exists: async () => true };
+    context.readDisk = () => disk;
+    context.annotationsService = {
+        removeCaption: async request => {
+            context.captionsDisk = dependencies.removeCaptionLine(context.captionsDisk, request.captionId);
+            disk = `${JSON.stringify(kernel.removeStyleAttachedItems(JSON.parse(disk), request.captionId), null, 2)}\n`;
+            return { committed: false };
+        },
+        writeEditSnapshot: async request => {
+            if (request.editSource !== undefined) disk = request.editSource;
+            if (request.captionsSource !== undefined) context.captionsDisk = request.captionsSource;
+        }
+    };
     context.writeEditSnapshotGuarded = async (value, captions) => {
         disk = value;
         if (captions !== undefined) context.captionsDisk = captions;
     };
+    context.writeTimelineSnapshots = context.writeEditSnapshotGuarded;
     context.reloadCaptions = async () => {};
     context.reloadEdit = async source => {
         context.editDocument = JSON.parse(source ?? disk);
@@ -97,10 +131,12 @@ function fixture(split = true) {
         context.timelineTracks = context.editDocument.tracks.map(track => ({ id: track.id, kind: track.lane === 'audio' ? 'audio' : 'cuts' }));
         context.displayTimelineTracks = context.timelineTracks;
     };
+    context.reloadAll = async () => { await context.reloadEdit(); await context.reloadCaptions(); };
     context.reloadEdit();
     context.prepareMotionChanges = async () => [];
     context.writeMotionChanges = async () => {};
     context.pushHistory = entry => context.history.push(entry);
+    context.pushSelectionSnapshot = () => {};
     context.applySelection = selection => { context.selection = selection; };
     context.showNotice = message => context.notices.push(message);
     context.hideNotice = () => {};
@@ -116,6 +152,53 @@ function fixture(split = true) {
     };
     return context;
 }
+
+async function addAttachedCaption(context, timeDomain = 'source') {
+    const doc = structuredClone(context.editDocument);
+    const anchor = { caption: 'c-0001', attached_by: { style_uid: 'style-one', caption: 'c-0001' } };
+    doc.tracks.push({ id: 'style-audio', lane: 'audio', items: [{ id: 'style-sfx', at: 30, duration: 6,
+        role: 'sfx', source: { kind: 'media', src: 'src', in: 0, out: .2 }, anchor }] });
+    doc.tracks.push({ id: 'style-visual', lane: 'visual', items: [{ id: 'style-decor', at: 30, duration: 30,
+        source: { kind: 'html', path: 'assets/overlay/frame/frame.html' }, anchor }] });
+    await context.writeEditSnapshotGuarded(`${JSON.stringify(doc, null, 2)}\n`);
+    await context.reloadEdit();
+    context.captionsDisk = `${JSON.stringify({ captions: [{ id: 'c-0001', start: 1, end: 2,
+        text: 'Hello', speaker: null, source_ref: { segment: 0 }, edited: false,
+        time_domain: timeDomain, text_style: { color: '#ff1744' } }] }, null, 2)}\n`;
+    context.captions = [{ id: 'c-0001', start: 1, end: 2, text: 'Hello', timeDomain }];
+}
+
+for (const timeDomain of ['source', 'output']) test(`single ${timeDomain} caption deletion restores both files byte for byte`, async () => {
+    const context = fixture(false);
+    await addAttachedCaption(context, timeDomain);
+    const before = { edit: context.readDisk(), captions: context.captionsDisk };
+    context.selection = { kind: 'caption', id: 'c-0001' };
+    await context.performDeleteSelected();
+    const after = { edit: context.readDisk(), captions: context.captionsDisk };
+    assert.equal(item(context.editDocument, 'style-sfx'), undefined);
+    assert.equal(item(context.editDocument, 'style-decor'), undefined);
+    assert.equal(context.history.length, 1, context.notices.join('\n'));
+    await context.history[0].undo();
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, before);
+    await context.history[0].redo();
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, after);
+});
+
+test('multi caption deletion restores both files byte for byte', async () => {
+    const context = fixture(false);
+    await addAttachedCaption(context);
+    const before = { edit: context.readDisk(), captions: context.captionsDisk };
+    context.multiSelection = [{ kind: 'caption', id: 'c-0001' }];
+    await context.performDeleteMultiSelected();
+    const after = { edit: context.readDisk(), captions: context.captionsDisk };
+    assert.equal(item(context.editDocument, 'style-sfx'), undefined);
+    assert.equal(item(context.editDocument, 'style-decor'), undefined);
+    assert.equal(context.history.length, 1, context.notices.join('\n'));
+    await context.history[0].undo();
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, before);
+    await context.history[0].redo();
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, after);
+});
 
 test('menu additions preserve the relative order of every existing entry and show kernel blocker reasons', () => {
     const tree = { canGroup: true, canDetach: true };
@@ -346,20 +429,21 @@ test('speech inspector gain, fades, ducking, keyframes and FX update the audio o
 
 test('a linked pair and caption deletion share one snapshot Undo/Redo including caption styling', async () => {
     const context = fixture();
-    const caption = JSON.stringify({ captions: [{ id: 'caption', start: 0, end: 1, text: 'Hello',
-        speaker: null, sourceRef: { segment: 0 }, edited: false, time_domain: 'output', text_style: { bold: true } }] }) + '\n';
-    context.captionsDisk = caption;
-    context.captions = [{ id: 'caption' }];
+    await addAttachedCaption(context, 'output');
+    const before = { edit: context.readDisk(), captions: context.captionsDisk };
     context.captionTreeRow = () => undefined;
-    context.multiSelection = [cutSelection, audioSelection, { kind: 'caption', id: 'caption' }];
+    context.multiSelection = [cutSelection, audioSelection, { kind: 'caption', id: 'c-0001' }];
     await context.performDeleteMultiSelected();
+    const after = { edit: context.readDisk(), captions: context.captionsDisk };
     assert.equal(context.history.length, 1, context.notices.join('\n'));
     assert.deepEqual(JSON.parse(context.captionsDisk).captions, []);
+    assert.equal(item(context.editDocument, 'style-sfx'), undefined);
+    assert.equal(item(context.editDocument, 'style-decor'), undefined);
     await context.history[0].undo();
-    assert.equal(context.captionsDisk, caption);
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, before);
     assert.ok(item(context.editDocument, 'cut-audio'));
     await context.history[0].redo();
-    assert.deepEqual(JSON.parse(context.captionsDisk).captions, []);
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, after);
     assert.equal(item(context.editDocument, 'cut-audio'), undefined);
 });
 
@@ -407,12 +491,142 @@ test('opening a cut menu probes the original source once and uses only a known r
         } };
         await context.openTimelineClipContextMenu({ preventDefault() {}, clientX: 1, clientY: 2 }, { dataset: {}, isConnected: true });
         assert.equal(calls, 1);
+        assert.equal(openedMenu.items.some(entry => entry.id === 'caption-attach'), false);
         assert.equal(openedMenu.items.find(entry => entry.id === 'split-audio').disabled, result?.hasAudio === false ? true : undefined);
         assert.equal(menuEvents.size, 0);
         context.editDocument = structuredClone(context.editDocument);
         openedMenu.onSelect('split-audio', { altKey: false });
         assert.equal(context.commitCount, 0, 'stale menus cannot address a different cut index');
     }
+});
+
+async function openItemMenu(selection, source) {
+    const context = fixture(false);
+    const doc = structuredClone(context.editDocument);
+    doc.tracks.push({ id: `track-${selection.id}`, lane: selection.kind === 'audio' ? 'audio' : 'visual',
+        items: [{ id: selection.id, at: 30, duration: 30, source }] });
+    await context.writeEditSnapshotGuarded(mutations.stringifyEditV2(doc));
+    await context.reloadEdit();
+    context.timelineTreeRows = [];
+    context.timelineSelectionFromElement = () => selection;
+    context.closeAnnotationPopup = () => {};
+    if (selection.kind === 'audio') context.audioSfx = [{ id: selection.id }];
+    await context.openTimelineClipContextMenu({ preventDefault() {}, clientX: 10, clientY: 20 },
+        { dataset: {}, isConnected: true });
+    return context;
+}
+
+test('top-level overlay html and layer filter offer caption attach; video media does not', async () => {
+    for (const [selection, source, expected] of [
+        [{ kind: 'overlay', id: 'decor' }, { kind: 'html', path: 'decor.html' }, true],
+        [{ kind: 'layer', id: 'effect' }, { kind: 'filter', filter: { type: 'invert' } }, true],
+        [{ kind: 'overlay', id: 'video' }, { kind: 'media', src: 'src', in: 0, out: 1 }, false],
+        [{ kind: 'audio', id: 'sound' }, { kind: 'media', src: 'src', in: 0, out: 1 }, true],
+    ]) {
+        await openItemMenu(selection, source);
+        assert.equal(openedMenu.items.some(entry => entry.id === 'caption-attach'), expected,
+            `${selection.kind}/${source.kind}`);
+    }
+});
+
+test('overlay menu reattaches to a caption at the item start and one undo restores the old anchor', async () => {
+    const context = await openItemMenu({ kind: 'overlay', id: 'decor' }, { kind: 'html', path: 'decor.html' });
+    const doc = structuredClone(context.editDocument);
+    item(doc, 'decor').anchor = { caption: 'c-0001', duration: 'caption' };
+    await context.writeEditSnapshotGuarded(mutations.stringifyEditV2(doc));
+    await context.reloadEdit();
+    context.history = [];
+    context.captions = [
+        { id: 'c-0001', text: '最初', start: 1, end: 2, timeDomain: 'output' },
+        { id: 'c-0002', text: '次', start: .8, end: 1.8, timeDomain: 'output' },
+        { id: 'c-0003', text: '時間外', start: 2, end: 3, timeDomain: 'output' },
+    ];
+    context.captionLayouts = new Map(context.captions.map(caption => [caption.id,
+        { start: caption.start, end: caption.end }]));
+    await context.openTimelineClipContextMenu({ preventDefault() {}, clientX: 10, clientY: 20 },
+        { dataset: {}, isConnected: true });
+    assert.ok(openedMenu.items.some(entry => entry.id === 'caption-attach'));
+    dialogUi.created = [];
+    openedMenu.onSelect('caption-attach', { altKey: false });
+    const selects = dialogUi.created.filter(element => element.tag === 'select');
+    assert.deepEqual(selects[0].children.map(option => option.value), ['c-0001', 'c-0002']);
+    selects[0].value = 'c-0002';
+    dialogUi.created.find(element => element.tag === 'button').dispatch('click');
+    await context.pending;
+    assert.equal(item(context.editDocument, 'decor').anchor.caption, 'c-0002');
+    assert.equal(context.commitCount, 1);
+    assert.equal(context.history.length, 1);
+    await context.history[0].undo();
+    assert.deepEqual(item(context.editDocument, 'decor').anchor, { caption: 'c-0001', duration: 'caption' });
+    await context.history[0].redo();
+    assert.equal(item(context.editDocument, 'decor').anchor.caption, 'c-0002');
+});
+
+test('layer filter menu attaches its top-level item and one undo removes the anchor', async () => {
+    const context = await openItemMenu({ kind: 'layer', id: 'effect' },
+        { kind: 'filter', filter: { type: 'invert' } });
+    context.captions = [{ id: 'c-0001', text: '効果', start: 1, end: 2, timeDomain: 'output' }];
+    context.captionLayouts = new Map([['c-0001', { start: 1, end: 2 }]]);
+    dialogUi.created = [];
+    openedMenu.onSelect('caption-attach', { altKey: false });
+    assert.deepEqual(dialogUi.created.filter(element => element.tag === 'select')[0].children
+        .map(option => option.value), ['c-0001']);
+    dialogUi.created.find(element => element.tag === 'button').dispatch('click');
+    await context.pending;
+    assert.equal(item(context.editDocument, 'effect').anchor.caption, 'c-0001');
+    assert.equal(context.history.length, 1);
+    await context.history[0].undo();
+    assert.equal(item(context.editDocument, 'effect').anchor, undefined);
+});
+
+async function captionDragFixture(withAnchors) {
+    const context = fixture(false);
+    const doc = structuredClone(context.editDocument);
+    doc.tracks[0].items[0] = { id: 'cut', at: 0, duration: 300,
+        source: { kind: 'media', src: 'src', in: 0, out: 10 } };
+    if (withAnchors) {
+        doc.tracks.push({ id: 'style-audio', lane: 'audio', items: [{ id: 'style-sfx', at: 90, duration: 6,
+            role: 'sfx', source: { kind: 'media', src: 'src', in: 0, out: .2 },
+            anchor: { caption: 'c-0002', duration: 'own',
+                attached_by: { style_uid: 'style-one', caption: 'c-0002' } } }] });
+        doc.tracks.push({ id: 'style-visual', lane: 'visual', items: [{ id: 'style-decor', at: 90, duration: 75,
+            source: { kind: 'html', path: 'assets/overlay/frame/frame.html' },
+            anchor: { caption: 'c-0002', duration: 'caption',
+                attached_by: { style_uid: 'style-one', caption: 'c-0002' } } }] });
+    }
+    await context.writeEditSnapshotGuarded(mutations.stringifyEditV2(doc));
+    await context.reloadEdit();
+    context.captionsDisk = `${JSON.stringify({ captions: [{ id: 'c-0002', start: 3, end: 5.5,
+        text: '字幕 B', speaker: null, source_ref: { segment: 0 }, edited: false }] }, null, 2)}\n`;
+    context.captions = [{ id: 'c-0002', start: 3, end: 5.5, text: '字幕 B', timeDomain: 'source' }];
+    return context;
+}
+
+test('caption drag refreshes audio and visual anchors and one undo restores both files byte for byte', async () => {
+    const context = await captionDragFixture(true);
+    const before = { edit: context.readDisk(), captions: context.captionsDisk };
+    await context.commitDrag({ kind: 'caption', id: 'c-0002', start: 3.5, end: 6.5,
+        originalTimeDomain: 'source', storedTimeDomain: 'source' });
+    assert.equal(item(context.editDocument, 'style-sfx').at, 105);
+    assert.equal(item(context.editDocument, 'style-sfx').duration, 6);
+    assert.equal(item(context.editDocument, 'style-decor').at, 105);
+    assert.equal(item(context.editDocument, 'style-decor').duration, 90);
+    const after = { edit: context.readDisk(), captions: context.captionsDisk };
+    assert.equal(context.history.length, 1, context.notices.join('\n'));
+    await context.history[0].undo();
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, before);
+    await context.history[0].redo();
+    assert.deepEqual({ edit: context.readDisk(), captions: context.captionsDisk }, after);
+});
+
+test('caption drag with no anchors preserves edit.json bytes', async () => {
+    const context = await captionDragFixture(false);
+    const editBefore = context.readDisk();
+    await context.commitDrag({ kind: 'caption', id: 'c-0002', start: 3.5, end: 6.5,
+        originalTimeDomain: 'source', storedTimeDomain: 'source' });
+    assert.equal(context.readDisk(), editBefore);
+    assert.equal(JSON.parse(context.captionsDisk).captions[0].start, 3.5);
+    assert.equal(context.history.length, 1, context.notices.join('\n'));
 });
 
 test('linked move rejects a negative partner position atomically; unlink then moves independently', async () => {

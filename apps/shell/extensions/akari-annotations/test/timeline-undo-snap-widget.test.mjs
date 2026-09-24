@@ -54,10 +54,14 @@ test('マグネットの既定は保存値（未設定なら OFF）で、切替�
     assert.match(setter, /writeStoredSnapEnabled\(/);
 });
 
-test('字幕削除の undo は time_domain / text_style を含む行を丸ごと戻す', () => {
+test('字幕削除の undo は両ファイルのスナップショットを丸ごと戻す', () => {
     const remove = between(widget, 'protected async performDeleteSelected(', 'protected async performDeleteMultiSelected(');
-    assert.match(remove, /timeDomain: caption\.timeDomain/);
-    assert.match(remove, /textStyle: caption\.textStyle/);
+    assert.match(remove, /this\.withHistory\(caption\.timeDomain === 'output'/);
+    assert.match(remove, /this\.annotationsService\.removeCaption\(/);
+    assert.doesNotMatch(remove, /this\.annotationsService\.insertCaption\(/);
+    const history = between(widget, 'protected async withHistory(', 'async openReadAloud(');
+    assert.match(history, /editSource: snapshot\.edit/);
+    assert.match(history, /captionsSource: snapshot\.captions/);
     assert.match(protocol, /export interface CaptionWritePayload \{[\s\S]*timeDomain\?: 'source' \| 'output';[\s\S]*textStyle\?: CaptionTextStyle;[\s\S]*\}/);
     assert.match(protocol, /import type \{[^}]*CaptionTextStyle[^}]*\} from '@akari-video\/edit-store'/);
 });

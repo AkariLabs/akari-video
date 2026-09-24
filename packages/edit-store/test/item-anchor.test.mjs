@@ -5,6 +5,7 @@ import {
   clearItemAnchor,
   resolveItemAnchor,
   resolveItemAnchors,
+  removeStyleAttachedItems,
   setItemAnchor,
   toAnchorCaptions,
 } from '../lib/index.js';
@@ -64,6 +65,31 @@ test('負の offset はクランプせず返す', () => {
 test('duration: own は既存の duration キャッシュを保持する', () => {
   const item = resolved(htmlItem({ duration: 7, anchor: { caption: 'c-0001', duration: 'own' } }));
   assert.deepEqual({ at: item.at, duration: item.duration }, { at: 20, duration: 7 });
+});
+
+test('音声 item のアンカーは字幕の終端にも解決する', () => {
+  const edit = editWith();
+  edit.tracks.push({ id: 'a-sfx', lane: 'audio', items: [{ id: 'sound', at: 0, duration: 4,
+    role: 'sfx', source: { kind: 'media', src: 'main', in: 0, out: .4 },
+    anchor: { caption: 'c-0001', edge: 'end', duration: 'own', offset: -2 } }] });
+  const result = resolveItemAnchors(edit, captions);
+  assert.deepEqual({ at: result.edit.tracks[2].items[0].at, duration: result.edit.tracks[2].items[0].duration },
+    { at: 38, duration: 4 });
+  assert.deepEqual(result.changes.map(change => change.id), ['box', 'sound']);
+});
+
+test('字幕削除では同じ字幕の印付き item だけを消す', () => {
+  const edit = editWith(htmlItem({ anchor: { caption: 'c-0001', attached_by: { style_uid: 'style-a', caption: 'c-0001' } } }));
+  edit.tracks.push({ id: 'a-sfx', lane: 'audio', items: [
+    { id: 'sound', at: 20, duration: 4, source: { kind: 'media', src: 'main', in: 0, out: .4 },
+      anchor: { caption: 'c-0001', attached_by: { style_uid: 'style-a', caption: 'c-0001' } } },
+    { id: 'manual', at: 20, duration: 4, source: { kind: 'media', src: 'main', in: 0, out: .4 },
+      anchor: { caption: 'c-0001' } },
+  ] });
+  const after = removeStyleAttachedItems(edit, 'c-0001');
+  assert.deepEqual(after.tracks[1].items, []);
+  assert.deepEqual(after.tracks[2].items.map(item => item.id), ['manual']);
+  assert.equal(edit.tracks[2].items.length, 2);
 });
 
 test('純グループ内の子は親相対 at へ解決する', () => {
@@ -157,7 +183,8 @@ test('setItemAnchor は anchor と解決キャッシュを同じ edit へ書く'
 });
 
 test('clearItemAnchor は at / duration を焼き込みのまま残す', () => {
-  const edit = editWith(htmlItem({ at: 20, duration: 20 }));
+  const edit = editWith(htmlItem({ at: 20, duration: 20,
+    anchor: { caption: 'c-0001', attached_by: { style_uid: 'style-a', caption: 'c-0001' } } }));
   clearItemAnchor(edit, 'box');
   assert.equal('anchor' in edit.tracks[1].items[0], false);
   assert.deepEqual(

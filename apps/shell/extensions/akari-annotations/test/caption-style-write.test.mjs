@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as captionStyleEffects from '../lib/browser/inspector/caption-style-effects.js';
 import * as myStyleLook from '../lib/browser/my-style-look.js';
+import * as editStore from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
@@ -10,7 +11,7 @@ const start = source.indexOf("                case 'caption-style-my-style':");
 const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
-const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'buffer_1', `return (async function () {
+const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'edit_store_2', 'buffer_1', `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
@@ -51,7 +52,7 @@ const sourceFor = captions => JSON.stringify(captions.map(item => ({
 })));
 
 async function invoke(kind, value, captions, targets, source = sourceFor(captions),
-  staleSource = source, expectOk = true) {
+  staleSource = source, expectOk = true, editSource) {
   const calls = [];
   const history = [];
   const writes = [];
@@ -59,16 +60,16 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
   const context = {
     captions,
     lastAppliedCaptionsSource: staleSource,
-    fileService: { readFile: async () => { reads++; return { value: source }; },
+    fileService: { readFile: async uri => { reads++; return { value: uri === location.editUri ? editSource : source }; },
       writeFile: async () => { throw new Error('direct FileService write is forbidden'); } },
     annotationsService: { setCaptionTextStyle: async entry => { calls.push(entry); },
       writeEditSnapshot: async entry => { writes.push(entry); } },
     pushHistory: entry => { history.push(entry); },
-    reloadCaptions: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
+    reloadCaptions: async () => {}, reloadEdit: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
   };
   let result;
   try { result = await run.call(context, { kind, id: captions[0].id, value, ...(targets ? { targets } : {}) },
-    location, captionStyleEffects, myStyleLook, {}); }
+    location, captionStyleEffects, myStyleLook, editStore, {}); }
   catch (error) { result = { ok: false, message: error.message }; }
   assert.equal(result.ok, expectOk);
   assert.equal(history.length, expectOk ? 1 : 0);
@@ -138,6 +139,30 @@ test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き�
   assert.equal(result.writes[1].captionsSource, source);
   await result.history[0].redo();
   assert.equal(result.writes[2].captionsSource, result.writes[0].captionsSource);
+});
+
+test('効果音部品は captions と edit を 1 書き込み・undo 1 回で復元する', async () => {
+  const captions = [caption('c-0001')];
+  const source = JSON.stringify([{ id: 'c-0001', start: 2, end: 3, text: '字幕', speaker: null,
+    sourceRef: null, edited: false }]);
+  const edit = JSON.stringify({ version: 2, output: { width: 320, height: 180, fps: 10 },
+    sources: [{ id: 'main', path: 'assets/source.mp4' }],
+    tracks: [{ id: 'main', lane: 'visual', items: [{ id: 'cut', at: 0, duration: 100,
+      source: { kind: 'media', src: 'main', in: 0, out: 10 } }] }] });
+  const value = { style_uid: 'style-one', parts: [{ kind: 'sfx', scope: 'caption', mode: 'attach',
+    attach: { at: 'in', offset_frames: 0 }, asset: { category: 'audio', id: 'pop' },
+    file: 'pop.wav', duration_sec: .3 }] };
+  const result = await invoke('caption-style-my-style', value, captions, undefined, source, source, true, edit);
+  assert.equal(result.writes.length, 1);
+  assert.equal(result.history.length, 1);
+  assert.ok(result.writes[0].captionsSource);
+  const added = JSON.parse(result.writes[0].editSource).tracks.flatMap(track => track.items)
+    .find(item => item.anchor?.attached_by?.style_uid === 'style-one');
+  assert.equal(added.at, 20);
+  assert.equal(added.duration, 3);
+  await result.history[0].undo();
+  assert.equal(result.writes[1].editSource, edit);
+  assert.equal(result.writes[1].captionsSource, source);
 });
 
 test('既定 layout と基準高さが衝突する複数選択は RPC 前に全件拒否する', async () => {

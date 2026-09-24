@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.toAnchorCaptions = toAnchorCaptions;
 exports.resolveItemAnchor = resolveItemAnchor;
 exports.withoutItemAnchors = withoutItemAnchors;
+exports.removeStyleAttachedItems = removeStyleAttachedItems;
 exports.resolveItemAnchors = resolveItemAnchors;
 const internal_model_1 = require("./internal-model");
 const timeline_map_1 = require("./timeline-map");
@@ -46,7 +47,7 @@ function resolveItemAnchor(item, context) {
     const startFrames = Math.round(startOut * context.fps);
     const endFrames = Math.round(endOut * context.fps);
     return {
-        at: startFrames + (item.anchor.offset ?? 0) - context.parentAtFrames,
+        at: (item.anchor.edge === 'end' ? endFrames : startFrames) + (item.anchor.offset ?? 0) - context.parentAtFrames,
         duration: (item.anchor.duration ?? 'caption') === 'caption'
             ? Math.max(1, endFrames - startFrames)
             : item.duration
@@ -71,6 +72,27 @@ function withoutItemAnchors(edit) {
     });
     return tracksChanged ? { ...edit, tracks } : edit;
 }
+/** Remove only elements explicitly placed by a style for the deleted caption. */
+function removeStyleAttachedItems(edit, captionId) {
+    let changed = false;
+    const prune = (items) => items.flatMap(item => {
+        if (item.anchor?.attached_by?.caption === captionId) {
+            changed = true;
+            return [];
+        }
+        if ('items' in item && Array.isArray(item.items)) {
+            const children = prune(item.items);
+            if (children.length !== item.items.length || children.some((child, index) => child !== item.items[index])) {
+                changed = true;
+                return [{ ...item, items: children }];
+            }
+        }
+        return [item];
+    });
+    const tracks = edit.tracks.map(track => 'items' in track
+        ? { ...track, items: prune(track.items) } : track);
+    return changed ? { ...edit, tracks } : edit;
+}
 function resolveItemAnchors(edit, captions, options) {
     if (!hasItemAnchor(edit))
         return { edit, changes: [], warnings: [] };
@@ -84,7 +106,7 @@ function resolveItemAnchors(edit, captions, options) {
     const warnings = [];
     let tracksChanged = false;
     const tracks = edit.tracks.map(track => {
-        if (!('items' in track) || !Array.isArray(track.items) || track.lane !== 'visual')
+        if (!('items' in track) || !Array.isArray(track.items))
             return track;
         const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings);
         if (items === track.items)
@@ -134,7 +156,7 @@ function resolveItems(items, parentAtFrames, captionById, segments, fps, changes
             }
         }
         const absoluteAtFrames = parentAtFrames + next.at;
-        if (Array.isArray(next.items)) {
+        if ('items' in next && Array.isArray(next.items)) {
             const children = resolveItems(next.items, absoluteAtFrames, captionById, segments, fps, changes, warnings);
             if (children !== next.items) {
                 next = { ...next, items: children };
@@ -168,8 +190,8 @@ function stripItems(items) {
     return changed ? result : items;
 }
 function hasItemAnchor(edit) {
-    const visit = (items) => items.some(item => item.anchor !== undefined || (Array.isArray(item.items) && visit(item.items)));
-    return edit.tracks.some(track => 'items' in track && track.lane === 'visual' && visit(track.items));
+    const visit = (items) => items.some(item => item.anchor !== undefined || ('items' in item && Array.isArray(item.items) && visit(item.items)));
+    return edit.tracks.some(track => 'items' in track && visit(track.items));
 }
 function validFps(value) {
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;

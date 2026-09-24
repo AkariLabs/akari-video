@@ -46,7 +46,8 @@
 }
 ```
 
-`schema` は版を含まない識別子。保存形の版は整数 `version` のみで、v0 は `1`。`revision` はそのスタイルの改訂番号で `1` から始まる。`uid` は作成時の ULID で不変、`id` は人が読める slug。`author` は任意。`parts` は未知の `kind` も往復保持する開いた配列。予約語は `look`、`motion`（`animation {in,loop,out}`）、`sfx`、`fx`、`decor`、`camera`。v0 が保存・適用するのは `look` と `motion`。未知・未対応の部品は適用せず 1 行通知する。
+`schema` は版を含まない識別子。保存形の版は整数 `version` のみで、v0 は `1`。`revision` はそのスタイルの改訂番号で `1` から始まる。`uid` は作成時の ULID で不変、`id` は人が読める slug。`author` は任意。`parts` は未知の `kind` も往復保持する開いた配列。予約語は `look`、`motion`（`animation {in,loop,out}`）、`sfx`、`fx`、`decor`、`camera`。v0 が保存・適用するのは `look`、`motion`、`sfx`、`fx`、`decor`。未知・未対応の部品は適用せず 1 行通知する。
+`sfx` / `fx` / `decor` でも v0 の attach 形に合わない部品は、スタイル全体を拒否せず、値を往復保持したまま未対応として扱う。
 
 部品の共通欄は `scope: "caption" | "run" | "clip" | "scene"`、`mode: "attach" | "modify"`、任意の `attach: { at: "in" | "out" | "whole", offset_frames: number }`。`attach` は sfx / fx / decor の相対時刻で edit.json v2 の anchor に写せる形。`mode: "attach"` は別要素をひも付け、`modify` は既存要素を変更する。camera の `modify` は字幕の下のクリップを対象とする。v0 の look と motion は `scope: "caption"`、`mode: "modify"`。motion の `animation` は `in` / `loop` / `out` の任意のスロットからなり、各スロットは既存の字幕と同じ `id`・`duration_sec`・`ease`・`amp` 等をそのまま往復する。未知のスロット名と絶対パスは受け付けない。`applies_to` は保存せず、`parts[].scope` の重複を除いた集合から導出する。
 
@@ -67,7 +68,17 @@ look の適用は部品単位の置換。許可フィールドの集合につい
 
 motion は保存元の実効の動き（`default_text_style` → `style_preset` → cue の `text_style`）がある場合だけ保存できる。保存ダイアログではその場合に既定でチェックし、無ければ無効表示にする。look と motion は片方だけでも保存でき、look に animation を混ぜない。motion を当てると、字幕の `text_style.animation` 全体を保存値に置換する。motion に無いスロットは消す。motion だけを当てる場合、見た目・位置・`style_preset` は変えない。`style_preset` を外すのは look を当てたときだけ。
 
-カードの「当てる」は対応部品が 2 つ以上ある場合、部品ごとのチェックを出す。未対応部品は「当てない」として無効表示し、外した対応部品は通知しない。前回外した部品はスタイルの `uid` ごとのユーザー設定に記憶し、次回の既定にする。対応部品が 1 つ以下なら即時に当てる。＋とドラッグでは対応部品をすべて当てる。選んだ全部品は captions.json の 1 回の書き込み、1 件の履歴で適用し、undo 1 回で元のバイト列へ戻す。
+## 4.1 字幕にひも付ける部品
+
+タイムラインの sfx、html、filter item の「字幕にひも付ける…」は、同じ出力時刻にある字幕を選び、登場・退場・全体を `anchor.edge` / `anchor.duration` に写す。元 item に `anchor.attached_by` は付けない。保存ダイアログは保存元字幕へアンカーされた対応 item を読み、存在する種類を既定でチェックする。素材参照を持たない item は対応部品として保存できない。
+
+- `sfx`: `{kind:"sfx",scope:"caption",mode:"attach",attach:{at,offset_frames},asset:{category:"audio",id},file,duration_sec,gain_db?,in?,out?}`。`file` は素材内の相対ファイル名。音声トラックの media item とし、`anchor.duration:"own"` を使う。
+- `decor`: `{kind:"decor",scope:"caption",mode:"attach",attach:{at,offset_frames},asset:{category:"overlay",id},file,vars?,duration_sec?}`。visual トラックの html item とし、`whole` は `anchor.duration:"caption"`、それ以外は `own` を使う。
+- `fx`: `{kind:"fx",scope:"caption",mode:"attach",attach:{at,offset_frames},effect,duration_sec?}`。v0 は既存の `filter` item の語彙（invert / lut / saturation）のみを保存・適用する。`adjust.fx[]` は使わない。
+
+素材は `.akari/asset-references.json` に記帳してから宣言パス `assets/<category>/<id>/<file>` を使う。sfx は `sources[]` にも追加する。同じスタイルを同じ字幕へ当て直すと、同じ `style_uid` と字幕 id の `anchor.attached_by` を持つ旧 item を除去してから新しい item を置く。見た目・動き・部品は captions.json と edit.json の同じ書き込みと undo 1 件にまとめ、利用台帳には実際に当てた部品を記録する。字幕を削除すると印付きの item も消え、印付きの item を手で動かすと `anchor` 全体を外す。
+
+カードの「当てる」は対応部品が 2 つ以上ある場合、部品ごとのチェックを出す。未対応部品は「当てない」として無効表示し、外した対応部品は通知しない。前回外した部品はスタイルの `uid` ごとのユーザー設定に記憶し、次回の既定にする。対応部品が 1 つ以下なら即時に当てる。＋とドラッグでは対応部品をすべて当てる。選んだ全部品は captions.json と、ひも付け部品を含む場合の edit.json の 1 回の書き込み、1 件の履歴で適用し、undo 1 回で元のバイト列へ戻す。
 
 当てるたびに `<project>/.akari/style-usage.json` の `entries[]` に `{caption_ids: string[], style_uid, revision, parts: string[], applied_at}` を追記する。`parts` は実際に当てた kind の一覧。置いた文字にも追記する。この台帳は追記のみで undo では巻き戻さない。captions.json にスタイル参照を残さず、値をコピーするため別マシンでの書き出しもライブラリに依存しない。将来「元を直したら反映」は台帳を使った明示の再適用で行い、自動上書きしない。
 

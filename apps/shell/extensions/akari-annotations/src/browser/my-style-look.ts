@@ -164,9 +164,199 @@ export interface MyStyleUsageEntry {
     applied_at: string;
 }
 
-export function appliedMyStyleKinds(parts: readonly { kind: string }[], selected: readonly string[]): string[] {
-    return [...new Set(parts.filter(part => (part.kind === 'look' || part.kind === 'motion')
+export function appliedMyStyleKinds(parts: readonly { kind: string; mode?: unknown }[], selected: readonly string[]): string[] {
+    return [...new Set(parts.filter(part => ((part.kind === 'look' || part.kind === 'motion')
+        || supportedMyStyleAttachPart(part))
         && selected.includes(part.kind)).map(part => part.kind))];
+}
+
+export function supportedMyStyleAttachPart(part: { kind: string; mode?: unknown }): boolean {
+    if (!['sfx', 'fx', 'decor'].includes(part.kind) || part.mode !== 'attach') return false;
+    const value = part as Record<string, unknown>;
+    const allowed = part.kind === 'sfx'
+        ? ['kind', 'scope', 'mode', 'attach', 'asset', 'file', 'duration_sec', 'gain_db', 'in', 'out']
+        : part.kind === 'decor'
+            ? ['kind', 'scope', 'mode', 'attach', 'asset', 'file', 'vars', 'duration_sec']
+            : ['kind', 'scope', 'mode', 'attach', 'effect', 'duration_sec'];
+    if (Object.keys(value).some(key => !allowed.includes(key))) return false;
+    const attach = value.attach;
+    if (value.scope !== 'caption' || !record(attach)
+        || !['in', 'out', 'whole'].includes(String(attach.at))
+        || !Number.isInteger(attach.offset_frames)
+        || Object.keys(attach).some(key => !['at', 'offset_frames'].includes(key))) return false;
+    if (part.kind === 'sfx' || part.kind === 'decor') {
+        const asset = value.asset;
+        const category = part.kind === 'sfx' ? 'audio' : 'overlay';
+        if (!record(asset) || asset.category !== category || typeof asset.id !== 'string'
+            || !/^[A-Za-z0-9_-]+$/.test(asset.id) || typeof value.file !== 'string'
+            || !/^[^/\\]+$/.test(value.file) || value.file === '.' || value.file === '..'
+            || Object.keys(asset).some(key => !['category', 'id'].includes(key))) return false;
+        if (part.kind === 'decor' ? !/\.html?$/i.test(value.file)
+            : !/\.(wav|mp3|m4a|aac|flac|ogg|aif|aiff)$/i.test(value.file)) return false;
+    }
+    if (part.kind === 'fx') {
+        const effect = value.effect;
+        if (!record(effect) || !['invert', 'lut', 'saturation'].includes(String(effect.type))) return false;
+        if (effect.type === 'invert' && Object.keys(effect).length !== 1) return false;
+        if (effect.type === 'lut' && (typeof effect.id !== 'string' || !effect.id.trim()
+            || Object.keys(effect).some(key => !['type', 'id', 'intensity'].includes(key))
+            || (effect.intensity !== undefined && (typeof effect.intensity !== 'number'
+                || effect.intensity < 0 || effect.intensity > 1)))) return false;
+        if (effect.type === 'saturation' && (typeof effect.value !== 'number'
+            || effect.value < 0 || effect.value > 3 || Object.keys(effect).length !== 2)) return false;
+    }
+    if (part.kind === 'sfx' && (typeof value.duration_sec !== 'number' || !Number.isFinite(value.duration_sec)
+        || value.duration_sec <= 0 || (value.gain_db !== undefined
+            && (typeof value.gain_db !== 'number' || value.gain_db < -60 || value.gain_db > 12)))) return false;
+    if (part.kind === 'sfx' && ((value.in !== undefined
+        && (typeof value.in !== 'number' || !Number.isFinite(value.in) || value.in < 0))
+        || (value.out !== undefined && (typeof value.out !== 'number' || !Number.isFinite(value.out)
+            || value.out <= (typeof value.in === 'number' ? value.in : 0))))) return false;
+    if (part.kind === 'decor' && value.vars !== undefined && !record(value.vars)) return false;
+    if (part.kind !== 'sfx' && attach.at !== 'whole'
+        && (typeof value.duration_sec !== 'number' || !Number.isFinite(value.duration_sec)
+            || value.duration_sec <= 0)) return false;
+    return true;
+}
+
+type StylePart = { kind: string; [key: string]: unknown };
+type StyleItem = { id: string; at: number; duration: number; source: Record<string, unknown>;
+    anchor?: { caption: string; edge?: 'start' | 'end'; offset?: number; duration?: 'caption' | 'own';
+        attached_by?: { style_uid: string; caption: string } };
+    gain_db?: number; items?: StyleItem[] };
+type StyleTrack = { id: string; lane: 'visual' | 'audio'; items?: StyleItem[]; content?: unknown };
+type StyleEdit = { output: { fps: number }; sources: Array<{ id: string; path: string }>;
+    tracks: StyleTrack[] };
+
+function assetLocation(path: unknown, category: string): { id: string; file: string } | undefined {
+    if (typeof path !== 'string') return undefined;
+    const match = new RegExp(`^assets/${category}/([a-zA-Z0-9_-]+)/([^/?#]+)$`).exec(path);
+    if (!match || match[2] === '.' || match[2] === '..') return undefined;
+    return { id: match[1], file: match[2] };
+}
+
+/** Existing anchored timeline elements are the only source of attach parts. */
+export function myStyleAttachedPartsFromEdit(edit: StyleEdit, captionId: string): StylePart[] {
+    const parts: StylePart[] = [];
+    if (!Array.isArray(edit.tracks) || !Array.isArray(edit.sources) || !edit.output?.fps) return parts;
+    const visit = (items: StyleItem[], lane: string): void => {
+        for (const item of items) {
+            if (item.anchor?.caption === captionId) {
+                const attach = { at: item.anchor.edge === 'end' ? 'out' : item.anchor.duration === 'caption' ? 'whole' : 'in',
+                    offset_frames: item.anchor.offset ?? 0 };
+                if (lane === 'audio' && item.source.kind === 'media' && item.source.src) {
+                    const source = edit.sources.find(candidate => candidate.id === item.source.src);
+                    const asset = assetLocation(source?.path, 'audio');
+                    if (asset && /\.(wav|mp3|m4a|aac|flac|ogg|aif|aiff)$/i.test(asset.file)) parts.push({ kind: 'sfx', scope: 'caption', mode: 'attach', attach,
+                        asset: { category: 'audio', id: asset.id }, file: asset.file,
+                        duration_sec: item.duration / edit.output.fps,
+                        ...(item.gain_db === undefined ? {} : { gain_db: item.gain_db }),
+                        ...(typeof item.source.in === 'number' ? { in: item.source.in } : {}),
+                        ...(typeof item.source.out === 'number' ? { out: item.source.out } : {}) });
+                } else if (lane === 'visual' && item.source.kind === 'html') {
+                    const asset = assetLocation(item.source.path, 'overlay');
+                    if (asset && /\.html?$/i.test(asset.file)) parts.push({ kind: 'decor', scope: 'caption', mode: 'attach', attach,
+                        asset: { category: 'overlay', id: asset.id }, file: asset.file,
+                        ...(item.source.vars ? { vars: item.source.vars } : {}),
+                        ...(attach.at !== 'whole' ? { duration_sec: item.duration / edit.output.fps } : {}) });
+                } else if (lane === 'visual' && item.source.kind === 'filter') {
+                    parts.push({ kind: 'fx', scope: 'caption', mode: 'attach', attach,
+                        effect: item.source.filter,
+                        ...(attach.at !== 'whole' ? { duration_sec: item.duration / edit.output.fps } : {}) });
+                }
+            }
+            if (Array.isArray(item.items)) visit(item.items, lane);
+        }
+    };
+    for (const track of edit.tracks) if (Array.isArray(track.items)) visit(track.items, track.lane);
+    return parts;
+}
+
+/** A manual timeline move bakes the current timing into the item. */
+export function detachMovedStyleItem<T extends StyleEdit>(edit: T, itemId: string): T {
+    const visit = (items: StyleItem[]): void => {
+        for (const item of items) {
+            if (item.id === itemId && item.anchor?.attached_by) {
+                delete item.anchor;
+            }
+            if (Array.isArray(item.items)) visit(item.items);
+        }
+    };
+    for (const track of edit.tracks) if (Array.isArray(track.items)) visit(track.items);
+    return edit;
+}
+
+/** Reapply replaces only this style's previous elements for each target caption. */
+export function applyMyStyleAttachedParts(edit: StyleEdit, captions: readonly { id: string; start: number; end: number }[],
+    captionIds: readonly string[], styleUid: string, parts: readonly StylePart[]): StyleEdit {
+    const targets = new Set(captionIds);
+    const next = structuredClone(edit);
+    const prune = (items: StyleItem[]): StyleItem[] => items.filter(item =>
+        !(item.anchor?.attached_by?.style_uid === styleUid && targets.has(item.anchor.attached_by.caption)))
+        .map(item => item.items ? { ...item, items: prune(item.items) } : item);
+    for (const track of next.tracks) if (Array.isArray(track.items)) track.items = prune(track.items);
+    const fps = next.output.fps;
+    const ids = new Set(next.tracks.flatMap(track => (track.items ?? []).map(item => item.id)));
+    const trackFor = (lane: 'visual' | 'audio', at: number, duration: number): StyleTrack => {
+        let track = next.tracks.find(candidate => candidate.lane === lane && candidate.id.startsWith('style-')
+            && Array.isArray(candidate.items)
+            && candidate.items.every(item => item.at + item.duration <= at || at + duration <= item.at));
+        if (!track) {
+            let index = 1;
+            while (next.tracks.some(candidate => candidate.id === `style-${lane}-${index}`)) index++;
+            track = { id: `style-${lane}-${index}`, lane, items: [] };
+            next.tracks.push(track);
+        }
+        return track;
+    };
+    for (const captionId of targets) {
+        const caption = captions.find(candidate => candidate.id === captionId);
+        if (!caption) throw new Error(`字幕 ${captionId} が見つかりません。`);
+        for (const part of parts) {
+            if (!supportedMyStyleAttachPart(part)) continue;
+            const attach = part.attach as { at?: string; offset_frames?: number } | undefined;
+            const edge = attach?.at === 'out' ? 'end' : 'start';
+            const duration = attach?.at === 'whole' ? 'caption' : 'own';
+            const anchor = { caption: captionId, edge, offset: attach?.offset_frames ?? 0, duration,
+                attached_by: { style_uid: styleUid, caption: captionId } } as const;
+            const at = Math.round((edge === 'end' ? caption.end : caption.start) * fps) + anchor.offset;
+            const frames = duration === 'caption' ? Math.max(1, Math.round((caption.end - caption.start) * fps))
+                : Math.max(1, Math.round((Number(part.duration_sec) || 0.1) * fps));
+            const base = { id: '', at, duration: frames, anchor };
+            let index = 1;
+            while (ids.has(`style-part-${index}`)) index++;
+            base.id = `style-part-${index}`;
+            ids.add(base.id);
+            if (part.kind === 'sfx' || part.kind === 'decor') {
+                const asset = part.asset as { category?: string; id?: string } | undefined;
+                const category = part.kind === 'sfx' ? 'audio' : 'overlay';
+                if (asset?.category !== category || typeof asset.id !== 'string' || typeof part.file !== 'string'
+                    || !assetLocation(`assets/${category}/${asset.id}/${part.file}`, category))
+                    throw new Error(`${part.kind} の素材参照が不正です。`);
+                const path = `assets/${category}/${asset.id}/${part.file}`;
+                if (part.kind === 'sfx') {
+                    let source = next.sources.find(candidate => candidate.path === path);
+                    if (!source) {
+                        let serial = 1;
+                        while (next.sources.some(candidate => candidate.id === `style-src-${serial}`)) serial++;
+                        source = { id: `style-src-${serial}`, path };
+                        next.sources.push(source);
+                    }
+                    trackFor('audio', at, frames).items!.push({ ...base, source: { kind: 'media', src: source.id,
+                        in: typeof part.in === 'number' ? part.in : 0,
+                        out: typeof part.out === 'number' ? part.out
+                            : (typeof part.in === 'number' ? part.in : 0) + frames / fps },
+                        ...(typeof part.gain_db === 'number' ? { gain_db: part.gain_db } : {}) });
+                } else {
+                    trackFor('visual', at, frames).items!.push({ ...base, source: { kind: 'html', path,
+                        ...(part.vars ? { vars: part.vars } : {}) } });
+                }
+            } else if (part.effect && typeof part.effect === 'object') {
+                trackFor('visual', at, frames).items!.push({ ...base, source: { kind: 'filter', filter: part.effect } });
+            }
+        }
+    }
+    return next;
 }
 
 export function appendMyStyleUsage(source: string | undefined, entry: MyStyleUsageEntry): string {
@@ -248,11 +438,12 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
     max_width_pct: '文字の最大幅', text_transform: '文字変換'
 };
 
-export function myStyleApplyNotice(parts: readonly { kind: string; text_style?: unknown }[],
+export function myStyleApplyNotice(parts: readonly { kind: string; mode?: unknown; text_style?: unknown }[],
     selected: readonly string[] = ['look', 'motion']): string | undefined {
     const look = selected.includes('look') ? parts.find(part => part.kind === 'look') : undefined;
     const ignored = [...new Set([
-        ...parts.filter(part => part.kind !== 'look' && part.kind !== 'motion').map(part => PART_LABELS[part.kind] ?? part.kind),
+        ...parts.filter(part => !['look', 'motion'].includes(part.kind)
+            && !supportedMyStyleAttachPart(part)).map(part => PART_LABELS[part.kind] ?? part.kind),
         ...unsupportedMyStyleLookFields(look?.text_style).map(field => FIELD_LABELS[field] ?? field)
     ])];
     if (!ignored.length) return undefined;

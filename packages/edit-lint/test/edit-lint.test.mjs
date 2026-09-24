@@ -543,6 +543,25 @@ test("v2.item-anchor-stale warns with resolved and cached values", async () => {
   });
 });
 
+test("audio anchor edge:end と印の字幕不一致を検査する", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.tracks.push({ id: "a-style", lane: "audio", items: [{ id: "sound-style", at: 1, duration: 2,
+      source: { kind: "media", src: "main", in: 0, out: .2 }, role: "sfx",
+      anchor: { caption: "c-0001", edge: "end", duration: "own",
+        attached_by: { style_uid: "style-one", caption: "c-0002" } } }] });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-stale"
+      && /at=60, duration=2/.test(finding.message)), JSON.stringify(result.findings, null, 2));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-attached-by-anchor"
+      && finding.severity === "error"));
+  });
+});
+
 test("v2.item-anchor-unresolvable warns when the whole interval is cut", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "v2-valid");
