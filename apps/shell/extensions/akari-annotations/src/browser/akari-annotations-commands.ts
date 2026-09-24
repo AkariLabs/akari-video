@@ -45,6 +45,10 @@ export const OPEN_AKARI_CANVAS: Command = {
 
 export const OPEN_AKARI_CANVAS_ID = OPEN_AKARI_CANVAS.id;
 
+export const CREATE_TIMELINE_CANVAS: Command = { id: 'akari.timeline.canvas.create', label: 'キャンバスを作る' };
+export const PUT_INTO_TIMELINE_CANVAS: Command = { id: 'akari.timeline.canvas.put', label: 'キャンバスへ入れる' };
+export const TAKE_OUT_OF_TIMELINE_CANVAS: Command = { id: 'akari.timeline.canvas.takeOut', label: 'キャンバスから出す' };
+
 /**
  * akari-preview から動画オープン時に呼ばれる内部コマンド。label なし = コマンドパレット非表示
  * （AKARI_TRANSCRIPT_SEEK_REQUESTED と同じ「ラベルなし内部コマンド」パターン）。

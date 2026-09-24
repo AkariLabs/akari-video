@@ -395,7 +395,8 @@ test('every timeline edit entry checks isTrackLocked before mutation', () => {
     'moveTimelineKeyframe', 'removeSelectedKeyframes', 'moveAggregateKeyframes', 'deleteTimelineTrack',
     'commitDrag', 'commitEditV2Drag',
   ]) assert.match(methodText(name), /this\.isTrackLocked\(/, name);
-  assert.match(methodText('renderTrackHeaders'), /JSON\.stringify\(\[track, name, visible, audible, locked, treeRows,\s*this\.timelineRowStride\(track\.id\)/);
+  assert.match(methodText('renderTrackHeaders'), /JSON\.stringify\(\[track, name, visible, audible, locked, treeRows,\s*treeRows\.map\(row =>/);
+  assert.match(methodText('renderTrackHeaders'), /this\.timelineRowStride\(track\.id\)/);
   assert.match(methodText('renderTrackHeaders'), /this\.beatsLocked/);
   assert.match(methodText('renderTransitionBoundaries'), /dropTarget\.style\.visibility = locked \? 'hidden'/);
 });

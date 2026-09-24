@@ -1,0 +1,240 @@
+{
+  "label": "before",
+  "steps": {
+    "open": {
+      "ok": false,
+      "error": "Converting circular structure to JSON\n    --> starting at object with constructor 'n'\n    |     property '_layout' -> object with constructor 'oLt'\n    --- property '_parent' closes the circle"
+    },
+    "timeline_initial": {
+      "rows": [
+        {
+          "id": "G1",
+          "text": "▸まとまり1",
+          "rect": {
+            "x": 320.59375,
+            "y": 758.1953125,
+            "width": 136,
+            "height": 48
+          }
+        },
+        {
+          "id": "G2",
+          "text": "▸まとまり2",
+          "rect": {
+            "x": 320.59375,
+            "y": 808.1953125,
+            "width": 136,
+            "height": 48
+          }
+        }
+      ],
+      "chips": [
+        {
+          "id": "G1",
+          "kind": "group",
+          "text": "まとまり1",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 456.59375,
+            "y": 757.1953125,
+            "width": 102.5390625,
+            "height": 48
+          }
+        },
+        {
+          "id": "G2",
+          "kind": "group",
+          "text": "まとまり2",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 584.7734375,
+            "y": 807.1953125,
+            "width": 102.5390625,
+            "height": 48
+          }
+        }
+      ]
+    },
+    "emptyGroupInTimeline": {
+      "row": false,
+      "chip": false
+    },
+    "previewTreeAt21": [
+      {
+        "id": "G1",
+        "parentId": null,
+        "kind": "group",
+        "label": "G1",
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      {
+        "id": "h1",
+        "parentId": "G1",
+        "kind": "leaf",
+        "label": "h1",
+        "transform": {
+          "x": -300,
+          "y": -200,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      {
+        "id": "G2",
+        "parentId": null,
+        "kind": "group",
+        "label": "G2",
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      {
+        "id": "h2",
+        "parentId": "G2",
+        "kind": "leaf",
+        "label": "h2",
+        "transform": {
+          "x": 300,
+          "y": 200,
+          "scale": 1,
+          "rotate": 0
+        }
+      }
+    ],
+    "emptyGroupInPreviewTree": false,
+    "previewTreeAt12": [
+      {
+        "id": "G1",
+        "parentId": null,
+        "kind": "group",
+        "label": "G1",
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      {
+        "id": "h1",
+        "parentId": "G1",
+        "kind": "leaf",
+        "label": "h1",
+        "transform": {
+          "x": -300,
+          "y": -200,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      {
+        "id": "G2",
+        "parentId": null,
+        "kind": "group",
+        "label": "G2",
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      {
+        "id": "h2",
+        "parentId": "G2",
+        "kind": "leaf",
+        "label": "h2",
+        "transform": {
+          "x": 300,
+          "y": 200,
+          "scale": 1,
+          "rotate": 0
+        }
+      }
+    ],
+    "g2ChipBefore": {
+      "id": "G2",
+      "kind": "group",
+      "text": "まとまり2",
+      "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+      "rect": {
+        "x": 584.7734375,
+        "y": 807.1953125,
+        "width": 102.5390625,
+        "height": 48
+      }
+    },
+    "chipDrag": {
+      "g2AtBefore": 300,
+      "g2AtAfter": 300,
+      "moved": false
+    },
+    "rowsExpanded": [
+      {
+        "id": "G1",
+        "text": "▾まとまり1",
+        "rect": {
+          "x": 320.59375,
+          "y": 758.1953125,
+          "width": 136,
+          "height": 48
+        }
+      },
+      {
+        "id": "h1",
+        "text": "h1",
+        "rect": {
+          "x": 320.59375,
+          "y": 808.1953125,
+          "width": 136,
+          "height": 48
+        }
+      },
+      {
+        "id": "G2",
+        "text": "▾まとまり2",
+        "rect": {
+          "x": 320.59375,
+          "y": 858.1953125,
+          "width": 136,
+          "height": 48
+        }
+      },
+      {
+        "id": "h2",
+        "text": "h2",
+        "rect": {
+          "x": 320.59375,
+          "y": 908.1953125,
+          "width": 136,
+          "height": 48
+        }
+      }
+    ],
+    "rowDnD": {
+      "rowsFound": true,
+      "before": {
+        "parentId": "G1",
+        "at": 30,
+        "absAtFrames": 30,
+        "absAtSec": 1
+      },
+      "after": {
+        "parentId": "G2",
+        "at": 30,
+        "absAtFrames": 330,
+        "absAtSec": 11
+      },
+      "absoluteTimeShiftedSec": 10
+    }
+  },
+  "leftoverProcesses": 1
+}

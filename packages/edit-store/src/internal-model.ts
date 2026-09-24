@@ -16,7 +16,8 @@ import {
     LayerBlendMode,
     TimelineTrackKind,
 } from './edit-store';
-import { AudioMediaItemV2, EditV2, ItemV2, KeyframesReferenceV2, TrackV2, readEditV2 } from './edit-v2';
+import { AudioMediaItemV2, EditV2, GroupSourceV2, ItemV2, KeyframesReferenceV2, TrackV2, TransformV2, readEditV2 } from './edit-v2';
+import { composeTransforms } from './tree-ops';
 import { AnchorCaption, resolveItemAnchors, withoutItemAnchors } from './item-anchor';
 import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } from './cut-adjacency';
 import { LegacyEditVersionError } from './migrate/error';
@@ -69,7 +70,7 @@ export interface InternalFilterSource {
     filter: unknown;
 }
 
-export interface InternalGroupSource { kind: 'group' }
+export interface InternalGroupSource { kind: 'group'; canvas?: GroupSourceV2['canvas'] }
 export interface InternalCaptionsSource { kind: 'captions'; path: 'captions.json'; exclude?: string[] }
 export interface InternalCaptionSource { kind: 'caption'; path: 'captions.json'; id: string }
 
@@ -838,6 +839,31 @@ function buildV2Item(
         delete built.item.children;
         Object.defineProperty(built.item, 'children', { value: children, enumerable: false, writable: true });
     }
+    if (lane === 'visual' && item.source.kind === 'group') {
+        // 字幕の描画窓だけを固定尺に収める。edit.json の子の時刻・尺は変更しない。
+        const groupItem = item as ItemV2;
+        const clipStart = built.item.atFrames;
+        const clipEnd = clipStart + built.item.durationFrames;
+        const clipCaptions = (node: InternalItem): void => {
+            if (node.source.kind === 'caption') {
+                const start = Math.max(clipStart, node.atFrames);
+                const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
+                node.atFrames = start;
+                node.durationFrames = Math.max(0, end - start);
+                node.at = start / fps;
+                node.duration = node.durationFrames / fps;
+                const transform = composeTransforms(groupItem.transform, node.declaration.transform as TransformV2 | undefined);
+                node.declaration = { ...node.declaration,
+                    ...(transform ? { transform } : {}),
+                    ...(groupItem.opacity !== undefined
+                        ? { opacity: groupItem.opacity * (typeof node.declaration.opacity === 'number' ? node.declaration.opacity : 1) }
+                        : {}) };
+                if (node.durationFrames === 0) node.declaration = { ...node.declaration, hidden: true };
+            }
+            for (const child of node.children) clipCaptions(child);
+        };
+        for (const child of children) clipCaptions(child);
+    }
     if (parentId !== undefined) built.item.parentId = parentId;
     return built;
 }
@@ -1131,7 +1157,7 @@ function buildV2VisualItem(
         case 'group':
             return finish({ item: {
                 id: item.id, atFrames, durationFrames, at, duration, children: [],
-                source: { kind: 'group' }, declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                source: { kind: 'group', ...(item.source.canvas ? { canvas: item.source.canvas } : {}) }, declaration: { id: item.id, ...(item.name ? { name: item.name } : {}), at: item.at, duration: item.duration, ...common },
                 legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
             } });
         case 'captions':

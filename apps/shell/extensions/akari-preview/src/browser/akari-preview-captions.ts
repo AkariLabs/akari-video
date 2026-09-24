@@ -56,6 +56,8 @@ export interface PreviewCaption {
     wordStyles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
     runs?: CaptionRun[];
     sourceCueId?: string;
+    /** 明示的なキャンバス内字幕の表示段。元の字幕行には付かない。 */
+    canvasTrackId?: string;
     resolvedTimeline?: boolean;
     fragmentKey?: string;
     fragmentIndex?: number;

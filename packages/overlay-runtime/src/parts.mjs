@@ -131,6 +131,19 @@ function expandItem(item, track, group, readHtml, records) {
       clipEnd: Math.min(group.clipEnd, itemEnd),
     };
     if (!(next.clipEnd > next.clipStart)) return;
+    const background = item.source.canvas?.background;
+    if (background?.type === "color" && /^#[0-9a-fA-F]{6}$/.test(background.color ?? "")) {
+      records.push(cleanRecord({
+        id: `${String(item.id)}:background`,
+        parentId: String(item.id),
+        role: "background",
+        html: `<div style="position:absolute;inset:0;width:100%;height:100%;background:${background.color}"></div>`,
+        start: next.clipStart,
+        duration: next.clipEnd - next.clipStart,
+        track: declaration.track ?? track?.z ?? 0,
+        ...(next.hasOpacity ? { opacity: next.opacity } : {}),
+      }));
+    }
     for (const child of item.children ?? item.items ?? []) {
       expandItem(child, track, next, readHtml, records);
     }

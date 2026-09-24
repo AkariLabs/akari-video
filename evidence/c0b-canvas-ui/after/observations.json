@@ -1,0 +1,1425 @@
+{
+  "label": "after",
+  "steps": {
+    "open": {
+      "ok": false,
+      "error": "Converting circular structure to JSON\n    --> starting at object with constructor 'n'\n    |     property '_layout' -> object with constructor 'uLt'\n    --- property '_parent' closes the circle"
+    },
+    "geometry": {
+      "x0": 456.59375,
+      "pxPerSec": 12.81796875,
+      "top": 859.1953125,
+      "bottom": 907.1953125
+    },
+    "emptyYs": [
+      692.6953125,
+      695.6953125,
+      698.6953125,
+      701.6953125,
+      704.6953125
+    ],
+    "emptyMenu": [
+      {
+        "id": "create-canvas-range",
+        "text": "キャンバスを作る"
+      },
+      {
+        "id": "create-canvas-here",
+        "text": "ここにキャンバスを作る"
+      },
+      {
+        "id": "annotate",
+        "text": "注釈…"
+      }
+    ],
+    "created": {
+      "id": "g-1",
+      "name": "キャンバス",
+      "at": 300,
+      "duration": 150,
+      "source": {
+        "kind": "group",
+        "canvas": {
+          "origin": "user",
+          "durationMode": "fixed"
+        }
+      },
+      "items": []
+    },
+    "emptyCanvasRow": {
+      "row": {
+        "text": "キャンバス",
+        "bg": "repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)"
+      },
+      "chip": {
+        "text": "キャンバス",
+        "bg": "repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)"
+      }
+    },
+    "inspectorFields": [
+      "field:inspector-canvas-name",
+      "field:inspector-canvas-intent",
+      "field:inspector-canvas-duration",
+      "field:inspector-canvas-background-mode"
+    ],
+    "setName": {
+      "ok": true
+    },
+    "rowAfterRename": "オープニング",
+    "setIntent": {
+      "ok": true
+    },
+    "emptyHintAt12": {
+      "display": "flex",
+      "text": "ここにタイトルを入れる",
+      "border": "dashed",
+      "rect": {
+        "w": 509,
+        "h": 286
+      },
+      "settledMs": 3
+    },
+    "emptyHintAt8": {
+      "display": "none",
+      "text": "ここにタイトルを入れる",
+      "border": "dashed",
+      "rect": {
+        "w": 0,
+        "h": 0
+      },
+      "settledMs": 5
+    },
+    "previewTreeHasEmptyCanvas": true,
+    "setBgMode": {
+      "ok": true
+    },
+    "setBgColor": {
+      "ok": true
+    },
+    "captionChip": {
+      "x": 597.5859375,
+      "y": 717.6953125,
+      "width": 19.2265625,
+      "height": 22,
+      "kind": "caption",
+      "id": "c-0001"
+    },
+    "captionMenu": [
+      {
+        "id": "copy",
+        "text": "コピー"
+      },
+      {
+        "id": "cut",
+        "text": "切り取り"
+      },
+      {
+        "id": "paste",
+        "text": "貼り付け"
+      },
+      {
+        "id": "duplicate",
+        "text": "複製"
+      },
+      {
+        "id": "narrate",
+        "text": "音声を作る…"
+      },
+      {
+        "id": "annotate",
+        "text": "注釈…"
+      },
+      {
+        "id": "delete",
+        "text": "削除"
+      },
+      {
+        "id": "put-canvas",
+        "text": "キャンバスへ入れる"
+      }
+    ],
+    "captionMenuRetried": false,
+    "telMenu": [
+      {
+        "id": "copy",
+        "text": "コピー"
+      },
+      {
+        "id": "cut",
+        "text": "切り取り"
+      },
+      {
+        "id": "paste",
+        "text": "貼り付け"
+      },
+      {
+        "id": "duplicate",
+        "text": "複製"
+      },
+      {
+        "id": "split",
+        "text": "分割"
+      },
+      {
+        "id": "annotate",
+        "text": "注釈…"
+      },
+      {
+        "id": "delete",
+        "text": "削除"
+      },
+      {
+        "id": "put-canvas",
+        "text": "キャンバスへ入れる"
+      },
+      {
+        "id": "caption-attach",
+        "text": "字幕にひも付ける…"
+      }
+    ],
+    "telMenuRetried": false,
+    "rowsAfterPut": [
+      {
+        "id": "same-time:f4:25",
+        "text": "▸同じ時刻に 4 個",
+        "rect": {
+          "x": 320.59375,
+          "y": 550.1953125,
+          "width": 136,
+          "height": 48
+        }
+      },
+      {
+        "id": "g-1",
+        "text": "▸オープニング · ここにタイトルを入れる",
+        "rect": {
+          "x": 320.59375,
+          "y": 600.1953125,
+          "width": 136,
+          "height": 48
+        }
+      }
+    ],
+    "overlaysAt12": [
+      {
+        "id": "same1",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "2",
+        "rect": {
+          "x": -123,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same2",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "3",
+        "rect": {
+          "x": -16,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same3",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "4",
+        "rect": {
+          "x": 88,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same4",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 195,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "g-1:background",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 36,
+          "y": 110,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgb(27, 42, 92)"
+      },
+      {
+        "id": "tel1",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": -63,
+          "y": 50,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "emptyHintAfterPut": {
+      "display": "none",
+      "text": "",
+      "border": "dashed",
+      "rect": {
+        "w": 0,
+        "h": 0
+      }
+    },
+    "captionInCanvas": {
+      "text": "置いた文字",
+      "display": "block",
+      "onTop": true,
+      "hit": "akari-caption__line",
+      "count": 1
+    },
+    "previewTreeLabel": "オープニング",
+    "clipTimes": {
+      "kStart": 19.966666666666665,
+      "kEnd": 22.966666666666665,
+      "telStart": 20.966666666666665,
+      "telEnd": 24.466666666666665,
+      "inside": 21.966666666666665,
+      "outside": 23.716666666666665
+    },
+    "overlaysInside": [
+      {
+        "id": "same1",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "2",
+        "rect": {
+          "x": -123,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same2",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "3",
+        "rect": {
+          "x": -16,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same3",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "4",
+        "rect": {
+          "x": 88,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same4",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 195,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "g-1:background",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 36,
+          "y": 110,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgb(27, 42, 92)"
+      },
+      {
+        "id": "tel1",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": -63,
+          "y": 50,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "overlaysOutside": [
+      {
+        "id": "same1",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "2",
+        "rect": {
+          "x": -123,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same2",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "3",
+        "rect": {
+          "x": -16,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same3",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "4",
+        "rect": {
+          "x": 88,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same4",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 195,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "g-1:background",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 36,
+          "y": 110,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgb(27, 42, 92)"
+      },
+      {
+        "id": "tel1",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": -63,
+          "y": 50,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "takeOutTarget": {
+      "telRow": null,
+      "telTreeChip": {
+        "x": 725.34375,
+        "y": 787.1953125,
+        "width": 44.859375,
+        "height": 48,
+        "right": 770.203125
+      }
+    },
+    "takeOutMenu": [
+      {
+        "id": "copy",
+        "text": "コピー"
+      },
+      {
+        "id": "cut",
+        "text": "切り取り"
+      },
+      {
+        "id": "paste",
+        "text": "貼り付け"
+      },
+      {
+        "id": "duplicate",
+        "text": "複製"
+      },
+      {
+        "id": "detach",
+        "text": "キャンバスから出す"
+      },
+      {
+        "id": "select-parent",
+        "text": "親を選択"
+      },
+      {
+        "id": "annotate",
+        "text": "注釈…"
+      },
+      {
+        "id": "delete",
+        "text": "削除"
+      }
+    ],
+    "undo": [
+      {
+        "back": 1,
+        "via": "cmd+z",
+        "equal": true
+      },
+      {
+        "back": 2,
+        "via": "cmd+z",
+        "equal": true
+      },
+      {
+        "back": 3,
+        "via": "cmd+z",
+        "equal": true
+      }
+    ],
+    "leftoverFirstRun": 0,
+    "reopen": {
+      "ok": false,
+      "error": "Converting circular structure to JSON\n    --> starting at object with constructor 'n'\n    |     property '_layout' -> object with constructor 'uLt'\n    --- property '_parent' closes the circle"
+    },
+    "rowsAfterReload": [
+      {
+        "id": "same-time:f4:25",
+        "text": "▸同じ時刻に 4 個",
+        "rect": {
+          "x": 320.59375,
+          "y": 738.1953125,
+          "width": 136,
+          "height": 48
+        }
+      },
+      {
+        "id": "g-1",
+        "text": "▾オープニング · ここにタイトルを入れる",
+        "rect": {
+          "x": 320.59375,
+          "y": 788.1953125,
+          "width": 136,
+          "height": 48
+        }
+      },
+      {
+        "id": "tel1",
+        "text": "tel1",
+        "rect": {
+          "x": 320.59375,
+          "y": 838.1953125,
+          "width": 136,
+          "height": 48
+        }
+      },
+      {
+        "id": "cap-c-0001",
+        "text": "cap-c-0001",
+        "rect": {
+          "x": 320.59375,
+          "y": 888.1953125,
+          "width": 136,
+          "height": 22
+        }
+      }
+    ],
+    "overlaysAfterReopen": [
+      {
+        "id": "same1",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "2",
+        "rect": {
+          "x": -123,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same2",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "3",
+        "rect": {
+          "x": -16,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same3",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "4",
+        "rect": {
+          "x": 88,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "same4",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 195,
+          "y": 189,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "id": "g-1:background",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 36,
+          "y": 110,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgb(27, 42, 92)"
+      },
+      {
+        "id": "tel1",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": -63,
+          "y": 50,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ],
+    "fold": [
+      {
+        "text": "同じ時刻に 4 個",
+        "id": "same-time:f4:25",
+        "x": 320.59375,
+        "y": 738.1953125,
+        "width": 136,
+        "height": 48
+      },
+      {
+        "text": "同じ時刻に 4 個",
+        "id": "same-time:f4:25",
+        "x": 777.046875,
+        "y": 767.6953125,
+        "width": 25.6328125,
+        "height": 48
+      }
+    ],
+    "foldMenu": [
+      {
+        "id": "canvas",
+        "text": "キャンバスにする"
+      },
+      {
+        "id": "toggle",
+        "text": "展開"
+      }
+    ],
+    "hereMenu": [
+      {
+        "id": "create-canvas-here",
+        "text": "ここにキャンバスを作る"
+      },
+      {
+        "id": "annotate",
+        "text": "注釈…"
+      }
+    ],
+    "attrWords": [],
+    "words_final": []
+  },
+  "checks": [
+    {
+      "name": "empty-area menu offers キャンバスを作る and ここにキャンバスを作る",
+      "ok": true,
+      "items": [
+        {
+          "id": "create-canvas-range",
+          "text": "キャンバスを作る"
+        },
+        {
+          "id": "create-canvas-here",
+          "text": "ここにキャンバスを作る"
+        },
+        {
+          "id": "annotate",
+          "text": "注釈…"
+        }
+      ]
+    },
+    {
+      "name": "range canvas created at ~10s for ~5s (fixed, origin user, empty)",
+      "ok": true,
+      "K": {
+        "id": "g-1",
+        "name": "キャンバス",
+        "at": 300,
+        "duration": 150,
+        "source": {
+          "kind": "group",
+          "canvas": {
+            "origin": "user",
+            "durationMode": "fixed"
+          }
+        },
+        "items": []
+      },
+      "frameTol": 4
+    },
+    {
+      "name": "empty canvas appears as 1 row with hatched band",
+      "ok": true,
+      "row": {
+        "text": "キャンバス",
+        "bg": "repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)"
+      },
+      "chip": {
+        "text": "キャンバス",
+        "bg": "repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)"
+      }
+    },
+    {
+      "name": "tree row header follows the rename without reopening",
+      "ok": true,
+      "row": "オープニング"
+    },
+    {
+      "name": "preview shows dashed frame + intent only inside the empty canvas",
+      "ok": true,
+      "at12": {
+        "display": "flex",
+        "text": "ここにタイトルを入れる",
+        "border": "dashed",
+        "rect": {
+          "w": 509,
+          "h": 286
+        },
+        "settledMs": 3
+      },
+      "at8": {
+        "display": "none",
+        "text": "ここにタイトルを入れる",
+        "border": "dashed",
+        "rect": {
+          "w": 0,
+          "h": 0
+        },
+        "settledMs": 5
+      }
+    },
+    {
+      "name": "empty canvas is a node in the preview selection tree",
+      "ok": true
+    },
+    {
+      "name": "inspector wrote name / intent / navy background",
+      "ok": true,
+      "canvas": {
+        "id": "g-1",
+        "name": "オープニング",
+        "at": 300,
+        "duration": 150,
+        "source": {
+          "kind": "group",
+          "canvas": {
+            "origin": "user",
+            "durationMode": "fixed",
+            "intent": "ここにタイトルを入れる",
+            "background": {
+              "type": "color",
+              "color": "#1B2A5C"
+            }
+          }
+        },
+        "items": []
+      },
+      "fields": [
+        "field:inspector-canvas-name",
+        "field:inspector-canvas-intent",
+        "field:inspector-canvas-duration",
+        "field:inspector-canvas-background-mode"
+      ]
+    },
+    {
+      "name": "placed caption put into canvas as caption item + excluded from the bag (no double draw)",
+      "ok": true,
+      "capChild": {
+        "id": "cap-c-0001",
+        "at": 30,
+        "duration": 45,
+        "source": {
+          "kind": "caption",
+          "path": "captions.json",
+          "id": "c-0001"
+        }
+      },
+      "bag": {
+        "id": "captions-exclusions",
+        "at": 0,
+        "duration": 375,
+        "source": {
+          "kind": "captions",
+          "path": "captions.json",
+          "exclude": [
+            "c-0001"
+          ]
+        },
+        "items": []
+      },
+      "menu": [
+        {
+          "id": "copy",
+          "text": "コピー"
+        },
+        {
+          "id": "cut",
+          "text": "切り取り"
+        },
+        {
+          "id": "paste",
+          "text": "貼り付け"
+        },
+        {
+          "id": "duplicate",
+          "text": "複製"
+        },
+        {
+          "id": "narrate",
+          "text": "音声を作る…"
+        },
+        {
+          "id": "annotate",
+          "text": "注釈…"
+        },
+        {
+          "id": "delete",
+          "text": "削除"
+        },
+        {
+          "id": "put-canvas",
+          "text": "キャンバスへ入れる"
+        }
+      ]
+    },
+    {
+      "name": "html put into canvas keeping absolute time and transform",
+      "ok": true,
+      "telIn": {
+        "item": {
+          "id": "tel1",
+          "at": 30,
+          "duration": 105,
+          "transform": {
+            "x": -250,
+            "y": -150,
+            "scale": 1,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/tag.html",
+            "params": {
+              "title": "テロップ"
+            }
+          }
+        },
+        "absAt": 330,
+        "parentId": "g-1",
+        "trackId": "f4"
+      },
+      "menu": [
+        {
+          "id": "copy",
+          "text": "コピー"
+        },
+        {
+          "id": "cut",
+          "text": "切り取り"
+        },
+        {
+          "id": "paste",
+          "text": "貼り付け"
+        },
+        {
+          "id": "duplicate",
+          "text": "複製"
+        },
+        {
+          "id": "split",
+          "text": "分割"
+        },
+        {
+          "id": "annotate",
+          "text": "注釈…"
+        },
+        {
+          "id": "delete",
+          "text": "削除"
+        },
+        {
+          "id": "put-canvas",
+          "text": "キャンバスへ入れる"
+        },
+        {
+          "id": "caption-attach",
+          "text": "字幕にひも付ける…"
+        }
+      ]
+    },
+    {
+      "name": "canvas with content = 1 row + ▸",
+      "ok": true,
+      "row": {
+        "id": "g-1",
+        "text": "▸オープニング · ここにタイトルを入れる",
+        "rect": {
+          "x": 320.59375,
+          "y": 600.1953125,
+          "width": 136,
+          "height": 48
+        }
+      }
+    },
+    {
+      "name": "caption inside the canvas is visible above the canvas background, drawn once",
+      "ok": true,
+      "text": "置いた文字",
+      "display": "block",
+      "onTop": true,
+      "hit": "akari-caption__line",
+      "count": 1
+    },
+    {
+      "name": "preview selection label is the canvas name, not the internal id",
+      "ok": true,
+      "label": "オープニング"
+    },
+    {
+      "name": "navy background record is drawn, below the html child",
+      "ok": true,
+      "bgRec": {
+        "id": "g-1:background",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": 36,
+          "y": 110,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgb(27, 42, 92)"
+      },
+      "telRec12": {
+        "id": "tel1",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": -63,
+          "y": 50,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      "hint": {
+        "display": "none",
+        "text": "",
+        "border": "dashed",
+        "rect": {
+          "w": 0,
+          "h": 0
+        }
+      }
+    },
+    {
+      "name": "canvas chip drag moves canvas to ~20s; children move with it (relative at unchanged)",
+      "ok": true,
+      "at": 599,
+      "tel": 30,
+      "frameTol": 4
+    },
+    {
+      "name": "right edge sets duration to ~3s; children unchanged",
+      "ok": true,
+      "duration": 90,
+      "tel": {
+        "id": "tel1",
+        "at": 30,
+        "duration": 105,
+        "transform": {
+          "x": -250,
+          "y": -150,
+          "scale": 1,
+          "rotate": 0
+        },
+        "source": {
+          "kind": "html",
+          "path": "overlays/tag.html",
+          "params": {
+            "title": "テロップ"
+          }
+        }
+      }
+    },
+    {
+      "name": "child part outside the shortened canvas range is not drawn",
+      "ok": true,
+      "inside": {
+        "id": "tel1",
+        "display": "block",
+        "visibility": "visible",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": -63,
+          "y": 50,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      "outside": {
+        "id": "tel1",
+        "display": "block",
+        "visibility": "hidden",
+        "opacity": "1",
+        "z": "5",
+        "rect": {
+          "x": -63,
+          "y": 50,
+          "w": 509,
+          "h": 286
+        },
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      "times": {
+        "kStart": 19.966666666666665,
+        "kEnd": 22.966666666666665,
+        "telStart": 20.966666666666665,
+        "telEnd": 24.466666666666665,
+        "inside": 21.966666666666665,
+        "outside": 23.716666666666665
+      }
+    },
+    {
+      "name": "take out keeps absolute time and transform",
+      "ok": true,
+      "out": {
+        "item": {
+          "id": "tel1",
+          "at": 629,
+          "duration": 105,
+          "transform": {
+            "x": -250,
+            "y": -150,
+            "scale": 1,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/tag.html",
+            "params": {
+              "title": "テロップ"
+            }
+          }
+        },
+        "absAt": 629,
+        "parentId": null,
+        "trackId": "v2"
+      },
+      "menu": [
+        {
+          "id": "copy",
+          "text": "コピー"
+        },
+        {
+          "id": "cut",
+          "text": "切り取り"
+        },
+        {
+          "id": "paste",
+          "text": "貼り付け"
+        },
+        {
+          "id": "duplicate",
+          "text": "複製"
+        },
+        {
+          "id": "detach",
+          "text": "キャンバスから出す"
+        },
+        {
+          "id": "select-parent",
+          "text": "親を選択"
+        },
+        {
+          "id": "annotate",
+          "text": "注釈…"
+        },
+        {
+          "id": "delete",
+          "text": "削除"
+        }
+      ]
+    },
+    {
+      "name": "on-screen position unchanged after take out",
+      "ok": true,
+      "telRectInside": {
+        "x": -63,
+        "y": 50,
+        "w": 509,
+        "h": 286
+      },
+      "telRectOut": {
+        "x": -63,
+        "y": 50,
+        "w": 509,
+        "h": 286
+      }
+    },
+    {
+      "name": "⌘Z undoes one operation at a time (take out, resize, move)",
+      "ok": true,
+      "undoResults": [
+        {
+          "back": 1,
+          "via": "cmd+z",
+          "equal": true
+        },
+        {
+          "back": 2,
+          "via": "cmd+z",
+          "equal": true
+        },
+        {
+          "back": 3,
+          "via": "cmd+z",
+          "equal": true
+        }
+      ]
+    },
+    {
+      "name": "reopen keeps edit.json and the canvas row",
+      "ok": true,
+      "rows": [
+        {
+          "id": "same-time:f4:25",
+          "text": "▸同じ時刻に 4 個",
+          "rect": {
+            "x": 320.59375,
+            "y": 738.1953125,
+            "width": 136,
+            "height": 48
+          }
+        },
+        {
+          "id": "g-1",
+          "text": "▾オープニング · ここにタイトルを入れる",
+          "rect": {
+            "x": 320.59375,
+            "y": 788.1953125,
+            "width": 136,
+            "height": 48
+          }
+        },
+        {
+          "id": "tel1",
+          "text": "tel1",
+          "rect": {
+            "x": 320.59375,
+            "y": 838.1953125,
+            "width": 136,
+            "height": 48
+          }
+        },
+        {
+          "id": "cap-c-0001",
+          "text": "cap-c-0001",
+          "rect": {
+            "x": 320.59375,
+            "y": 888.1953125,
+            "width": 136,
+            "height": 22
+          }
+        }
+      ]
+    },
+    {
+      "name": "fold row label has a single toggle (no doubled ▸)",
+      "ok": true,
+      "foldRowText": "▸同じ時刻に 4 個"
+    },
+    {
+      "name": "4 items at the same time fold to 「同じ時刻に 4 個 ▸」 and edit.json is unchanged",
+      "ok": true,
+      "foldInfo": [
+        {
+          "text": "同じ時刻に 4 個",
+          "id": "same-time:f4:25",
+          "x": 320.59375,
+          "y": 738.1953125,
+          "width": 136,
+          "height": 48
+        },
+        {
+          "text": "同じ時刻に 4 個",
+          "id": "same-time:f4:25",
+          "x": 777.046875,
+          "y": 767.6953125,
+          "width": 25.6328125,
+          "height": 48
+        }
+      ],
+      "hiddenMembers": [
+        "same1",
+        "same2",
+        "same3",
+        "same4"
+      ]
+    },
+    {
+      "name": "right-click 「キャンバスにする」 on the fold makes one canvas of 4 (times kept)",
+      "ok": true,
+      "foldCanvas": {
+        "id": "g-2",
+        "at": 750,
+        "duration": 60,
+        "source": {
+          "kind": "group",
+          "canvas": {
+            "origin": "user",
+            "durationMode": "fixed"
+          }
+        },
+        "items": [
+          {
+            "id": "same1",
+            "at": 0,
+            "duration": 60,
+            "transform": {
+              "x": -400,
+              "y": 200,
+              "scale": 1,
+              "rotate": 0
+            },
+            "source": {
+              "kind": "html",
+              "path": "overlays/tag.html",
+              "params": {
+                "title": "1"
+              }
+            }
+          },
+          {
+            "id": "same2",
+            "at": 0,
+            "duration": 60,
+            "transform": {
+              "x": -130,
+              "y": 200,
+              "scale": 1,
+              "rotate": 0
+            },
+            "source": {
+              "kind": "html",
+              "path": "overlays/tag.html",
+              "params": {
+                "title": "2"
+              }
+            }
+          },
+          {
+            "id": "same3",
+            "at": 0,
+            "duration": 60,
+            "transform": {
+              "x": 130,
+              "y": 200,
+              "scale": 1,
+              "rotate": 0
+            },
+            "source": {
+              "kind": "html",
+              "path": "overlays/tag.html",
+              "params": {
+                "title": "3"
+              }
+            }
+          },
+          {
+            "id": "same4",
+            "at": 0,
+            "duration": 60,
+            "transform": {
+              "x": 400,
+              "y": 200,
+              "scale": 1,
+              "rotate": 0
+            },
+            "source": {
+              "kind": "html",
+              "path": "overlays/tag.html",
+              "params": {
+                "title": "4"
+              }
+            }
+          }
+        ]
+      },
+      "sameAbs": [
+        750,
+        750,
+        750,
+        750
+      ],
+      "menu": [
+        {
+          "id": "canvas",
+          "text": "キャンバスにする"
+        },
+        {
+          "id": "toggle",
+          "text": "展開"
+        }
+      ]
+    },
+    {
+      "name": "「ここにキャンバスを作る」 makes a 5 s empty canvas at the playhead",
+      "ok": true,
+      "here": {
+        "id": "g-3",
+        "name": "キャンバス",
+        "at": 60,
+        "duration": 150,
+        "source": {
+          "kind": "group",
+          "canvas": {
+            "origin": "user",
+            "durationMode": "fixed"
+          }
+        },
+        "items": []
+      },
+      "menu": [
+        {
+          "id": "create-canvas-here",
+          "text": "ここにキャンバスを作る"
+        },
+        {
+          "id": "annotate",
+          "text": "注釈…"
+        }
+      ]
+    },
+    {
+      "name": "no 「group」/「グループ」 in tooltips / aria labels of the main window",
+      "ok": true,
+      "attrWords": []
+    },
+    {
+      "name": "no 「group」/「グループ」 in visible UI text (main window + preview)",
+      "ok": true,
+      "words": []
+    }
+  ],
+  "leftoverProcesses": 0,
+  "summary": {
+    "pass": 26,
+    "fail": 0
+  }
+}

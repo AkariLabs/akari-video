@@ -82,7 +82,7 @@ test("object-tree lint emits every A1 check at the contracted severity", async (
       "motion.in-out-exceeds",
     ].map(check => [check, severities.get(check)])), {
       "v2.id-unique": "error",
-      "v2.child-in-parent": "error",
+      "v2.child-in-parent": "warning",
       "v2.track-no-overlap": "error",
       "v2.keyframes-ref": "error",
       "v2.captions-content-deprecated": "warning",

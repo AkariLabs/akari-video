@@ -40,13 +40,13 @@ test('削除項目は常に danger: true を持つ', () => {
     }
 });
 
-test('木アイテムには出す・まとめる・ばらす・折りたたみ・親選択を既存項目の前へ足す', () => {
+test('木アイテムにはキャンバスの出し入れ・折りたたみ・親選択を既存項目の前へ足す', () => {
     const items = buildTimelineClipMenuItems('overlay', false, {
         canDetach: true, canGroup: true, canUngroup: true,
         canToggleCollapse: true, collapsed: false, hasParent: true
     });
     assert.deepEqual(items.map(item => item.label), [
-        'コピー', '切り取り', '貼り付け', '複製', '出す', 'まとめる', 'ばらす', '折りたたむ', '親を選択', '注釈…', '削除'
+        'コピー', '切り取り', '貼り付け', '複製', 'キャンバスから出す', 'キャンバスにする', 'キャンバスをほどく', '折りたたむ', '親を選択', '注釈…', '削除'
     ]);
 });
 

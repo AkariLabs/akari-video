@@ -1,4 +1,6 @@
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
+import { projectCanvasCaptionRows } from '../common/canvas-caption-projection';
+import { canvasCaptionZPlan } from '../common/canvas-caption-z';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
 import { installPreviewFrameCapture } from '../common/preview-frame-controller';
 import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
@@ -54,7 +56,7 @@ import {
     TRANSITION_VOCABULARY,
     TimelineSegment
 } from '@akari-video/edit-store';
-import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2, GenerationMetaV1 } from '@akari-video/edit-store';
+import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2, GenerationMetaV1, InternalEdit } from '@akari-video/edit-store';
 import type { CaptionRunEdit } from '@akari-video/edit-store';
 import type { PreviewItemWriteCommand, ReadableTransitionType } from '@akari-video/edit-store';
 import { applyAdjustBypass } from '../common/adjust-bypass';
@@ -165,7 +167,6 @@ import { buildPreviewContextMenuMessage, PREVIEW_Z_ORDER_MENU_ITEMS, previewGrou
 import {
     buildCaptionAnimatorSummaryFields,
     CaptionAnimatorSummary,
-    CaptionAnimatorSummaryInput,
     buildCutSummaryFields,
     buildLayerSummaryBase,
     ChromaKeySummary,
@@ -274,6 +275,7 @@ interface EditSummaryOverlay {
     opacity?: number;
     part?: string;
     parentId?: string;
+    role?: 'background';
     blend: string;
 }
 
@@ -681,6 +683,7 @@ interface PreviewSelectionNode {
     label: string;
     /** Composed output-space transform, used for a group translation write. */
     transform: OverlayTransform;
+    emptyCanvas?: { at: number; duration: number; intent?: string };
 }
 
 interface EditSummary {
@@ -724,7 +727,7 @@ interface PreviewModel {
     assetUrlByUri?: Map<string, string>;
     captionsUri?: URI;
     captions: AnimatedPreviewCaption[];
-    captionAnimatorInternal?: CaptionAnimatorSummaryInput;
+    captionAnimatorInternal?: InternalEdit;
     excludedCaptionIds?: string[];
     /**
      * まだソースが 1 つも宣言されていない edit.json（新規プロジェクト直後）。
@@ -965,7 +968,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewFallbackSourceUris?: Set<string>;
     akariPreviewCaptionsUri?: URI;
     akariPreviewExcludedCaptionIds?: Set<string>;
-    akariPreviewCaptionAnimatorInternal?: CaptionAnimatorSummaryInput;
+    akariPreviewCaptionAnimatorInternal?: InternalEdit;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewTrackedSuffixes?: Set<string>;
     akariPreviewMotionBagResources?: Set<string>;
@@ -1454,8 +1457,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             label: 'この位置に注釈'
         }));
         for (const [command, label, kind] of [
-            [GROUP_PREVIEW_COMMAND, 'まとめる', 'group'],
-            [UNGROUP_PREVIEW_COMMAND, 'ばらす', 'ungroup']
+            [GROUP_PREVIEW_COMMAND, 'キャンバスにする', 'group'],
+            [UNGROUP_PREVIEW_COMMAND, 'キャンバスをほどく', 'ungroup']
         ] as const) {
             this.lifecycleDisposables.push(this.commandRegistry.registerCommand(command, {
                 isVisible: (context?: typeof this.previewGroupMenuContext) =>
@@ -4083,13 +4086,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, widget.akariPreviewEditUri, 'output');
                 return;
             }
+            const baseCaptionRows = widget.akariPreviewExcludedCaptionIds?.size
+                ? loaded.captions.filter(caption => !widget.akariPreviewExcludedCaptionIds?.has(caption.id))
+                : loaded.captions;
+            const explicitCaptionRows = widget.akariPreviewCaptionAnimatorInternal
+                ? projectCanvasCaptionRows(widget.akariPreviewCaptionAnimatorInternal, loaded.captions) : [];
+            const captionRows = explicitCaptionRows.length ? [...baseCaptionRows, ...explicitCaptionRows] : baseCaptionRows;
             const captions = normalizePreviewCaptionClock(
-                loaded.captions,
+                captionRows,
                 this.previewCaptionTimelineSegments(
                     widget.akariPreviewSummary?.cuts ?? [],
                     widget.akariPreviewSummary?.output?.fps
                 )
-            ).filter(caption => !widget.akariPreviewExcludedCaptionIds?.has(caption.id));
+            );
             widget.sendMessage({ type: 'akari-preview-captions-update',
                 captions: buildCaptionAnimatorSummaryFields(captions, widget.akariPreviewCaptionAnimatorInternal) });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
@@ -4966,7 +4975,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             })();
             const internal = readPreviewInternalEdit(editText, loadedCaptions.captions.length > 0, anchorCaptions);
             const excludedCaptionIds = collectExcludedCaptionIds(internal);
-            const captions = loadedCaptions.captions.filter(caption => !excludedCaptionIds.has(caption.id));
+            const captions = [
+                ...loadedCaptions.captions.filter(caption => !excludedCaptionIds.has(caption.id)),
+                ...projectCanvasCaptionRows(internal, loadedCaptions.captions)
+            ];
             const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                 loadedCaptions.emphasisWords,
                 legacyEmphasisWords
@@ -5265,8 +5277,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const kind = item.source.kind;
                     if (kind === 'group') {
                         const children = item.children.flatMap(child => visit(child, item.id, world));
-                        return children.length ? [{ id: item.id, parentId, kind: 'group',
-                            label: String(item.declaration.name ?? item.id), transform: world }, ...children] : [];
+                        return [{ id: item.id, parentId, kind: 'group',
+                            label: typeof item.declaration.name === 'string' && item.declaration.name.trim()
+                                ? item.declaration.name : 'キャンバス', transform: world,
+                            ...(item.children.length === 0 ? { emptyCanvas: {
+                                at: item.at, duration: item.duration,
+                                ...(item.source.canvas?.intent ? { intent: item.source.canvas.intent } : {})
+                            } } : {}) }, ...children];
                     }
                     if (kind !== 'html') return [];
                     const reference = String(item.source.html ?? '');
@@ -5338,6 +5355,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     blend,
                     ...buildItemKeyframeSummaryFields(value as Record<string, unknown>),
                     ...(typeof value?.part === 'string' ? { part: value.part } : {}),
+                    ...(value?.role === 'background' ? { role: 'background' as const } : {}),
                     ...(typeof value?.parentId === 'string' ? { parentId: value.parentId } : {})
                 });
             });
@@ -9193,6 +9211,7 @@ body { display: grid; place-items: center; padding: 32px; }
             }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 if (Number.isFinite(time)) contextMenuTimelineT = Math.max(0, time);
+                window.akari.updateEmptyCanvasHint?.(time);
                 const now = performance.now();
                 if (!immediate && now - lastPlaybackTickAt < 50) return;
                 lastPlaybackTickAt = now;
@@ -11022,6 +11041,7 @@ body { display: grid; place-items: center; padding: 32px; }
         return `(() => {
             const initial = window.__akariPreview;
             const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
+            const canvasCaptionZPlanFn = (${canvasCaptionZPlan.toString()});
             const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});
             const captionRunSelectionRangeFn = (${captionRunSelectionRange.toString()});
             const captionRunToolbarPlacementFn = (${captionRunToolbarPlacement.toString()});
@@ -11122,6 +11142,29 @@ body { display: grid; place-items: center; padding: 32px; }
             const zoomMinimapViewport = document.getElementById('zoom-minimap-viewport');
             const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
+            const emptyCanvasHint = document.createElement('div');
+            emptyCanvasHint.dataset.akariUi = 'preview-empty-canvas';
+            Object.assign(emptyCanvasHint.style, {
+                position: 'absolute', inset: '0', boxSizing: 'border-box', border: '4px dashed var(--theia-focusBorder, #89a7d4)',
+                display: 'none', alignItems: 'center', justifyContent: 'center', padding: '36px',
+                color: 'var(--theia-foreground, #fff)', background: 'rgba(16,24,40,.18)',
+                fontSize: '48px', fontWeight: '600', lineHeight: '1.3', textShadow: '0 2px 8px rgba(0,0,0,.9)',
+                textAlign: 'center', pointerEvents: 'none', zIndex: '9999'
+            });
+            const updateEmptyCanvasHint = time => {
+                if (!Number.isFinite(time)) return;
+                const active = (summary.tree || []).find(node => node.emptyCanvas
+                    && time >= node.emptyCanvas.at && time < node.emptyCanvas.at + node.emptyCanvas.duration);
+                emptyCanvasHint.style.fontSize = Math.max(36, Math.round(Math.min(
+                    Number(summary.output?.width) || 1280, Number(summary.output?.height) || 720
+                ) * 0.065)) + 'px';
+                emptyCanvasHint.style.display = active ? 'flex' : 'none';
+                if (active) {
+                    emptyCanvasHint.dataset.akariCanvasId = active.id;
+                    emptyCanvasHint.textContent = active.emptyCanvas.intent || active.label;
+                } else delete emptyCanvasHint.dataset.akariCanvasId;
+            };
+            window.akari.updateEmptyCanvasHint = updateEmptyCanvasHint;
             const penLayer = document.getElementById('pen-layer');
             const transitionPlate = document.getElementById('transition-plate');
             const transitionFallbackLabel = document.getElementById('transition-fallback-label');
@@ -15247,6 +15290,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? zForTrack(summary.captionTrackId) : -1;
                 captionLayer.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
             };
+            window.akari.updateCanvasCaptionLayer = () => {
+                const plan = canvasCaptionZPlanFn([...captionRows.values()].map(row => row.caption),
+                    summary.captionTrackId, zForTrack);
+                captionLayer.style.zIndex = plan.split ? 'auto' : plan.layerZ >= 0 ? String(plan.layerZ) : '';
+                for (const row of captionRows.values()) {
+                    const z = plan.plateZ.get(row.caption.id);
+                    row.plate.style.zIndex = plan.split && z !== undefined && z >= 0 ? String(z) : '';
+                }
+            };
             // source↔output 写像の正本は packages/edit-store/src/timeline-map.ts。webview は
             // sandbox 制約で import できないため、共有カーネル webview-kernel.js（IIFE バンドル、
             // global: AkariEditKernel）をインライン注入して共有する（overlay-runtime と同経路）。
@@ -15868,9 +15920,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 const endSafetyMargin = Math.min(2 / fps, seekableDuration);
                 const seekableMax = Math.max(0, seekableDuration - endSafetyMargin);
                 outputTime = clamp(Math.max(0, timelineValue), 0, seekableMax);
+                window.akari.updateEmptyCanvasHint?.(outputTime);
                 window.akari.reviewTransport({ type: 'seek', from: previousOutputTime, to: outputTime });
                 if (window.akari.frameEngineClock) {
                     outputTime = window.akari.frameEngineClock.seek(outputTime, isPlaying);
+                    window.akari.updateEmptyCanvasHint?.(outputTime);
                     return;
                 }
                 const mapped = timelineToSource(outputTime);
@@ -16606,6 +16660,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     renderCaptionRow(caption, row);
                 }
+                window.akari.updateCanvasCaptionLayer?.();
                 if (requestedCutId !== undefined) updateCutSelectBox();
                 if (selectedCaptionId || selectedCaptionIds.size > 0) updateCaptionSelectBox();
             };
@@ -16613,6 +16668,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const time = event.detail?.time;
                 if (!Number.isFinite(time)) return;
                 outputTime = time;
+                window.akari.updateEmptyCanvasHint?.(outputTime);
                 renderCaption();
                 applyRequestedOverlaySelection();
             });
@@ -18425,6 +18481,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     ? segments[activeSegmentIndex].cutIndex : null;
                 summary = nextSummary;
                 window.akari.state.summary = summary;
+                window.akari.updateEmptyCanvasHint?.(outputTime);
                 window.akari.runtime.applyAxisSummary?.(summary);
                 refreshAdjustCssApproximation();
                 refreshIndicators();
@@ -18484,6 +18541,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     // mount owns the stage; restore the shell's persistent plates.
                     stage.append(transitionPlate, transitionFallbackLabel, captionLayer);
                     applyIncrementalModel(summary);
+                    stage.append(emptyCanvasHint);
                 }).catch(error => console.warn('[akari-preview] bag expansion failed', error));
             });
             // END preview bag response
@@ -19018,10 +19076,12 @@ body { display: grid; place-items: center; padding: 32px; }
             Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();
                 stage.append(transitionPlate, transitionFallbackLabel, captionLayer);
+                stage.append(emptyCanvasHint);
                 refreshIndicators();
                 rebuildSegments();
                 prepareScrubAudioSources();
                 applyInitialPosition();
+                window.akari.updateEmptyCanvasHint?.(outputTime);
                 restoreInitialPlayback();
                 setZoom(1);
                 tick();

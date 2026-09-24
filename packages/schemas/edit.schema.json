@@ -1566,7 +1566,29 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["kind"],
-      "properties": { "kind": { "const": "group" } }
+      "properties": {
+        "kind": { "const": "group" },
+        "canvas": {
+          "type": "object", "additionalProperties": false,
+          "required": ["origin", "durationMode"],
+          "properties": {
+            "origin": { "enum": ["user", "plan"] },
+            "durationMode": { "const": "fixed" },
+            "intent": { "type": "string" },
+            "background": {
+              "type": "object", "additionalProperties": false, "required": ["type"],
+              "properties": {
+                "type": { "enum": ["none", "color"] },
+                "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+              },
+              "allOf": [
+                { "if": { "properties": { "type": { "const": "color" } } }, "then": { "required": ["color"] } },
+                { "if": { "properties": { "type": { "const": "none" } } }, "then": { "not": { "required": ["color"] } } }
+              ]
+            }
+          }
+        }
+      }
     },
     "itemSourceCaptionsV2": {
       "type": "object",

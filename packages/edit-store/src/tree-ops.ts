@@ -1,5 +1,5 @@
 import { effectiveScale, normalizeTransform } from './transform';
-import type { EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
+import type { CanvasV0, EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
 import {
     type AnchorCaption,
     type ItemAnchorV2,
@@ -26,6 +26,15 @@ export interface MoveTarget {
 export interface GroupResult {
     group: ProjectItemV2;
     changedOrderIds: string[];
+}
+
+export interface CreateCanvasOptions {
+    at: number;
+    duration: number;
+    trackIndex?: number;
+    name?: string;
+    intent?: string;
+    background?: CanvasV0['background'];
 }
 
 export interface ProjectedItemTiming {
@@ -56,7 +65,7 @@ export type EditableEditV2 = Omit<EditV2, 'tracks'> & {
     insert(target: string, item: ProjectItemV2, index?: number): ProjectItemV2;
     remove(id: string): ProjectItemV2;
     detach(id: string, target: { track: 'above' | string }): ProjectItemV2;
-    group(ids: string[], options?: { name?: string }): GroupResult;
+    group(ids: string[], options?: { name?: string; canvas?: boolean }): GroupResult;
     ungroup(id: string): ProjectItemV2[];
 };
 
@@ -84,7 +93,7 @@ export function attachEditHelpers(edit: EditableEditV2): void {
         remove: { enumerable: false, value: (id: string) => removeItem(edit, id) },
         detach: { enumerable: false, value: (id: string, target: { track: 'above' | string }) =>
             detachItem(edit, id, target) },
-        group: { enumerable: false, value: (ids: string[], options?: { name?: string }) =>
+        group: { enumerable: false, value: (ids: string[], options?: { name?: string; canvas?: boolean }) =>
             groupItems(edit, ids, options) },
         ungroup: { enumerable: false, value: (id: string) => ungroupItem(edit, id) },
     });
@@ -258,24 +267,117 @@ export function moveItem(edit: EditableEditV2, id: string, target: MoveTarget): 
         throw new Error('move の置き先は track または parent のどちらか一方で指定してください。');
     }
     const source = requireLocation(edit, id);
+    const worldAt = absoluteAt(source);
+    const worldTransform = composeTransforms(worldTransformOfAncestors(source.ancestors), source.item.transform);
+    const worldOpacity = opacityOfAncestors(source.ancestors) * (source.item.opacity ?? 1);
     let destinationItems: MutableItem[];
     let destinationTrack = source.track;
+    let destinationParent: ItemLocation | undefined;
     if (target.parent !== undefined) {
-        const parent = requireLocation(edit, target.parent).item;
+        destinationParent = requireLocation(edit, target.parent);
+        const parent = destinationParent.item;
         if (parent.id === id || containsItem(source.item, parent.id)) throw new Error('自分自身の子へ move できません。');
+        if (worldAt < absoluteAt(destinationParent)) throw new Error('キャンバスより前の item は入れられません。');
         destinationItems = ensureChildren(parent);
     } else {
         destinationTrack = requireTrack(edit, target.track as string);
         destinationItems = requireTrackItems(destinationTrack);
     }
     source.items.splice(source.index, 1);
+    if (source.parent?.source.kind === 'captions' && source.item.source.kind === 'caption') {
+        const excluded = source.parent.source.exclude ?? [];
+        if (!excluded.includes(source.item.source.id)) source.parent.source.exclude = [...excluded, source.item.source.id];
+    }
     if (target.track !== undefined && overlapsAny(source.item, destinationItems)) {
         destinationTrack = createTrackAbove(edit, destinationTrack);
         destinationItems = requireTrackItems(destinationTrack);
     }
-    const index = insertionIndex(target.index, destinationItems.length);
+    const inferredIndex = target.index === undefined && destinationParent
+        && !source.parent && (source.trackIndex < destinationParent.trackIndex
+            || source.trackIndex === destinationParent.trackIndex && source.index < destinationParent.index)
+        ? 0 : target.index;
+    const index = insertionIndex(inferredIndex, destinationItems.length);
+    const parentTransform = destinationParent
+        ? composeTransforms(worldTransformOfAncestors(destinationParent.ancestors), destinationParent.item.transform)
+        : undefined;
+    const parentOpacity = destinationParent
+        ? opacityOfAncestors([...destinationParent.ancestors, destinationParent.item]) : 1;
+    source.item.at = worldAt - (destinationParent ? absoluteAt(destinationParent) : 0);
+    assignTransform(source.item, relativeTransform(parentTransform, worldTransform));
+    assignOpacity(source.item, parentOpacity === 0 ? worldOpacity : worldOpacity / parentOpacity);
     destinationItems.splice(index, 0, source.item);
     return source.item;
+}
+
+/** 固定尺の空のキャンバスを visual 段へ追加する。重なれば新しい段を作る。 */
+export function createCanvas(edit: EditableEditV2, options: CreateCanvasOptions): ProjectItemV2 {
+    if (!Number.isInteger(options.at) || options.at < 0 || !Number.isInteger(options.duration) || options.duration <= 0) {
+        throw new Error('キャンバスの位置と尺はフレーム単位の正の整数で指定してください。');
+    }
+    const canvas: CanvasV0 = { origin: 'user', durationMode: 'fixed',
+        ...(options.intent === undefined ? {} : { intent: options.intent }),
+        ...(options.background === undefined ? {} : { background: options.background }) };
+    const item: MutableItem = { id: nextGroupId(edit), name: options.name ?? 'キャンバス',
+        at: options.at, duration: options.duration, source: { kind: 'group', canvas }, items: [] } as MutableItem;
+    const visual = tracksOf(edit).filter(track => track.lane === 'visual');
+    let track = options.trackIndex === undefined ? visual[visual.length - 1] : visual[options.trackIndex];
+    if (!track) track = createTrackAt(edit, 'visual', tracksOf(edit).length);
+    if (overlapsAny(item, requireTrackItems(track))) track = createTrackAbove(edit, track);
+    requireTrackItems(track).push(item);
+    return item;
+}
+
+/** 明示的な出し入れ。各 item の時刻・合成済み変形・不透明度を保つ。 */
+export function putIntoCanvas(edit: EditableEditV2, itemIds: readonly string[], canvasId: string): ProjectItemV2[] {
+    const canvas = requireLocation(edit, canvasId).item;
+    if (canvas.source.kind !== 'group') throw new Error('置き先がキャンバスではありません。');
+    return [...new Set(itemIds)].map(id => moveItem(edit, id, { parent: canvasId }));
+}
+
+/** 置いた字幕を明示子へ写し、元の字幕袋からの投影だけを除外する。 */
+export function putPlacedCaptionIntoCanvas(
+    edit: EditableEditV2, caption: { id: string; at: number; duration: number }, canvasId: string
+): ProjectItemV2 {
+    const canvas = requireLocation(edit, canvasId);
+    if (canvas.item.source.kind !== 'group') throw new Error('置き先がキャンバスではありません。');
+    const existing = allLocations(edit).find(location => location.item.source.kind === 'caption'
+        && location.item.source.id === caption.id);
+    if (existing) return moveItem(edit, existing.item.id, { parent: canvasId });
+    if (!Number.isInteger(caption.at) || !Number.isInteger(caption.duration) || caption.duration <= 0) {
+        throw new Error('字幕の時刻が不正です。');
+    }
+    if (caption.at < absoluteAt(canvas)) throw new Error('キャンバスより前の字幕は入れられません。');
+    let bag = allLocations(edit).find(location => location.item.source.kind === 'captions'
+        && location.item.source.path === 'captions.json')?.item;
+    if (!bag) {
+        const visual = tracksOf(edit).find(track => track.lane === 'visual');
+        const bagTrack = visual ? createTrackAbove(edit, visual)
+            : createTrackAt(edit, 'visual', tracksOf(edit).length);
+        let id = 'captions-exclusions';
+        let serial = 1;
+        while (locate(edit, id)) id = `captions-exclusions-${serial++}`;
+        bag = { id, at: 0, duration: Math.max(1, caption.at + caption.duration),
+            source: { kind: 'captions', path: 'captions.json', exclude: [] }, items: [] } as MutableItem;
+        requireTrackItems(bagTrack).push(bag);
+    }
+    if (bag.duration < caption.at + caption.duration) bag.duration = caption.at + caption.duration;
+    const exclude = bag.source.kind === 'captions' ? bag.source.exclude ?? [] : [];
+    if (bag.source.kind === 'captions' && !exclude.includes(caption.id)) bag.source.exclude = [...exclude, caption.id];
+    let id = `cap-${caption.id}`;
+    let serial = 1;
+    while (locate(edit, id)) id = `cap-${caption.id}-${serial++}`;
+    const item = { id, at: caption.at - absoluteAt(canvas), duration: caption.duration,
+        source: { kind: 'caption', path: 'captions.json', id: caption.id } } as MutableItem;
+    ensureChildren(canvas.item).push(item);
+    return item;
+}
+
+export function takeOutOfCanvas(edit: EditableEditV2, itemIds: readonly string[]): ProjectItemV2[] {
+    return [...new Set(itemIds)].map(id => {
+        const location = requireLocation(edit, id);
+        if (location.parent?.source.kind !== 'group') throw new Error('キャンバスの中身ではありません。');
+        return detachItem(edit, id, { track: 'above' });
+    });
 }
 
 export function insertItem(edit: EditableEditV2, target: string, item: MutableItem, index?: number): ProjectItemV2 {
@@ -418,7 +520,7 @@ export function filterCaptionRootByExcludedIds<T>(root: T, excluded: ReadonlySet
     return root;
 }
 
-export function groupItems(edit: EditableEditV2, ids: string[], options: { name?: string } = {}): GroupResult {
+export function groupItems(edit: EditableEditV2, ids: string[], options: { name?: string; canvas?: boolean } = {}): GroupResult {
     const uniqueIds = [...new Set(ids)];
     if (uniqueIds.length < 2 || uniqueIds.length !== ids.length) {
         throw new Error('group は重複しない 2 個以上の id を必要とします。');
@@ -440,7 +542,7 @@ export function groupItems(edit: EditableEditV2, ids: string[], options: { name?
         ...(options.name === undefined ? {} : { name: options.name }),
         at: minimumAt,
         duration: maximumEnd - minimumAt,
-        source: { kind: 'group' },
+        source: { kind: 'group', ...(options.canvas ? { canvas: { origin: 'user', durationMode: 'fixed' } } : {}) },
         items: ordered.map(location => ({ ...location.item, at: location.item.at - minimumAt }))
     } as MutableItem;
     const changedOrderIds = inParent ? [] : changedZOrderIds(edit, ordered, minimumAt, maximumEnd);
@@ -613,7 +715,7 @@ export function composeTransforms(parent?: TransformV2, child?: TransformV2): Tr
 
 export function relativeTransform(parent: TransformV2 | undefined, world: TransformV2 | undefined): TransformV2 | undefined {
     if (parent === undefined) return world === undefined ? undefined : normalizeTransform(world);
-    if (world === undefined) return undefined;
+    world ??= {};
     const scale = parent.scale ?? 1;
     const radians = -(parent.rotate ?? 0) * Math.PI / 180;
     const dx = (world.x ?? 0) - (parent.x ?? 0);

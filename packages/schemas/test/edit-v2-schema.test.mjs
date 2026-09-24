@@ -15,6 +15,23 @@ function fixture(name) {
   return JSON.parse(readFileSync(join(examplesRoot, name, "edit.json"), "utf8"));
 }
 
+test('キャンバス v0 は空でも有効で、背景色と性質を閉じて検証する', () => {
+  const value = fixture('edit-v2-valid');
+  const canvas = { id: 'canvas-1', name: '導入', at: 300, duration: 150,
+    source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed', intent: '導入',
+      background: { type: 'color', color: '#142644' } } }, items: [] };
+  value.tracks[3].items.push(canvas);
+  assert.equal(validate(value), true, JSON.stringify(validate.errors));
+  for (const change of [
+    { durationMode: 'content' }, { origin: 'automatic' }, { background: { type: 'color', color: 'navy' } },
+    { background: { type: 'none', color: '#142644' } }
+  ]) {
+    const bad = structuredClone(value);
+    Object.assign(bad.tracks[3].items.at(-1).source.canvas, change);
+    assert.equal(validate(bad), false, JSON.stringify(change));
+  }
+});
+
 test("track muted accepts booleans and rejects other types in both items and content branches", () => {
   for (const trackIndex of [0, 3, 4]) {
     for (const muted of [true, false, 1, "yes", null]) {

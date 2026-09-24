@@ -16,6 +16,22 @@ test('summary tree retains group ancestors and bag identities only for overlay l
   assert.match(treeSource, /projectBagChildren\(item, parts\)/u);
   assert.match(treeSource, /visit\(child as TreeItem, item\.id, parentTransform\)/u);
 });
+test('空のキャンバスも選択の木に残り、プレビューだけに意図を示す', () => {
+  assert.match(treeSource, /return \[\{ id: item\.id, parentId, kind: 'group'/u);
+  assert.match(treeSource, /item\.children\.length === 0 \? \{ emptyCanvas:/u);
+  assert.match(handler, /dataSet|dataset\.akariUi = 'preview-empty-canvas'/u);
+  assert.match(handler, /emptyCanvasHint\.textContent = active\.emptyCanvas\.intent \|\| active\.label/u);
+  assert.match(handler, /value\?\.role === 'background' \? \{ role: 'background' as const \}/u);
+  assert.match(handler, /projectCanvasCaptionRows\(internal, loadedCaptions\.captions\)/u);
+  assert.match(handler, /projectCanvasCaptionRows\(widget\.akariPreviewCaptionAnimatorInternal, loaded\.captions\)/u);
+  const tick = handler.slice(handler.indexOf('const tick = (immediatePlaybackTick = false) =>'),
+    handler.indexOf('const runTickGuarded =', handler.indexOf('const tick = (immediatePlaybackTick = false) =>')));
+  assert.doesNotMatch(tick, /updateEmptyCanvasHint/u);
+  assert.match(handler, /window\.akari\.updateEmptyCanvasHint\?\.\(time\)/u);
+  assert.ok((handler.match(/window\.akari\.updateEmptyCanvasHint\?\.\(outputTime\)/gu) ?? []).length >= 4);
+  assert.match(handler, /label: typeof item\.declaration\.name === 'string' && item\.declaration\.name\.trim\(\)/u);
+  assert.match(handler, /: 'キャンバス', transform: world/u);
+});
 test('summary preserves shared bag override geometry and copies it to selection nodes', () => {
   assert.match(treeSource, /const projectedOverlays = expandBagOverlays\(internal,/u);
   assert.match(treeSource, /transform: \{ \.\.\.overlay\.transform \}/u);

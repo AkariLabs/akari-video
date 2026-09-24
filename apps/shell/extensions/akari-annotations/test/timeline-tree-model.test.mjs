@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   applyTimelineCollapsedRows,
   buildTimelineTreeRows,
+  foldSameTimeRows,
   childRow,
   parentRow,
   visibleTimelineTreeRows,
@@ -32,6 +33,51 @@ test('袋は通常ヘッダ行を増やさず、全 item 索引では写しと�
   assert.deepEqual(rows.map(row => row.depth), [0, 1, 1, 1]);
   assert.equal(childRow(rows, 'bag').id, 'bag#A');
   assert.equal(parentRow(rows, 'bag#B').id, 'bag');
+});
+
+test('空のキャンバスは通常ヘッダに 1 行残る', () => {
+  const canvas = internalItem('g-empty', 10, 5, { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } });
+  const rows = buildTimelineTreeRows([{ id: 'v1', items: [canvas] }]);
+  assert.deepEqual(rows.map(row => [row.id, row.hasChildren]), [['g-empty', false]]);
+  assert.deepEqual(visibleTimelineTreeRows(rows).map(row => row.id), ['g-empty']);
+});
+
+test('同じ時刻の 4 個は表示だけ畳み、入力データを変更しない', () => {
+  const items = Array.from({ length: 4 }, (_, index) =>
+    internalItem(`i${index}`, 10, 3, { kind: 'filter', filter: {} }));
+  const original = structuredClone(items);
+  const expanded = buildTimelineTreeRows([{ id: 'v1', items }], { includeAllItems: true });
+  const folded = foldSameTimeRows(expanded);
+  assert.deepEqual(folded[0].memberIds, ['i0', 'i1', 'i2', 'i3']);
+  assert.equal(folded[0].label, '同じ時刻に 4 個');
+  assert.deepEqual(visibleTimelineTreeRows(applyTimelineCollapsedRows(folded, new Set([folded[0].id]))).map(row => row.id), [folded[0].id]);
+  assert.deepEqual(items, original);
+  assert.deepEqual(expanded.map(row => row.id), ['i0', 'i1', 'i2', 'i3']);
+});
+
+test('別々の段の同時刻 4 個を最上段へ畳み、全尺の本編を除外する', () => {
+  const full = internalItem('main', 0, 30, { kind: 'media' });
+  const layers = Array.from({ length: 4 }, (_, index) => ({ id: `f${index}`, items: [
+    internalItem(`h${index}`, 0, 2, { kind: 'html', html: `${index}.html` })
+  ] }));
+  const rows = buildTimelineTreeRows([{ id: 'main-track', items: [full] }, ...layers], { includeAllItems: true });
+  const before = structuredClone(rows);
+  const folded = foldSameTimeRows(rows);
+  assert.equal(folded[0].id, 'main');
+  assert.equal(folded[1].trackId, 'f3');
+  assert.deepEqual(folded[1].memberIds, ['h0', 'h1', 'h2', 'h3']);
+  assert.deepEqual(visibleTimelineTreeRows(applyTimelineCollapsedRows(folded, new Set([folded[1].id]))).map(row => row.id), [folded[1].id]);
+  assert.deepEqual(rows, before);
+});
+
+test('25 秒に別段で置いた 4 個も 1 行に畳み、展開で元へ戻る', () => {
+  const tracks = Array.from({ length: 4 }, (_, index) => ({ id: `f${index}`, items: [
+    internalItem(`h${index}`, 25, 2, { kind: 'html', html: `${index}.html` })
+  ] }));
+  const rows = foldSameTimeRows(buildTimelineTreeRows(tracks, { includeAllItems: true }));
+  assert.deepEqual(visibleTimelineTreeRows(applyTimelineCollapsedRows(rows, new Set([rows[0].id]))).map(row => row.id), [rows[0].id]);
+  assert.deepEqual(visibleTimelineTreeRows(applyTimelineCollapsedRows(rows, new Set())).map(row => row.id),
+    ['same-time:f3:25', 'h0', 'h1', 'h2', 'h3']);
 });
 
 test('折りたたむと親 1 行だけになり、子の位置を tick に保つ', () => {
