@@ -9,6 +9,16 @@ export interface AiTranscribeTarget {
     atSeconds: number;
 }
 
+export interface AiTranscribeEngine {
+    id: string;
+    label: string;
+    place: string;
+    price: string;
+    availability: { state: 'available' | 'needs' | 'unavailable'; label: string };
+    hourlyUsd: number;
+    default?: true;
+}
+
 type Snapshot = NonNullable<TimelineSelectionModel['snapshot']>;
 
 /** Resolve source IDs against edit.json without asking the timeline widget to change its snapshot. */
@@ -53,6 +63,14 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
     target?: AiTranscribeTarget;
     summary: TranscriptSummary;
     running: boolean;
+    engines?: AiTranscribeEngine[];
+    engineError?: string;
+    selectedBackend?: string;
+    onSelectBackend?: (backend: string) => void;
+    redo?: boolean;
+    onRedo?: () => void;
+    confirm?: (message: string) => Promise<boolean>;
+    mediaDuration?: number;
     commands: Pick<CommandService, 'executeCommand'>;
     onDialogResult: (result: 'opened' | 'running' | 'cancelled') => void;
 }): void {
@@ -79,12 +97,27 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
         element.addEventListener('click', action);
         return element;
     };
+    const engines = options.engines;
+    const selectable = engines?.filter(engine => engine.availability.state !== 'unavailable') ?? [];
+    const preferred = engines?.find(engine => engine.default && engine.availability.state !== 'unavailable');
+    const selected = selectable.find(engine => engine.id === options.selectedBackend) ?? preferred ?? selectable[0];
     const dialog = async (): Promise<void> => {
+        if (!selected) return;
+        if (selected.hourlyUsd > 0) {
+            const duration = [options.mediaDuration, target.duration].find(value =>
+                typeof value === 'number' && Number.isFinite(value) && value > 0);
+            const cost = duration === undefined
+                ? `$${selected.hourlyUsd.toFixed(2)} / 時（尺未取得）`
+                : `$${(duration * selected.hourlyUsd / 3600).toFixed(4)}（長さ ${duration.toFixed(1)} 秒 × $${selected.hourlyUsd.toFixed(2)} / 時）`;
+            const approved = await options.confirm?.(`${selected.label} に音声を送ります。約 ${cost}`);
+            if (!approved) return;
+        }
         const result = await options.commands.executeCommand<'opened' | 'running' | 'cancelled'>(
-            'akari.transcribe.openDialog', { projectRoot: options.projectRoot, relativePath: target.relativePath });
+            'akari.transcribe.openDialog', { projectRoot: options.projectRoot, relativePath: target.relativePath,
+                backend: selected.id, autoStart: true });
         options.onDialogResult(result);
     };
-    if (options.summary.state === 'done') {
+    if (options.summary.state === 'done' && !options.redo) {
         const heading = document.createElement('h4');
         heading.className = 'akari-inspector-ai-transcribe-status';
         heading.textContent = `文字起こし済み · ${options.summary.total} 行`;
@@ -107,14 +140,55 @@ export function appendAiTranscribePanel(parent: HTMLElement, options: {
         panel.appendChild(button('台本で開く', () => {
             void options.commands.executeCommand('akari.daihon.open', { atSeconds: target.atSeconds });
         }));
-        panel.appendChild(button('やり直す', () => { void dialog(); }));
+        panel.appendChild(button('やり直す', () => options.onRedo?.()));
     } else if (options.running) {
         const status = document.createElement('p');
         status.className = 'akari-inspector-ai-transcribe-status';
         status.textContent = '文字起こし中です';
         panel.appendChild(status);
     } else {
-        panel.appendChild(button('文字起こしする', () => { void dialog(); }));
+        if (engines === undefined) {
+            const status = document.createElement('p');
+            status.className = 'akari-inspector-ai-transcribe-status';
+            status.textContent = '確認中…';
+            panel.appendChild(status);
+        } else {
+            if (options.engineError) {
+                const reason = document.createElement('p');
+                reason.className = 'akari-inspector-ai-transcribe-reason';
+                reason.textContent = options.engineError;
+                panel.appendChild(reason);
+            }
+            const list = document.createElement('div');
+            list.className = 'akari-inspector-ai-transcribe-engines';
+            for (const engine of engines) {
+                const row = document.createElement('label');
+                row.className = 'akari-inspector-ai-transcribe-engine';
+                row.setAttribute('data-akari-inspector-ai-transcribe-engine', engine.id);
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'akari-inspector-ai-transcribe-engine';
+                radio.value = engine.id;
+                radio.checked = selected?.id === engine.id;
+                radio.disabled = engine.availability.state === 'unavailable';
+                radio.addEventListener('change', () => { if (!radio.disabled) options.onSelectBackend?.(engine.id); });
+                const name = document.createElement('strong');
+                name.textContent = engine.label;
+                const meta = document.createElement('span');
+                meta.className = 'akari-inspector-ai-transcribe-meta';
+                meta.textContent = `${engine.place} · ${engine.price}`;
+                const badge = document.createElement('span');
+                badge.className = 'akari-inspector-ai-transcribe-availability';
+                badge.setAttribute('data-akari-inspector-ai-transcribe-availability', engine.availability.state);
+                badge.textContent = engine.availability.label;
+                row.append(radio, name, meta, badge);
+                list.appendChild(row);
+            }
+            panel.appendChild(list);
+            const start = button('文字起こしする', () => { void dialog(); });
+            start.disabled = !selected;
+            panel.appendChild(start);
+        }
     }
     parent.appendChild(panel);
 }

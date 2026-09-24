@@ -134,3 +134,31 @@ export function transcribeEngineAvailability(backend: string, tools: readonly Tr
     }
     return needs(['利用条件の確認が必要']);
 }
+
+export interface TranscribeEngineItem {
+    id: string;
+    label: string;
+    place: string;
+    price: string;
+    availability: { state: 'available' | 'needs' | 'unavailable'; label: string };
+    hourlyUsd: number;
+    default?: true;
+}
+
+export function transcribeEngineList(cards: readonly { id: string; label: string; place: string; hourlyUsd: number }[],
+    tools: readonly TranscribeToolStatus[], connections: readonly TranscribeConnectionStatus[],
+    preferredBackend: string): TranscribeEngineItem[] {
+    const preferred = initialEngineSelection(preferredBackend, []).backend;
+    const known = preferred === 'auto' || cards.some(card => card.id === preferred);
+    const items: TranscribeEngineItem[] = [{ id: 'auto', label: 'おまかせ（ローカル優先）', place: 'ローカル優先', price: '無料',
+        availability: { state: 'available', label: '使える' }, hourlyUsd: 0, ...(!known || preferred === 'auto' ? { default: true as const } : {}) }];
+    for (const card of cards) {
+        const availability = transcribeEngineAvailability(card.id, tools, connections);
+        items.push({ id: card.id, label: card.label, place: card.place,
+            price: card.hourlyUsd ? `$${card.hourlyUsd.toFixed(2)} / 時` : '無料',
+            availability: { state: availability.state === 'available' ? 'available'
+                : availability.state === 'needs' ? 'needs' : 'unavailable', label: availability.label },
+            hourlyUsd: card.hourlyUsd, ...(card.id === preferred ? { default: true as const } : {}) });
+    }
+    return items;
+}

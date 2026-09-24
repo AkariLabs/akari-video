@@ -1,0 +1,209 @@
+{
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "transcription RPC blocked before dialog",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "engine inventory",
+      "passed": true,
+      "measured": [
+        {
+          "id": "auto",
+          "disabled": false,
+          "state": "available"
+        },
+        {
+          "id": "speech-analyzer",
+          "disabled": false,
+          "state": "available"
+        },
+        {
+          "id": "whisper-cpp",
+          "disabled": false,
+          "state": "available"
+        },
+        {
+          "id": "cloud:scribe",
+          "disabled": false,
+          "state": "needs"
+        },
+        {
+          "id": "cloud:groq",
+          "disabled": false,
+          "state": "needs"
+        }
+      ]
+    },
+    {
+      "name": "unavailable engines disabled",
+      "passed": true,
+      "measured": [
+        {
+          "id": "auto",
+          "disabled": false,
+          "state": "available"
+        },
+        {
+          "id": "speech-analyzer",
+          "disabled": false,
+          "state": "available"
+        },
+        {
+          "id": "whisper-cpp",
+          "disabled": false,
+          "state": "available"
+        },
+        {
+          "id": "cloud:scribe",
+          "disabled": false,
+          "state": "needs"
+        },
+        {
+          "id": "cloud:groq",
+          "disabled": false,
+          "state": "needs"
+        }
+      ]
+    },
+    {
+      "name": "selectable local or auto",
+      "passed": true,
+      "measured": {
+        "id": "speech-analyzer",
+        "disabled": false,
+        "state": "available"
+      }
+    },
+    {
+      "name": "01-video-engine-list.png <= 500KB",
+      "passed": true,
+      "measured": 93766
+    },
+    {
+      "name": "02-engine-selected.png <= 500KB",
+      "passed": true,
+      "measured": 93708
+    },
+    {
+      "name": "dialog retained selected engine",
+      "passed": true,
+      "measured": {
+        "id": "speech-analyzer",
+        "checked": true
+      }
+    },
+    {
+      "name": "03-dialog-engine.png <= 500KB",
+      "passed": true,
+      "measured": 151563
+    },
+    {
+      "name": "04-done-panel.png <= 500KB",
+      "passed": true,
+      "measured": 61141
+    },
+    {
+      "name": "redo displays engines",
+      "passed": true,
+      "measured": 5
+    },
+    {
+      "name": "05-redo-engine-list.png <= 500KB",
+      "passed": true,
+      "measured": 91790
+    }
+  ],
+  "clicks": [
+    {
+      "name": "untranscribed video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab",
+      "attempt": 1,
+      "passed": false,
+      "error": "Error: Timed out: AI tab"
+    },
+    {
+      "name": "AI tab",
+      "attempt": 2,
+      "passed": true
+    },
+    {
+      "name": "video transcribe panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select engine",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open selected dialog",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "transcribed audio",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "AI tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "done panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "redo",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-video-engine-list.png",
+      "bytes": 93766
+    },
+    {
+      "name": "02-engine-selected.png",
+      "bytes": 93708
+    },
+    {
+      "name": "03-dialog-engine.png",
+      "bytes": 151563
+    },
+    {
+      "name": "04-done-panel.png",
+      "bytes": 61141
+    },
+    {
+      "name": "05-redo-engine-list.png",
+      "bytes": 91790
+    }
+  ],
+  "measurements": {
+    "selectableEngines": 5,
+    "unavailableEngines": 0,
+    "chosenEngine": "speech-analyzer"
+  },
+  "blockedTranscriptions": 1,
+  "fixture": {
+    "project": "<TEMP>/project",
+    "audio": "assets/interview.wav",
+    "video": "assets/ordinary.mp4",
+    "still": "assets/still.png",
+    "segments": 7
+  },
+  "killedPid": 39529,
+  "electronExited": true
+}
