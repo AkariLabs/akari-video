@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { effectiveMyStyleLook, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle,
-  unsupportedMyStyleLookFields, replaceMyStyleLookInSource, appendMyStyleUsage,
+import { effectiveMyStyleLook, effectiveMyStyleMotion, myStyleSaveParts, myStyleLookPatch, myStyleApplyNotice, placedMyStyleTextStyle,
+  placedMyStyleMotion, appliedMyStyleKinds, unsupportedMyStyleLookFields, replaceMyStyleLookInSource, replaceMyStylePartsInSource, appendMyStyleUsage,
   myStyleOutputHeight, newMyStyleSlug } from '../lib/browser/my-style-look.js';
 import { parseCaptions } from '../../../../../packages/edit-store/lib/caption-store.js';
 import { resolveCaptionReferenceScale, scaleCaptionPx, captionTextShadowValue } from '../../../../../packages/edit-store/lib/caption-display.js';
@@ -19,6 +19,48 @@ test('実効の見た目を解決し、位置と動きを保存しない', () =>
     { color: '#ff1744', stroke: { widthPx: 6 } });
   assert.deepEqual(unsupportedMyStyleLookFields({ color: '#ff1744', italic: true,
     background: { opacity: 0.5, width_pct: 60 } }), ['italic', 'background.width_pct']);
+});
+
+test('実効の動きを snake_case で保存し、無い字幕は motion を作らない', () => {
+  const defaults = { animation: { in: { id: 'fade-up', durationSec: .4, ease: 'ease-out' } } };
+  const cue = { animation: { loop: { id: 'float', amp: 8 } }, color: '#f00' };
+  assert.deepEqual(effectiveMyStyleMotion(defaults, cue), {
+    in: { id: 'fade-up', duration_sec: .4, ease: 'ease-out' }, loop: { id: 'float', amp: 8 } });
+  assert.equal(effectiveMyStyleMotion(undefined, { color: '#fff' }), undefined);
+  assert.equal('animation' in effectiveMyStyleLook(defaults, cue, 1080), false);
+  assert.deepEqual(placedMyStyleMotion({ in: { id: 'fade-up', duration_sec: .4 } }),
+    { in: { id: 'fade-up', durationSec: .4 } });
+  const both = myStyleSaveParts(defaults, cue, 1080, ['look', 'motion']);
+  assert.deepEqual(both.map(part => part.kind), ['look', 'motion']);
+  assert.equal('animation' in both[0].text_style, false);
+  assert.deepEqual(both[1].animation.loop, { id: 'float', amp: 8 });
+  assert.deepEqual(myStyleSaveParts(undefined, { color: '#fff' }, 1080, ['motion']), []);
+  assert.deepEqual(myStyleSaveParts(defaults, cue, 1080, ['motion']).map(part => part.kind), ['motion']);
+});
+
+test('部品の選択は 1 回の source 変換で look と motion を独立に置換する', () => {
+  const source = JSON.stringify({ captions: [{ id: 'one', style_preset: 'neon', text_style: {
+    color: '#fff', position: { y: .3 }, animation: {
+      in: { id: 'old' }, loop: { id: 'old-loop' }, out: { id: 'old-out' } } } }] });
+  const look = { kind: 'look', text_style: { color: '#f00', reference_height_px: 1080 } };
+  const motion = { kind: 'motion', animation: { in: { id: 'fade-up' } } };
+  const motionOnly = JSON.parse(replaceMyStylePartsInSource(source, ['one'], [motion])).captions[0];
+  assert.equal(motionOnly.style_preset, 'neon');
+  assert.equal(motionOnly.text_style.color, '#fff');
+  assert.deepEqual(motionOnly.text_style.position, { y: .3 });
+  assert.deepEqual(motionOnly.text_style.animation, { in: { id: 'fade-up' } });
+  const lookOnly = JSON.parse(replaceMyStylePartsInSource(source, ['one'], [look])).captions[0];
+  assert.equal('style_preset' in lookOnly, false);
+  assert.deepEqual(lookOnly.text_style.animation, { in: { id: 'old' }, loop: { id: 'old-loop' }, out: { id: 'old-out' } });
+  const both = replaceMyStylePartsInSource(source, ['one'], [look, motion]);
+  const after = JSON.parse(both).captions[0];
+  assert.equal(after.text_style.color, '#f00');
+  assert.deepEqual(after.text_style.animation, { in: { id: 'fade-up' } });
+  assert.equal('style_preset' in after, false);
+  assert.notEqual(both, source);
+  assert.equal(source, JSON.stringify({ captions: [{ id: 'one', style_preset: 'neon', text_style: {
+    color: '#fff', position: { y: .3 }, animation: {
+      in: { id: 'old' }, loop: { id: 'old-loop' }, out: { id: 'old-out' } } } }] }));
 });
 
 test('効果無しを保存して、当て先の既定 glow も実効値で無効化する', () => {
@@ -54,9 +96,9 @@ test('置換後の default layout と cue layout を事前に検出し、置い�
 test('未対応部品と見た目項目の名前を 1 行で知らせ、未対応が無ければ通知しない', () => {
   assert.equal(myStyleApplyNotice([{ kind: 'look', text_style: { color: '#fff', italic: true,
     background: { width_pct: 60 } } }, { kind: 'motion' }]),
-  '動き・斜体・座布団の幅 は v0 では当てません。見た目を当てました。');
+  '斜体・座布団の幅 は当てません。');
   assert.equal(myStyleApplyNotice([{ kind: 'look', text_style: { color: '#fff' } }]), undefined);
-  assert.equal(myStyleApplyNotice([{ kind: 'camera' }]), 'カメラ は v0 では当てません。');
+  assert.equal(myStyleApplyNotice([{ kind: 'camera' }]), 'カメラ は当てません。');
   assert.deepEqual(placedMyStyleTextStyle({ position: { y: .4625 }, textAnchor: 'tc' },
     { color: '#ff1744', shadow: null }),
   { position: { y: .4625 }, textAnchor: 'tc', color: '#ff1744' });
@@ -84,8 +126,12 @@ test('look は余分な効果を消し、位置・動き・任意欄を保ち、
 });
 
 test('利用台帳は既存の行を保持して追記する', () => {
+  const parts = [{ kind: 'look' }, { kind: 'motion' }, { kind: 'sfx' }];
+  assert.deepEqual(appliedMyStyleKinds(parts, ['motion']), ['motion']);
+  assert.deepEqual(appliedMyStyleKinds(parts, ['look']), ['look']);
+  assert.deepEqual(appliedMyStyleKinds(parts, ['look', 'motion']), ['look', 'motion']);
   const entry = { caption_ids: ['one', 'two'], style_uid: '01K5ZXY1234ABCDEFGHJKMNPQRS',
-    revision: 2, parts: ['look'], applied_at: '2026-09-24T00:00:00.000Z' };
+    revision: 2, parts: appliedMyStyleKinds(parts, ['motion']), applied_at: '2026-09-24T00:00:00.000Z' };
   const first = appendMyStyleUsage(undefined, entry);
   const second = appendMyStyleUsage(first, { ...entry, caption_ids: ['three'] });
   assert.deepEqual(JSON.parse(second), { version: 1, entries: [entry, { ...entry, caption_ids: ['three'] }] });

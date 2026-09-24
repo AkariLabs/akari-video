@@ -92,10 +92,22 @@ export function parseMyStyle(value: unknown): MyStyle {
     }
     const style = value as unknown as MyStyle;
     if (hasAbsolutePath(style)) throw new Error('スタイルに絶対パスは保存できません。');
-    const parts = style.parts.map(part => part.kind === 'look'
+    const parts: Array<{ kind: string; [key: string]: unknown }> = style.parts.map(part => part.kind === 'look'
         ? { ...part, scope: part.scope ?? 'caption', mode: part.mode ?? 'modify',
-            text_style: portableLook(part.text_style) } : { ...part });
+            text_style: portableLook(part.text_style) }
+        : part.kind === 'motion'
+            ? { ...part, scope: part.scope ?? 'caption', mode: part.mode ?? 'modify' }
+            : { ...part });
     for (const part of parts) {
+        if (part.kind === 'motion') {
+            if (part.scope !== 'caption' || part.mode !== 'modify' || !record(part.animation)
+                || !Object.keys(part.animation).length
+                || Object.entries(part.animation).some(([slot, animation]) =>
+                    !['in', 'loop', 'out'].includes(slot) || !record(animation)
+                    || typeof animation.id !== 'string' || !animation.id.trim())) {
+                throw new Error('動きの保存形を確認できません。');
+            }
+        }
         if (part.kind !== 'look') continue;
         const look = part.text_style as Record<string, unknown>;
         const height = look.reference_height_px;
@@ -143,7 +155,12 @@ export function myStyleLook(style: MyStyle): Record<string, unknown> | undefined
 }
 
 export function ignoredMyStyleParts(style: MyStyle): string[] {
-    return [...new Set(style.parts.filter(part => part.kind !== 'look').map(part => part.kind))];
+    return [...new Set(style.parts.filter(part => part.kind !== 'look' && part.kind !== 'motion').map(part => part.kind))];
+}
+
+export function defaultMyStyleParts(parts: readonly { kind: string }[], previous?: readonly string[]): string[] {
+    const supported = [...new Set(parts.filter(part => part.kind === 'look' || part.kind === 'motion').map(part => part.kind))];
+    return previous === undefined ? supported : supported.filter(kind => previous.includes(kind));
 }
 
 const PART_LABELS: Readonly<Record<string, string>> = {

@@ -121,10 +121,10 @@ test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き�
     style_preset: 'neon', text_style: { color: item.textStyle.color, glow: { color: '#fff' },
       animation: { in: { id: 'pop' } }, position: { x: index / 3, y: 0.5 }, zone: 'bottom' } })));
   const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
-  const result = await invoke('caption-style-my-style', {
+  const result = await invoke('caption-style-my-style', { parts: [{ kind: 'look', text_style: {
     color: '#ff1744', reference_height_px: 1920, stroke: { color: '#ffffff', width_px: 6 },
     background: { color: '#111111', opacity: 0.7 }, position: { x: 0.9 }, zone: 'top'
-  }, captions, targets, source);
+  } }, { kind: 'motion', animation: { in: { id: 'fade-up' } } }] }, captions, targets, source);
   assert.equal(result.history.length, 1);
   assert.equal(result.writes.length, 1);
   assert.deepEqual(Object.keys(result.writes[0]).sort(),
@@ -133,11 +133,11 @@ test('マイスタイルは 3 字幕の見た目とプリセットを 1 書き�
   assert.deepEqual(rows.map(row => row.text_style.position.x), [0, 1 / 3, 2 / 3]);
   assert.deepEqual(rows.map(row => row.text_style.color), ['#ff1744', '#ff1744', '#ff1744']);
   assert.ok(rows.every(row => !('glow' in row.text_style) && !('style_preset' in row)
-    && row.text_style.animation.in.id === 'pop' && row.text_style.reference_height_px === 1920));
+    && row.text_style.animation.in.id === 'fade-up' && row.text_style.reference_height_px === 1920));
   await result.history[0].undo();
-  assert.deepEqual(JSON.parse(result.writes[1].captionsSource), JSON.parse(source));
+  assert.equal(result.writes[1].captionsSource, source);
   await result.history[0].redo();
-  assert.deepEqual(JSON.parse(result.writes[2].captionsSource), rows);
+  assert.equal(result.writes[2].captionsSource, result.writes[0].captionsSource);
 });
 
 test('既定 layout と基準高さが衝突する複数選択は RPC 前に全件拒否する', async () => {
@@ -148,7 +148,7 @@ test('既定 layout と基準高さが衝突する複数選択は RPC 前に全�
   captions: captions.map((item, index) => ({ id: item.id, start: index, end: index + 1,
     text: '字幕', speaker: null, sourceRef: null, edited: false, text_style: { color: '#fff' } })) });
   const targets = captions.map(item => ({ kind: 'caption', id: item.id }));
-  const result = await invoke('caption-style-my-style', { color: '#f00', reference_height_px: 1920 },
+  const result = await invoke('caption-style-my-style', { parts: [{ kind: 'look', text_style: { color: '#f00', reference_height_px: 1920 } }] },
     captions, targets, source, source, false);
   assert.match(result.result.message, /layout.*基準高さ/);
   assert.equal(result.writes.length, 0);

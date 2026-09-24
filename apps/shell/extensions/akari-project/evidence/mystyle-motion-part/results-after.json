@@ -1,0 +1,1437 @@
+{
+  "phase": "after",
+  "base": "813debc0",
+  "checks": [
+    {
+      "name": "保存ダイアログ（動きのある c-0001）: 「動き」が有効で既定でチェック・見た目もチェック・効果音ほかは近日",
+      "pass": true,
+      "detail": {
+        "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き /  効果音（近日） /  画面効果（近日） /  装飾（近日） / キャンセル / 保存",
+        "name": "今日は朝のルーティンを紹介します",
+        "parts": [
+          {
+            "kind": "look",
+            "checked": true,
+            "disabled": false,
+            "label": "見た目 （位置は含めない）"
+          },
+          {
+            "kind": "motion",
+            "checked": true,
+            "disabled": false,
+            "label": "動き"
+          },
+          {
+            "kind": "sfx",
+            "checked": false,
+            "disabled": true,
+            "label": "効果音（近日）"
+          },
+          {
+            "kind": "fx",
+            "checked": false,
+            "disabled": true,
+            "label": "画面効果（近日）"
+          },
+          {
+            "kind": "decor",
+            "checked": false,
+            "disabled": true,
+            "label": "装飾（近日）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "保存（見た目 + 動き）→ style.json の parts = [look, motion]・motion.animation = 保存元の動き（登場 fade-up・ループ float）・look に animation なし",
+      "pass": true,
+      "detail": {
+        "relativeFile": "styles/my-style-cdf071a5/style.json",
+        "style": {
+          "schema": "akari-style",
+          "version": 1,
+          "revision": 1,
+          "uid": "01M38M1VSWF5MST5H9XV3S7FET",
+          "id": "my-style-cdf071a5",
+          "name": "登場で持ち上がる強調",
+          "when_to_use": "大事な一言をふわっと出したいとき",
+          "sample_text": "今日は朝のルーティンを紹介します",
+          "created_at": "2026-09-24T02:31:28.828Z",
+          "updated_at": "2026-09-24T02:31:28.828Z",
+          "tags": [],
+          "visibility": "private",
+          "price": null,
+          "requires": [],
+          "provenance": {},
+          "license": {
+            "spdx": "LicenseRef-user-owned",
+            "scope": "private-owned",
+            "attribution_required": false,
+            "ai_training_allowed": false
+          },
+          "parts": [
+            {
+              "kind": "look",
+              "scope": "caption",
+              "mode": "modify",
+              "text_style": {
+                "color": "#FFD400",
+                "size_px": 52,
+                "font_weight": 900,
+                "stroke": {
+                  "color": "#D12B2B",
+                  "width_px": 5
+                },
+                "background": {
+                  "color": "#1E3A8A",
+                  "opacity": 0.85,
+                  "radius_px": 12,
+                  "mode": "block"
+                },
+                "shadow": {
+                  "color": "#000000",
+                  "opacity": 0.6,
+                  "blur_px": 6,
+                  "distance_px": 6,
+                  "angle_deg": 90
+                },
+                "glow": {
+                  "color": "#000000",
+                  "density": 0
+                },
+                "reference_height_px": 720
+              }
+            },
+            {
+              "kind": "motion",
+              "scope": "caption",
+              "mode": "modify",
+              "animation": {
+                "in": {
+                  "id": "fade-up",
+                  "duration_sec": 0.6
+                },
+                "loop": {
+                  "id": "float"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "保存ダイアログ（動きの無い c-0005）: 「動き」は無効・「この字幕には動きがありません」",
+      "pass": true,
+      "detail": {
+        "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き（この字幕には動きがありません） /  効果音（近日） /  画面効果（近日） /  装飾（近日） / キャンセル / 保存",
+        "name": "ここがいちばん大事",
+        "parts": [
+          {
+            "kind": "look",
+            "checked": true,
+            "disabled": false,
+            "label": "見た目 （位置は含めない）"
+          },
+          {
+            "kind": "motion",
+            "checked": false,
+            "disabled": true,
+            "label": "動き（この字幕には動きがありません）"
+          },
+          {
+            "kind": "sfx",
+            "checked": false,
+            "disabled": true,
+            "label": "効果音（近日）"
+          },
+          {
+            "kind": "fx",
+            "checked": false,
+            "disabled": true,
+            "label": "画面効果（近日）"
+          },
+          {
+            "kind": "decor",
+            "checked": false,
+            "disabled": true,
+            "label": "装飾（近日）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "保存ダイアログ（style_preset emphasis-red だけの c-0004）: プリセット由来の動き（登場 pop）があるので「動き」が既定でチェック",
+      "pass": true,
+      "detail": {
+        "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き /  効果音（近日） /  画面効果（近日） /  装飾（近日） / キャンセル / 保存",
+        "name": "お湯は少し冷ましてから注ぎます",
+        "parts": [
+          {
+            "kind": "look",
+            "checked": true,
+            "disabled": false,
+            "label": "見た目 （位置は含めない）"
+          },
+          {
+            "kind": "motion",
+            "checked": true,
+            "disabled": false,
+            "label": "動き"
+          },
+          {
+            "kind": "sfx",
+            "checked": false,
+            "disabled": true,
+            "label": "効果音（近日）"
+          },
+          {
+            "kind": "fx",
+            "checked": false,
+            "disabled": true,
+            "label": "画面効果（近日）"
+          },
+          {
+            "kind": "decor",
+            "checked": false,
+            "disabled": true,
+            "label": "装飾（近日）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "保存（動きだけ = 見た目のチェックを外す）→ parts = [motion] だけ",
+      "pass": true,
+      "detail": {
+        "style": {
+          "schema": "akari-style",
+          "version": 1,
+          "revision": 1,
+          "uid": "01M38M28GZSKB2DQE7A92RQW6G",
+          "id": "my-style-0fe10c86",
+          "name": "動きだけ",
+          "when_to_use": "見た目はそのままで動きだけ付けたいとき",
+          "sample_text": "今日は朝のルーティンを紹介します",
+          "created_at": "2026-09-24T02:31:41.854Z",
+          "updated_at": "2026-09-24T02:31:41.854Z",
+          "tags": [],
+          "visibility": "private",
+          "price": null,
+          "requires": [],
+          "provenance": {},
+          "license": {
+            "spdx": "LicenseRef-user-owned",
+            "scope": "private-owned",
+            "attribution_required": false,
+            "ai_training_allowed": false
+          },
+          "parts": [
+            {
+              "kind": "motion",
+              "scope": "caption",
+              "mode": "modify",
+              "animation": {
+                "in": {
+                  "id": "fade-up",
+                  "duration_sec": 0.6
+                },
+                "loop": {
+                  "id": "float"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "棚: チップ「見た目」「動き」（当てないの注記なし）・未対応の効果音は「効果音（当てない）」・操作は 1 行",
+      "pass": true,
+      "detail": {
+        "rect": {
+          "x": 48,
+          "y": 195.9,
+          "w": 211,
+          "h": 685.5
+        },
+        "cards": [
+          {
+            "id": "my-style-0fe10c86",
+            "rect": {
+              "w": 191,
+              "h": 155.5
+            },
+            "draggable": "true",
+            "badge": "マイスタイル",
+            "parts": [
+              {
+                "kind": "motion",
+                "label": "動き"
+              }
+            ],
+            "text": "今日は朝のルーティンを紹介します / マイスタイル / 動きだけ / 見た目はそのままで動きだけ付けたいとき / 動き",
+            "buttons": [
+              {
+                "aria": "選択した字幕に当てる",
+                "text": "選択した字幕に当てる",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "プレイヘッド位置に置く",
+                "text": "プレイヘッド位置に置く",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "名前を変更",
+                "text": "名前を変更",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "削除",
+                "text": "削除",
+                "w": 28,
+                "h": 26
+              }
+            ],
+            "buttonRows": 1
+          },
+          {
+            "id": "my-style-cdf071a5",
+            "rect": {
+              "w": 191,
+              "h": 155.5
+            },
+            "draggable": "true",
+            "badge": "マイスタイル",
+            "parts": [
+              {
+                "kind": "look",
+                "label": "見た目"
+              },
+              {
+                "kind": "motion",
+                "label": "動き"
+              }
+            ],
+            "text": "今日は朝のルーティンを紹介します / マイスタイル / 登場で持ち上がる強調 / 大事な一言をふわっと出したいとき / 見た目 / 動き",
+            "buttons": [
+              {
+                "aria": "選択した字幕に当てる",
+                "text": "選択した字幕に当てる",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "プレイヘッド位置に置く",
+                "text": "プレイヘッド位置に置く",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "名前を変更",
+                "text": "名前を変更",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "削除",
+                "text": "削除",
+                "w": 28,
+                "h": 26
+              }
+            ],
+            "buttonRows": 1
+          },
+          {
+            "id": "hand-bare-motion",
+            "rect": {
+              "w": 191,
+              "h": 155.5
+            },
+            "draggable": "true",
+            "badge": "マイスタイル",
+            "parts": [
+              {
+                "kind": "look",
+                "label": "見た目"
+              },
+              {
+                "kind": "motion",
+                "label": "動き"
+              }
+            ],
+            "text": "ここがいちばん大事 / マイスタイル / 手書きの動き / 登場で音を鳴らしたいとき / 見た目 / 動き",
+            "buttons": [
+              {
+                "aria": "選択した字幕に当てる",
+                "text": "選択した字幕に当てる",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "プレイヘッド位置に置く",
+                "text": "プレイヘッド位置に置く",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "名前を変更",
+                "text": "名前を変更",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "削除",
+                "text": "削除",
+                "w": 28,
+                "h": 26
+              }
+            ],
+            "buttonRows": 1
+          },
+          {
+            "id": "hand-sfx",
+            "rect": {
+              "w": 191,
+              "h": 155.5
+            },
+            "draggable": "true",
+            "badge": "マイスタイル",
+            "parts": [
+              {
+                "kind": "look",
+                "label": "見た目"
+              },
+              {
+                "kind": "motion",
+                "label": "動き"
+              },
+              {
+                "kind": "sfx",
+                "label": "効果音（当てない）"
+              }
+            ],
+            "text": "ここがいちばん大事 / マイスタイル / 効果音つき / 登場で音を鳴らしたいとき / 見た目 / 動き / 効果音（当てない）",
+            "buttons": [
+              {
+                "aria": "選択した字幕に当てる",
+                "text": "選択した字幕に当てる",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "プレイヘッド位置に置く",
+                "text": "プレイヘッド位置に置く",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "名前を変更",
+                "text": "名前を変更",
+                "w": 28,
+                "h": 26
+              },
+              {
+                "aria": "削除",
+                "text": "削除",
+                "w": 28,
+                "h": 26
+              }
+            ],
+            "buttonRows": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "棚: 見本はマウスを乗せたときだけ動きを 1 回再生（乗せる前 0 → 乗せた直後 1 → 終わると 0 のまま）",
+      "pass": true,
+      "detail": {
+        "idle": [],
+        "playing": [
+          {
+            "state": "running",
+            "iterations": 1,
+            "duration": 600
+          }
+        ],
+        "midFrame": {
+          "opacity": "0.590744",
+          "transform": "matrix(1, 0, 0, 1, 0, 4.91107)"
+        },
+        "after": [],
+        "movedInside": []
+      }
+    },
+    {
+      "name": "当てる → 部品のチェック（小さなポップオーバー: 見た目 / 動き・初回の既定は両方）",
+      "pass": true,
+      "detail": {
+        "rect": {
+          "x": 66,
+          "y": 546,
+          "w": 212,
+          "h": 148
+        },
+        "text": "当てる部品 /  見た目 /  動き / キャンセル / 当てる",
+        "inputs": [
+          {
+            "kind": "look",
+            "checked": true,
+            "disabled": false,
+            "label": "見た目"
+          },
+          {
+            "kind": "motion",
+            "checked": true,
+            "disabled": false,
+            "label": "動き"
+          }
+        ],
+        "confirmDisabled": false,
+        "emoji": false
+      }
+    },
+    {
+      "name": "動きだけ（見た目を外す）→ 3 本とも animation = 保存元の動き（c-0002 の退場は消える）・見た目・位置・style_preset は不変",
+      "pass": true,
+      "detail": {
+        "popover": {
+          "rect": {
+            "x": 66,
+            "y": 546,
+            "w": 212,
+            "h": 148
+          },
+          "text": "当てる部品 /  見た目 /  動き / キャンセル / 当てる",
+          "inputs": [
+            {
+              "kind": "look",
+              "checked": false,
+              "disabled": false,
+              "label": "見た目"
+            },
+            {
+              "kind": "motion",
+              "checked": true,
+              "disabled": false,
+              "label": "動き"
+            }
+          ],
+          "confirmDisabled": false,
+          "emoji": false
+        },
+        "after": {
+          "c-0002": {
+            "text_style": {
+              "color": "#FFFFFF",
+              "size_px": 44,
+              "stroke": {
+                "color": "#000000",
+                "width_px": 3
+              },
+              "animation": {
+                "in": {
+                  "id": "fade-up",
+                  "duration_sec": 0.6
+                },
+                "loop": {
+                  "id": "float"
+                }
+              },
+              "text_anchor": "bl",
+              "position": {
+                "x": 0.1,
+                "y": 0.9
+              }
+            },
+            "style_preset": null
+          },
+          "c-0003": {
+            "text_style": {
+              "animation": {
+                "in": {
+                  "id": "fade-up",
+                  "duration_sec": 0.6
+                },
+                "loop": {
+                  "id": "float"
+                }
+              }
+            },
+            "style_preset": null
+          },
+          "c-0004": {
+            "text_style": {
+              "animation": {
+                "in": {
+                  "id": "fade-up",
+                  "duration_sec": 0.6
+                },
+                "loop": {
+                  "id": "float"
+                }
+              }
+            },
+            "style_preset": "emphasis-red"
+          }
+        },
+        "usage": {
+          "caption_ids": [
+            "c-0002",
+            "c-0003",
+            "c-0004"
+          ],
+          "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+          "revision": 1,
+          "parts": [
+            "motion"
+          ],
+          "applied_at": "2026-09-24T02:31:58.761Z"
+        },
+        "notices": [
+          "新しい版があります — v0.1.82"
+        ]
+      }
+    },
+    {
+      "name": "動きだけ: 書き出しの字幕描画で 3 本に登場 fade-up・ループ float（c-0002 の pop / slide-down・c-0004 のプリセットの pop は無い）・出力プレビューの見た目（色・大きさ・縁取り）は当てる前と同じ",
+      "pass": true,
+      "detail": {
+        "plates": {
+          "c-0002": {
+            "animations": [],
+            "color": "rgb(255, 255, 255)",
+            "fontSize": "44px",
+            "stroke": "rgb(0, 0, 0) 6px"
+          },
+          "c-0003": {
+            "animations": [],
+            "color": "rgb(255, 255, 255)",
+            "fontSize": "38px",
+            "stroke": "rgba(0, 0, 0, 0.9) 5.32px"
+          },
+          "c-0004": {
+            "animations": [],
+            "color": "rgb(255, 23, 68)",
+            "fontSize": "92px",
+            "stroke": "rgb(255, 255, 255) 12px"
+          }
+        },
+        "waitedMs": {
+          "c-0002": 5,
+          "c-0003": 10,
+          "c-0004": 6
+        },
+        "exportAnimation": {
+          "c-0002": {
+            "before": "akari-anim-pop 0.4s ease-out 0s 1 normal both paused, akari-anim-slide-down 0.5s ease-out 2s 1 reverse forwards paused",
+            "after": "akari-anim-fade-up 0.6s ease-out 0s 1 normal both paused, akari-anim-float 1.6s linear 0s infinite both paused"
+          },
+          "c-0003": {
+            "before": null,
+            "after": "akari-anim-fade-up 0.6s ease-out 0s 1 normal both paused, akari-anim-float 1.6s linear 0s infinite both paused"
+          },
+          "c-0004": {
+            "before": "akari-anim-pop 0.6s ease-out 0s 1 normal both paused",
+            "after": "akari-anim-fade-up 0.6s ease-out 0s 1 normal both paused, akari-anim-float 1.6s linear 0s infinite both paused"
+          }
+        }
+      }
+    },
+    {
+      "name": "動きだけ: Cmd+Z 1 回で captions.json が fixture と byte 一致",
+      "pass": true,
+      "detail": {
+        "captionsEqualFixture": true,
+        "gitStatus": ""
+      }
+    },
+    {
+      "name": "次回の既定: 前回外した「見た目」が外れた状態で開く → 見た目だけ（動きを外す）→ 見た目 = 保存元・animation は不変",
+      "pass": true,
+      "detail": {
+        "defaults": {
+          "rect": {
+            "x": 66,
+            "y": 546,
+            "w": 212,
+            "h": 148
+          },
+          "text": "当てる部品 /  見た目 /  動き / キャンセル / 当てる",
+          "inputs": [
+            {
+              "kind": "look",
+              "checked": false,
+              "disabled": false,
+              "label": "見た目"
+            },
+            {
+              "kind": "motion",
+              "checked": true,
+              "disabled": false,
+              "label": "動き"
+            }
+          ],
+          "confirmDisabled": false,
+          "emoji": false
+        },
+        "set": {
+          "rect": {
+            "x": 66,
+            "y": 546,
+            "w": 212,
+            "h": 148
+          },
+          "text": "当てる部品 /  見た目 /  動き / キャンセル / 当てる",
+          "inputs": [
+            {
+              "kind": "look",
+              "checked": true,
+              "disabled": false,
+              "label": "見た目"
+            },
+            {
+              "kind": "motion",
+              "checked": false,
+              "disabled": false,
+              "label": "動き"
+            }
+          ],
+          "confirmDisabled": false,
+          "emoji": false
+        },
+        "after": {
+          "c-0002": {
+            "text_style": {
+              "animation": {
+                "in": {
+                  "id": "pop",
+                  "duration_sec": 0.4
+                },
+                "out": {
+                  "id": "slide-down",
+                  "duration_sec": 0.5
+                }
+              },
+              "text_anchor": "bl",
+              "position": {
+                "x": 0.1,
+                "y": 0.9
+              },
+              "color": "#FFD400",
+              "size_px": 52,
+              "reference_height_px": 720,
+              "font_weight": 900,
+              "stroke": {
+                "color": "#D12B2B",
+                "width_px": 5
+              },
+              "background": {
+                "color": "#1E3A8A",
+                "opacity": 0.85,
+                "radius_px": 12,
+                "mode": "block"
+              },
+              "shadow": {
+                "color": "#000000",
+                "opacity": 0.6,
+                "blur_px": 6,
+                "distance_px": 6,
+                "angle_deg": 90
+              },
+              "glow": {
+                "color": "#000000",
+                "density": 0
+              }
+            },
+            "style_preset": null
+          },
+          "c-0003": {
+            "text_style": {
+              "color": "#FFD400",
+              "size_px": 52,
+              "reference_height_px": 720,
+              "font_weight": 900,
+              "stroke": {
+                "color": "#D12B2B",
+                "width_px": 5
+              },
+              "background": {
+                "color": "#1E3A8A",
+                "opacity": 0.85,
+                "radius_px": 12,
+                "mode": "block"
+              },
+              "shadow": {
+                "color": "#000000",
+                "opacity": 0.6,
+                "blur_px": 6,
+                "distance_px": 6,
+                "angle_deg": 90
+              },
+              "glow": {
+                "color": "#000000",
+                "density": 0
+              }
+            },
+            "style_preset": null
+          },
+          "c-0004": {
+            "text_style": {
+              "color": "#FFD400",
+              "size_px": 52,
+              "reference_height_px": 720,
+              "font_weight": 900,
+              "stroke": {
+                "color": "#D12B2B",
+                "width_px": 5
+              },
+              "background": {
+                "color": "#1E3A8A",
+                "opacity": 0.85,
+                "radius_px": 12,
+                "mode": "block"
+              },
+              "shadow": {
+                "color": "#000000",
+                "opacity": 0.6,
+                "blur_px": 6,
+                "distance_px": 6,
+                "angle_deg": 90
+              },
+              "glow": {
+                "color": "#000000",
+                "density": 0
+              }
+            },
+            "style_preset": null
+          }
+        },
+        "usage": {
+          "caption_ids": [
+            "c-0002",
+            "c-0003",
+            "c-0004"
+          ],
+          "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+          "revision": 1,
+          "parts": [
+            "look"
+          ],
+          "applied_at": "2026-09-24T02:32:08.024Z"
+        }
+      }
+    },
+    {
+      "name": "見た目だけ: 出力プレビューで 3 本の色・大きさ・縁取りが保存元 c-0001 と同じ・動きは当てる前のまま",
+      "pass": true,
+      "detail": {
+        "plates": {
+          "c-0002": {
+            "animations": [],
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "stroke": "rgb(209, 43, 43) 10px"
+          },
+          "c-0003": {
+            "animations": [],
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "stroke": "rgb(209, 43, 43) 10px"
+          },
+          "c-0004": {
+            "animations": [],
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "stroke": "rgb(209, 43, 43) 10px"
+          }
+        },
+        "waitedMs": {
+          "c-0002": 3,
+          "c-0003": 26,
+          "c-0004": 8
+        }
+      }
+    },
+    {
+      "name": "見た目だけ: Cmd+Z 1 回で byte 一致",
+      "pass": true,
+      "detail": {
+        "captionsEqualFixture": true,
+        "gitStatus": ""
+      }
+    },
+    {
+      "name": "次回の既定: 前回外した「動き」が外れた状態で開く → 両方 → 見た目 + 動き（style_preset は外れる）",
+      "pass": true,
+      "detail": {
+        "defaults": {
+          "rect": {
+            "x": 66,
+            "y": 546,
+            "w": 212,
+            "h": 148
+          },
+          "text": "当てる部品 /  見た目 /  動き / キャンセル / 当てる",
+          "inputs": [
+            {
+              "kind": "look",
+              "checked": true,
+              "disabled": false,
+              "label": "見た目"
+            },
+            {
+              "kind": "motion",
+              "checked": false,
+              "disabled": false,
+              "label": "動き"
+            }
+          ],
+          "confirmDisabled": false,
+          "emoji": false
+        },
+        "set": {
+          "rect": {
+            "x": 66,
+            "y": 546,
+            "w": 212,
+            "h": 148
+          },
+          "text": "当てる部品 /  見た目 /  動き / キャンセル / 当てる",
+          "inputs": [
+            {
+              "kind": "look",
+              "checked": true,
+              "disabled": false,
+              "label": "見た目"
+            },
+            {
+              "kind": "motion",
+              "checked": true,
+              "disabled": false,
+              "label": "動き"
+            }
+          ],
+          "confirmDisabled": false,
+          "emoji": false
+        },
+        "usage": {
+          "caption_ids": [
+            "c-0002",
+            "c-0003",
+            "c-0004"
+          ],
+          "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+          "revision": 1,
+          "parts": [
+            "look",
+            "motion"
+          ],
+          "applied_at": "2026-09-24T02:32:17.717Z"
+        }
+      }
+    },
+    {
+      "name": "両方: 出力プレビューで 3 本とも保存元の見た目・書き出しの字幕描画で登場 fade-up・ループ float",
+      "pass": true,
+      "detail": {
+        "plates": {
+          "c-0002": {
+            "animations": [],
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "stroke": "rgb(209, 43, 43) 10px"
+          },
+          "c-0003": {
+            "animations": [],
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "stroke": "rgb(209, 43, 43) 10px"
+          },
+          "c-0004": {
+            "animations": [],
+            "color": "rgb(255, 212, 0)",
+            "fontSize": "52px",
+            "stroke": "rgb(209, 43, 43) 10px"
+          }
+        },
+        "waitedMs": {
+          "c-0002": 7,
+          "c-0003": 22,
+          "c-0004": 1
+        },
+        "exportAnimation": {
+          "c-0002": "akari-anim-fade-up 0.6s ease-out 0s 1 normal both paused, akari-anim-float 1.6s linear 0s infinite both paused",
+          "c-0003": "akari-anim-fade-up 0.6s ease-out 0s 1 normal both paused, akari-anim-float 1.6s linear 0s infinite both paused",
+          "c-0004": "akari-anim-fade-up 0.6s ease-out 0s 1 normal both paused, akari-anim-float 1.6s linear 0s infinite both paused"
+        },
+        "frames": {
+          "6.05": "1|none;1|none;1|none;1|none;1|none;1|none",
+          "6.3": "1|none;1|none;1|none;1|none;1|none;1|none",
+          "7.2": "1|none;1|none;1|none;1|none;1|none;1|none"
+        }
+      }
+    },
+    {
+      "name": "両方: Cmd+Z 1 回で byte 一致",
+      "pass": true,
+      "detail": {
+        "captionsEqualFixture": true,
+        "gitStatus": ""
+      }
+    },
+    {
+      "name": "未対応の部品（効果音）入り: ポップオーバーで「効果音（当てない）」は無効表示・Escape で閉じ何も書かない",
+      "pass": true,
+      "detail": {
+        "rect": {
+          "x": 66,
+          "y": 714,
+          "w": 212,
+          "h": 178
+        },
+        "text": "当てる部品 /  見た目 /  動き /  効果音（当てない） / キャンセル / 当てる",
+        "inputs": [
+          {
+            "kind": "look",
+            "checked": true,
+            "disabled": false,
+            "label": "見た目"
+          },
+          {
+            "kind": "motion",
+            "checked": true,
+            "disabled": false,
+            "label": "動き"
+          },
+          {
+            "kind": "sfx",
+            "checked": false,
+            "disabled": true,
+            "label": "効果音（当てない）"
+          }
+        ],
+        "confirmDisabled": false,
+        "emoji": false
+      }
+    },
+    {
+      "name": "未対応の部品入りを当てる（見た目 + 動き）→ 通知 1 行「効果音 は当てません。」・parts = [look, motion]・undo 1 回",
+      "pass": true,
+      "detail": {
+        "notices": [
+          "新しい版があります — v0.1.82",
+          "効果音 は当てません。"
+        ],
+        "usage": {
+          "caption_ids": [
+            "c-0003"
+          ],
+          "style_uid": "01K5ZXY123ABCDEFGHJKMNPQRS",
+          "revision": 1,
+          "parts": [
+            "look",
+            "motion"
+          ],
+          "applied_at": "2026-09-24T02:32:31.357Z"
+        },
+        "undo": {
+          "captionsEqualFixture": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "部品が 1 つ（動きだけ）のスタイル: ポップオーバーを出さず即当てる・見た目は不変・undo 1 回",
+      "pass": true,
+      "detail": {
+        "row": {
+          "color": "#FFFFFF",
+          "size_px": 44,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 3
+          },
+          "animation": {
+            "in": {
+              "id": "fade-up",
+              "duration_sec": 0.6
+            },
+            "loop": {
+              "id": "float"
+            }
+          },
+          "text_anchor": "bl",
+          "position": {
+            "x": 0.1,
+            "y": 0.9
+          }
+        },
+        "usage": {
+          "caption_ids": [
+            "c-0002"
+          ],
+          "style_uid": "01M38M28GZSKB2DQE7A92RQW6G",
+          "revision": 1,
+          "parts": [
+            "motion"
+          ],
+          "applied_at": "2026-09-24T02:32:37.019Z"
+        },
+        "undo": {
+          "captionsEqualFixture": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "＋: プレイヘッド 5 秒で ＋ → 置いた文字に見た目 + 動き（前回の選択に関係なく全部）・利用台帳 [look, motion]・Cmd+Z 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "placed": {
+          "id": "c-0006",
+          "start": 5,
+          "end": 8,
+          "text": "テキストを入力",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "time_domain": "output",
+          "text_style": {
+            "color": "#FFD400",
+            "size_px": 52,
+            "reference_height_px": 720,
+            "font_weight": 900,
+            "text_anchor": "tc",
+            "position": {
+              "y": 0.4625
+            },
+            "shadow": {
+              "color": "#000000",
+              "opacity": 0.6,
+              "blur_px": 6,
+              "distance_px": 6,
+              "angle_deg": 90
+            },
+            "glow": {
+              "color": "#000000",
+              "density": 0
+            },
+            "animation": {
+              "in": {
+                "id": "fade-up",
+                "duration_sec": 0.6
+              },
+              "loop": {
+                "id": "float"
+              }
+            },
+            "stroke": {
+              "color": "#D12B2B",
+              "width_px": 5
+            },
+            "background": {
+              "color": "#1E3A8A",
+              "opacity": 0.85,
+              "radius_px": 12,
+              "mode": "block"
+            }
+          }
+        },
+        "usage": {
+          "caption_ids": [
+            "c-0006"
+          ],
+          "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+          "revision": 1,
+          "parts": [
+            "look",
+            "motion"
+          ],
+          "applied_at": "2026-09-24T02:32:41.710Z"
+        },
+        "undo": {
+          "captionsEqualFixture": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "ドラッグ: カードをタイムラインの 10 秒へ → 置いた文字に見た目 + 動き・Cmd+Z 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "payloadKind": "mystyle",
+        "payloadParts": [
+          "look",
+          "motion"
+        ],
+        "drop": {
+          "x": 813,
+          "y": 690
+        },
+        "placed": {
+          "id": "c-0006",
+          "start": 10.002117919921874,
+          "end": 13.002117919921874,
+          "animation": {
+            "in": {
+              "id": "fade-up",
+              "duration_sec": 0.6
+            },
+            "loop": {
+              "id": "float"
+            }
+          }
+        },
+        "usage": {
+          "caption_ids": [
+            "c-0006"
+          ],
+          "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+          "revision": 1,
+          "parts": [
+            "look",
+            "motion"
+          ],
+          "applied_at": "2026-09-24T02:32:52.868Z"
+        },
+        "undo": {
+          "captionsEqualFixture": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "起動し直し: 「動きだけ」で当てた後にアプリを起動し直しても、次回の既定は見た目が外れたまま",
+      "pass": true,
+      "detail": {
+        "defaults": {
+          "rect": {
+            "x": 66,
+            "y": 546,
+            "w": 212,
+            "h": 148
+          },
+          "text": "当てる部品 /  見た目 /  動き / キャンセル / 当てる",
+          "inputs": [
+            {
+              "kind": "look",
+              "checked": false,
+              "disabled": false,
+              "label": "見た目"
+            },
+            {
+              "kind": "motion",
+              "checked": true,
+              "disabled": false,
+              "label": "動き"
+            }
+          ],
+          "confirmDisabled": false,
+          "emoji": false
+        },
+        "undo": {
+          "captionsEqualFixture": true,
+          "gitStatus": ""
+        },
+        "styleIds": [
+          "hand-bare-motion",
+          "hand-sfx",
+          "my-style-0fe10c86",
+          "my-style-cdf071a5"
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-save-dialog-motion.png",
+    "after-02-save-dialog-no-motion.png",
+    "after-03-shelf-hover.png",
+    "after-04-apply-popover.png",
+    "after-05-motion-only-preview.png",
+    "after-06-popover-remembered.png",
+    "after-07-look-only-preview.png",
+    "after-08-both-preview.png",
+    "after-09-popover-unsupported.png",
+    "after-10-plus-placed.png",
+    "after-11-popover-after-restart.png"
+  ],
+  "window": {
+    "w": 1440,
+    "h": 900
+  },
+  "previewBefore": {
+    "plates": {
+      "c-0001": {
+        "animations": [],
+        "color": "rgb(255, 212, 0)",
+        "fontSize": "52px",
+        "stroke": "rgb(209, 43, 43) 10px"
+      },
+      "c-0002": {
+        "animations": [],
+        "color": "rgb(255, 255, 255)",
+        "fontSize": "44px",
+        "stroke": "rgb(0, 0, 0) 6px"
+      },
+      "c-0003": {
+        "animations": [],
+        "color": "rgb(255, 255, 255)",
+        "fontSize": "38px",
+        "stroke": "rgba(0, 0, 0, 0.9) 5.32px"
+      },
+      "c-0004": {
+        "animations": [],
+        "color": "rgb(255, 23, 68)",
+        "fontSize": "92px",
+        "stroke": "rgb(255, 255, 255) 12px"
+      }
+    },
+    "waitedMs": {
+      "c-0001": 16,
+      "c-0002": 2,
+      "c-0003": 9,
+      "c-0004": 13
+    }
+  },
+  "restartSteps": [
+    {
+      "label": "openShelf",
+      "at": "2026-09-24T02:32:55.297Z"
+    },
+    {
+      "label": "stop",
+      "at": "2026-09-24T02:33:03.570Z"
+    },
+    {
+      "label": "session = preparedLaunch",
+      "at": "2026-09-24T02:33:06.086Z"
+    },
+    {
+      "label": "setupWindow",
+      "at": "2026-09-24T02:33:12.929Z"
+    },
+    {
+      "label": "openShelf",
+      "at": "2026-09-24T02:33:21.203Z"
+    },
+    {
+      "label": "openPopover",
+      "at": "2026-09-24T02:33:25.084Z"
+    }
+  ],
+  "restartStorage": {
+    "akari.mystyle.parts.01M38M1VSWF5MST5H9XV3S7FET": "[\"motion\"]",
+    "akari.mystyle.parts.01K5ZXY123ABCDEFGHJKMNPQRS": "[\"look\",\"motion\"]"
+  },
+  "usageFinal": {
+    "version": 1,
+    "entries": [
+      {
+        "caption_ids": [
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+        "revision": 1,
+        "parts": [
+          "motion"
+        ],
+        "applied_at": "2026-09-24T02:31:58.761Z"
+      },
+      {
+        "caption_ids": [
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+        "revision": 1,
+        "parts": [
+          "look"
+        ],
+        "applied_at": "2026-09-24T02:32:08.024Z"
+      },
+      {
+        "caption_ids": [
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+        "revision": 1,
+        "parts": [
+          "look",
+          "motion"
+        ],
+        "applied_at": "2026-09-24T02:32:17.717Z"
+      },
+      {
+        "caption_ids": [
+          "c-0003"
+        ],
+        "style_uid": "01K5ZXY123ABCDEFGHJKMNPQRS",
+        "revision": 1,
+        "parts": [
+          "look",
+          "motion"
+        ],
+        "applied_at": "2026-09-24T02:32:31.357Z"
+      },
+      {
+        "caption_ids": [
+          "c-0002"
+        ],
+        "style_uid": "01M38M28GZSKB2DQE7A92RQW6G",
+        "revision": 1,
+        "parts": [
+          "motion"
+        ],
+        "applied_at": "2026-09-24T02:32:37.019Z"
+      },
+      {
+        "caption_ids": [
+          "c-0006"
+        ],
+        "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+        "revision": 1,
+        "parts": [
+          "look",
+          "motion"
+        ],
+        "applied_at": "2026-09-24T02:32:41.710Z"
+      },
+      {
+        "caption_ids": [
+          "c-0006"
+        ],
+        "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+        "revision": 1,
+        "parts": [
+          "look",
+          "motion"
+        ],
+        "applied_at": "2026-09-24T02:32:52.868Z"
+      },
+      {
+        "caption_ids": [
+          "c-0003"
+        ],
+        "style_uid": "01M38M1VSWF5MST5H9XV3S7FET",
+        "revision": 1,
+        "parts": [
+          "motion"
+        ],
+        "applied_at": "2026-09-24T02:33:01.327Z"
+      }
+    ]
+  },
+  "passed": 23,
+  "total": 23
+}

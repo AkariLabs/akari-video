@@ -3,7 +3,7 @@ import test from 'node:test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createMyStyle, ignoredMyStyleParts, myStyleLook, myStylePartLabel, myStyleSamplePresentation, myStyleAppliesTo, parseMyStyle } from '../lib/common/my-style.js';
+import { createMyStyle, defaultMyStyleParts, ignoredMyStyleParts, myStyleLook, myStylePartLabel, myStyleSamplePresentation, myStyleAppliesTo, parseMyStyle } from '../lib/common/my-style.js';
 import { AkariProjectServiceImpl } from '../lib/node/akari-project-service.js';
 
 test('保存形は未知の部品を保持し、位置を除き、絶対パスを拒む', () => {
@@ -12,13 +12,13 @@ test('保存形は未知の部品を保持し、位置を除き、絶対パス�
     sample_text: '文字', parts: [{ kind: 'look', text_style: { color: '#ff1744',
       position: { y: 0.8 }, text_anchor: 'tc', zone: 'top', layout: {}, animation: { in: { id: 'pop' } },
       reference_height_px: 1920 } , scope: 'caption', mode: 'modify' },
-    { kind: 'motion', scope: 'clip', mode: 'modify', animation: { in: { id: 'pop' } } },
+    { kind: 'motion', scope: 'caption', mode: 'modify', animation: { in: { id: 'pop' } } },
     { kind: 'future', scope: 'scene', mode: 'attach', attach: { at: 'in', offset_frames: 2 } }] }, now);
   const roundtrip = parseMyStyle(JSON.parse(JSON.stringify(style)));
   assert.deepEqual(myStyleLook(roundtrip), { color: '#ff1744', reference_height_px: 1920 });
-  assert.deepEqual(ignoredMyStyleParts(roundtrip), ['motion', 'future']);
+  assert.deepEqual(ignoredMyStyleParts(roundtrip), ['future']);
   assert.equal(roundtrip.license.scope, 'private-owned');
-  assert.deepEqual(myStyleAppliesTo(roundtrip), ['caption', 'clip', 'scene']);
+  assert.deepEqual(myStyleAppliesTo(roundtrip), ['caption', 'scene']);
   assert.equal('applies_to' in parseMyStyle({ ...roundtrip, applies_to: ['clip'] }), false);
   assert.match(roundtrip.uid, /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
   assert.equal(roundtrip.version, 1);
@@ -37,6 +37,36 @@ test('保存形は未知の部品を保持し、位置を除き、絶対パス�
   assert.throws(() => parseMyStyle({ ...style, parts: [{ kind: 'look', text_style: { color: '#fff' } }] }), /基準高さ/);
   assert.throws(() => parseMyStyle({ ...style, parts: [{ kind: 'look', text_style: { color: 42,
     reference_height_px: 1920 } }] }), /見た目の値/);
+});
+
+test('motion の形と選択の既定を検証する', () => {
+  const style = createMyStyle({ id: 'motion', name: '動き', when_to_use: '強調', sample_text: '文字',
+    parts: [{ kind: 'look', scope: 'caption', mode: 'modify', text_style: { reference_height_px: 1080 } },
+      { kind: 'motion', scope: 'caption', mode: 'modify', animation: {
+        in: { id: 'fade-up', duration_sec: 0.4, ease: 'ease-out', amp: 8 }, loop: { id: 'float' } } },
+      { kind: 'sfx' }] }, '2026-09-24T00:00:00.000Z');
+  assert.deepEqual(parseMyStyle(JSON.parse(JSON.stringify(style))), style);
+  const motionOnly = createMyStyle({ id: 'motion-only', name: '動きだけ', when_to_use: '登場', sample_text: '文字',
+    parts: [style.parts[1]] }, '2026-09-24T00:00:00.000Z');
+  assert.deepEqual(motionOnly.parts, [style.parts[1]]);
+  assert.equal(myStyleLook(motionOnly), undefined);
+  assert.deepEqual(defaultMyStyleParts(style.parts), ['look', 'motion']);
+  assert.deepEqual(defaultMyStyleParts(style.parts, ['motion']), ['motion']);
+  assert.deepEqual(defaultMyStyleParts(style.parts, ['sfx']), []);
+  for (const animation of [{ spin: { id: 'pop' } }, { in: {} }, { in: { id: '/tmp/pop' } }, []]) {
+    assert.throws(() => parseMyStyle({ ...style, parts: [{ kind: 'motion', scope: 'caption', mode: 'modify', animation }] }));
+  }
+  assert.throws(() => parseMyStyle({ ...style,
+    parts: [{ kind: 'motion', scope: 'clip', mode: 'modify', animation: { in: { id: 'pop' } } }] }), /動き/);
+});
+
+test('scope / mode の無い motion は既定値を補って読める', () => {
+  const style = createMyStyle({ id: 'legacy-motion', name: '動き', when_to_use: '強調', sample_text: '文字',
+    parts: [{ kind: 'motion', scope: 'caption', mode: 'modify', animation: { in: { id: 'fade-up' } } }] },
+  '2026-09-24T00:00:00.000Z');
+  const parsed = parseMyStyle({ ...style, parts: [{ kind: 'motion', animation: { in: { id: 'fade-up' } } }] });
+  assert.deepEqual(parsed.parts, [{ kind: 'motion', scope: 'caption', mode: 'modify',
+    animation: { in: { id: 'fade-up' } } }]);
 });
 
 test('部品チップは既知 kind を日本語にし、見本へ縁取り・座布団・影を反映する', () => {

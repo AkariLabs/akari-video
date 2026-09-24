@@ -1,4 +1,4 @@
-import { mergeCaptionTextStyles, type CaptionTextStyle, type CaptionTextStylePatch } from '../common/caption-store';
+import { mergeCaptionTextStyles, type CaptionAnimation, type CaptionTextStyle, type CaptionTextStylePatch } from '../common/caption-store';
 
 const KEYS: Readonly<Record<string, string>> = {
     sizePx: 'size_px', referenceHeightPx: 'reference_height_px', fontFamily: 'font_family',
@@ -64,6 +64,39 @@ export function effectiveMyStyleLook(defaultStyle: CaptionTextStyle | undefined,
     return look;
 }
 
+/** Freeze the resolved caption animation in captions.json's snake_case shape. */
+export function effectiveMyStyleMotion(defaultStyle: CaptionTextStyle | undefined,
+    captionStyle: CaptionTextStyle | undefined): Record<string, unknown> | undefined {
+    const animation = mergeCaptionTextStyles(defaultStyle, captionStyle)?.animation;
+    if (!animation || !Object.keys(animation).length) return undefined;
+    return Object.fromEntries(Object.entries(animation).map(([slot, value]) => {
+        const { durationSec, ...rest } = value;
+        return [slot, { ...rest, ...(durationSec !== undefined ? { duration_sec: durationSec } : {}) }];
+    }));
+}
+
+export function placedMyStyleMotion(value: unknown): CaptionAnimation {
+    if (!record(value)) return {};
+    return Object.fromEntries(['in', 'loop', 'out'].filter(slot => record(value[slot])).map(slot => {
+        const input = value[slot] as Record<string, unknown>;
+        const { duration_sec, ...rest } = input;
+        return [slot, { ...rest, ...(typeof duration_sec === 'number' ? { durationSec: duration_sec } : {}) }];
+    })) as CaptionAnimation;
+}
+
+export function myStyleSaveParts(defaultStyle: CaptionTextStyle | undefined,
+    captionStyle: CaptionTextStyle | undefined, referenceHeightPx: number,
+    selected: readonly string[]): Array<{ kind: string; scope: 'caption'; mode: 'modify';
+        text_style?: Record<string, unknown>; animation?: Record<string, unknown> }> {
+    const motion = effectiveMyStyleMotion(defaultStyle, captionStyle);
+    return [
+        ...(selected.includes('look') ? [{ kind: 'look', scope: 'caption' as const, mode: 'modify' as const,
+            text_style: effectiveMyStyleLook(defaultStyle, captionStyle, referenceHeightPx) }] : []),
+        ...(selected.includes('motion') && motion ? [{ kind: 'motion', scope: 'caption' as const,
+            mode: 'modify' as const, animation: motion }] : [])
+    ];
+}
+
 /** layout and reference height are exclusive after default + cue merge (the preset is removed). */
 export function assertMyStyleLayoutCompatible(defaultStyle: unknown, cueStyle: unknown): void {
     const base = record(defaultStyle) ? defaultStyle : {};
@@ -90,8 +123,11 @@ export function sanitizeMyStyleLook(value: unknown): Record<string, unknown> {
 }
 
 /** One source write replaces every look field and removes style_preset on all selected cues. */
-export function replaceMyStyleLookInSource(source: string, ids: readonly string[], value: unknown): string {
-    const look = sanitizeMyStyleLook(value);
+export function replaceMyStylePartsInSource(source: string, ids: readonly string[],
+    parts: readonly { kind: string; text_style?: unknown; animation?: unknown }[]): string {
+    const lookPart = parts.find(part => part.kind === 'look');
+    const motionPart = parts.find(part => part.kind === 'motion');
+    const look = sanitizeMyStyleLook(lookPart?.text_style);
     const document = JSON.parse(source) as unknown;
     const rows = Array.isArray(document) ? document
         : record(document) && Array.isArray(document.captions) ? document.captions : undefined;
@@ -102,15 +138,22 @@ export function replaceMyStyleLookInSource(source: string, ids: readonly string[
         const row = matches[0] as Record<string, unknown>;
         const before = record(row.text_style) ? row.text_style : {};
         const next = { ...before };
-        for (const key of Object.keys(LOOK_FIELDS)) delete next[key];
-        Object.assign(next, look);
-        const defaultStyle = record(document) ? document.default_text_style : undefined;
-        assertMyStyleLayoutCompatible(defaultStyle, next);
+        if (lookPart) {
+            for (const key of Object.keys(LOOK_FIELDS)) delete next[key];
+            Object.assign(next, look);
+            const defaultStyle = record(document) ? document.default_text_style : undefined;
+            assertMyStyleLayoutCompatible(defaultStyle, next);
+            delete row.style_preset;
+        }
+        if (motionPart) next.animation = motionPart.animation;
         if (Object.keys(next).length) row.text_style = next;
         else delete row.text_style;
-        delete row.style_preset;
     }
     return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+export function replaceMyStyleLookInSource(source: string, ids: readonly string[], value: unknown): string {
+    return replaceMyStylePartsInSource(source, ids, [{ kind: 'look', text_style: value }]);
 }
 
 export interface MyStyleUsageEntry {
@@ -119,6 +162,11 @@ export interface MyStyleUsageEntry {
     revision: number;
     parts: string[];
     applied_at: string;
+}
+
+export function appliedMyStyleKinds(parts: readonly { kind: string }[], selected: readonly string[]): string[] {
+    return [...new Set(parts.filter(part => (part.kind === 'look' || part.kind === 'motion')
+        && selected.includes(part.kind)).map(part => part.kind))];
 }
 
 export function appendMyStyleUsage(source: string | undefined, entry: MyStyleUsageEntry): string {
@@ -200,15 +248,16 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
     max_width_pct: '文字の最大幅', text_transform: '文字変換'
 };
 
-export function myStyleApplyNotice(parts: readonly { kind: string; text_style?: unknown }[]): string | undefined {
-    const look = parts.find(part => part.kind === 'look');
+export function myStyleApplyNotice(parts: readonly { kind: string; text_style?: unknown }[],
+    selected: readonly string[] = ['look', 'motion']): string | undefined {
+    const look = selected.includes('look') ? parts.find(part => part.kind === 'look') : undefined;
     const ignored = [...new Set([
-        ...parts.filter(part => part.kind !== 'look').map(part => PART_LABELS[part.kind] ?? part.kind),
+        ...parts.filter(part => part.kind !== 'look' && part.kind !== 'motion').map(part => PART_LABELS[part.kind] ?? part.kind),
         ...unsupportedMyStyleLookFields(look?.text_style).map(field => FIELD_LABELS[field] ?? field)
     ])];
     if (!ignored.length) return undefined;
     const labels = ignored.length > 3 ? `${ignored.slice(0, 3).join('・')}ほか` : ignored.join('・');
-    return `${labels} は v0 では当てません。${look ? '見た目を当てました。' : ''}`;
+    return `${labels} は当てません。`;
 }
 
 /** Put the look in the new cue before insertCaption, keeping its default position. */

@@ -7,16 +7,16 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
-import { placedMyStyleTextStyle, myStyleApplyNotice, appendMyStyleUsage } from '../lib/browser/my-style-look.js';
+import { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage } from '../lib/browser/my-style-look.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
 import { parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds } from '@akari-video/edit-store';
 
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const declaration = source.statements.find(item => ts.isClassDeclaration(item) && item.name.text === 'AkariAnnotationsWidget');
 const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'myStyleApplyNotice', 'appendMyStyleUsage', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
+const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
     placeTextCaption, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
-    placedMyStyleTextStyle, myStyleApplyNotice, appendMyStyleUsage,
+    placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
     { fromString: value => value },
     { dispatchEvent() {} }, class { constructor(type, options) { this.type = type; this.detail = options.detail; } });
 
@@ -114,10 +114,12 @@ test('マイスタイルの＋とドラッグは見た目を挿入時に書き�
     assert.deepEqual(after.text_style.stroke, { color: '#ffffff', width_px: 6 });
     assert.deepEqual(after.text_style.position, { y: .4625 });
     assert.equal(after.text_style.reference_height_px, 1920);
+    assert.deepEqual(after.text_style.animation, { in: { id: 'pop' } });
     const usage = JSON.parse(await readFile(join(f.root, '.akari/style-usage.json'), 'utf8'));
     assert.deepEqual(usage.entries[0].caption_ids, [id]);
     assert.equal(usage.entries[0].style_uid, myStyle.uid);
-    assert.deepEqual(f.notices, ['動き は v0 では当てません。見た目を当てました。']);
+    assert.deepEqual(usage.entries[0].parts, ['look', 'motion']);
+    assert.deepEqual(f.notices, []);
     await f.history[0].undo();
     await assert.rejects(readFile(f.captionsPath), { code: 'ENOENT' });
     const replacedId = await f.widget.placeText({ start: 1, stylePreset: 'title-impact', myStyle });

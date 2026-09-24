@@ -90,7 +90,7 @@ import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
-import { myStylePartLabel, myStyleSamplePresentation, type MyStyle } from '../common/my-style';
+import { defaultMyStyleParts, myStylePartLabel, myStyleSamplePresentation, type MyStyle } from '../common/my-style';
 import {
     LIBRARY_DETAIL_GROUPS,
     LIBRARY_GROUPS,
@@ -579,6 +579,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     /** 素材カタログとは別系統で読む、テロップ / LUT の読み取り専用参照表。 */
     protected presetShowcase: PresetShowcase = EMPTY_PRESET_SHOWCASE;
     protected myStyles: MyStyle[] = [];
+    protected closeMyStyleApplyPopover?: () => void;
     /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
     protected catalogPacks: CatalogPack[] = [];
     /**
@@ -4203,6 +4204,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 {styles.map(style => {
                     const sampleStyle = myStyleSamplePresentation(style) as React.CSSProperties;
                     return <div key={style.id} data-akari-my-style-card={style.id} draggable
+                        onMouseEnter={event => this.playMyStyleSample(event.currentTarget, style)}
+                        onMouseLeave={event => event.currentTarget.querySelector('[data-akari-my-style-preview]')?.getAnimations().forEach(animation => animation.cancel())}
                         onDragStart={event => {
                             const payload = { kind: 'mystyle', style };
                             event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
@@ -4223,13 +4226,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         <div style={{ display: 'flex', gap: '3px', overflow: 'hidden', whiteSpace: 'nowrap', margin: '4px 0' }}>
                             {style.parts.map((part, index) => <span key={`${part.kind}-${index}`} data-akari-my-style-part={part.kind}
                                 style={{ display: 'inline-block', flexShrink: 0, padding: '1px 4px', borderRadius: `${AKARI_RADIUS.chip}px`,
-                                    background: 'var(--theia-badge-background)', opacity: part.kind === 'look' ? 1 : 0.55,
+                                    background: 'var(--theia-badge-background)', opacity: part.kind === 'look' || part.kind === 'motion' ? 1 : 0.55,
                                     fontSize: '0.66em' }}>
-                                {myStylePartLabel(part.kind)}{part.kind === 'look' ? '' : '（当てない）'}</span>)}
+                                {myStylePartLabel(part.kind)}{part.kind === 'look' || part.kind === 'motion' ? '' : '（当てない）'}</span>)}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'nowrap', justifyContent: 'space-between', gap: '2px' }}>
-                            {this.renderMyStyleAction('apply', style.id, 'codicon-check', '選択した字幕に当てる', () =>
-                                window.dispatchEvent(new CustomEvent('akari.mystyle.apply', { detail: { style } })))}
+                            {this.renderMyStyleAction('apply', style.id, 'codicon-check', '選択した字幕に当てる', button =>
+                                this.openMyStyleApply(style, button))}
                             {this.renderMyStyleAction('add', style.id, 'codicon-add', 'プレイヘッド位置に置く', () => { void this.addMyStyleAtPlayhead(style); })}
                             {this.renderMyStyleAction('rename', style.id, 'codicon-edit', '名前を変更', () => { void this.renameMyStyle(style); })}
                             {this.renderMyStyleAction('delete', style.id, 'codicon-trash', '削除', () => { void this.deleteMyStyle(style); })}
@@ -4241,7 +4244,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderMyStyleAction(action: 'apply' | 'add' | 'rename' | 'delete', id: string,
-        icon: string, label: string, onClick: () => void): React.ReactNode {
+        icon: string, label: string, onClick: (button: HTMLButtonElement) => void): React.ReactNode {
         const toggleTip = (element: HTMLButtonElement, visible: boolean): void => {
             element.querySelector<HTMLElement>('[data-akari-my-style-tip]')!.style.display = visible ? 'block' : 'none';
         };
@@ -4257,12 +4260,109 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             onMouseLeave={event => toggleTip(event.currentTarget, false)}
             onFocus={event => toggleTip(event.currentTarget, true)}
             onBlur={event => toggleTip(event.currentTarget, false)}
-            onClick={event => { event.stopPropagation(); onClick(); }}>
+            onClick={event => { event.stopPropagation(); onClick(event.currentTarget); }}>
             <span className={`codicon ${icon}`} aria-hidden='true' />
             <span data-akari-my-style-tip style={{ display: 'none', position: 'absolute', bottom: 'calc(100% + 3px)', left: 0,
                 padding: '4px 6px', whiteSpace: 'nowrap', background: AKARI_SURFACE.card, border: AKARI_BORDER.hairline,
                 color: AKARI_INK, pointerEvents: 'none', zIndex: 20, fontSize: '11px' }}>{label}</span>
         </button>;
+    }
+
+    protected openMyStyleApply(style: MyStyle, button: HTMLButtonElement): void {
+        this.closeMyStyleApplyPopover?.();
+        const supported = defaultMyStyleParts(style.parts);
+        const apply = (selectedParts: string[]): void => {
+            window.dispatchEvent(new CustomEvent('akari.mystyle.apply', { detail: { style, selectedParts } }));
+        };
+        if (supported.length <= 1) { apply(supported); return; }
+        const key = `akari.mystyle.parts.${style.uid}`;
+        let previous: string[] | undefined;
+        try {
+            const stored = window.localStorage.getItem(key);
+            if (stored) {
+                const parsed: unknown = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) previous = parsed;
+            }
+        } catch { /* Empty preferences use all supported parts. */ }
+        const selected = defaultMyStyleParts(style.parts, previous);
+        const popover = document.createElement('div');
+        popover.setAttribute('data-akari-my-style-apply-popover', '');
+        popover.setAttribute('role', 'dialog');
+        popover.setAttribute('aria-label', '当てる部品を選ぶ');
+        Object.assign(popover.style, { position: 'fixed', zIndex: '100000', width: '190px', padding: '10px',
+            background: 'var(--theia-editor-background)', color: 'var(--theia-foreground)',
+            border: '1px solid var(--theia-widget-border)', borderRadius: '7px', boxShadow: '0 8px 24px #0008' });
+        const title = document.createElement('strong');
+        title.textContent = '当てる部品';
+        popover.appendChild(title);
+        for (const part of style.parts) {
+            const label = document.createElement('label');
+            label.style.display = 'block';
+            label.style.marginTop = '6px';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = part.kind;
+            input.checked = selected.includes(part.kind);
+            input.disabled = !supported.includes(part.kind);
+            label.append(input, document.createTextNode(` ${myStylePartLabel(part.kind)}${input.disabled ? '（当てない）' : ''}`));
+            popover.appendChild(label);
+        }
+        const actions = document.createElement('div');
+        Object.assign(actions.style, { display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '10px' });
+        const confirm = document.createElement('button');
+        confirm.type = 'button'; confirm.className = 'theia-button main'; confirm.textContent = '当てる';
+        const refreshConfirm = (): void => {
+            confirm.disabled = !popover.querySelector('input:checked:not(:disabled)');
+        };
+        popover.addEventListener('change', refreshConfirm);
+        refreshConfirm();
+        const cancel = document.createElement('button');
+        cancel.type = 'button'; cancel.className = 'theia-button secondary'; cancel.textContent = 'キャンセル';
+        actions.append(cancel, confirm);
+        popover.appendChild(actions);
+        const close = (): void => {
+            document.removeEventListener('keydown', onKey, true);
+            document.removeEventListener('pointerdown', onOutside, true);
+            popover.remove();
+            if (this.closeMyStyleApplyPopover === close) this.closeMyStyleApplyPopover = undefined;
+        };
+        this.closeMyStyleApplyPopover = close;
+        const onKey = (event: KeyboardEvent): void => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
+        const onOutside = (event: PointerEvent): void => { if (!popover.contains(event.target as Node)) close(); };
+        cancel.addEventListener('click', close);
+        confirm.addEventListener('click', () => {
+            const chosen = Array.from(popover.querySelectorAll<HTMLInputElement>('input:checked:not(:disabled)')).map(input => input.value);
+            if (!chosen.length) return;
+            try { window.localStorage.setItem(key, JSON.stringify(chosen)); } catch { /* Applying still works. */ }
+            close(); apply(chosen);
+        });
+        const rect = button.getBoundingClientRect();
+        document.body.appendChild(popover);
+        popover.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - popover.offsetWidth - 8))}px`;
+        popover.style.top = `${Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - popover.offsetHeight - 8))}px`;
+        document.addEventListener('keydown', onKey, true);
+        document.addEventListener('pointerdown', onOutside, true);
+        confirm.focus();
+    }
+
+    protected playMyStyleSample(container: HTMLDivElement, style: MyStyle): void {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const animation = style.parts.find(part => part.kind === 'motion')?.animation as Record<string, unknown> | undefined;
+        const slot = (animation?.in ?? animation?.loop ?? animation?.out) as Record<string, unknown> | undefined;
+        const target = container.querySelector<HTMLElement>('[data-akari-my-style-preview]');
+        if (!slot || !target) return;
+        target.getAnimations().forEach(item => item.cancel());
+        const id = typeof slot.id === 'string' ? slot.id : '';
+        const distance = typeof slot.amp === 'number' ? Math.min(24, Math.max(3, slot.amp)) : 12;
+        const from = id.includes('slide-left') ? { opacity: 0, transform: `translateX(${distance}px)` }
+            : id.includes('slide-right') ? { opacity: 0, transform: `translateX(-${distance}px)` }
+                : id.includes('slide-down') ? { opacity: 0, transform: `translateY(-${distance}px)` }
+                    : id.includes('slide') || id.includes('fade-up') ? { opacity: 0, transform: `translateY(${distance}px)` }
+            : id.includes('zoom') || id.includes('pop') ? { opacity: 0, transform: 'scale(.72)' }
+                : id.includes('float') ? { opacity: 1, transform: `translateY(${distance / 3}px)` }
+                    : { opacity: 0, transform: 'none' };
+        const duration = typeof slot.duration_sec === 'number' ? Math.min(1800, Math.max(150, slot.duration_sec * 1000)) : 650;
+        target.animate([from, { opacity: 1, transform: 'none' }], { duration, iterations: 1, easing: 'ease-out' });
     }
 
     protected async addMyStyleAtPlayhead(style: MyStyle): Promise<void> {

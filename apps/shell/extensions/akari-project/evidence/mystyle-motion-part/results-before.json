@@ -1,0 +1,369 @@
+{
+  "phase": "before",
+  "base": "813debc0",
+  "saveDialogWithMotion": {
+    "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き（近日） /  効果音（近日） /  画面効果（近日） /  装飾（近日） / キャンセル / 保存",
+    "name": "今日は朝のルーティンを紹介します",
+    "parts": [
+      {
+        "kind": "look",
+        "checked": true,
+        "disabled": false,
+        "label": "見た目 （位置は含めない）"
+      },
+      {
+        "kind": "motion",
+        "checked": false,
+        "disabled": true,
+        "label": "動き（近日）"
+      },
+      {
+        "kind": "sfx",
+        "checked": false,
+        "disabled": true,
+        "label": "効果音（近日）"
+      },
+      {
+        "kind": "fx",
+        "checked": false,
+        "disabled": true,
+        "label": "画面効果（近日）"
+      },
+      {
+        "kind": "decor",
+        "checked": false,
+        "disabled": true,
+        "label": "装飾（近日）"
+      }
+    ]
+  },
+  "savedStyle": {
+    "id": "my-style-d4d17a52",
+    "parts": [
+      {
+        "kind": "look",
+        "keys": [
+          "kind",
+          "scope",
+          "mode",
+          "text_style"
+        ],
+        "hasAnimation": false
+      }
+    ]
+  },
+  "shelf": {
+    "rect": {
+      "x": 48,
+      "y": 195.9,
+      "w": 211,
+      "h": 362.5
+    },
+    "cards": [
+      {
+        "id": "my-style-d4d17a52",
+        "rect": {
+          "w": 191,
+          "h": 155.5
+        },
+        "draggable": "true",
+        "badge": "マイスタイル",
+        "parts": [
+          {
+            "kind": "look",
+            "label": "見た目"
+          }
+        ],
+        "text": "今日は朝のルーティンを紹介します / マイスタイル / 強調テロップ / 驚きや大事な一言を目立たせたいとき / 見た目",
+        "buttons": [
+          {
+            "aria": "選択した字幕に当てる",
+            "text": "選択した字幕に当てる",
+            "w": 28,
+            "h": 26
+          },
+          {
+            "aria": "プレイヘッド位置に置く",
+            "text": "プレイヘッド位置に置く",
+            "w": 28,
+            "h": 26
+          },
+          {
+            "aria": "名前を変更",
+            "text": "名前を変更",
+            "w": 28,
+            "h": 26
+          },
+          {
+            "aria": "削除",
+            "text": "削除",
+            "w": 28,
+            "h": 26
+          }
+        ],
+        "buttonRows": 1
+      },
+      {
+        "id": "hand-motion",
+        "rect": {
+          "w": 191,
+          "h": 155.5
+        },
+        "draggable": "true",
+        "badge": "マイスタイル",
+        "parts": [
+          {
+            "kind": "look",
+            "label": "見た目"
+          },
+          {
+            "kind": "motion",
+            "label": "動き（当てない）"
+          }
+        ],
+        "text": "今日は朝のルーティンを紹介します / マイスタイル / 手で足した動き入り / 登場で持ち上がり、ふわふわ浮かせたいとき / 見た目 / 動き（当てない）",
+        "buttons": [
+          {
+            "aria": "選択した字幕に当てる",
+            "text": "選択した字幕に当てる",
+            "w": 28,
+            "h": 26
+          },
+          {
+            "aria": "プレイヘッド位置に置く",
+            "text": "プレイヘッド位置に置く",
+            "w": 28,
+            "h": 26
+          },
+          {
+            "aria": "名前を変更",
+            "text": "名前を変更",
+            "w": 28,
+            "h": 26
+          },
+          {
+            "aria": "削除",
+            "text": "削除",
+            "w": 28,
+            "h": 26
+          }
+        ],
+        "buttonRows": 1
+      }
+    ]
+  },
+  "sampleHover": {
+    "animations": 0,
+    "cssAnimation": "none"
+  },
+  "applyPopover": null,
+  "applyResult": {
+    "c-0002": {
+      "before": {
+        "text_style": {
+          "color": "#FFFFFF",
+          "size_px": 44,
+          "stroke": {
+            "color": "#000000",
+            "width_px": 3
+          },
+          "animation": {
+            "in": {
+              "id": "pop",
+              "duration_sec": 0.4
+            },
+            "out": {
+              "id": "slide-down",
+              "duration_sec": 0.5
+            }
+          },
+          "text_anchor": "bl",
+          "position": {
+            "x": 0.1,
+            "y": 0.9
+          }
+        },
+        "style_preset": null
+      },
+      "after": {
+        "text_style": {
+          "animation": {
+            "in": {
+              "id": "pop",
+              "duration_sec": 0.4
+            },
+            "out": {
+              "id": "slide-down",
+              "duration_sec": 0.5
+            }
+          },
+          "text_anchor": "bl",
+          "position": {
+            "x": 0.1,
+            "y": 0.9
+          },
+          "color": "#00E5FF",
+          "size_px": 48,
+          "reference_height_px": 720,
+          "stroke": {
+            "color": "#002233",
+            "width_px": 4
+          },
+          "background": {
+            "opacity": 0
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0
+          },
+          "glow": {
+            "color": "#000000",
+            "density": 0
+          }
+        },
+        "style_preset": null
+      },
+      "animationBefore": {
+        "in": {
+          "id": "pop",
+          "duration_sec": 0.4
+        },
+        "out": {
+          "id": "slide-down",
+          "duration_sec": 0.5
+        }
+      },
+      "animationAfter": {
+        "in": {
+          "id": "pop",
+          "duration_sec": 0.4
+        },
+        "out": {
+          "id": "slide-down",
+          "duration_sec": 0.5
+        }
+      }
+    },
+    "c-0003": {
+      "before": {
+        "text_style": null,
+        "style_preset": null
+      },
+      "after": {
+        "text_style": {
+          "color": "#00E5FF",
+          "size_px": 48,
+          "reference_height_px": 720,
+          "stroke": {
+            "color": "#002233",
+            "width_px": 4
+          },
+          "background": {
+            "opacity": 0
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0
+          },
+          "glow": {
+            "color": "#000000",
+            "density": 0
+          }
+        },
+        "style_preset": null
+      },
+      "animationBefore": null,
+      "animationAfter": null
+    },
+    "c-0004": {
+      "before": {
+        "text_style": null,
+        "style_preset": "emphasis-red"
+      },
+      "after": {
+        "text_style": {
+          "color": "#00E5FF",
+          "size_px": 48,
+          "reference_height_px": 720,
+          "stroke": {
+            "color": "#002233",
+            "width_px": 4
+          },
+          "background": {
+            "opacity": 0
+          },
+          "shadow": {
+            "color": "#000000",
+            "opacity": 0
+          },
+          "glow": {
+            "color": "#000000",
+            "density": 0
+          }
+        },
+        "style_preset": null
+      },
+      "animationBefore": null,
+      "animationAfter": null
+    }
+  },
+  "applyNotices": [
+    "動き は v0 では当てません。見た目を当てました。"
+  ],
+  "usage": {
+    "version": 1,
+    "entries": [
+      {
+        "caption_ids": [
+          "c-0002",
+          "c-0003",
+          "c-0004"
+        ],
+        "style_uid": "01K5ZXY123ABCDEFGHJKMNPQRS",
+        "revision": 1,
+        "parts": [
+          "look"
+        ],
+        "applied_at": "2026-09-24T00:31:09.700Z"
+      }
+    ]
+  },
+  "undoOnceEqualsFixture": true,
+  "saveDialogWithoutMotion": {
+    "text": "マイスタイルに保存 / 名前 / 使いどころ / 保存する部品 /  見た目 （位置は含めない） /  動き（近日） /  効果音（近日） /  画面効果（近日） /  装飾（近日） / キャンセル / 保存",
+    "name": "ここがいちばん大事",
+    "parts": [
+      {
+        "kind": "look",
+        "checked": true,
+        "disabled": false,
+        "label": "見た目 （位置は含めない）"
+      },
+      {
+        "kind": "motion",
+        "checked": false,
+        "disabled": true,
+        "label": "動き（近日）"
+      },
+      {
+        "kind": "sfx",
+        "checked": false,
+        "disabled": true,
+        "label": "効果音（近日）"
+      },
+      {
+        "kind": "fx",
+        "checked": false,
+        "disabled": true,
+        "label": "画面効果（近日）"
+      },
+      {
+        "kind": "decor",
+        "checked": false,
+        "disabled": true,
+        "label": "装飾（近日）"
+      }
+    ]
+  },
+  "status": "ok"
+}
