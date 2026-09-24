@@ -1,0 +1,148 @@
+{
+  "status": "FAIL",
+  "steps": [
+    {
+      "name": "gap heading and two tiles",
+      "pass": true,
+      "measured": {
+        "point": {
+          "x": 450.6273492132867,
+          "y": 520.015625
+        },
+        "heading": "すき間 · 4.0 秒",
+        "range": "3.00 → 7.00 秒",
+        "ends": [
+          "最初 = 動画A",
+          "最後 = 動画B"
+        ],
+        "tiles": [
+          {
+            "id": "still",
+            "disabled": "false"
+          },
+          {
+            "id": "video",
+            "disabled": "false"
+          }
+        ]
+      },
+      "elapsedMs": 7881
+    },
+    {
+      "name": "still tile inserts one frame and opens still panel",
+      "pass": true,
+      "measured": {
+        "click": {
+          "via": "inspector pending",
+          "point": {
+            "x": 752.75,
+            "y": 399.57421875
+          }
+        },
+        "itemId": "gap-1",
+        "at": 90,
+        "durationFrames": 120,
+        "selected": {
+          "timelineKind": "cut",
+          "timelineItemId": "gap-1",
+          "snapshotKind": "cut",
+          "snapshotItemId": "gap-1",
+          "aiSelected": true,
+          "panelHeader": "← AI静止画"
+        }
+      },
+      "elapsedMs": 9652
+    },
+    {
+      "name": "one undo removes gap frame",
+      "pass": true,
+      "measured": {
+        "undoClicks": 1,
+        "visualItems": 3
+      },
+      "elapsedMs": 4211
+    },
+    {
+      "name": "still clip AI",
+      "pass": true,
+      "measured": {
+        "aiSelected": true
+      },
+      "elapsedMs": 3373
+    },
+    {
+      "name": "ordinary video keeps AI",
+      "pass": true,
+      "measured": {
+        "aiSelected": true
+      },
+      "elapsedMs": 1955
+    },
+    {
+      "name": "audio keeps AI",
+      "pass": true,
+      "measured": {
+        "aiSelected": true
+      },
+      "elapsedMs": 1359
+    }
+  ],
+  "screenshots": [
+    "01-gap-ai-tiles.png",
+    "02-inserted-still-panel.png",
+    "03-after-undo.png",
+    "04-still-clip-ai.png",
+    "05-video-clip-ai.png",
+    "06-audio-clip-ai.png"
+  ],
+  "clicks": [
+    {
+      "name": "still tile",
+      "attempt": 1,
+      "pass": true,
+      "acknowledgement": "inspector pending"
+    },
+    {
+      "name": "undo frame",
+      "attempt": 1,
+      "pass": true
+    },
+    {
+      "name": "still clip",
+      "attempt": 1,
+      "pass": true
+    },
+    {
+      "name": "open still AI",
+      "attempt": 1,
+      "pass": true
+    },
+    {
+      "name": "video stays AI",
+      "attempt": 1,
+      "pass": true
+    },
+    {
+      "name": "audio stays AI",
+      "attempt": 1,
+      "pass": true
+    }
+  ],
+  "requests": [],
+  "fakeCliCalls": 1,
+  "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 0\n\n    at file://<WORKTREE>/apps/shell/extensions/akari-annotations/evidence/ai-tab-gap-and-sticky/scripts/l1-ai-tab-gap-and-sticky.mjs:259:10",
+  "failureScreenshot": "error-full.png",
+  "failureState": {
+    "observationError": "eval failed: {\"exceptionId\":1,\"text\":\"Uncaught\",\"lineNumber\":10,\"columnNumber\":59,\"scriptId\":\"177\",\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"SyntaxError\",\"description\":\"SyntaxError: Unexpected token ')'\",\"objectId\":\"-7889378089282003745.1.3\"}}",
+    "visualTracks": [
+      {
+        "trackId": "video",
+        "itemIds": [
+          "left",
+          "right",
+          "still"
+        ]
+      }
+    ]
+  }
+}

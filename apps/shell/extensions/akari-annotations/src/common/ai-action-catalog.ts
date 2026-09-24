@@ -38,16 +38,16 @@ export interface AiTileGroup { group: AiActionGroup; tiles: AiTile[] }
 export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngines?: readonly NarrationEngine[]): AiAction[] {
     return [{
         id: 'still', group: 'make', label: '静止画', image: 'still',
-        visibleFor: ['empty-frame', 'still', 'video', 'generated-video'],
-        accepts: ['empty-frame', 'still'],
+        visibleFor: ['empty-frame', 'still', 'video', 'generated-video', 'gap'],
+        accepts: ['empty-frame', 'still', 'gap'],
         reasonWhenDisabled: '空の枠か静止画で使えます', output: 'image', placement: 'replace',
         routes: [{ id: 'codex', label: 'Codex', kind: 'cli', cost: 'free' },
             { id: 'antigravity', label: 'Antigravity', kind: 'cli', cost: 'free' },
             { id: 'grok', label: 'Grok', kind: 'cli', cost: 'free' }]
     }, {
         id: 'video', group: 'make', label: '動画にする', image: 'video',
-        visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
-        accepts: ['still', 'empty-frame', 'generated-video'],
+        visibleFor: ['still', 'empty-frame', 'video', 'generated-video', 'gap'],
+        accepts: ['still', 'empty-frame', 'generated-video', 'gap'],
         reasonWhenDisabled: '静止画か空の枠で使えます', output: 'video', placement: 'replace',
         routes: models.filter(row => row.kind === 'video').map(row => ({
             id: row.id, label: row.family || row.id,

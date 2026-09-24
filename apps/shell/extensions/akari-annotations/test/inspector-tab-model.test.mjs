@@ -207,7 +207,10 @@ const INITIAL_TAB_CASES = [
   ['画像のまま', {}, 'video'],
   ['生成済み動画', { generationAvailable: false }, 'video'],
   ['保存 adjust + 画像のまま', { persisted: 'adjust' }, 'adjust'],
-  ['保存 generation + 画像のまま', { persisted: 'generation' }, 'video'],
+  ['保存 generation + 画像のまま', { persisted: 'generation' }, 'generation'],
+  ['保存 generation + AI が押せない', { persisted: 'generation', generationAvailable: false }, 'video'],
+  ['別クリップでも AI のまま', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation' }, 'generation'],
+  ['別クリップで AI が押せない', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation', generationAvailable: false }, 'video'],
   ['同じクリップ再描画', { generationTodo: true, previousClipKey: 'clip', currentTab: 'adjust' }, 'adjust'],
   ['同じクリップ完了後', { previousClipKey: 'clip', currentTab: 'generation' }, 'generation'],
   ['別クリップは保存値より生成優先', { generationTodo: true, persisted: 'adjust', previousClipKey: 'other', currentTab: 'info' }, 'generation']
@@ -259,9 +262,9 @@ test('generation: 節割付・enabled・disabled title・やること印の DOM 
       const generation = buttons.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-generation');
       const todo = ['planned', 'generating', 'stale', 'failed'].includes(state);
       assert.equal(generation.disabled, false);
-      assert.equal(generation.attributes.get('aria-selected'), String(todo));
+      assert.equal(generation.attributes.get('aria-selected'), 'true');
       assert.deepEqual(generation.children.map(child => child.attributes.get('data-akari-generation-todo')), todo ? ['true'] : []);
-      assert.equal(widget.sections.some(([id]) => id === 'generation'), todo);
+      assert.equal(widget.sections.some(([id]) => id === 'generation'), true);
     }
     widget.generationTabMeta.set(key, { next: { status: 'planned' } });
     widget.tabSelectionKey = undefined;

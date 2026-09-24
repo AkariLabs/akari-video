@@ -2608,6 +2608,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected narrationTick?: number;
     protected aiView?: AiTabView;
     protected aiViewClipKey?: string;
+    protected gapAiOpening?: { gap: TimelineGapSelection; view: 'still' | 'video' };
     protected aiStillSelectionClipKey?: string;
     protected readonly aiStillStates = new Map<string, AiStillState>();
     protected aiStillTick?: number;
@@ -3837,8 +3838,6 @@ export class AkariInspectorWidget extends BaseWidget {
         title.textContent = `すき間 · ${(snapshot.endSeconds - snapshot.startSeconds).toFixed(1)} 秒`;
         const range = document.createElement('p');
         range.textContent = `${snapshot.startSeconds.toFixed(2)} → ${snapshot.endSeconds.toFixed(2)} 秒`;
-        const description = document.createElement('p');
-        description.textContent = '前後のクリップのあいだに、つなぎの動画を生成できます。前のクリップの最後のコマと、次のクリップの最初のコマが両端に入ります。';
         const ends = document.createElement('div');
         ends.className = 'akari-inspector-generation-gap-ends';
         for (const [label, endpoint] of [['最初', snapshot.previous], ['最後', snapshot.next]] as const) {
@@ -3866,16 +3865,42 @@ export class AkariInspectorWidget extends BaseWidget {
             }
             ends.appendChild(end);
         }
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.textContent = 'あいだを生成';
-        button.onclick = async () => {
-            if (button.disabled || this.model.snapshot !== snapshot) return;
-            button.disabled = true;
-            try { await snapshot.createFrame(); } finally { button.disabled = false; }
-        };
-        panel.append(title, range, description, ends, button);
+        panel.append(title, range, ends);
+        if (!this.aiCatalogLoaded) void this.loadAiCatalog();
+        appendAiTiles(panel, describeAiTiles(aiActionCatalog(this.generationCatalog), 'gap'), id => {
+            if ((id !== 'still' && id !== 'video') || this.gapAiOpening || this.model.snapshot !== snapshot) return;
+            const opening: { gap: TimelineGapSelection; view: 'still' | 'video' } = { gap: snapshot, view: id };
+            this.gapAiOpening = opening;
+            void snapshot.createFrame().catch(() => undefined).finally(() => {
+                if (this.gapAiOpening !== opening || this.matchesGapAiFrame(this.model.snapshot, snapshot)) return;
+                if (this.model.snapshot && this.model.snapshot.kind !== 'gap') {
+                    this.gapAiOpening = undefined;
+                    return;
+                }
+                // Selection can follow the resolved command; allow it to arrive before treating this as a failed insert.
+                setTimeout(() => {
+                    if (this.gapAiOpening === opening && !this.matchesGapAiFrame(this.model.snapshot, snapshot)) {
+                        this.gapAiOpening = undefined;
+                    }
+                }, 5000);
+            });
+        });
         this.body.appendChild(panel);
+    }
+
+    protected matchesGapAiFrame(selection: TimelineSelectionModel['snapshot'], gap: TimelineGapSelection): boolean {
+        if (!selection || (selection.kind !== 'cut' && selection.kind !== 'layer' && selection.kind !== 'item')) return false;
+        const id = selection.kind === 'cut' ? selection.itemId : selection.id;
+        if (!id?.startsWith('gap-')) return false;
+        const source = selection.kind === 'cut' ? selection.sourcePath : selection.src;
+        // Tree items carry a source ID rather than a path. commitGapFrame pairs gap-N with gap-src-N.
+        const generated = source?.startsWith('assets/generated/')
+            || (selection.kind === 'item' && selection.sourceKind === 'media'
+                && source === `gap-src-${id.slice('gap-'.length)}`);
+        if (!generated || (selection.kind === 'item' && selection.trackId !== gap.trackId)) return false;
+        const end = selection.kind === 'cut' ? selection.outputEnd : selection.outputStart + selection.duration;
+        return Math.abs(selection.outputStart - gap.startSeconds) < 0.001
+            && Math.abs(end - gap.endSeconds) < 0.001;
     }
 
     selectMaterial(selection: AkariMaterialSelection): void {
@@ -3963,6 +3988,9 @@ export class AkariInspectorWidget extends BaseWidget {
         this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path),
             () => window.dispatchEvent(new CustomEvent('akari.mystyle.open-save'))));
         if (snapshot.kind === 'gap') {
+            if (this.gapAiOpening && (this.gapAiOpening.gap.trackId !== snapshot.trackId
+                || this.gapAiOpening.gap.startSeconds !== snapshot.startSeconds
+                || this.gapAiOpening.gap.endSeconds !== snapshot.endSeconds)) this.gapAiOpening = undefined;
             this.tabSelectionKey = undefined;
             this.currentTab = undefined;
             this.explicitTabId = undefined;
@@ -4178,13 +4206,17 @@ export class AkariInspectorWidget extends BaseWidget {
             snapshot.kind === 'multi' ? snapshot.items.map(item => item.kind === 'cut' ? item.itemId ?? item.index : item.id)
                 : rowSnapshot.kind === 'cut' ? rowSnapshot.itemId ?? rowSnapshot.index : rowSnapshot.id
         ]);
+        const gapAiOpening = this.gapAiOpening;
+        const opensGapFrame = !!gapAiOpening && this.matchesGapAiFrame(rowSnapshot, gapAiOpening.gap);
+        if (gapAiOpening && !opensGapFrame) this.gapAiOpening = undefined;
         const stillNotice = this.aiStillStates?.size
             ? stillMismatchNotice(this.aiStillStates, generationIdentity?.key, this.aiStillSelectionClipKey, clipKey)
             : undefined;
         this.aiStillSelectionClipKey = clipKey;
         const activeTab = initialTabFor({
             kind: sectionKind, tabs, persisted: this.tabState.activeTab(sectionKind, tabs), generationTodo,
-            explicitTabId: this.explicitTabId, clipKey, previousClipKey: this.tabSelectionKey, currentTab: this.currentTab
+            explicitTabId: opensGapFrame ? 'generation' : this.explicitTabId,
+            clipKey, previousClipKey: this.tabSelectionKey, currentTab: this.currentTab
         });
         if (this.explicitTabId || !generationIdentity || (this.generationStates.has(generationIdentity.key)
             && !this.generationTabLoads.has(generationIdentity.key))) {
@@ -4205,6 +4237,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
                 generationState, generationDone, forcePanel: aiAvailability.forcePanel
             });
+            if (opensGapFrame && gapAiOpening) {
+                this.aiView = gapAiOpening.view;
+                this.gapAiOpening = undefined;
+            }
             this.aiViewClipKey = clipKey;
             if (this.aiView === 'tiles') {
                 if (stillNotice) appendAiStillNotice(this.body, stillNotice);

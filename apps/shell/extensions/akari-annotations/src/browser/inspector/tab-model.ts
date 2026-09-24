@@ -81,7 +81,9 @@ export function initialTabFor(options: InitialInspectorTabOptions): string {
         return enabled(currentTab) ?? fallback();
     }
     if (generationTodo && enabled('generation')) return 'generation';
-    if (!generationTodo && persisted === 'generation') return enabled('video') ?? fallback();
+    if (persisted === 'generation' || currentTab === 'generation') {
+        return enabled('generation') ?? tabs.find(tab => tab.enabled)?.id ?? '';
+    }
     return fallback();
 }
 
