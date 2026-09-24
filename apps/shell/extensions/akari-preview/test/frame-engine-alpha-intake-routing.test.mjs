@@ -52,5 +52,5 @@ test('the summary layer carries mask and the engine bootstrap registers it as a 
     const summaryLayer = openHandler.match(/interface EditSummaryLayer \{[\s\S]*?\n\}/)?.[0];
     assert.ok(summaryLayer);
     assert.match(summaryLayer, /\n    mask\?: string;/);
-    assert.match(openHandler, /const maskUrl = layer && layer\.mask;\s*if \(typeof maskUrl === 'string' && maskUrl && !sourceUrls\.has\(maskUrl\)\) \{\s*sourceUrls\.set\(maskUrl, maskUrl\);/);
+    assert.match(openHandler, /const maskUrl = layer && layer\.mask;\s*if \(typeof maskUrl === 'string' && maskUrl && !images\.has\(maskUrl\) && !sourceUrls\.has\(maskUrl\)\) \{\s*sourceUrls\.set\(maskUrl, maskUrl\);/);
 });

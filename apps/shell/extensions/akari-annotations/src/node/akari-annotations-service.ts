@@ -19,6 +19,7 @@ import { basename, dirname, join, relative, sep, extname, isAbsolute, resolve } 
 import { homedir, tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
+import { savePhotoMask } from './photo-mask-storage';
 import { NarrationCliManager } from './narration-cli';
 import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult, VoiceAvatar, VoiceCheckResult, VoiceCopyRequest, VoiceCreateRequest, VoiceScript, VoiceTryRequest, VoiceProfileSummary } from '../common/akari-annotations-protocol';
 import {
@@ -229,6 +230,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     protected readonly voiceCreatedPaths = new Map<string, string>();
     protected readonly voiceRecordings = new Map<string, { path: string; size: number }>();
     protected readonly stillGeneration = new StillGenerationManager(path => this.findGenerationAsset(path));
+
+    async generatePhotoMask(request: { projectRootUri: string; sourceUri: string }): Promise<
+        { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }> {
+        const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
+        return savePhotoMask(this.fsPath(request.projectRootUri), this.fsPath(request.sourceUri), helper);
+    }
 
     async voiceAvatars(): Promise<{ avatars: VoiceAvatar[] }> {
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;

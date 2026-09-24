@@ -1361,11 +1361,15 @@ function validateEditV2(edit, findings) {
             message: `mask does not reference sources[].id: ${String(item.mask)}`,
             path: maskPath,
           });
-        } else if (!isVideoSourcePath(sourcePaths.get(item.mask))) {
+        } else if (!isVideoSourcePath(sourcePaths.get(item.mask))
+          && !(kind === "media" && isStillImageSourcePath(sourcePaths.get(item.source.src))
+            && /\.png$/iu.test(String(sourcePaths.get(item.mask))))) {
           addFinding(findings, {
             severity: "error",
             check: "v2.mask-video",
-            message: `mask source must be a video: ${String(sourcePaths.get(item.mask))}`,
+            message: `${kind === "media" && isStillImageSourcePath(sourcePaths.get(item.source.src))
+              ? "静止画のマスクは PNG または動画を指定してください"
+              : "動画のマスクは動画ソースを指定してください"}: ${String(sourcePaths.get(item.mask))}`,
             path: maskPath,
           });
         }

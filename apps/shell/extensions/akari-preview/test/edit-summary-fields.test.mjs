@@ -54,6 +54,17 @@ test('buildLayerSummaryBase: mask reaches the summary as the unchanged sources i
     assert.equal(result.base.mask, 'maskgrad');
 });
 
+test('photo erase strokes and flip reach the preview summary', () => {
+    const erase = [{ mode: 'restore', points: [[0.25, 0.5]], size: 0.1, hardness: 0.7 }];
+    const flip = { h: true };
+    const result = buildLayerSummaryBase({ id: 'photo', t: 0, duration: 5,
+        kind: 'video', src: 'photo.jpg', mask: 'mask', erase, flip },
+    'layers[0]', identityTransform, new Map(), noopWarn);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.base.erase, erase);
+    assert.deepEqual(result.base.flip, flip);
+});
+
 test('buildLayerSummaryBase: absent mask stays absent; invalid masks warn once and are omitted', () => {
     for (const mask of [undefined, null, '', '  ', 42, {}, []]) {
         const warnings = [];
@@ -78,7 +89,7 @@ test('v2 layer mask resolves a sources id or projected path through ensureAssetS
     assert.ok(resolver);
     assert.match(resolver, /sourcesById\.get\(maskSourceId\)/);
     assert.match(resolver, /const maskUri = maskSource\s*\? await this\.resolveEditAssetUri\(maskSource\.uri\.toString\(\), editUri\)\s*: await this\.resolveEditAssetUri\(maskSourceId, editUri\);/);
-    assert.match(resolver, /isImageLayerSrc\(maskUri\.path\.toString\(\)\)/);
+    assert.doesNotMatch(resolver, /静止画には対応していません/u);
     assert.match(resolver, /return \(await ensureAssetStream\(maskUri\.toString\(\), maskUri\)\)\.url;/);
     assert.match(resolver, /catch \{\s*console\.warn\([^\n]+\);\s*return undefined;/);
     assert.match(resolver, /sources の id \/ パスとして解決・配信できません/);

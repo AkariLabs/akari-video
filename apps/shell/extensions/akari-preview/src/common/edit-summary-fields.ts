@@ -137,6 +137,8 @@ export interface LayerSummaryBase {
     perspective?: LayerPerspectiveSummary;
     /** Declared sources id; the caller resolves it to an asset stream URL. */
     mask?: string;
+    erase?: readonly { mode: 'erase' | 'restore'; points: readonly (readonly [number, number])[]; size: number; hardness: number }[];
+    flip?: { h?: boolean; v?: boolean };
     keyframes?: LayerKeyframesSummary;
     motion?: MotionSummary;
 }
@@ -367,6 +369,8 @@ export function buildLayerSummaryBase(
             warn(`[akari-preview] ${label}.mask を無視しました（非空文字列ではありません）`, record.mask);
         }
     }
+    if (Array.isArray(record.erase)) base.erase = record.erase as LayerSummaryBase['erase'];
+    if (isPlainObject(record.flip)) base.flip = record.flip as LayerSummaryBase['flip'];
     if (isPlainObject(record.motion)) base.motion = record.motion;
     if (record.keyframes !== undefined) {
         const keyframes = normalizeLayerKeyframesForSummary(record.keyframes);

@@ -18,7 +18,7 @@ export const timelineSource = readFileSync(new URL('../../src/browser/akari-anno
 const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const names = [
     'PERSPECTIVE_FIELDS', 'cutTransitionFields', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
-    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS', 'MOTION_FIELDS', 'ANIMATOR_SECTION',
+    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS', 'PHOTO_FLIP_FIELDS', 'MOTION_FIELDS', 'ANIMATOR_SECTION',
     'formatTimestamp', 'formatDurationSeconds', 'withDefaultNumber', 'formatDecimal1', 'orDash'
 ];
 const declarations = names.map(name => {
@@ -26,7 +26,7 @@ const declarations = names.map(name => {
     assert.ok(node, name);
     return node.getText(ast);
 });
-for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE']) {
+for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE', 'photoBrushSettings']) {
     const node = ast.statements.find(statement => ts.isVariableStatement(statement)
         && statement.declarationList.declarations.some(declaration => declaration.name.getText(ast) === name));
     assert.ok(node, name);

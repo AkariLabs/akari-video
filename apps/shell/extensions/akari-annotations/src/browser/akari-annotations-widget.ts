@@ -1369,9 +1369,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const applyMyStyle = (event: Event): void => { void this.applyMyStyle((event as CustomEvent).detail); };
         window.addEventListener('akari.mystyle.open-save', openMyStyleSave);
         window.addEventListener('akari.mystyle.apply', applyMyStyle);
+        const onPhotoStroke = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; id?: string; stroke?: unknown }>).detail;
+            if (!detail?.id || !this.location?.editUri || detail.editUri !== this.location.editUri.toString()) return;
+            const raw = this.rawV2Item(detail.id);
+            if (raw?.source?.kind !== 'media') return;
+            void this.handleInspectorWriteV2({ kind: 'item-field', id: detail.id, path: 'erase',
+                value: [...(Array.isArray(raw.erase) ? raw.erase : []), detail.stroke] });
+        };
+        window.addEventListener('akari.photo.stroke', onPhotoStroke);
         this.toDispose.push(Disposable.create(() => {
             window.removeEventListener('akari.mystyle.open-save', openMyStyleSave);
             window.removeEventListener('akari.mystyle.apply', applyMyStyle);
+            window.removeEventListener('akari.photo.stroke', onPhotoStroke);
         }));
         this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => { void this.finishMaterialSwap(false); }));
         this.toDispose.push({ dispose: () => { void this.finishMaterialSwap(false); } });
@@ -4212,6 +4222,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let audioPatch = false;
             let audioEnvelopeRole: 'bgm' | 'sfx' | 'narration' | undefined;
             let needsTelopRebake = false;
+            let generatedMask: { id: string; ref: string } | undefined;
             if (request.kind === 'audio-keyframes') {
                 audioEnvelopeRole = request.audioKind;
                 itemId = request.audioKind === 'bgm'
@@ -4290,6 +4301,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                     patch = { mask: value };
                     label = 'クリップのマスクを変更';
+                } else if (request.path === 'photo-mask') {
+                    if (raw.source?.kind !== 'media' || !this.location) throw new Error('写真を選んでください');
+                    const sourceId = String(raw.source.src ?? '');
+                    const source = this.sourceMap.get(sourceId);
+                    if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) throw new Error('写真を選んでください');
+                    const result = await this.annotationsService.generatePhotoMask({
+                        projectRootUri: this.location.root.toString(), sourceUri: source.videoUri
+                    });
+                    if ('message' in result) return { ok: false, message: result.message };
+                    if (this.rawV2Item(itemId)?.source?.src !== sourceId
+                        || this.sourceMap.get(sourceId)?.videoUri !== source.videoUri) {
+                        return { ok: false, message: '処理中に写真が変わりました' };
+                    }
+                    const hash = result.ref.match(/([a-f0-9]{64})\.png$/u)?.[1];
+                    if (!hash) throw new Error('マスクの保存名が正しくありません');
+                    generatedMask = { id: `mask-${hash}`, ref: result.ref };
+                    patch = { mask: generatedMask.id };
+                    label = '背景を消す';
+                } else if (request.path === 'photo-brush-toggle') {
+                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error('写真を選んでください');
+                    window.dispatchEvent(new CustomEvent('akari.photo.brush', { detail: {
+                        editUri: this.location.editUri.toString(), itemId, settings: request.value
+                    } }));
+                    return { ok: true };
+                } else if (request.path === 'flip.h' || request.path === 'flip.v') {
+                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    const axis = request.path.endsWith('h') ? 'h' : 'v';
+                    patch = { flip: { ...(raw.flip ?? {}), [axis]: request.value === true } };
+                    label = '写真を反転';
+                } else if (request.path === 'erase') {
+                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    patch = { erase: request.value };
+                    label = '消しゴムの線を変更';
                 } else if (request.path === 'motion') {
                     const value = request.value;
                     if (raw.source?.kind === 'html') throw new Error('HTML 部品の動きはパラメータから変更してください。');
@@ -4489,7 +4533,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : audioPatch ? updateAudioSfxPreferV2(doc, {
                     sfxId: itemId, itemPatch: patch, legacyPatch: patch
                 })
-                : request.kind === 'item-field' ? updateTreeV2Item(doc, itemId, patch)
+                : request.kind === 'item-field' ? (() => {
+                    const sources = doc.sources as Array<{ id: string; path: string; proxy: string | null }>;
+                    if (generatedMask && !sources.some(source => source.id === generatedMask!.id)) {
+                        sources.push({ id: generatedMask.id, path: generatedMask.ref, proxy: null });
+                    }
+                    return updateTreeV2Item(doc, itemId, patch);
+                })()
                     : request.kind === 'cut-freeze-duration'
                         ? updateV2ItemDurationAndShiftFollowing(doc, { itemId, patch })
                     : updateV2Item(doc, { itemId, patch }));
@@ -5448,7 +5498,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...selection,
             ...(raw.source?.kind === 'media' ? {
                 ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
-                maskSourceOptions: maskSourceOptionsForSources(this.sourceMap)
+                ...(raw.flip ? { flip: raw.flip } : {}),
+                ...(/\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? '') ? { photo: true } : {}),
+                maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,
+                    /\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? ''))
             } : {}),
             outputStart: row?.at ?? (Number(raw.at) || 0) / this.fps,
             duration: row?.duration ?? (Number(raw.duration) || 0) / this.fps,
@@ -5598,7 +5651,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ? { motion: rawItem.motion } : {}),
                 ...(raw?.source?.kind === 'media' ? {
                     ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
-                    maskSourceOptions: maskSourceOptionsForSources(this.sourceMap)
+                    ...(raw.flip ? { flip: raw.flip } : {}),
+                    ...(/\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? '') ? { photo: true } : {}),
+                    maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,
+                        /\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? ''))
                 } : {}),
                 trackName: this.trackDisplayNameForItem(layer.id),
                 clipName: resolveTimelineClipName(layer),

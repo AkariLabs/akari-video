@@ -1,6 +1,7 @@
 import type { TransitionType } from '@akari-video/edit-store';
 import type { ParsedCubeLut } from './look/cube.js';
 import type { ResolvedAdjustFx } from './adjust/fx.js';
+import type { StillMaskStroke } from './mask/compose-still-mask.js';
 
 export type TimelineTimeUs = number;
 export type NativeVideoFormat = 'NV12' | 'I420';
@@ -91,7 +92,7 @@ export interface StillImageBitmap {
 }
 
 export interface StillImageSource {
-  load(): Promise<StillImageBitmap>;
+  load(options?: { colorSpaceConversion?: 'none' }): Promise<StillImageBitmap>;
   destroy(): void;
 }
 
@@ -178,6 +179,11 @@ export interface ResolvedLayerMask {
   sourceTimeUs: TimelineTimeUs;
 }
 
+export interface ResolvedStillLayerMask {
+  kind: 'still';
+  source: StillImageSource;
+}
+
 export interface ResolvedCompositeLayer {
   /** A stacked cut retains its fit/framing geometry instead of adopting natural-size layer geometry. */
   cutVisual?: ResolvedCutVisual;
@@ -186,7 +192,9 @@ export interface ResolvedCompositeLayer {
   source?: NativeFrameSource;
   sourceTimeUs?: TimelineTimeUs;
   image?: StillImageSource;
-  mask: ResolvedLayerMask | null;
+  mask: ResolvedLayerMask | ResolvedStillLayerMask | null;
+  erase?: readonly StillMaskStroke[];
+  flip?: { h?: boolean; v?: boolean };
   visual: ResolvedLayerVisual;
   blend: ResolvedLayerBlendMode;
   opacity: number;
@@ -221,7 +229,7 @@ export type CompositorLayerInput =
   | {
       kind?: 'media';
       color: NativeYuvFrame | StillImageBitmap | VideoFrame;
-      mask?: NativeYuvFrame | VideoFrame | null;
+      mask?: NativeYuvFrame | VideoFrame | StillImageBitmap | null;
     }
   | { kind: 'filter' };
 

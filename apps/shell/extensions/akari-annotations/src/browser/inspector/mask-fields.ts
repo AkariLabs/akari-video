@@ -3,12 +3,12 @@ import type { InspectorWriteRequest, TimelineLayerSelection } from '../timeline-
 type MaskSourceOptions = NonNullable<TimelineLayerSelection['maskSourceOptions']>;
 type MaskSnapshot = Pick<TimelineLayerSelection, 'id' | 'mask' | 'maskSourceOptions'>;
 
-export function isMaskCandidatePath(path: string): boolean {
-    return /\.(mp4|mov|webm|m4v|mkv)$/i.test(path);
+export function isMaskCandidatePath(path: string, photo = false): boolean {
+    return photo ? /\.png$/i.test(path) : /\.(mp4|mov|webm|m4v|mkv)$/i.test(path);
 }
 
-export function maskSourceOptionsForSources(sources: ReadonlyMap<string, { path: string }>): MaskSourceOptions {
-    return Array.from(sources).flatMap(([id, source]) => isMaskCandidatePath(source.path)
+export function maskSourceOptionsForSources(sources: ReadonlyMap<string, { path: string }>, photo = false): MaskSourceOptions {
+    return Array.from(sources).flatMap(([id, source]) => isMaskCandidatePath(source.path, photo)
         ? [{ id, label: source.path.split(/[\\/]/).pop() || source.path }] : []);
 }
 

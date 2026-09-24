@@ -17,6 +17,7 @@ export * from './decode/sample-table.js';
 export * from './decode/range-mp4-source.js';
 export * from './decode/guard.js';
 export * from './decode/still-image.js';
+export * from './mask/compose-still-mask.js';
 export * from './cache/lookahead-cache.js';
 export * from './cache/lookahead-source.js';
 export * from './decode/stream-reaper.js';

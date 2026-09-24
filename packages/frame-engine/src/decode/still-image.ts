@@ -1,33 +1,39 @@
 import type { StillImageBitmap, StillImageSource } from '../types.js';
 
-/** Lazily decodes an image exactly once and keeps the bitmap alive until destroy(). */
+/** Lazily decodes once per color-conversion mode and keeps bitmaps until destroy(). */
 export class CachedStillImageSource implements StillImageSource {
-  private pending: Promise<StillImageBitmap> | null = null;
-  private value: StillImageBitmap | null = null;
+  private readonly pending = new Map<'default' | 'none', Promise<StillImageBitmap>>();
+  private readonly values = new Map<'default' | 'none', StillImageBitmap>();
 
   constructor(readonly url: string) {}
 
-  load(): Promise<StillImageBitmap> {
-    if (this.value) return Promise.resolve(this.value);
-    if (!this.pending) {
-      this.pending = fetch(this.url)
+  load(options?: { colorSpaceConversion?: 'none' }): Promise<StillImageBitmap> {
+    const mode = options?.colorSpaceConversion ?? 'default';
+    const value = this.values.get(mode);
+    if (value) return Promise.resolve(value);
+    let pending = this.pending.get(mode);
+    if (!pending) {
+      pending = fetch(this.url)
         .then(response => {
           if (!response.ok) throw new Error(`image fetch failed (${response.status}): ${this.url}`);
           return response.blob();
         })
-        .then(createImageBitmap)
+        .then(blob => mode === 'none'
+          ? createImageBitmap(blob, { colorSpaceConversion: 'none' })
+          : createImageBitmap(blob))
         .then(bitmap => {
           const value = { bitmap, width: bitmap.width, height: bitmap.height };
-          this.value = value;
+          this.values.set(mode, value);
           return value;
         });
+      this.pending.set(mode, pending);
     }
-    return this.pending;
+    return pending;
   }
 
   destroy(): void {
-    this.value?.bitmap.close();
-    this.value = null;
-    this.pending = null;
+    for (const value of this.values.values()) value.bitmap.close();
+    this.values.clear();
+    this.pending.clear();
   }
 }

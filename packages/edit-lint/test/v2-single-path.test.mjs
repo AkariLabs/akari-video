@@ -78,6 +78,39 @@ test('v2 mask must reference an existing video source', async () => {
   assert.ok(result.findings.some(finding => finding.check === 'v2.mask-video'));
 });
 
+test('still image accepts a PNG mask while video keeps rejecting PNG', async () => {
+  const root = await project();
+  await writeFile(join(root, 'assets', 'photo.jpg'), 'fixture');
+  await writeFile(join(root, 'assets', 'mask.png'), 'fixture');
+  await writeFile(join(root, 'assets', 'mask.jpg'), 'fixture');
+  const editPath = join(root, 'edit.json');
+  const edit = JSON.parse(await readFile(editPath, 'utf8'));
+  edit.sources.push(
+    { id: 'photo', path: 'assets/photo.jpg', proxy: null },
+    { id: 'png-mask', path: 'assets/mask.png', proxy: null },
+    { id: 'jpg-mask', path: 'assets/mask.jpg', proxy: null },
+  );
+  const item = edit.tracks[1].items[0];
+  item.source.src = 'photo';
+  item.mask = 'png-mask';
+  await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+  let result = await lintProject(root, { writeReports: false });
+  assert.equal(result.verdict, 'pass', JSON.stringify(result.findings));
+
+  item.mask = 'jpg-mask';
+  await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+  result = await lintProject(root, { writeReports: false });
+  assert.ok(result.findings.some(finding => finding.check === 'v2.mask-video'
+    && finding.message.includes('静止画のマスク')));
+
+  item.source.src = 'pip';
+  item.mask = 'png-mask';
+  await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+  result = await lintProject(root, { writeReports: false });
+  assert.ok(result.findings.some(finding => finding.check === 'v2.mask-video'
+    && finding.message.includes('動画のマスク')));
+});
+
 test('legacy edit.json is rejected by the v2-only reader', async () => {
   const root = await mkdtemp(join(tmpdir(), 'edit-lint-legacy-'));
   await writeFile(join(root, 'edit.json'), '{"version":1,"sources":[],"cuts":[],"overlays":[]}\n');

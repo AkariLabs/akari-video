@@ -705,6 +705,7 @@ uniform int hasMask;
 uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
+uniform ivec2 flipAxes;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -763,7 +764,9 @@ void main() {
     color = dst;
     return;
   }
-  vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec2 sampledLocal = vec2(flipAxes.x == 1 ? 1.0 - local.x : local.x,
+                           flipAxes.y == 1 ? 1.0 - local.y : local.y);
+  vec2 sourceUv = cropRect.xy + sampledLocal * cropRect.zw;
   vec2 colorUv = unrotate(sourceUv, layerRotation);
   vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
@@ -2136,6 +2139,7 @@ export class WebGL2Compositor implements CompositorBackend {
     const maskFormatLoc = uniform(gl, this.layerProgram, 'maskFormat');
     const layerRotationLoc = uniform(gl, this.layerProgram, 'layerRotation');
     const maskRotationLoc = uniform(gl, this.layerProgram, 'maskRotation');
+    const flipAxesLoc = uniform(gl, this.layerProgram, 'flipAxes');
     const blendLoc = uniform(gl, this.layerProgram, 'blendMode');
     const layerAdjustUniforms: AdjustLutUniforms = {
       hasAdjustLut: uniform(gl, this.layerProgram, 'hasAdjustLut'),
@@ -2208,7 +2212,12 @@ export class WebGL2Compositor implements CompositorBackend {
         gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
       }
       if (input.mask) {
-        if (isVideoFrame(input.mask)) {
+        if ('bitmap' in input.mask) {
+          this.bind(MASK_RGBA_UNIT, this.stillTexture(input.mask));
+          if ('bitmap' in color) this.bind(4, this.stillTexture(color));
+          gl.uniform1i(maskFormatLoc, 2);
+          gl.uniform1i(maskRotationLoc, 0);
+        } else if (isVideoFrame(input.mask)) {
           this.uploadVideoFrameTexture(
             this.layerRgbaTextures[1]!,
             MASK_RGBA_UNIT,
@@ -2244,6 +2253,7 @@ export class WebGL2Compositor implements CompositorBackend {
         )
         : { visual: layer.visual, width: sourceLogical.width, height: sourceLogical.height };
       const visual = geometry.visual;
+      gl.uniform2i(flipAxesLoc, layer.flip?.h ? 1 : 0, layer.flip?.v ? 1 : 0);
       gl.uniform2f(outLoc, output.width, output.height);
       gl.uniformMatrix3fv(
         inverseLoc,

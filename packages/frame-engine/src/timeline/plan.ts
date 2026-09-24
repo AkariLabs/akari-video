@@ -22,6 +22,7 @@ import { bakeItemAdjustLut, isItemAdjustIdentity } from '../adjust/bake.js';
 import { normalizeAdjustFx, type ResolvedAdjustFx } from '../adjust/fx.js';
 import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.js';
 import { motionVisualAt, type MotionV0, type MotionVisual } from './item-motion.js';
+import type { StillMaskStroke } from '../mask/compose-still-mask.js';
 
 export type TimelineSourceRegistry = ReadonlyMap<string, NativeFrameSource | StillImageSource>;
 
@@ -68,6 +69,8 @@ export interface FrameEngineLayer {
   kind?: 'video' | 'baked' | 'filter' | 'matte';
   src?: string;
   mask?: string;
+  erase?: readonly StillMaskStroke[];
+  flip?: { h?: boolean; v?: boolean };
   transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
   crop?: { x: number; y: number; w: number; h: number };
   perspective?: { corners: readonly (readonly [number, number])[] };
@@ -88,7 +91,7 @@ const KNOWN_CUT_KEY_LIST = [
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [
-  'id', 't', 'duration', 'kind', 'src', 'mask', 'transform', 'crop', 'perspective',
+  'id', 't', 'duration', 'kind', 'src', 'mask', 'erase', 'flip', 'transform', 'crop', 'perspective',
   'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'animator', 'track', 'in', 'speed'
 ] as const;
 
@@ -723,15 +726,22 @@ function resolvedCompositeLayers(
     const common = {
       id, visual,
       blend, opacity,
+      ...(layer.flip ? { flip: layer.flip } : {}),
       ...(adjustLut ? { adjustLut } : {}),
       ...(adjustFx ? { adjustFx } : {})
     };
     if (isStillImageSourcePath(layer.src)) {
-      if (layer.mask || layer.kind === 'matte') timeline.warn(`mask ignored for still image layer ${id}`);
       if (!('load' in source)) throw new Error(`no still image source registered for ${layer.src}`);
-      resolved.push({ ...common, kind: 'image', image: source, mask: null });
+      const maskSource = layer.mask ? sources.get(layer.mask) : undefined;
+      if (layer.mask && (!maskSource || !('load' in maskSource))) {
+        timeline.warn(`no still mask source registered for ${layer.mask}; layer ${id} will render without a mask`);
+      }
+      resolved.push({ ...common, kind: 'image', image: source,
+        mask: maskSource && 'load' in maskSource ? { kind: 'still', source: maskSource } : null,
+        ...(layer.erase ? { erase: layer.erase } : {}) });
       return;
     }
+    if (layer.erase?.length) timeline.warn(`erase ignored for video layer ${id}`);
     if (!('decode' in source)) throw new Error(`no video frame source registered for ${layer.src}`);
     const sourceTimeUs = Math.round((finite(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite(layer.speed, 1))) * 1e6);
     const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;

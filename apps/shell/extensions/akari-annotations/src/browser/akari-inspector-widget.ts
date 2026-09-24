@@ -197,6 +197,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     title?: string;
     className?: string;
     actionLabel?: string;
+    busyLabel?: string;
     action?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
     actions?: readonly {
         name: string;
@@ -799,6 +800,10 @@ const LAYER_BLEND_OPTIONS = [
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ] as const;
 
+const photoBrushSettings: { mode: 'erase' | 'restore'; size: number; hardness: number } = {
+    mode: 'erase', size: 0.05, hardness: 0.8
+};
+
 function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
     snapshot: T,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -808,21 +813,74 @@ function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot
     const selected = maskOptionLabel(snapshot.maskSourceOptions, snapshot.mask);
     if (!options.includes(selected)) options.push(selected);
     const disabled = snapshot.maskSourceOptions.length === 0;
-    const title = 'グレースケール動画（白 = 表示・黒 = 透過）';
+    const title = snapshot.photo ? 'PNG（白 = 表示・黒 = 透過）' : 'グレースケール動画（白 = 表示・黒 = 透過）';
     return [{
         name: 'mask', label: 'マスク', inputKind: 'select', options,
         getValue: () => selected, getEditValue: () => selected,
-        disabled, title: disabled ? `プロジェクトにマスクに使える動画ソースがありません。${title}` : title,
+        disabled, title: disabled ? `プロジェクトにマスクがありません。${title}` : title,
         write: async (current, value) => {
             try {
-                if (disabled) return { ok: false, message: 'プロジェクトにマスクに使える動画ソースがありません' };
+                if (disabled) return { ok: false, message: 'プロジェクトにマスクがありません' };
                 return await requestWrite(createMaskWriteRequest(current, value));
             } catch (error) {
                 return { ok: false, message: error instanceof Error ? error.message : String(error) };
             }
         },
         reset: current => requestWrite(createMaskWriteRequest(current, 'なし'))
-    }];
+    }, ...(snapshot.photo ? [{
+        name: 'photo-mask-generate', label: '背景', getValue: () => '',
+        actionLabel: '背景を消す（この Mac で）',
+        busyLabel: '背景を消しています…',
+        action: (current: T) => requestWrite({ kind: 'item-field', id: current.id, path: 'photo-mask', value: null })
+    }, {
+        name: 'photo-mask-remove', label: 'マスク', getValue: () => '',
+        actionLabel: 'マスクを外す',
+        action: (current: T) => requestWrite({ kind: 'item-field', id: current.id, path: 'mask', value: null })
+    }, {
+        name: 'photo-brush-mode', label: '消しゴム', inputKind: 'select' as const,
+        options: ['消す', '戻す'], getValue: () => photoBrushSettings.mode === 'erase' ? '消す' : '戻す',
+        write: async (_current: T, value: string) => {
+            photoBrushSettings.mode = value === '戻す' ? 'restore' : 'erase';
+            return { ok: true };
+        }
+    }, {
+        name: 'photo-brush-size', label: '大きさ', inputKind: 'scrub-number' as const,
+        getValue: () => String(photoBrushSettings.size * 100), getEditValue: () => String(photoBrushSettings.size * 100),
+        min: 0.1, max: 100, unit: '%', write: async (_current: T, value: string) => {
+            const size = Number(value) / 100;
+            if (!Number.isFinite(size) || size <= 0 || size > 1) return { ok: false, message: '大きさは 0〜100% で指定してください' };
+            photoBrushSettings.size = size;
+            return { ok: true };
+        }
+    }, {
+        name: 'photo-brush-hardness', label: '硬さ', inputKind: 'scrub-number' as const,
+        getValue: () => String(photoBrushSettings.hardness * 100), getEditValue: () => String(photoBrushSettings.hardness * 100),
+        min: 0, max: 100, unit: '%', write: async (_current: T, value: string) => {
+            const hardness = Number(value) / 100;
+            if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) return { ok: false, message: '硬さは 0〜100% で指定してください' };
+            photoBrushSettings.hardness = hardness;
+            return { ok: true };
+        }
+    }, {
+        name: 'photo-brush-start', label: '消しゴム', getValue: () => '', actionLabel: '消しゴム',
+        action: (current: T) => requestWrite({ kind: 'item-field', id: current.id,
+            path: 'photo-brush-toggle', value: { ...photoBrushSettings } })
+    }] : [])];
+}
+
+function PHOTO_FLIP_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
+    snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    if (!snapshot.photo) return [];
+    return (['h', 'v'] as const).map(axis => ({
+        name: `photo-flip-${axis}`, label: axis === 'h' ? '左右反転' : '上下反転',
+        inputKind: 'select' as const, options: ['する', 'しない'],
+        getValue: () => snapshot.flip?.[axis] ? 'する' : 'しない',
+        getEditValue: () => snapshot.flip?.[axis] ? 'する' : 'しない',
+        write: (_current: T, value: string) => requestWrite({
+            kind: 'item-field', id: snapshot.id, path: `flip.${axis}`, value: value === 'する'
+        })
+    }));
 }
 
 function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
@@ -956,7 +1014,7 @@ function LAYER_SECTIONS(
                 { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
             ]
         },
-        { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'transform', label: '変形', fields: [...transformFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)] },
         { id: 'crop', label: 'クロップ', fields: cropFields },
         perspectiveSection,
         ...(snapshot.sourceKind === 'html' ? [] : [{
@@ -2261,9 +2319,9 @@ function TREE_ITEM_SECTIONS(
             { name: 'item-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
             { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
         ] },
-        { id: 'transform', label: '変形', fields: ['group', 'bag'].includes(snapshot.itemKind)
+        { id: 'transform', label: '変形', fields: [...(['group', 'bag'].includes(snapshot.itemKind)
             ? transformFields.filter(field => field.name !== 'transform-scaleX' && field.name !== 'transform-scaleY')
-            : transformFields },
+            : transformFields), ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)] },
         { id: 'crop', label: 'クロップ', fields: cropFields },
         perspectiveSection,
         ...(snapshot.sourceKind === 'html' ? [] : [{
@@ -6512,9 +6570,14 @@ export class AkariInspectorWidget extends BaseWidget {
             action.disabled = field.disabled === true;
             if (field.title) action.title = field.title;
             action.setAttribute('data-akari-ui', `action:inspector-${fieldName}`);
-            action.addEventListener('click', () => void field.action!(snapshot).then(result => {
-                if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
-            }));
+            action.addEventListener('click', () => {
+                action.disabled = true;
+                if (field.busyLabel) action.textContent = field.busyLabel;
+                void field.action!(snapshot).then(result => {
+                    if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+                }).catch(error => this.showFieldNotice(error instanceof Error ? error.message : String(error)))
+                    .finally(() => { action.disabled = field.disabled === true; action.textContent = field.actionLabel ?? field.label; });
+            });
             row.appendChild(action);
             parent.appendChild(row);
             return;

@@ -80,7 +80,7 @@
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "prestart": "npm run preflight",
     "start": "theia start --plugins=local-dir:plugins",
-    "prepackage": "node ../../packages/akari-launcher/scripts/prepack.mjs && node resources/scripts/copy-native-helpers.mjs && node resources/scripts/build-vibe-stt-helper.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/bundle-media-binaries.mjs && node resources/scripts/bundle-cli-node-modules.mjs && node resources/scripts/generate-third-party-notices.mjs",
+    "prepackage": "node ../../packages/akari-launcher/scripts/prepack.mjs && node resources/scripts/copy-native-helpers.mjs && node resources/scripts/build-vibe-stt-helper.mjs && node resources/scripts/build-photo-mask-helper.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/bundle-media-binaries.mjs && node resources/scripts/bundle-cli-node-modules.mjs && node resources/scripts/generate-third-party-notices.mjs",
     "package": "electron-builder --dir",
     "postpackage": "node resources/scripts/verify-asar-contents.mjs",
     "watch": "theia build --watch --mode development"
@@ -121,6 +121,11 @@
       "**/@vscode/ripgrep/**"
     ],
     "extraResources": [
+      {
+        "from": "native/bin",
+        "to": "native/bin",
+        "filter": ["akari-photo-mask"]
+      },
       {
         "from": "resources/generated-notices",
         "to": "."

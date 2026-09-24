@@ -158,7 +158,7 @@ const layerSnapshot = timelineMethod('snapshotForSelection', {
     readInspectorAdjustSnapshot, maskSourceOptionsForSources, layerSnapshotChromaKey,
     resolveTimelineClipName: item => item.id
 });
-test('layer / tree snapshot は raw media item だけに mask と動画候補を載せる', () => {
+test('layer / tree snapshot は写真に PNG 候補、他の media に動画候補を載せる', () => {
     for (const kind of ['media', 'telop', 'html', 'group']) {
         const raw = { id: 'visual-1', at: 0, duration: 150, mask: 'maskgrad', source: { kind, src: 'still' } };
         const state = {
@@ -175,7 +175,8 @@ test('layer / tree snapshot は raw media item だけに mask と動画候補を
             assert.equal(Object.hasOwn(snapshot, 'maskSourceOptions'), kind === 'media');
             if (kind === 'media') {
                 assert.equal(snapshot.mask, 'maskgrad');
-                assert.deepEqual(snapshot.maskSourceOptions, options);
+                assert.equal(snapshot.photo, true);
+                assert.deepEqual(snapshot.maskSourceOptions, [{ id: 'still', label: 'card.png' }]);
             }
         }
     }

@@ -230,7 +230,7 @@ export function createPreviewScheduler({
         ? { src: timeline.cuts[Number(layer.id.slice('cut-'.length))]?.cut.src, mask: null }
         : layerSources.get(layer.id);
       append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, 'layer');
-      if (layer.mask) {
+      if (layer.mask?.kind === 'greyscale') {
         append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs, 'mask');
       }
     }

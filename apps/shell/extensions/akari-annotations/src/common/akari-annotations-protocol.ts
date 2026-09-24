@@ -1058,4 +1058,6 @@ export interface ImportAdjustLutResult { ref: string; }
 export interface AkariAnnotationsService {
     listAdjustLuts(request: ListAdjustLutsRequest): Promise<ListAdjustLutsResult>;
     importAdjustLut(request: ImportAdjustLutRequest): Promise<ImportAdjustLutResult>;
+    generatePhotoMask(request: { projectRootUri: string; sourceUri: string }): Promise<
+        { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }>;
 }
