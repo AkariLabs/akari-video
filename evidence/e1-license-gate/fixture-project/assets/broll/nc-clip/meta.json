@@ -1,0 +1,20 @@
+{
+  "id": "nc-clip",
+  "category": "broll",
+  "title": "非商用クリップ",
+  "description": "ライセンスの門の検証用の短い単色クリップ。",
+  "when_to_use": "検証専用",
+  "tags": ["test-fixture"],
+  "knobs": [],
+  "ai_usage": "検証専用。制作には使わない",
+  "requires": [],
+  "provenance": { "origin": "ライセンスの門の検証用フィクスチャ", "generator": null },
+  "author": "fixture",
+  "license": {
+    "spdx": "LicenseRef-Example-NonCommercial",
+    "scope": "non-commercial",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null
+}

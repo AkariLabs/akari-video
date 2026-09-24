@@ -207,6 +207,12 @@
           "minLength": 1,
           "pattern": "\\S"
         },
+        "commercial": {
+          "enum": ["allowed", "prohibited", "unknown"]
+        },
+        "attributionRequired": {
+          "type": ["boolean", "null"]
+        },
         "attribution_required": {
           "type": "boolean"
         },

@@ -1,0 +1,18 @@
+{
+  "phase": "before",
+  "project": "tmp/libcanvas-e1-*/project",
+  "steps": [
+    {
+      "step": "open-popup",
+      "title": "書き出し",
+      "licenseRows": [],
+      "mentionsLicense": false,
+      "startButton": {
+        "text": "書き出す — 標準 · 約 10 秒",
+        "disabled": false
+      },
+      "screenshot": "evidence/e1-license-gate/before-popup.png"
+    }
+  ],
+  "pid": 51915
+}

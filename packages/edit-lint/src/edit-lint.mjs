@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
 import { isInlineOverlayHtml, isSourceCompatibleWithLane } from "./shape-lane.mjs";
+import { collectLicenseFindings } from "./license-findings.mjs";
 import { describeFragmentAssetHint, extractFragmentAssetReferences, extractAbsoluteFragmentAssetReferences } from "../../render-cut/src/fragment-assets.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
 import { segmentDuration } from "./cut-timeline.mjs";
@@ -74,7 +75,7 @@ const CAPTION_TEXTANIM_IDS = new Set(
     .filter((line) => line.trim())
     .map((line) => JSON.parse(line).id),
 );
-const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json] [--engine gpu|osr|auto]
+const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json] [--no-reports] [--engine gpu|osr|auto]
        [--silence-error-seconds N] [--max-volume-error-db N]
        [--caption-silence-warn-percent N]
        [--declarations PATH] [--ffprobe PATH]
@@ -318,6 +319,8 @@ export async function lintProject(input, options = {}) {
   const sourcePath = structure.sourcePath;
   const audioOnlySourceIds = collectAudioOnlySourceIds(rawEdit);
   const referenceState = await validateReferences(edit, findings, paths, audioOnlySourceIds);
+  findings.push(...await collectLicenseFindings(edit, sourcePath =>
+    resolveReferenceBinding(paths.editPath, sourcePath, paths).path));
   await validateProxyGops(rawEdit, findings, paths, options);
   const sourceDuration = null;
 
@@ -645,6 +648,7 @@ export function parseArguments(argv) {
   const options = {
     media: false,
     json: false,
+    writeReports: true,
     silenceErrorSeconds: null,
     maxVolumeErrorDb: null,
     captionSilenceWarnPercent: null,
@@ -662,6 +666,10 @@ export function parseArguments(argv) {
     }
     if (argument === "--json") {
       options.json = true;
+      continue;
+    }
+    if (argument === "--no-reports") {
+      options.writeReports = false;
       continue;
     }
     if (argument === "--engine") {
@@ -6942,6 +6950,7 @@ function finalizeFindings(findings) {
       message: finding.message,
       ...(finding.path ? { path: finding.path } : {}),
       ...(finding.range ? { range: finding.range } : {}),
+      ...(finding.details ? { details: finding.details } : {}),
     }));
 }
 

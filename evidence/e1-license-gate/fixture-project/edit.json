@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "output": {
+    "width": 320,
+    "height": 180,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "nc",
+      "path": "assets/broll/nc-clip/clip.mp4",
+      "proxy": null
+    },
+    {
+      "id": "unk",
+      "path": "assets/broll/unknown-clip/clip.mp4",
+      "proxy": null
+    },
+    {
+      "id": "by",
+      "path": "assets/broll/by-clip/clip.mp4",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "name": "V1",
+      "items": [
+        {
+          "id": "nc-item",
+          "at": 0,
+          "duration": 60,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "media",
+            "src": "nc",
+            "in": 0,
+            "out": 2
+          }
+        },
+        {
+          "id": "unk-item",
+          "at": 60,
+          "duration": 60,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "media",
+            "src": "unk",
+            "in": 0,
+            "out": 2
+          }
+        },
+        {
+          "id": "by-item",
+          "at": 120,
+          "duration": 60,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "media",
+            "src": "by",
+            "in": 0,
+            "out": 2
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -76,6 +76,11 @@ export interface QuickExportLintFinding {
     readonly message?: string;
 }
 
+export interface QuickExportLicenseFinding {
+    readonly check: 'license.non-commercial' | 'license.unknown' | 'license.attribution';
+    readonly details: { readonly asset: string; readonly name: string; readonly credit: string };
+}
+
 export interface QuickExportStatus {
     readonly phase: QuickExportPhase;
     /** 直近の子プロセス出力（stdout+stderr）の末尾。実行中は随時伸びる。 */
@@ -148,6 +153,7 @@ export interface QuickExportDiscardLeftoverResult {
 }
 
 export interface AkariQuickExportService {
+    getLicenseFindings(projectRootUri: string): Promise<readonly QuickExportLicenseFinding[]>;
     start(request: QuickExportStartRequest): Promise<QuickExportStartOutcome>;
     getStatus(): Promise<QuickExportStatus>;
     /** 書き出しを始めずに edit-lint だけ走らせ直し、保持している lint 結果を更新する。 */

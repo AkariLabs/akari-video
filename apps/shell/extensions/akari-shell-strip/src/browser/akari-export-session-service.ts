@@ -1,5 +1,6 @@
 import { open, OpenerService, StorageService } from '@theia/core/lib/browser';
 import { WindowService } from '@theia/core/lib/browser/window/window-service';
+import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
@@ -32,6 +33,7 @@ import {
 } from '../common/quick-export-cli';
 import {
     AkariQuickExportService,
+    QuickExportLicenseFinding,
     QuickExportRecheckResult,
     QuickExportStartOutcome,
     QuickExportStatus
@@ -65,6 +67,7 @@ export interface StoredExportLastRun extends ExportLastRun {
 }
 
 export interface ExportSessionSnapshot {
+    readonly licenseFindings: readonly QuickExportLicenseFinding[];
     readonly settings: ExportSettings;
     readonly status: QuickExportStatus;
     readonly video: ThisVideoDescription;
@@ -120,6 +123,8 @@ export class AkariExportSessionService implements Disposable {
     protected readonly openers!: OpenerService;
     @inject(MessageService)
     protected readonly messages!: MessageService;
+    @inject(ClipboardService)
+    protected readonly clipboard!: ClipboardService;
     @inject(WindowService)
     protected readonly windows!: WindowService;
 
@@ -129,6 +134,7 @@ export class AkariExportSessionService implements Disposable {
 
     protected settings: ExportSettings = DEFAULT_SETTINGS;
     protected status: QuickExportStatus = { phase: 'idle', logTail: '' };
+    protected licenseFindings: readonly QuickExportLicenseFinding[] = [];
     protected video: ThisVideoDescription = {
         orientation: 'landscape', width: undefined, height: undefined, fps: undefined
     };
@@ -175,6 +181,7 @@ export class AkariExportSessionService implements Disposable {
 
     get snapshot(): ExportSessionSnapshot {
         return {
+            licenseFindings: this.licenseFindings,
             settings: this.settings,
             status: this.status,
             video: this.video,
@@ -211,10 +218,25 @@ export class AkariExportSessionService implements Disposable {
             return;
         }
         this.dialogVisible = visible;
+        if (visible) void this.loadLicenseFindings();
         if (visible && this.status.phase === 'lint-failed') {
             void this.recheckLint({ auto: true });
         }
         void this.updateLintWatch();
+    }
+
+    protected async loadLicenseFindings(): Promise<void> {
+        const root = this.projectRoot?.toString();
+        this.licenseFindings = [];
+        this.fireChanged();
+        if (!root) return;
+        try {
+            const findings = await this.quickExportService.getLicenseFindings(root);
+            if (this.dialogVisible && this.projectRoot?.toString() === root) {
+                this.licenseFindings = findings;
+                this.fireChanged();
+            }
+        } catch { /* The export setup remains usable if license inspection is unavailable. */ }
     }
 
     /**
@@ -443,6 +465,16 @@ export class AkariExportSessionService implements Disposable {
         return result.copied;
     }
 
+    async copyLicenseCredits(text: string): Promise<boolean> {
+        try {
+            await this.clipboard.writeText(text);
+            return true;
+        } catch {
+            void this.messages.warn('クレジットをコピーできませんでした');
+            return false;
+        }
+    }
+
     openShareTarget(id: ExportShareTargetId): void {
         const target = EXPORT_SHARE_TARGETS.find(candidate => candidate.id === id);
         if (target) {
@@ -521,6 +553,7 @@ export class AkariExportSessionService implements Disposable {
         this.projectRoot = nextRoot;
         this.projectLabel = this.projectRoot?.path.base ?? '';
         if (rootChanged) {
+            this.licenseFindings = [];
             this.settings = this.readPreferences();
             this.lastRun = await this.storage.getData<StoredExportLastRun>(LAST_RUN_STORAGE_KEY);
         }

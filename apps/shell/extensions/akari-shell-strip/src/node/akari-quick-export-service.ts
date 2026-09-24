@@ -7,6 +7,7 @@ import { dirname, join, resolve, sep } from 'path';
 import {
     AkariQuickExportService,
     QuickExportLintFinding,
+    QuickExportLicenseFinding,
     QuickExportRecheckRequest,
     QuickExportRecheckResult,
     QuickExportDiscardLeftoverResult,
@@ -16,6 +17,7 @@ import {
 } from '../common/quick-export-protocol';
 import {
     buildEditLintArgs,
+    buildLicenseInspectArgs,
     buildRenderCutArgs,
     buildRenderCutOutputPath,
     describeRenderFailure,
@@ -134,6 +136,28 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService, Bac
 
     async getStatus(): Promise<QuickExportStatus> {
         return this.status;
+    }
+
+    async getLicenseFindings(projectRootUri: string): Promise<readonly QuickExportLicenseFinding[]> {
+        try {
+            const cli = await this.findEditLintCli(() => undefined);
+            if (!cli) return [];
+            const result = await this.spawnNodeScript(
+                cli, buildLicenseInspectArgs(this.fsPath(projectRootUri)), () => undefined, { trackActive: false }
+            );
+            const parsed = JSON.parse(result.stdout) as { findings?: Array<{
+                check?: unknown; details?: { asset?: unknown; name?: unknown; credit?: unknown }
+            }> };
+            if (!Array.isArray(parsed.findings)) return [];
+            return parsed.findings.filter((finding): finding is QuickExportLicenseFinding =>
+                (finding.check === 'license.non-commercial' || finding.check === 'license.unknown'
+                    || finding.check === 'license.attribution')
+                && typeof finding.details?.asset === 'string'
+                && typeof finding.details?.name === 'string'
+                && typeof finding.details?.credit === 'string');
+        } catch {
+            return [];
+        }
     }
 
     /**
