@@ -1,0 +1,766 @@
+{
+  "phase": "after",
+  "method": "sheet = 3 本まとめて 1 プロジェクト / single = 字幕 1 本だけのプロジェクト（カット = その字幕の区間 → 出力 0〜3 秒）。render-cut --engine osr・1280×720・30fps。diff = sheet − single（フレーム比）",
+  "tolerance": {
+    "centroid": 0.002,
+    "rect": 0.007
+  },
+  "sets": {
+    "anim3": {
+      "exports": {
+        "sheet": {
+          "seconds": 35,
+          "status": 0
+        },
+        "c-0001": {
+          "seconds": 17,
+          "status": 0
+        },
+        "c-0002": {
+          "seconds": 21,
+          "status": 0
+        },
+        "c-0003": {
+          "seconds": 29,
+          "status": 0
+        }
+      },
+      "captures": [
+        {
+          "id": "c-0001",
+          "phase": "in",
+          "animation": {
+            "in": {
+              "id": "fade-up"
+            },
+            "loop": {
+              "id": "float"
+            },
+            "out": {
+              "id": "fade-up"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.001667,
+            "cx": 0.4945,
+            "cy": 0.8903,
+            "w": 0.1734,
+            "h": 0.0458,
+            "sha256": "f6655c747002132c"
+          },
+          "single": {
+            "ink": 0.001667,
+            "cx": 0.4945,
+            "cy": 0.8903,
+            "w": 0.1734,
+            "h": 0.0458,
+            "sha256": "f6655c747002132c"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0001",
+          "phase": "loop",
+          "animation": {
+            "in": {
+              "id": "fade-up"
+            },
+            "loop": {
+              "id": "float"
+            },
+            "out": {
+              "id": "fade-up"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.002506,
+            "cx": 0.4945,
+            "cy": 0.8931,
+            "w": 0.1727,
+            "h": 0.0458,
+            "sha256": "4a52688d0da9d66f"
+          },
+          "single": {
+            "ink": 0.002506,
+            "cx": 0.4945,
+            "cy": 0.8931,
+            "w": 0.1727,
+            "h": 0.0458,
+            "sha256": "4a52688d0da9d66f"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0001",
+          "phase": "out",
+          "animation": {
+            "in": {
+              "id": "fade-up"
+            },
+            "loop": {
+              "id": "float"
+            },
+            "out": {
+              "id": "fade-up"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.001677,
+            "cx": 0.4944,
+            "cy": 0.9042,
+            "w": 0.1734,
+            "h": 0.0458,
+            "sha256": "9bd8642d8a538ff5"
+          },
+          "single": {
+            "ink": 0.001677,
+            "cx": 0.4944,
+            "cy": 0.9042,
+            "w": 0.1734,
+            "h": 0.0458,
+            "sha256": "9bd8642d8a538ff5"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0002",
+          "phase": "in",
+          "animation": {
+            "in": {
+              "id": "pop"
+            },
+            "loop": {
+              "id": "breath"
+            },
+            "out": {
+              "id": "pop"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.004181,
+            "cx": 0.5122,
+            "cy": 0.8911,
+            "w": 0.2055,
+            "h": 0.05,
+            "sha256": "b144325e81eed9af"
+          },
+          "single": {
+            "ink": 0.004172,
+            "cx": 0.5122,
+            "cy": 0.8911,
+            "w": 0.2055,
+            "h": 0.05,
+            "sha256": "cb30a0e529736f12"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1.002
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0002",
+          "phase": "loop",
+          "animation": {
+            "in": {
+              "id": "pop"
+            },
+            "loop": {
+              "id": "breath"
+            },
+            "out": {
+              "id": "pop"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.004136,
+            "cx": 0.5122,
+            "cy": 0.8912,
+            "w": 0.2039,
+            "h": 0.05,
+            "sha256": "98da8616334527da"
+          },
+          "single": {
+            "ink": 0.004132,
+            "cx": 0.5123,
+            "cy": 0.8912,
+            "w": 0.2039,
+            "h": 0.0514,
+            "sha256": "28e8f1aab8480b23"
+          },
+          "diff": {
+            "dcx": -0.0001,
+            "dcy": 0,
+            "dw": 0,
+            "dh": -0.0014,
+            "inkRatio": 1.001
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0002",
+          "phase": "out",
+          "animation": {
+            "in": {
+              "id": "pop"
+            },
+            "loop": {
+              "id": "breath"
+            },
+            "out": {
+              "id": "pop"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.004859,
+            "cx": 0.5138,
+            "cy": 0.8916,
+            "w": 0.2289,
+            "h": 0.0569,
+            "sha256": "6ccee1128146f7e2"
+          },
+          "single": {
+            "ink": 0.004842,
+            "cx": 0.514,
+            "cy": 0.8916,
+            "w": 0.2289,
+            "h": 0.0556,
+            "sha256": "81081881146527b7"
+          },
+          "diff": {
+            "dcx": -0.0002,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0.0013,
+            "inkRatio": 1.004
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0003",
+          "phase": "in",
+          "animation": {
+            "in": {
+              "id": "spin-in"
+            },
+            "loop": {
+              "id": "wobble"
+            },
+            "out": {
+              "id": "spin-in"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.001925,
+            "cx": 0.5114,
+            "cy": 0.8925,
+            "w": 0.1664,
+            "h": 0.0486,
+            "sha256": "c7adea1d41bde989"
+          },
+          "single": {
+            "ink": 0.001925,
+            "cx": 0.5116,
+            "cy": 0.8925,
+            "w": 0.1664,
+            "h": 0.0486,
+            "sha256": "ef1664dbfd18e11e"
+          },
+          "diff": {
+            "dcx": -0.0002,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0003",
+          "phase": "loop",
+          "animation": {
+            "in": {
+              "id": "spin-in"
+            },
+            "loop": {
+              "id": "wobble"
+            },
+            "out": {
+              "id": "spin-in"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.002873,
+            "cx": 0.5117,
+            "cy": 0.8922,
+            "w": 0.1664,
+            "h": 0.05,
+            "sha256": "44329fa9fdedc4e9"
+          },
+          "single": {
+            "ink": 0.002847,
+            "cx": 0.5117,
+            "cy": 0.8922,
+            "w": 0.1664,
+            "h": 0.05,
+            "sha256": "25534fc85a4ed6df"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1.009
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0003",
+          "phase": "out",
+          "animation": {
+            "in": {
+              "id": "spin-in"
+            },
+            "loop": {
+              "id": "wobble"
+            },
+            "out": {
+              "id": "spin-in"
+            }
+          },
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.00135,
+            "cx": 0.5071,
+            "cy": 0.8762,
+            "w": 0.0859,
+            "h": 0.2111,
+            "sha256": "d197fb155cef208c"
+          },
+          "single": {
+            "ink": 0.00134,
+            "cx": 0.5072,
+            "cy": 0.8758,
+            "w": 0.0859,
+            "h": 0.2111,
+            "sha256": "9f93b9f8aa7637d1"
+          },
+          "diff": {
+            "dcx": -0.0001,
+            "dcy": 0.0004,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1.007
+          },
+          "pass": true
+        }
+      ],
+      "pass": true,
+      "worst": {
+        "maxAbsDcx": 0.0002,
+        "maxAbsDcy": 0.0004,
+        "maxAbsDw": 0,
+        "maxAbsDh": 0.0014,
+        "inkRatioRange": [
+          1,
+          1.009
+        ]
+      }
+    },
+    "styled": {
+      "exports": {
+        "sheet": {
+          "seconds": 17,
+          "status": 0
+        },
+        "c-0001": {
+          "seconds": 9,
+          "status": 0
+        },
+        "c-0002": {
+          "seconds": 101,
+          "status": 0
+        },
+        "c-0003": {
+          "seconds": 16,
+          "status": 0
+        }
+      },
+      "captures": [
+        {
+          "id": "c-0001",
+          "phase": "in",
+          "animation": {
+            "in": {
+              "id": "fade-up"
+            },
+            "out": {
+              "id": "fade-up"
+            }
+          },
+          "runs": true,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.002979,
+            "cx": 0.5198,
+            "cy": 0.901,
+            "w": 0.2297,
+            "h": 0.0486,
+            "sha256": "ec11ce5fc387c38a"
+          },
+          "single": {
+            "ink": 0.002979,
+            "cx": 0.5198,
+            "cy": 0.901,
+            "w": 0.2297,
+            "h": 0.0486,
+            "sha256": "ec11ce5fc387c38a"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0001",
+          "phase": "loop",
+          "animation": {
+            "in": {
+              "id": "fade-up"
+            },
+            "out": {
+              "id": "fade-up"
+            }
+          },
+          "runs": true,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.004396,
+            "cx": 0.5198,
+            "cy": 0.8914,
+            "w": 0.2297,
+            "h": 0.05,
+            "sha256": "0c3af48131583af2"
+          },
+          "single": {
+            "ink": 0.004396,
+            "cx": 0.5198,
+            "cy": 0.8914,
+            "w": 0.2297,
+            "h": 0.05,
+            "sha256": "0c3af48131583af2"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0001",
+          "phase": "out",
+          "animation": {
+            "in": {
+              "id": "fade-up"
+            },
+            "out": {
+              "id": "fade-up"
+            }
+          },
+          "runs": true,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.003012,
+            "cx": 0.5203,
+            "cy": 0.9011,
+            "w": 0.2297,
+            "h": 0.0486,
+            "sha256": "28a8dc2be9df50e6"
+          },
+          "single": {
+            "ink": 0.003012,
+            "cx": 0.5202,
+            "cy": 0.9011,
+            "w": 0.2297,
+            "h": 0.0486,
+            "sha256": "f85126ad2ca0c735"
+          },
+          "diff": {
+            "dcx": 0.0001,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0002",
+          "phase": "in",
+          "animation": {
+            "in": {
+              "id": "pop"
+            },
+            "out": {
+              "id": "pop"
+            }
+          },
+          "runs": false,
+          "emphasis": true,
+          "sheet": {
+            "ink": 0.003778,
+            "cx": 0.4705,
+            "cy": 0.8926,
+            "w": 0.1922,
+            "h": 0.0556,
+            "sha256": "664bdca43f530f9e"
+          },
+          "single": {
+            "ink": 0.003765,
+            "cx": 0.4707,
+            "cy": 0.8926,
+            "w": 0.1922,
+            "h": 0.0556,
+            "sha256": "c7f8a98a0ce86014"
+          },
+          "diff": {
+            "dcx": -0.0002,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1.003
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0002",
+          "phase": "loop",
+          "animation": {
+            "in": {
+              "id": "pop"
+            },
+            "out": {
+              "id": "pop"
+            }
+          },
+          "runs": false,
+          "emphasis": true,
+          "sheet": {
+            "ink": 0.003452,
+            "cx": 0.4736,
+            "cy": 0.8922,
+            "w": 0.1703,
+            "h": 0.0486,
+            "sha256": "2a54ae1f8c3dc3ce"
+          },
+          "single": {
+            "ink": 0.003446,
+            "cx": 0.4736,
+            "cy": 0.8922,
+            "w": 0.1703,
+            "h": 0.0486,
+            "sha256": "aabbd97d7db9216c"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1.002
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0002",
+          "phase": "out",
+          "animation": {
+            "in": {
+              "id": "pop"
+            },
+            "out": {
+              "id": "pop"
+            }
+          },
+          "runs": false,
+          "emphasis": true,
+          "sheet": {
+            "ink": 0.005163,
+            "cx": 0.5043,
+            "cy": 0.8925,
+            "w": 0.2641,
+            "h": 0.0708,
+            "sha256": "2b966d0baabd3f29"
+          },
+          "single": {
+            "ink": 0.005162,
+            "cx": 0.5045,
+            "cy": 0.8924,
+            "w": 0.2648,
+            "h": 0.0681,
+            "sha256": "c0c02064da4d971d"
+          },
+          "diff": {
+            "dcx": -0.0002,
+            "dcy": 0.0001,
+            "dw": -0.0007,
+            "dh": 0.0027,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0003",
+          "phase": "in",
+          "animation": null,
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.004968,
+            "cx": 0.4926,
+            "cy": 0.8904,
+            "w": 0.2305,
+            "h": 0.0486,
+            "sha256": "4e8b91c46c921ade"
+          },
+          "single": {
+            "ink": 0.004968,
+            "cx": 0.4926,
+            "cy": 0.8904,
+            "w": 0.2305,
+            "h": 0.0486,
+            "sha256": "cfef9306e01f7ab1"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0003",
+          "phase": "loop",
+          "animation": null,
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.004966,
+            "cx": 0.4926,
+            "cy": 0.8904,
+            "w": 0.2305,
+            "h": 0.0486,
+            "sha256": "6af0320fbd7873a2"
+          },
+          "single": {
+            "ink": 0.004968,
+            "cx": 0.4926,
+            "cy": 0.8904,
+            "w": 0.2305,
+            "h": 0.0486,
+            "sha256": "e1fdb9d698707699"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        },
+        {
+          "id": "c-0003",
+          "phase": "out",
+          "animation": null,
+          "runs": false,
+          "emphasis": false,
+          "sheet": {
+            "ink": 0.004966,
+            "cx": 0.4926,
+            "cy": 0.8904,
+            "w": 0.2305,
+            "h": 0.0486,
+            "sha256": "6af0320fbd7873a2"
+          },
+          "single": {
+            "ink": 0.004968,
+            "cx": 0.4926,
+            "cy": 0.8904,
+            "w": 0.2305,
+            "h": 0.0486,
+            "sha256": "e1fdb9d698707699"
+          },
+          "diff": {
+            "dcx": 0,
+            "dcy": 0,
+            "dw": 0,
+            "dh": 0,
+            "inkRatio": 1
+          },
+          "pass": true
+        }
+      ],
+      "pass": true,
+      "worst": {
+        "maxAbsDcx": 0.0002,
+        "maxAbsDcy": 0.0001,
+        "maxAbsDw": 0.0007,
+        "maxAbsDh": 0.0027,
+        "inkRatioRange": [
+          1,
+          1.003
+        ]
+      }
+    }
+  }
+}

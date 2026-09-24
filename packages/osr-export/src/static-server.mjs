@@ -3,6 +3,7 @@ import { createReadStream, readFileSync } from "node:fs";
 import { lstat, realpath, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { scopeCaptionStylesInSheet } from "./caption-style-scope.mjs";
 
 const MIME = new Map([
   [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
@@ -74,6 +75,7 @@ export function closeStaticServer(server, timeoutMs = STATIC_SERVER_CLOSE_TIMEOU
 export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, projectRoot, captionFontPath = null, mediaReferences, env = process.env }) {
   const root = resolve(projectRoot);
   const references = mediaReferences ?? readMediaReferences(root, env);
+  const scopedOverlaySheetHtml = scopeCaptionStylesInSheet(overlaySheetHtml);
   return async (request, response) => {
     try {
       response.setHeader("Cache-Control", "no-store");
@@ -83,7 +85,7 @@ export function createStaticRequestHandler({ pageHtml, overlaySheetHtml, project
         return sendText(response, pageHtml, "text/html; charset=utf-8");
       }
       if (rawPathname === "/overlay-sheet.html") {
-        return sendText(response, overlaySheetHtml, "text/html; charset=utf-8");
+        return sendText(response, scopedOverlaySheetHtml, "text/html; charset=utf-8");
       }
       if (rawPathname === "/caption-font.ttf" && captionFontPath) {
         const info = await stat(captionFontPath);
