@@ -1291,6 +1291,184 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/caption-runs.js
+  var require_caption_runs = __commonJS({
+    "packages/edit-store/lib/caption-runs.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.captionGraphemes = captionGraphemes;
+      exports.resolveCaptionRuns = resolveCaptionRuns;
+      exports.sliceCaptionRuns = sliceCaptionRuns;
+      exports.rebaseCaptionRuns = rebaseCaptionRuns;
+      exports.joinAdjacentCaptionRuns = joinAdjacentCaptionRuns;
+      exports.captionRunsRemovedNotice = captionRunsRemovedNotice;
+      exports.applyCaptionRunsToHtml = applyCaptionRunsToHtml;
+      function captionGraphemes(text) {
+        const Segmenter = Intl.Segmenter;
+        return Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(text), (part) => part.segment);
+      }
+      function resolveCaptionRuns(text, runs) {
+        const characters = captionGraphemes(text).map((value, index) => ({ text: value, index }));
+        for (const run of runs ?? []) {
+          if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to) || run.from < 0 || run.to > characters.length || run.from >= run.to)
+            continue;
+          for (let index = run.from; index < run.to; index++) {
+            const prior = characters[index];
+            characters[index] = {
+              ...prior,
+              ...run.role !== void 0 ? { role: run.role } : {},
+              ...run.style ? { style: {
+                ...prior.style,
+                ...run.style,
+                ...run.style.stroke ? { stroke: { ...prior.style?.stroke, ...run.style.stroke } } : {}
+              } } : {},
+              ...run.animation ? { animation: { ...prior.animation, ...run.animation } } : {}
+            };
+          }
+        }
+        return characters;
+      }
+      function sliceCaptionRuns(text, runs, start, end) {
+        if (!runs?.length)
+          return void 0;
+        const from = captionGraphemes(text.slice(0, start)).length;
+        const to = captionGraphemes(text.slice(0, end)).length;
+        const result = runs.flatMap((run) => {
+          const left = Math.max(from, run.from);
+          const right = Math.min(to, run.to);
+          return left < right ? [{ ...run, from: left - from, to: right - from }] : [];
+        });
+        return result.length ? result : void 0;
+      }
+      function rebaseCaptionRuns(oldText, newText, runs) {
+        const oldChars = captionGraphemes(oldText);
+        const newChars = captionGraphemes(newText);
+        let before = 0;
+        while (before < oldChars.length && before < newChars.length && oldChars[before] === newChars[before])
+          before++;
+        let after = 0;
+        while (after < oldChars.length - before && after < newChars.length - before && oldChars[oldChars.length - after - 1] === newChars[newChars.length - after - 1])
+          after++;
+        const oldEnd = oldChars.length - after;
+        const newEnd = newChars.length - after;
+        const delta = newEnd - oldEnd;
+        const kept = [];
+        const removed = [];
+        for (const run of runs) {
+          if (run.to <= before) {
+            kept.push(run);
+            continue;
+          }
+          if (run.from >= oldEnd) {
+            kept.push({ ...run, from: run.from + delta, to: run.to + delta });
+            continue;
+          }
+          if (run.from >= before && run.to <= oldEnd && newEnd === before) {
+            removed.push(run);
+            continue;
+          }
+          const from = run.from < before ? run.from : before;
+          const to = run.to > oldEnd ? run.to + delta : newEnd;
+          if (from < to)
+            kept.push({ ...run, from, to });
+          else
+            removed.push(run);
+        }
+        return { runs: kept, removed };
+      }
+      function joinAdjacentCaptionRuns(runs) {
+        const joined = [];
+        for (const run of runs) {
+          const previous = joined[joined.length - 1];
+          if (previous && previous.to === run.from && previous.role === run.role && JSON.stringify(previous.style ?? {}) === JSON.stringify(run.style ?? {}) && JSON.stringify(previous.animation ?? {}) === JSON.stringify(run.animation ?? {})) {
+            joined[joined.length - 1] = { ...previous, to: run.to };
+          } else
+            joined.push(run);
+        }
+        return joined;
+      }
+      function captionRunsRemovedNotice(removedRuns, oldDisplayText) {
+        if (removedRuns.length === 0)
+          return void 0;
+        const characters = captionGraphemes(oldDisplayText);
+        const first = removedRuns[0];
+        const selection = characters.slice(Math.max(0, first.from), Math.max(0, first.to)).join("").replace(/\s+/gu, " ").trim();
+        const preview = captionGraphemes(selection).slice(0, 16).join("");
+        const suffix = captionGraphemes(selection).length > 16 ? "\u2026" : "";
+        const quoted = preview ? `\uFF08\u300C${preview}${suffix}\u300D${removedRuns.length > 1 ? "\u306A\u3069" : ""}\uFF09` : "";
+        return `\u6587\u5B57\u7BC4\u56F2 ${removedRuns.length} \u4EF6${quoted}\u304C\u5916\u308C\u307E\u3057\u305F`;
+      }
+      function applyCaptionRunsToHtml(html, displayText, runs) {
+        if (!runs?.length)
+          return html;
+        const Segmenter = Intl.Segmenter;
+        const segment = (value) => Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(value), (item) => item.segment);
+        const chars = segment(displayText);
+        if (!runs.some((run) => Number.isInteger(run?.from) && Number.isInteger(run?.to) && run.from >= 0 && run.to <= chars.length && run.from < run.to))
+          return html;
+        const resolved = chars.map((value, index) => ({ text: value, index, style: {}, role: "" }));
+        for (const run of runs) {
+          if (!Number.isInteger(run?.from) || !Number.isInteger(run?.to) || run.from < 0 || run.to > chars.length || run.from >= run.to)
+            continue;
+          for (let index = run.from; index < run.to; index++) {
+            resolved[index] = {
+              ...resolved[index],
+              role: run.role ?? resolved[index].role,
+              style: {
+                ...resolved[index].style,
+                ...run.style,
+                ...run.style?.stroke ? { stroke: { ...resolved[index].style.stroke ?? {}, ...run.style.stroke } } : {}
+              }
+            };
+          }
+        }
+        const escape = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        const decode = (value) => value.replace(/&(amp|lt|gt|quot|#0?39);/g, (_3, key) => ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", "#039": "'" })[key] ?? _3);
+        let position = 0;
+        const decorate = (encoded) => {
+          const value = decode(encoded);
+          return segment(value).map((character) => {
+            const item = resolved[position++];
+            if (!item || item.text !== character || !item.role && !Object.keys(item.style).length) {
+              return escape(character);
+            }
+            const style = item.style;
+            const css = ["display:inline-block", "vertical-align:baseline", "line-height:1"];
+            if (typeof style.color === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(style.color))
+              css.push(`color:${style.color}`);
+            if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1e3)
+              css.push(`font-weight:${style.font_weight}`);
+            if (typeof style.letter_spacing_em === "number" && Number.isFinite(style.letter_spacing_em))
+              css.push(`letter-spacing:${style.letter_spacing_em}em`);
+            if (style.italic === true)
+              css.push("font-style:italic");
+            if (style.underline === true)
+              css.push("text-decoration:underline");
+            const stroke = style.stroke;
+            if (stroke && typeof stroke.width_px === "number" && Number.isFinite(stroke.width_px) && stroke.width_px >= 0 && (!stroke.color || /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(stroke.color))) {
+              css.push(`-webkit-text-stroke:${stroke.width_px}px ${stroke.color ?? "currentColor"}`);
+            }
+            const shift = typeof style.baseline_shift_em === "number" && Number.isFinite(style.baseline_shift_em) ? style.baseline_shift_em : 0;
+            const rotate = typeof style.rotate_deg === "number" && Number.isFinite(style.rotate_deg) ? style.rotate_deg : 0;
+            const scale = typeof style.scale === "number" && Number.isFinite(style.scale) && style.scale > 0 ? style.scale : 1;
+            if (shift || rotate || scale !== 1)
+              css.push(`transform:translateY(${shift}em) rotate(${rotate}deg) scale(${scale})`);
+            return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ""} style="${css.join(";")}">${escape(character)}</span>`;
+          }).join("");
+        };
+        return html.replace(/(<p class="akari-caption__line">)([\s\S]*?)(<\/p>)/g, (_whole, open, content, close) => {
+          const rendered = content.replace(/(<span class="akari-caption__char"[^>]*>)([^<]*)(<\/span>)|(<[^>]+>)|([^<]+)/g, (whole, charOpen, charText, charClose, tag, plain) => {
+            if (charOpen) {
+              return charOpen + decorate(charText ?? "") + charClose;
+            }
+            return tag ?? (plain ? decorate(plain) : whole);
+          });
+          return open + (/class="[^"]*\bakari-caption__tok\b/.test(rendered) ? rendered : `<span class="akari-caption__tok">${rendered}</span>`) + close;
+        });
+      }
+    }
+  });
+
   // packages/edit-store/lib/caption-words-rederive.js
   var require_caption_words_rederive = __commonJS({
     "packages/edit-store/lib/caption-words-rederive.js"(exports) {
@@ -1301,6 +1479,7 @@ ${indent}`);
       exports.rebaseCaptionEmphasis = rebaseCaptionEmphasis;
       exports.applyCaptionTextEdit = applyCaptionTextEdit;
       exports.KARAOKE_MIN_WORD_MATCH_RATIO = 0.5;
+      var caption_runs_1 = require_caption_runs();
       function segmenterConstructor() {
         if (typeof Intl === "undefined")
           return void 0;
@@ -1753,7 +1932,27 @@ ${indent}`);
             delete next.display_fragments;
         } else
           delete next.display_fragments;
-        return { record: next, ...rederive ? { rederive } : {} };
+        let removedRuns;
+        if (Array.isArray(record2.runs)) {
+          const oldDisplay = typeof record2.display_text === "string" ? record2.display_text : record2.text;
+          const newDisplay = typeof next.display_text === "string" ? next.display_text : normalizedText;
+          if (typeof record2.display_text === "string" && typeof next.display_text !== "string") {
+            removedRuns = [...record2.runs];
+            delete next.runs;
+          } else {
+            const rebased = (0, caption_runs_1.rebaseCaptionRuns)(oldDisplay, newDisplay, record2.runs);
+            if (rebased.runs.length > 0)
+              next.runs = rebased.runs;
+            else
+              delete next.runs;
+            removedRuns = rebased.removed;
+          }
+        }
+        return {
+          record: next,
+          ...rederive ? { rederive } : {},
+          ...removedRuns?.length ? { removedRuns } : {}
+        };
       }
     }
   });
@@ -2107,6 +2306,7 @@ ${indent}`);
       exports.shiftCaptionLine = shiftCaptionLine;
       exports.setCaptionTimingLine = setCaptionTimingLine;
       exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+      exports.updateCaptionFieldsInSourceWithReport = updateCaptionFieldsInSourceWithReport;
       exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
       exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
       exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
@@ -2116,6 +2316,7 @@ ${indent}`);
       exports.mergeCaptionLines = mergeCaptionLines;
       var edit_store_1 = require_edit_store();
       var caption_words_rederive_1 = require_caption_words_rederive();
+      var caption_runs_1 = require_caption_runs();
       var caption_style_preset_1 = require_caption_style_preset();
       var textstyle_catalog_1 = require_textstyle_catalog();
       exports.CAPTION_ZONES = [
@@ -2243,6 +2444,9 @@ ${indent}`);
         return replaceElement(source, array.openIndex + 1, element, nextElement);
       }
       function updateCaptionFieldsInSource(source, captionId, updates) {
+        return updateCaptionFieldsInSourceWithReport(source, captionId, updates).source;
+      }
+      function updateCaptionFieldsInSourceWithReport(source, captionId, updates) {
         if (!captionId) {
           throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
@@ -2276,11 +2480,13 @@ ${indent}`);
         const array = locateCaptionArray(source);
         const element = findCaptionElement(array.elements, captionId);
         let nextElement = element.text;
+        let removedRuns = [];
         let nextEmphasis;
         let oldEmphasis;
         if (updates.text !== void 0) {
           const parsed = JSON.parse(nextElement);
           const applied = (0, caption_words_rederive_1.applyCaptionTextEdit)(parsed, updates.text);
+          removedRuns = applied.removedRuns ?? [];
           if (applied.record !== parsed) {
             const root = JSON.parse(source);
             if (!Array.isArray(root) && isRecord2(root) && Array.isArray(root.emphasis_words) && Array.isArray(parsed.words) && applied.rederive) {
@@ -2301,6 +2507,7 @@ ${indent}`);
             nextElement = syncOptionalCaptionProperty(nextElement, "words", applied.record.words, captionId);
             nextElement = syncOptionalCaptionProperty(nextElement, "display_text", applied.record.display_text, captionId);
             nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", applied.record.display_fragments, captionId);
+            nextElement = syncOptionalCaptionProperty(nextElement, "runs", applied.record.runs, captionId);
           }
         }
         if (updates.speaker !== void 0) {
@@ -2347,7 +2554,7 @@ ${indent}`);
             nextInner += inner.slice(elements[elements.length - 1].end);
           updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
         }
-        return updated;
+        return { source: updated, removedRuns };
       }
       function applyWordBookToCaptionsInSource(source, changes) {
         if (changes.length === 0) {
@@ -2579,6 +2786,22 @@ ${indent}`);
           edited: true,
           sourceRef: null
         };
+        if (Array.isArray(record2.runs)) {
+          const split = textA.length;
+          const rawText = String(record2.text);
+          const displayText = typeof record2.display_text === "string" ? record2.display_text : rawText;
+          const runs = (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record2.runs).runs;
+          const runsA = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, 0, split);
+          const runsB = (0, caption_runs_1.sliceCaptionRuns)(rawText, runs, split, rawText.length);
+          if (runsA)
+            recordA.runs = runsA;
+          else
+            delete recordA.runs;
+          if (runsB)
+            recordB.runs = runsB;
+          else
+            delete recordB.runs;
+        }
         recordA.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start < splitEnd);
         recordB.unrecognized = unrecognized.filter((span) => typeof span.start === "number" && span.start >= splitEnd);
         for (const output of [recordA, recordB]) {
@@ -2619,6 +2842,21 @@ ${indent}`);
           unrecognized,
           edited: true
         };
+        if (records.some((record2) => Array.isArray(record2.runs))) {
+          let offset = 0;
+          const mergedRuns = (0, caption_runs_1.joinAdjacentCaptionRuns)(records.flatMap((record2) => {
+            const rawText = String(record2.text ?? "");
+            const displayText = typeof record2.display_text === "string" ? record2.display_text : rawText;
+            const runs = Array.isArray(record2.runs) ? (0, caption_runs_1.rebaseCaptionRuns)(displayText, rawText, record2.runs).runs : [];
+            const projected = runs.map((run) => ({ ...run, from: run.from + offset, to: run.to + offset }));
+            offset += (0, caption_runs_1.captionGraphemes)(rawText).length;
+            return projected;
+          }));
+          if (mergedRuns.length > 0)
+            survivor.runs = mergedRuns;
+          else
+            delete survivor.runs;
+        }
         delete survivor.display_text;
         delete survivor.display_fragments;
         if (words.length === 0)
@@ -2853,6 +3091,12 @@ ${indent}`);
         if (caption.textStyle !== void 0) {
           parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
         }
+        if (caption.extra?.display_timing !== void 0) {
+          parts.push(`"display_timing": ${JSON.stringify(caption.extra.display_timing)}`);
+        }
+        if (caption.runs?.length) {
+          parts.push(`"runs": ${JSON.stringify(caption.runs)}`);
+        }
         const schemaKeys = /* @__PURE__ */ new Set([
           "id",
           "start",
@@ -2869,7 +3113,9 @@ ${indent}`);
           "display_text",
           "display_fragments",
           "style_preset",
-          "text_style"
+          "text_style",
+          "display_timing",
+          "runs"
         ]);
         for (const [key, value] of Object.entries(caption.extra ?? {})) {
           if (value !== void 0 && !schemaKeys.has(key)) {
@@ -2895,13 +3141,16 @@ ${indent}`);
           "display_text",
           "display_fragments",
           "style_preset",
-          "text_style"
+          "text_style",
+          "display_timing",
+          "runs"
         ];
         const known = new Set(schemaKeys);
         const parts = [];
         for (const key of schemaKeys) {
-          if (value[key] !== void 0)
+          if (value[key] !== void 0 && (key !== "runs" || Array.isArray(value[key]) && value[key].length > 0)) {
             parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
+          }
         }
         for (const [key, item] of Object.entries(value)) {
           if (!known.has(key) && item !== void 0)
@@ -3730,6 +3979,12 @@ ${indent}`);
             };
             if (Object.prototype.hasOwnProperty.call(caption, "display_text"))
               expanded.display_text = window2.text;
+            if (Array.isArray(caption.runs)) {
+              const sourceText = String(caption.display_text ?? caption.text ?? "");
+              expanded.runSourceText = sourceText;
+              expanded.runTextStart = characterStart;
+              expanded.runTextEnd = characterEnd;
+            }
             if (Array.isArray(caption.words)) {
               let offset = 0;
               expanded.words = caption.words.flatMap((word) => {
@@ -4150,6 +4405,7 @@ ${indent}`);
       exports.formatCssNumber = formatCssNumber;
       var caption_style_preset_1 = require_caption_style_preset();
       var textstyle_catalog_1 = require_textstyle_catalog();
+      var caption_runs_1 = require_caption_runs();
       exports.CAPTION_DISPLAY_SCHEMA = "caption-layout/v1";
       exports.CAPTION_DISPLAY_MODE = "single_line_sequential";
       exports.CAPTION_DISPLAY_ALGORITHM = "a4-ja-two-fragment-v1";
@@ -4453,6 +4709,8 @@ ${indent}`);
             }
             const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text);
             const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            const sourceRuns = captions[occurrence.caption_input_index].runs;
+            const cueRuns = Array.isArray(sourceRuns) ? (0, caption_runs_1.sliceCaptionRuns)(projectedCaptions[occurrence.caption_input_index].displayText, sourceRuns, group.charStart, group.charEnd) : void 0;
             displayCues.push({
               id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, "0")}-part-${index + 1}`,
               source_cue_id: occurrence.source_cue_id,
@@ -4464,6 +4722,7 @@ ${indent}`);
               start: group.start,
               end: group.end,
               text,
+              ...cueRuns ? { runs: cueRuns } : {},
               ...group.lines.length >= 2 ? { display_lines: group.lines } : {},
               units: measureCaptionUnits(text),
               line_override: resolved.manual,
@@ -12474,6 +12733,7 @@ ${indent}`);
       __exportStar(require_caption_clock(), exports);
       __exportStar(require_timeline_map(), exports);
       __exportStar(require_caption_display(), exports);
+      __exportStar(require_caption_runs(), exports);
       __exportStar(require_generation_meta(), exports);
       __exportStar(require_edit_v2(), exports);
       __exportStar(require_edit_v2_item_write(), exports);
