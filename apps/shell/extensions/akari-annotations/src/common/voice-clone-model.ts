@@ -1,7 +1,32 @@
 import type { VoiceAvatar, VoiceCheckResult, VoiceEngine } from './akari-annotations-protocol';
 
-export type VoiceStep = 'consent' | 'record' | 'check' | 'copy' | 'compare' | 'save';
-export const VOICE_STEPS: VoiceStep[] = ['consent', 'record', 'check', 'copy', 'compare', 'save'];
+export const GEMINI_CONSENT_TEXT = '私はこの音声の所有者であり、Googleがこの音声を使用して音声合成モデルを作成することを承認します。';
+export const GEMINI_WATERMARK_NOTICE = '写しには Google の透かしが入ります';
+
+export interface GeminiConsentCheck {
+    pass?: boolean;
+    reasons?: string[];
+    checks?: { script?: { ok?: boolean | 'unavailable'; score?: number } };
+}
+
+export function geminiConsentReady(check?: GeminiConsentCheck): boolean {
+    return check?.pass === true && check.checks?.script?.ok === true && (check.checks.script.score ?? 0) >= 0.8;
+}
+
+export function geminiConsentCanNext(audioPresent: boolean, check?: GeminiConsentCheck): boolean {
+    return audioPresent && (check === undefined || geminiConsentReady(check));
+}
+
+export function geminiConsentStatus(check?: GeminiConsentCheck): string {
+    if (!check) return '';
+    if (geminiConsentReady(check)) return `✓ 同意文との一致 ${Math.round((check.checks?.script?.score ?? 0) * 100)}% · この PC で照合しました`;
+    if (check.checks?.script?.ok === 'unavailable') return 'この PC で聞き取りができないため送信できません。';
+    if (check.checks?.script?.ok === false || (check.checks?.script?.score ?? 0) < 0.8) return '同意文との一致が 80% 未満です。録り直してください。';
+    return check.reasons?.[0] ?? '同意録音のチェックに合格していません。';
+}
+
+export type VoiceStep = 'consent' | 'record' | 'check' | 'copy' | 'gemini-consent' | 'compare' | 'save';
+export const VOICE_STEPS: VoiceStep[] = ['consent', 'record', 'check', 'copy', 'gemini-consent', 'compare', 'save'];
 export function voiceStorageDisplay(root: string, home: string, avatar: string, id: string): string {
     const windows = /^[A-Za-z]:[\\/]/u.test(root);
     const separator = windows ? '\\' : '/';
@@ -16,6 +41,8 @@ export function voiceStorageDisplay(root: string, home: string, avatar: string, 
 export function voiceNextStep(step: VoiceStep, direction: 1 | -1, copyCount?: number): VoiceStep {
     if (copyCount === 0 && step === 'copy' && direction === 1) return 'save';
     if (copyCount === 0 && step === 'save' && direction === -1) return 'copy';
+    if (step === 'copy' && direction === 1) return 'compare';
+    if (step === 'compare' && direction === -1) return 'copy';
     return VOICE_STEPS[Math.max(0, Math.min(VOICE_STEPS.length - 1, VOICE_STEPS.indexOf(step) + direction))];
 }
 
@@ -37,13 +64,18 @@ export function voiceCheckReason(check?: VoiceCheckResult): string {
 }
 
 export function voiceCanNext(step: VoiceStep, state: { consentSelf: boolean; audioPath?: string;
-    check?: VoiceCheckResult; busy?: boolean; label?: string }): boolean {
+    check?: VoiceCheckResult; consentAudioPath?: string; consentCheck?: VoiceCheckResult; busy?: boolean; label?: string }): boolean {
     if (state.busy) return false;
     if (step === 'consent') return state.consentSelf;
     if (step === 'record') return Boolean(state.audioPath);
     if (step === 'check') return state.check?.pass === true;
+    if (step === 'gemini-consent') return geminiConsentCanNext(Boolean(state.consentAudioPath), state.consentCheck);
     if (step === 'save') return Boolean(state.label?.trim());
     return true;
+}
+
+export function voiceGeminiConsentReady(check?: VoiceCheckResult): boolean {
+    return geminiConsentReady(check);
 }
 
 export function voiceCopyDefaults(input: { irodoriAvailable: boolean; falAvailable: boolean;

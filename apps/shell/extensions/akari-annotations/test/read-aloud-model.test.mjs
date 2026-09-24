@@ -61,6 +61,8 @@ test('stale の彩は既定で選べて注記が付き、stale の MiniMax も�
     assert.equal(cloud.usable, true);
     assert.equal(readAloudCopyOptionLabel(cloud), 'MiniMax（写しが古い）');
     assert.equal(readAloudCopyNote(cloud), '写しを使います · 写しが古いです');
+    assert.equal(readAloudCopyNote({ engine: { id: 'gemini-3.8-flash-tts', supports: { clone: 'registered' } }, stale: false }),
+        '写しを使います · 写しには Google の透かしが入ります');
 });
 
 test('彩の既製声は話し方を送らず、custom だけ必須欄を使う', () => {

@@ -2,10 +2,12 @@ import { injectable } from '@theia/core/shared/inversify';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
-import { dirname, join, resolve } from 'path';
+import { basename, dirname, join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { AkariNarrationEnginesService, NarrationEngineRow, SettingsVoiceAvatar, SettingsVoiceProfile } from '../common/narration-engines-protocol';
 import { voiceMigrationAvatar } from '../common/voice-settings-model';
+import { geminiConsentReady, geminiConsentStatus,
+    type GeminiConsentCheck } from 'akari-annotations/lib/common/voice-clone-model';
 
 export interface NarrationCliOptions {
     spawnImpl?: typeof spawn;
@@ -139,11 +141,31 @@ export class NarrationCli implements AkariNarrationEnginesService {
     async voiceRename(profile: string, label: string): Promise<void> {
         await this.run(['rename', '--profile', profile, '--label', label], 'voice');
     }
-    async voiceCopy(request: { profile: string; engine: 'irodori' | 'fal-qwen3'; irodoriUrl?: string; approved?: boolean }): Promise<void> {
-        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+    async voiceCopy(request: { profile: string; engine: 'irodori' | 'fal-qwen3' | 'gemini-3.8-flash-tts'; irodoriUrl?: string; consentAudioPath?: string; approved?: boolean }): Promise<void> {
+        if (request.engine !== 'irodori' && request.approved !== true) throw new Error('費用承認が必要です。');
         await this.run(['copy', '--profile', request.profile, '--engine', request.engine,
             ...(request.irodoriUrl ? ['--irodori-url', request.irodoriUrl] : []),
-            ...(request.engine === 'fal-qwen3' ? ['--yes'] : [])], 'voice');
+            ...(request.consentAudioPath ? ['--consent-audio', request.consentAudioPath] : []),
+            ...(request.engine !== 'irodori' ? ['--yes'] : [])], 'voice');
+    }
+    async voiceCheckGeminiConsent(audioBase64: string): Promise<{ path: string; score: number }> {
+        if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(audioBase64) || audioBase64.length > 40_000_000) {
+            throw new Error('同意録音が不正です。');
+        }
+        const dir = await fs.mkdtemp(join(this.tempRoot, 'akari-gemini-consent-'));
+        const path = join(dir, 'consent.wav');
+        try {
+            await fs.writeFile(path, Buffer.from(audioBase64, 'base64'), { mode: 0o600 });
+            const check = await this.run(['check', '--audio', path, '--script', 'consent-gemini'], 'voice');
+            const verification = check as GeminiConsentCheck;
+            if (!geminiConsentReady(verification)) throw new Error(geminiConsentStatus(verification));
+            return { path, score: verification.checks!.script!.score! };
+        } catch (error) { await fs.rm(dir, { recursive: true, force: true }); throw error; }
+    }
+    async voiceDiscardGeminiConsent(path: string): Promise<void> {
+        const dir = dirname(path);
+        if (dirname(dir) !== resolve(this.tempRoot) || !basename(dir).startsWith('akari-gemini-consent-')) return;
+        await fs.rm(dir, { recursive: true, force: true });
     }
     async voiceDelete(profile: string, irodoriUrl?: string): Promise<void> {
         await this.run(['delete', '--profile', profile, ...(irodoriUrl ? ['--irodori-url', irodoriUrl] : [])], 'voice');

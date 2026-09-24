@@ -20,7 +20,9 @@ export interface AkariNarrationEnginesService {
     voiceProfiles(): Promise<{ profiles: SettingsVoiceProfile[] }>;
     voiceAvatars(): Promise<{ avatars: SettingsVoiceAvatar[] }>;
     voiceRename(profile: string, label: string): Promise<void>;
-    voiceCopy(request: { profile: string; engine: 'irodori' | 'fal-qwen3'; irodoriUrl?: string; approved?: boolean }): Promise<void>;
+    voiceCopy(request: { profile: string; engine: 'irodori' | 'fal-qwen3' | 'gemini-3.8-flash-tts'; irodoriUrl?: string; consentAudioPath?: string; approved?: boolean }): Promise<void>;
+    voiceCheckGeminiConsent(audioBase64: string): Promise<{ path: string; score: number }>;
+    voiceDiscardGeminiConsent(path: string): Promise<void>;
     voiceDelete(profile: string, irodoriUrl?: string): Promise<void>;
     voiceMigrateLegacy(profile: string): Promise<void>;
 }

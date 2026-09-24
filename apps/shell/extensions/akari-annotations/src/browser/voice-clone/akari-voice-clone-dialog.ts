@@ -3,9 +3,11 @@ import { AbstractDialog, ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
 import type { AkariAnnotationsService, NarrationEngine, VoiceCheckResult, VoiceEngine, VoiceScript } from '../../common/akari-annotations-protocol';
-import { VOICE_STEPS, voiceCanNext, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceId, voiceNextStep,
+import { VOICE_STEPS, voiceCanNext, voiceGeminiConsentReady, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceId, voiceNextStep,
+    geminiConsentStatus, GEMINI_WATERMARK_NOTICE,
     voiceShouldDiscardProfileForRecording, voiceStorageDisplay, type VoiceStep } from '../../common/voice-clone-model';
 import { falKeyAvailable } from '../../common/read-aloud-model';
+import { createGeminiConsentPrompt } from './gemini-consent-step';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] => {
     const node = document.createElement(tag); if (text !== undefined) node.textContent = text; return node;
@@ -23,6 +25,8 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
     protected scripts: VoiceScript[] = [];
     protected script: VoiceScript['id'] = 'quick-v1';
     protected audioPath?: string;
+    protected consentAudioPath?: string;
+    protected consentCheck?: VoiceCheckResult;
     protected audioUrl?: string;
     protected check?: VoiceCheckResult;
     protected engines: NarrationEngine[] = [];
@@ -100,24 +104,27 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
     protected updateButtons(): void {
         this.back.disabled = this.step === 'consent' || this.busy;
         this.next.disabled = !voiceCanNext(this.step, { consentSelf: this.consentSelf, audioPath: this.audioPath,
-            check: this.check, busy: this.busy, label: this.label });
+            check: this.check, consentAudioPath: this.consentAudioPath, consentCheck: this.consentCheck, busy: this.busy, label: this.label });
         this.next.textContent = this.step === 'save' ? '保存する' : this.step === 'copy' ?
             (this.selected.length ? 'この場所でつくる' : '録音だけ保存') : '次へ';
     }
     protected render(): void {
         this.body.replaceChildren();
-        const title = el('h2', `${VOICE_STEPS.indexOf(this.step) + 1} / 6  ${{
+        const total = this.selected.includes('gemini-3.8-flash-tts') ? 7 : 6;
+        const current = VOICE_STEPS.indexOf(this.step) + 1 - (this.step === 'gemini-consent' || VOICE_STEPS.indexOf(this.step) < 4 ? 0 : total === 6 ? 1 : 0);
+        const title = el('h2', `${current} / ${total}  ${{
             consent: '同意', record: '読んで録る', check: '録音を確かめる', copy: 'どこでつくる',
-            compare: '試して聞き比べ', save: '保存'
+            'gemini-consent': 'Google への口頭同意', compare: '試して聞き比べ', save: '保存'
         }[this.step]}`);
         this.body.append(title);
         if (this.step === 'consent') this.renderConsent();
         if (this.step === 'record') this.renderRecord();
         if (this.step === 'check') this.renderCheck();
         if (this.step === 'copy') this.renderCopy();
+        if (this.step === 'gemini-consent') this.renderGeminiConsent();
         if (this.step === 'compare') this.renderCompare();
         if (this.step === 'save') this.renderSave();
-        this.note.textContent = this.error ?? (this.busy ? '処理中…' : `${VOICE_STEPS.indexOf(this.step) + 1} / 6`);
+        this.note.textContent = this.error ?? (this.busy ? '処理中…' : `${current} / ${total}`);
         this.updateButtons();
     }
     protected renderConsent(): void {
@@ -127,23 +134,26 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         const cloud = el('input'); cloud.type = 'checkbox'; cloud.checked = this.consentCloud; cloud.dataset.voiceConsentCloud = 'true';
         cloud.addEventListener('change', () => { this.consentCloud = cloud.checked; this.updateButtons(); });
         const row1 = el('label'); row1.append(self, ' これから録るのは私本人の声で、私の声の読み上げに使うことに同意します');
-        const row2 = el('label'); row2.append(cloud, ' クラウドでつくるなら録音が fal.ai に送られると理解しています');
+        const row2 = el('label'); row2.append(cloud, ' クラウドでつくるなら録音が選んだ作り手（fal.ai または Google）に送られると理解しています');
         this.body.append(row1, row2, el('small', '同意は日時と一緒に声の記録に残ります。'));
     }
-    protected renderRecord(): void {
-        this.body.append(el('p', 'いつものナレーションの声で、ゆっくり読んでください。約 20 秒。'));
-        const script = this.scripts.find(item => item.id === this.script)?.text ?? '原稿を読み込んでいます…';
-        const box = el('div'); box.dataset.voiceScript = 'true';
-        Object.assign(box.style, { fontSize: '18px', lineHeight: '1.8', padding: '16px', border: '1px solid #777', borderRadius: '8px' });
-        const parts = script.split(/(?<=。)/u).filter(Boolean);
-        for (const [index, part] of parts.entries()) {
-            const span = el('span', part); span.dataset.voiceSentence = String(index);
-            if (this.recorder?.state === 'recording' && index === Math.min(parts.length - 1, Math.floor(this.elapsed / (this.script === 'quick-v1' ? 5 : 8)))) {
-                span.style.background = '#77652b';
+    protected renderRecord(consent = false): void {
+        if (consent) this.body.append(createGeminiConsentPrompt());
+        else {
+            this.body.append(el('p', 'いつものナレーションの声で、ゆっくり読んでください。約 20 秒。'));
+            const script = this.scripts.find(item => item.id === this.script)?.text ?? '原稿を読み込んでいます…';
+            const box = el('div'); box.dataset.voiceScript = 'true';
+            Object.assign(box.style, { fontSize: '18px', lineHeight: '1.8', padding: '16px', border: '1px solid #777', borderRadius: '8px' });
+            const parts = script.split(/(?<=。)/u).filter(Boolean);
+            for (const [index, part] of parts.entries()) {
+                const span = el('span', part); span.dataset.voiceSentence = String(index);
+                if (this.recorder?.state === 'recording' && index === Math.min(parts.length - 1, Math.floor(this.elapsed / (this.script === 'quick-v1' ? 5 : 8)))) {
+                    span.style.background = '#77652b';
+                }
+                box.append(span);
             }
-            box.append(span);
+            this.body.append(box);
         }
-        this.body.append(box);
         const select = el('select'); select.setAttribute('aria-label', 'マイクを選択'); select.dataset.voiceMicrophone = 'true';
         const option = el('option', '既定のマイク'); option.value = ''; select.append(option);
         void navigator.mediaDevices?.enumerateDevices?.().then(devices => {
@@ -159,7 +169,10 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         const meter = el('progress'); meter.max = 100; meter.value = this.meterPeak; meter.dataset.voiceMeter = 'true';
         const clock = el('span', `${Math.floor(this.elapsed / 60).toString().padStart(2, '0')}:${(this.elapsed % 60).toString().padStart(2, '0')}`); clock.dataset.voiceElapsed = 'true';
         row.append(rec, meter, clock); this.body.append(row);
-        if (this.audioPath) { const again = el('button', '録り直す'); again.addEventListener('click', () => void this.resetRecording()); this.body.append(again); }
+        if (consent ? this.consentAudioPath : this.audioPath) { const again = el('button', '録り直す'); again.addEventListener('click', () => {
+            if (consent) { this.consentAudioPath = undefined; this.consentCheck = undefined; this.render(); }
+            else void this.resetRecording();
+        }); this.body.append(again); }
         const drop = el('div', '録音ファイルをここに落とす（m4a / wav / mp3 / webm）'); drop.dataset.voiceDrop = 'true';
         Object.assign(drop.style, { padding: '20px', border: '2px dashed #777', borderRadius: '8px', cursor: 'pointer' });
         const input = el('input'); input.type = 'file'; input.accept = '.m4a,.wav,.mp3,.webm'; input.style.display = 'none';
@@ -167,6 +180,10 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         drop.addEventListener('click', () => input.click()); drop.addEventListener('dragover', event => event.preventDefault());
         drop.addEventListener('drop', event => { event.preventDefault(); if (event.dataTransfer?.files[0]) void this.useFile(event.dataTransfer.files[0]); });
         this.body.append(drop, input);
+    }
+    protected renderGeminiConsent(): void {
+        this.renderRecord(true);
+        if (this.consentCheck) this.body.append(el('p', geminiConsentStatus(this.consentCheck)));
     }
     protected async startRecording(deviceId: string): Promise<void> {
         try {
@@ -228,12 +245,13 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
             const result = await this.service.voiceFinishRecording(token!);
             token = undefined;
             this.tempPaths.push(result.path);
-            if (voiceShouldDiscardProfileForRecording(this.profile, this.extending)) {
+            if (this.step !== 'gemini-consent' && voiceShouldDiscardProfileForRecording(this.profile, this.extending)) {
                 await this.service.voiceDiscard({ profile: this.profile, tempPaths: [], irodoriUrl: this.irodoriUrl() });
                 this.profile = undefined; this.copied = []; this.selected = [];
                 this.clearGenerated();
             }
-            this.audioPath = result.path; this.check = undefined;
+            if (this.step === 'gemini-consent') { this.consentAudioPath = result.path; this.consentCheck = undefined; }
+            else { this.audioPath = result.path; this.check = undefined; }
             if (this.audioUrl) URL.revokeObjectURL(this.audioUrl);
             this.audioUrl = URL.createObjectURL(blob);
         } catch (error) { if (token) await this.service.voiceAbortRecording(token); this.error = String(error); }
@@ -258,15 +276,19 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
                 available: this.engines.some(item => item.id === 'irodori' && item.availability.state === 'available') },
             { engine: 'fal-qwen3', title: 'クラウド（fal）でつくる', note: '声づくり 約 $0.01 · 読み上げ $0.09 / 1000 字',
                 available: falKeyAvailable(this.engines.find(item => item.id === 'fal-qwen3'))
-                    && this.consentCloud && this.check?.checks.script.ok === true }
+                    && this.consentCloud && this.check?.checks.script.ok === true },
+            { engine: 'gemini-3.8-flash-tts', title: 'Google Gemini 3.8 でつくる', note: '声づくりの料金は見積不可 · 本人の口頭同意録音が必要',
+                available: this.engines.some(item => item.id === 'gemini-3.8-flash-tts' && item.availability.state !== 'unconfigured')
+                    && this.consentCloud && this.check?.checks.script.ok === true && (this.check?.checks.duration.value_s ?? 0) >= 10 }
         ];
         for (const option of options) {
             const card = el('label'); card.dataset.voiceEngine = option.engine;
             Object.assign(card.style, { display: 'block', padding: '12px', border: '1px solid #777', borderRadius: '8px', opacity: option.available ? '1' : '.55' });
             const input = el('input'); input.type = 'checkbox'; input.value = option.engine;
             input.checked = this.selected.includes(option.engine); input.disabled = !option.available;
-            input.addEventListener('change', () => { this.selected = input.checked ? [...this.selected, option.engine] : this.selected.filter(item => item !== option.engine); this.updateButtons(); });
+            input.addEventListener('change', () => { this.selected = input.checked ? [...this.selected, option.engine] : this.selected.filter(item => item !== option.engine); this.render(); });
             card.append(input, ` ${option.title}`, el('div', option.available ? option.note : 'つながりません・同意か照合を確認してください'));
+            if (option.engine === 'gemini-3.8-flash-tts') card.append(el('div', GEMINI_WATERMARK_NOTICE));
             this.body.append(card);
         }
         this.body.append(el('small', '使える作り手は最初からチェック済みです。両方選ぶこともできます。'));
@@ -279,11 +301,12 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
             Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px' });
             const audio = el('audio'); audio.controls = true; audio.src = this.audioUrl; row.append(audio); card.append(row); this.body.append(card); }
         for (const engine of this.copied) {
-            const card = el('div', `B 作った声（${engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）'}）`);
+            const card = el('div', `B 作った声（${engine === 'irodori' ? '彩（自分の PC）' : engine === 'fal-qwen3' ? 'クラウド（fal）' : 'Google Gemini 3.8'}）`);
             card.dataset.voiceCompare = engine;
             const row = el('div'); Object.assign(row.style, { display: 'flex', alignItems: 'center', gap: '8px' });
             const audio = el('audio'); audio.controls = true; audio.src = this.generated[engine] ?? ''; row.append(audio);
-            const button = el('button', '試す'); button.addEventListener('click', () => void this.tryEngine(engine)); row.append(button); card.append(row); this.body.append(card);
+            if (engine !== 'gemini-3.8-flash-tts') { const button = el('button', '試す'); button.addEventListener('click', () => void this.tryEngine(engine)); row.append(button); }
+            card.append(row); this.body.append(card);
         }
         const retry = el('button', 'もう一度つくる'); retry.addEventListener('click', () => { this.step = 'copy'; this.render(); });
         const extended = el('button', 'もっと似せる（60 秒の原稿を追加で録る）'); extended.addEventListener('click', () => void this.restartWithScript('extended-v1'));
@@ -318,11 +341,12 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
         const display = voiceStorageDisplay(this.storage.root, this.storage.home, this.avatar, id);
         this.body.append(el('div', `保存先: ${display}`),
             el('div', '正本: 録音 ref-recording.wav・同意と照合の記録'),
-            el('div', `写し: ${this.copied.map(engine => engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）').join('・') || 'なし（録音だけ）'}`),
-            el('div', '消すとき: 設定「読み上げ」→ 自分の声 → 消す。fal 側の声は残ります。'));
+            el('div', `写し: ${this.copied.map(engine => engine === 'irodori' ? '彩（自分の PC）' : engine === 'fal-qwen3' ? 'クラウド（fal）' : 'Google Gemini 3.8').join('・') || 'なし（録音だけ）'}`),
+            el('div', '消すとき: 設定「読み上げ」→ 自分の声 → 消す。fal / Google 側の声は残ります。'));
     }
     protected async advance(): Promise<void> {
-        if (!voiceCanNext(this.step, { consentSelf: this.consentSelf, audioPath: this.audioPath, check: this.check, busy: this.busy, label: this.label })) return;
+        if (!voiceCanNext(this.step, { consentSelf: this.consentSelf, audioPath: this.audioPath, check: this.check,
+            consentAudioPath: this.consentAudioPath, consentCheck: this.consentCheck, busy: this.busy, label: this.label })) return;
         this.busy = true; this.updateButtons();
         this.error = undefined;
         try {
@@ -342,9 +366,19 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
                     falAvailable: falKeyAvailable(this.engines.find(item => item.id === 'fal-qwen3')),
                     consentCloud: this.consentCloud, scriptOk: this.check!.checks.script.ok });
                 this.selected = defaults; this.step = 'copy';
-            } else if (this.step === 'copy') {
+            } else if (this.step === 'copy' || this.step === 'gemini-consent') {
+                if (this.step === 'copy' && this.selected.includes('gemini-3.8-flash-tts') && !voiceGeminiConsentReady(this.consentCheck)) {
+                    this.step = 'gemini-consent'; return;
+                }
+                if (this.step === 'gemini-consent' && !voiceGeminiConsentReady(this.consentCheck)) {
+                    this.consentCheck = await this.service.voiceCheck({ audioPath: this.consentAudioPath!, script: 'consent-gemini' }); return;
+                }
                 if (this.selected.includes('fal-qwen3')) {
                     const approved = await new ConfirmDialog({ title: '費用承認', msg: 'fal.ai に録音を送って声をつくります。見積 約 $0.01。続けますか？', ok: '費用承認する', cancel: 'キャンセル' }).open();
+                    if (!approved) return;
+                }
+                if (this.selected.includes('gemini-3.8-flash-tts')) {
+                    const approved = await new ConfirmDialog({ title: '費用承認', msg: 'Google に正本と本人の同意録音を送って声をつくります。声づくりの料金は見積不可です。続けますか？', ok: '費用承認する', cancel: 'キャンセル' }).open();
                     if (!approved) return;
                 }
                 if (!this.profile) {
@@ -355,12 +389,13 @@ export class AkariVoiceCloneDialog extends AbstractDialog<string | undefined> {
                 }
                 this.copied = [];
                 for (const engine of this.selected) {
-                    this.note.textContent = `${engine === 'irodori' ? '彩（自分の PC）' : 'クラウド（fal）'} の写しを作っています…`;
-                    await this.service.voiceCopy({ profile: this.profile, engine, irodoriUrl: this.irodoriUrl(), approved: engine === 'fal-qwen3' });
+                    this.note.textContent = `${engine === 'irodori' ? '彩（自分の PC）' : engine === 'fal-qwen3' ? 'クラウド（fal）' : 'Google Gemini 3.8'} の写しを作っています…`;
+                    await this.service.voiceCopy({ profile: this.profile, engine, irodoriUrl: this.irodoriUrl(),
+                        consentAudioPath: engine === 'gemini-3.8-flash-tts' ? this.consentAudioPath : undefined, approved: engine !== 'irodori' });
                     this.copied.push(engine);
                 }
                 this.step = voiceNextStep('copy', 1, this.copied.length);
-                for (const engine of this.copied) await this.tryEngine(engine);
+                for (const engine of this.copied) if (engine !== 'gemini-3.8-flash-tts') await this.tryEngine(engine);
             } else if (this.step === 'save') {
                 await this.service.voiceFinalize({ profile: this.profile!, label: this.label });
                 this.saved = true; this.close(); return;

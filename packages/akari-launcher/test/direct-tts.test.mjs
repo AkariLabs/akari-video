@@ -90,7 +90,7 @@ test('直接 API は鍵なしで unconfigured、--yes なしで HTTP 0 回', asy
   const clone = await runNarrationCommand(['generate', '--project', root, '--engine', gemini.id,
     '--profile', 'sample', '--text', 'こんにちは', '--yes', '--json'], unsupported);
   assert.equal(clone.exitCode, 2);
-  assert.match(JSON.parse(unsupported.lines.at(-1)).error, /未対応/);
+  assert.match(JSON.parse(unsupported.lines.at(-1)).error, /声プロファイルが見つかりません/);
   assert.equal(calls, 0);
 });
 
@@ -132,6 +132,37 @@ test('直接 API の合成はモック応答だけを使い、provider と model
   assert.equal(requests.length, 2);
   assert.equal(requests[0].options.headers.Authorization, 'Bearer dummy-fish-key');
   assert.equal(requests[1].options.headers['x-goog-api-key'], 'dummy-google-key');
+});
+
+test('Gemini の登録済み voice_id を interactions の speech_config に指定する', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-gemini-profile-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const prior = { HOME: process.env.HOME, AKARI_HOME: process.env.AKARI_HOME, GEMINI_API_KEY: process.env.GEMINI_API_KEY };
+  const oldFetch = globalThis.fetch;
+  t.after(() => { for (const [name, value] of Object.entries(prior)) {
+    if (value === undefined) delete process.env[name]; else process.env[name] = value;
+  } globalThis.fetch = oldFetch; });
+  process.env.HOME = root; process.env.AKARI_HOME = path.join(root, 'home'); process.env.GEMINI_API_KEY = 'dummy-google-key';
+  const dir = path.join(process.env.AKARI_HOME, 'avatars', 'person', 'voice', 'sample'); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ version: 2, label: 'sample',
+    consent: { self_voice: true, cloud_upload: true }, reference: { verification: { score: 0.9 } },
+    engines: { 'gemini-3.8-flash-tts': { voice_id: 'voice_dummy123' } } }));
+  const io = collect(); let calls = 0;
+  globalThis.fetch = async () => { calls++; throw new Error('unexpected HTTP'); };
+  assert.equal((await runNarrationCommand(['generate', '--project', root, '--engine', gemini.id,
+    '--profile', 'sample', '--text', 'こんにちは', '--dry-run', '--json'], io)).exitCode, 0);
+  assert.deepEqual(JSON.parse(io.lines.at(-1)).request.body.generation_config.speech_config, [{ voice: 'voice_dummy123' }]);
+  assert.equal(calls, 0);
+  const requests = []; const audio = pcmToWav(Buffer.alloc(48000));
+  globalThis.fetch = async (url, options) => { requests.push({ url, body: JSON.parse(options.body) }); return { ok: true,
+    json: async () => ({ steps: [{ type: 'model_output', content: [{ type: 'audio',
+      mime_type: 'audio/l16', data: audio.subarray(44).toString('base64') }] }] }) }; };
+  const generated = collect();
+  assert.equal((await runNarrationCommand(['generate', '--project', root, '--engine', gemini.id,
+    '--profile', 'sample', '--text', 'こんにちは', '--yes', '--json'], generated)).exitCode, 0);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].body.generation_config.speech_config, [{ voice: 'voice_dummy123' }]);
+  assert.equal(JSON.parse(generated.lines.at(-1)).provenance.voice, 'profile:sample');
 });
 
 test('Fish 参照音声は同意・照合と --yes を通った場合だけ MessagePack で送る', async t => {

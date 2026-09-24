@@ -1,4 +1,5 @@
 import type { NarrationEngine, NarrationVoice, VoiceProfileSummary, VoiceEngine } from './akari-annotations-protocol';
+import { GEMINI_WATERMARK_NOTICE } from './voice-clone-model';
 
 export function voiceProfileConsent(profile: VoiceProfileSummary): boolean {
     return typeof profile.consent === 'string' ? profile.consent.trim().length > 0 : profile.consent?.self_voice === true;
@@ -44,7 +45,7 @@ export function chooseVoiceCopy(profile: VoiceProfileSummary, irodoriAvailable: 
 export const READ_ALOUD_LOCAL_IDS = ['voicevox', 'irodori'] as const;
 export const READ_ALOUD_CLOUD_IDS = ['gemini-3.8-flash-tts', 'gemini-3.1-flash-tts', 'gemini-tts',
     'elevenlabs-v3', 'fish-s2.1-pro', 'minimax-2.6-hd', 'chatterbox'] as const;
-export const READ_ALOUD_COPY_IDS = ['irodori', 'fal-qwen3', 'minimax-2.6-hd',
+export const READ_ALOUD_COPY_IDS = ['irodori', 'fal-qwen3', 'gemini-3.8-flash-tts', 'minimax-2.6-hd',
     'fish-s2.1-pro', 'chatterbox', 'index-tts-2'] as const;
 
 export function readAloudProvider(engine: NarrationEngine): string {
@@ -107,7 +108,8 @@ export function readAloudCopyOptionLabel(row: { engine: NarrationEngine; stale: 
 }
 
 export function readAloudCopyNote(row: { engine: NarrationEngine; stale: boolean }): string {
-    return `${row.engine.supports?.clone === 'per-request' ? '録音を毎回送ります' : '写しを使います'}${row.stale ? ' · 写しが古いです' : ''}`;
+    return `${row.engine.supports?.clone === 'per-request' ? '録音を毎回送ります' : '写しを使います'}${row.stale ? ' · 写しが古いです' : ''}`
+        + (row.engine.id === 'gemini-3.8-flash-tts' ? ` · ${GEMINI_WATERMARK_NOTICE}` : '');
 }
 
 export function selectReadAloudEngine(engines: readonly NarrationEngine[], preferred?: string): NarrationEngine | undefined {

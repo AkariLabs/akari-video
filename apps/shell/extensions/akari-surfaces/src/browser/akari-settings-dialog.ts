@@ -37,6 +37,9 @@ import { deriveToolRowState, shouldShowToolNote, TOOL_UI, WHISPER_MODEL_SIZE_LAB
 import { AkariHomeCommands } from './akari-home-command-contribution';
 import { AkariNarrationEnginesService, NarrationEngineRow, SettingsVoiceAvatar, SettingsVoiceProfile } from '../common/narration-engines-protocol';
 import { falKeyAvailable, settingsVoiceEngineValue, voiceAvatarLabel, voiceSettingsActions } from '../common/voice-settings-model';
+import { createGeminiConsentPrompt } from 'akari-annotations/lib/browser/voice-clone/gemini-consent-step';
+import { geminiConsentCanNext, geminiConsentStatus,
+    type GeminiConsentCheck } from 'akari-annotations/lib/common/voice-clone-model';
 import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
@@ -1063,7 +1066,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         for (const profile of profiles) {
             const buttons = element('div'); Object.assign(buttons.style, { display: 'flex', gap: '6px', flexWrap: 'wrap' });
             const choices = voiceSettingsActions(profile, irodoriState?.availability.state === 'available',
-                falKeyAvailable(this.narrationState?.engines.find(engine => engine.id === 'fal-qwen3')));
+                falKeyAvailable(this.narrationState?.engines.find(engine => engine.id === 'fal-qwen3')),
+                this.narrationState?.engines.some(engine => engine.id === 'gemini-3.8-flash-tts' && engine.availability.state !== 'unconfigured'));
             const addButton = (label: string, id: string, callback: () => void): void => {
                 const button = action(label, callback, { small: true }); button.setAttribute('data-akari-voice-action', id); buttons.append(button);
             };
@@ -1087,10 +1091,23 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             });
             if (choices.addIrodori) addButton('写しを足す… 彩（自分の PC）', 'copy-irodori', () => copy('irodori'));
             if (choices.addFal) addButton('写しを足す… クラウド（fal）', 'copy-fal', () => copy('fal-qwen3'));
+            const copyGemini = (): void => void this.voiceAction(async () => {
+                const consentAudioPath = await this.geminiConsentDialog();
+                if (!consentAudioPath) return;
+                try {
+                    const approved = await new ConfirmDialog({ title: '費用承認',
+                        msg: 'Google に正本と本人の同意録音を送って声をつくります。声づくりの料金は見積不可です。続けますか？',
+                        ok: '費用承認する', cancel: 'キャンセル' }).open();
+                    if (!approved) return;
+                    await this.narrationService.voiceCopy({ profile: profile.id, engine: 'gemini-3.8-flash-tts', consentAudioPath, approved: true });
+                } finally { await this.narrationService.voiceDiscardGeminiConsent(consentAudioPath); }
+            });
+            if (choices.addGemini) addButton('写しを足す… Google Gemini 3.8', 'copy-gemini', copyGemini);
             if (choices.remakeIrodori) addButton('作り直す · 彩（自分の PC）', 'remake-irodori', () => copy('irodori'));
             if (choices.remakeFal) addButton('作り直す · クラウド（fal）', 'remake-fal', () => copy('fal-qwen3'));
+            if (choices.remakeGemini) addButton('作り直す · Google Gemini 3.8', 'remake-gemini', copyGemini);
             if (choices.remove) addButton('消す', 'delete', () => void this.voiceAction(async () => {
-                if (!await this.confirmVoiceAction('自分の声を消す', '手元の録音と彩の登録を消します。クラウドで作った声は fal 側に残ります', '消す')) return;
+                if (!await this.confirmVoiceAction('自分の声を消す', '手元の録音と彩の登録を消します。クラウドで作った声は fal / Google 側に残ります', '消す')) return;
                 await this.narrationService.voiceDelete(profile.id, this.preferences.get(AKARI_NARRATION_IRODORI_URL));
             }));
             const row = settingRow(profile.label, undefined, buttons);
@@ -1190,6 +1207,58 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected async voiceAction(callback: () => Promise<void>): Promise<void> {
         try { await callback(); await this.refreshNarrationState(); }
         catch (error) { this.narrationError = String(error); this.renderNarration(); }
+    }
+    protected geminiConsentDialog(): Promise<string | undefined> {
+        return new Promise(resolve => {
+            const overlay = element('div'); overlay.setAttribute('role', 'dialog'); overlay.setAttribute('aria-label', 'Google への口頭同意');
+            overlay.setAttribute('data-akari-gemini-consent', 'true');
+            Object.assign(overlay.style, { position: 'fixed', inset: '0', zIndex: '1000', background: '#0009',
+                display: 'flex', alignItems: 'center', justifyContent: 'center' });
+            const panel = element('div'); Object.assign(panel.style, { background: '#242832', border: '1px solid #777',
+                borderRadius: '10px', padding: '20px', width: 'min(560px, calc(100vw - 32px))', display: 'flex', flexDirection: 'column', gap: '12px' });
+            const phrase = createGeminiConsentPrompt();
+            const note = element('p', '本人の声で読んで録音してください。照合はこの PC で行います。');
+            const input = element('input') as HTMLInputElement; input.type = 'file'; input.accept = '.wav,.m4a,.mp3,.webm'; input.setAttribute('aria-label', '同意録音ファイル');
+            let blob: Blob | undefined; let recorder: MediaRecorder | undefined; let stream: MediaStream | undefined;
+            let checkedPath: string | undefined; let consentCheck: GeminiConsentCheck | undefined;
+            const resetCheck = (): void => {
+                if (checkedPath) void this.narrationService.voiceDiscardGeminiConsent(checkedPath);
+                checkedPath = undefined; consentCheck = undefined;
+            };
+            input.onchange = () => { blob = input.files?.[0]; resetCheck(); note.textContent = blob ? '録音を選びました。照合してください。' : '録音を選んでください。'; };
+            const record = action('録音する', () => void (async () => {
+                if (recorder?.state === 'recording') { recorder.stop(); record.textContent = '録音する'; return; }
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const chunks: Blob[] = []; recorder = new MediaRecorder(stream);
+                    recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+                    recorder.onstop = () => { blob = new Blob(chunks, { type: recorder?.mimeType || 'audio/webm' }); resetCheck();
+                        stream?.getTracks().forEach(track => track.stop()); note.textContent = '録音しました。照合してください。'; };
+                    recorder.start(); record.textContent = '止める';
+                } catch { note.textContent = 'マイクを使えません。録音ファイルを選んでください。'; }
+            })(), { small: true });
+            const finish = (path?: string): void => { recorder?.state === 'recording' && recorder.stop(); stream?.getTracks().forEach(track => track.stop());
+                overlay.remove(); resolve(path); };
+            const cancel = action('キャンセル', () => { resetCheck(); finish(); }, { small: true });
+            const next = action('この PC で照合', () => void (async () => {
+                if (checkedPath && geminiConsentCanNext(true, consentCheck)) { finish(checkedPath); return; }
+                if (!blob) { note.textContent = '同意録音が必要です。'; return; }
+                next.disabled = true;
+                try {
+                    const bytes = new Uint8Array(await blob.arrayBuffer()); let binary = '';
+                    for (const byte of bytes) binary += String.fromCharCode(byte);
+                    const result = await this.narrationService.voiceCheckGeminiConsent(btoa(binary));
+                    consentCheck = { pass: true, checks: { script: { ok: true, score: result.score } } };
+                    if (!geminiConsentCanNext(true, consentCheck)) throw new Error(geminiConsentStatus(consentCheck));
+                    checkedPath = result.path; note.textContent = geminiConsentStatus(consentCheck);
+                    next.textContent = '次へ';
+                } catch (error) { note.textContent = String(error); } finally { next.disabled = false; }
+            })(), { small: true });
+            next.setAttribute('data-gemini-consent-next', 'true');
+            const buttons = element('div'); buttons.append(cancel, next);
+            panel.append(element('strong', 'Google への口頭同意'), phrase, record, input, note, buttons);
+            overlay.append(panel); this.node.append(overlay);
+        });
     }
     protected confirmVoiceAction(title: string, message: string, confirmLabel: string): Promise<boolean> {
         return new Promise(resolve => {

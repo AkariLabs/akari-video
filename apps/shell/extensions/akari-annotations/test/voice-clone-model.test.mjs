@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { voiceCanNext, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceDefaultAvatar,
+import { voiceCanNext, voiceGeminiConsentReady, voiceCheckReason, voiceCheckRows, voiceCopyDefaults, voiceDefaultAvatar,
+  geminiConsentCanNext, geminiConsentReady, geminiConsentStatus, GEMINI_WATERMARK_NOTICE,
   voiceId, voiceNextStep, voiceShouldDiscardProfileForRecording, voiceStorageDisplay } from '../lib/common/voice-clone-model.js';
 
 test('保存先は実ホーム配下だけ ~ にし、外部 AKARI_HOME と Windows を保持する', () => {
@@ -26,6 +27,23 @@ test('同意・録音・照合・保存名が次への条件になる', () => {
   assert.equal(voiceCanNext('save', base), false);
   assert.equal(voiceCanNext('save', { ...base, label: '名前' }), true);
   assert.equal(voiceCanNext('copy', { ...base, busy: true }), false);
+});
+
+test('Gemini の段は同意録音とローカル照合 0.8 を要求する', () => {
+  const base = { consentSelf: true, consentAudioPath: '/tmp/consent.wav' };
+  assert.equal(voiceCanNext('gemini-consent', { consentSelf: true }), false);
+  assert.equal(voiceCanNext('gemini-consent', base), true);
+  assert.equal(voiceGeminiConsentReady({ ...check, checks: { ...check.checks, script: { ok: true, score: 0.79 } } }), false);
+  assert.equal(voiceCanNext('gemini-consent', { ...base, consentCheck: { ...check, checks: { ...check.checks,
+    script: { ok: 'unavailable' } } } }), false);
+  assert.equal(voiceCanNext('gemini-consent', { ...base, consentCheck: check }), true);
+  assert.equal(geminiConsentCanNext(false, check), false);
+  assert.equal(geminiConsentCanNext(true, check), true);
+  assert.equal(geminiConsentReady(check), true);
+  assert.equal(geminiConsentStatus(check), '✓ 同意文との一致 94% · この PC で照合しました');
+  assert.equal(geminiConsentStatus({ ...check, checks: { ...check.checks, script: { ok: 'unavailable' } } }),
+    'この PC で聞き取りができないため送信できません。');
+  assert.equal(GEMINI_WATERMARK_NOTICE, '写しには Google の透かしが入ります');
 });
 
 test('不合格の理由と 4 行の表示を返す', () => {

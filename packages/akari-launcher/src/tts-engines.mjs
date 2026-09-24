@@ -147,7 +147,7 @@ export const DIRECT_TTS_ENGINES = Object.freeze([
     id: 'gemini-3.8-flash-tts', label: 'Gemini 3.8 Flash TTS', provider: 'google-ai', place: 'cloud',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/interactions', openapi_fixture: 'direct/gemini-tts.md',
     price: price('usd_per_second', 9 * 25 / 1_000_000, true), voices: geminiVoices,
-    default_voice: 'Leda', supports: { speed: false, style: true, clone: 'none' },
+    default_voice: 'Leda', supports: { speed: false, style: true, clone: 'registered' },
     buildPayload: ({ text, voice, style }) => ({ model: 'gemini-3.8-flash-tts', input: [{ type: 'user_input',
       content: [{ type: 'text', text, ...(style ? { annotations: [{ type: 'speech_metadata', style }] } : {}) }] }],
       response_format: { type: 'audio', mime_type: 'audio/l16', sample_rate: 24000 },

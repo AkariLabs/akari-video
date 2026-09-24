@@ -23,20 +23,24 @@ export function settingsVoiceEngineValue(preference: unknown, profiles: readonly
     return 'voicevox';
 }
 
-export function voiceSettingsActions(profile: SettingsVoiceProfile, irodoriAvailable: boolean, falAvailable: boolean): {
-    migrate: boolean; rename: boolean; remove: boolean; addIrodori: boolean; addFal: boolean;
-    remakeIrodori: boolean; remakeFal: boolean
+export function voiceSettingsActions(profile: SettingsVoiceProfile, irodoriAvailable: boolean, falAvailable: boolean, geminiAvailable = false): {
+    migrate: boolean; rename: boolean; remove: boolean; addIrodori: boolean; addFal: boolean; addGemini: boolean;
+    remakeIrodori: boolean; remakeFal: boolean; remakeGemini: boolean
 } {
     if (profile.legacy) return { migrate: true, rename: false, remove: false, addIrodori: false,
-        addFal: false, remakeIrodori: false, remakeFal: false };
+        addFal: false, addGemini: false, remakeIrodori: false, remakeFal: false, remakeGemini: false };
     const self = typeof profile.consent === 'string' ? profile.consent.trim().length > 0 : profile.consent?.self_voice === true;
     const cloud = self && typeof profile.consent !== 'string' && profile.consent?.cloud_upload === true
         && (profile.verification?.score ?? 0) >= 0.7;
     const hasIrodori = profile.engines.includes('irodori');
     const hasFal = profile.engines.includes('fal-qwen3');
+    const hasGemini = profile.engines.includes('gemini-3.8-flash-tts');
     return { migrate: false, rename: true, remove: true,
         addIrodori: self && irodoriAvailable && !hasIrodori,
         addFal: cloud && falAvailable && !hasFal,
+        addGemini: cloud && geminiAvailable && !hasGemini && (profile.duration_s ?? 0) >= 10,
         remakeIrodori: self && irodoriAvailable && hasIrodori && profile.copies?.irodori?.stale === true,
-        remakeFal: cloud && falAvailable && hasFal && profile.copies?.['fal-qwen3']?.stale === true };
+        remakeFal: cloud && falAvailable && hasFal && profile.copies?.['fal-qwen3']?.stale === true,
+        remakeGemini: cloud && geminiAvailable && hasGemini && (profile.duration_s ?? 0) >= 10
+            && profile.copies?.['gemini-3.8-flash-tts']?.stale === true };
 }

@@ -331,9 +331,6 @@ function parseArguments(argv) {
   if ((options.engine === "fal-qwen3" || options.engine === "index-tts-2") && !options.profile) {
     throw new PublicError(`--engine ${options.engine} には --profile が必要です`);
   }
-  if (options.engine === 'gemini-3.8-flash-tts' && options.profile) {
-    throw new PublicError('Gemini 3.8 Flash TTS の声クローンは未対応です', 2);
-  }
   if (options.engine === 'elevenlabs-v3' && (options.text?.length ?? 0) > 5000) {
     throw new PublicError('ElevenLabs v3 は 1 回 5000 字までです。原稿を短くしてください', 2);
   }
@@ -415,8 +412,10 @@ function guardedProfile(profileName, engine) {
     throw new PublicError('クラウド送信には本人同意・cloud_upload 同意・原稿照合 0.7 以上が必要です', 2);
   }
   if (engine.supports.clone === 'registered' &&
-      (!meta.engines?.[engine.id]?.custom_voice_id || meta.engines[engine.id].stale)) {
-    throw new PublicError('この声には MiniMax の写しがありません。akari voice copy で作ってください', 2);
+      (engine.id === 'gemini-3.8-flash-tts' ?
+        (!/^voice_[A-Za-z0-9_-]+$/.test(meta.engines?.[engine.id]?.voice_id ?? '') || meta.engines[engine.id].stale) :
+        (!meta.engines?.[engine.id]?.custom_voice_id || meta.engines[engine.id].stale))) {
+    throw new PublicError('この声には指定した作り手の写しがありません。akari voice copy で作ってください', 2);
   }
   const name = meta.reference?.file;
   if (engine.supports.clone === 'per-request' &&
@@ -906,14 +905,15 @@ async function runDryRun(options, readingText, io) {
   }
   if (DIRECT_TTS_ENGINES.some(engine => engine.id === options.engine)) {
     const engine = ttsEngine(options.engine);
-    const record = options.profile && engine.supports.clone === 'per-request' ? guardedProfile(options.profile, engine) : null;
-    if (record) {
+    const record = options.profile ? guardedProfile(options.profile, engine) : null;
+    if (record && engine.supports.clone === 'per-request') {
       profileReferenceDataUri(record); // 送信前と同じ容量ガード。録音は表示しない。
       if (!record.meta.reference_text) throw new PublicError('声プロファイルの reference_text がありません', 2);
     }
-    const body = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style,
-      ...(record ? { referenceAudio: Buffer.from('<audio bytes>'), referenceText: record.meta.reference_text } : {}) });
-    if (record) body.references[0].audio = '<audio bytes>';
+    const body = engine.buildPayload({ text: readingText,
+      voice: engine.id === 'gemini-3.8-flash-tts' && record ? record.meta.engines[engine.id].voice_id : options.voice, style: options.style,
+      ...(record && engine.supports.clone === 'per-request' ? { referenceAudio: Buffer.from('<audio bytes>'), referenceText: record.meta.reference_text } : {}) });
+    if (record && engine.supports.clone === 'per-request') body.references[0].audio = '<audio bytes>';
     emit({ dry_run: true, engine: engine.id, output_path: outputPath,
       estimated_cost_usd: estimateTtsCost(engine, readingText),
       request: { endpoint: engine.endpoint, headers: engine.provider === 'fish-audio'
@@ -1067,14 +1067,15 @@ async function runGenerate(options, io) {
       const name = engine.provider === 'fish-audio' ? 'FISH_AUDIO_API_KEY' : 'GEMINI_API_KEY';
       const key = readProviderKey(name);
       if (!key) throw new PublicError(`${name} が未設定です。<AKARI_HOME>/credentials.env に登録してください`, 2);
-      const record = options.profile && engine.supports.clone === 'per-request' ? guardedProfile(options.profile, engine) : null;
+      const record = options.profile ? guardedProfile(options.profile, engine) : null;
       let referenceAudio;
-      if (record) {
+      if (record && engine.supports.clone === 'per-request') {
         profileReferenceDataUri(record); // 正本 wav と 20 MB 上限を確認する。
         if (!record.meta.reference_text) throw new PublicError('声プロファイルの reference_text がありません', 2);
         referenceAudio = fs.readFileSync(path.join(record.dir, record.meta.reference.file));
       }
-      const payload = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style,
+      const payload = engine.buildPayload({ text: readingText,
+        voice: engine.id === 'gemini-3.8-flash-tts' && record ? record.meta.engines[engine.id].voice_id : options.voice, style: options.style,
         referenceAudio, referenceText: record?.meta.reference_text });
       audioBuffer = await synthesizeDirect(engine, payload, key);
       provenance = { provider: engine.provider, engine: engine.id,

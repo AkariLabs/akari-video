@@ -1,0 +1,70 @@
+{
+  "status": "pass",
+  "executedAt": "2026-09-24T08:28:28.632Z",
+  "checks": [
+    {
+      "name": "ウィザードで Gemini 3.8 を選べる",
+      "pass": true,
+      "measured": {
+        "disabled": false,
+        "checked": false,
+        "watermark": true
+      }
+    },
+    {
+      "name": "選択後に固定の日本語同意文が出る",
+      "pass": true,
+      "measured": {
+        "text": "私はこの音声の所有者であり、Googleがこの音声を使用して音声合成モデルを作成することを承認します。",
+        "watermark": "写しには Google の透かしが入ります"
+      }
+    },
+    {
+      "name": "同意録音をこの PC で照合できる",
+      "pass": true,
+      "measured": {
+        "match": "同意文との一致 100%",
+        "nextEnabled": true
+      }
+    },
+    {
+      "name": "次へで費用承認を表示しキャンセルできる",
+      "pass": true,
+      "measured": {
+        "approval": true,
+        "cancelled": true
+      }
+    },
+    {
+      "name": "設定の写しを足すでも同意の段が出る",
+      "pass": true,
+      "measured": {
+        "text": "私はこの音声の所有者であり、Googleがこの音声を使用して音声合成モデルを作成することを承認します。",
+        "watermark": "写しには Google の透かしが入ります",
+        "dialog": true
+      }
+    }
+  ],
+  "cdp": {
+    "port": 19731,
+    "launchedPid": 2481,
+    "connectedPid": 2481,
+    "pidMatched": true
+  },
+  "voicevox": {
+    "engine": "headless",
+    "port": 50021,
+    "pid": 2239,
+    "processGone": true,
+    "portClosedAtEnd": true
+  },
+  "network": {
+    "postVoices": 0,
+    "guardInstalled": true,
+    "observedProcesses": 27
+  },
+  "electron": {
+    "processGone": true,
+    "portClosed": true
+  }
+}

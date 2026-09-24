@@ -260,7 +260,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return result;
     }
     async voiceCopy(request: VoiceCopyRequest): Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }> {
-        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+        if (request.engine !== 'irodori' && request.approved !== true) throw new Error('費用承認が必要です。');
         return this.narrationCli.voiceCopy(request);
     }
     async voiceTry(request: VoiceTryRequest): Promise<{ path: string; duration_s: number; engine: VoiceCopyRequest['engine'] }> {

@@ -28,4 +28,11 @@ test('設定の行は旧い声を移行だけに絞り、同意・照合・stale
         copies: { irodori: { stale: true }, 'fal-qwen3': { stale: true } } }, true, true);
     assert.deepEqual([stale.addIrodori, stale.addFal, stale.remakeIrodori, stale.remakeFal], [false, false, true, true]);
     assert.equal(voiceSettingsActions({ ...base, verification: { status: 'unavailable' } }, true, true).addFal, false);
+    assert.equal(voiceSettingsActions({ ...base, duration_s: 20 }, true, true, true).addGemini, true);
+    assert.equal(voiceSettingsActions({ ...base, duration_s: 40 }, true, true, true).addGemini, true);
+    assert.equal(voiceSettingsActions({ ...base, duration_s: 9 }, true, true, true).addGemini, false);
+    assert.equal(voiceSettingsActions({ ...base, duration_s: 20 }, true, true, false).addGemini, false);
+    const geminiStale = { ...base, engines: ['gemini-3.8-flash-tts'], copies: { 'gemini-3.8-flash-tts': { stale: true } } };
+    assert.equal(voiceSettingsActions({ ...geminiStale, duration_s: 40 }, true, true, true).remakeGemini, true);
+    assert.equal(voiceSettingsActions({ ...geminiStale, duration_s: 9 }, true, true, true).remakeGemini, false);
 });

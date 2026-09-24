@@ -34,10 +34,11 @@ export class NarrationCliManager {
         return this.run(args) as Promise<{ status: string; profile: string; path: string }>;
     }
     async voiceCopy(request: VoiceCopyRequest): Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }> {
-        if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');
+        if (request.engine !== 'irodori' && request.approved !== true) throw new Error('費用承認が必要です。');
         return this.run(['voice', 'copy', '--profile', request.profile, '--engine', request.engine,
             ...(request.irodoriUrl ? ['--irodori-url', request.irodoriUrl] : []),
-            ...(request.engine === 'fal-qwen3' ? ['--yes'] : []), '--json']) as Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }>;
+            ...(request.consentAudioPath ? ['--consent-audio', request.consentAudioPath] : []),
+            ...(request.engine !== 'irodori' ? ['--yes'] : []), '--json']) as Promise<{ status: string; profile: string; engine: VoiceCopyRequest['engine'] }>;
     }
     async voiceTry(request: VoiceTryRequest): Promise<{ path: string; duration_s: number; engine: VoiceCopyRequest['engine'] }> {
         if (request.engine === 'fal-qwen3' && request.approved !== true) throw new Error('費用承認が必要です。');

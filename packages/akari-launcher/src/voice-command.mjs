@@ -27,7 +27,42 @@ try {
 export const VOICE_SCRIPTS = Object.freeze({
   'quick-v1': 'こんにちは。今日は、いつもの調子で、ゆっくり話してみます。朝、コーヒーを淹れながら、今日やることを整理します。窓の外では、街がゆっくり動き出しています。準備ができたら、ひとつずつ、形にしていきましょう。',
   'extended-v1': '素材を集めて、流れを決めて、あとは少しずつ形にしていきます。朝、コーヒーを淹れながら、今日やることを整理します。窓の外では、街がゆっくり動き出しています。新しい技術は、毎日の暮らしを静かに変えていきます。動画の編集も、資料づくりも、これからはもっと自由になっていくはずです。音楽の音量は、ナレーションの邪魔にならないくらいが目安です。できあがった動画は、書き出す前に一度、通しで確認しましょう。細かいズレは、この段階で見つけるのがいちばん早いです。',
+  'consent-gemini': '私はこの音声の所有者であり、Googleがこの音声を使用して音声合成モデルを作成することを承認します。',
 });
+const GEMINI_CONSENT_SOURCE = 'https://ai.google.dev/gemini-api/docs/voice-replication';
+const GEMINI_CONSENT_LOCALES = Object.freeze({
+  "ar-XA": "أنا مالك هذا الصوت وأوافق على أن تستخدم Google هذا الصوت لإنشاء نموذج صوتي اصطناعي.",
+  "bn-IN": "আমি এই ভয়েসের মালিক এবং আমি একটি সিন্থেটিক ভয়েস মডেল তৈরি করতে এই ভয়েস ব্যবহার করে Google-এর সাথে সম্মতি দিচ্ছি।",
+  "zh-CN": "我是此声音的拥有者并授权谷歌使用此声音创建语音合成模型",
+  "nl-NL": "Ik ben de eigenaar van deze stem en ik geef Google toestemming om deze stem te gebruiken om een synthetisch stemmodel te maken.",
+  "en-US": "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model.",
+  "en-GB": "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model.",
+  "en-IN": "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model.",
+  "en-AU": "I am the owner of this voice and I consent to Google using this voice to create a synthetic voice model.",
+  "fr-FR": "Je suis le propriétaire de cette voix et j'autorise Google à utiliser cette voix pour créer un modèle de voix synthétique.",
+  "fr-CA": "Je suis le propriétaire de cette voix et j'autorise Google à utiliser cette voix pour créer un modèle de voix synthétique.",
+  "de-DE": "Ich bin der Eigentümer dieser Stimme und bin damit einverstanden, dass Google diese Stimme zur Erstellung eines synthetischen Stimmmodells verwendet.",
+  "gu-IN": "હું આ વોઈસનો માલિક છું અને સિન્થેટિક વોઈસ મોડલ બનાવવા માટે આ વોઈસનો ઉપયોગ કરીને google ને હું સંમતિ આપું છું",
+  "hi-IN": "मैं इस आवाज का मालिक हूं और मैं सिंथेटिक आवाज मॉडल बनाने के लिए Google को इस आवाज का उपयोग करने की सहमति देता हूं",
+  "id-ID": "Saya pemilik suara ini dan saya menyetujui Google menggunakan suara ini untuk membuat model suara sintetis.",
+  "it-IT": "Sono il proprietario di questa voce e acconsento che Google la utilizzi per creare un modello di voce sintetica.",
+  "ja-JP": "私はこの音声の所有者であり、Googleがこの音声を使用して音声合成モデルを作成することを承認します。",
+  "kn-IN": "ನಾನು ಈ ಧ್ವನಿಯ ಮಾಲಿಕ ಮತ್ತು ಸಂಶ್ಲೇಷಿತ ಧ್ವನಿ ಮಾದರಿಯನ್ನು ರಚಿಸಲು ಈ ಧ್ವನಿಯನ್ನು ಬಳಸಿಕೊಂಡುಗೂಗಲ್ ಗೆ ನಾನು ಸಮ್ಮತಿಸುತ್ತೇನೆ.",
+  "ko-KR": "나는 이 음성의 소유자이며 구글이 이 음성을 사용하여 음성 합성 모델을 생성할 것을 허용합니다.",
+  "ml-IN": "ഈ ശബ്ദത്തിന്റെ ഉടമ ഞാനാണ്, ഒരു സിന്തറ്റിക് വോയ്സ് മോഡൽ സൃഷ്ടിക്കാൻ ഈ ശബ്ദം ഉപയോഗിക്കുന്നതിന് ഞാൻ Google-ന് സമ്മതം നൽകുന്നു.",
+  "mr-IN": "मी या आवाजाचा मालक आहे आणि सिंथेटिक व्हॉइस मॉडेल तयार करण्यासाठी हा आवाज वापरण्यासाठी मी Google ला संमती देतो",
+  "pl-PL": "Jestem właścicielem tego głosu i wyrażam zgodę na wykorzystanie go przez Google w celu utworzenia syntetycznego modelu głosu.",
+  "pt-BR": "Eu sou o proprietário desta voz e autorizo o Google a usá-la para criar um modelo de voz sintética.",
+  "ru-RU": "Я являюсь владельцем этого голоса и даю согласие Google на использование этого голоса для создания модели синтетического голоса.",
+  "es-ES": "Soy el propietario de esta voz y doy mi consentimiento para que Google la utilice para crear un modelo de voz sintética.",
+  "es-US": "Soy el propietario de esta voz y doy mi consentimiento para que Google la utilice para crear un modelo de voz sintética.",
+  "ta-IN": "நான் இந்த குரலின் உரிமையாளர் மற்றும் செயற்கை குரல் மாதிரியை உருவாக்க இந்த குரலை பயன்படுத்த குகல்க்கு நான் ஒப்புக்கொள்கிறேன்.",
+  "te-IN": "నేను ఈ వాయిస్ యజమానిని మరియు సింతటిక్ వాయిస్ మోడల్ ని రూపొందించడానికి ఈ వాయిస్ ని ఉపయోగించడానికి googleకి నేను సమ్మతిస్తున్నాను.",
+  "th-TH": "ฉันเป็นเจ้าของเสียงนี้ และฉันยินยอมให้ Google ใช้เสียงนี้เพื่อสร้างแบบจำลองเสียงสังเคราะห์",
+  "tr-TR": "Bu sesin sahibi benim ve Google'ın bu sesi kullanarak sentetik bir ses modeli oluşturmasına izin veriyorum.",
+  "vi-VN": "Tôi là chủ sở hữu giọng nói này và tôi đồng ý cho Google sử dụng giọng nói này để tạo mô hình giọng nói tổng hợp."
+});
+const GEMINI_VOICES_URL = 'https://generativelanguage.googleapis.com/v1beta/voices';
 const ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const FAL_CLONE_URL = 'https://fal.run/fal-ai/qwen-3-tts/clone-voice/1.7b';
 const FAL_TTS_URL = 'https://fal.run/fal-ai/qwen-3-tts/text-to-speech/1.7b';
@@ -119,6 +154,8 @@ function profileSummary(meta, id, avatar, legacy, env) {
   try { key = Boolean(readFalKey(env)); } catch { /* 一覧では鍵の不在を表す */ }
   let fishKey = false;
   try { fishKey = Boolean(readProviderKey('FISH_AUDIO_API_KEY', env)); } catch { /* 一覧では鍵の不在を表す */ }
+  let geminiKey = false;
+  try { geminiKey = Boolean(readProviderKey('GEMINI_API_KEY', env)); } catch { /* 一覧では鍵の不在を表す */ }
   const usable_engines = [
     ...(meta.engines?.irodori?.voice_id && !meta.engines.irodori.stale ? ['irodori'] : []),
     ...FAL_TTS_ENGINES.filter(engine => engine.supports.clone === 'per-request' ? key && ready :
@@ -127,6 +164,8 @@ function profileSummary(meta, id, avatar, legacy, env) {
         Boolean(meta.engines?.[engine.id]?.custom_voice_id))).map(engine => engine.id),
     ...DIRECT_TTS_ENGINES.filter(engine => engine.id === 'fish-s2.1-pro' && fishKey && ready &&
       Boolean(meta.reference?.file) && Boolean(meta.reference_text)).map(engine => engine.id),
+    ...(geminiKey && ready && /^voice_/.test(meta.engines?.['gemini-3.8-flash-tts']?.voice_id ?? '') &&
+      !meta.engines['gemini-3.8-flash-tts'].stale ? ['gemini-3.8-flash-tts'] : []),
   ];
   return { id, label: meta.label ?? id, avatar, legacy, created_at: meta.created_at ?? null,
     duration_s: meta.reference?.duration_s ?? null, engines: Object.keys(meta.engines ?? {}),
@@ -162,24 +201,27 @@ export async function checkVoiceRecording({ audio, script, backend = 'auto' }, r
   if (!VOICE_SCRIPTS[script]) throw new VoiceError('原稿の種類が不明です');
   if (!['auto', 'speechanalyzer', 'whisper'].includes(backend)) throw new VoiceError('聞き取り backend が不明です');
   const level = await audioLevels(audio, runtime);
-  const durationOk = level.duration_s >= (script === 'extended-v1' ? 45 : 15) && level.duration_s <= (script === 'extended-v1' ? 180 : 120);
+  const durationOk = level.duration_s >= (script === 'consent-gemini' ? 2 : script === 'extended-v1' ? 45 : 15) &&
+    level.duration_s <= (script === 'consent-gemini' ? 60 : script === 'extended-v1' ? 180 : 120);
   const levelOk = level.peak_db < -1 && level.mean_db >= -35 && level.mean_db <= -10;
   const noiseOk = level.floor_db <= -45;
   const verification = await verifyScript(audio, script, backend, runtime);
   const scriptCheck = verification.status === 'unavailable' ? { backend: null, ok: 'unavailable' } :
-    { score: verification.score, verdict: verification.verdict, backend: verification.backend, ok: verification.score >= 0.7 };
+    { score: verification.score, verdict: verification.verdict, backend: verification.backend,
+      ok: verification.score >= (script === 'consent-gemini' ? 0.8 : 0.7) };
   const reasons = [];
   if (!durationOk) reasons.push('録音の長さが範囲外です');
   if (!levelOk) reasons.push('録音の音量が範囲外です');
-  if (scriptCheck.ok === false) reasons.push('原稿との一致率が 70% 未満です');
+  if (scriptCheck.ok === false) reasons.push(`原稿との一致率が ${script === 'consent-gemini' ? 80 : 70}% 未満です`);
   return { checks: { duration: { value_s: Number(level.duration_s.toFixed(3)), ok: durationOk },
     level: { peak_db: level.peak_db, mean_db: level.mean_db, ok: levelOk },
     noise: { floor_db: level.floor_db, ok: noiseOk, warn: !noiseOk }, script: scriptCheck },
     pass: reasons.length === 0, reasons };
 }
-function ffmpegConvert(source, destination, runtime) {
-  if (runtime.convertAudio) return runtime.convertAudio(source, destination);
-  const result = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', source, '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', destination]);
+function ffmpegConvert(source, destination, runtime, sampleRate = 48000, maxDurationS = null) {
+  if (runtime.convertAudio) return runtime.convertAudio(source, destination, maxDurationS, sampleRate);
+  const result = spawnSync('ffmpeg', ['-v', 'error', '-y', '-i', source,
+    ...(maxDurationS === null ? [] : ['-t', String(maxDurationS)]), '-ac', '1', '-ar', String(sampleRate), '-c:a', 'pcm_s16le', destination]);
   if (result.error || result.status !== 0) throw new VoiceError(result.error?.code === 'ENOENT' ? 'ffmpeg がありません' : '録音を wav に変換できません');
 }
 function addDefaultVoice(voiceDir, id) {
@@ -220,7 +262,7 @@ function parse(args) {
   const sub = args[0];
   const allowed = { scripts: [], check: ['audio', 'script', 'backend'], create: ['avatar', 'id', 'label', 'audio', 'script', 'consent-self', 'consent-cloud'],
     rename: ['profile', 'label'], extend: ['profile', 'audio', 'script', 'backend'],
-    copy: ['profile', 'engine', 'irodori-url', 'yes'], try: ['profile', 'engine', 'text', 'reading', 'irodori-url', 'yes'],
+    copy: ['profile', 'engine', 'consent-audio', 'irodori-url', 'yes'], try: ['profile', 'engine', 'text', 'reading', 'irodori-url', 'yes'],
     profiles: ['avatar'], delete: ['profile', 'keep-server', 'irodori-url'], 'migrate-legacy': ['profile', 'avatar'] };
   if (!Object.hasOwn(allowed, sub)) throw new VoiceError('不明な voice サブコマンドです');
   const flags = new Set(['consent-self', 'consent-cloud', 'yes', 'keep-server']);
@@ -246,7 +288,9 @@ function safeReference(record) {
 async function execute(sub, o, runtime, env) {
   const fetchImpl = runtime.fetchImpl ?? fetch;
   const now = runtime.now?.() ?? new Date().toISOString();
-  if (sub === 'scripts') return { scripts: Object.entries(VOICE_SCRIPTS).map(([id, text]) => ({ id, text })) };
+  if (sub === 'scripts') return { scripts: Object.entries(VOICE_SCRIPTS).map(([id, text]) => ({ id, text,
+    ...(id === 'consent-gemini' ? { locale: 'ja-JP', source: GEMINI_CONSENT_SOURCE,
+      locales: GEMINI_CONSENT_LOCALES } : {}) })) };
   if (sub === 'check') { need(o, 'audio', 'script'); return checkVoiceRecording(o, runtime); }
   if (sub === 'create') {
     need(o, 'avatar', 'id', 'label', 'audio', 'script'); requireId(o.avatar, '--avatar'); requireId(o.id, '--id');
@@ -363,14 +407,43 @@ async function execute(sub, o, runtime, env) {
     } finally { fs.rmSync(staged, { force: true }); }
   }
   if (sub === 'copy') {
-    need(o, 'engine'); if (!['irodori', 'fal-qwen3', 'minimax-2.6-hd'].includes(o.engine)) throw new VoiceError('作り手が不明です');
+    need(o, 'engine'); if (!['irodori', 'fal-qwen3', 'minimax-2.6-hd', 'gemini-3.8-flash-tts'].includes(o.engine)) throw new VoiceError('作り手が不明です');
     if (record.legacy) throw new VoiceError('旧形式の声は先に migrate-legacy してください');
     if (record.meta.consent?.self_voice !== true) throw new VoiceError('本人の声への同意記録がありません');
     const recording = safeReference(record);
     if (record.meta.reference?.sha256 && crypto.createHash('sha256').update(fs.readFileSync(recording)).digest('hex') !== record.meta.reference.sha256) {
       throw new VoiceError('正本の録音が保存時から変わっています');
     }
-    if (o.engine === 'fal-qwen3' || o.engine === 'minimax-2.6-hd') {
+    if (o.engine === 'gemini-3.8-flash-tts') {
+      if (record.meta.consent?.cloud_upload !== true) throw new VoiceError('クラウド送信への同意がありません');
+      if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError('ローカルの原稿照合が 70% 以上ではありません');
+      need(o, 'consent-audio');
+      if (!(record.meta.reference?.duration_s >= 10)) throw new VoiceError('Gemini の正本録音は 10 秒以上が必要です');
+      const checked = await checkVoiceRecording({ audio: o['consent-audio'], script: 'consent-gemini' }, runtime);
+      if (checked.checks.script.ok !== true || !checked.pass) throw new VoiceError('同意録音の照合に合格していません', { check: checked });
+      if (!o.yes) throw new VoiceError('有償操作への承認が必要です', { status: 'needs_approval', estimate_usd: null, reason: '見積不可' });
+      const key = runtime.geminiKey ?? readProviderKey('GEMINI_API_KEY', env);
+      if (!key) throw new VoiceError('GEMINI_API_KEY が未設定です');
+      const consentFile = path.join(record.dir, 'consent-gemini.wav');
+      const sourceFile = path.join(record.dir, `.gemini-source-${crypto.randomUUID()}.wav`);
+      try {
+        ffmpegConvert(o['consent-audio'], consentFile, { ...runtime, convertAudio: runtime.convertGeminiAudio }, 24000);
+        ffmpegConvert(recording, sourceFile, { ...runtime, convertAudio: runtime.convertGeminiAudio }, 24000, 30);
+        fs.chmodSync(consentFile, 0o600);
+        const source = fs.readFileSync(sourceFile), consent = fs.readFileSync(consentFile);
+        const response = await fetchImpl(GEMINI_VOICES_URL, { method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ store: true, voice: { model: 'gemini-3.8-flash-tts', type: 'replicated', display_name: record.meta.label ?? o.profile,
+            replicated: { source_audio: { mime_type: 'audio/wav', data: source.toString('base64') },
+              consent_audio: { mime_type: 'audio/wav', data: consent.toString('base64') } } } }) });
+        if (!response.ok) throw new VoiceError(`Google API が HTTP ${response.status} を返しました`);
+        const result = await response.json();
+        if (!/^voice_[A-Za-z0-9_-]+$/.test(result?.id ?? '')) throw new VoiceError('Google API の応答に voice_ ID がありません');
+        record.meta.engines[o.engine] = { voice_id: result.id, created_at: now,
+          source_duration_s: Math.min(record.meta.reference.duration_s, 30),
+          consent: { file: 'consent-gemini.wav', text: VOICE_SCRIPTS['consent-gemini'],
+            verification: { score: checked.checks.script.score, backend: checked.checks.script.backend }, at: now } };
+      } finally { fs.rmSync(sourceFile, { force: true }); }
+    } else if (o.engine === 'fal-qwen3' || o.engine === 'minimax-2.6-hd') {
       if (record.meta.consent?.cloud_upload !== true) throw new VoiceError('クラウド送信への同意がありません');
       if (!(record.meta.reference?.verification?.score >= 0.7)) throw new VoiceError('ローカルの原稿照合が 70% 以上ではありません');
       if (o.engine === 'minimax-2.6-hd' && !(record.meta.reference?.duration_s >= 10)) throw new VoiceError('MiniMax の参照音声は 10 秒以上必要です');
@@ -450,6 +523,7 @@ async function execute(sub, o, runtime, env) {
       } catch { warnings.push('彩サーバーから削除できませんでした'); }
     }
     if (record.meta.engines?.['fal-qwen3']) warnings.push('fal 側の声は残ります');
+    if (record.meta.engines?.['gemini-3.8-flash-tts']) warnings.push('Google 側の声は残ります');
     fs.rmSync(record.dir, { recursive: true });
     const voiceFile = path.join(path.dirname(record.dir), 'voice.json');
     if (fs.existsSync(voiceFile)) { const config = readJson(voiceFile); if (config.default_profile === o.profile) { delete config.default_profile; writePrivateJson(voiceFile, config); } }

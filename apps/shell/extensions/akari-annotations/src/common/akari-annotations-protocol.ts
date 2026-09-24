@@ -16,8 +16,8 @@ export interface NarrationEngine {
 export interface NarrationVoice { id: string; label: string; default?: boolean; group?: string }
 export interface NarrationEnginesResult { version: number; engines: NarrationEngine[] }
 export interface NarrationVoicesResult { version: number; engine: string; voices: NarrationVoice[] }
-export type VoiceEngine = 'irodori' | 'fal-qwen3';
-export interface VoiceScript { id: 'quick-v1' | 'extended-v1'; text: string }
+export type VoiceEngine = 'irodori' | 'fal-qwen3' | 'gemini-3.8-flash-tts';
+export interface VoiceScript { id: 'quick-v1' | 'extended-v1' | 'consent-gemini'; text: string; locale?: string; source?: string; locales?: Record<string, string> }
 export interface VoiceCheckResult { pass: boolean; reasons: string[]; checks: {
     duration: { value_s: number; ok: boolean }; level: { peak_db: number; mean_db: number; ok: boolean };
     noise: { floor_db: number; ok: boolean; warn: boolean };
@@ -25,7 +25,7 @@ export interface VoiceCheckResult { pass: boolean; reasons: string[]; checks: {
 } }
 export interface VoiceCreateRequest { avatar: string; id: string; label: string; audioPath: string;
     script: VoiceScript['id']; consentSelf: boolean; consentCloud: boolean }
-export interface VoiceCopyRequest { profile: string; engine: VoiceEngine; irodoriUrl?: string; approved?: boolean }
+export interface VoiceCopyRequest { profile: string; engine: VoiceEngine; irodoriUrl?: string; consentAudioPath?: string; approved?: boolean }
 export interface VoiceTryRequest extends VoiceCopyRequest { text: string; reading?: string }
 export interface VoiceProfileSummary { id: string; avatar: string | null; label: string; engines: string[];
     usable_engines?: string[];

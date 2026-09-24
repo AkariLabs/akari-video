@@ -33,6 +33,26 @@ test('narration RPC は Electron node モードで CLI を呼び、鍵を返さ�
     assert.ok(calls.filter(([, args]) => args[1] === 'narration').every(([, , options]) => options.env.ELECTRON_RUN_AS_NODE === '1'));
 });
 
+test('設定の Gemini 同意照合は 0.8 未満を拒否し、合格した一時録音を片付ける', async t => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-gemini-consent-test-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    let score = 0.79;
+    const spawnImpl = (_command, _args) => {
+        const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
+        queueMicrotask(() => { child.stdout.emit('data', Buffer.from(JSON.stringify({ pass: true,
+            checks: { script: { ok: true, score } } }))); child.emit('close', 0); });
+        return child;
+    };
+    const cli = new NarrationCli({ env: { AKARI_GENERATE_CLI: '/fake/akari.mjs' }, tempRoot: root, spawnImpl });
+    const audio = Buffer.from('synthetic recording').toString('base64');
+    await assert.rejects(() => cli.voiceCheckGeminiConsent(audio), /80% 未満/);
+    score = 0.8;
+    const accepted = await cli.voiceCheckGeminiConsent(audio);
+    assert.equal(accepted.score, 0.8);
+    await cli.voiceDiscardGeminiConsent(accepted.path);
+    await assert.rejects(() => import('node:fs/promises').then(fs => fs.access(accepted.path)), /ENOENT/);
+});
+
 test('VOICEVOX 試聴は一時プロジェクトの wav を data URL にして片付ける', async () => {
     const scratch = await mkdtemp(join(tmpdir(), 'akari-narration-rpc-test-'));
     try {

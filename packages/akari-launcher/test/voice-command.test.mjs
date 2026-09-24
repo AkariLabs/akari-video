@@ -37,13 +37,106 @@ function writeMeta(env, avatar, id, overrides = {}) {
   return { dir, meta };
 }
 
-test('scripts は固有名詞を含まず 2 本を返す', async () => {
+test('scripts は正本原稿 2 本と Google の固定同意文を返す', async () => {
   const box = sandbox();
   try {
     const result = await run(['scripts'], { env: box.env });
-    assert.equal(result.code, 0); assert.equal(result.json.scripts.length, 2);
-    for (const script of result.json.scripts) assert.doesNotMatch(script.text, /アカリ|AKARI|Akari/);
+    assert.equal(result.code, 0); assert.equal(result.json.scripts.length, 3);
+    for (const script of result.json.scripts.filter(script => script.id !== 'consent-gemini')) assert.doesNotMatch(script.text, /アカリ|AKARI|Akari/);
+    const consent = result.json.scripts.find(script => script.id === 'consent-gemini');
+    assert.equal(consent.locales['ja-JP'], VOICE_SCRIPTS['consent-gemini']);
+    assert.equal(Object.keys(consent.locales).length, 30);
     assert.equal(VOICE_SCRIPTS['extended-v1'].split('。').filter(Boolean).length, 8);
+  } finally { box.cleanup(); }
+});
+
+test('Gemini の同意録音は照合 0.8・backend・承認を通るまで送らず、両録音と voice_id を保存する', async () => {
+  const box = sandbox(); let calls = 0, sent;
+  try {
+    box.env.GEMINI_API_KEY = 'dummy-key';
+    const { dir } = writeMeta(box.env, 'person', 'sample');
+    const consentFile = path.join(box.root, 'consent.wav'); fs.writeFileSync(consentFile, Buffer.from('dummy'));
+    const base = ['copy', '--profile', 'sample', '--engine', 'gemini-3.8-flash-tts', '--consent-audio', consentFile];
+    const mock = { env: box.env, geminiKey: 'dummy-key', measureAudio: () => ({ ...validMeasure, duration_s: 7 }),
+      verifyScript: () => ({ ...validVerify, score: 0.83 }),
+      convertGeminiAudio: (source, destination) => fs.copyFileSync(source, destination),
+      fetchImpl: async (url, options) => { calls++; sent = { url, options }; return { ok: true, json: async () => ({ id: 'voice_dummy123' }) }; } };
+    let result = await run(base, { ...mock, verifyScript: () => ({ status: 'unavailable' }) });
+    assert.equal(result.code, 2); assert.equal(calls, 0);
+    result = await run(base, { ...mock, verifyScript: () => ({ ...validVerify, score: 0.79 }) });
+    assert.equal(result.code, 2); assert.equal(calls, 0);
+    result = await run(base, mock);
+    assert.equal(result.json.status, 'needs_approval'); assert.equal(result.json.reason, '見積不可'); assert.equal(calls, 0);
+    result = await run([...base, '--yes'], mock);
+    assert.equal(result.code, 0); assert.equal(calls, 1);
+    assert.equal(sent.url, 'https://generativelanguage.googleapis.com/v1beta/voices');
+    assert.equal(sent.options.headers['x-goog-api-key'], 'dummy-key');
+    const body = JSON.parse(sent.options.body);
+    assert.equal(body.store, true); assert.equal(body.voice.type, 'replicated');
+    assert.equal(body.voice.replicated.source_audio.data, fs.readFileSync(path.join(dir, 'ref-recording.wav')).toString('base64'));
+    assert.equal(body.voice.replicated.consent_audio.data, fs.readFileSync(consentFile).toString('base64'));
+    const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json')));
+    assert.equal(meta.engines['gemini-3.8-flash-tts'].voice_id, 'voice_dummy123');
+    assert.equal(meta.engines['gemini-3.8-flash-tts'].consent.verification.score, 0.83);
+    assert.ok(fs.existsSync(path.join(dir, 'consent-gemini.wav')));
+    const profiles = await run(['profiles'], mock);
+    assert.ok(profiles.json.profiles[0].usable_engines.includes('gemini-3.8-flash-tts'));
+  } finally { box.cleanup(); }
+});
+
+test('Gemini は 40 秒の正本を先頭 30 秒に制限し、9 秒の正本は送信しない', async () => {
+  const box = sandbox(); let calls = 0; const conversions = [];
+  try {
+    box.env.GEMINI_API_KEY = 'dummy-key';
+    const { dir } = writeMeta(box.env, 'person', 'sample', {
+      reference: { file: 'ref-recording.wav', duration_s: 9, verification: { score: 0.9 } }
+    });
+    const consentFile = path.join(box.root, 'consent.wav'); fs.writeFileSync(consentFile, Buffer.from('consent'));
+    const args = ['copy', '--profile', 'sample', '--engine', 'gemini-3.8-flash-tts', '--consent-audio', consentFile, '--yes'];
+    const runtime = { env: box.env, measureAudio: () => ({ ...validMeasure, duration_s: 7 }),
+      verifyScript: () => validVerify,
+      convertGeminiAudio: (source, destination, maxDurationS, sampleRate) => {
+        conversions.push({ source, maxDurationS, sampleRate }); fs.copyFileSync(source, destination);
+      },
+      fetchImpl: async () => { calls++; return { ok: true, json: async () => ({ id: 'voice_dummy123' }) }; } };
+    const short = await run(args, runtime);
+    assert.equal(short.code, 2); assert.match(short.json.error, /10 秒以上/);
+    assert.equal(calls, 0); assert.equal(conversions.length, 0);
+    const metaPath = path.join(dir, 'meta.json');
+    const meta = JSON.parse(fs.readFileSync(metaPath)); meta.reference.duration_s = 40;
+    fs.writeFileSync(metaPath, JSON.stringify(meta));
+    const long = await run(args, runtime);
+    assert.equal(long.code, 0); assert.equal(calls, 1);
+    assert.deepEqual(conversions.map(item => [item.maxDurationS, item.sampleRate]), [[null, 24000], [30, 24000]]);
+    assert.equal(JSON.parse(fs.readFileSync(metaPath)).engines['gemini-3.8-flash-tts'].source_duration_s, 30);
+  } finally { box.cleanup(); }
+});
+
+test('Gemini の実 ffmpeg 変換は 40 秒の正本を 30 秒・24 kHz mono 16bit にする', async () => {
+  const box = sandbox();
+  try {
+    const { dir } = writeMeta(box.env, 'person', 'sample', {
+      reference: { file: 'ref-recording.wav', duration_s: 40, verification: { score: 0.9 } }
+    });
+    const consentFile = path.join(box.root, 'consent.wav');
+    for (const [file, seconds] of [[path.join(dir, 'ref-recording.wav'), 40], [consentFile, 7]]) {
+      const created = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', `sine=frequency=440:duration=${seconds}`,
+        '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', file]);
+      assert.equal(created.status, 0, created.stderr?.toString());
+    }
+    let sentSource;
+    const result = await run(['copy', '--profile', 'sample', '--engine', 'gemini-3.8-flash-tts', '--consent-audio', consentFile, '--yes'], {
+      env: box.env, geminiKey: 'dummy-key', measureAudio: () => ({ ...validMeasure, duration_s: 7 }), verifyScript: () => validVerify,
+      fetchImpl: async (_url, options) => { sentSource = Buffer.from(JSON.parse(options.body).voice.replicated.source_audio.data, 'base64');
+        return { ok: true, json: async () => ({ id: 'voice_dummy123' }) }; }
+    });
+    assert.equal(result.code, 0);
+    const sentFile = path.join(box.root, 'sent-source.wav'); fs.writeFileSync(sentFile, sentSource);
+    const probe = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=sample_rate,channels,codec_name:format=duration', '-of', 'json', sentFile], { encoding: 'utf8' });
+    assert.equal(probe.status, 0, probe.stderr);
+    const info = JSON.parse(probe.stdout);
+    assert.ok(Math.abs(Number(info.format.duration) - 30) < 0.02);
+    assert.deepEqual([info.streams[0].sample_rate, info.streams[0].channels, info.streams[0].codec_name], ['24000', 1, 'pcm_s16le']);
   } finally { box.cleanup(); }
 });
 
