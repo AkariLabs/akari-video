@@ -8,6 +8,7 @@ import { QuickPickService } from '@theia/core/lib/common/quick-pick-service';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
 import { cutsJumpButtonLabel, handEditedLines } from '../../common/cuts-view';
+import { nextCaptionNotices } from '../../common/caption-notice-state';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import {
     captionsButtonLabel,
@@ -17,7 +18,7 @@ import {
     daihonHistoryService
 } from '../../common/captions-button';
 import URI from '@theia/core/lib/common/uri';
-import { CommandService } from '@theia/core/lib/common';
+import { CommandService, MessageService } from '@theia/core/lib/common';
 import { BaseWidget, ApplicationShell, OpenerService, open } from '@theia/core/lib/browser';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -477,6 +478,21 @@ export class AkariDaihonWidget extends BaseWidget {
 
     @inject(AkariAnnotationsService)
     protected readonly annotationsService!: AkariAnnotationsService;
+
+    @inject(MessageService)
+    protected readonly messages!: MessageService;
+
+    protected lastCaptionRunNotice: string | undefined;
+
+    protected async setCaptionFieldsWithNotice(
+        request: Parameters<AkariAnnotationsService['setCaptionFields']>[0]
+    ): Promise<Awaited<ReturnType<AkariAnnotationsService['setCaptionFields']>>> {
+        const result = await this.annotationsService.setCaptionFields(request);
+        const next = nextCaptionNotices(this.lastCaptionRunNotice, result?.notices ?? []);
+        for (const notice of next.show) void this.messages.info(notice, { timeout: 4000 });
+        this.lastCaptionRunNotice = next.last;
+        return result;
+    }
 
     @inject(AkariEditHistoryService)
     protected readonly historyService!: AkariEditHistoryService;
@@ -2385,7 +2401,7 @@ export class AkariDaihonWidget extends BaseWidget {
         state.input.disabled = true;
         try {
             await this.withHistory('置いた文字: 文字を編集', async () => {
-                await this.annotationsService.setCaptionFields({
+                await this.setCaptionFieldsWithNotice({
                     captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     captionId: state.id, text: value
                 });
@@ -2975,7 +2991,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (!this.captionsUri || !this.rootUri) return;
         try {
             await this.withHistory(label, async () => {
-                await this.annotationsService.setCaptionFields({
+                await this.setCaptionFieldsWithNotice({
                     captionsUri: this.captionsUri!.toString(),
                     projectRootUri: this.rootUri!.toString(),
                     captionId,
@@ -3048,7 +3064,7 @@ export class AkariDaihonWidget extends BaseWidget {
         try {
             await this.withHistory('字幕の表示タイミングを変更', async () => {
                 for (const captionId of plan.targets) {
-                    await this.annotationsService.setCaptionFields({
+                    await this.setCaptionFieldsWithNotice({
                         captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                         captionId, displayTiming: timing
                     });
@@ -3117,7 +3133,7 @@ export class AkariDaihonWidget extends BaseWidget {
         const text = row.text.slice(0, at) + inserted + row.text.slice(at);
         this.closePop();
         try {
-            await this.annotationsService.setCaptionFields({
+            await this.setCaptionFieldsWithNotice({
                 captionsUri: this.captionsUri.toString(),
                 projectRootUri: this.rootUri.toString(),
                 captionId: row.id,
@@ -3142,7 +3158,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 ranges: [range], label: '?? を映像ごとカット'
             });
             try {
-                await this.annotationsService.setCaptionFields({
+                await this.setCaptionFieldsWithNotice({
                     captionsUri: this.captionsUri.toString(), projectRootUri: this.rootUri.toString(),
                     captionId: row.id, unrecognized: this.withoutUnrecognized(row, span)
                 });
@@ -3193,7 +3209,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.closePop();
         if (!this.captionsUri || !this.rootUri) return;
         try {
-            await this.annotationsService.setCaptionFields({
+            await this.setCaptionFieldsWithNotice({
                 captionsUri: this.captionsUri.toString(),
                 projectRootUri: this.rootUri.toString(),
                 captionId: row.id,
@@ -3218,7 +3234,7 @@ export class AkariDaihonWidget extends BaseWidget {
                 ranges: [range], label: 'フィラーを映像ごとカット'
             });
             try {
-                await this.annotationsService.setCaptionFields({
+                await this.setCaptionFieldsWithNotice({
                     captionsUri: this.captionsUri.toString(), projectRootUri: this.rootUri.toString(),
                     captionId: row.id, text: this.textWithoutWord(row, wordIndex)
                 });
@@ -4326,7 +4342,7 @@ export class AkariDaihonWidget extends BaseWidget {
         if (!this.captionsUri || !this.rootUri) return;
         await this.withHistory('選択語を字幕から削除', async () => {
             for (const row of this.rows.filter(candidate => this.wordRanges.some(range => range.row === candidate.id))) {
-                await this.annotationsService.setCaptionFields({ captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
+                await this.setCaptionFieldsWithNotice({ captionsUri: this.captionsUri!.toString(), projectRootUri: this.rootUri!.toString(),
                     captionId: row.id, text: this.textWithoutRanges(row) });
             }
         });
@@ -4553,7 +4569,7 @@ export class AkariDaihonWidget extends BaseWidget {
             input.disabled = true;
             try {
                 await this.withHistory('語を挿入', async () => {
-                    await this.annotationsService.setCaptionFields({ captionsUri: this.captionsUri!.toString(),
+                    await this.setCaptionFieldsWithNotice({ captionsUri: this.captionsUri!.toString(),
                         projectRootUri: this.rootUri!.toString(), captionId: row.id, text: result.text });
                 });
                 this.closePop();
@@ -4891,7 +4907,7 @@ export class AkariDaihonWidget extends BaseWidget {
         elements?.root.setAttribute('aria-busy', 'true');
         state.input.disabled = true;
         try {
-            await this.annotationsService.setCaptionFields({
+            await this.setCaptionFieldsWithNotice({
                 captionsUri: this.captionsUri!.toString(),
                 projectRootUri: this.rootUri!.toString(),
                 captionId: row.id,

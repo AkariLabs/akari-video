@@ -84,6 +84,20 @@ for (const kind of ['styled', 'block']) {
     }
 }
 
+test('編集の取消・確定で文字範囲ツールの状態を同期する', async () => {
+    const h = editingHarness(spoken(), async () => {});
+    let synced = 0;
+    h.context.window.akari.syncRunSelection = () => { synced++; };
+    h.run('beginCaptionEdit(captions[0])');
+    const afterBegin = synced;
+    h.run('cancelCaptionEdit()');
+    assert.ok(synced > afterBegin);
+    h.run('beginCaptionEdit(captions[0])');
+    const beforeCommit = synced;
+    await h.run('commitCaptionEdit()');
+    assert.ok(synced > beforeCommit);
+});
+
 test('user deselection removes transcript-supplied plate attributes and handles without echoing incoming selection', () => {
     const h = harness({ cues: [spoken()], selectedIds: ['speech'] });
     const reports = [];

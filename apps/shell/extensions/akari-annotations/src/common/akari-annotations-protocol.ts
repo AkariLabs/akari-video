@@ -701,6 +701,13 @@ export interface SetCaptionFieldsRequest {
     displayTiming?: 'full' | 'speech-tight' | null;
 }
 
+export interface SetCaptionRunRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionId: string;
+    edit: import('@akari-video/edit-store').CaptionRunEdit;
+}
+
 export interface TextAnimationSlotPatch {
     id: string;
     durationSec?: number;
@@ -724,6 +731,7 @@ export interface SetCaptionStylePresetRequest {
 
 export interface WriteBackResult {
     committed: boolean;
+    notices?: string[];
 }
 
 export interface SetCaptionStylePresetResult extends WriteBackResult {
@@ -958,6 +966,7 @@ export interface AkariAnnotationsService {
     setBgmFields(request: SetBgmFieldsRequest): Promise<WriteBackResult>;
     setOverlayVar(request: SetOverlayVarRequest): Promise<WriteBackResult>;
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
+    setCaptionRun(request: SetCaptionRunRequest): Promise<WriteBackResult>;
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
     setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult>;
     setCaptionDisplayPolicy(request: SetCaptionDisplayPolicyRequest): Promise<SetCaptionDisplayPolicyResult>;

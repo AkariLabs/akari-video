@@ -44,6 +44,119 @@ export function captionGraphemes(text: string): string[] {
     return Array.from(new Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment);
 }
 
+export type CaptionRunStyle = NonNullable<CaptionRun['style']>;
+export type CaptionRunStyleField = keyof CaptionRunStyle;
+
+function validRunRange(text: string, from: number, to: number): void {
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0
+        || to <= from || to > captionGraphemes(text).length) {
+        throw new Error('文字範囲が表示文字列の外にあります。');
+    }
+}
+
+/** The last matching run owns edits to a range, preserving the order of overlapping runs. */
+export function setCaptionRunStyle(text: string, runs: readonly CaptionRun[] | undefined,
+    from: number, to: number, patch: CaptionRunStyle): CaptionRun[] {
+    validRunRange(text, from, to);
+    const allowed = new Set(['color', 'font_weight', 'scale', 'baseline_shift_em', 'rotate_deg',
+        'letter_spacing_em', 'stroke', 'italic', 'underline']);
+    if (!patch || typeof patch !== 'object' || !Object.keys(patch).length
+        || Object.entries(patch).some(([key, value]) => !allowed.has(key)
+            || (key === 'color' && (typeof value !== 'string' || !/^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value)))
+            || (['font_weight', 'scale', 'baseline_shift_em', 'rotate_deg', 'letter_spacing_em'].includes(key)
+                && (typeof value !== 'number' || !Number.isFinite(value)))
+            || (key === 'font_weight' && (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 1000))
+            || (key === 'scale' && (value as number) <= 0)
+            || (['italic', 'underline'].includes(key) && typeof value !== 'boolean')
+            || (key === 'stroke' && (!value || typeof value !== 'object'
+                || Object.keys(value).some(strokeKey => !['method', 'color', 'width_px'].includes(strokeKey))
+                || (value as CaptionRunStyle['stroke'])?.method !== undefined
+                    && (value as CaptionRunStyle['stroke'])?.method !== 'webkit-outline'
+                || (value as CaptionRunStyle['stroke'])?.color !== undefined
+                    && !/^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test((value as CaptionRunStyle['stroke'])!.color!)
+                || (value as CaptionRunStyle['stroke'])?.width_px !== undefined
+                    && (typeof (value as CaptionRunStyle['stroke'])?.width_px !== 'number'
+                        || !Number.isFinite((value as CaptionRunStyle['stroke'])?.width_px)
+                        || (value as CaptionRunStyle['stroke'])!.width_px! < 0))))) {
+        throw new Error('文字範囲に使えないスタイル項目があります。');
+    }
+    const next = [...(runs ?? [])];
+    const index = next.map(run => run.from === from && run.to === to).lastIndexOf(true);
+    const existing = index >= 0 ? next[index] : { from, to };
+    const style = { ...existing.style, ...patch,
+        ...(patch.stroke ? { stroke: { ...existing.style?.stroke, ...patch.stroke } } : {}) };
+    const updated = { ...existing, style };
+    if (index >= 0) next[index] = updated;
+    else next.push(updated);
+    return next;
+}
+
+export function setCaptionRunRole(text: string, runs: readonly CaptionRun[] | undefined,
+    from: number, to: number, role: string): CaptionRun[] {
+    validRunRange(text, from, to);
+    if (typeof role !== 'string' || !role.trim()) throw new Error('文字範囲の役割が空です。');
+    const next = [...(runs ?? [])];
+    const index = next.map(run => run.from === from && run.to === to).lastIndexOf(true);
+    const existing = index >= 0 ? next[index] : { from, to };
+    const updated = { ...existing, role };
+    if (index >= 0) next[index] = updated;
+    else next.push(updated);
+    return next;
+}
+
+export function removeCaptionRun(runs: readonly CaptionRun[] | undefined, index: number): CaptionRun[] {
+    if (!Number.isInteger(index) || index < 0 || index >= (runs?.length ?? 0)) {
+        throw new Error('外す文字範囲がありません。');
+    }
+    return runs!.filter((_run, position) => position !== index);
+}
+
+/** Map only the nine v0 fields from a saved look. */
+export function captionRunStyleFromLook(look: Record<string, unknown>, baseSizePx?: number):
+    { style: CaptionRunStyle; omitted: string[] } {
+    const aliases: Record<string, CaptionRunStyleField> = {
+        color: 'color', fontWeight: 'font_weight', font_weight: 'font_weight', weight: 'font_weight',
+        scale: 'scale', rotate: 'rotate_deg', rotate_deg: 'rotate_deg',
+        letterSpacingEm: 'letter_spacing_em', letter_spacing_em: 'letter_spacing_em',
+        baseline_shift_em: 'baseline_shift_em',
+        italic: 'italic', underline: 'underline', stroke: 'stroke'
+    };
+    const style: CaptionRunStyle = {};
+    const omitted: string[] = [];
+    for (const [key, value] of Object.entries(look)) {
+        const field = aliases[key];
+        if (key === 'size_px' || key === 'sizePx') {
+            if (typeof value === 'number' && Number.isFinite(baseSizePx) && baseSizePx! > 0) {
+                style.scale = value / baseSizePx!;
+            } else omitted.push(key);
+            continue;
+        }
+        if (!field) { omitted.push(key); continue; }
+        if (field === 'stroke' && value && typeof value === 'object') {
+            const stroke = value as Record<string, unknown>;
+            const mapped: NonNullable<CaptionRunStyle['stroke']> = {};
+            if (typeof stroke.color === 'string') mapped.color = stroke.color;
+            if (typeof stroke.width_px === 'number') mapped.width_px = stroke.width_px;
+            if (typeof stroke.widthPx === 'number') mapped.width_px = stroke.widthPx;
+            if (stroke.method === 'webkit-outline') mapped.method = 'webkit-outline';
+            if (stroke.method !== undefined && stroke.method !== 'webkit-outline') omitted.push('stroke.method');
+            if (Object.keys(mapped).length) style.stroke = mapped;
+            for (const strokeKey of Object.keys(stroke)) {
+                if (!['color', 'width_px', 'widthPx', 'method'].includes(strokeKey)) omitted.push(`stroke.${strokeKey}`);
+            }
+        } else if (field === 'color' && typeof value === 'string') style.color = value;
+        else if (field === 'font_weight' && typeof value === 'number') style.font_weight = value;
+        else if (field === 'scale' && typeof value === 'number') style.scale = value;
+        else if (field === 'rotate_deg' && typeof value === 'number') style.rotate_deg = value;
+        else if (field === 'baseline_shift_em' && typeof value === 'number') style.baseline_shift_em = value;
+        else if (field === 'letter_spacing_em' && typeof value === 'number') style.letter_spacing_em = value;
+        else if (field === 'italic' && typeof value === 'boolean') style.italic = value;
+        else if (field === 'underline' && typeof value === 'boolean') style.underline = value;
+        else omitted.push(key);
+    }
+    return { style, omitted };
+}
+
 export function resolveCaptionRuns(text: string, runs?: readonly CaptionRun[]): ResolvedCaptionRunChar[] {
     const characters = captionGraphemes(text).map((value, index) => ({ text: value, index } as ResolvedCaptionRunChar));
     for (const run of runs ?? []) {

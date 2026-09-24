@@ -1,0 +1,765 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "checks": [
+    {
+      "name": "範囲なし: ミニパネルは今どおり（範囲用アイコンなし・B は字幕全体の text_style）",
+      "pass": true,
+      "detail": {
+        "tools": [
+          "group",
+          "snap",
+          "clamp",
+          "bold",
+          "color",
+          "cushion",
+          "inspector",
+          "my-style-save"
+        ],
+        "runTools": [],
+        "written": {
+          "text_style": {
+            "font_weight": 900,
+            "weight": 900
+          },
+          "runs": null
+        },
+        "undoRestoresBytes": true
+      }
+    },
+    {
+      "name": "「最高」をなぞって選ぶ → 書記素 3〜5・範囲用アイコンが出る・ツールバーはプレビューの中に 1 段",
+      "pass": true,
+      "detail": {
+        "sel": "最高",
+        "from": "3",
+        "to": "5",
+        "editing": true,
+        "tools": [
+          "group",
+          "snap",
+          "clamp",
+          "bold",
+          "color",
+          "bigger",
+          "smaller",
+          "up",
+          "down",
+          "rotate-run",
+          "spacing-run",
+          "run-style",
+          "run-role",
+          "cushion",
+          "inspector",
+          "my-style-save"
+        ],
+        "runTools": [
+          "bigger",
+          "smaller",
+          "up",
+          "down",
+          "rotate",
+          "spacing",
+          "style",
+          "role"
+        ],
+        "bar": {
+          "top": 410,
+          "left": 248,
+          "width": 513,
+          "height": 36
+        },
+        "viewport": {
+          "w": 1006,
+          "h": 603
+        }
+      }
+    },
+    {
+      "name": "Shift+→ で 1 文字広げる → 3〜6 / Shift+← で戻す → 3〜5",
+      "pass": true,
+      "detail": {
+        "wider": {
+          "sel": "最高の",
+          "from": "3",
+          "to": "6"
+        },
+        "back": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        }
+      }
+    },
+    {
+      "name": "赤: 色 → 見本の赤 → runs[0].style.color・書き込み 1 回・undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "runs": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666"
+            }
+          }
+        ],
+        "writes": 1,
+        "undoRestoresBytes": true,
+        "redoRestoresBytes": true,
+        "editingAfter": true,
+        "selectionAfter": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "selectionAfterUndo": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "editSpans": [
+          {
+            "text": "最",
+            "color": "rgb(242, 102, 102)",
+            "transform": "none"
+          },
+          {
+            "text": "高",
+            "color": "rgb(242, 102, 102)",
+            "transform": "none"
+          }
+        ]
+      }
+    },
+    {
+      "name": "大きく: 書き込み 1 回・同じ run を更新・undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "runs": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666",
+              "scale": 1.1
+            }
+          }
+        ],
+        "writes": 1,
+        "undoRestoresBytes": true,
+        "redoRestoresBytes": true,
+        "editingAfter": true,
+        "selectionAfter": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "selectionAfterUndo": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "editSpans": [
+          {
+            "text": "最",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.1, 0, 0, 1.1, 0, 0)"
+          },
+          {
+            "text": "高",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.1, 0, 0, 1.1, 0, 0)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "上へ: 書き込み 1 回・同じ run を更新・undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "runs": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666",
+              "scale": 1.1,
+              "baseline_shift_em": -0.1
+            }
+          }
+        ],
+        "writes": 1,
+        "undoRestoresBytes": true,
+        "redoRestoresBytes": true,
+        "editingAfter": true,
+        "selectionAfter": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "selectionAfterUndo": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "editSpans": [
+          {
+            "text": "最",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.1, 0, 0, 1.1, 0, -3.8)"
+          },
+          {
+            "text": "高",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.1, 0, 0, 1.1, 0, -3.8)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "回転: 書き込み 1 回・同じ run を更新・undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "runs": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666",
+              "scale": 1.1,
+              "baseline_shift_em": -0.1,
+              "rotate_deg": 8
+            }
+          }
+        ],
+        "writes": 1,
+        "undoRestoresBytes": true,
+        "redoRestoresBytes": true,
+        "editingAfter": true,
+        "selectionAfter": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "selectionAfterUndo": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "editSpans": [
+          {
+            "text": "最",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)"
+          },
+          {
+            "text": "高",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "編集中も範囲の見た目が出る（赤・大きく・上へ・回転）",
+      "pass": true,
+      "detail": [
+        {
+          "text": "最",
+          "color": "rgb(242, 102, 102)",
+          "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)"
+        },
+        {
+          "text": "高",
+          "color": "rgb(242, 102, 102)",
+          "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)"
+        }
+      ]
+    },
+    {
+      "name": "役割: 強調（emphasis）を選ぶ → runs[0].role・書き込み 1 回・undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "runs": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666",
+              "scale": 1.1,
+              "baseline_shift_em": -0.1,
+              "rotate_deg": 8
+            },
+            "role": "emphasis"
+          }
+        ],
+        "writes": 1,
+        "undoRestoresBytes": true,
+        "redoRestoresBytes": true,
+        "editingAfter": true,
+        "selectionAfter": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "selectionAfterUndo": {
+          "sel": "最高",
+          "from": "3",
+          "to": "5"
+        },
+        "editSpans": [
+          {
+            "text": "最",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)"
+          },
+          {
+            "text": "高",
+            "color": "rgb(242, 102, 102)",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "編集を抜ける（Escape）→ 範囲用アイコンが消え、描画は赤・大きく・上へ・回転",
+      "pass": true,
+      "detail": {
+        "state": {
+          "editing": false,
+          "runTools": [],
+          "tools": [
+            "group",
+            "snap",
+            "clamp",
+            "bold",
+            "color",
+            "cushion",
+            "inspector",
+            "my-style-save"
+          ]
+        },
+        "spans": [
+          {
+            "text": "最",
+            "color": "rgb(242, 102, 102)",
+            "fontWeight": "700",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)",
+            "letterSpacing": "normal",
+            "stroke": "rgba(0, 0, 0, 0.9) 5.32px",
+            "rect": {
+              "left": 419.17,
+              "top": 451.84,
+              "width": 33.64,
+              "height": 33.64
+            }
+          },
+          {
+            "text": "高",
+            "color": "rgb(242, 102, 102)",
+            "fontWeight": "700",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)",
+            "letterSpacing": "normal",
+            "stroke": "rgba(0, 0, 0, 0.9) 5.32px",
+            "rect": {
+              "left": 446.24,
+              "top": 451.84,
+              "width": 33.64,
+              "height": 33.64
+            }
+          }
+        ],
+        "runs": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666",
+              "scale": 1.1,
+              "baseline_shift_em": -0.1,
+              "rotate_deg": 8
+            },
+            "role": "emphasis"
+          }
+        ]
+      }
+    },
+    {
+      "name": "範囲にマイスタイル: 「アイデア」に「緑の強調（L1）」の見た目 → run 追加（語彙内だけ）・語彙外は 1 行の知らせ・undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "choices": [
+          "mine:runs-l1-green=緑の強調（L1）",
+          "preset:discount-text=割引バッジテキスト",
+          "preset:emphasis-red=強調",
+          "preset:glitch=グリッチ風",
+          "preset:narration-caption=ナレーション字幕",
+          "preset:neon=ネオン",
+          "preset:subtitle-commentary=実況テロップ",
+          "preset:subtitle-interview=インタビュー字幕",
+          "preset:subtitle-news=ニュース風",
+          "preset:subtitle-standard=標準字幕",
+          "preset:subtitle-variety=バラエティ",
+          "preset:title-impact=インパクト",
+          "preset:verdict-badge=判定バッジ"
+        ],
+        "added": {
+          "from": 6,
+          "to": 10,
+          "style": {
+            "color": "#22C55E",
+            "font_weight": 900,
+            "stroke": {
+              "color": "#0B3D1E",
+              "width_px": 3
+            }
+          }
+        },
+        "writes": 1,
+        "notices": [
+          "文字範囲に使えない見た目を省きました: 座布団・影・大きさの基準"
+        ],
+        "undoRestoresBytes": true,
+        "redoRestoresBytes": true,
+        "spans": [
+          {
+            "text": "最",
+            "color": "rgb(242, 102, 102)",
+            "fontWeight": "700",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)",
+            "letterSpacing": "normal",
+            "stroke": "rgba(0, 0, 0, 0.9) 5.32px",
+            "rect": {
+              "left": 418.49,
+              "top": 451.84,
+              "width": 33.64,
+              "height": 33.64
+            }
+          },
+          {
+            "text": "高",
+            "color": "rgb(242, 102, 102)",
+            "fontWeight": "700",
+            "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)",
+            "letterSpacing": "normal",
+            "stroke": "rgba(0, 0, 0, 0.9) 5.32px",
+            "rect": {
+              "left": 445.57,
+              "top": 451.84,
+              "width": 33.64,
+              "height": 33.64
+            }
+          },
+          {
+            "text": "ア",
+            "color": "rgb(34, 197, 94)",
+            "fontWeight": "900",
+            "transform": "none",
+            "letterSpacing": "normal",
+            "stroke": "rgb(11, 61, 30) 3px",
+            "rect": {
+              "left": 503,
+              "top": 457.83,
+              "width": 27.07,
+              "height": 27.08
+            }
+          },
+          {
+            "text": "イ",
+            "color": "rgb(34, 197, 94)",
+            "fontWeight": "900",
+            "transform": "none",
+            "letterSpacing": "normal",
+            "stroke": "rgb(11, 61, 30) 3px",
+            "rect": {
+              "left": 530.07,
+              "top": 457.83,
+              "width": 27.08,
+              "height": 27.08
+            }
+          },
+          {
+            "text": "デ",
+            "color": "rgb(34, 197, 94)",
+            "fontWeight": "900",
+            "transform": "none",
+            "letterSpacing": "normal",
+            "stroke": "rgb(11, 61, 30) 3px",
+            "rect": {
+              "left": 557.15,
+              "top": 457.83,
+              "width": 27.07,
+              "height": 27.08
+            }
+          },
+          {
+            "text": "ア",
+            "color": "rgb(34, 197, 94)",
+            "fontWeight": "900",
+            "transform": "none",
+            "letterSpacing": "normal",
+            "stroke": "rgb(11, 61, 30) 3px",
+            "rect": {
+              "left": 584.22,
+              "top": 457.83,
+              "width": 27.08,
+              "height": 27.08
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "保存・再読込（Electron を起動し直す）→ runs と描画が同じ",
+      "pass": true,
+      "detail": {
+        "runs": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666",
+              "scale": 1.1,
+              "baseline_shift_em": -0.1,
+              "rotate_deg": 8
+            },
+            "role": "emphasis"
+          },
+          {
+            "from": 6,
+            "to": 10,
+            "style": {
+              "color": "#22C55E",
+              "font_weight": 900,
+              "stroke": {
+                "color": "#0B3D1E",
+                "width_px": 3
+              }
+            }
+          }
+        ],
+        "diffs": [
+          {
+            "text": "最",
+            "sameStyle": true,
+            "dLeft": 0,
+            "dTop": 0
+          },
+          {
+            "text": "高",
+            "sameStyle": true,
+            "dLeft": 0,
+            "dTop": 0
+          },
+          {
+            "text": "ア",
+            "sameStyle": true,
+            "dLeft": 0,
+            "dTop": 0
+          },
+          {
+            "text": "イ",
+            "sameStyle": true,
+            "dLeft": 0,
+            "dTop": 0
+          },
+          {
+            "text": "デ",
+            "sameStyle": true,
+            "dLeft": 0,
+            "dTop": 0
+          },
+          {
+            "text": "ア",
+            "sameStyle": true,
+            "dLeft": 0,
+            "dTop": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "インスペクター: 「文字範囲」の一覧 2 行 → 行を押すとプレビューで範囲が選ばれる → 外す → undo 1 回で戻る",
+      "pass": true,
+      "detail": {
+        "rows": [
+          {
+            "index": "0",
+            "text": "文字範囲 4〜5文字目 「最高」 強調 外す"
+          },
+          {
+            "index": "1",
+            "text": "7〜10文字目 「アイデア」 色・太さ・縁取り 外す"
+          }
+        ],
+        "picked": {
+          "sel": "アイデア",
+          "from": "6",
+          "to": "10",
+          "editing": true
+        },
+        "writes": 1,
+        "runsAfterRemove": [
+          {
+            "from": 3,
+            "to": 5,
+            "style": {
+              "color": "#f26666",
+              "scale": 1.1,
+              "baseline_shift_em": -0.1,
+              "rotate_deg": 8
+            },
+            "role": "emphasis"
+          }
+        ],
+        "rowsAfterRemove": 1,
+        "undoRestoresBytes": true
+      }
+    },
+    {
+      "name": "台本で「最高」を消す → 右下に「文字範囲 1 件（「最高」）が外れました」",
+      "pass": true,
+      "detail": {
+        "notices": [
+          "文字範囲 1 件（「最高」）が外れました"
+        ],
+        "text": "これはのアイデアです",
+        "runs": [
+          {
+            "from": 4,
+            "to": 8,
+            "style": {
+              "color": "#22C55E",
+              "font_weight": 900,
+              "stroke": {
+                "color": "#0B3D1E",
+                "width_px": 3
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "screenshots": [
+    "after-01-no-range-tools.png",
+    "after-02-selected.png",
+    "after-03-editing-red-big-up-rotate.png",
+    "after-04-after-escape.png",
+    "after-05-style-menu.png",
+    "after-06-mystyle-applied.png",
+    "after-07-after-reload.png",
+    "after-08-inspector-list.png",
+    "after-09-inspector-row-selects.png",
+    "after-10-daihon-notice.png"
+  ],
+  "fixtureProject": "<tmp>/work/project",
+  "frame": {
+    "x": 47,
+    "y": 16,
+    "w": 912,
+    "h": 513
+  },
+  "selectHit": "<p class=\"akari-caption__line\">まずはコーヒーを淹れます</p>",
+  "historyVia": {
+    "direct": 14
+  },
+  "roleMenu": [
+    "emphasis=強調",
+    "keyword=キーワード",
+    "aside=補足"
+  ],
+  "frameAfterReload": {
+    "x": 47,
+    "y": 16,
+    "w": 912,
+    "h": 513
+  },
+  "spansAfterReload": [
+    {
+      "text": "最",
+      "color": "rgb(242, 102, 102)",
+      "fontWeight": "700",
+      "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)",
+      "letterSpacing": "normal",
+      "stroke": "rgba(0, 0, 0, 0.9) 5.32px",
+      "rect": {
+        "left": 418.49,
+        "top": 451.84,
+        "width": 33.64,
+        "height": 33.64
+      }
+    },
+    {
+      "text": "高",
+      "color": "rgb(242, 102, 102)",
+      "fontWeight": "700",
+      "transform": "matrix(1.08929, 0.15309, -0.15309, 1.08929, 0, -3.8)",
+      "letterSpacing": "normal",
+      "stroke": "rgba(0, 0, 0, 0.9) 5.32px",
+      "rect": {
+        "left": 445.57,
+        "top": 451.84,
+        "width": 33.64,
+        "height": 33.64
+      }
+    },
+    {
+      "text": "ア",
+      "color": "rgb(34, 197, 94)",
+      "fontWeight": "900",
+      "transform": "none",
+      "letterSpacing": "normal",
+      "stroke": "rgb(11, 61, 30) 3px",
+      "rect": {
+        "left": 503,
+        "top": 457.83,
+        "width": 27.07,
+        "height": 27.08
+      }
+    },
+    {
+      "text": "イ",
+      "color": "rgb(34, 197, 94)",
+      "fontWeight": "900",
+      "transform": "none",
+      "letterSpacing": "normal",
+      "stroke": "rgb(11, 61, 30) 3px",
+      "rect": {
+        "left": 530.07,
+        "top": 457.83,
+        "width": 27.08,
+        "height": 27.08
+      }
+    },
+    {
+      "text": "デ",
+      "color": "rgb(34, 197, 94)",
+      "fontWeight": "900",
+      "transform": "none",
+      "letterSpacing": "normal",
+      "stroke": "rgb(11, 61, 30) 3px",
+      "rect": {
+        "left": 557.15,
+        "top": 457.83,
+        "width": 27.07,
+        "height": 27.08
+      }
+    },
+    {
+      "text": "ア",
+      "color": "rgb(34, 197, 94)",
+      "fontWeight": "900",
+      "transform": "none",
+      "letterSpacing": "normal",
+      "stroke": "rgb(11, 61, 30) 3px",
+      "rect": {
+        "left": 584.22,
+        "top": 457.83,
+        "width": 27.08,
+        "height": 27.08
+      }
+    }
+  ]
+}

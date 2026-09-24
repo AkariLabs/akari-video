@@ -1,5 +1,5 @@
-import { type CaptionWordTiming } from './caption-words-rederive';
-import { type CaptionRun } from './caption-runs';
+import { type CaptionEmphasis, type CaptionWordTiming } from './caption-words-rederive';
+import { type CaptionRun, type CaptionRunStyle } from './caption-runs';
 export declare const CAPTION_ZONES: readonly ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
 export type CaptionZone = typeof CAPTION_ZONES[number];
 export type CaptionBackgroundMode = 'per-line' | 'block';
@@ -193,7 +193,33 @@ export declare function updateCaptionFieldsInSourceWithReport(source: string, ca
 }): {
     source: string;
     removedRuns: CaptionRun[];
+    removedEmphasis: CaptionEmphasis[];
 };
+export type CaptionRunEdit = {
+    kind: 'style';
+    from: number;
+    to: number;
+    style: CaptionRunStyle;
+} | {
+    kind: 'role';
+    from: number;
+    to: number;
+    role: string;
+} | {
+    kind: 'remove';
+    index: number;
+} | {
+    kind: 'insert';
+    index: number;
+    run: CaptionRun;
+};
+/** Change only the target caption's runs property; retain unrelated source bytes. */
+export declare function updateCaptionRunsInSource(source: string, captionId: string, edit: CaptionRunEdit): string;
+export declare function captionEmphasisRemovedNotice(removed: readonly CaptionEmphasis[]): string | undefined;
+export declare function captionEditNotices(result: {
+    removedRuns: readonly CaptionRun[];
+    removedEmphasis: readonly CaptionEmphasis[];
+}, oldDisplayText: string): string[];
 export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;
 export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null): {

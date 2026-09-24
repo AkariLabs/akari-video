@@ -96,6 +96,7 @@ import {
     SlipCutRequest,
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
+    SetCaptionRunRequest,
     SetCaptionDisplayPolicyRequest,
     SetCaptionDisplayPolicyResult,
     SetCaptionStylePresetRequest,
@@ -152,7 +153,9 @@ import {
     splitCaptionLine,
     shiftCaptionLine,
     setCaptionTimingLine,
-    updateCaptionFieldsInSource,
+    updateCaptionFieldsInSourceWithReport,
+    captionEditNotices,
+    updateCaptionRunsInSource,
     updateCaptionStylePresetInSource,
     updateCaptionTextStyleInSource
 } from '../common/caption-store';
@@ -1519,15 +1522,28 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
-        const updated = updateCaptionFieldsInSource(source, request.captionId, {
+        const result = updateCaptionFieldsInSourceWithReport(source, request.captionId, {
             text: request.text,
             speaker: request.speaker,
             unrecognized: request.unrecognized,
             style: request.style,
             displayTiming: request.displayTiming
         });
+        await this.writeProjectFileGuarded(captionsPath, result.source);
+        const root = JSON.parse(source) as Array<{ id: string; text: string; display_text?: string }>
+            | { captions?: Array<{ id: string; text: string; display_text?: string }> };
+        const caption = (Array.isArray(root) ? root : root.captions)?.find(item => item.id === request.captionId);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更'),
+            notices: captionEditNotices(result, caption?.display_text ?? caption?.text ?? '') };
+    }
+
+    async setCaptionRun(request: SetCaptionRunRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = updateCaptionRunsInSource(source, request.captionId, request.edit);
         await this.writeProjectFileGuarded(captionsPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の文字範囲を変更') };
     }
 
     async setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult> {

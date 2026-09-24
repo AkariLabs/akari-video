@@ -1,6 +1,7 @@
 import { findMatchingBracket, splitTopLevelElements, type SourceElement } from './edit-store';
 import { applyCaptionTextEdit, rebaseCaptionEmphasis, type CaptionEmphasis, type CaptionTextEditRecord, type CaptionWordTiming } from './caption-words-rederive';
-import { captionGraphemes, joinAdjacentCaptionRuns, rebaseCaptionRuns, sliceCaptionRuns, type CaptionRun } from './caption-runs';
+import { captionGraphemes, captionRunsRemovedNotice, joinAdjacentCaptionRuns, rebaseCaptionRuns, sliceCaptionRuns, setCaptionRunStyle,
+    setCaptionRunRole, removeCaptionRun, type CaptionRun, type CaptionRunStyle } from './caption-runs';
 import { applyCaptionStylePresets } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
@@ -348,7 +349,7 @@ export function updateCaptionFieldsInSourceWithReport(
         style?: string | null;
         displayTiming?: 'full' | 'speech-tight' | null;
     }
-): { source: string; removedRuns: CaptionRun[] } {
+): { source: string; removedRuns: CaptionRun[]; removedEmphasis: CaptionEmphasis[] } {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
     }
@@ -389,6 +390,7 @@ export function updateCaptionFieldsInSourceWithReport(
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
     let removedRuns: CaptionRun[] = [];
+    let removedEmphasis: CaptionEmphasis[] = [];
     let nextEmphasis: CaptionEmphasis[] | undefined;
     let oldEmphasis: CaptionEmphasis[] | undefined;
     if (updates.text !== undefined) {
@@ -408,6 +410,7 @@ export function updateCaptionFieldsInSourceWithReport(
                     newText: applied.record.text,
                     ...(typeof parsed.src === 'string' ? { src: parsed.src } : {})
                 });
+                removedEmphasis = rebased.removed;
                 if (rebased.removed.length || rebased.emphasis.some((entry, index) =>
                     entry !== oldEmphasis![index])) nextEmphasis = rebased.emphasis;
             }
@@ -476,7 +479,52 @@ export function updateCaptionFieldsInSourceWithReport(
         if (kept.length) nextInner += inner.slice(elements[elements.length - 1].end);
         updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
     }
-    return { source: updated, removedRuns };
+    return { source: updated, removedRuns, removedEmphasis };
+}
+
+export type CaptionRunEdit =
+    | { kind: 'style'; from: number; to: number; style: CaptionRunStyle }
+    | { kind: 'role'; from: number; to: number; role: string }
+    | { kind: 'remove'; index: number }
+    | { kind: 'insert'; index: number; run: CaptionRun };
+
+/** Change only the target caption's runs property; retain unrelated source bytes. */
+export function updateCaptionRunsInSource(source: string, captionId: string, edit: CaptionRunEdit): string {
+    const array = locateCaptionArray(source);
+    const element = findCaptionElement(array.elements, captionId);
+    const caption = JSON.parse(element.text) as { text: string; display_text?: string; runs?: CaptionRun[] };
+    const display = caption.display_text ?? caption.text;
+    const runs = edit.kind === 'style'
+        ? setCaptionRunStyle(display, caption.runs, edit.from, edit.to, edit.style)
+        : edit.kind === 'role'
+            ? setCaptionRunRole(display, caption.runs, edit.from, edit.to, edit.role)
+            : edit.kind === 'remove' ? removeCaptionRun(caption.runs, edit.index)
+                : (() => {
+                    if (!Number.isInteger(edit.index) || edit.index < 0 || edit.index > (caption.runs?.length ?? 0)
+                        || !Number.isInteger(edit.run.from) || !Number.isInteger(edit.run.to)
+                        || edit.run.from < 0 || edit.run.to <= edit.run.from
+                        || edit.run.to > captionGraphemes(display).length) {
+                        throw new Error('戻す文字範囲が不正です。');
+                    }
+                    const restored = [...(caption.runs ?? [])];
+                    restored.splice(edit.index, 0, edit.run);
+                    return restored;
+                })();
+    return replaceElement(source, array.openIndex + 1, element,
+        syncOptionalCaptionProperty(element.text, 'runs', runs.length ? runs : undefined, captionId));
+}
+
+export function captionEmphasisRemovedNotice(removed: readonly CaptionEmphasis[]): string | undefined {
+    if (!removed.length) return undefined;
+    const first = removed[0];
+    const word = typeof first.word === 'string' ? first.word.trim() : '';
+    return `強調 ${removed.length} 件${word ? `（「${captionGraphemes(word).slice(0, 16).join('')}」）` : ''}が外れました`;
+}
+
+export function captionEditNotices(result: { removedRuns: readonly CaptionRun[];
+    removedEmphasis: readonly CaptionEmphasis[] }, oldDisplayText: string): string[] {
+    return [captionRunsRemovedNotice(result.removedRuns, oldDisplayText),
+        captionEmphasisRemovedNotice(result.removedEmphasis)].filter((notice): notice is string => !!notice);
 }
 
 export function applyWordBookToCaptionsInSource(
@@ -888,6 +936,8 @@ function normalizeCaption(
         speaker: value.speaker,
         sourceRef,
         edited: value.edited,
+        ...(typeof value.display_text === 'string' ? { displayText: value.display_text } : {}),
+        ...(Array.isArray(value.runs) ? { runs: value.runs as CaptionRun[] } : {}),
         ...(unrecognized !== undefined ? { unrecognized } : {}),
         ...(value.time_domain === 'source' || value.time_domain === 'output'
             ? { timeDomain: value.time_domain } : {}),

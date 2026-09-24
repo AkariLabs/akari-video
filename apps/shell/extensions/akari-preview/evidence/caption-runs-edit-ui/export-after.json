@@ -1,0 +1,60 @@
+{
+  "renderSeconds": 5,
+  "engine": "gpu",
+  "rasterizer": {
+    "planned": "gpu",
+    "adopted": "gpu",
+    "attempts": [
+      {
+        "method": "gpu",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "verify": "pass",
+  "frameAtSeconds": 1.8,
+  "cases": [
+    {
+      "name": "最高（赤・大きく・上へ・回転）",
+      "exported": {
+        "left": 0.4094,
+        "right": 0.4711,
+        "top": 0.8583,
+        "bottom": 0.9139,
+        "count": 1620
+      },
+      "preview": {
+        "left": 0.4073,
+        "right": 0.4739,
+        "top": 0.8496,
+        "bottom": 0.9152
+      },
+      "diff": {
+        "cx": -0.0003,
+        "cy": 0.0037
+      }
+    },
+    {
+      "name": "アイデア（マイスタイルの緑）",
+      "exported": {
+        "left": 0.5031,
+        "right": 0.618,
+        "top": 0.8639,
+        "bottom": 0.9153,
+        "count": 1682
+      },
+      "preview": {
+        "left": 0.5,
+        "right": 0.6188,
+        "top": 0.8613,
+        "bottom": 0.9141
+      },
+      "diff": {
+        "cx": 0.0011,
+        "cy": 0.0019
+      }
+    }
+  ],
+  "pass": true
+}

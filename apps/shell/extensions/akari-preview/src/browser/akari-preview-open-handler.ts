@@ -35,6 +35,11 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
     applyCaptionRunsToHtml,
+    TEXTSTYLE_CATALOG,
+    captionEditNotices,
+    captionRunStyleFromLook,
+    updateCaptionFieldsInSourceWithReport,
+    updateCaptionRunsInSource,
     collectExcludedCaptionIds,
     computeDuckEnvelope,
     evaluateEnvelopeDb,
@@ -50,6 +55,10 @@ import {
     TimelineSegment
 } from '@akari-video/edit-store';
 import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2, GenerationMetaV1 } from '@akari-video/edit-store';
+import type { CaptionRunEdit } from '@akari-video/edit-store';
+// This extension builds before akari-project in build:ext, so its compiled declarations are unavailable here.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { AkariProjectService } = require('akari-project/lib/common/akari-project-protocol') as { AkariProjectService: symbol };
 import type { PreviewItemWriteCommand, ReadableTransitionType } from '@akari-video/edit-store';
 import { applyAdjustBypass } from '../common/adjust-bypass';
 import {
@@ -99,6 +108,8 @@ import {
 } from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { previewContentEnd } from '../common/preview-content-end';
+import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
+import { captionRunOmittedNotice } from '../common/caption-run-style-notice';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { captionRowWrapRect } from '../common/caption-row-box';
 import {
@@ -854,6 +865,7 @@ interface CaptionWriteRequest {
     captionId: string;
     patch: { zone: CaptionZoneValue }
         | { text: string }
+        | { run: CaptionRunEdit }
         | { groupZone: CaptionZoneValue }
         | { groupPosition: CaptionCuePosition }
         | { cuePosition: CaptionCuePosition }
@@ -1264,6 +1276,7 @@ const GLTF_HEADER_PROBE_BYTES = 64 * 1024;
 
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
+    protected lastCaptionRunNotice: string | undefined;
     readonly id = 'akari-preview-open-handler';
     protected readonly onDidWriteCaptionEmitter = new Emitter<PreviewCaptionWrite>();
     readonly onDidWriteCaption: TheiaEvent<PreviewCaptionWrite> = this.onDidWriteCaptionEmitter.event;
@@ -1363,6 +1376,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     @inject(PreferenceService)
     protected readonly preferences: PreferenceService;
+
+    @inject(AkariProjectService)
+    protected readonly projectService: { listMyStyles(): Promise<Array<{ id: string; name: string;
+        parts: Array<{ kind: string; text_style?: unknown }> }>> };
 
     @inject(EnvVariablesServer)
     protected readonly envVariables: EnvVariablesServer;
@@ -1684,6 +1701,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged)
         });
+        const onSelectCaptionRun = (event: Event): void => {
+            const detail = (event as CustomEvent<{ captionId?: string; from?: number; to?: number }>).detail;
+            if (!detail || typeof detail.captionId !== 'string' || !Number.isInteger(detail.from)
+                || !Number.isInteger(detail.to)) return;
+            for (const preview of this.openOutputPreviews.values()) {
+                preview.sendMessage({ type: 'akari-preview-select-caption-run', ...detail });
+            }
+        };
+        window.addEventListener('akari.preview.selectCaptionRun', onSelectCaptionRun);
+        this.lifecycleDisposables.push({ dispose: () =>
+            window.removeEventListener('akari.preview.selectCaptionRun', onSelectCaptionRun) });
         const onDaihonSelectionChanged = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: unknown; captionIds?: unknown }>).detail;
             if (typeof detail?.editUri !== 'string' || !Array.isArray(detail.captionIds)) return;
@@ -3437,6 +3465,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             if (message?.type === 'akari-preview-my-style-save' && typeof message.captionId === 'string') {
                 window.dispatchEvent(new CustomEvent('akari.mystyle.open-save', { detail: { captionId: message.captionId } }));
+            }
+            if (message?.type === 'akari-preview-run-styles-request' && typeof message.captionId === 'string') {
+                void (async () => {
+                    const source = widget.akariPreviewCaptionsUri
+                        ? JSON.parse(await this.readText(widget.akariPreviewCaptionsUri)) as {
+                            captions?: Array<{ id: string; text_style?: { size_px?: number } }>;
+                            default_text_style?: { size_px?: number };
+                        } : {};
+                    const caption = source.captions?.find(item => item.id === message.captionId);
+                    const baseSize = caption?.text_style?.size_px ?? source.default_text_style?.size_px ?? 38;
+                    const saved = await this.projectService.listMyStyles().catch(() => []);
+                    const choices = [
+                        ...saved.flatMap(item => item.parts.filter(part => part.kind === 'look').map(part => ({
+                            id: `mine:${item.id}`, name: item.name, look: part.text_style as Record<string, unknown>
+                        }))),
+                        ...Object.values(TEXTSTYLE_CATALOG).map(item => ({
+                            id: `preset:${item.id}`, name: item.name, look: item.style as Record<string, unknown>
+                        }))
+                    ].map(item => {
+                        const converted = captionRunStyleFromLook(item.look, baseSize);
+                        return { id: item.id, name: item.name, style: converted.style,
+                            notice: captionRunOmittedNotice(converted.omitted) };
+                    });
+                    widget.sendMessage({ type: 'akari-preview-run-styles', choices });
+                })().catch(error => this.messages.warn(error instanceof Error ? error.message : String(error)));
+            }
+            if (message?.type === 'akari-preview-run-style-omitted' && typeof message.notice === 'string') {
+                void this.messages.info(message.notice, { timeout: 4000 });
             }
             if (this.isReviewTransportRequest(message)) {
                 this.forwardReviewTransport(widget, message);
@@ -6699,7 +6755,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected captionWriteLabel(request: CaptionWriteRequest): string {
         const patch = request.patch;
         if ('cueGeometryReset' in patch || 'cuePositionReset' in patch) return '字幕の位置を既定に戻す';
-        if ('toolStyle' in patch) return '字幕の見た目を変更';
+        if ('toolStyle' in patch || 'run' in patch) return '字幕の見た目を変更';
         if ('plateTransform' in patch) return '字幕を拡縮・回転';
         if ('cuePosition' in patch || 'cuePositions' in patch || 'groupPosition' in patch) return '字幕を移動';
         if ('text' in patch) return '字幕の文字を変更';
@@ -6765,6 +6821,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             };
             const toolStyle = 'toolStyle' in request.patch ? request.patch.toolStyle : undefined;
+            const runEdit = 'run' in request.patch ? request.patch.run : undefined;
             const geometryReset = 'cueGeometryReset' in request.patch ? request.patch.cueGeometryReset : undefined;
             const cuePositions = 'cuePositions' in request.patch ? request.patch.cuePositions : undefined;
             const lintResult = geometryReset
@@ -6779,6 +6836,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const candidate = updateCaptionToolStyleSource(
                         originalText, toolStyle.captionIds, toolStyle.change
                     );
+                    const result = await persistOptions.lint(candidate);
+                    if (result.pass) await persistOptions.write(candidate);
+                    return result;
+                })()
+                : runEdit
+                ? await (async () => {
+                    const candidate = updateCaptionRunsInSource(originalText, request.captionId, runEdit);
                     const result = await persistOptions.lint(candidate);
                     if (result.pass) await persistOptions.write(candidate);
                     return result;
@@ -6836,6 +6900,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.queueCaptionsUpdate(widget);
             if (writtenText !== undefined) {
                 this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, this.captionWriteLabel(request));
+                if ('text' in request.patch && request.patch.text.trim()) {
+                    const report = updateCaptionFieldsInSourceWithReport(originalText, request.captionId,
+                        { text: request.patch.text });
+                    const root = JSON.parse(originalText) as Array<{ id: string; text: string; display_text?: string }>
+                        | { captions?: Array<{ id: string; text: string; display_text?: string }> };
+                    const caption = (Array.isArray(root) ? root : root.captions)
+                        ?.find(item => item.id === request.captionId);
+                    for (const notice of captionEditNotices(report, caption?.display_text ?? caption?.text ?? '')) {
+                        if (this.lastCaptionRunNotice !== notice) void this.messages.info(notice, { timeout: 4000 });
+                        this.lastCaptionRunNotice = notice;
+                    }
+                }
             }
             respond(true);
         } catch (error) {
@@ -6846,6 +6922,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected isCaptionWriteRequest(message: any): message is CaptionWriteRequest {
         const hasZone = typeof message?.patch?.zone === 'string';
         const hasText = typeof message?.patch?.text === 'string';
+        const run = message?.patch?.run;
+        const hasRun = !!run && (run.kind === 'remove' ? Number.isInteger(run.index) && run.index >= 0
+            : Number.isInteger(run.from) && Number.isInteger(run.to) && run.from >= 0 && run.to > run.from
+                && (run.kind === 'role' ? typeof run.role === 'string' && run.role.length > 0
+                    : run.kind === 'style' && run.style && typeof run.style === 'object'));
         const hasGroupZone = typeof message?.patch?.groupZone === 'string';
         const groupPosition = message?.patch?.groupPosition;
         const hasGroupPosition = groupPosition
@@ -6913,7 +6994,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && typeof message.captionId === 'string'
             && message.patch
             && typeof message.patch === 'object'
-            && [hasZone, hasText, hasGroupZone, !!hasGroupPosition,
+            && [hasZone, hasText, hasRun, hasGroupZone, !!hasGroupPosition,
                 !!hasCuePosition, hasCuePositions, hasCuePositionReset, hasPlateTransform, hasToolStyle, hasGeometryReset].filter(Boolean).length === 1;
     }
 
@@ -7448,6 +7529,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-multi-select-box { position: absolute; box-sizing: border-box; border: 1px dashed var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; }
 #caption-select-box[data-alt-all] { border-style: dashed; }
 #caption-select-box .akari-caption-select-tools { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 6px); display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.96); box-shadow: 0 4px 14px #0008; white-space: nowrap; pointer-events: auto; }
+#caption-select-box[data-akari-run-from]:not([data-akari-run-from=""]) .akari-caption-select-tools { width: max-content; max-width: min(88vw, var(--akari-run-toolbar-max, 560px)); flex-wrap: wrap; justify-content: center; }
 .akari-caption-tool-separator { width: 1px; height: 18px; margin: 0 3px; background: #333842; }
 #caption-select-box [data-caption-tool] { position: relative; width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #aab1bd; cursor: pointer; pointer-events: auto; }
 #caption-select-box [data-caption-tool]:hover { background: #2b2f38; color: #fff; }
@@ -7458,6 +7540,10 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-select-box .akari-caption-tool-tip { display: none; position: absolute; z-index: 10; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); padding: 5px 8px; border: 1px solid #333842; border-radius: 6px; background: #0b0c0e; color: #e6e6e6; font: 11px/1.45 sans-serif; white-space: nowrap; pointer-events: none; }
 #caption-select-box [data-caption-tool]:hover .akari-caption-tool-tip, #caption-select-box [data-caption-tool]:focus-visible .akari-caption-tool-tip { display: block; }
 #caption-select-box [data-caption-tool="reset"][hidden] { display: none; }
+#caption-select-box [data-akari-run-tool][hidden], #caption-select-box [data-akari-run-menu][hidden] { display: none; }
+#caption-select-box [data-akari-run-menu] { position:absolute; left:50%; transform:translateX(-50%); bottom:calc(100% + 43px); min-width:180px; max-height:240px; overflow:auto; padding:6px; border:1px solid #333842; border-radius:7px; background:#181a1f; color:#e6e6e6; pointer-events:auto; }
+#caption-select-box [data-akari-run-menu] button { display:block; width:100%; padding:5px 8px; border:0; border-radius:4px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
+#caption-select-box [data-akari-run-menu] button:hover { background:#2b2f38; }
 #caption-select-box [data-caption-palette] { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 43px); width: 214px; padding: 8px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.98); box-shadow: 0 8px 24px #000a; pointer-events: auto; }
 #caption-select-box [data-caption-palette][hidden] { display: none; }
 #caption-select-box .akari-caption-palette-tabs { display: flex; gap: 4px; margin-bottom: 7px; }
@@ -7694,12 +7780,20 @@ html.akari-gen-capturing #caption-plate *::selection { background: transparent !
             <span class="akari-caption-tool-separator"></span>
             <button type="button" data-caption-tool="bold" aria-label="太字">B<span class="akari-caption-tool-tip">太字のオン・オフ</span></button>
             <button type="button" data-caption-tool="color" aria-label="色"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.1 2h1.8l4 10.5h-1.9l-1-2.8H6l-1 2.8H3.1L7.1 2zm-.5 6.2h2.8L8 4.4 6.6 8.2z"/></svg><span class="akari-caption-tool-tip">文字・縁取り・座布団の色</span></button>
+            <button type="button" data-caption-tool="bigger" data-akari-run-tool="bigger" hidden aria-label="大きく"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M20 5v8m-4-4h8"/></svg><span class="akari-caption-tool-tip">選択文字を大きく</span></button>
+            <button type="button" data-caption-tool="smaller" data-akari-run-tool="smaller" hidden aria-label="小さく"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M17 9h7"/></svg><span class="akari-caption-tool-tip">選択文字を小さく</span></button>
+            <button type="button" data-caption-tool="up" data-akari-run-tool="up" hidden aria-label="上へ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V4m-6 6 6-6 6 6M4 21h16"/></svg><span class="akari-caption-tool-tip">選択文字を上へ</span></button>
+            <button type="button" data-caption-tool="down" data-akari-run-tool="down" hidden aria-label="下へ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m-6-6 6 6 6-6M4 3h16"/></svg><span class="akari-caption-tool-tip">選択文字を下へ</span></button>
+            <button type="button" data-caption-tool="rotate-run" data-akari-run-tool="rotate" hidden aria-label="回転"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11a8 8 0 1 1-3-6M20 3v6h-6"/></svg><span class="akari-caption-tool-tip">選択文字を 8° 回転</span></button>
+            <button type="button" data-caption-tool="spacing-run" data-akari-run-tool="spacing" hidden aria-label="字間"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5v14m16-14v14M7 12h10m-7-3-3 3 3 3m4-6 3 3-3 3"/></svg><span class="akari-caption-tool-tip">選択文字の字間を広げる</span></button>
+            <button type="button" data-caption-tool="run-style" data-akari-run-tool="style" hidden aria-label="スタイル"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/></svg><span class="akari-caption-tool-tip">選択文字にスタイルを当てる</span></button>
+            <button type="button" data-caption-tool="run-role" data-akari-run-tool="role" hidden aria-label="役割"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14v16H5zM8 9h8m-8 4h6"/></svg><span class="akari-caption-tool-tip">選択文字の役割</span></button>
             <button type="button" data-caption-tool="cushion" aria-label="座布団"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="3" fill="currentColor" fill-opacity=".25"/><path d="M8 12h8"/></svg><span class="akari-caption-tool-tip">座布団を敷く・外す</span></button>
             <span class="akari-caption-tool-separator"></span>
             <button type="button" data-caption-tool="reset" aria-label="既定に戻す" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 6.5A5 5 0 1 1 3 9M3 3v3.5h3.5"/></svg><span class="akari-caption-tool-tip">位置と大きさを既定に戻す</span></button>
             <button type="button" data-caption-tool="inspector" aria-label="インスペクターを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="akari-caption-tool-tip">インスペクターを開く</span></button>
             <button type="button" data-caption-tool="my-style-save" data-akari-my-style-preview-save aria-label="マイスタイルに保存"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v3h16v-3"/></svg><span class="akari-caption-tool-tip">マイスタイルに保存</span></button>
-          </div><div data-caption-palette hidden><div class="akari-caption-palette-tabs"><button type="button" data-palette-tab="text" class="on">文字</button><button type="button" data-palette-tab="stroke">縁取り</button><button type="button" data-palette-tab="background">座布団</button></div><div class="akari-caption-palette-grid" data-palette-colors></div><div class="akari-caption-palette-label">最近使った色</div><div class="akari-caption-palette-grid" data-palette-recent></div><button type="button" data-palette-more>他の色…</button></div></div>
+          </div><div data-akari-run-menu hidden></div><div data-caption-palette hidden><div class="akari-caption-palette-tabs"><button type="button" data-palette-tab="text" class="on">文字</button><button type="button" data-palette-tab="stroke">縁取り</button><button type="button" data-palette-tab="background">座布団</button></div><div class="akari-caption-palette-grid" data-palette-colors></div><div class="akari-caption-palette-label">最近使った色</div><div class="akari-caption-palette-grid" data-palette-recent></div><button type="button" data-palette-more>他の色…</button></div></div>
           <canvas id="pen-layer" aria-hidden="true"></canvas>
         </div>
       </div>
@@ -9164,6 +9258,12 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.akari.requestMyStyleSave = captionId => {
                 vscode.postMessage({ type: 'akari-preview-my-style-save', captionId });
+            };
+            window.akari.requestRunStyles = captionId => {
+                vscode.postMessage({ type: 'akari-preview-run-styles-request', captionId });
+            };
+            window.akari.reportRunStyleOmitted = notice => {
+                vscode.postMessage({ type: 'akari-preview-run-style-omitted', notice });
             };
             window.akari.reportAltAll = on => vscode.postMessage({ type: 'akari-preview-alt-all', on });
             if (outputPreviewLink && initial.relatedEditUri) {
@@ -10910,6 +11010,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const initial = window.__akariPreview;
             const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
             const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});
+            const captionRunSelectionRangeFn = (${captionRunSelectionRange.toString()});
+            const captionRunToolbarPlacementFn = (${captionRunToolbarPlacement.toString()});
             const isAudioItemAudibleFn = (${isAudioItemAudible.toString()});
             // Match edit-store's cut rule here: toString() cannot preserve mangled helper references.
             const isCutAudioAudibleFn = (cut, track) => cut.audio !== false && isAudioItemAudibleFn(track, cut);
@@ -13948,6 +14050,137 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionClampChip = captionTool('clamp');
             const captionPositionReset = captionTool('reset');
             const captionPalette = captionSelectBox.querySelector('[data-caption-palette]');
+            const captionRunMenu = captionSelectBox.querySelector('[data-akari-run-menu]');
+            const runSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+            const currentRunSelection = () => {
+                if (!activeCaptionEdit || activeCaptionEdit.captionId !== selectedCaptionId) return null;
+                const selection = window.getSelection();
+                if (!selection || selection.rangeCount !== 1 || selection.isCollapsed) return null;
+                const range = selection.getRangeAt(0);
+                const element = activeCaptionEdit.element;
+                if (!element.contains(range.startContainer) || !element.contains(range.endContainer)) return null;
+                const prefix = range.cloneRange();
+                prefix.selectNodeContents(element);
+                prefix.setEnd(range.startContainer, range.startOffset);
+                return captionRunSelectionRangeFn(prefix.toString(), range.toString()) || null;
+            };
+            const layoutCaptionRunTools = () => {
+                const tools = captionSelectBox.querySelector('.akari-caption-select-tools');
+                if (!currentRunSelection() || !captionSelectBox.classList.contains('is-active')) {
+                    tools.style.left = '';
+                    tools.style.top = '';
+                    tools.style.bottom = '';
+                    captionSelectBox.style.removeProperty('--akari-run-toolbar-max');
+                    return;
+                }
+                captionSelectBox.style.setProperty('--akari-run-toolbar-max',
+                    Math.max(120, stage.clientWidth - 16) + 'px');
+                tools.style.left = '50%';
+                tools.style.top = '';
+                tools.style.bottom = '';
+                const frame = stage.getBoundingClientRect();
+                const anchor = captionSelectBox.getBoundingClientRect();
+                const tool = tools.getBoundingClientRect();
+                const placed = captionRunToolbarPlacementFn(frame, anchor, tool);
+                const scaleX = anchor.width / captionSelectBox.offsetWidth || 1;
+                const scaleY = anchor.height / captionSelectBox.offsetHeight || 1;
+                tools.style.left = ((placed.centerX - anchor.left) / scaleX) + 'px';
+                tools.style.top = ((placed.top - anchor.top) / scaleY) + 'px';
+                tools.style.bottom = 'auto';
+            };
+            window.akari.layoutCaptionRunTools = layoutCaptionRunTools;
+            const syncRunSelection = () => {
+                const selected = currentRunSelection();
+                captionSelectBox.dataset.akariRunFrom = selected ? String(selected.from) : '';
+                captionSelectBox.dataset.akariRunTo = selected ? String(selected.to) : '';
+                for (const tool of captionSelectBox.querySelectorAll('[data-akari-run-tool]')) tool.hidden = !selected;
+                if (!selected) captionRunMenu.hidden = true;
+                layoutCaptionRunTools();
+            };
+            window.akari.syncRunSelection = syncRunSelection;
+            document.addEventListener('selectionchange', syncRunSelection);
+            const writeCaptionRun = edit => {
+                const selected = currentRunSelection();
+                if (!activeCaptionEdit || !selected) return;
+                const captionId = activeCaptionEdit.captionId;
+                void window.akari.engine.captionWrite(captionId, { run: { ...selected, ...edit } })
+                    .catch(error => window.akari.showWriteError(error));
+            };
+            const selectedRunStyle = () => {
+                const selected = currentRunSelection();
+                const caption = selectedCaption();
+                return caption?.runs?.filter(run => selected && run.from === selected.from && run.to === selected.to)
+                    .at(-1)?.style || {};
+            };
+            const selectEditorGraphemes = (element, from, to) => {
+                if (!element || !Number.isInteger(from) || !Number.isInteger(to)
+                    || from < 0 || to < from
+                    || to > Array.from(runSegmenter.segment(element.textContent || '')).length) return false;
+                const nodes = [];
+                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+                while (walker.nextNode()) nodes.push(walker.currentNode);
+                const pointAt = index => {
+                    let cursor = 0;
+                    for (const node of nodes) {
+                        const parts = Array.from(runSegmenter.segment(node.textContent || ''));
+                        if (index <= cursor + parts.length) {
+                            const local = index - cursor;
+                            return { node, offset: local < parts.length
+                                ? parts[local].index : (node.textContent || '').length };
+                        }
+                        cursor += parts.length;
+                    }
+                    const node = nodes[nodes.length - 1];
+                    return node ? { node, offset: (node.textContent || '').length } : null;
+                };
+                const start = pointAt(from);
+                const end = pointAt(to);
+                const selection = window.getSelection();
+                if (!start || !end || !selection) return false;
+                const range = document.createRange();
+                range.setStart(start.node, start.offset);
+                range.setEnd(end.node, end.offset);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                return true;
+            };
+            const refreshActiveCaptionRuns = () => {
+                const edit = activeCaptionEdit;
+                if (!edit) return;
+                const caption = captions.find(item => (item.sourceCueId || item.id) === edit.captionId);
+                if (!caption) return;
+                const element = edit.element;
+                const text = element.textContent || '';
+                // Leave in-progress typing and IME composition alone until the text is committed.
+                if (text !== caption.text) return;
+                const selection = window.getSelection();
+                const range = selection?.rangeCount === 1 ? selection.getRangeAt(0) : null;
+                const inside = range && element.contains(range.startContainer) && element.contains(range.endContainer);
+                const offsetAt = (node, offset) => {
+                    const prefix = document.createRange();
+                    prefix.selectNodeContents(element);
+                    prefix.setEnd(node, offset);
+                    return Array.from(runSegmenter.segment(prefix.toString())).length;
+                };
+                const from = inside ? offsetAt(range.startContainer, range.startOffset) : null;
+                const to = inside ? offsetAt(range.endContainer, range.endOffset) : null;
+                if (caption.runs?.length) {
+                    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    const holder = document.createElement('div');
+                    holder.innerHTML = renderCaptionRuns('<p class="akari-caption__line">' + escaped + '</p>',
+                        text, caption.runs);
+                    const line = holder.querySelector('.akari-caption__line');
+                    const content = line?.querySelector('.akari-caption__tok') || line;
+                    if (!content) return;
+                    element.replaceChildren(...Array.from(content.childNodes));
+                } else if (element.querySelector('.akari-caption__run')) {
+                    element.textContent = text;
+                } else return;
+                if (from !== null && to !== null) selectEditorGraphemes(element, from, to);
+                window.akari.syncRunSelection?.();
+            };
+            window.akari.refreshActiveCaptionRuns = refreshActiveCaptionRuns;
             const captionRowBox = document.getElementById('caption-row-box');
             const captionRowBoxToggle = document.getElementById('caption-row-box-toggle');
             const captionZoneHighlight = document.getElementById('caption-zone-highlight');
@@ -14149,6 +14382,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 });
                 captionSelectBox.classList.add('is-active');
                 updateCaptionSelectTools();
+                window.akari.layoutCaptionRunTools?.();
                 updateCaptionRowBox();
             };
             const updateCaptionMultiSelectBoxes = () => {
@@ -14329,6 +14563,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 selectedCaptionId = captionId;
+                window.akari.syncRunSelection?.();
                 if (captionId) {
                     selectLayer(null, { report: false });
                     deselectCut({ report: false });
@@ -14372,8 +14607,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             };
-            captionSelectBox.querySelector('.akari-caption-select-tools').addEventListener('pointerdown', event => event.stopPropagation());
-            captionPalette.addEventListener('pointerdown', event => event.stopPropagation());
+            captionSelectBox.querySelector('.akari-caption-select-tools').addEventListener('pointerdown', event => {
+                event.stopPropagation();
+                if (currentRunSelection()) event.preventDefault();
+            });
+            captionPalette.addEventListener('pointerdown', event => {
+                event.stopPropagation();
+                if (currentRunSelection()) event.preventDefault();
+            });
+            captionRunMenu.addEventListener('pointerdown', event => {
+                event.stopPropagation();
+                event.preventDefault();
+            });
             captionTool('group').addEventListener('click', () => {
                 captionGroupToolEnabled = !captionGroupToolEnabled;
                 setCaptionGroupMode(false);
@@ -14391,6 +14636,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateCaptionSelectTools();
             });
             captionTool('bold').addEventListener('click', () => {
+                if (currentRunSelection()) {
+                    writeCaptionRun({ kind: 'style', style: { font_weight:
+                        (selectedRunStyle().font_weight ?? selectedCaption()?.textStyle?.weight
+                            ?? selectedCaption()?.textStyle?.font_weight) === 900 ? 400 : 900 } });
+                    return;
+                }
                 writeCaptionToolStyle({ field: 'font_weight', value:
                     (selectedCaption()?.textStyle?.weight ?? selectedCaption()?.textStyle?.font_weight) === 900 ? null : 900 });
             });
@@ -14403,7 +14654,10 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             captionTool('color').addEventListener('click', () => {
                 captionPalette.hidden = !captionPalette.hidden;
-                if (!captionPalette.hidden) renderCaptionPalette();
+                if (!captionPalette.hidden) {
+                    captionRunMenu.hidden = true;
+                    renderCaptionPalette();
+                }
             });
             captionPalette.addEventListener('click', event => {
                 const tab = event.target.closest('[data-palette-tab]');
@@ -14415,9 +14669,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 const sample = event.target.closest('[data-color]');
                 if (sample) {
                     const color = sample.dataset.color;
-                    const field = captionPaletteTab === 'text' ? 'color'
-                        : captionPaletteTab === 'stroke' ? 'stroke.color' : 'background.color';
-                    writeCaptionToolStyle({ field, value: color });
+                    if (currentRunSelection()) {
+                        if (captionPaletteTab === 'text') writeCaptionRun({ kind: 'style', style: { color } });
+                        else if (captionPaletteTab === 'stroke') writeCaptionRun({ kind: 'style', style: { stroke: { color } } });
+                        else window.akari.reportRunStyleOmitted('文字範囲には座布団の色を適用できません');
+                    } else {
+                        const field = captionPaletteTab === 'text' ? 'color'
+                            : captionPaletteTab === 'stroke' ? 'stroke.color' : 'background.color';
+                        writeCaptionToolStyle({ field, value: color });
+                    }
                     captionRecentColors.splice(captionRecentColors.indexOf(color), captionRecentColors.includes(color) ? 1 : 0);
                     captionRecentColors.unshift(color);
                     captionRecentColors.length = Math.min(captionRecentColors.length, 7);
@@ -14425,12 +14685,54 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (event.target.closest('[data-palette-more]')) {
+                    if (currentRunSelection()) {
+                        window.akari.reportRunStyleOmitted('文字範囲の色はパレットから選んでください');
+                        return;
+                    }
                     requestCaptionInspector(captionPaletteTab === 'text' ? 'caption-style-color'
                         : captionPaletteTab === 'stroke' ? 'caption-style-stroke-color' : 'caption-style-bg-color');
                     captionPalette.hidden = true;
                 }
             });
             captionTool('inspector').addEventListener('click', () => requestCaptionInspector('caption-style'));
+            for (const [tool, field, delta, initial] of [
+                ['bigger', 'scale', 0.1, 1], ['smaller', 'scale', -0.1, 1],
+                ['up', 'baseline_shift_em', -0.1, 0], ['down', 'baseline_shift_em', 0.1, 0],
+                ['rotate-run', 'rotate_deg', 8, 0], ['spacing-run', 'letter_spacing_em', 0.05, 0]
+            ]) {
+                captionTool(tool).addEventListener('click', () => {
+                    const prior = selectedRunStyle()[field];
+                    const value = Math.round(((typeof prior === 'number' ? prior : initial) + delta) * 100) / 100;
+                    writeCaptionRun({ kind: 'style', style: { [field]: field === 'scale' ? Math.max(0.1, value) : value } });
+                });
+            }
+            captionTool('run-role').addEventListener('click', () => {
+                captionPalette.hidden = true;
+                const roleWasOpen = !captionRunMenu.hidden && captionRunMenu.dataset.kind === 'role';
+                captionRunMenu.replaceChildren();
+                captionRunMenu.dataset.kind = 'role';
+                for (const [role, label] of [['emphasis', '強調'], ['keyword', 'キーワード'], ['aside', '補足']]) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = label;
+                    button.dataset.akariRunRole = role;
+                    button.addEventListener('click', () => {
+                        writeCaptionRun({ kind: 'role', role });
+                        captionRunMenu.hidden = true;
+                    });
+                    captionRunMenu.appendChild(button);
+                }
+                captionRunMenu.hidden = roleWasOpen;
+            });
+            captionTool('run-style').addEventListener('click', () => {
+                if (!activeCaptionEdit) return;
+                captionPalette.hidden = true;
+                captionRunMenu.replaceChildren();
+                captionRunMenu.dataset.kind = 'style';
+                captionRunMenu.textContent = 'スタイルを読み込み中…';
+                captionRunMenu.hidden = false;
+                window.akari.requestRunStyles(activeCaptionEdit.captionId);
+            });
             captionTool('my-style-save').addEventListener('click', () => {
                 if (selectedCaptionId) window.akari.requestMyStyleSave(selectedCaptionId);
             });
@@ -14472,6 +14774,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!activeCaptionEdit) return;
                 const edit = activeCaptionEdit;
                 activeCaptionEdit = null;
+                window.akari.syncRunSelection?.();
                 restoreCaptionEditElement(edit);
                 rerenderCaptionAfterEdit();
             };
@@ -14480,6 +14783,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const edit = activeCaptionEdit;
                 const nextText = (edit.element.textContent || '').normalize('NFC').trim();
                 activeCaptionEdit = null;
+                window.akari.syncRunSelection?.();
                 restoreCaptionEditElement(edit);
                 // Restore styled lines/tokens immediately, including while the write is pending.
                 // Subsequent dragging must measure the rendered plate, not the temporary editor.
@@ -14552,6 +14856,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 captionPlate.classList.add('akari-caption-host--editing');
                 element.focus({ preventScroll: true });
                 placeCaptionCaretAtEnd(element);
+                window.akari.refreshActiveCaptionRuns?.();
+                window.akari.syncRunSelection?.();
             };
             captionLayer.addEventListener('dblclick', event => {
                 const caption = captionForEvent(event);
@@ -18270,6 +18576,38 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateCaptionZoneHighlight(typeof message.zone === 'string' ? message.zone : null);
                     return;
                 }
+                if (message && message.type === 'akari-preview-select-caption-run') {
+                    const caption = captions.find(item => (item.sourceCueId || item.id) === message.captionId
+                        && captionRows.has(item.id));
+                    if (caption) {
+                        const selectRun = () => {
+                            beginCaptionEdit(caption);
+                            const element = activeCaptionEdit?.element;
+                            if (selectEditorGraphemes(element, message.from, message.to)) syncRunSelection();
+                        };
+                        if (activeCaptionEdit && activeCaptionEdit.captionId !== message.captionId) {
+                            void commitCaptionEdit().then(selectRun);
+                        } else selectRun();
+                    }
+                }
+                if (message && message.type === 'akari-preview-run-styles') {
+                    captionRunMenu.replaceChildren();
+                    for (const choice of message.choices || []) {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.textContent = choice.name;
+                        button.dataset.akariRunStyle = choice.id;
+                        button.addEventListener('click', () => {
+                            if (choice.style && Object.keys(choice.style).length) {
+                                writeCaptionRun({ kind: 'style', style: choice.style });
+                            }
+                            if (choice.notice) window.akari.reportRunStyleOmitted(choice.notice);
+                            captionRunMenu.hidden = true;
+                        });
+                        captionRunMenu.appendChild(button);
+                    }
+                    if (!captionRunMenu.childElementCount) captionRunMenu.textContent = '使えるスタイルがありません';
+                }
                 if (message && message.type === 'akari-preview-set-selected-captions') {
                     selectedCaptionIds = new Set(Array.isArray(message.captionIds) ? message.captionIds : []);
                     if (Object.prototype.hasOwnProperty.call(message, 'primaryCaptionId')) {
@@ -18299,6 +18637,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                     }
                     renderCaption();
+                    window.akari.refreshActiveCaptionRuns?.();
                     updateCaptionSelectBox();
                     return;
                 }

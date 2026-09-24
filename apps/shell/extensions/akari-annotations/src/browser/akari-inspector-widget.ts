@@ -4,6 +4,7 @@ import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, typ
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
+import { captionRunRows } from './inspector/caption-run-rows';
 import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
@@ -1409,7 +1410,22 @@ function CAPTION_SECTIONS(
         if (section.id !== 'style') return [section];
         const fields = section.fields;
         return [
-            { id: 'style', label: '文字', fields: fields.slice(0, 5) },
+            { id: 'style', label: '文字', fields: [
+                ...fields.slice(0, 5),
+                ...(snapshot.runs?.length ? captionRunRows(snapshot.displayText ?? snapshot.text, snapshot.runs)
+                    .map((run, index): InspectorFieldDef<TimelineCaptionSelection> => ({
+                    name: `caption-run-${index}`, label: index === 0 ? '文字範囲' : ' ',
+                    getValue: () => '',
+                    actions: [{ name: 'select', label: `${run.from + 1}〜${run.to}文字目 「${run.text}」 ${run.chip}`,
+                        title: 'プレビューで文字範囲を選ぶ', action: async () => {
+                            window.dispatchEvent(new CustomEvent('akari.preview.selectCaptionRun', { detail: {
+                                captionId: snapshot.id, from: run.from, to: run.to } }));
+                            return { ok: true };
+                        } },
+                    { name: 'remove', label: '外す', title: '文字範囲を外す', action: () =>
+                        requestWrite({ kind: 'caption-run-remove', id: snapshot.id, index }) }]
+                })) : [])
+            ] },
             { id: 'style:stroke', label: '縁取り', fields: fields.slice(5, 7) },
             { id: 'style:background', label: '座布団', fields: fields.slice(7, 13), body: () => {
                 const note = document.createElement('p');
@@ -6456,6 +6472,8 @@ export class AkariInspectorWidget extends BaseWidget {
         if (field.title) row.title = field.title;
         const fieldName = field.name ?? field.label.toLowerCase().replace(/[^a-z0-9_-]+/giu, '-');
         row.setAttribute('data-akari-field', fieldName);
+        if (fieldName.startsWith('caption-run-')) row.setAttribute('data-akari-caption-run-index',
+            fieldName.slice('caption-run-'.length));
         if (field.revealName) row.setAttribute('data-inspector-field', field.revealName);
         const labelElement = document.createElement('div');
         labelElement.className = 'akari-inspector-row-label';

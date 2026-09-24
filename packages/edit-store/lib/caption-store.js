@@ -7,6 +7,9 @@ exports.shiftCaptionLine = shiftCaptionLine;
 exports.setCaptionTimingLine = setCaptionTimingLine;
 exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
 exports.updateCaptionFieldsInSourceWithReport = updateCaptionFieldsInSourceWithReport;
+exports.updateCaptionRunsInSource = updateCaptionRunsInSource;
+exports.captionEmphasisRemovedNotice = captionEmphasisRemovedNotice;
+exports.captionEditNotices = captionEditNotices;
 exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
 exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
 exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
@@ -198,6 +201,7 @@ function updateCaptionFieldsInSourceWithReport(source, captionId, updates) {
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
     let removedRuns = [];
+    let removedEmphasis = [];
     let nextEmphasis;
     let oldEmphasis;
     if (updates.text !== undefined) {
@@ -217,6 +221,7 @@ function updateCaptionFieldsInSourceWithReport(source, captionId, updates) {
                     newText: applied.record.text,
                     ...(typeof parsed.src === 'string' ? { src: parsed.src } : {})
                 });
+                removedEmphasis = rebased.removed;
                 if (rebased.removed.length || rebased.emphasis.some((entry, index) => entry !== oldEmphasis[index]))
                     nextEmphasis = rebased.emphasis;
             }
@@ -274,7 +279,42 @@ function updateCaptionFieldsInSourceWithReport(source, captionId, updates) {
             nextInner += inner.slice(elements[elements.length - 1].end);
         updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
     }
-    return { source: updated, removedRuns };
+    return { source: updated, removedRuns, removedEmphasis };
+}
+/** Change only the target caption's runs property; retain unrelated source bytes. */
+function updateCaptionRunsInSource(source, captionId, edit) {
+    const array = locateCaptionArray(source);
+    const element = findCaptionElement(array.elements, captionId);
+    const caption = JSON.parse(element.text);
+    const display = caption.display_text ?? caption.text;
+    const runs = edit.kind === 'style'
+        ? (0, caption_runs_1.setCaptionRunStyle)(display, caption.runs, edit.from, edit.to, edit.style)
+        : edit.kind === 'role'
+            ? (0, caption_runs_1.setCaptionRunRole)(display, caption.runs, edit.from, edit.to, edit.role)
+            : edit.kind === 'remove' ? (0, caption_runs_1.removeCaptionRun)(caption.runs, edit.index)
+                : (() => {
+                    if (!Number.isInteger(edit.index) || edit.index < 0 || edit.index > (caption.runs?.length ?? 0)
+                        || !Number.isInteger(edit.run.from) || !Number.isInteger(edit.run.to)
+                        || edit.run.from < 0 || edit.run.to <= edit.run.from
+                        || edit.run.to > (0, caption_runs_1.captionGraphemes)(display).length) {
+                        throw new Error('戻す文字範囲が不正です。');
+                    }
+                    const restored = [...(caption.runs ?? [])];
+                    restored.splice(edit.index, 0, edit.run);
+                    return restored;
+                })();
+    return replaceElement(source, array.openIndex + 1, element, syncOptionalCaptionProperty(element.text, 'runs', runs.length ? runs : undefined, captionId));
+}
+function captionEmphasisRemovedNotice(removed) {
+    if (!removed.length)
+        return undefined;
+    const first = removed[0];
+    const word = typeof first.word === 'string' ? first.word.trim() : '';
+    return `強調 ${removed.length} 件${word ? `（「${(0, caption_runs_1.captionGraphemes)(word).slice(0, 16).join('')}」）` : ''}が外れました`;
+}
+function captionEditNotices(result, oldDisplayText) {
+    return [(0, caption_runs_1.captionRunsRemovedNotice)(result.removedRuns, oldDisplayText),
+        captionEmphasisRemovedNotice(result.removedEmphasis)].filter((notice) => !!notice);
 }
 function applyWordBookToCaptionsInSource(source, changes) {
     if (changes.length === 0) {
@@ -657,6 +697,8 @@ function normalizeCaption(value, onTextStyleUnknownKeys) {
         speaker: value.speaker,
         sourceRef,
         edited: value.edited,
+        ...(typeof value.display_text === 'string' ? { displayText: value.display_text } : {}),
+        ...(Array.isArray(value.runs) ? { runs: value.runs } : {}),
         ...(unrecognized !== undefined ? { unrecognized } : {}),
         ...(value.time_domain === 'source' || value.time_domain === 'output'
             ? { timeDomain: value.time_domain } : {}),

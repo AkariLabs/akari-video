@@ -4,6 +4,8 @@ import test from 'node:test';
 import ts from 'typescript';
 import { composeInspectorSections } from '../lib/browser/inspector/section-model.js';
 import { filterInspectorSoloSections } from '../lib/browser/inspector/solo-model.js';
+import { captionRunRows } from '../lib/browser/inspector/caption-run-rows.js';
+import { parseCaptions } from '@akari-video/edit-store';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
     captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch,
@@ -39,11 +41,11 @@ const code = ts.transpileModule(declarations.join('\n'), {
 const { captionSections, multiCaptionSections } = new Function(
     'composeInspectorSections', 'CAPTION_ZONES', 'CAPTION_BACKGROUND_ON_OPACITY',
     'captionEffectFromStyle', 'captionEffectPatch', 'captionEffectColorPatch',
-    'captionEffectStrength', 'captionEffectStrengthPatch',
+    'captionEffectStrength', 'captionEffectStrengthPatch', 'captionRunRows',
     `${code}\nreturn { captionSections: CAPTION_SECTIONS, multiCaptionSections: MULTI_CAPTION_SECTIONS };`
 )(composeInspectorSections, ['top', 'middle', 'bottom'], CAPTION_BACKGROUND_ON_OPACITY,
     captionEffectFromStyle, captionEffectPatch, captionEffectColorPatch,
-    captionEffectStrength, captionEffectStrengthPatch);
+    captionEffectStrength, captionEffectStrengthPatch, captionRunRows);
 
 const caption = (id, extra = {}) => ({
     kind: 'caption', id, text: '字幕', sourceStart: 0, sourceEnd: 2, ...extra
@@ -73,6 +75,37 @@ test('字幕の全種類と複数選択に同じ五枚のスタイルカード�
     assert.match(source, /\.akari-caption-effect-choices\s*\{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/u);
     assert.match(source, /case 'caption':\s+sections = CAPTION_SECTIONS/u);
     assert.match(source, /sections = MULTI_CAPTION_SECTIONS/u);
+});
+
+test('保存した runs が実際の文字カードに並び、選択と外すを接続する', async () => {
+    const parsed = parseCaptions(JSON.stringify({ captions: [{ id: 'c-0001', start: 0, end: 2,
+        text: 'これは最高です', display_text: 'これは最高です', speaker: null, sourceRef: null,
+        edited: true, runs: [{ from: 3, to: 5, role: 'emphasis', style: { color: '#f26666' } }] }] }));
+    const current = caption('c-0001', {
+        text: parsed.captions[0].text, displayText: parsed.captions[0].displayText,
+        runs: parsed.captions[0].runs
+    });
+    const writes = [];
+    const row = field(captionSections(current, async request => {
+        writes.push(request); return { ok: true };
+    }), 'caption-run-0');
+    assert.equal(row.actions[0].label, '4〜5文字目 「最高」 強調');
+    const originalWindow = globalThis.window;
+    const originalCustomEvent = globalThis.CustomEvent;
+    const events = [];
+    try {
+        globalThis.CustomEvent = class { constructor(type, options) { this.type = type; this.detail = options.detail; } };
+        globalThis.window = { dispatchEvent: event => events.push(event) };
+        await row.actions[0].action(current);
+    } finally {
+        globalThis.window = originalWindow;
+        globalThis.CustomEvent = originalCustomEvent;
+    }
+    assert.deepEqual(events.map(event => [event.type, event.detail]), [[
+        'akari.preview.selectCaptionRun', { captionId: 'c-0001', from: 3, to: 5 }
+    ]]);
+    await row.actions[1].action(current);
+    assert.deepEqual(writes, [{ kind: 'caption-run-remove', id: 'c-0001', index: 0 }]);
 });
 
 test('単体と複数選択の各項目を既存 requestWrite kind に送る', async () => {

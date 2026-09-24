@@ -844,6 +844,7 @@ type DragPreview =
 
 @injectable()
 export class AkariAnnotationsWidget extends BaseWidget {
+    protected lastCaptionRunNotice: string | undefined;
     protected readonly inspectorRequestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
         this.handleInspectorWrite(request);
     protected readonly inspectorRequestLivePreview = (request: LivePreviewRequest): void => {
@@ -3539,13 +3540,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const originalSpeaker = caption.speaker;
                     const nextText = request.kind === 'caption-text' ? request.value : undefined;
                     const nextSpeaker = request.kind === 'caption-speaker' ? request.value : undefined;
-                    await this.annotationsService.setCaptionFields({
+                    const result = await this.annotationsService.setCaptionFields({
                         captionsUri,
                         projectRootUri,
                         captionId: request.id,
                         text: nextText,
                         speaker: nextSpeaker
                     });
+                    for (const notice of result.notices ?? []) {
+                        if (this.lastCaptionRunNotice !== notice) void this.messages.info(notice, { timeout: 4000 });
+                        this.lastCaptionRunNotice = notice;
+                    }
                     this.pushHistory({
                         label: request.kind === 'caption-text' ? '字幕のテキストを変更' : '字幕の話者を変更',
                         undo: async () => {
@@ -3572,6 +3577,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadCaptions();
                     this.hideNotice();
                     this.footer.textContent = '字幕を更新しました。';
+                    return { ok: true };
+                }
+                case 'caption-run-remove': {
+                    const caption = this.captions.find(item => item.id === request.id);
+                    const run = caption?.runs?.[request.index];
+                    if (!run) return { ok: false, message: '文字範囲が見つかりません。' };
+                    const args = { captionsUri: location.captionsUri.toString(),
+                        projectRootUri: location.root.toString(), captionId: request.id };
+                    await this.annotationsService.setCaptionRun({ ...args,
+                        edit: { kind: 'remove', index: request.index } });
+                    this.pushHistory({ label: '字幕の文字範囲を外す',
+                        undo: async () => { await this.annotationsService.setCaptionRun({ ...args,
+                            edit: { kind: 'insert', index: request.index, run } }); await this.reloadCaptions(); },
+                        redo: async () => { await this.annotationsService.setCaptionRun({ ...args,
+                            edit: { kind: 'remove', index: request.index } }); await this.reloadCaptions(); }
+                    });
+                    await this.reloadCaptions();
                     return { ok: true };
                 }
                 case 'caption-style-my-style': {
@@ -5543,6 +5565,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const animatorOwner = this.captionAnimatorOwner(caption.id);
             return {
                 kind: 'caption', id: caption.id, text: caption.text,
+                ...(caption.displayText !== undefined ? { displayText: caption.displayText } : {}),
+                ...(caption.runs?.length ? { runs: caption.runs } : {}),
                 sourceStart: caption.start, sourceEnd: caption.end,
                 outputStart: ranges.length > 0 ? ranges[0][0] : undefined,
                 outputEnd: ranges.length > 0 ? ranges[ranges.length - 1][1] : undefined,

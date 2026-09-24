@@ -38,6 +38,17 @@ export interface ResolvedCaptionRunChar {
     animation?: CaptionRun['animation'];
 }
 export declare function captionGraphemes(text: string): string[];
+export type CaptionRunStyle = NonNullable<CaptionRun['style']>;
+export type CaptionRunStyleField = keyof CaptionRunStyle;
+/** The last matching run owns edits to a range, preserving the order of overlapping runs. */
+export declare function setCaptionRunStyle(text: string, runs: readonly CaptionRun[] | undefined, from: number, to: number, patch: CaptionRunStyle): CaptionRun[];
+export declare function setCaptionRunRole(text: string, runs: readonly CaptionRun[] | undefined, from: number, to: number, role: string): CaptionRun[];
+export declare function removeCaptionRun(runs: readonly CaptionRun[] | undefined, index: number): CaptionRun[];
+/** Map only the nine v0 fields from a saved look. */
+export declare function captionRunStyleFromLook(look: Record<string, unknown>, baseSizePx?: number): {
+    style: CaptionRunStyle;
+    omitted: string[];
+};
 export declare function resolveCaptionRuns(text: string, runs?: readonly CaptionRun[]): ResolvedCaptionRunChar[];
 /** Project a displayed substring, including one side of a manual line split. */
 export declare function sliceCaptionRuns(text: string, runs: readonly CaptionRun[] | undefined, start: number, end: number): CaptionRun[] | undefined;

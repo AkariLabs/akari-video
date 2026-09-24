@@ -67,6 +67,8 @@ export interface TimelineCaptionSelection {
     kind: 'caption';
     id: string;
     text: string;
+    displayText?: string;
+    runs?: import('@akari-video/edit-store').CaptionRun[];
     sourceStart: number;
     sourceEnd: number;
     /** 削除区間に完全に落ちて射影できない場合は undefined */
@@ -345,6 +347,7 @@ type InspectorWriteOperation =
     | { kind: 'layer-opacity'; id: string; value: number | null }
     | { kind: 'layer-blend'; id: string; value: string | null }
     | { kind: 'caption-text'; id: string; value: string }
+    | { kind: 'caption-run-remove'; id: string; index: number; value?: never }
     | { kind: 'caption-speaker'; id: string; value: string | null }
     | { kind: 'caption-style-color'; id: string; value: string }
     | { kind: 'caption-style-size'; id: string; value: number }
