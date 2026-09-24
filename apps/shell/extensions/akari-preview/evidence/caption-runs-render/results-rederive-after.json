@@ -1,0 +1,344 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "edits": [
+    {
+      "name": "1. run の前に 2 文字足す",
+      "typed": "ねえこれは最高のアイデアです",
+      "textBefore": "これは最高のアイデアです",
+      "textAfter": "ねえこれは最高のアイデアです",
+      "runsBefore": [
+        {
+          "from": 3,
+          "to": 5,
+          "role": "emphasis",
+          "style": {
+            "color": "#ff5a5f",
+            "font_weight": 900,
+            "scale": 1.3,
+            "baseline_shift_em": -0.1,
+            "rotate_deg": 8
+          }
+        },
+        {
+          "from": 6,
+          "to": 10,
+          "role": "keyword",
+          "style": {
+            "letter_spacing_em": 0.05
+          }
+        }
+      ],
+      "runsAfter": [
+        {
+          "from": 5,
+          "to": 7,
+          "role": "emphasis",
+          "style": {
+            "color": "#ff5a5f",
+            "font_weight": 900,
+            "scale": 1.3,
+            "baseline_shift_em": -0.1,
+            "rotate_deg": 8
+          }
+        },
+        {
+          "from": 8,
+          "to": 12,
+          "role": "keyword",
+          "style": {
+            "letter_spacing_em": 0.05
+          }
+        }
+      ],
+      "runTextsAfter": [
+        "最高",
+        "アイデア"
+      ],
+      "noticesBefore": [
+        "新しい版があります — v0.1.82×新しい版をダウンロードできます。 変更点後でダウンロード"
+      ],
+      "notices": [
+        "新しい版があります — v0.1.82×新しい版をダウンロードできます。 変更点後でダウンロード"
+      ],
+      "newNotices": [],
+      "preview": {
+        "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}ねえこれは最高のアイデアです",
+        "runs": [
+          {
+            "text": "最",
+            "role": "emphasis",
+            "color": "rgb(255, 90, 95)"
+          },
+          {
+            "text": "高",
+            "role": "emphasis",
+            "color": "rgb(255, 90, 95)"
+          },
+          {
+            "text": "ア",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "イ",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "デ",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "ア",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "name": "2. run の中の 1 文字を直す（最高 → 最強）",
+      "typed": "ねえこれは最強のアイデアです",
+      "textBefore": "ねえこれは最高のアイデアです",
+      "textAfter": "ねえこれは最強のアイデアです",
+      "runsBefore": [
+        {
+          "from": 5,
+          "to": 7,
+          "role": "emphasis",
+          "style": {
+            "color": "#ff5a5f",
+            "font_weight": 900,
+            "scale": 1.3,
+            "baseline_shift_em": -0.1,
+            "rotate_deg": 8
+          }
+        },
+        {
+          "from": 8,
+          "to": 12,
+          "role": "keyword",
+          "style": {
+            "letter_spacing_em": 0.05
+          }
+        }
+      ],
+      "runsAfter": [
+        {
+          "from": 5,
+          "to": 7,
+          "role": "emphasis",
+          "style": {
+            "color": "#ff5a5f",
+            "font_weight": 900,
+            "scale": 1.3,
+            "baseline_shift_em": -0.1,
+            "rotate_deg": 8
+          }
+        },
+        {
+          "from": 8,
+          "to": 12,
+          "role": "keyword",
+          "style": {
+            "letter_spacing_em": 0.05
+          }
+        }
+      ],
+      "runTextsAfter": [
+        "最強",
+        "アイデア"
+      ],
+      "noticesBefore": [
+        "新しい版があります — v0.1.82×新しい版をダウンロードできます。 変更点後でダウンロード"
+      ],
+      "notices": [
+        "新しい版があります — v0.1.82×新しい版をダウンロードできます。 変更点後でダウンロード"
+      ],
+      "newNotices": [],
+      "preview": {
+        "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}ねえこれは最強のアイデアです",
+        "runs": [
+          {
+            "text": "最",
+            "role": "emphasis",
+            "color": "rgb(255, 90, 95)"
+          },
+          {
+            "text": "強",
+            "role": "emphasis",
+            "color": "rgb(255, 90, 95)"
+          },
+          {
+            "text": "ア",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "イ",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "デ",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "ア",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      "pass": true
+    },
+    {
+      "name": "3. run の語を消す（最強）",
+      "typed": "ねえこれはのアイデアです",
+      "textBefore": "ねえこれは最強のアイデアです",
+      "textAfter": "ねえこれはのアイデアです",
+      "runsBefore": [
+        {
+          "from": 5,
+          "to": 7,
+          "role": "emphasis",
+          "style": {
+            "color": "#ff5a5f",
+            "font_weight": 900,
+            "scale": 1.3,
+            "baseline_shift_em": -0.1,
+            "rotate_deg": 8
+          }
+        },
+        {
+          "from": 8,
+          "to": 12,
+          "role": "keyword",
+          "style": {
+            "letter_spacing_em": 0.05
+          }
+        }
+      ],
+      "runsAfter": [
+        {
+          "from": 6,
+          "to": 10,
+          "role": "keyword",
+          "style": {
+            "letter_spacing_em": 0.05
+          }
+        }
+      ],
+      "runTextsAfter": [
+        "アイデア"
+      ],
+      "noticesBefore": [
+        "新しい版があります — v0.1.82×新しい版をダウンロードできます。 変更点後でダウンロード"
+      ],
+      "notices": [
+        "新しい版があります — v0.1.82×新しい版をダウンロードできます。 変更点後でダウンロード"
+      ],
+      "newNotices": [],
+      "preview": {
+        "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}ねえこれはのアイデアです",
+        "runs": [
+          {
+            "text": "ア",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "イ",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "デ",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          },
+          {
+            "text": "ア",
+            "role": "keyword",
+            "color": "rgb(255, 255, 255)"
+          }
+        ]
+      },
+      "pass": true
+    }
+  ],
+  "screenshots": [
+    "after-rederive-1.png",
+    "after-rederive-2.png",
+    "after-rederive-3.png"
+  ],
+  "checks": [],
+  "initial": {
+    "text": "これは最高のアイデアです",
+    "runs": [
+      {
+        "from": 3,
+        "to": 5,
+        "role": "emphasis",
+        "style": {
+          "color": "#ff5a5f",
+          "font_weight": 900,
+          "scale": 1.3,
+          "baseline_shift_em": -0.1,
+          "rotate_deg": 8
+        }
+      },
+      {
+        "from": 6,
+        "to": 10,
+        "role": "keyword",
+        "style": {
+          "letter_spacing_em": 0.05
+        }
+      }
+    ],
+    "runTexts": [
+      "最高",
+      "アイデア"
+    ],
+    "preview": {
+      "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}これは最高のアイデアです",
+      "runs": [
+        {
+          "text": "最",
+          "role": "emphasis",
+          "color": "rgb(255, 90, 95)"
+        },
+        {
+          "text": "高",
+          "role": "emphasis",
+          "color": "rgb(255, 90, 95)"
+        },
+        {
+          "text": "ア",
+          "role": "keyword",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "text": "イ",
+          "role": "keyword",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "text": "デ",
+          "role": "keyword",
+          "color": "rgb(255, 255, 255)"
+        },
+        {
+          "text": "ア",
+          "role": "keyword",
+          "color": "rgb(255, 255, 255)"
+        }
+      ]
+    }
+  }
+}

@@ -34,6 +34,7 @@ import { WEBVIEW_CONTEXT_MENU, WebviewWidget } from '@theia/plugin-ext/lib/main/
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
+    applyCaptionRunsToHtml,
     collectExcludedCaptionIds,
     computeDuckEnvelope,
     evaluateEnvelopeDb,
@@ -10906,6 +10907,7 @@ body { display: grid; place-items: center; padding: 32px; }
         return `(() => {
             const initial = window.__akariPreview;
             const captionRowWrapRectFn = (${captionRowWrapRect.toString()});
+            const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});
             const isAudioItemAudibleFn = (${isAudioItemAudible.toString()});
             // Match edit-store's cut rule here: toString() cannot preserve mangled helper references.
             const isCutAudioAudibleFn = (cut, track) => cut.audio !== false && isAudioItemAudibleFn(track, cut);
@@ -14740,8 +14742,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         const usesWords = hasWords && (candidate.style === 'karaoke'
                             || candidate.style === 'pop' || candidate.style === 'reveal-word'
                             || hasEmphasis || reveal);
-                        measuringPlate.innerHTML = usesWords
+                        const measuredHtml = usesWords
                             ? renderStyledCaptionFragment(candidate) : renderPlainCaptionFragment(candidate);
+                        measuringPlate.innerHTML = candidate.runs?.length
+                            ? renderCaptionRuns(measuredHtml, candidate.text, candidate.runs) : measuredHtml;
                         captionLayer.appendChild(measuringPlate);
                         startRects.set(id, captionVisualRect(measuringPlate));
                         startLayoutRects.set(id, captionLayoutRect(measuringPlate));
@@ -16128,9 +16132,11 @@ body { display: grid; place-items: center; padding: 32px; }
                             && ((caption.style === 'karaoke' || caption.style === 'pop')
                                 || caption.style === 'reveal-word'
                                 || hasEmphasis || wantsCaptionReveal);
-                        captionPlate.innerHTML = usesWords
+                        const captionHtml = usesWords
                             ? renderStyledCaptionFragment(caption)
                             : renderPlainCaptionFragment(caption);
+                        captionPlate.innerHTML = caption.runs?.length
+                            ? renderCaptionRuns(captionHtml, caption.text, caption.runs) : captionHtml;
                     } else {
                         captionPlate.innerHTML = '';
                     }

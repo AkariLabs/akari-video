@@ -1,0 +1,33 @@
+{
+  "phase": "after",
+  "engine": "osr",
+  "status": "done",
+  "renderSeconds": 29,
+  "selectedEngine": "osr",
+  "rasterizer": {
+    "planned": "osr",
+    "adopted": "osr",
+    "attempts": [
+      {
+        "method": "osr",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "warnings": [],
+  "frames": [
+    {
+      "id": "c-0007",
+      "name": "c-0007-t1",
+      "t": 12.5,
+      "screenshot": "after-export-osr-c-0007-t1.png"
+    },
+    {
+      "id": "c-0007",
+      "name": "c-0007-t2",
+      "t": 13,
+      "screenshot": "after-export-osr-c-0007-t2.png"
+    }
+  ]
+}

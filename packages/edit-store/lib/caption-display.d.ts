@@ -1,3 +1,4 @@
+import { type CaptionRun } from './caption-runs';
 /**
  * Caption display policy v1.  This is the single pure implementation used by
  * render-cut, preview-server, and the shell backend.  It deliberately performs
@@ -43,6 +44,7 @@ export interface CaptionDisplayCue {
     layout?: ResolvedCaptionLayout;
     words?: CaptionDisplayWord[];
     word_styles?: CaptionDisplayWordStyle[];
+    runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
 }
 export interface CaptionDisplayOverflow {

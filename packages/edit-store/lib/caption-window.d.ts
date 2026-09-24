@@ -23,6 +23,10 @@ export interface CaptionFragmentLike extends CaptionWindowLike {
     text?: unknown;
     display_text?: unknown;
     display_fragments?: unknown;
+    runs?: unknown;
+    runSourceText?: unknown;
+    runTextStart?: unknown;
+    runTextEnd?: unknown;
 }
 export interface CaptionFragmentWindow {
     text: string;

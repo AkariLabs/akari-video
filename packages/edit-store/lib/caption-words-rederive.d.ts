@@ -1,4 +1,5 @@
 export declare const KARAOKE_MIN_WORD_MATCH_RATIO = 0.5;
+import { type CaptionRun } from './caption-runs';
 export interface CaptionWordTiming {
     start: number;
     end: number;
@@ -26,6 +27,7 @@ export interface CaptionTextEditRecord {
     words?: readonly CaptionWordTiming[];
     display_text?: string;
     display_fragments?: readonly string[];
+    runs?: readonly CaptionRun[];
     edited?: boolean;
     [key: string]: unknown;
 }
@@ -51,4 +53,5 @@ export declare function rebaseCaptionEmphasis<T extends CaptionEmphasis>(input: 
 export declare function applyCaptionTextEdit<T extends CaptionTextEditRecord>(record: T, newText: string): {
     record: T;
     rederive?: RederiveResult;
+    removedRuns?: CaptionRun[];
 };

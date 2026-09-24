@@ -1,0 +1,2411 @@
+{
+  "phase": "after",
+  "method": "preview = webview 領域（倍率 2）から映像枠を色で切り出し / export = 1280×720 のフレーム。分類ごとの画素の重心（フレーム比）",
+  "captures": [
+    {
+      "name": "c-0001",
+      "id": "c-0001",
+      "t": 1,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.00403,
+          "cx": 0.5074,
+          "cy": 0.8891,
+          "bbox": {
+            "left": 0.3234,
+            "right": 0.6786,
+            "top": 0.8647,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.5074,
+              "cy": 0.8891,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixelShare": 0.002738,
+          "cx": 0.4362,
+          "cy": 0.8864,
+          "bbox": {
+            "left": 0.4033,
+            "right": 0.4703,
+            "top": 0.8525,
+            "bottom": 0.9205
+          },
+          "bands": [
+            {
+              "cx": 0.4362,
+              "cy": 0.8864,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0001.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.004271,
+          "cx": 0.5081,
+          "cy": 0.8895,
+          "bbox": {
+            "left": 0.3238,
+            "right": 0.6785,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5081,
+              "cy": 0.8895,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixelShare": 0.00281,
+          "cx": 0.4362,
+          "cy": 0.8863,
+          "bbox": {
+            "left": 0.4035,
+            "right": 0.4707,
+            "top": 0.8535,
+            "bottom": 0.9188
+          },
+          "bands": [
+            {
+              "cx": 0.4362,
+              "cy": 0.8863,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.0007,
+          "dcy": 0.0004,
+          "bands": [
+            {
+              "dcx": 0.0007,
+              "dcy": 0.0004
+            }
+          ]
+        },
+        "red": {
+          "dcx": 0,
+          "dcy": -0.0001,
+          "bands": [
+            {
+              "dcx": 0,
+              "dcy": -0.0001
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.004169,
+          "cx": 0.5067,
+          "cy": 0.89,
+          "bbox": {
+            "left": 0.3238,
+            "right": 0.6785,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5067,
+              "cy": 0.89,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixelShare": 0.002832,
+          "cx": 0.4362,
+          "cy": 0.8866,
+          "bbox": {
+            "left": 0.4035,
+            "right": 0.4707,
+            "top": 0.8535,
+            "bottom": 0.9201
+          },
+          "bands": [
+            {
+              "cx": 0.4362,
+              "cy": 0.8866,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": -0.0007,
+          "dcy": 0.0009,
+          "bands": [
+            {
+              "dcx": -0.0007,
+              "dcy": 0.0009
+            }
+          ]
+        },
+        "red": {
+          "dcx": 0,
+          "dcy": 0.0002,
+          "bands": [
+            {
+              "dcx": 0,
+              "dcy": 0.0002
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0002-f1",
+      "id": "c-0002",
+      "t": 2.3,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.001602,
+          "cx": 0.4562,
+          "cy": 0.8899,
+          "bbox": {
+            "left": 0.4122,
+            "right": 0.4969,
+            "top": 0.8659,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.4562,
+              "cy": 0.8899,
+              "share": 1
+            }
+          ]
+        },
+        "sky": {
+          "pixelShare": 0.002545,
+          "cx": 0.5433,
+          "cy": 0.8912,
+          "bbox": {
+            "left": 0.4983,
+            "right": 0.5905,
+            "top": 0.8623,
+            "bottom": 0.9205
+          },
+          "bands": [
+            {
+              "cx": 0.5433,
+              "cy": 0.8912,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0002-f1.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.001655,
+          "cx": 0.4567,
+          "cy": 0.8902,
+          "bbox": {
+            "left": 0.4121,
+            "right": 0.4973,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4567,
+              "cy": 0.8902,
+              "share": 1
+            }
+          ]
+        },
+        "sky": {
+          "pixelShare": 0.002529,
+          "cx": 0.5437,
+          "cy": 0.8909,
+          "bbox": {
+            "left": 0.4988,
+            "right": 0.5902,
+            "top": 0.8618,
+            "bottom": 0.9201
+          },
+          "bands": [
+            {
+              "cx": 0.5437,
+              "cy": 0.8909,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.0005,
+          "dcy": 0.0003,
+          "bands": [
+            {
+              "dcx": 0.0005,
+              "dcy": 0.0003
+            }
+          ]
+        },
+        "sky": {
+          "dcx": 0.0004,
+          "dcy": -0.0003,
+          "bands": [
+            {
+              "dcx": 0.0004,
+              "dcy": -0.0003
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.001635,
+          "cx": 0.4565,
+          "cy": 0.8904,
+          "bbox": {
+            "left": 0.4121,
+            "right": 0.4973,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4565,
+              "cy": 0.8904,
+              "share": 1
+            }
+          ]
+        },
+        "sky": {
+          "pixelShare": 0.002479,
+          "cx": 0.5438,
+          "cy": 0.8912,
+          "bbox": {
+            "left": 0.4988,
+            "right": 0.5902,
+            "top": 0.8618,
+            "bottom": 0.9201
+          },
+          "bands": [
+            {
+              "cx": 0.5438,
+              "cy": 0.8912,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0003,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": 0.0003,
+              "dcy": 0.0005
+            }
+          ]
+        },
+        "sky": {
+          "dcx": 0.0005,
+          "dcy": 0,
+          "bands": [
+            {
+              "dcx": 0.0005,
+              "dcy": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0002",
+      "id": "c-0002",
+      "t": 3,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.002969,
+          "cx": 0.5244,
+          "cy": 0.8896,
+          "bbox": {
+            "left": 0.443,
+            "right": 0.6165,
+            "top": 0.8671,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.5244,
+              "cy": 0.8896,
+              "share": 1
+            }
+          ]
+        },
+        "sky": {
+          "pixelShare": 0.001718,
+          "cx": 0.4074,
+          "cy": 0.8909,
+          "bbox": {
+            "left": 0.3808,
+            "right": 0.4423,
+            "top": 0.8623,
+            "bottom": 0.9205
+          },
+          "bands": [
+            {
+              "cx": 0.4074,
+              "cy": 0.8909,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0002.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.003196,
+          "cx": 0.5246,
+          "cy": 0.8903,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.6168,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5246,
+              "cy": 0.8903,
+              "share": 1
+            }
+          ]
+        },
+        "sky": {
+          "pixelShare": 0.001747,
+          "cx": 0.4074,
+          "cy": 0.8907,
+          "bbox": {
+            "left": 0.3809,
+            "right": 0.4426,
+            "top": 0.8618,
+            "bottom": 0.9201
+          },
+          "bands": [
+            {
+              "cx": 0.4074,
+              "cy": 0.8907,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.0002,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": 0.0002,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "sky": {
+          "dcx": 0,
+          "dcy": -0.0002,
+          "bands": [
+            {
+              "dcx": 0,
+              "dcy": -0.0002
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.003179,
+          "cx": 0.5247,
+          "cy": 0.8899,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.6168,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5247,
+              "cy": 0.8899,
+              "share": 1
+            }
+          ]
+        },
+        "sky": {
+          "pixelShare": 0.001727,
+          "cx": 0.4076,
+          "cy": 0.8908,
+          "bbox": {
+            "left": 0.3809,
+            "right": 0.4426,
+            "top": 0.8618,
+            "bottom": 0.9201
+          },
+          "bands": [
+            {
+              "cx": 0.4076,
+              "cy": 0.8908,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0003,
+          "dcy": 0.0003,
+          "bands": [
+            {
+              "dcx": 0.0003,
+              "dcy": 0.0003
+            }
+          ]
+        },
+        "sky": {
+          "dcx": 0.0002,
+          "dcy": -0.0001,
+          "bands": [
+            {
+              "dcx": 0.0002,
+              "dcy": -0.0001
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0003",
+      "id": "c-0003",
+      "t": 5,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.004136,
+          "cx": 0.4918,
+          "cy": 0.8905,
+          "bbox": {
+            "left": 0.3528,
+            "right": 0.6458,
+            "top": 0.8659,
+            "bottom": 0.9169
+          },
+          "bands": [
+            {
+              "cx": 0.4918,
+              "cy": 0.8905,
+              "share": 1
+            }
+          ]
+        },
+        "cyan": {
+          "pixelShare": 0.000509,
+          "cx": 0.5741,
+          "cy": 0.8893,
+          "bbox": {
+            "left": 0.5611,
+            "right": 0.5878,
+            "top": 0.8659,
+            "bottom": 0.912
+          },
+          "bands": [
+            {
+              "cx": 0.5741,
+              "cy": 0.8893,
+              "share": 1
+            }
+          ]
+        },
+        "emoji": {
+          "pixelShare": 0.001633,
+          "cx": 0.4453,
+          "cy": 0.8968,
+          "bbox": {
+            "left": 0.4136,
+            "right": 0.4723,
+            "top": 0.8586,
+            "bottom": 0.9229
+          },
+          "bands": [
+            {
+              "cx": 0.4453,
+              "cy": 0.8968,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0003.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.004366,
+          "cx": 0.4921,
+          "cy": 0.8911,
+          "bbox": {
+            "left": 0.3527,
+            "right": 0.6457,
+            "top": 0.866,
+            "bottom": 0.9174
+          },
+          "bands": [
+            {
+              "cx": 0.4921,
+              "cy": 0.8911,
+              "share": 1
+            }
+          ]
+        },
+        "cyan": {
+          "pixelShare": 0.000462,
+          "cx": 0.574,
+          "cy": 0.8902,
+          "bbox": {
+            "left": 0.5613,
+            "right": 0.5871,
+            "top": 0.8674,
+            "bottom": 0.9118
+          },
+          "bands": [
+            {
+              "cx": 0.574,
+              "cy": 0.8902,
+              "share": 1
+            }
+          ]
+        },
+        "emoji": {
+          "pixelShare": 0.001696,
+          "cx": 0.4447,
+          "cy": 0.8996,
+          "bbox": {
+            "left": 0.4129,
+            "right": 0.4699,
+            "top": 0.8618,
+            "bottom": 0.9243
+          },
+          "bands": [
+            {
+              "cx": 0.4447,
+              "cy": 0.8996,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.0003,
+          "dcy": 0.0006,
+          "bands": [
+            {
+              "dcx": 0.0003,
+              "dcy": 0.0006
+            }
+          ]
+        },
+        "cyan": {
+          "dcx": -0.0001,
+          "dcy": 0.0009,
+          "bands": [
+            {
+              "dcx": -0.0001,
+              "dcy": 0.0009
+            }
+          ]
+        },
+        "emoji": {
+          "dcx": -0.0006,
+          "dcy": 0.0028,
+          "bands": [
+            {
+              "dcx": -0.0006,
+              "dcy": 0.0028
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.004295,
+          "cx": 0.4927,
+          "cy": 0.8912,
+          "bbox": {
+            "left": 0.3527,
+            "right": 0.6457,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4927,
+              "cy": 0.8912,
+              "share": 1
+            }
+          ]
+        },
+        "cyan": {
+          "pixelShare": 0.000462,
+          "cx": 0.574,
+          "cy": 0.8903,
+          "bbox": {
+            "left": 0.5613,
+            "right": 0.5871,
+            "top": 0.8674,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.574,
+              "cy": 0.8903,
+              "share": 1
+            }
+          ]
+        },
+        "emoji": {
+          "pixelShare": 0.001798,
+          "cx": 0.4453,
+          "cy": 0.8992,
+          "bbox": {
+            "left": 0.4129,
+            "right": 0.4715,
+            "top": 0.8618,
+            "bottom": 0.9243
+          },
+          "bands": [
+            {
+              "cx": 0.4453,
+              "cy": 0.8992,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0009,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": 0.0009,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "cyan": {
+          "dcx": -0.0001,
+          "dcy": 0.001,
+          "bands": [
+            {
+              "dcx": -0.0001,
+              "dcy": 0.001
+            }
+          ]
+        },
+        "emoji": {
+          "dcx": 0,
+          "dcy": 0.0024,
+          "bands": [
+            {
+              "dcx": 0,
+              "dcy": 0.0024
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0004-t1",
+      "id": "c-0004",
+      "t": 6.6,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.00302,
+          "cx": 0.5036,
+          "cy": 0.8909,
+          "bbox": {
+            "left": 0.3562,
+            "right": 0.6445,
+            "top": 0.8647,
+            "bottom": 0.912
+          },
+          "bands": [
+            {
+              "cx": 0.5036,
+              "cy": 0.8909,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000981,
+          "cx": 0.4794,
+          "cy": 0.8903,
+          "bbox": {
+            "left": 0.4423,
+            "right": 0.499,
+            "top": 0.8671,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.4794,
+              "cy": 0.8903,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0004-t1.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.003239,
+          "cx": 0.503,
+          "cy": 0.8914,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6441,
+            "top": 0.866,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.503,
+              "cy": 0.8914,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000975,
+          "cx": 0.4794,
+          "cy": 0.891,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.498,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4794,
+              "cy": 0.891,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": -0.0006,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": -0.0006,
+              "dcy": 0.0005
+            }
+          ]
+        },
+        "purple": {
+          "dcx": 0,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": 0,
+              "dcy": 0.0007
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.003169,
+          "cx": 0.5032,
+          "cy": 0.8916,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6441,
+            "top": 0.866,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.5032,
+              "cy": 0.8916,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000944,
+          "cx": 0.4799,
+          "cy": 0.8914,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.498,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4799,
+              "cy": 0.8914,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": -0.0004,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": -0.0004,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "purple": {
+          "dcx": 0.0005,
+          "dcy": 0.0011,
+          "bands": [
+            {
+              "dcx": 0.0005,
+              "dcy": 0.0011
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0004-t2",
+      "id": "c-0004",
+      "t": 7,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.00302,
+          "cx": 0.5036,
+          "cy": 0.8909,
+          "bbox": {
+            "left": 0.3562,
+            "right": 0.6445,
+            "top": 0.8647,
+            "bottom": 0.912
+          },
+          "bands": [
+            {
+              "cx": 0.5036,
+              "cy": 0.8909,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000981,
+          "cx": 0.4794,
+          "cy": 0.8903,
+          "bbox": {
+            "left": 0.4423,
+            "right": 0.499,
+            "top": 0.8671,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.4794,
+              "cy": 0.8903,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0004-t2.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.003239,
+          "cx": 0.503,
+          "cy": 0.8914,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6441,
+            "top": 0.866,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.503,
+              "cy": 0.8914,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000975,
+          "cx": 0.4794,
+          "cy": 0.891,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.498,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4794,
+              "cy": 0.891,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": -0.0006,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": -0.0006,
+              "dcy": 0.0005
+            }
+          ]
+        },
+        "purple": {
+          "dcx": 0,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": 0,
+              "dcy": 0.0007
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.003169,
+          "cx": 0.5032,
+          "cy": 0.8916,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6441,
+            "top": 0.866,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.5032,
+              "cy": 0.8916,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000944,
+          "cx": 0.4799,
+          "cy": 0.8914,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.498,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4799,
+              "cy": 0.8914,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": -0.0004,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": -0.0004,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "purple": {
+          "dcx": 0.0005,
+          "dcy": 0.0011,
+          "bands": [
+            {
+              "dcx": 0.0005,
+              "dcy": 0.0011
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0004-t3",
+      "id": "c-0004",
+      "t": 7.3,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.00302,
+          "cx": 0.5036,
+          "cy": 0.8909,
+          "bbox": {
+            "left": 0.3562,
+            "right": 0.6445,
+            "top": 0.8647,
+            "bottom": 0.912
+          },
+          "bands": [
+            {
+              "cx": 0.5036,
+              "cy": 0.8909,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000981,
+          "cx": 0.4794,
+          "cy": 0.8903,
+          "bbox": {
+            "left": 0.4423,
+            "right": 0.499,
+            "top": 0.8671,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.4794,
+              "cy": 0.8903,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0004-t3.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.003239,
+          "cx": 0.503,
+          "cy": 0.8914,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6441,
+            "top": 0.866,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.503,
+              "cy": 0.8914,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000975,
+          "cx": 0.4794,
+          "cy": 0.891,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.498,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4794,
+              "cy": 0.891,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": -0.0006,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": -0.0006,
+              "dcy": 0.0005
+            }
+          ]
+        },
+        "purple": {
+          "dcx": 0,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": 0,
+              "dcy": 0.0007
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.003169,
+          "cx": 0.5032,
+          "cy": 0.8916,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6441,
+            "top": 0.866,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.5032,
+              "cy": 0.8916,
+              "share": 1
+            }
+          ]
+        },
+        "purple": {
+          "pixelShare": 0.000944,
+          "cx": 0.4799,
+          "cy": 0.8914,
+          "bbox": {
+            "left": 0.4426,
+            "right": 0.498,
+            "top": 0.8674,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.4799,
+              "cy": 0.8914,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": -0.0004,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": -0.0004,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "purple": {
+          "dcx": 0.0005,
+          "dcy": 0.0011,
+          "bands": [
+            {
+              "dcx": 0.0005,
+              "dcy": 0.0011
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0005-bang-early",
+      "id": "c-0005",
+      "t": 8.58,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.004739,
+          "cx": 0.5061,
+          "cy": 0.8903,
+          "bbox": {
+            "left": 0.3562,
+            "right": 0.6465,
+            "top": 0.8647,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.5061,
+              "cy": 0.8903,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixels": 0
+        }
+      },
+      "previewScreenshot": "after-preview-c-0005-bang-early.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.00492,
+          "cx": 0.5065,
+          "cy": 0.891,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6465,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5065,
+              "cy": 0.891,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixels": 0
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.0004,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": 0.0004,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "red": null
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.004847,
+          "cx": 0.5065,
+          "cy": 0.8912,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6465,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5065,
+              "cy": 0.8912,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixels": 0
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0004,
+          "dcy": 0.0009,
+          "bands": [
+            {
+              "dcx": 0.0004,
+              "dcy": 0.0009
+            }
+          ]
+        },
+        "red": null
+      }
+    },
+    {
+      "name": "c-0005",
+      "id": "c-0005",
+      "t": 9,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.004812,
+          "cx": 0.5057,
+          "cy": 0.8904,
+          "bbox": {
+            "left": 0.3562,
+            "right": 0.6465,
+            "top": 0.8647,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.5057,
+              "cy": 0.8904,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixels": 0
+        }
+      },
+      "previewScreenshot": "after-preview-c-0005.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.004911,
+          "cx": 0.5067,
+          "cy": 0.8911,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6465,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5067,
+              "cy": 0.8911,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixels": 0
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.001,
+          "dcy": 0.0007,
+          "bands": [
+            {
+              "dcx": 0.001,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "red": null
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.004897,
+          "cx": 0.5061,
+          "cy": 0.8912,
+          "bbox": {
+            "left": 0.3566,
+            "right": 0.6465,
+            "top": 0.866,
+            "bottom": 0.916
+          },
+          "bands": [
+            {
+              "cx": 0.5061,
+              "cy": 0.8912,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixels": 0
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0004,
+          "dcy": 0.0008,
+          "bands": [
+            {
+              "dcx": 0.0004,
+              "dcy": 0.0008
+            }
+          ]
+        },
+        "red": null
+      }
+    },
+    {
+      "name": "c-0006",
+      "id": "c-0006",
+      "t": 11,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.004836,
+          "cx": 0.4989,
+          "cy": 0.8914,
+          "bbox": {
+            "left": 0.3412,
+            "right": 0.6609,
+            "top": 0.8659,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.4989,
+              "cy": 0.8914,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixels": 0
+        }
+      },
+      "previewScreenshot": "after-preview-c-0006.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.006429,
+          "cx": 0.5006,
+          "cy": 0.8804,
+          "bbox": {
+            "left": 0.2996,
+            "right": 0.7035,
+            "top": 0.7993,
+            "bottom": 0.9257
+          },
+          "bands": [
+            {
+              "cx": 0.5006,
+              "cy": 0.8804,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixelShare": 0.007313,
+          "cx": 0.4631,
+          "cy": 0.8619,
+          "bbox": {
+            "left": 0.3863,
+            "right": 0.5246,
+            "top": 0.8021,
+            "bottom": 0.9215
+          },
+          "bands": [
+            {
+              "cx": 0.4631,
+              "cy": 0.8619,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.0017,
+          "dcy": -0.011,
+          "bands": [
+            {
+              "dcx": 0.0017,
+              "dcy": -0.011
+            }
+          ]
+        },
+        "red": null
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.006323,
+          "cx": 0.5006,
+          "cy": 0.8805,
+          "bbox": {
+            "left": 0.2996,
+            "right": 0.7035,
+            "top": 0.7993,
+            "bottom": 0.9257
+          },
+          "bands": [
+            {
+              "cx": 0.5006,
+              "cy": 0.8805,
+              "share": 1
+            }
+          ]
+        },
+        "red": {
+          "pixelShare": 0.007405,
+          "cx": 0.4635,
+          "cy": 0.862,
+          "bbox": {
+            "left": 0.3863,
+            "right": 0.5246,
+            "top": 0.8021,
+            "bottom": 0.9215
+          },
+          "bands": [
+            {
+              "cx": 0.4635,
+              "cy": 0.862,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0017,
+          "dcy": -0.0109,
+          "bands": [
+            {
+              "dcx": 0.0017,
+              "dcy": -0.0109
+            }
+          ]
+        },
+        "red": null
+      }
+    },
+    {
+      "name": "c-0007-t1",
+      "id": "c-0007",
+      "t": 12.5,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.004544,
+          "cx": 0.5153,
+          "cy": 0.8811,
+          "bbox": {
+            "left": 0.3678,
+            "right": 0.6322,
+            "top": 0.8525,
+            "bottom": 0.912
+          },
+          "bands": [
+            {
+              "cx": 0.5153,
+              "cy": 0.8811,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0007-t1.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.004551,
+          "cx": 0.5143,
+          "cy": 0.8815,
+          "bbox": {
+            "left": 0.3676,
+            "right": 0.6324,
+            "top": 0.8521,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.5143,
+              "cy": 0.8815,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": -0.001,
+          "dcy": 0.0004,
+          "bands": [
+            {
+              "dcx": -0.001,
+              "dcy": 0.0004
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.004606,
+          "cx": 0.514,
+          "cy": 0.8816,
+          "bbox": {
+            "left": 0.3676,
+            "right": 0.6324,
+            "top": 0.8535,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.514,
+              "cy": 0.8816,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": -0.0013,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": -0.0013,
+              "dcy": 0.0005
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0007-t2",
+      "id": "c-0007",
+      "t": 13,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.004544,
+          "cx": 0.5153,
+          "cy": 0.8811,
+          "bbox": {
+            "left": 0.3678,
+            "right": 0.6322,
+            "top": 0.8525,
+            "bottom": 0.912
+          },
+          "bands": [
+            {
+              "cx": 0.5153,
+              "cy": 0.8811,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0007-t2.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.004551,
+          "cx": 0.5143,
+          "cy": 0.8815,
+          "bbox": {
+            "left": 0.3676,
+            "right": 0.6324,
+            "top": 0.8521,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.5143,
+              "cy": 0.8815,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": -0.001,
+          "dcy": 0.0004,
+          "bands": [
+            {
+              "dcx": -0.001,
+              "dcy": 0.0004
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.004606,
+          "cx": 0.514,
+          "cy": 0.8816,
+          "bbox": {
+            "left": 0.3676,
+            "right": 0.6324,
+            "top": 0.8535,
+            "bottom": 0.9132
+          },
+          "bands": [
+            {
+              "cx": 0.514,
+              "cy": 0.8816,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": -0.0013,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": -0.0013,
+              "dcy": 0.0005
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0008",
+      "id": "c-0008",
+      "t": 15,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.003841,
+          "cx": 0.5079,
+          "cy": 0.8896,
+          "bbox": {
+            "left": 0.3822,
+            "right": 0.6165,
+            "top": 0.8659,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.5079,
+              "cy": 0.8896,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0008.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.004093,
+          "cx": 0.5083,
+          "cy": 0.8901,
+          "bbox": {
+            "left": 0.3824,
+            "right": 0.6168,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5083,
+              "cy": 0.8901,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.0004,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": 0.0004,
+              "dcy": 0.0005
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.004128,
+          "cx": 0.5084,
+          "cy": 0.8901,
+          "bbox": {
+            "left": 0.3824,
+            "right": 0.6168,
+            "top": 0.866,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.5084,
+              "cy": 0.8901,
+              "share": 1
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0005,
+          "dcy": 0.0005,
+          "bands": [
+            {
+              "dcx": 0.0005,
+              "dcy": 0.0005
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0009",
+      "id": "c-0009",
+      "t": 17,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.014777,
+          "cx": 0.5055,
+          "cy": 0.793,
+          "bbox": {
+            "left": 0.2059,
+            "right": 0.779,
+            "top": 0.6875,
+            "bottom": 0.9144
+          },
+          "bands": [
+            {
+              "cx": 0.4001,
+              "cy": 0.7129,
+              "share": 0.438
+            },
+            {
+              "cx": 0.7066,
+              "cy": 0.8014,
+              "share": 0.221
+            },
+            {
+              "cx": 0.5105,
+              "cy": 0.8904,
+              "share": 0.341
+            }
+          ]
+        },
+        "orange": {
+          "pixelShare": 0.012854,
+          "cx": 0.5097,
+          "cy": 0.7743,
+          "bbox": {
+            "left": 0.2169,
+            "right": 0.7954,
+            "top": 0.6851,
+            "bottom": 0.8295
+          },
+          "bands": [
+            {
+              "cx": 0.7093,
+              "cy": 0.7125,
+              "share": 0.313
+            },
+            {
+              "cx": 0.4189,
+              "cy": 0.8023,
+              "share": 0.687
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0009.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.01543,
+          "cx": 0.5054,
+          "cy": 0.7944,
+          "bbox": {
+            "left": 0.2059,
+            "right": 0.7785,
+            "top": 0.6882,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.3997,
+              "cy": 0.7135,
+              "share": 0.433
+            },
+            {
+              "cx": 0.7055,
+              "cy": 0.8016,
+              "share": 0.221
+            },
+            {
+              "cx": 0.5096,
+              "cy": 0.891,
+              "share": 0.346
+            }
+          ]
+        },
+        "orange": {
+          "pixelShare": 0.013038,
+          "cx": 0.5087,
+          "cy": 0.7744,
+          "bbox": {
+            "left": 0.2168,
+            "right": 0.7949,
+            "top": 0.6854,
+            "bottom": 0.8299
+          },
+          "bands": [
+            {
+              "cx": 0.7097,
+              "cy": 0.7125,
+              "share": 0.31
+            },
+            {
+              "cx": 0.4185,
+              "cy": 0.8021,
+              "share": 0.69
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": -0.0001,
+          "dcy": 0.0014,
+          "bands": [
+            {
+              "dcx": -0.0004,
+              "dcy": 0.0006
+            },
+            {
+              "dcx": -0.0011,
+              "dcy": 0.0002
+            },
+            {
+              "dcx": -0.0009,
+              "dcy": 0.0006
+            }
+          ]
+        },
+        "orange": {
+          "dcx": -0.001,
+          "dcy": 0.0001,
+          "bands": [
+            {
+              "dcx": 0.0004,
+              "dcy": 0
+            },
+            {
+              "dcx": -0.0004,
+              "dcy": -0.0002
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.015157,
+          "cx": 0.5049,
+          "cy": 0.7941,
+          "bbox": {
+            "left": 0.2059,
+            "right": 0.7785,
+            "top": 0.6882,
+            "bottom": 0.9146
+          },
+          "bands": [
+            {
+              "cx": 0.3989,
+              "cy": 0.7136,
+              "share": 0.435
+            },
+            {
+              "cx": 0.7051,
+              "cy": 0.8017,
+              "share": 0.221
+            },
+            {
+              "cx": 0.5103,
+              "cy": 0.8912,
+              "share": 0.343
+            }
+          ]
+        },
+        "orange": {
+          "pixelShare": 0.01293,
+          "cx": 0.5086,
+          "cy": 0.7747,
+          "bbox": {
+            "left": 0.2176,
+            "right": 0.7949,
+            "top": 0.6854,
+            "bottom": 0.8299
+          },
+          "bands": [
+            {
+              "cx": 0.709,
+              "cy": 0.7127,
+              "share": 0.309
+            },
+            {
+              "cx": 0.4191,
+              "cy": 0.8024,
+              "share": 0.691
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": -0.0006,
+          "dcy": 0.0011,
+          "bands": [
+            {
+              "dcx": -0.0012,
+              "dcy": 0.0007
+            },
+            {
+              "dcx": -0.0015,
+              "dcy": 0.0003
+            },
+            {
+              "dcx": -0.0002,
+              "dcy": 0.0008
+            }
+          ]
+        },
+        "orange": {
+          "dcx": -0.0011,
+          "dcy": 0.0004,
+          "bands": [
+            {
+              "dcx": -0.0003,
+              "dcy": 0.0002
+            },
+            {
+              "dcx": 0.0002,
+              "dcy": 0.0001
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "c-0010",
+      "id": "c-0010",
+      "t": 19,
+      "previewFrame": {
+        "x": 594,
+        "y": 32,
+        "w": 1464,
+        "h": 824
+      },
+      "preview": {
+        "white": {
+          "pixelShare": 0.012397,
+          "cx": 0.5051,
+          "cy": 0.6619,
+          "bbox": {
+            "left": 0.3501,
+            "right": 0.6431,
+            "top": 0.5127,
+            "bottom": 0.9108
+          },
+          "bands": [
+            {
+              "cx": 0.4964,
+              "cy": 0.538,
+              "share": 0.361
+            },
+            {
+              "cx": 0.4924,
+              "cy": 0.6284,
+              "share": 0.356
+            },
+            {
+              "cx": 0.5907,
+              "cy": 0.8076,
+              "share": 0.103
+            },
+            {
+              "cx": 0.4982,
+              "cy": 0.8931,
+              "share": 0.18
+            }
+          ]
+        },
+        "orange": {
+          "pixelShare": 0.007138,
+          "cx": 0.4795,
+          "cy": 0.7485,
+          "bbox": {
+            "left": 0.3412,
+            "right": 0.6492,
+            "top": 0.6911,
+            "bottom": 0.8331
+          },
+          "bands": [
+            {
+              "cx": 0.4928,
+              "cy": 0.7172,
+              "share": 0.646
+            },
+            {
+              "cx": 0.4553,
+              "cy": 0.8059,
+              "share": 0.354
+            }
+          ]
+        }
+      },
+      "previewScreenshot": "after-preview-c-0010.png",
+      "gpu": {
+        "white": {
+          "pixelShare": 0.013073,
+          "cx": 0.5061,
+          "cy": 0.6614,
+          "bbox": {
+            "left": 0.3504,
+            "right": 0.6434,
+            "top": 0.5132,
+            "bottom": 0.9104
+          },
+          "bands": [
+            {
+              "cx": 0.4984,
+              "cy": 0.5385,
+              "share": 0.364
+            },
+            {
+              "cx": 0.494,
+              "cy": 0.6289,
+              "share": 0.355
+            },
+            {
+              "cx": 0.5902,
+              "cy": 0.808,
+              "share": 0.102
+            },
+            {
+              "cx": 0.4979,
+              "cy": 0.8936,
+              "share": 0.178
+            }
+          ]
+        },
+        "orange": {
+          "pixelShare": 0.007095,
+          "cx": 0.4804,
+          "cy": 0.7499,
+          "bbox": {
+            "left": 0.3418,
+            "right": 0.6488,
+            "top": 0.691,
+            "bottom": 0.834
+          },
+          "bands": [
+            {
+              "cx": 0.494,
+              "cy": 0.7177,
+              "share": 0.638
+            },
+            {
+              "cx": 0.4565,
+              "cy": 0.8066,
+              "share": 0.362
+            }
+          ]
+        }
+      },
+      "diff_gpu": {
+        "white": {
+          "dcx": 0.001,
+          "dcy": -0.0005,
+          "bands": [
+            {
+              "dcx": 0.002,
+              "dcy": 0.0005
+            },
+            {
+              "dcx": 0.0016,
+              "dcy": 0.0005
+            },
+            {
+              "dcx": -0.0005,
+              "dcy": 0.0004
+            },
+            {
+              "dcx": -0.0003,
+              "dcy": 0.0005
+            }
+          ]
+        },
+        "orange": {
+          "dcx": 0.0009,
+          "dcy": 0.0014,
+          "bands": [
+            {
+              "dcx": 0.0012,
+              "dcy": 0.0005
+            },
+            {
+              "dcx": 0.0012,
+              "dcy": 0.0007
+            }
+          ]
+        }
+      },
+      "osr": {
+        "white": {
+          "pixelShare": 0.012714,
+          "cx": 0.5059,
+          "cy": 0.6628,
+          "bbox": {
+            "left": 0.3504,
+            "right": 0.6434,
+            "top": 0.5132,
+            "bottom": 0.9104
+          },
+          "bands": [
+            {
+              "cx": 0.4981,
+              "cy": 0.5388,
+              "share": 0.365
+            },
+            {
+              "cx": 0.4932,
+              "cy": 0.6293,
+              "share": 0.35
+            },
+            {
+              "cx": 0.5909,
+              "cy": 0.8084,
+              "share": 0.103
+            },
+            {
+              "cx": 0.4984,
+              "cy": 0.8938,
+              "share": 0.182
+            }
+          ]
+        },
+        "orange": {
+          "pixelShare": 0.007037,
+          "cx": 0.4799,
+          "cy": 0.7502,
+          "bbox": {
+            "left": 0.3418,
+            "right": 0.6488,
+            "top": 0.6924,
+            "bottom": 0.834
+          },
+          "bands": [
+            {
+              "cx": 0.4938,
+              "cy": 0.7178,
+              "share": 0.637
+            },
+            {
+              "cx": 0.4555,
+              "cy": 0.8068,
+              "share": 0.363
+            }
+          ]
+        }
+      },
+      "diff_osr": {
+        "white": {
+          "dcx": 0.0008,
+          "dcy": 0.0009,
+          "bands": [
+            {
+              "dcx": 0.0017,
+              "dcy": 0.0008
+            },
+            {
+              "dcx": 0.0008,
+              "dcy": 0.0009
+            },
+            {
+              "dcx": 0.0002,
+              "dcy": 0.0008
+            },
+            {
+              "dcx": 0.0002,
+              "dcy": 0.0007
+            }
+          ]
+        },
+        "orange": {
+          "dcx": 0.0004,
+          "dcy": 0.0017,
+          "bands": [
+            {
+              "dcx": 0.001,
+              "dcy": 0.0006
+            },
+            {
+              "dcx": 0.0002,
+              "dcy": 0.0009
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "maxAbsCenterDiff": 0.011
+}

@@ -1,0 +1,99 @@
+{
+  "phase": "after",
+  "engine": "osr",
+  "status": "done",
+  "renderSeconds": 55,
+  "selectedEngine": "osr",
+  "rasterizer": {
+    "planned": "osr",
+    "adopted": "osr",
+    "attempts": [
+      {
+        "method": "osr",
+        "status": "adopted",
+        "reason": null
+      }
+    ]
+  },
+  "warnings": [],
+  "frames": [
+    {
+      "id": "c-0001",
+      "name": "c-0001",
+      "t": 1,
+      "screenshot": "after-export-osr-c-0001.png"
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002-f1",
+      "t": 2.3,
+      "screenshot": "after-export-osr-c-0002-f1.png"
+    },
+    {
+      "id": "c-0002",
+      "name": "c-0002",
+      "t": 3,
+      "screenshot": "after-export-osr-c-0002.png"
+    },
+    {
+      "id": "c-0003",
+      "name": "c-0003",
+      "t": 5,
+      "screenshot": "after-export-osr-c-0003.png"
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-t1",
+      "t": 6.6,
+      "screenshot": "after-export-osr-c-0004-t1.png"
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-t2",
+      "t": 7,
+      "screenshot": "after-export-osr-c-0004-t2.png"
+    },
+    {
+      "id": "c-0004",
+      "name": "c-0004-t3",
+      "t": 7.3,
+      "screenshot": "after-export-osr-c-0004-t3.png"
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005-bang-early",
+      "t": 8.58,
+      "screenshot": "after-export-osr-c-0005-bang-early.png"
+    },
+    {
+      "id": "c-0005",
+      "name": "c-0005",
+      "t": 9,
+      "screenshot": "after-export-osr-c-0005.png"
+    },
+    {
+      "id": "c-0006",
+      "name": "c-0006",
+      "t": 11,
+      "screenshot": "after-export-osr-c-0006.png"
+    },
+    {
+      "id": "c-0008",
+      "name": "c-0008",
+      "t": 15,
+      "screenshot": "after-export-osr-c-0008.png"
+    },
+    {
+      "id": "c-0009",
+      "name": "c-0009",
+      "t": 17,
+      "screenshot": "after-export-osr-c-0009.png"
+    },
+    {
+      "id": "c-0010",
+      "name": "c-0010",
+      "t": 19,
+      "screenshot": "after-export-osr-c-0010.png"
+    }
+  ]
+}

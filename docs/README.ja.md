@@ -91,6 +91,7 @@
 | [contract-2026-08-23-captions-emphasis-words-v0.md](./contract-2026-08-23-captions-emphasis-words-v0.md) | captions.json object ルートの語レベル演出 `emphasis_words[]` 席（台本パネルの単語選択 → 🎨 テンプレの書き先 `style_preset`、edit.json v1 席は後方互換フォールバック） |
 | [contract-2026-09-02-captions-style-preset-v0.md](./contract-2026-09-02-captions-style-preset-v0.md) | `captions[].style_preset` の id 参照・解決順・生成 textstyle カタログ・ピッカー一括適用 RPC・行バッジ・無料字幕テンプレ 3 種 |
 | [contract-2026-09-24-style-v0.md](./contract-2026-09-24-style-v0.md) | マイスタイル v0 — 部品の束・ライブラリの置き場・字幕の実効の見た目の保存・値を写す適用 |
+| [contract-2026-09-24-caption-runs-v0.md](./contract-2026-09-24-caption-runs-v0.md) | 字幕の書記素範囲スタイル・重なり・描画・文字編集時の付け替え |
 | [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) | レンダー基礎機能（速度・クロマキー・トランジション・LUT・音声マスター） |
 | [contract-2026-08-12-still-image-cut-source-v0.md](./contract-2026-08-12-still-image-cut-source-v0.md) | 静止画 cut ソース v0 — cuts[] のソースに静止画（拡張子判定）を許可し speed/freeze の適用範囲を拡張 |
 | [contract-2026-07-25-r6-audio-tracks-and-trim.md](./contract-2026-07-25-r6-audio-tracks-and-trim.md) | タイムライン配置原則・音源複数トラック・音源トリム・ソーストリマー |

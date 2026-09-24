@@ -118,6 +118,12 @@ function expandCaptionDisplayFragments(captions) {
             };
             if (Object.prototype.hasOwnProperty.call(caption, 'display_text'))
                 expanded.display_text = window.text;
+            if (Array.isArray(caption.runs)) {
+                const sourceText = String(caption.display_text ?? caption.text ?? '');
+                expanded.runSourceText = sourceText;
+                expanded.runTextStart = characterStart;
+                expanded.runTextEnd = characterEnd;
+            }
             if (Array.isArray(caption.words)) {
                 let offset = 0;
                 expanded.words = caption.words.flatMap(word => {

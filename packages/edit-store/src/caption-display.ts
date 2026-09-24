@@ -1,5 +1,6 @@
 import { resolveCaptionStylePreset } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
+import { sliceCaptionRuns, type CaptionRun } from './caption-runs';
 
 /**
  * Caption display policy v1.  This is the single pure implementation used by
@@ -88,6 +89,7 @@ export interface CaptionDisplayCue {
     layout?: ResolvedCaptionLayout;
     words?: CaptionDisplayWord[];
     word_styles?: CaptionDisplayWordStyle[];
+    runs?: CaptionRun[];
     overflow?: CaptionDisplayOverflow;
 }
 
@@ -436,6 +438,11 @@ export function resolveCaptionDisplay(
                 text
             );
             const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            const sourceRuns = captions[occurrence.caption_input_index].runs;
+            const cueRuns = Array.isArray(sourceRuns)
+                ? sliceCaptionRuns(projectedCaptions[occurrence.caption_input_index].displayText,
+                    sourceRuns as CaptionRun[], group.charStart, group.charEnd)
+                : undefined;
             displayCues.push({
                 id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
                 source_cue_id: occurrence.source_cue_id,
@@ -447,6 +454,7 @@ export function resolveCaptionDisplay(
                 start: group.start,
                 end: group.end,
                 text,
+                ...(cueRuns ? { runs: cueRuns } : {}),
                 ...(group.lines.length >= 2 ? { display_lines: group.lines } : {}),
                 units: measureCaptionUnits(text),
                 line_override: resolved.manual,

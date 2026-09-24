@@ -254,6 +254,33 @@
       },
       "$comment": "raw_start/raw_end は発話吸着前の監査用時刻。end >= start、raw_end >= raw_start と親 caption の範囲外警告は JSON Schema 標準だけでは兄弟値を比較できないため検証器が扱う。"
     },
+    "captionRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "integer" },
+        "to": { "type": "integer" },
+        "role": { "type": "string", "minLength": 1 },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": { "$ref": "#/$defs/hexColor" },
+            "font_weight": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "scale": { "type": "number", "exclusiveMinimum": 0 },
+            "baseline_shift_em": { "type": "number" },
+            "rotate_deg": { "type": "number", "minimum": -180, "maximum": 180 },
+            "letter_spacing_em": { "type": "number" },
+            "stroke": { "$ref": "#/$defs/textStrokeStyle" },
+            "italic": { "type": "boolean" },
+            "underline": { "type": "boolean" }
+          }
+        },
+        "animation": { "$ref": "#/$defs/textAnimation" }
+      },
+      "$comment": "from/to は display_text または text の書記素オフセット。to は排他。空・範囲外は edit-lint warning として描画時に無視。"
+    },
     "sourceRef": {
       "oneOf": [
         { "type": "null" },
@@ -332,7 +359,8 @@
           "type": "string",
           "enum": ["full", "speech-tight"],
           "description": "表示ウィンドウの決め方。full（既定・省略時）= start〜end をそのまま使う。speech-tight = words[] の先頭 start 〜 末尾 end だけ表示する（start/end 自体は書き換えない）。"
-        }
+        },
+        "runs": { "type": "array", "items": { "$ref": "#/$defs/captionRun" } }
       },
       "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。time_domain 省略時は source。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"
     },

@@ -1,0 +1,4 @@
+PASS: <tmp>/lint-check/project/edit.json (3 findings, 5 skipped)
+- [warning] captions.run-range: run range [10, 20) is outside 12 displayed graphemes or empty; ignored (captions.json#[0].runs[2])
+- [warning] captions.run-range: run range [4, 4) is outside 12 displayed graphemes or empty; ignored (captions.json#[0].runs[3])
+- [warning] geometry.fit-compat: fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます (edit.json#output.geometry)

@@ -1,4 +1,5 @@
 export const KARAOKE_MIN_WORD_MATCH_RATIO = 0.5;
+import { rebaseCaptionRuns, type CaptionRun } from './caption-runs';
 
 export interface CaptionWordTiming {
     start: number;
@@ -30,6 +31,7 @@ export interface CaptionTextEditRecord {
     words?: readonly CaptionWordTiming[];
     display_text?: string;
     display_fragments?: readonly string[];
+    runs?: readonly CaptionRun[];
     edited?: boolean;
     [key: string]: unknown;
 }
@@ -489,7 +491,7 @@ function transferFragments(oldText: string, newText: string, fragments: readonly
 export function applyCaptionTextEdit<T extends CaptionTextEditRecord>(
     record: T,
     newText: string
-): { record: T; rederive?: RederiveResult } {
+): { record: T; rederive?: RederiveResult; removedRuns?: CaptionRun[] } {
     const normalizedText = newText.normalize('NFC').trim();
     if (!normalizedText) {
         throw new Error('字幕のテキストは空にできません。');
@@ -530,5 +532,20 @@ export function applyCaptionTextEdit<T extends CaptionTextEditRecord>(
         if (fragments) next.display_fragments = fragments;
         else delete next.display_fragments;
     } else delete next.display_fragments;
-    return { record: next, ...(rederive ? { rederive } : {}) };
+    let removedRuns: CaptionRun[] | undefined;
+    if (Array.isArray(record.runs)) {
+        const oldDisplay = typeof record.display_text === 'string' ? record.display_text : record.text;
+        const newDisplay = typeof next.display_text === 'string' ? next.display_text : normalizedText;
+        if (typeof record.display_text === 'string' && typeof next.display_text !== 'string') {
+            removedRuns = [...record.runs];
+            delete next.runs;
+        } else {
+            const rebased = rebaseCaptionRuns(oldDisplay, newDisplay, record.runs);
+            if (rebased.runs.length > 0) next.runs = rebased.runs;
+            else delete next.runs;
+            removedRuns = rebased.removed;
+        }
+    }
+    return { record: next, ...(rederive ? { rederive } : {}),
+        ...(removedRuns?.length ? { removedRuns } : {}) };
 }

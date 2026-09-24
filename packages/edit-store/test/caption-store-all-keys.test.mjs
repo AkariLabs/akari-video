@@ -31,7 +31,9 @@ const optionalValues = {
   display_fragments: { field: 'displayFragments', value: ['前半', '後半'], json: ['前半', '後半'] },
   style_preset: { field: 'stylePreset', value: 'subtitle-standard', json: 'subtitle-standard' },
   text_style: { field: 'textStyle', value: { color: '#ffffff' }, json: { color: '#ffffff' } },
-  display_timing: { field: 'extra', value: { display_timing: 'speech-tight' }, json: 'speech-tight' }
+  display_timing: { field: 'extra', value: { display_timing: 'speech-tight' }, json: 'speech-tight' },
+  runs: { field: 'runs', value: [{ from: 0, to: 1, role: 'emphasis' }],
+    json: [{ from: 0, to: 1, role: 'emphasis' }] }
 };
 
 const baseCaption = () => ({

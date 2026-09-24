@@ -4040,6 +4040,16 @@ async function validateReferences(edit, findings, paths, ignoredSourceIds = new 
   return { sourceExists };
 }
 
+export function validateCaptionRunRanges(caption) {
+  if (!Array.isArray(caption?.runs)) return [];
+  const count = [...new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    .segment(typeof caption.display_text === "string" ? caption.display_text : String(caption.text ?? ""))].length;
+  return caption.runs.flatMap((run, index) =>
+    isRecord(run) && Number.isInteger(run.from) && Number.isInteger(run.to)
+      && (run.from < 0 || run.to > count || run.from >= run.to)
+      ? [{ index, count, from: run.from, to: run.to }] : []);
+}
+
 function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds, textstylePresetIds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
@@ -4129,7 +4139,7 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "display_timing", "style_preset", "text_style"];
+    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "display_timing", "style_preset", "text_style", "runs"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -4219,6 +4229,48 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
         "display_text must be a string when present",
         itemPath,
       );
+    }
+    if (Object.hasOwn(caption, "runs")) {
+      const outOfRange = new Map(validateCaptionRunRanges(caption).map(item => [item.index, item]));
+      if (!Array.isArray(caption.runs)) {
+        captionFinding(findings, "captions.schema", "runs must be an array", itemPath);
+      } else caption.runs.forEach((run, runIndex) => {
+        const path = `${itemPath}.runs[${runIndex}]`;
+        if (!isRecord(run) || !Number.isInteger(run.from) || !Number.isInteger(run.to)
+          || (run.role !== undefined && (typeof run.role !== "string" || !run.role))
+          || (run.style !== undefined && (!isRecord(run.style)
+            || Object.keys(run.style).some(key => !["color", "font_weight", "scale", "baseline_shift_em", "rotate_deg", "letter_spacing_em", "stroke", "italic", "underline"].includes(key))))
+          || (run.animation !== undefined && !isRecord(run.animation))
+          || Object.keys(run).some(key => !["from", "to", "role", "style", "animation"].includes(key))) {
+          captionFinding(findings, "captions.schema", "run has invalid fields or types", path);
+          return;
+        }
+        const range = outOfRange.get(runIndex);
+        if (range) {
+          addFinding(findings, { severity: "warning", check: "captions.run-range",
+            message: `run range [${run.from}, ${run.to}) is outside ${range.count} displayed graphemes or empty; ignored`, path });
+        }
+        if (run.style) {
+          const s = run.style;
+          const hex = value => typeof value === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value);
+          const finite = value => typeof value === "number" && Number.isFinite(value);
+          if ((s.color !== undefined && !hex(s.color))
+            || (s.font_weight !== undefined && (!Number.isInteger(s.font_weight) || s.font_weight < 1 || s.font_weight > 1000))
+            || (s.scale !== undefined && (!finite(s.scale) || s.scale <= 0))
+            || (s.baseline_shift_em !== undefined && !finite(s.baseline_shift_em))
+            || (s.rotate_deg !== undefined && (!finite(s.rotate_deg) || Math.abs(s.rotate_deg) > 180))
+            || (s.letter_spacing_em !== undefined && !finite(s.letter_spacing_em))
+            || (s.italic !== undefined && typeof s.italic !== "boolean")
+            || (s.underline !== undefined && typeof s.underline !== "boolean")
+            || (s.stroke !== undefined && (!isRecord(s.stroke)
+              || Object.keys(s.stroke).some(key => !["method", "color", "width_px"].includes(key))
+              || (s.stroke.color !== undefined && !hex(s.stroke.color))
+              || (s.stroke.width_px !== undefined && (!finite(s.stroke.width_px) || s.stroke.width_px < 0))))) {
+            captionFinding(findings, "captions.schema", "run style has invalid values", `${path}.style`);
+          }
+        }
+        if (run.animation) validateCaptionAnimation(run.animation, "run.animation", findings, path);
+      });
     }
     if (Object.hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
       captionFinding(findings, "captions.schema", "display_fragments must be an array when present", itemPath);

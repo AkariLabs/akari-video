@@ -5,6 +5,7 @@ exports.rederiveCaptionWords = rederiveCaptionWords;
 exports.rebaseCaptionEmphasis = rebaseCaptionEmphasis;
 exports.applyCaptionTextEdit = applyCaptionTextEdit;
 exports.KARAOKE_MIN_WORD_MATCH_RATIO = 0.5;
+const caption_runs_1 = require("./caption-runs");
 function segmenterConstructor() {
     if (typeof Intl === 'undefined')
         return undefined;
@@ -481,5 +482,23 @@ function applyCaptionTextEdit(record, newText) {
     }
     else
         delete next.display_fragments;
-    return { record: next, ...(rederive ? { rederive } : {}) };
+    let removedRuns;
+    if (Array.isArray(record.runs)) {
+        const oldDisplay = typeof record.display_text === 'string' ? record.display_text : record.text;
+        const newDisplay = typeof next.display_text === 'string' ? next.display_text : normalizedText;
+        if (typeof record.display_text === 'string' && typeof next.display_text !== 'string') {
+            removedRuns = [...record.runs];
+            delete next.runs;
+        }
+        else {
+            const rebased = (0, caption_runs_1.rebaseCaptionRuns)(oldDisplay, newDisplay, record.runs);
+            if (rebased.runs.length > 0)
+                next.runs = rebased.runs;
+            else
+                delete next.runs;
+            removedRuns = rebased.removed;
+        }
+    }
+    return { record: next, ...(rederive ? { rederive } : {}),
+        ...(removedRuns?.length ? { removedRuns } : {}) };
 }

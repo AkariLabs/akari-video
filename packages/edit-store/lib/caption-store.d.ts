@@ -1,4 +1,5 @@
 import { type CaptionWordTiming } from './caption-words-rederive';
+import { type CaptionRun } from './caption-runs';
 export declare const CAPTION_ZONES: readonly ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
 export type CaptionZone = typeof CAPTION_ZONES[number];
 export type CaptionBackgroundMode = 'per-line' | 'block';
@@ -152,6 +153,7 @@ export interface CaptionRecord {
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
     extra?: Record<string, unknown>;
+    runs?: CaptionRun[];
 }
 export interface WordBookCaptionChange {
     id: string;
@@ -179,6 +181,19 @@ export declare function updateCaptionFieldsInSource(source: string, captionId: s
     style?: string | null;
     displayTiming?: 'full' | 'speech-tight' | null;
 }): string;
+export declare function updateCaptionFieldsInSourceWithReport(source: string, captionId: string, updates: {
+    text?: string;
+    speaker?: string | null;
+    unrecognized?: ReadonlyArray<{
+        start: number;
+        end: number;
+    }> | null;
+    style?: string | null;
+    displayTiming?: 'full' | 'speech-tight' | null;
+}): {
+    source: string;
+    removedRuns: CaptionRun[];
+};
 export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;
 export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null): {

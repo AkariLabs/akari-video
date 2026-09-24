@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import * as visual from '../lib/common/caption-visual-contract.js';
 import { captionEntryAnimationsSettled } from '../lib/common/caption-hit-region.js';
 import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.js';
+const require = createRequire(import.meta.url);
+const { applyCaptionRunsToHtml } = require('../../../../../packages/edit-store/lib/index.js');
 
 export const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 
@@ -149,6 +152,7 @@ export function harness({ text = source, cues = [], engine = true, available = t
         timelineToSource: time => ({ index: 0, kind: 'src', time }), enterSegment: noop, frameEngineMediaIdle: false
     });
     vm.runInContext("const captionLayer = document.getElementById('caption-plate'); const captionRows = new Map();", context);
+    vm.runInContext(`const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});`, context);
     vm.runInContext(section(text, 'const escapeCaptionHtml =', 'const renderTransitionPlate ='), context);
     vm.runInContext('const renderTransitionPlate = () => {};', context);
     vm.runInContext(section(text, 'let requestedOverlayId;', 'const onMainVideoLoadedMetadata ='), context);

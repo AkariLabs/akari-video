@@ -12,6 +12,8 @@ const require = createRequire(import.meta.url);
 // reference_height_px → scale（issue #40 §2）も同カーネル単一定義。GPU（gpu-export page-builder）と
 // OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
 const {
+  applyCaptionRunsToHtml,
+  sliceCaptionRuns,
   captionWindowSeconds,
   dedupeCaptionOccurrences,
   expandCaptionDisplayFragments,
@@ -233,7 +235,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         ? buildCaptionAnimation(textStyle.animation, range.duration, (message) =>
             warn("textanim", `captions.json item ${caption.id ?? "(unknown)"} ${message}`))
         : null;
-      const html =
+      let html =
         words.length > 0 && (style || hasEmphasis)
           ? renderStyledCaptionFragment(words, style, {
               maximum,
@@ -262,6 +264,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               animator: caption.animator,
               words: allWords,
             });
+      if (Array.isArray(caption.runs) && caption.runs.length > 0) {
+        const runs = typeof caption.runSourceText === "string"
+          ? sliceCaptionRuns(caption.runSourceText, caption.runs, caption.runTextStart, caption.runTextEnd)
+          : caption.runs;
+        html = applyCaptionRunsToHtml(html, displayText, runs);
+      }
       overlays.push({
         id: `${caption.id}${caption.fragmentIndex ? `-f${caption.fragmentIndex}` : ""}-${String(index + 1).padStart(2, "0")}`,
         html,
@@ -284,7 +292,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
 export function generateResolvedCaptionOverlays(displayResult) {
   return displayResult.display_cues.map((cue) => ({
     id: cue.id,
-    html: renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue),
+    html: applyCaptionRunsToHtml(renderResolvedSingleLineCaption(cue.text, cue.display_lines, cue), cue.text, cue.runs),
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),

@@ -1,5 +1,6 @@
 import { findMatchingBracket, splitTopLevelElements, type SourceElement } from './edit-store';
 import { applyCaptionTextEdit, rebaseCaptionEmphasis, type CaptionEmphasis, type CaptionTextEditRecord, type CaptionWordTiming } from './caption-words-rederive';
+import { captionGraphemes, joinAdjacentCaptionRuns, rebaseCaptionRuns, sliceCaptionRuns, type CaptionRun } from './caption-runs';
 import { applyCaptionStylePresets } from './caption-style-preset';
 import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
@@ -156,6 +157,7 @@ export interface CaptionRecord {
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
     extra?: Record<string, unknown>;
+    runs?: CaptionRun[];
 }
 
 export interface WordBookCaptionChange {
@@ -333,6 +335,20 @@ export function updateCaptionFieldsInSource(
         displayTiming?: 'full' | 'speech-tight' | null;
     }
 ): string {
+    return updateCaptionFieldsInSourceWithReport(source, captionId, updates).source;
+}
+
+export function updateCaptionFieldsInSourceWithReport(
+    source: string,
+    captionId: string,
+    updates: {
+        text?: string;
+        speaker?: string | null;
+        unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;
+        style?: string | null;
+        displayTiming?: 'full' | 'speech-tight' | null;
+    }
+): { source: string; removedRuns: CaptionRun[] } {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
     }
@@ -372,11 +388,13 @@ export function updateCaptionFieldsInSource(
     const array = locateCaptionArray(source);
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
+    let removedRuns: CaptionRun[] = [];
     let nextEmphasis: CaptionEmphasis[] | undefined;
     let oldEmphasis: CaptionEmphasis[] | undefined;
     if (updates.text !== undefined) {
         const parsed = JSON.parse(nextElement) as CaptionTextEditRecord;
         const applied = applyCaptionTextEdit(parsed, updates.text);
+        removedRuns = applied.removedRuns ?? [];
         if (applied.record !== parsed) {
             const root = JSON.parse(source) as unknown;
             if (!Array.isArray(root) && isRecord(root) && Array.isArray(root.emphasis_words)
@@ -408,6 +426,7 @@ export function updateCaptionFieldsInSource(
                 applied.record.display_fragments,
                 captionId
             );
+            nextElement = syncOptionalCaptionProperty(nextElement, 'runs', applied.record.runs, captionId);
         }
     }
     if (updates.speaker !== undefined) {
@@ -457,7 +476,7 @@ export function updateCaptionFieldsInSource(
         if (kept.length) nextInner += inner.slice(elements[elements.length - 1].end);
         updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
     }
-    return updated;
+    return { source: updated, removedRuns };
 }
 
 export function applyWordBookToCaptionsInSource(
@@ -753,6 +772,18 @@ export function splitCaptionLine(
         ...record, id: newCaptionId, start: wordsB[0].start, text: textB,
         words: wordsB, edited: true, sourceRef: null
     };
+    if (Array.isArray(record.runs)) {
+        const split = textA.length;
+        const rawText = String(record.text);
+        const displayText = typeof record.display_text === 'string' ? record.display_text : rawText;
+        const runs = rebaseCaptionRuns(displayText, rawText, record.runs as CaptionRun[]).runs;
+        const runsA = sliceCaptionRuns(rawText, runs, 0, split);
+        const runsB = sliceCaptionRuns(rawText, runs, split, rawText.length);
+        if (runsA) recordA.runs = runsA;
+        else delete recordA.runs;
+        if (runsB) recordB.runs = runsB;
+        else delete recordB.runs;
+    }
     recordA.unrecognized = unrecognized.filter(span => typeof span.start === 'number' && span.start < splitEnd);
     recordB.unrecognized = unrecognized.filter(span => typeof span.start === 'number' && span.start >= splitEnd);
     for (const output of [recordA, recordB]) {
@@ -789,6 +820,20 @@ export function mergeCaptionLines(source: string, captionIds: readonly string[])
         text: records.map(record => String(record.text ?? '')).join(''),
         words, unrecognized, edited: true
     };
+    if (records.some(record => Array.isArray(record.runs))) {
+        let offset = 0;
+        const mergedRuns = joinAdjacentCaptionRuns(records.flatMap(record => {
+            const rawText = String(record.text ?? '');
+            const displayText = typeof record.display_text === 'string' ? record.display_text : rawText;
+            const runs = Array.isArray(record.runs)
+                ? rebaseCaptionRuns(displayText, rawText, record.runs as CaptionRun[]).runs : [];
+            const projected = runs.map(run => ({ ...run, from: run.from + offset, to: run.to + offset }));
+            offset += captionGraphemes(rawText).length;
+            return projected;
+        }));
+        if (mergedRuns.length > 0) survivor.runs = mergedRuns;
+        else delete survivor.runs;
+    }
     delete survivor.display_text;
     delete survivor.display_fragments;
     if (words.length === 0) delete survivor.words;
@@ -1095,10 +1140,16 @@ function serializeCaption(caption: CaptionRecord): string {
     if (caption.textStyle !== undefined) {
         parts.push(`"text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`);
     }
+    if (caption.extra?.display_timing !== undefined) {
+        parts.push(`"display_timing": ${JSON.stringify(caption.extra.display_timing)}`);
+    }
+    if (caption.runs?.length) {
+        parts.push(`"runs": ${JSON.stringify(caption.runs)}`);
+    }
     const schemaKeys = new Set([
         'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
         'time_domain', 'words', 'unrecognized', 'style', 'display_text',
-        'display_fragments', 'style_preset', 'text_style'
+        'display_fragments', 'style_preset', 'text_style', 'display_timing', 'runs'
     ]);
     for (const [key, value] of Object.entries(caption.extra ?? {})) {
         if (value !== undefined && !schemaKeys.has(key)) {
@@ -1112,12 +1163,14 @@ function serializeCaptionRaw(value: Record<string, unknown>): string {
     const schemaKeys = [
         'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'src',
         'time_domain', 'words', 'unrecognized', 'style', 'display_text',
-        'display_fragments', 'style_preset', 'text_style'
+        'display_fragments', 'style_preset', 'text_style', 'display_timing', 'runs'
     ];
     const known = new Set(schemaKeys);
     const parts: string[] = [];
     for (const key of schemaKeys) {
-        if (value[key] !== undefined) parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
+        if (value[key] !== undefined && (key !== 'runs' || Array.isArray(value[key]) && (value[key] as unknown[]).length > 0)) {
+            parts.push(`${JSON.stringify(key)}: ${JSON.stringify(value[key])}`);
+        }
     }
     for (const [key, item] of Object.entries(value)) {
         if (!known.has(key) && item !== undefined) parts.push(`${JSON.stringify(key)}: ${JSON.stringify(item)}`);

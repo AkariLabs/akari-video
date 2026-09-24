@@ -5,8 +5,10 @@ import {
     expandCaptionDisplayFragments,
     mergeCaptionLineTextStyles,
     resolveCaptionLineStyleVars,
+    sliceCaptionRuns,
     TEXTSTYLE_CATALOG
 } from '@akari-video/edit-store';
+import type { CaptionRun } from '@akari-video/edit-store';
 import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
 
 export const PREVIEW_CAPTION_ZONES = [
@@ -52,6 +54,7 @@ export interface PreviewCaption {
     displayLines?: string[];
     resolvedWords?: { start: number; end: number; text: string; line: number }[];
     wordStyles?: { from: number; to: number; preset_id: string; style_vars: Record<string, string> }[];
+    runs?: CaptionRun[];
     sourceCueId?: string;
     resolvedTimeline?: boolean;
     fragmentKey?: string;
@@ -169,12 +172,19 @@ export function parsePreviewCaptions(
             ...(typeof id === 'string' && id ? { id } : {}),
             start,
             end,
-            text,
+            text: Array.isArray(candidate.runs) && typeof candidate.display_text === 'string'
+                ? candidate.display_text : text,
             ...(typeof candidate.fragmentKey === 'string' ? { fragmentKey: candidate.fragmentKey } : {}),
             ...(typeof candidate.fragmentIndex === 'number' ? { fragmentIndex: candidate.fragmentIndex } : {}),
             ...(typeof candidate.fragmentCount === 'number' ? { fragmentCount: candidate.fragmentCount } : {}),
             ...(style ? { style } : {}),
             ...(words.length > 0 ? { words } : {}),
+            ...(Array.isArray(candidate.runs) ? {
+                runs: typeof candidate.runSourceText === 'string'
+                    ? sliceCaptionRuns(candidate.runSourceText, candidate.runs as CaptionRun[],
+                        Number(candidate.runTextStart), Number(candidate.runTextEnd))
+                    : candidate.runs as CaptionRun[]
+            } : {}),
             ...(textStyle ? {
                 textStyle,
                 textStyleVars: resolvePreviewCaptionStyleVars(textStyle, output)
@@ -203,6 +213,8 @@ export function parseResolvedPreviewCaptions(payload: ResolvedCaptionDisplayPayl
             start: cue.start,
             end: cue.end,
             text: cue.text,
+            ...(Array.isArray((cue as { runs?: CaptionRun[] }).runs)
+                ? { runs: (cue as { runs: CaptionRun[] }).runs.map(run => ({ ...run })) } : {}),
             ...(Array.isArray(displayLines) ? { displayLines: [...displayLines] } : {}),
             ...(hasWordDisplay ? {
                 resolvedWords: wordDisplay.words!.map(word => ({ ...word })),

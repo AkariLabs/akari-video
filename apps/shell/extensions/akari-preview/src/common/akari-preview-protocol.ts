@@ -375,6 +375,7 @@ export interface ResolvedCaptionDisplayPayload {
         end: number;
         text: string;
         display_lines?: string[];
+        runs?: import('@akari-video/edit-store').CaptionRun[];
         text_style?: Record<string, unknown>;
         style_vars?: Record<string, string>;
     }>;

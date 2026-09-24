@@ -27,6 +27,7 @@ exports.colorWithOpacity = colorWithOpacity;
 exports.formatCssNumber = formatCssNumber;
 const caption_style_preset_1 = require("./caption-style-preset");
 const textstyle_catalog_1 = require("./generated/textstyle-catalog");
+const caption_runs_1 = require("./caption-runs");
 /**
  * Caption display policy v1.  This is the single pure implementation used by
  * render-cut, preview-server, and the shell backend.  It deliberately performs
@@ -301,6 +302,10 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
             }
             const wordDisplay = buildCueWordDisplay(wordStylesByCaption.get(occurrence.caption_input_index), occurrence, group.charStart, group.charEnd, group.lines, text);
             const cueStyleVars = resolveCueStyleVars(styleResolution?.vars, wordDisplay?.wordStyles);
+            const sourceRuns = captions[occurrence.caption_input_index].runs;
+            const cueRuns = Array.isArray(sourceRuns)
+                ? (0, caption_runs_1.sliceCaptionRuns)(projectedCaptions[occurrence.caption_input_index].displayText, sourceRuns, group.charStart, group.charEnd)
+                : undefined;
             displayCues.push({
                 id: `${occurrence.source_cue_id}-occ-${String(occurrence.occurrence_index).padStart(4, '0')}-part-${index + 1}`,
                 source_cue_id: occurrence.source_cue_id,
@@ -312,6 +317,7 @@ function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
                 start: group.start,
                 end: group.end,
                 text,
+                ...(cueRuns ? { runs: cueRuns } : {}),
                 ...(group.lines.length >= 2 ? { display_lines: group.lines } : {}),
                 units: measureCaptionUnits(text),
                 line_override: resolved.manual,
