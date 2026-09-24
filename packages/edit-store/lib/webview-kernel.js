@@ -62,6 +62,7 @@ var AkariEditKernel = (() => {
     projectLayerSpeechDeclarations: () => projectLayerSpeechDeclarations,
     projectSpeechDeclarations: () => projectSpeechDeclarations,
     projectSpeechKeyIntervals: () => projectSpeechKeyIntervals,
+    removeStyleAttachedItems: () => removeStyleAttachedItems,
     resolveCaptionLineStyleVars: () => resolveCaptionLineStyleVars,
     resolveCaptionStylePreset: () => resolveCaptionStylePreset,
     resolveItemAnchor: () => resolveItemAnchor,
@@ -1969,7 +1970,8 @@ var AkariEditKernel = (() => {
     "items",
     "mask",
     "source",
-    "audio"
+    "audio",
+    "anchor"
   ]);
   var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
     "id",
@@ -1994,7 +1996,9 @@ var AkariEditKernel = (() => {
     "lowcut_hz",
     "script",
     "reading",
-    "provenance"
+    "caption_ref",
+    "provenance",
+    "anchor"
   ]);
   function readEditV2(json) {
     const parsed = parseInput(json);
@@ -2127,6 +2131,7 @@ var AkariEditKernel = (() => {
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
     ids.add(value.id);
     validateItemMetadata(value, path);
+    if (hasOwn(value, "anchor")) validateItemAnchor(value.anchor, `${path}.anchor`);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
     if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm" && value.role !== "speech") {
@@ -2153,6 +2158,9 @@ var AkariEditKernel = (() => {
     }
     if (hasOwn(value, "reading") && typeof value.reading !== "string") {
       throw invalid(`${path}.reading`, "string \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    if (hasOwn(value, "caption_ref") && (typeof value.caption_ref !== "string" || !/^c-\d{4}$/.test(value.caption_ref))) {
+      throw invalid(`${path}.caption_ref`, "\u5B57\u5E55 id \u304C\u5FC5\u8981\u3067\u3059");
     }
     if (hasOwn(value, "provenance")) validateNarrationProvenance(value.provenance, `${path}.provenance`);
     validateAudioMediaSource(value.source, `${path}.source`, sourceIds);
@@ -2205,6 +2213,7 @@ var AkariEditKernel = (() => {
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
     ids.add(value.id);
     validateItemMetadata(value, path);
+    if (hasOwn(value, "anchor")) validateItemAnchor(value.anchor, `${path}.anchor`);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
     if (hasOwn(value, "transform")) validateTransform(value.transform, `${path}.transform`);
@@ -2246,6 +2255,28 @@ var AkariEditKernel = (() => {
     for (const key of ["hidden", "locked"]) {
       if (hasOwn(value, key) && typeof value[key] !== "boolean") throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
+  }
+  function validateItemAnchor(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["caption", "range", "offset", "edge", "duration", "attached_by"]), path);
+    if (typeof value.caption !== "string" || !/^c-\d{4}$/.test(value.caption)) throw invalid(`${path}.caption`, "\u5B57\u5E55 id \u304C\u5FC5\u8981\u3067\u3059");
+    if (hasOwn(value, "range")) {
+      requireRecord(value.range, `${path}.range`);
+      requireExactKeys(value.range, /* @__PURE__ */ new Set(["start", "end"]), `${path}.range`);
+      requireNonNegativeNumber(value.range.start, `${path}.range.start`);
+      requireNonNegativeNumber(value.range.end, `${path}.range.end`);
+      if (value.range.end <= value.range.start) throw invalid(`${path}.range`, "end > start \u304C\u5FC5\u8981\u3067\u3059");
+    }
+    if (hasOwn(value, "offset") && !Number.isInteger(value.offset)) throw invalid(`${path}.offset`, "\u6574\u6570\u304C\u5FC5\u8981\u3067\u3059");
+    if (hasOwn(value, "edge") && value.edge !== "start" && value.edge !== "end") throw invalid(`${path}.edge`, "start/end \u304C\u5FC5\u8981\u3067\u3059");
+    if (hasOwn(value, "duration") && value.duration !== "caption" && value.duration !== "own") throw invalid(`${path}.duration`, "caption/own \u304C\u5FC5\u8981\u3067\u3059");
+    if (hasOwn(value, "attached_by")) validateAttachedBy(value.attached_by, `${path}.attached_by`);
+  }
+  function validateAttachedBy(value, path) {
+    requireRecord(value, path);
+    requireExactKeys(value, /* @__PURE__ */ new Set(["style_uid", "caption"]), path);
+    requireText(value.style_uid, `${path}.style_uid`);
+    if (typeof value.caption !== "string" || !/^c-\d{4}$/.test(value.caption)) throw invalid(`${path}.caption`, "\u5B57\u5E55 id \u304C\u5FC5\u8981\u3067\u3059");
   }
   function validateItemSource(value, path, sourceIds) {
     requireRecord(value, path);
@@ -3834,7 +3865,7 @@ var AkariEditKernel = (() => {
     const startFrames = Math.round(startOut * context.fps);
     const endFrames = Math.round(endOut * context.fps);
     return {
-      at: startFrames + (item.anchor.offset ?? 0) - context.parentAtFrames,
+      at: (item.anchor.edge === "end" ? endFrames : startFrames) + (item.anchor.offset ?? 0) - context.parentAtFrames,
       duration: (item.anchor.duration ?? "caption") === "caption" ? Math.max(1, endFrames - startFrames) : item.duration
     };
   }
@@ -3850,6 +3881,25 @@ var AkariEditKernel = (() => {
     });
     return tracksChanged ? { ...edit, tracks } : edit;
   }
+  function removeStyleAttachedItems(edit, captionId) {
+    let changed = false;
+    const prune = (items) => items.flatMap((item) => {
+      if (item.anchor?.attached_by?.caption === captionId) {
+        changed = true;
+        return [];
+      }
+      if ("items" in item && Array.isArray(item.items)) {
+        const children = prune(item.items);
+        if (children.length !== item.items.length || children.some((child, index) => child !== item.items[index])) {
+          changed = true;
+          return [{ ...item, items: children }];
+        }
+      }
+      return [item];
+    });
+    const tracks = edit.tracks.map((track) => "items" in track ? { ...track, items: prune(track.items) } : track);
+    return changed ? { ...edit, tracks } : edit;
+  }
   function resolveItemAnchors(edit, captions, options) {
     if (!hasItemAnchor(edit)) return { edit, changes: [], warnings: [] };
     const fps = validFps(options?.fps) ?? validFps(edit.output?.fps) ?? 30;
@@ -3862,7 +3912,7 @@ var AkariEditKernel = (() => {
     const warnings = [];
     let tracksChanged = false;
     const tracks = edit.tracks.map((track) => {
-      if (!("items" in track) || !Array.isArray(track.items) || track.lane !== "visual") return track;
+      if (!("items" in track) || !Array.isArray(track.items)) return track;
       const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings);
       if (items === track.items) return track;
       tracksChanged = true;
@@ -3907,7 +3957,7 @@ var AkariEditKernel = (() => {
         }
       }
       const absoluteAtFrames = parentAtFrames + next.at;
-      if (Array.isArray(next.items)) {
+      if ("items" in next && Array.isArray(next.items)) {
         const children = resolveItems(
           next.items,
           absoluteAtFrames,
@@ -3949,9 +3999,9 @@ var AkariEditKernel = (() => {
   }
   function hasItemAnchor(edit) {
     const visit = (items) => items.some(
-      (item) => item.anchor !== void 0 || Array.isArray(item.items) && visit(item.items)
+      (item) => item.anchor !== void 0 || "items" in item && Array.isArray(item.items) && visit(item.items)
     );
-    return edit.tracks.some((track) => "items" in track && track.lane === "visual" && visit(track.items));
+    return edit.tracks.some((track) => "items" in track && visit(track.items));
   }
   function validFps(value) {
     return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
