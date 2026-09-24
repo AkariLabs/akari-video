@@ -48,3 +48,24 @@ test('字幕が無ければ未宣言トラックを補完しない', () => {
     const result = resolvePreviewCaptionTrackOrder([{ id: 'v-main' }], false);
     assert.deepEqual(result, { tracks: [{ id: 'v-main', z: 0 }] });
 });
+
+test('段直下の caption item だけなら従来の暗黙字幕段を使う', () => {
+    const result = resolvePreviewCaptionTrackOrder([
+        { id: 'visual', items: [{ source: { kind: 'caption' } }] }
+    ], true);
+    assert.equal(result.captionTrackId, 't-captions-implied');
+    assert.deepEqual(result.tracks, [
+        { id: 'visual', z: 0 }, { id: 't-captions-implied', z: 1 }
+    ]);
+});
+
+test('group の子の caption item は親の段を使う', () => {
+    const result = resolvePreviewCaptionTrackOrder([
+        { id: 'back' },
+        { id: 'canvas', items: [{ source: { kind: 'group' }, items: [
+            { source: { kind: 'group' }, items: [{ source: { kind: 'caption' } }] }
+        ] }] }
+    ], true);
+    assert.equal(result.captionTrackId, 'canvas');
+    assert.deepEqual(result.tracks.map(track => track.z), [0, 1]);
+});

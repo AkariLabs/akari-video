@@ -212,7 +212,7 @@ export interface ItemV2Base {
     name?: string;
     hidden?: boolean;
     locked?: boolean;
-    /** 出力タイムライン上の絶対位置（整数フレーム）。 */
+    /** 段直下では絶対位置、子では親相対の位置（整数フレーム）。 */
     at: number;
     /** 表示・再生尺（整数フレーム）。 */
     duration: number;

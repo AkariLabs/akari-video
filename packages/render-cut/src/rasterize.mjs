@@ -502,7 +502,7 @@ function renderOverlayNode(overlay, index, fps) {
   }
   const style = Object.entries(variables)
     .map(([name, value]) => `${name}:${String(value).replaceAll(";", "")}`)
-    .join(";");
+    .join(";") + (overlay.opacity === undefined ? "" : `;opacity:${formatNumber(overlay.opacity)}`);
   const params = overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
     && Object.keys(overlay.params).length > 0
     ? ` data-akari-params="${escapeAttribute(JSON.stringify(overlay.params))}"`

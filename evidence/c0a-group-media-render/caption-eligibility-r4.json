@@ -1,0 +1,17 @@
+{
+  "group": {
+    "classification": "degraded",
+    "reason": "absolute-external-url, font-face-external-resource, animation-timing",
+    "conditions": ["absolute-external-url", "font-face-external-resource", "animation-timing"],
+    "opacity": 0.5
+  },
+  "direct": {
+    "classification": "degraded",
+    "reason": "absolute-external-url, font-face-external-resource, animation-timing",
+    "conditions": ["absolute-external-url", "font-face-external-resource", "animation-timing"],
+    "opacity": 0.5
+  },
+  "renderCutAutoEngine": "osr",
+  "renderCutExplicitGpu": "eligibility refusal",
+  "standaloneGpuCli": "eligibility refusal"
+}

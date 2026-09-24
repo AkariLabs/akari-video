@@ -1,7 +1,7 @@
 export interface PreviewTrackOrderInput {
     id: string;
     content?: { from?: string };
-    items?: { source?: { kind?: string } }[];
+    items?: { source?: { kind?: string }; children?: PreviewTrackOrderInput['items']; items?: PreviewTrackOrderInput['items'] }[];
 }
 
 export interface PreviewTrackOrderEntry {
@@ -25,10 +25,15 @@ export function resolvePreviewCaptionTrackOrder(
     hasCaptions: boolean
 ): PreviewCaptionTrackOrder {
     const resolved = tracks.map((track, z) => ({ id: track.id, z }));
+    const hasKind = (items: PreviewTrackOrderInput['items'], kind: string): boolean => Boolean(items?.some(item =>
+        item.source?.kind === kind || hasKind(item.children ?? item.items, kind)));
+    const hasGroupCaption = (items: PreviewTrackOrderInput['items'], insideGroup = false): boolean =>
+        Boolean(items?.some(item => (insideGroup && item.source?.kind === 'caption')
+            || hasGroupCaption(item.children ?? item.items, insideGroup || item.source?.kind === 'group')));
     const declaredCaption = tracks.find(track =>
         track.content?.from === 'captions.json'
-        || track.items?.some(item => item.source?.kind === 'captions')
-    );
+        || hasKind(track.items, 'captions')
+    ) ?? tracks.find(track => hasGroupCaption(track.items));
     if (declaredCaption) {
         return { tracks: resolved, captionTrackId: declaredCaption.id };
     }

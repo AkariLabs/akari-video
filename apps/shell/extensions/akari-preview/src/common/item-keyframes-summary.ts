@@ -93,11 +93,10 @@ export async function resolvePreviewItemKeyframes(
     }
 }
 
-/** keyframes が無い overlay の直列化形を一切変えないため、opacity も同じ条件でだけ載せる。 */
+/** 静的 opacity は keyframes の有無に依存せず描画へ渡す。 */
 export function buildItemKeyframeSummaryFields(value: Record<string, unknown>): ItemKeyframeSummaryFields {
-    if (!Array.isArray(value.keyframes)) return {};
     return {
-        keyframes: value.keyframes as ItemKeyframe[],
+        ...(Array.isArray(value.keyframes) ? { keyframes: value.keyframes as ItemKeyframe[] } : {}),
         ...(typeof value.opacity === 'number' && Number.isFinite(value.opacity)
             ? { opacity: value.opacity } : {})
     };

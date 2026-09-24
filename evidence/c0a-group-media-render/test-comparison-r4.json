@@ -1,0 +1,87 @@
+{
+  "baselineRevision": "b76f12758e857f7f0b688c01d8bbc6799b9c799c",
+  "renderCut": {
+    "current": {
+      "tests": 652,
+      "pass": 609,
+      "fail": 43
+    },
+    "baseline": {
+      "tests": 647,
+      "pass": 604,
+      "fail": 43
+    },
+    "sharedFailureLabels": [
+      "bgm.fadeIn=3 ramps RMS up monotonically at 0.5s/1.5s/3.5s, then holds steady (real rendered output)",
+      "bgm.fadeOut=3 is symmetric with fadeIn=3: the tail ramp mirrors the head ramp",
+      "bgm.fadeIn/fadeOut omitted keeps the filtergraph free of afade (regression invariant)",
+      "bgm.fadeIn exceeding half the timeline duration is clamped at render time (not just linted)",
+      "audio.master.loudnorm normalizes the final output to the target LUFS within +/-1 LU",
+      "explicit -1.7 dBTP real render keeps filter output and independent decoded input evidence distinct and receipt-bound",
+      "audio.master with loudnorm omitted defaults to -14 LUFS",
+      "audio.master absent preserves today's copy-only behavior (non-regression)",
+      "audio filter process failure preserves a content-addressed artifact and MEASUREMENT_ERROR receipt",
+      "failed-render-artifacts",
+      "retargeted-reports",
+      "narration merges into the final mix; output audio exists and total duration matches the video",
+      "narration gain_db is honored: -20dB output is measurably quieter than 0dB during the narration window",
+      "asplit 廃止後も ducking:true で narration は実出力に可聴のまま",
+      "a narration file that cannot be found is skipped with a warning; the render still succeeds with BGM only",
+      "a narration file that cannot be decoded is skipped with a warning; the render still succeeds with BGM only",
+      "sfx.fade_in=1 ramps RMS up monotonically within the clip's own window (real rendered output)",
+      "sfx.fade_out=1 is symmetric with fade_in=1 within a 4s clip window (tail mirrors head)",
+      "sfx.fade_in exceeding half the clip's effective (in/out-trimmed) duration is clamped at render time",
+      "sfx.fade_in/fade_out on an in/out-trimmed clip apply to the trimmed window, not the whole material",
+      "sfx in/out plays only the material's [in,out) window, at t, for (out-in) seconds (real render)",
+      "sfx.out exceeding the material's real duration clamps to the material's end (real render, no overrun)",
+      "sfx.in at/beyond the material's real duration is silently skipped with a warning",
+      "bgm.in seeks the material's internal start offset -- output head content matches material at t=in (real render)",
+      "audio.master.true_peak_dbtp=-1 on high-pressure material: final mp4's real ebur128 true peak stays at or under 0 dBFS (裁定B margin)",
+      "audio.master.true_peak_dbtp omitted keeps today's unmargined -1.5 dBTP default (no regression)",
+      "two concurrent render-cut runs against the same project do not corrupt each other's render-tmp",
+      "a stale (>24h old) leftover run directory is swept on the next real run; a fresh one is left alone",
+      "glass-free 2D and 3D sheets match pre-glass baseline bytes",
+      "bundled ffmpeg: delayed layer mixes two tones, gain/mute and silent inputs preserve timing and AAC duration",
+      "osr exports referenced video and audio with legacy files",
+      "osr exports referenced video and audio with both files",
+      "osr exports referenced video and audio with new files",
+      "osr exports referenced video and audio with project files",
+      "gpu exports referenced video and audio with legacy files",
+      "gpu exports referenced video and audio with both files",
+      "gpu exports referenced video and audio with new files",
+      "gpu exports referenced video and audio with project files",
+      "a verified render appends its v2 source once and a second render is byte-stable",
+      "a verified v0 render does not warn that sources[] is unavailable",
+      "legacy output keeps the original CSS bytes",
+      "sheet injects vgpu only for declarations and preserves existing static/three sheets byte-for-byte"
+    ],
+    "newFailures": [],
+    "baselineOnlyFailures": []
+  },
+  "preview": {
+    "tests": 1474,
+    "pass": 1472,
+    "fail": 2,
+    "failureLabels": [
+      "test/cut-size-basis.test.mjs",
+      "test/frame-engine-preview.test.mjs"
+    ]
+  },
+  "editStore": {
+    "tests": 949,
+    "pass": 949,
+    "fail": 0
+  },
+  "overlayRuntime": {
+    "nonBrowser": {
+      "tests": 32,
+      "pass": 32,
+      "fail": 0
+    },
+    "browser": {
+      "tests": 47,
+      "pass": 47,
+      "fail": 0
+    }
+  }
+}

@@ -52,6 +52,10 @@ test('keyframes がある overlay の有限な静的 opacity だけを summary �
     assert.equal(fields.opacity, 0.625);
 });
 
+test('keyframes が無くても静的 opacity を summary に写す', () => {
+    assert.deepEqual(buildItemKeyframeSummaryFields({ opacity: 0.5 }), { opacity: 0.5 });
+});
+
 test('非有限 opacity は keyframes があっても summary に写さない', () => {
     const fields = buildItemKeyframeSummaryFields({
         keyframes: [{ t: 0 }, { t: 1 }],

@@ -1,0 +1,26 @@
+{
+  "phase": "after",
+  "captureRevision": "r2",
+  "reconstructedFrom": ["verification.md", "after/*.png"],
+  "reconstructionNote": "Only values preserved in the r2 verification record are restored; other original probe fields were unavailable after the r3 failure overwrote this file.",
+  "times": [0.5, 2, 3.5],
+  "captionC0001RenderRecords": 1,
+  "preview": {
+    "0_5": { "captionC0001DrawCount": 0 },
+    "2": {
+      "layerIds": ["photo"],
+      "captionRows": 1,
+      "captionC0001DrawCount": 1,
+      "captionRowTransform": "matrix(0.618187, 0.200861, -0.200861, 0.618187, 115.065, -1.36401)",
+      "captionRowOpacity": "0.5",
+      "htmlOpacity": "0.5"
+    },
+    "3_5": { "captionC0001DrawCount": 0 }
+  },
+  "comparisons": {
+    "gpu-osr-2": { "max": 64, "mean": 1.10354 },
+    "gpu-preview-2": { "max": 132, "mean": 2.86207 },
+    "osr-preview-2": { "max": 133, "mean": 2.829659 }
+  },
+  "errors": []
+}

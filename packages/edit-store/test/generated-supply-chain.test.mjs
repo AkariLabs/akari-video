@@ -33,6 +33,7 @@ const expectedSources = [
   'envelope.ts',
   'generation-meta-node.ts',
   'generation-meta.ts',
+  'group-flatten.ts',
   'history-store.ts',
   'index.ts',
   'internal-model.ts',

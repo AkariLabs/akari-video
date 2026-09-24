@@ -1,0 +1,14 @@
+{
+  "baselineRevision": "b76f12758e857f7f0b688c01d8bbc6799b9c799c",
+  "compile": {
+    "code": 0,
+    "signal": null,
+    "tail": ""
+  },
+  "test": {
+    "code": 1,
+    "signal": null,
+    "durationMs": 79110,
+    "tail": "✖ test/frame-engine-preview.test.mjs (78777.171333ms)\nℹ tests 1\nℹ suites 0\nℹ pass 0\nℹ fail 1\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 78792.381542\n\n✖ failing tests:\n\ntest at test/frame-engine-preview.test.mjs:1:1\n✖ test/frame-engine-preview.test.mjs (78777.171333ms)\n  'test failed'\n"
+  }
+}

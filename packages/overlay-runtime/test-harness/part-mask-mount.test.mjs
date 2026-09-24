@@ -28,6 +28,8 @@ test("mounted clone masks expose only their target part and retain projected geo
         ? overlay.html
         : readFileSync(join(fixtureRoot, overlay.html), "utf8"),
     }));
+  assert.equal(overlays.find(overlay => overlay.id === 'g1.first')?.opacity, 0.4);
+  assert.equal(overlays.find(overlay => overlay.id === 'g1.first')?.keyframes, undefined);
 
   const temp = mkdtempSync(join(tmpdir(), "akari-part-mask-mount-"));
   t.after(() => rmSync(temp, { recursive: true, force: true }));

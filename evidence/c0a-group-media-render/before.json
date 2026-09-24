@@ -1,0 +1,146 @@
+{
+  "phase": "before",
+  "times": [
+    0.5,
+    2,
+    3.5
+  ],
+  "preview": {
+    "2": {
+      "seek": 2,
+      "layerIds": [],
+      "overlayIds": [
+        "duration-marker",
+        "html-card"
+      ],
+      "captionText": "",
+      "captionTransform": "none",
+      "stage": {
+        "width": 473,
+        "height": 266.0625
+      },
+      "captureClip": {
+        "width": 473,
+        "height": 266.0625
+      }
+    },
+    "0_5": {
+      "seek": 0,
+      "layerIds": [],
+      "overlayIds": [
+        "duration-marker",
+        "html-card"
+      ],
+      "captionText": "",
+      "captionTransform": "none",
+      "stage": {
+        "width": 473,
+        "height": 266.0625
+      },
+      "captureClip": {
+        "width": 473,
+        "height": 266.0625
+      }
+    },
+    "3_5": {
+      "seek": 3.5,
+      "layerIds": [],
+      "overlayIds": [
+        "duration-marker",
+        "html-card"
+      ],
+      "captionText": "",
+      "captionTransform": "none",
+      "stage": {
+        "width": 473,
+        "height": 266.0625
+      },
+      "captureClip": {
+        "width": 473,
+        "height": 266.0625
+      }
+    }
+  },
+  "export": {
+    "gpu": {
+      "code": 0,
+      "error": "",
+      "stderr": "akari-gpu-export: --audio 未指定のため映像のみで書き出します（音声トラックなし）。音声を付けるには --audio <path> を指定してください\n[OpenH264] this = 0x0x11402922e80, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[gpu-renderer] WARN WebCodecs の quantizer レート制御が使えないため固定ビットレート（12000000bps）へ切り替えました（quality=high codec=h264 reason=quantizer-config-unsupported）\n[OpenH264] this = 0x0x11400f13bd0, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[89476:0925/013205.454798:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89476:0925/013205.941002:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400487800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89476:0925/013205.942087:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[OpenH264] this = 0x0x11400f13bd0, Warning:CWelsH264SVCEncoder::Initialize(), reinitialize, m_bInitialFlag= 1.\n[OpenH264] this = 0x0x11400f13bd0, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[89476:0925/013205.950641:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n"
+    },
+    "gpu-0_5": {
+      "code": 0,
+      "error": "",
+      "stderr": ""
+    },
+    "gpu-2": {
+      "code": 0,
+      "error": "",
+      "stderr": ""
+    },
+    "gpu-3_5": {
+      "code": 0,
+      "error": "",
+      "stderr": ""
+    },
+    "osr": {
+      "code": 0,
+      "error": "",
+      "stderr": "[89859:0925/013213.137586:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89859:0925/013213.876130:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89859:0925/013213.909325:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89859:0925/013213.942512:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n"
+    },
+    "osr-0_5": {
+      "code": 0,
+      "error": "",
+      "stderr": ""
+    },
+    "osr-2": {
+      "code": 0,
+      "error": "",
+      "stderr": ""
+    },
+    "osr-3_5": {
+      "code": 0,
+      "error": "",
+      "stderr": ""
+    }
+  },
+  "comparisons": {
+    "gpu-preview-0_5": {
+      "max": 51,
+      "mean": 0.10502604166666667
+    },
+    "gpu-preview-2": {
+      "max": 248,
+      "mean": 0.5608116319444445
+    },
+    "gpu-preview-3_5": {
+      "max": 51,
+      "mean": 0.10337673611111112
+    },
+    "osr-preview-0_5": {
+      "max": 51,
+      "mean": 0.10260416666666666
+    },
+    "osr-preview-2": {
+      "max": 254,
+      "mean": 0.5615827546296296
+    },
+    "osr-preview-3_5": {
+      "max": 51,
+      "mean": 0.10260416666666666
+    },
+    "gpu-osr-0_5": {
+      "max": 2,
+      "mean": 0.002421875
+    },
+    "gpu-osr-2": {
+      "max": 51,
+      "mean": 0.062200520833333335
+    },
+    "gpu-osr-3_5": {
+      "max": 35,
+      "mean": 0.0007725694444444444
+    }
+  },
+  "errors": [],
+  "previewOpened": true
+}

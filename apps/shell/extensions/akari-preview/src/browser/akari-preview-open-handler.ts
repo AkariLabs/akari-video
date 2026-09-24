@@ -126,7 +126,7 @@ import {
 } from '../common/caption-zone-write';
 import { persistCaptionPlateTransform } from '../common/caption-plate-handles';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
-import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
+import { collectItems, hasInlineCaptions, projectPreviewCaptionRows, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan, RenderScaleMode } from '../common/frame-engine-render-scale';
 import { isAlphaIntakeSource } from '../common/alpha-intake-routing';
@@ -364,6 +364,9 @@ interface PreviewCaptionClockInput extends AnimatedPreviewCaption {
     timeDomain?: 'source' | 'output';
     /** 複数 source の source-domain cue を該当 cut だけへ射影するための任意 source id。 */
     clockSourceId?: string;
+    groupTransform?: OverlayTransform;
+    groupOpacity?: number;
+    groupTrackId?: string;
 }
 
 interface OutputPreviewCaption extends PreviewCaptionClockInput {
@@ -4966,13 +4969,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             })();
             const internal = readPreviewInternalEdit(editText, loadedCaptions.captions.length > 0, anchorCaptions);
             const excludedCaptionIds = collectExcludedCaptionIds(internal);
-            const captions = loadedCaptions.captions.filter(caption => !excludedCaptionIds.has(caption.id));
+            const captions = projectPreviewCaptionRows(internal, loadedCaptions.captions, excludedCaptionIds);
             const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                 loadedCaptions.emphasisWords,
                 legacyEmphasisWords
             ));
             const trackIdByItem = new Map(internal.tracks.flatMap(track =>
                 track.items.map(item => [item, track.id] as const)));
+            const trackIdByItemId = new Map<string, string>();
+            const registerTrackIds = (item: typeof internal.tracks[number]['items'][number], trackId: string): void => {
+                trackIdByItemId.set(item.id, trackId);
+                for (const child of item.children) registerTrackIds(child, trackId);
+            };
+            for (const track of internal.tracks) for (const item of track.items) registerTrackIds(item, track.id);
+            const trackIdOfItem = (item: typeof internal.tracks[number]['items'][number]): string =>
+                String(trackIdByItem.get(item) ?? trackIdByItemId.get(item.id) ?? '');
             const declaredSources = internal.sources;
             // ソースも描画アイテムも字幕も無い場合だけ、新規プロジェクトの案内を出す。
             // HTML 中心の構成は sources: [] でも有効なので、通常の要約読込へ進める。
@@ -5107,7 +5118,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const cutResults = await Promise.all(cutItems.map(async (item): Promise<EditSummaryCut | undefined> => {
                 const value = item.declaration as any;
                 await resolveItemAdjustLut(item);
-                const trackId = String(trackIdByItem.get(item) ?? '');
+                const trackId = trackIdOfItem(item);
                 // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06）の
                 // 再発防止として、この呼び出し自体を配線検査テストの対象にしている
@@ -5358,7 +5369,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             id: item.id,
                             t: item.at,
                             duration: item.duration,
-                            trackId: String(trackIdByItem.get(item) ?? ''),
+                            trackId: trackIdOfItem(item),
                             track: Number.isInteger(item.declaration.track) && Number(item.declaration.track) >= 0
                                 ? Number(item.declaration.track) : 0,
                             filter: item.source.filter as EditSummaryFilter['filter'],
@@ -5393,8 +5404,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...result.base,
                     ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
-                    trackId: String(trackIdByItem.get(item) ?? ''),
-                    renderTrack: resolveInternalTrackZ(internal.tracks, String(trackIdByItem.get(item) ?? ''))
+                    trackId: trackIdOfItem(item),
+                    renderTrack: resolveInternalTrackZ(internal.tracks, trackIdOfItem(item))
                 };
                 const maskSourceId = rawVersion === 2 ? base.mask : undefined;
                 // Summary ids must never leak into the layer's URL seat, including early returns.
@@ -15241,6 +15252,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     container.style.zIndex = String(zForTrack(overlay?.trackId));
                     // Blend the whole HTML item against lower items and the preview image.
                     container.style.mixBlendMode = overlay?.blend || 'normal';
+                    if (!Array.isArray(overlay?.keyframes)) {
+                        container.style.opacity = overlay?.opacity === undefined ? '' : String(overlay.opacity);
+                    }
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
                 const captionZ = typeof summary.captionTrackId === 'string' && summary.captionTrackId
@@ -16506,6 +16520,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (caption !== row.renderedCaption) {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
+                    const groupTransform = caption?.groupTransform;
+                    if (captionPlate.style) {
+                        captionPlate.style.transform = groupTransform
+                            ? 'translate(' + (groupTransform.x || 0) + 'px,' + (groupTransform.y || 0)
+                                + 'px) rotate(' + (groupTransform.rotate || 0) + 'deg) scale(' + (groupTransform.scale || 1) + ')'
+                            : '';
+                        captionPlate.style.opacity = caption?.groupOpacity === undefined
+                            ? '' : String(caption.groupOpacity);
+                    }
                     const captionAnimation = caption && !caption.resolvedTimeline && caption.textStyle?.animation
                         ? buildPreviewCaptionAnimation(caption.textStyle.animation, caption.end - caption.start,
                             message => console.warn('[akari-preview] captions.json item '
@@ -16584,6 +16607,14 @@ body { display: grid; place-items: center; padding: 32px; }
             const renderCaption = () => {
                 // All preview cues are normalized to output time by the host.
                 const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime);
+                const activeTrackId = active.find(caption => caption.groupTrackId)?.groupTrackId;
+                if ((activeTrackId || renderCaption.groupZApplied) && captionLayer?.style
+                    && typeof summary !== 'undefined' && Array.isArray(summary.timelineTracks)) {
+                    const targetId = activeTrackId || summary.captionTrackId;
+                    const captionZ = summary.timelineTracks.findIndex(track => track?.id === targetId);
+                    captionLayer.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
+                    renderCaption.groupZApplied = Boolean(activeTrackId);
+                }
                 const keys = new Set(active.map(caption => caption.id));
                 for (const [key, row] of captionRows) {
                     if (!keys.has(key)) { row.plate.remove(); captionRows.delete(key); }
