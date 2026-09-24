@@ -1,0 +1,94 @@
+{
+  "phase": "policy-before",
+  "sequence": [
+    "gpu",
+    "gpu"
+  ],
+  "runs": [
+    {
+      "project": "p-policy",
+      "n": 1,
+      "engine": "gpu",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": {
+            "left": 258,
+            "top": 580,
+            "right": 1021,
+            "bottom": 647,
+            "width": 764,
+            "height": 68,
+            "cx": 0.5,
+            "cy": 0.852
+          },
+          "placed": {
+            "left": 640,
+            "top": 146,
+            "right": 879,
+            "bottom": 213,
+            "width": 240,
+            "height": 68,
+            "cx": 0.593,
+            "cy": 0.249
+          },
+          "whitePixels": 15510
+        },
+        {
+          "t": "2.25",
+          "spoken": {
+            "left": 256,
+            "top": 580,
+            "right": 1023,
+            "bottom": 647,
+            "width": 768,
+            "height": 68,
+            "cx": 0.5,
+            "cy": 0.852
+          },
+          "placed": {
+            "left": 640,
+            "top": 146,
+            "right": 879,
+            "bottom": 213,
+            "width": 240,
+            "height": 68,
+            "cx": 0.593,
+            "cy": 0.249
+          },
+          "whitePixels": 14724
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 14,
+      "skippedWarnings": "",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "exports/policy-before-1-gpu.mp4"
+      ]
+    },
+    {
+      "project": "p-policy",
+      "n": 2,
+      "engine": "gpu",
+      "samples": [],
+      "lintExit": 1,
+      "sourcesBeforeRender": [
+        "assets/base.mp4",
+        "exports/policy-before-1-gpu.mp4"
+      ],
+      "renderExit": 2,
+      "renderSec": 0,
+      "skippedWarnings": "",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "exports/policy-before-1-gpu.mp4"
+      ],
+      "error": "render-cut execution error: captions[0].src is required for a multi-source edit\n"
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import {
   measureCaptionUnits,
   mergeCaptionDisplayStyles,
   projectCaptionWords,
+  referencedCaptionSourceCount,
   resolveCaptionDisplay,
   resolveCaptionReferenceScale,
   resolveCaptionStyleForOutput,
@@ -615,6 +616,40 @@ test('source reference validation is driven by normalized sources, not edit.vers
   );
 });
 
+test('referenced source count ignores exported sources and includes visual and audio timeline items', () => {
+  const edit = {
+    sources: [{ id: 'main' }, { id: 'export-1' }, { id: 'export-2' }, { id: 'music' }],
+    cuts: [{ src: 'main', in: 0, out: 2 }, { src: 'main', in: 2, out: 4 }],
+    tracks: [{ lane: 'visual', items: [{ items: [
+      { source: { kind: 'media', src: 'main' } },
+    ] }] }],
+  };
+  assert.equal(referencedCaptionSourceCount(edit), 1);
+  assert.equal(referencedCaptionSourceCount({ ...edit, tracks: [
+    ...edit.tracks, { lane: 'audio', items: [{ source: { kind: 'media', src: 'music' } }] },
+  ] }), 2);
+  assert.equal(referencedCaptionSourceCount({ ...edit, audio: { sfx: [{ src: 'music' }] } }), 2);
+  assert.equal(referencedCaptionSourceCount({ ...edit, cuts: [...edit.cuts, { src: 'export-1' }] }), 2);
+});
+
+test('display policy keeps source speech after unused exports and rejects true multi-source omission', () => {
+  const root = { display_policy: policy, captions: [caption('speech', 0, 1, '話した言葉')] };
+  const edit = {
+    sources: [{ id: 'main' }, { id: 'export-1' }, { id: 'export-2' }],
+    cuts: [{ src: 'main', in: 0, out: 2 }],
+  };
+  const result = resolveCaptionDisplay(root, edit);
+  assert.equal(result.occurrence_count, 1);
+  assert.equal(result.display_cues[0].src, 'main');
+  assert.throws(() => resolveCaptionDisplay(root, {
+    ...edit, cuts: [...edit.cuts, { src: 'export-1', in: 0, out: 2 }],
+  }), /src is required for a multi-source edit/u);
+  assert.throws(() => resolveCaptionDisplay(root, {
+    ...edit,
+    tracks: [{ lane: 'audio', items: [{ source: { kind: 'media', src: 'export-1' } }] }],
+  }), /src is required for a multi-source edit/u);
+});
+
 test('accepts at/track projection, fails closed for structural errors, and fails open for impossible splits', () => {
   const base = { display_policy: policy, captions: [caption('c-0001', 0, 1, '正常です')] };
   assert.equal(resolveCaptionDisplay(base, { cuts: [{ in: 0, out: 1, at: 0, track: 0 }] }).occurrence_count, 1);
@@ -792,7 +827,9 @@ test('fails closed for malformed source cues and every version 1 source referenc
     cuts: [{ src: 'a', in: 0, out: 1 }],
   };
   assert.throws(() => resolveCaptionDisplay(root, edit), /captions\[0\]\.src does not reference/u);
-  assert.throws(() => resolveCaptionDisplay({ ...root, captions: [caption('c-0001', 0, 1, '正常です')] }, edit), /captions\[0\]\.src is required/u);
+  assert.throws(() => resolveCaptionDisplay({ ...root, captions: [caption('c-0001', 0, 1, '正常です')] }, {
+    ...edit, cuts: [...edit.cuts, { src: 'b', in: 0, out: 1 }],
+  }), /captions\[0\]\.src is required/u);
   assert.throws(() => resolveCaptionDisplay(root, { ...edit, cuts: [{ in: 0, out: 1 }] }), /cuts\[0\]\.src is required/u);
   assert.throws(() => resolveCaptionDisplay(root, { ...edit, cuts: [{ src: 'ghost', in: 0, out: 1 }] }), /cuts\[0\]\.src does not reference/u);
   assert.throws(() => resolveCaptionDisplay(root, { ...edit, sources: [{ id: 'a' }, { id: 'a' }] }), /sources\[\]\.id is duplicated/u);

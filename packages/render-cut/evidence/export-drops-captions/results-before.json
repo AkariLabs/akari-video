@@ -1,0 +1,235 @@
+{
+  "phase": "before",
+  "sequence": [
+    "gpu",
+    "osr"
+  ],
+  "runs": [
+    {
+      "project": "p-plain",
+      "n": 1,
+      "engine": "gpu",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": {
+            "left": 238,
+            "top": 572,
+            "right": 1041,
+            "bottom": 647,
+            "width": 804,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 16268
+        },
+        {
+          "t": "2.25",
+          "spoken": {
+            "left": 236,
+            "top": 572,
+            "right": 1043,
+            "bottom": 647,
+            "width": 808,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 15342
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 12,
+      "skippedWarnings": "",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "exports/before-1-gpu.mp4"
+      ]
+    },
+    {
+      "project": "p-plain",
+      "n": 2,
+      "engine": "osr",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": null,
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 4389
+        },
+        {
+          "t": "2.25",
+          "spoken": null,
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 4389
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4",
+        "exports/before-1-gpu.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 6,
+      "skippedWarnings": "render-cut warning: captions.json item c-0001 omits src in a multi-source edit; skipped\nrender-cut warning: captions.json item c-0002 omits src in a multi-source edit; skipped",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "exports/before-1-gpu.mp4",
+        "exports/before-2-osr.mp4"
+      ],
+      "launcher": {
+        "tier": 2,
+        "reason": "package optionalDependency"
+      }
+    },
+    {
+      "project": "p-two",
+      "n": 1,
+      "engine": "gpu",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": null,
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 4364
+        },
+        {
+          "t": "2.25",
+          "spoken": null,
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 4369
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4",
+        "assets/alt.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 4,
+      "skippedWarnings": "render-cut warning: captions.json item c-0001 omits src in a multi-source edit; skipped\nrender-cut warning: captions.json item c-0002 omits src in a multi-source edit; skipped",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "assets/alt.mp4",
+        "exports/before-1-gpu.mp4"
+      ]
+    },
+    {
+      "project": "p-two",
+      "n": 2,
+      "engine": "osr",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": null,
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 4389
+        },
+        {
+          "t": "2.25",
+          "spoken": null,
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 4392
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4",
+        "assets/alt.mp4",
+        "exports/before-1-gpu.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 7,
+      "skippedWarnings": "render-cut warning: captions.json item c-0001 omits src in a multi-source edit; skipped\nrender-cut warning: captions.json item c-0002 omits src in a multi-source edit; skipped",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "assets/alt.mp4",
+        "exports/before-1-gpu.mp4",
+        "exports/before-2-osr.mp4"
+      ],
+      "launcher": {
+        "tier": 2,
+        "reason": "package optionalDependency"
+      }
+    }
+  ]
+}

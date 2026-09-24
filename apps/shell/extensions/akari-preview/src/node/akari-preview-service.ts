@@ -1412,6 +1412,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const edit = {
             output: internal.output,
             cuts: this.captionCompatibleCuts(internal, legacy.cuts),
+            tracks: rawEdit.tracks,
             ...(internal.sourceTableDeclared ? {
                 sources: internal.sources.map(source => ({ id: source.id, path: source.path }))
             } : {}),

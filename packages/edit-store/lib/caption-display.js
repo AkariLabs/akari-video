@@ -7,6 +7,7 @@ exports.joinCaptionLines = joinCaptionLines;
 exports.validateCaptionDisplayPolicy = validateCaptionDisplayPolicy;
 exports.resolveCaptionDisplay = resolveCaptionDisplay;
 exports.validateCaptionTextStyle = validateCaptionTextStyle;
+exports.referencedCaptionSourceCount = referencedCaptionSourceCount;
 exports.projectCaptionWords = projectCaptionWords;
 exports.dedupeCaptionOccurrences = dedupeCaptionOccurrences;
 exports.splitCaptionFragments = splitCaptionFragments;
@@ -790,6 +791,46 @@ function validateShadowLike(value, allowed, label) {
         }
     }
 }
+/** Count only declared sources used by timeline media, including nested v2 items and v1 cuts. */
+function referencedCaptionSourceCount(edit) {
+    if (!Array.isArray(edit.sources))
+        return 1;
+    const declared = new Set(edit.sources.filter(isRecord).map(source => source.id).filter(strictText));
+    const referenced = new Set();
+    const add = (id) => {
+        if (typeof id === 'string' && declared.has(id))
+            referenced.add(id);
+    };
+    for (const cut of Array.isArray(edit.cuts) ? edit.cuts : [])
+        add(cut?.src);
+    const visit = (item) => {
+        if (!isRecord(item))
+            return;
+        if (isRecord(item.source) && item.source.kind === 'media')
+            add(item.source.src);
+        if (Array.isArray(item.items))
+            item.items.forEach(visit);
+        if (Array.isArray(item.children))
+            item.children.forEach(visit);
+    };
+    for (const track of Array.isArray(edit.tracks) ? edit.tracks : []) {
+        if (isRecord(track) && (track.lane === 'visual' || track.lane === 'audio') && Array.isArray(track.items)) {
+            track.items.forEach(visit);
+        }
+    }
+    if (isRecord(edit.audio)) {
+        for (const key of ['bgm', 'sfx', 'narration', 'speech']) {
+            const entries = Array.isArray(edit.audio[key]) ? edit.audio[key] : [edit.audio[key]];
+            for (const entry of entries) {
+                if (!isRecord(entry))
+                    continue;
+                add(entry.src);
+                visit(entry);
+            }
+        }
+    }
+    return referenced.size;
+}
 function validateSourceReferences(captions, cuts, edit) {
     // 単一 source 宣言を持つ旧入力は素材表を持たない。正規化後の v1/v2 はどちらも
     // sources[] を持つため、版番号ではなく入力の性質だけで同じ参照検証を行う。
@@ -807,6 +848,7 @@ function validateSourceReferences(captions, cuts, edit) {
             fail('DUPLICATE_SOURCE_ID', `edit.json sources[].id is duplicated: ${source.id}`);
         sourceIds.add(source.id);
     });
+    const sourceCount = referencedCaptionSourceCount(edit);
     cuts.forEach((cut, index) => {
         if (edit.sources.length > 1 && cut.src === undefined) {
             fail('MISSING_CUT_SOURCE', `edit.json cuts[${index}].src is required for a multi-source edit`);
@@ -816,14 +858,14 @@ function validateSourceReferences(captions, cuts, edit) {
         }
     });
     captions.forEach((caption, index) => {
-        if (edit.sources.length > 1 && caption.time_domain !== 'output' && caption.src === undefined) {
+        if (sourceCount > 1 && caption.time_domain !== 'output' && caption.src === undefined) {
             fail('MISSING_SOURCE', `captions[${index}].src is required for a multi-source edit`);
         }
         if (caption.src !== undefined && !sourceIds.has(caption.src)) {
             fail('UNKNOWN_SOURCE', `captions[${index}].src does not reference edit.json sources[].id`);
         }
     });
-    return edit.sources.length;
+    return sourceCount;
 }
 function validateProjectionCuts(cuts, edit) {
     cuts.forEach((cut, index) => {

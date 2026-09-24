@@ -1,0 +1,218 @@
+{
+  "phase": "after",
+  "sequence": [
+    "gpu",
+    "osr",
+    "gpu"
+  ],
+  "runs": [
+    {
+      "project": "p-plain",
+      "n": 1,
+      "engine": "gpu",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": {
+            "left": 238,
+            "top": 572,
+            "right": 1041,
+            "bottom": 647,
+            "width": 804,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 16268
+        },
+        {
+          "t": "2.25",
+          "spoken": {
+            "left": 236,
+            "top": 572,
+            "right": 1043,
+            "bottom": 647,
+            "width": 808,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 15342
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 23,
+      "skippedWarnings": "",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "exports/after-1-gpu.mp4"
+      ]
+    },
+    {
+      "project": "p-plain",
+      "n": 2,
+      "engine": "osr",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": {
+            "left": 238,
+            "top": 572,
+            "right": 1041,
+            "bottom": 647,
+            "width": 804,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 16305
+        },
+        {
+          "t": "2.25",
+          "spoken": {
+            "left": 236,
+            "top": 572,
+            "right": 1043,
+            "bottom": 647,
+            "width": 808,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 15318
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4",
+        "exports/after-1-gpu.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 590,
+      "skippedWarnings": "",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "exports/after-1-gpu.mp4",
+        "exports/after-2-osr.mp4"
+      ],
+      "launcher": {
+        "tier": 2,
+        "reason": "package optionalDependency"
+      }
+    },
+    {
+      "project": "p-plain",
+      "n": 3,
+      "engine": "gpu",
+      "samples": [
+        {
+          "t": "0.75",
+          "spoken": {
+            "left": 238,
+            "top": 572,
+            "right": 1041,
+            "bottom": 647,
+            "width": 804,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 16268
+        },
+        {
+          "t": "2.25",
+          "spoken": {
+            "left": 236,
+            "top": 572,
+            "right": 1043,
+            "bottom": 647,
+            "width": 808,
+            "height": 76,
+            "cx": 0.5,
+            "cy": 0.847
+          },
+          "placed": {
+            "left": 640,
+            "top": 142,
+            "right": 919,
+            "bottom": 217,
+            "width": 280,
+            "height": 76,
+            "cx": 0.609,
+            "cy": 0.249
+          },
+          "whitePixels": 15342
+        }
+      ],
+      "lintExit": 0,
+      "sourcesBeforeRender": [
+        "assets/base.mp4",
+        "exports/after-1-gpu.mp4",
+        "exports/after-2-osr.mp4"
+      ],
+      "renderExit": 0,
+      "renderSec": 10,
+      "skippedWarnings": "",
+      "sourcesAfterRender": [
+        "assets/base.mp4",
+        "exports/after-1-gpu.mp4",
+        "exports/after-2-osr.mp4",
+        "exports/after-3-gpu.mp4"
+      ]
+    }
+  ]
+}

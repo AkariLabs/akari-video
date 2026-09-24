@@ -1,0 +1,81 @@
+{
+  "phase": "policy-after",
+  "status": "pass",
+  "samples": [
+    {
+      "t": 0.75,
+      "expected": [
+        "c-0001",
+        "c-0101"
+      ],
+      "pass": true,
+      "frame": {
+        "x": 36,
+        "y": 95.4375,
+        "w": 450,
+        "h": 253.125
+      },
+      "plates": [
+        {
+          "id": "caption-plate-c-0001-occ-0001-part-1",
+          "text": "今日は朝のルーティンを紹介します",
+          "visible": true,
+          "cx": 0.5,
+          "cy": 0.853
+        },
+        {
+          "id": "caption-plate-c-0101-occ-0001-part-1",
+          "text": "置いた文字",
+          "visible": true,
+          "cx": 0.594,
+          "cy": 0.25
+        }
+      ]
+    },
+    {
+      "t": 2.25,
+      "expected": [
+        "c-0002",
+        "c-0101"
+      ],
+      "pass": true,
+      "frame": {
+        "x": 36,
+        "y": 95.4375,
+        "w": 450,
+        "h": 253.125
+      },
+      "plates": [
+        {
+          "id": "caption-plate-c-0101-occ-0001-part-1",
+          "text": "置いた文字",
+          "visible": true,
+          "cx": 0.594,
+          "cy": 0.25
+        },
+        {
+          "id": "caption-plate-c-0002-occ-0001-part-1",
+          "text": "まずはコーヒーを淹れるところから",
+          "visible": true,
+          "cx": 0.5,
+          "cy": 0.853
+        }
+      ]
+    }
+  ],
+  "previewWarnings": [
+    "2026-09-24T04:45:11.456Z root WARN [akari-preview] open attempt 1 failed; retrying file://<machine-path> Error: Timed out after 10000ms while opening file://<machine-path>",
+    "2026-09-24T04:45:12.381Z root WARN [akari-preview] speech sidecar main-clip-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <machine-path>"
+  ],
+  "screenshots": [
+    "preview-policy-after-0.75.png",
+    "preview-policy-after-2.25.png"
+  ],
+  "sources": [
+    "assets/base.mp4",
+    "exports/policy-after-1-gpu.mp4",
+    "exports/policy-after-2-gpu.mp4",
+    "exports/policy-after-3-gpu.mp4"
+  ],
+  "pid": 28285
+}

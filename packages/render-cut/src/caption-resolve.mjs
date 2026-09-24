@@ -7,6 +7,7 @@ const {
   applyCaptionStylePresets,
   collectExcludedCaptionIds,
   filterCaptionRootByExcludedIds,
+  referencedCaptionSourceCount,
   resolveCaptionDisplay,
   TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
@@ -122,7 +123,7 @@ export function resolveCaptionPlan({
     emphasisWords: legacyEmphasisWords,
     defaultTextStyle: legacyDefaultTextStyle,
     output: styleOutput,
-    sourceCount: Array.isArray(edit.sources) ? edit.sources.length : 1,
+    sourceCount: referencedCaptionSourceCount(edit),
     onWarning: warn,
   });
   return {

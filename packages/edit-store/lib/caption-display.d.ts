@@ -146,6 +146,8 @@ export declare function resolveCaptionDisplay(captionsRoot: unknown, edit: Unkno
  * conceal an invalid default (or vice versa).
  */
 export declare function validateCaptionTextStyle(value: unknown, label?: string): UnknownRecord;
+/** Count only declared sources used by timeline media, including nested v2 items and v1 cuts. */
+export declare function referencedCaptionSourceCount(edit: UnknownRecord): number;
 /**
  * `captions.json` は変更せず、keep cut から外れた語だけを描画用の本文と words から除く。
  * どれかの cut と一部でも交差する語は残す（語の途中で切った場合に欠落させない）。

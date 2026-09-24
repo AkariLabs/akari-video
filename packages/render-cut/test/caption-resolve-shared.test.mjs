@@ -90,6 +90,32 @@ test("display_policy 未宣言なら旧経路へフォールバックする（op
   assert.equal(lineCount(plan.overlays[0].html), 2);
 });
 
+test('unused exported sources keep two speech overlays while real multi-source still skips them', () => {
+  const captionsRoot = { captions: [
+    { id: 'speech-1', start: 0, end: 1, text: '一行目の字幕' },
+    { id: 'speech-2', start: 1, end: 2, text: '二行目の字幕' },
+    { id: 'placed', start: 0, end: 2, time_domain: 'output', text: '置いた文字' },
+  ] };
+  const edit = {
+    ...projectedEdit([{ src: 'base', in: 0, out: 2 }]),
+    sources: [{ id: 'base' }, { id: 'export-1' }, { id: 'export-2' }],
+  };
+  for (const display_policy of [undefined, POLICY]) {
+    const root = { ...captionsRoot, display_policy };
+    const plan = resolveCaptionPlan({ captionsRoot: root, edit });
+    assert.deepEqual(plan.overlays.map(row => row.generatedFrom).sort(), ['placed', 'speech-1', 'speech-2']);
+    assert.equal(plan.warnings.some(warning => warning.includes('skipped')), false);
+    const multiEdit = { ...edit, cuts: [...edit.cuts, { src: 'export-1', in: 0, out: 2 }] };
+    if (display_policy) {
+      assert.throws(() => resolveCaptionPlan({ captionsRoot: root, edit: multiEdit }), /src is required for a multi-source edit/u);
+    } else {
+      const multi = resolveCaptionPlan({ captionsRoot: root, edit: multiEdit });
+      assert.deepEqual(multi.overlays.map(row => row.generatedFrom), ['placed']);
+      assert.equal(multi.warnings.filter(warning => warning.includes('skipped')).length, 2);
+    }
+  }
+});
+
 test("captions.json が無いプロジェクトは空の計画を返す", () => {
   const plan = resolveCaptionPlan({ captionsRoot: undefined, edit: projectedEdit() });
   assert.deepEqual(plan.overlays, []);

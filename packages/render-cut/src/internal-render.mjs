@@ -6,7 +6,7 @@ import { expandBagOverlays } from "../../overlay-runtime/src/parts.mjs";
 import { generateCaptionOverlays } from "./captions.mjs";
 
 const require = createRequire(import.meta.url);
-const { readInternalEdit, resolveInternalTrackZ, projectLegacyAudioView, isAudioItemAudible, isCutAudioAudible } = require("../../edit-store/lib/index.js");
+const { readInternalEdit, resolveInternalTrackZ, projectLegacyAudioView, isAudioItemAudible, isCutAudioAudible, referencedCaptionSourceCount } = require("../../edit-store/lib/index.js");
 const projectRoots = new WeakMap();
 const hiddenItemIds = new WeakMap();
 const frameNormalizedHtmlItems = new WeakSet();
@@ -110,7 +110,7 @@ export function projectRendererCompatibilityEdit(
   const captionOverlays = captionItemOverlays(internal, projectRoot, {
     cuts,
     output: { width: internal.output.width, height: internal.output.height },
-    sourceCount: sources.length,
+    sourceCount: referencedCaptionSourceCount({ sources, cuts, tracks: raw?.tracks, audio: raw?.audio }),
     emphasisWords: raw?.emphasis_words,
     onWarning,
   });
