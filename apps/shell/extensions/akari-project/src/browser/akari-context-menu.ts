@@ -1,5 +1,5 @@
 import { MaterialContextMenuItem } from '../common/material-context-menu-items';
-import { AKARI_BORDER, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
+import { AKARI_BORDER, AKARI_LINE, AKARI_RADIUS, AKARI_SURFACE } from '../common/akari-surface-tokens';
 
 export const OPEN_PREVIEW_IMAGE_ITEM: MaterialContextMenuItem = { id: 'open-preview-image', label: '見本画像を開く' };
 
@@ -14,7 +14,8 @@ export const OPEN_PREVIEW_IMAGE_ITEM: MaterialContextMenuItem = { id: 'open-prev
 export interface OpenAkariContextMenuOptions {
     readonly x: number;
     readonly y: number;
-    readonly items: readonly MaterialContextMenuItem[];
+    /** separator = この項目の前に区切り線 / icon = codicon の名前（ライブラリのカードのメニューが使う）。 */
+    readonly items: readonly (MaterialContextMenuItem & { readonly separator?: boolean; readonly icon?: string })[];
     readonly onSelect: (id: string) => void;
 }
 
@@ -44,10 +45,27 @@ export function openAkariContextMenu(options: OpenAkariContextMenuOptions): void
         boxShadow: '0 3px 12px rgba(0,0,0,.35)'
     });
     for (const item of options.items) {
+        if (item.separator && popup.childElementCount) {
+            const line = document.createElement('div');
+            line.setAttribute('role', 'separator');
+            Object.assign(line.style, { height: '1px', margin: '4px 6px', background: AKARI_LINE.hairline, flex: '0 0 auto' });
+            popup.appendChild(line);
+        }
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'theia-button secondary';
-        button.textContent = item.label;
+        if (item.icon) {
+            // theia-button は中央寄せなので、記号付きの項目は左寄せの 1 列に揃える。
+            Object.assign(button.style, { display: 'flex', alignItems: 'center', textAlign: 'left', width: '100%', margin: '0', minWidth: '0' });
+            const icon = document.createElement('span');
+            icon.className = `codicon codicon-${item.icon}`;
+            icon.setAttribute('aria-hidden', 'true');
+            Object.assign(icon.style, { width: '16px', marginRight: '8px', flex: '0 0 auto', opacity: '0.85' });
+            button.appendChild(icon);
+            button.appendChild(document.createTextNode(item.label));
+        } else {
+            button.textContent = item.label;
+        }
         button.dataset.akariContextItem = item.id;
         button.style.justifyContent = 'flex-start';
         if (item.danger) {
@@ -62,6 +80,10 @@ export function openAkariContextMenu(options: OpenAkariContextMenuOptions): void
     popup.addEventListener('contextmenu', event => event.preventDefault());
     document.body.appendChild(popup);
     activePopup = popup;
+    // 画面の端で切れないよう、はみ出す分だけ内側へ寄せる。
+    const rect = popup.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 4) popup.style.left = `${Math.max(4, window.innerWidth - rect.width - 4)}px`;
+    if (rect.bottom > window.innerHeight - 4) popup.style.top = `${Math.max(4, window.innerHeight - rect.height - 4)}px`;
     const close = (event: PointerEvent): void => {
         if (!popup.contains(event.target as Node)) {
             document.removeEventListener('pointerdown', close, true);

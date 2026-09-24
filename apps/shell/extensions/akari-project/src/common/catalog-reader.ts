@@ -9,6 +9,8 @@ export interface CatalogItemLicense {
     spdx?: string;
     /** ライセンス区分（例: "commercial-ok" / "paid-license-required"）。分類バッジ導出に使う。 */
     scope?: string;
+    /** meta.json license.attribution_required。ライセンスの 2 軸（帰属表示）の導出に使う。 */
+    attribution_required?: boolean;
 }
 
 export interface CatalogItemSource {
@@ -29,6 +31,8 @@ export interface CatalogItemMeta {
     source?: CatalogItemSource;
     /** true = 実体を同梱せず外部から都度取得する参照配布アイテム。分類バッジ導出に使う。 */
     remote?: boolean;
+    /** 作成元（情報カードの「作成」）。 */
+    author?: string;
 }
 
 /**
@@ -151,7 +155,8 @@ export function parseCatalogItemMeta(raw: string): CatalogItemMeta | undefined {
         when_to_use: typeof parsed.when_to_use === 'string' ? parsed.when_to_use : undefined,
         license: parseLicense(parsed.license),
         source: parseSource(parsed.source),
-        remote: typeof parsed.remote === 'boolean' ? parsed.remote : undefined
+        remote: typeof parsed.remote === 'boolean' ? parsed.remote : undefined,
+        ...(isNonEmptyString(parsed.author) ? { author: parsed.author } : {})
     };
 }
 
@@ -211,7 +216,9 @@ function parseLicense(value: unknown): CatalogItemLicense | undefined {
     if (!spdx && !scope) {
         return undefined;
     }
-    return { spdx, scope };
+    return typeof value.attribution_required === 'boolean'
+        ? { spdx, scope, attribution_required: value.attribution_required }
+        : { spdx, scope };
 }
 
 function parseSource(value: unknown): CatalogItemSource | undefined {

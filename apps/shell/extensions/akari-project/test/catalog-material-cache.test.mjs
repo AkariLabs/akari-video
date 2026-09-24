@@ -12,7 +12,7 @@ class URI {
 }
 const Widget=new Function('library_asset_placement_1','uri_1',`return class {${rest.slice(0,rest.indexOf('\n    }')+6)}}`)(placement,{default:URI});
 function fixture({category='audio',id='sfx-test',names=['sfx-test.mp3'],mediaUrl,missing=false,missingFile=false,state='available',origin='resolver',usageFails=false}={}) {
- let resolves=0,localReads=0,loads=0,usageWrites=0;
+ let resolves=0,localReads=0,loads=0,usageWrites=0;const prompts=[];
  const root=new URI('/project'),item={category,id,key:`${category}/${id}`,mediaUrl,state,origin};
  const directory=`/project/assets/${category}/${id}`;
  const w=Object.assign(new Widget(),{workflow:{workspaceRoot:root},assetCatalogItems:[item],resolvingAssetKeys:new Set(),update(){},
@@ -27,9 +27,11 @@ function fixture({category='audio',id='sfx-test',names=['sfx-test.mp3'],mediaUrl
    throw Error('file missing');
   }},
   projectService:{resolveAsset:async()=>{resolves++;return{success:true,projectAssetPath:directory};},recordLibraryUsage:async()=>{usageWrites++;if(usageFails)throw Error('journal unavailable');}},
-  loadMaterials:async()=>{loads++;},loadAssetCatalogView:async()=>{throw Error('catalog fetch must not run');}
+  loadMaterials:async()=>{loads++;},loadAssetCatalogView:async()=>{throw Error('catalog fetch must not run');},
+  // 未購入のプレミアムは促しのシートへ（ここでは出したかどうかだけ数える）。
+  showPremiumPrompt:key=>{if(state!=='locked'||origin!=='resolver')return false;prompts.push(key);return true;}
  });
- return{w,item,counts:()=>({resolves,localReads,loads}),usageWrites:()=>usageWrites};
+ return{w,item,prompts,counts:()=>({resolves,localReads,loads}),usageWrites:()=>usageWrites};
 }
 for(const config of [
  {},
@@ -65,6 +67,7 @@ test('callers without the trial option retain the existing resolver and response
 for(const config of [{state:'locked'},{origin:'local'}])test(`guard ${JSON.stringify(config)} also applies to cache hits`,async()=>{
  const f=fixture(config);assert.equal(await f.w.resolveCatalogMaterial(f.item.key,{preferExisting:true}),undefined);
  assert.deepEqual(f.counts(),{resolves:0,localReads:0,loads:0});
+ assert.deepEqual(f.prompts,config.state==='locked'?[f.item.key]:[]);
 });
 test('changing workspace while looking up cached files cannot return an old-project path',async()=>{
  const f=fixture(),read=f.w.files.resolve;

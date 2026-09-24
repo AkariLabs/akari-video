@@ -4,6 +4,8 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import ts from 'typescript';
 import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../lib/common/library-asset-placement.js';
+import { isPremiumLocked } from '../lib/common/library-filter.js';
+import { isPlaceableLibraryCategory } from '../lib/common/library-card-menu.js';
 const require = createRequire(import.meta.url);
 const URI = require('@theia/core/lib/common/uri').default;
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -11,7 +13,7 @@ const widget = source.statements.find(node => ts.isClassDeclaration(node) && nod
 const names = ['resolveCatalogMaterial', 'canDragCatalogAsset', 'handleCatalogAssetDragStart', 'addCatalogAssetAtPlayhead', 'useAssetCatalogItem', 'refreshAfterAssetCatalogImport'];
 const code = ts.transpileModule(`class Handler { ${names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const events = [];
-const Handler = new Function('URI', 'canPlaceLibraryAsset', 'localLibraryAssetPlacementSource', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } });
+const Handler = new Function('URI', 'canPlaceLibraryAsset', 'localLibraryAssetPlacementSource', 'resolveLibraryAssetMedia', 'RESOLVE_LIBRARY_MATERIAL_COMMAND_ID', 'TIMELINE_ADD_MATERIAL_AT_PLAYHEAD_COMMAND_ID', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'window', 'CustomEvent', 'isPremiumLocked', 'isPlaceableLibraryCategory', `${code}\nreturn Handler;`)(URI, canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, 'akari.timeline.addMaterialAtPlayhead', 'application/x-akari-library-item', 'akari.library.dragStart', { dispatchEvent: event => events.push(event) }, class { constructor(type, init) { this.type = type; this.detail = init.detail; } }, isPremiumLocked, isPlaceableLibraryCategory);
 const item = { origin: 'resolver', key: 'audio/sample', id: 'sample', category: 'audio', title: '素材', state: 'available', mediaUrl: 'https://example.test/b.mp3' };
 function fixture() {
     const handler = new Handler(), calls = [], messages = [];
@@ -24,7 +26,15 @@ function fixture() {
     handler.projectService = { resolveAsset: async (...args) => { calls.push(args); return { success: true, projectAssetPath: '/project/assets/audio/sample' }; } };
     handler.files = { resolve: async () => ({ children: ['a.mp3', 'b.mp3'].map(name => ({ name, isDirectory: false })) }) };
     handler.toAssetBinChildren = stat => stat.children;
-    return { handler, calls, messages };
+    const prompts = [];
+    // 未購入のプレミアムだけ促しのシートを出す（ウィジェットの showPremiumPrompt と同じ判定）。
+    handler.showPremiumPrompt = key => {
+        const target = handler.assetCatalogItems.find(entry => entry.key === key);
+        if (!target || !isPremiumLocked(target)) return false;
+        prompts.push(key);
+        return true;
+    };
+    return { handler, calls, messages, prompts };
 }
 
 test('取得後は試聴ファイルをプロジェクト相対パスで返し、cached を更新する', async () => {
@@ -37,14 +47,16 @@ test('取得後は試聴ファイルをプロジェクト相対パスで返し�
 
 for (const state of ['locked', 'missing', 'busy', 'failed', 'ambiguous']) {
     test(`解決不可 (${state}) は配置用結果を返さず理由を表示する`, async () => {
-        const { handler, calls, messages } = fixture();
+        const { handler, calls, messages, prompts } = fixture();
         if (state === 'locked') handler.assetCatalogItems = [{ ...item, state: 'locked' }];
         if (state === 'missing') handler.assetCatalogItems = [];
         if (state === 'busy') handler.resolvingAssetKeys.add(item.key);
         if (state === 'failed') handler.projectService.resolveAsset = async () => ({ success: false, error: 'offline' });
         if (state === 'ambiguous') handler.assetCatalogItems = [{ ...item, mediaUrl: 'https://example.test/missing.mp3' }];
         assert.equal(await handler.resolveCatalogMaterial(item.key), undefined);
-        assert.equal(messages.length, 1);
+        // 未購入のプレミアムは一言の警告ではなく促しのシート（置かない）。
+        assert.equal(messages.length, state === 'locked' ? 0 : 1);
+        assert.deepEqual(prompts, state === 'locked' ? [item.key] : []);
         if (['locked', 'missing', 'busy'].includes(state)) assert.equal(calls.length, 0);
     });
 }
@@ -73,7 +85,7 @@ test('local はドラッグ不可で、コマンド直叩きも resolver を呼�
     assert.deepEqual(messages, ['この素材は直接置けません']);
 });
 
-test('カードのドラッグは同じ payload を MIME とミラーへ送り、locked・パック棚は拒否する', () => {
+test('カードのドラッグは同じ payload を MIME とミラーへ送り、未購入は locked と価格を載せる。パック棚は拒否する', () => {
     const { handler } = fixture();
     let raw, prevented = false;
     const event = { dataTransfer: { setData: (mime, value) => { assert.equal(mime, 'application/x-akari-library-item'); raw = value; } }, preventDefault: () => { prevented = true; } };
@@ -81,7 +93,13 @@ test('カードのドラッグは同じ payload を MIME とミラーへ送り�
     assert.deepEqual(JSON.parse(raw), { kind: 'asset', key: item.key, id: item.id, category: item.category, title: item.title });
     assert.deepEqual(events.at(-1).detail, JSON.parse(raw));
     assert.equal(event.dataTransfer.effectAllowed, 'copy');
-    handler.handleCatalogAssetDragStart(event, { ...item, state: 'locked' });
+    // 未購入のプレミアムもドラッグは始まる（受け口が locked を見て促しのシートへ分岐する）。
+    handler.handleCatalogAssetDragStart(event, { ...item, state: 'locked', price: 2980 });
+    assert.equal(prevented, false);
+    assert.deepEqual(JSON.parse(raw), { kind: 'asset', key: item.key, id: item.id, category: item.category, title: item.title, locked: true, price: 2980 });
+    assert.deepEqual(events.at(-1).detail, JSON.parse(raw));
+    // 置けない種類のプレミアム（オーバーレイ等）はドラッグしない。
+    handler.handleCatalogAssetDragStart(event, { ...item, category: 'overlay', state: 'locked', price: 500 });
     assert.equal(prevented, true);
     handler.libraryCategory = 'pack';
     assert.equal(handler.canDragCatalogAsset(item), false);

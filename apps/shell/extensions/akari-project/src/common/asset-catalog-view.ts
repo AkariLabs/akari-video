@@ -30,7 +30,9 @@ export interface ResolverRawCatalogItem {
     mediaFile?: string | null;
     machineTags?: string[];
     preview?: string | null;
-    license?: { spdx?: string };
+    license?: { spdx?: string; scope?: string; attribution_required?: boolean };
+    author?: string;
+    creditText?: string | null;
     price?: number | null;
     state?: 'cached' | 'available' | 'locked';
     provenance?: { prompt?: string };
@@ -76,6 +78,11 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
         mediaFile: item.mediaFile,
         machineTags: item.machineTags,
         licenseSpdx: item.license?.spdx,
+        ...(typeof item.license?.scope === 'string' && item.license.scope ? { licenseScope: item.license.scope } : {}),
+        ...(typeof item.license?.attribution_required === 'boolean'
+            ? { licenseAttributionRequired: item.license.attribution_required } : {}),
+        ...(typeof item.author === 'string' && item.author.trim() ? { author: item.author } : {}),
+        ...(typeof item.creditText === 'string' && item.creditText ? { creditText: item.creditText } : {}),
         price: item.price ?? 0,
         state: item.state,
         previewUrl,

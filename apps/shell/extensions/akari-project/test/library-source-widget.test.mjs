@@ -5,7 +5,9 @@ import { createRequire } from 'node:module';
 import * as sources from '../lib/common/library-source-view.js';
 import * as home from '../lib/common/library-home-view.js';
 import * as tokens from '../lib/common/akari-surface-tokens.js';
+import * as filters from '../lib/common/library-filter.js';
 const require = createRequire(import.meta.url), React = require('react');
+const view = require('../lib/browser/library-card-view.js');
 const compiled = readFileSync(new URL('../lib/browser/akari-role-buckets-widget.js', import.meta.url), 'utf8');
 function method(name) {
     const start = compiled.indexOf(`    ${name}(`);
@@ -14,33 +16,46 @@ function method(name) {
     return rest.slice(0, rest.indexOf('\n    }') + 6);
 }
 const Widget = new Function('React', 'library_source_view_1', 'library_home_view_1', 'akari_surface_tokens_1', 'edit_store_1',
-    `return class { ${['renderLibrarySourceFilters', 'renderRecentLibraryStrip', 'openRecentLibraryEntry',
-        'isSiteSubscription',
+    'library_filter_1', 'library_card_view_1',
+    `return class { ${['renderRecentLibraryStrip', 'openRecentLibraryEntry',
+        'isSiteSubscription', 'libraryFilter', 'applyLibraryFilter', 'presetPassesLibraryFilter', 'toggleLibraryFilterOption',
+        'clearLibraryFilter', 'toggleLibraryFilterPopover',
         'libraryCategoryDefinition', 'selectLibraryCategory', 'showLibraryHome', 'filteredCatalogItems',
-        'libraryCategoryCount', 'renderLibraryCategoryRow', 'renderTopControls', 'renderLibraryCategoryPage'].map(method).join('\n')} }`)(React, sources, home, tokens, { TRANSITION_VOCABULARY: [] });
+        'libraryCategoryCount', 'renderLibraryCategoryRow', 'renderTopControls', 'renderLibraryCategoryPage'].map(method).join('\n')} }`)(
+    React, sources, home, tokens, { TRANSITION_VOCABULARY: [] }, filters, view);
 const walk = node => !node || typeof node !== 'object' ? [] : [node, ...React.Children.toArray(node.props?.children).flatMap(walk)];
 function fixture() {
     const focused = [];
-    const w = Object.assign(new Widget(), { librarySourceFilter: 'all', topView: 'catalog', catalogQuery: '',
+    const w = Object.assign(new Widget(), { librarySourceFilter: 'all', libraryFilterRest: { price: [], license: [], status: [] },
+        libraryFavorites: new Set(), topView: 'catalog', catalogQuery: '',
         assetCatalogItems: [{ origin: 'resolver', sourceKind: 'own', id: 'one', key: 'audio/one', title: '効果音',
-            category: 'audio', tags: ['sfx'], libraryDir: '/tmp/library/one', addedAt: '2026-09-22T00:00:00Z' }],
+            category: 'audio', tags: ['sfx'], libraryDir: '/tmp/library/one', addedAt: '2026-09-22T00:00:00Z', state: 'cached' }],
         presetShowcase: { textstyle: [], textanim: [], lut: [] }, catalogPacks: [], update() {}, stopCatalogAudio() {},
+        node: { querySelector: () => ({ getBoundingClientRect: () => ({ left: 0, top: 0, right: 30, bottom: 30 }) }) },
         renderLibraryCategoryBody() {}, focusAssetCard: (...args) => focused.push(args) });
     return { w, focused };
 }
-test('切り替えは検索の上、カテゴリ往復で選択保持、materialSwap では描画しない', () => {
+test('出どころの 1 行は無く、検索の右のフィルターで選ぶ。カテゴリ往復で保持、materialSwap では出さない', () => {
     const { w } = fixture();
     const controls = walk(w.renderTopControls());
-    const own = controls.find(node => node.props['data-source-filter'] === 'own');
-    assert.ok(controls.indexOf(own) < controls.findIndex(node => node.type === 'input'));
-    own.props.onClick();
+    assert.equal(controls.some(node => node.props['data-source-filter']), false, '出どころの 1 行は撤去');
+    const input = controls.findIndex(node => node.type === 'input');
+    const button = controls.findIndex(node => node.type === view.LibraryFilterButton);
+    assert.ok(input >= 0 && button > input, 'フィルターのボタンは検索欄の右');
+    controls[button].props.onToggle();
+    assert.ok(w.libraryFilterAnchor);
+    w.toggleLibraryFilterOption('source', 'own');
     w.selectLibraryCategory('sfx');
     assert.equal(w.filteredCatalogItems().length, 1);
     w.showLibraryHome();
     assert.equal(w.librarySourceFilter, 'own');
-    assert.equal(walk(w.renderTopControls()).find(node => node.props['data-source-filter'] === 'own').props['aria-pressed'], true);
+    assert.equal(walk(w.renderTopControls()).find(node => node.type === view.LibraryFilterButton).props.filter.source, 'own');
+    w.toggleLibraryFilterOption('status', 'remote');
+    assert.equal(w.filteredCatalogItems().length, 0);
+    w.clearLibraryFilter();
+    assert.deepEqual(w.libraryFilter(), { source: 'all', price: [], license: [], status: [] });
     w.materialSwap = {};
-    assert.equal(walk(w.renderTopControls()).some(node => node.props['data-source-filter']), false);
+    assert.equal(walk(w.renderTopControls()).some(node => node.type === view.LibraryFilterButton), false);
 });
 test('0件カテゴリは薄く、件数を観測でき、クリックで開く', () => {
     const { w } = fixture(); w.librarySourceFilter = 'site';

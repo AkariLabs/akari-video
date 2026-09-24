@@ -48,6 +48,9 @@ export const AkariCatalogCommands = {
     } as Command,
     IMPORT_ASSET: {
         id: 'akari.catalog.importAsset'
+    } as Command,
+    SHOW_PREMIUM_PROMPT: {
+        id: 'akari.library.showPremiumPrompt'
     } as Command
 };
 
@@ -119,6 +122,16 @@ export class AkariCatalogCommandContribution implements CommandContribution {
             execute: async (key: string, options?: { preferExisting?: boolean }) => {
                 const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
                 return widget.resolveCatalogMaterial(key, options);
+            }
+        });
+        // 未購入のプレミアムを使おうとした時点の促しのシート。プレビュー・タイムラインの受け口からも呼ぶ。
+        registry.registerCommand(AkariCatalogCommands.SHOW_PREMIUM_PROMPT, {
+            execute: async (args?: { key?: string } | string): Promise<boolean> => {
+                const key = typeof args === 'string' ? args : args?.key;
+                if (!key) return false;
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                return widget.showPremiumPrompt(key);
             }
         });
         registry.registerCommand(AkariCatalogCommands.OPEN_CATALOG, {

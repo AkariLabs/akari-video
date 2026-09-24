@@ -1,0 +1,486 @@
+{
+  "mode": "before",
+  "verified": [
+    "cards-image-summary",
+    "cards-image",
+    "cards-bgm-summary",
+    "cards-bgm",
+    "cards-sfx-summary",
+    "cards-sfx",
+    "dotsCountOnImages",
+    "dotsMenu",
+    "dots-menu",
+    "premiumRightClickMenuItems",
+    "rightClickMenu",
+    "right-click-menu",
+    "mystyle",
+    "sourceRow",
+    "cards-image-light"
+  ],
+  "passed": true,
+  "cards-image-summary": [
+    {
+      "key": "still/mountain-morning",
+      "text": "✓ ⋯ 朝の山並み still 山 朝 CC0-1.0 ＋ 使う",
+      "draggable": "true",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "朝の山並み のメニュー",
+        "朝の山並み をプレイヘッド位置に追加",
+        "使う"
+      ]
+    },
+    {
+      "key": "still/sunset-coast",
+      "text": "✓ ⋯ 夕暮れの海岸 still 風景 夕方 海 LicenseRef-user-owned ＋ 使う",
+      "draggable": "true",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "夕暮れの海岸 のメニュー",
+        "夕暮れの海岸 をプレイヘッド位置に追加",
+        "使う"
+      ]
+    },
+    {
+      "key": "still/lab-paper-texture",
+      "text": "☁ 紙のテクスチャ still still 背景 LicenseRef-AKARI-Sounds-Terms-v0 ＋ 使う",
+      "draggable": "true",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "紙のテクスチャ をプレイヘッド位置に追加",
+        "使う"
+      ]
+    },
+    {
+      "key": "still/premium-gold-frame",
+      "text": "¥2,980 金色の飾り枠 still still 枠 豪華 LicenseRef-AKARI-Assets-v0 ¥2,980",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "¥2,980"
+      ]
+    }
+  ],
+  "cards-image": "before/cards-image.png",
+  "cards-bgm-summary": [
+    {
+      "key": "audio/bright-morning-bgm",
+      "text": "✓ ⋯ 明るい朝の BGM audio bgm 明るい CC-BY-4.0 ＋ 使う",
+      "draggable": "true",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "明るい朝の BGM のメニュー",
+        "明るい朝の BGM を試聴",
+        "明るい朝の BGM をプレイヘッド位置に追加",
+        "使う"
+      ]
+    },
+    {
+      "key": "audio/akari-sounds-bgm",
+      "text": "☁ 無料 DL AKARI Sounds BGM（v0） audio akari-sounds bgm ai-generated LicenseRef-AKARI-Sounds-Terms-v0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/akari-sounds-jingle",
+      "text": "☁ 無料 DL AKARI Sounds ジングル（v0） audio akari-sounds jingle ai-generated LicenseRef-AKARI-Sounds-Terms-v0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/corporate-upbeat-bgm",
+      "text": "☁ 無料 DL コーポレート・アップビート BGM audio bgm corporate upbeat LicenseRef-Pixabay-Content-License 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/cozy-lofi-bgm",
+      "text": "☁ 無料 DL コージー Lo-fi チル BGM audio bgm lofi chill LicenseRef-Pixabay-Content-License 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/dova-syndrome-cheerleaders-bgm",
+      "text": "☁ 無料 DL DOVA-SYNDROME Cheerleaders（BGM） audio bgm upbeat bright LicenseRef-DOVA-SYNDROME-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/dova-syndrome-user-manual",
+      "text": "☁ 無料 DL DOVA-SYNDROME 定番BGM（2:23 AM / Morning） audio bgm calm vlog LicenseRef-DOVA-SYNDROME-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/maoudamashii-bgm-neorock",
+      "text": "☁ 無料 DL 魔王魂 ネオロック（Burn_Place / Speed_King / Desert_journey） audio bgm rock battle LicenseRef-MaouDamashii-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/maoudamashii-bgm-piano",
+      "text": "☁ 無料 DL 魔王魂 ピアノ（静寂の世界へ / 見渡す街へ） audio bgm piano quiet LicenseRef-MaouDamashii-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/musmus-hageshii-atsui-upper",
+      "text": "☁ 無料 DL MusMus 戦闘準備中（BGM） audio bgm intense battle LicenseRef-MusMus-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/musmus-yuttari-honobono",
+      "text": "☁ 無料 DL MusMus ゆったり（ひとやすみ / ノスタルジア / 夢の跡の僕ら） audio bgm calm chill LicenseRef-MusMus-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/premium-cinematic-bgm",
+      "text": "¥1,480 シネマティックな BGM audio bgm 壮大 LicenseRef-AKARI-Assets-v0 ¥1,480",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "¥1,480"
+      ]
+    }
+  ],
+  "cards-bgm": "before/cards-bgm.png",
+  "cards-sfx-summary": [
+    {
+      "key": "audio/pop-click",
+      "text": "✓ ⋯ ポンと鳴るクリック audio sfx UI LicenseRef-user-owned ＋ 使う",
+      "draggable": "true",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "ポンと鳴るクリック のメニュー",
+        "ポンと鳴るクリック を試聴",
+        "ポンと鳴るクリック をプレイヘッド位置に追加",
+        "使う"
+      ]
+    },
+    {
+      "key": "audio/akari-sounds-sfx",
+      "text": "☁ 無料 DL AKARI Sounds 効果音（v0） audio akari-sounds sfx ai-generated LicenseRef-AKARI-Sounds-Terms-v0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/camera-shutter",
+      "text": "☁ 無料 DL（要登録） カメラシャッター SFX audio sfx camera shutter CC0-1.0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/dova-syndrome-hatena-mark-se",
+      "text": "☁ 無料 DL DOVA-SYNDROME はてなマーク効果音 audio sfx reaction question LicenseRef-DOVA-SYNDROME-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/freesound-inspectorj-pencil-writing",
+      "text": "☁ 無料 DL（要登録） Freesound 鉛筆で書く音（InspectorJ） audio sfx writing foley CC-BY-4.0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/impact-sfx-pack",
+      "text": "☁ 無料 DL インパクト SFX パック audio sfx impact foley CC0-1.0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/maoudamashii-object-sound-15",
+      "text": "☁ 無料 DL 魔王魂 物音15 audio sfx object-sound foley LicenseRef-MaouDamashii-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/maoudamashii-se-magic-category",
+      "text": "☁ 無料 DL 魔王魂 マジカル27（ロゴ・ノイズ演出音） audio sfx digital logo LicenseRef-MaouDamashii-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/maoudamashii-se-onepoint-category",
+      "text": "☁ 無料 DL 魔王魂 ワンポイント（不吉 / ふざけた失敗 / ダメ出し） audio sfx fail buzzer LicenseRef-MaouDamashii-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/maoudamashii-se-system-category",
+      "text": "☁ 無料 DL 魔王魂 システム（コイン系 / ポイント提示音） audio sfx coin point LicenseRef-MaouDamashii-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/musmus-onomatope-sfx-pack",
+      "text": "☁ 無料 DL MusMus オノマトペ電子音パック audio sfx ui onomatopoeia LicenseRef-MusMus-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/otologic-motion-pop-sfx-pack",
+      "text": "☁ 無料 DL OtoLogic モーション・ポップ / 光るオノマトペパック audio sfx motion pop CC-BY-4.0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/otologic-sfx-selection",
+      "text": "☁ 無料 DL OtoLogic 定番SFXセレクション audio chime click otologic CC-BY-4.0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/pocket-se-fail-pack",
+      "text": "☁ 無料 DL ポケットサウンド 失敗系SE（呆れチーン / 死亡音 / デデーン） audio sfx fail gag LicenseRef-PocketSound-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/soundeffect-lab-ambient-life-pack",
+      "text": "☁ 無料 DL 効果音ラボ 和楽器・観客・生活音パック audio sfx traditional-instrument crowd-reaction LicenseRef-SoundEffectLab-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/soundeffect-lab-anime-direction-pack",
+      "text": "☁ 無料 DL 効果音ラボ 演出・アニメ効果音パック audio sfx anime transition LicenseRef-SoundEffectLab-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/soundeffect-lab-scene-transition",
+      "text": "☁ 無料 DL 効果音ラボ 場面転換SFX（シーン切り替え2） audio sfx whoosh transition LicenseRef-SoundEffectLab-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/soundeffect-lab-ui-signal-pack",
+      "text": "☁ 無料 DL 効果音ラボ UI・決定音・警告音パック audio sfx ui decision LicenseRef-SoundEffectLab-Free 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/ui-click-sfx-pack",
+      "text": "☁ 無料 DL UI 操作音 SFX パック audio sfx ui click CC0-1.0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    },
+    {
+      "key": "audio/whoosh-transition",
+      "text": "☁ 無料 DL（要登録） ウッシュ・トランジション SFX audio sfx whoosh swoosh CC0-1.0 取り込む 頼む",
+      "draggable": "false",
+      "crown": false,
+      "mark": null,
+      "dots": false,
+      "buttons": [
+        "取り込む",
+        "頼む"
+      ]
+    }
+  ],
+  "cards-sfx": "before/cards-sfx.png",
+  "dotsCountOnImages": 2,
+  "dotsMenu": [
+    "Finder で場所を見る",
+    "ライブラリから消す"
+  ],
+  "dots-menu": "before/dots-menu.png",
+  "premiumRightClickMenuItems": 0,
+  "rightClickMenu": [
+    "Finder で場所を見る",
+    "ライブラリから消す"
+  ],
+  "right-click-menu": "before/right-click-menu.png",
+  "mystyle": "before/mystyle.png",
+  "sourceRow": [
+    "全部",
+    "自分の",
+    "素材サイト",
+    "Lab"
+  ],
+  "cards-image-light": "before/cards-image-light.png"
+}

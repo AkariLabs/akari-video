@@ -21,23 +21,26 @@ test('マイスタイルの＋は見た目込みの placeText を一度だけ呼
   assert.doesNotMatch(body, /akari\.mystyle\.apply/);
 });
 
-test('grid と list のテキストスタイルカードがドラッグと ＋ を持つ', () => {
+test('grid と list のテキストスタイルカードはドラッグでき、プレイヘッドに置くは右クリックと情報カードへ畳む', () => {
+  const start = widget.indexOf('protected renderPresetLibraryCard(');
+  const end = widget.indexOf('\n    protected ', start + 1);
+  const body = widget.slice(start, end);
   for (const method of ['renderPresetShowcaseListRow', 'renderPresetShowcaseCard']) {
-    const start = widget.indexOf(`protected ${method}(`);
-    const end = widget.indexOf('\n    protected ', start + 1);
-    const body = widget.slice(start, end);
-    assert.match(body, /data-akari-catalog-item=/);
-    assert.match(body, /draggable=\{item\.kind === 'textstyle' \? true : undefined\}/);
-    assert.match(body, /handleTextStyleDragStart/);
-    assert.match(body, /renderTextStyleAddButton\(item\)/);
-    assert.match(body, /draggable=\{item\.kind === 'textstyle' \? false : undefined\}/);
+    assert.match(widget, new RegExp(`protected ${method}\\(item: PresetShowcaseItem\\): React\\.ReactNode \\{\\n\\s+return this\\.renderPresetLibraryCard\\(item, '(grid|list)'\\);`));
   }
-  assert.match(widget, /data-akari-catalog-action='add'/);
+  assert.match(body, /'data-akari-catalog-item': textstyle \? `textstyle\/\$\{item\.id\}` : undefined/);
+  assert.match(body, /draggable=\{textstyle \? true : undefined\}/);
+  assert.match(body, /handleTextStyleDragStart/);
+  assert.match(body, /draggable=\{false\}/);
+  assert.match(body, /openLibraryMenuAt\(event, target\)/);
+  assert.doesNotMatch(widget, /data-akari-catalog-action='add'/);
+  // 右クリックの「新しい文字として置く」は既存の placeText 経路をそのまま使う。
+  assert.match(widget, /if \(preset && id === 'place-text'\) await this\.addTextStyleAtPlayhead\(preset\);/);
   assert.match(widget, /executeCommand\('akari\.caption\.placeText', options\)/);
 });
 
 test('テキストスタイルの hint はタイムラインへの配置を案内する', () => {
-  assert.match(home, /hint: 'タイムラインへドラッグ、＋でプレイヘッド位置に置く'/);
+  assert.match(home, /hint: 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く'/);
   assert.doesNotMatch(home, /プレビューへドラッグ/);
 });
 
