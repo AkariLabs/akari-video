@@ -215,6 +215,33 @@ test("caption unit builder activates tiles for plain animators and retains legac
   assert.deepEqual(messages, ["animator.letterSpacing-ignored", "animator.blur-ignored"]);
 });
 
+test("animated caption texture freezes the plate and carries its box center", async () => {
+  const measurement = { ...measured(), plate: rect(400, 500, 240, 60) };
+  const variants = [];
+  const { buildCaptionUnits } = extract(["buildCaptionUnits"], {
+    FE, warnCaptionAnimatorOnce: () => {}, prepareCaptionAnimatorUnits,
+    captionHtmlWithUnitMarkers: html => html,
+    captionRoot: () => ({ querySelectorAll: () => [], remove() {} }),
+    document: { fonts: { ready: Promise.resolve() } },
+    CAPTION_WORD_FREEZE_CSS: "", CAPTION_MOTION_FREEZE_CSS: ".akari-caption__plate{animation:none!important}",
+    CAPTION_MEASURE_ROOT_CLASS: "measure", CAPTION_MEASURE_UNSTABLE_REASON: "unstable",
+    captionUnitCss: () => "",
+    measureCaptionVariantsStable: async (_value, _config, _html, css) => {
+      variants.push(...css);
+      return css.map(() => measurement);
+    },
+    compareCaptionLayouts: () => 0,
+  });
+  const input = { id: "cue", html: "plain", start: 0, duration: 3, motion: { in: { id: "spin-in" } } };
+  const animated = (await buildCaptionUnits(input, config, [], [], {})).units[0];
+  assert.deepEqual([animated.originX, animated.originY], [520, 530]);
+  assert.ok(animated.sharedCss.includes(".akari-caption__plate{animation:none!important}"));
+  assert.ok(variants.every(css => css.includes(".akari-caption__plate{animation:none!important}")));
+  const plain = (await buildCaptionUnits({ ...input, motion: null }, config, [], [], {})).units[0];
+  assert.equal(plain.sharedCss, "");
+  assert.equal(Object.hasOwn(plain, "originX"), false);
+});
+
 test("mixed chars and words keep siblings in one word and fragmented chars in one char unit", () => {
   const tokens = measured().tokens;
   tokens.push({ ...tokens[0], rectIndex: 1 });

@@ -143,9 +143,10 @@ test("caption measurement roots are frozen in the same settled state the raster 
   assert.match(build, /const measureSettleCss = `\.\$\{CAPTION_MEASURE_ROOT_CLASS\} \*\{animation-play-state:paused!important;animation-delay:-\$\{[^`]+\}s!important\}`;/u);
 
   const freezeUses = build.match(/\$\{CAPTION_WORD_FREEZE_CSS\}/gu) ?? [];
-  const settledFreezeUses = build.match(/\$\{CAPTION_WORD_FREEZE_CSS\}\$\{measureSettleCss\}/gu) ?? [];
-  assert.equal(freezeUses.length, 6);
+  const settledFreezeUses = build.match(/\$\{CAPTION_WORD_FREEZE_CSS\}\$\{motionFreezeCss\}\$\{measureSettleCss\}/gu) ?? [];
+  assert.equal(freezeUses.length, 7); // six measurement variants plus the raster stylesheet
   assert.equal(settledFreezeUses.length, 6);
+  assert.match(build, /const motionFreezeCss = hasMotion \? CAPTION_MOTION_FREEZE_CSS : ""/u);
 
   const bandAssignments = [...build.matchAll(/bandCss = \[([^\n]+)\];/gu)].map((match) => match[1]);
   assert.equal(bandAssignments.length, 4);

@@ -547,6 +547,9 @@
     .akari-caption__emphasis-char{animation:none!important;opacity:1!important}
     .akari-caption__tok--size-pulse{animation:none!important}
     .akari-caption__reveal-group{animation:none!important;opacity:1!important}`;
+  // Text animation is sampled by captionMotionAt. Bake only the plate's unanimated
+  // appearance; otherwise paused animations can leave a transform in the texture.
+  const CAPTION_MOTION_FREEZE_CSS = `.akari-caption__plate{animation:none!important}`;
 
   function captionHtmlWithUnitMarkers(html, animators) {
     if (!html.includes("akari-caption__reveal-group") && !animators?.length) return html;
@@ -689,10 +692,12 @@
       .map((line) => relativeRect(line.getBoundingClientRect(), origin));
     const plateElement = root.querySelector(".akari-caption__plate");
     const plate = plateElement ? relativeRect(plateElement.getBoundingClientRect(), origin) : null;
+    const plateEmPx = plateElement ? Number.parseFloat(getComputedStyle(plateElement).fontSize) || emPx : emPx;
     const revealDelay = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-delay", 0) : 0;
     const revealDuration = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-dur", 0.2) : 0;
     const wordCount = unitElement.querySelectorAll(".akari-caption__tok").length;
-    return { tokens, lines, plate, emPx, wordCount, reveal: groups.length > 0, revealDelay, revealDuration };
+    return { tokens, lines, plate, ...(plateElement ? { plateEmPx } : {}), emPx, wordCount,
+      reveal: groups.length > 0, revealDelay, revealDuration };
   }
 
   function compareCaptionLayouts(left, right, id) {
@@ -1187,12 +1192,14 @@
     const html = captionHtmlWithUnitMarkers(value.html, animators);
     const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
     const settleCss = `*{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
+    const hasMotion = Boolean(value.motion?.in || value.motion?.loop || value.motion?.out);
+    const motionFreezeCss = hasMotion ? CAPTION_MOTION_FREEZE_CSS : "";
     // 採寸はラスタと同じ settled 状態で行う。settle していないと plate の入場アニメ
     // （akari-caption-fade が 0.18em 縦に動かす）が生きたまま採寸され、毎回別の時点を
     // サンプルするので厳密一致が 32 回でも収束しない。許容差を広げるのではなく
     // 揺らぎの発生源を止める。
     const measureSettleCss = `.${CAPTION_MEASURE_ROOT_CLASS} *{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
-    const probe = captionRoot(value, config, html, `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}`);
+    const probe = captionRoot(value, config, html, `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}`);
     let unitCount;
     try {
       await document.fonts.ready;
@@ -1204,7 +1211,7 @@
     let layoutMaxDeltaPx = 0;
     for (let unitIndex = 0; unitIndex < unitCount; unitIndex += 1) {
       const revealIndex = unitCount > 1 || html.includes("akari-caption__reveal-group") ? unitIndex : null;
-      const unitCss = `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${captionUnitCss(revealIndex)}`;
+      const unitCss = `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${captionUnitCss(revealIndex)}`;
       const id = `${value.id}::unit-${unitIndex}`;
       let secondaryId = null;
       let bandCss;
@@ -1229,7 +1236,7 @@
             value,
             config,
             html,
-            [`${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${highlightCss}`],
+            [`${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${highlightCss}`],
             unitIndex,
             attemptsLog,
             differencesLog,
@@ -1249,7 +1256,7 @@
             value,
             config,
             html,
-            [`${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${plateCss}`, `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${textCss}`],
+            [`${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${plateCss}`, `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}${measureSettleCss}${textCss}`],
             unitIndex,
             attemptsLog,
             differencesLog,
@@ -1282,9 +1289,13 @@
         secondaryId,
         value: { id: value.id, motion: value.motion, vars: value.vars },
         html,
-        sharedCss: CAPTION_WORD_FREEZE_CSS,
+        sharedCss: `${CAPTION_WORD_FREEZE_CSS}${motionFreezeCss}`,
         bandCss,
         textureRect,
+        ...(hasMotion && unitMeasurement.plate ? {
+          originX: unitMeasurement.plate.x + unitMeasurement.plate.width / 2,
+          originY: unitMeasurement.plate.y + unitMeasurement.plate.height / 2,
+        } : {}),
         tiles,
         mode,
         cueId: value.id,
@@ -1292,6 +1303,9 @@
         cueDuration: value.duration,
         motion: value.motion,
         emPx: unitMeasurement.emPx || value.emPx,
+        motionEmPx: unitMeasurement.plateEmPx || unitMeasurement.emPx || value.emPx,
+        plateWidthPx: unitMeasurement.plate?.width,
+        plateHeightPx: unitMeasurement.plate?.height,
         wordCount: unitMeasurement.wordCount,
         style: [...new Set([
           ...(unitMeasurement.reveal ? ["reveal"] : []),
@@ -2745,11 +2759,16 @@
                   scaleY: 1,
                   rotateDeg: 0,
                 }
-              : FE.captionMotionAt(unit.motion, localSeconds, unit.cueDuration, unit.emPx);
+              : FE.captionMotionAt(unit.motion, localSeconds, unit.cueDuration, unit.motionEmPx,
+                unit.plateWidthPx, unit.plateHeightPx);
+            // CSS rotates clockwise in screen coordinates; the compositor's
+            // clip-space matrix uses the opposite sign.
+            if (unit.motion && !revealState) state = { ...state, rotateDeg: -state.rotateDeg };
             if (unit.animator) state = captionAnimatorItemStateAt(unit, state, seconds, config);
             if (state.opacity <= 0) continue;
             if (unit.tiles === null) {
-              draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect, ...state });
+              draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
+                originX: unit.originX, originY: unit.originY, ...state });
               continue;
             }
             let tiles = unit.tiles.map((tile) => {
@@ -2768,8 +2787,10 @@
             });
             if (unit.animator) tiles = captionAnimatorTilesAt(unit, tiles, seconds, config);
             if (unit.mode === "geometry") {
-              draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect, ...state });
-              draws.push({ z: unit.z, index: unit.index, id: unit.secondaryId, textureRect: unit.textureRect, tiles, ...state });
+              draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect,
+                originX: unit.originX, originY: unit.originY, ...state });
+              draws.push({ z: unit.z, index: unit.index, id: unit.secondaryId, textureRect: unit.textureRect,
+                originX: unit.originX, originY: unit.originY, tiles, ...state });
             } else {
               draws.push({
                 z: unit.z,
@@ -2777,6 +2798,8 @@
                 id: unit.id,
                 secondaryId: unit.secondaryId,
                 textureRect: unit.textureRect,
+                originX: unit.originX,
+                originY: unit.originY,
                 tiles,
                 ...state,
               });

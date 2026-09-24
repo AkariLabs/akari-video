@@ -48,7 +48,8 @@ const identity = (): CaptionMotionState => ({
 
 const motion = (...keyframes: MotionPoint[]): CaptionSpriteMotion => ({ keyframes });
 const fromTo = (from: Omit<MotionPoint, 'at'>, to: Omit<MotionPoint, 'at'> = {}): CaptionSpriteMotion =>
-  motion({ at: 0, ...from }, { at: 1, ...to });
+  motion({ at: 0, ...from }, { at: 1, ...(Object.keys(from).some((key) => key !== 'opacity')
+    ? { xEm: 0, yEm: 0, scaleX: 1, scaleY: 1, rotateDeg: 0 } : {}), ...to });
 
 export const CAPTION_SPRITE_MOTIONS: Record<string, CaptionSpriteMotion> = {
   'fade-in-out': fromTo({ opacity: 0 }),
@@ -113,25 +114,26 @@ export const CAPTION_SPRITE_MOTIONS: Record<string, CaptionSpriteMotion> = {
   'roll-in': fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
   'spiral-in': fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
   shake: motion(
-    { at: 0 }, { at: 0.2, xEm: -0.16 }, { at: 0.4, xEm: 0.14 },
-    { at: 0.6, xEm: -0.1 }, { at: 0.8, xEm: 0.06 }, { at: 1 }
+    { at: 0, xEm: 0 }, { at: 0.2, xEm: -0.16 }, { at: 0.4, xEm: 0.14 },
+    { at: 0.6, xEm: -0.1 }, { at: 0.8, xEm: 0.06 }, { at: 1, xEm: 0 }
   ),
   jitter: motion(
-    { at: 0 }, { at: 0.25, xEm: 0.05, yEm: -0.04 },
-    { at: 0.5, xEm: -0.05, yEm: 0.04 }, { at: 0.75, xEm: 0.03, yEm: 0.05 }, { at: 1 }
+    { at: 0, xEm: 0, yEm: 0 }, { at: 0.25, xEm: 0.05, yEm: -0.04 },
+    { at: 0.5, xEm: -0.05, yEm: 0.04 }, { at: 0.75, xEm: 0.03, yEm: 0.05 }, { at: 1, xEm: 0, yEm: 0 }
   ),
   flash: motion(
     { at: 0, opacity: 0 }, { at: 0.3, opacity: 1 }, { at: 0.45, opacity: 0.2 },
     { at: 0.6, opacity: 1 }, { at: 0.75, opacity: 0.5 }, { at: 1, opacity: 1 }
   ),
   heartbeat: motion(
-    { at: 0 }, { at: 0.25, scaleX: 1.12, scaleY: 1.12 }, { at: 0.45 },
-    { at: 0.65, scaleX: 1.08, scaleY: 1.08 }, { at: 1 }
+    { at: 0, scaleX: 1, scaleY: 1 }, { at: 0.25, scaleX: 1.12, scaleY: 1.12 }, { at: 0.45, scaleX: 1, scaleY: 1 },
+    { at: 0.65, scaleX: 1.08, scaleY: 1.08 }, { at: 1, scaleX: 1, scaleY: 1 }
   ),
   wobble: motion({ at: 0, rotateDeg: -1.6 }, { at: 0.5, rotateDeg: 1.6 }, { at: 1, rotateDeg: -1.6 }),
-  float: motion({ at: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1 }),
+  float: motion({ at: 0, yEm: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1, yEm: 0 }),
   breath: motion(
-    { at: 0, opacity: 1 }, { at: 0.5, opacity: 0.92, scaleX: 1.03, scaleY: 1.03 }, { at: 1, opacity: 1 }
+    { at: 0, opacity: 1, scaleX: 1, scaleY: 1 }, { at: 0.5, opacity: 0.92, scaleX: 1.03, scaleY: 1.03 },
+    { at: 1, opacity: 1, scaleX: 1, scaleY: 1 }
   ),
   'neon-flicker': motion(
     { at: 0, opacity: 1 }, { at: 0.08, opacity: 0.6 }, { at: 0.12, opacity: 1 },
@@ -139,8 +141,8 @@ export const CAPTION_SPRITE_MOTIONS: Record<string, CaptionSpriteMotion> = {
     { at: 0.74, opacity: 1 }, { at: 1, opacity: 1 }
   ),
   hologram: motion(
-    { at: 0, opacity: 1 }, { at: 0.3, opacity: 0.75, xEm: 0.03 },
-    { at: 0.6, opacity: 0.9, xEm: -0.03 }, { at: 1, opacity: 1 }
+    { at: 0, opacity: 1, xEm: 0 }, { at: 0.3, opacity: 0.75, xEm: 0.03 },
+    { at: 0.6, opacity: 0.9, xEm: -0.03 }, { at: 1, opacity: 1, xEm: 0 }
   ),
   'retro-flicker': motion(
     { at: 0, opacity: 1 }, { at: 0.25, opacity: 0.7 }, { at: 0.5, opacity: 1 },
@@ -164,6 +166,8 @@ const easeCurves: Record<string, readonly [number, number, number, number] | nul
   'ease-out': [0, 0, 0.58, 1],
   'ease-in-out': [0.42, 0, 0.58, 1]
 };
+const ampScaleAtStart = new Set(['soft-fade', 'cinematic-fade', 'zoom-in-out', 'stomp']);
+const ampScaleAtOvershoot = new Set(['zoom-pop', 'stretch-in']);
 
 export function isCaptionMotionSupported(declaration: CaptionMotionDeclaration | null): { supported: boolean; unsupported: string[] } {
   if (!declaration) return { supported: true, unsupported: [] };
@@ -179,7 +183,9 @@ export function captionMotionAt(
   declaration: CaptionMotionDeclaration | null,
   localSeconds: number,
   cueDurationSec: number,
-  emPx: number
+  emPx: number,
+  plateWidthPx = 20 * emPx,
+  plateHeightPx = 20 * emPx
 ): CaptionMotionState {
   const local = Math.max(0, finiteNumber(localSeconds, 0));
   const cueDuration = Math.max(0, finiteNumber(cueDurationSec, 0));
@@ -195,21 +201,25 @@ export function captionMotionAt(
   }
   const support = isCaptionMotionSupported(declaration);
   if (!support.supported) throw new Error(`unsupported caption motion: ${support.unsupported.join(', ')}`);
-  const states: CaptionMotionState[] = [];
+  const state = identity();
+  // CSS exposes one custom property on the plate, shared by all three recipes.
+  const ampValue = [declaration.in, declaration.loop, declaration.out]
+    .find((slot) => slot?.amp !== undefined)?.amp;
+  const amp = Number.isFinite(ampValue) ? Number(ampValue) : 1;
   if (declaration.in) {
     const duration = slotDuration(declaration.in, cueDuration, 0.6);
-    states.push(sampleSlot(declaration.in, Math.min(1, local / duration), em));
+    applySlot(state, declaration.in, Math.min(1, local / duration), em, amp, plateWidthPx, plateHeightPx);
   }
   if (declaration.loop) {
     const period = positiveDuration(declaration.loop.durationSec ?? declaration.loop.duration_sec, 1.6);
-    states.push(sampleSlot(declaration.loop, (local % period) / period, em, 'linear'));
+    applySlot(state, declaration.loop, (local % period) / period, em, amp, plateWidthPx, plateHeightPx, 'linear');
   }
   if (declaration.out) {
     const duration = slotDuration(declaration.out, cueDuration, 0.6);
     const delay = Math.max(0, cueDuration - duration);
-    if (local >= delay) states.push(sampleSlot(declaration.out, 1 - Math.min(1, (local - delay) / duration), em));
+    if (local >= delay) applySlot(state, declaration.out, 1 - Math.min(1, (local - delay) / duration), em, amp, plateWidthPx, plateHeightPx);
   }
-  return states.reduce(combine, identity());
+  return state;
 }
 
 function slotDuration(slot: CaptionMotionSlot, cueDuration: number, fallback: number): number {
@@ -220,59 +230,80 @@ function positiveDuration(value: number | undefined, fallback: number): number {
   return Number.isFinite(value) && Number(value) > 0 ? Number(value) : fallback;
 }
 
-function sampleSlot(slot: CaptionMotionSlot, progress: number, emPx: number, ease = slot.ease ?? 'ease-out'): CaptionMotionState {
+function applySlot(state: CaptionMotionState, slot: CaptionMotionSlot, progress: number, emPx: number,
+  amp: number, plateWidthPx: number, plateHeightPx: number, ease = slot.ease ?? 'ease-out'): void {
   const recipe = CAPTION_SPRITE_MOTIONS[slot.id];
   if (!recipe || recipe.keyframes.length === 0) throw new Error(`unsupported caption motion: ${slot.id}`);
-  const eased = applyEase(Math.max(0, Math.min(1, progress)), ease);
+  const directed = Math.max(0, Math.min(1, progress));
   const points = recipe.keyframes;
-  let left = points[0]!;
-  let right = points.at(-1) ?? left;
-  for (let index = 1; index < points.length; index += 1) {
-    if (eased <= points[index]!.at) {
-      left = points[index - 1]!;
-      right = points[index]!;
+  const underlying = { ...state };
+  const opacity = propertyInterval(points, (point) => point.opacity !== undefined, directed, ease);
+  if (opacity) state.opacity = lerp(
+    opacity.left.opacity ?? underlying.opacity,
+    opacity.right.opacity ?? underlying.opacity,
+    opacity.fraction
+  );
+  const transform = propertyInterval(points, hasTransform, directed, ease);
+  if (!transform) return;
+  const a = hasTransform(transform.left)
+    ? pointState(transform.left, slot.id, emPx, amp, plateWidthPx, plateHeightPx) : underlying;
+  const b = hasTransform(transform.right)
+    ? pointState(transform.right, slot.id, emPx, amp, plateWidthPx, plateHeightPx) : underlying;
+  state.translateX = lerp(a.translateX, b.translateX, transform.fraction);
+  state.translateY = lerp(a.translateY, b.translateY, transform.fraction);
+  state.scaleX = lerp(a.scaleX, b.scaleX, transform.fraction);
+  state.scaleY = lerp(a.scaleY, b.scaleY, transform.fraction);
+  state.rotateDeg = lerp(a.rotateDeg, b.rotateDeg, transform.fraction);
+}
+
+function propertyInterval(points: readonly MotionPoint[], hasProperty: (point: MotionPoint) => boolean,
+  directed: number, ease: string): { left: MotionPoint; right: MotionPoint; fraction: number } | null {
+  const selected = points.filter(hasProperty);
+  if (selected.length === 0) return null;
+  // A missing endpoint gets an implicit keyframe from the value below this animation.
+  // Missing interior keyframes do not create intervals for this property.
+  if (selected[0]!.at > 0) selected.unshift({ at: 0 });
+  if (selected.at(-1)!.at < 1) selected.push({ at: 1 });
+  let left = selected[0]!;
+  let right = selected.at(-1)!;
+  for (let index = 1; index < selected.length; index += 1) {
+    if (directed <= selected[index]!.at) {
+      left = selected[index - 1]!;
+      right = selected[index]!;
       break;
     }
   }
   const span = right.at - left.at;
-  const fraction = span <= 0 ? 0 : (eased - left.at) / span;
-  const amp = Number.isFinite(slot.amp) ? Number(slot.amp) : 1;
-  const a = pointState(left, emPx, amp);
-  const b = pointState(right, emPx, amp);
-  return {
-    opacity: lerp(a.opacity, b.opacity, fraction),
-    translateX: lerp(a.translateX, b.translateX, fraction),
-    translateY: lerp(a.translateY, b.translateY, fraction),
-    scaleX: lerp(a.scaleX, b.scaleX, fraction),
-    scaleY: lerp(a.scaleY, b.scaleY, fraction),
-    rotateDeg: lerp(a.rotateDeg, b.rotateDeg, fraction)
-  };
+  return { left, right, fraction: span <= 0 ? 0 : applyEase((directed - left.at) / span, ease) };
 }
 
-function pointState(point: MotionPoint, emPx: number, amp: number): CaptionMotionState {
+function hasTransform(point: MotionPoint): boolean {
+  return point.xEm !== undefined || point.yEm !== undefined || point.xPercent !== undefined
+    || point.yPercent !== undefined || point.scaleX !== undefined || point.scaleY !== undefined
+    || point.rotateDeg !== undefined;
+}
+
+function pointState(point: MotionPoint, id: string, emPx: number, amp: number,
+  plateWidthPx: number, plateHeightPx: number): CaptionMotionState {
+  const ampScale = ampScaleAtStart.has(id) && point.at === 0
+    || ampScaleAtOvershoot.has(id) && point.at === 0.7
+    || id === 'zoom-pulse' && point.at === 0.55
+    || id === 'pop' && point.at === 0.65
+    || id === 'heartbeat' && (point.at === 0.25 || point.at === 0.65)
+    || id === 'breath' && point.at === 0.5;
+  const scale = (value: number) => ampScale ? 1 + (value - 1) * amp : value;
   return {
     opacity: point.opacity ?? 1,
-    translateX: ((point.xEm ?? 0) + (point.xPercent ?? 0) * 20) * emPx * amp,
-    translateY: ((point.yEm ?? 0) + (point.yPercent ?? 0) * 20) * emPx * amp,
-    scaleX: 1 + ((point.scaleX ?? 1) - 1) * amp,
-    scaleY: 1 + ((point.scaleY ?? point.scaleX ?? 1) - 1) * amp,
+    translateX: (point.xEm ?? 0) * emPx * amp + (point.xPercent ?? 0) * plateWidthPx,
+    translateY: (point.yEm ?? 0) * emPx * amp + (point.yPercent ?? 0) * plateHeightPx,
+    scaleX: scale(point.scaleX ?? 1),
+    scaleY: scale(point.scaleY ?? point.scaleX ?? 1),
     rotateDeg: (point.rotateDeg ?? 0) * amp
   };
 }
 
-function combine(left: CaptionMotionState, right: CaptionMotionState): CaptionMotionState {
-  return {
-    opacity: left.opacity * right.opacity,
-    translateX: left.translateX + right.translateX,
-    translateY: left.translateY + right.translateY,
-    scaleX: left.scaleX * right.scaleX,
-    scaleY: left.scaleY * right.scaleY,
-    rotateDeg: left.rotateDeg + right.rotateDeg
-  };
-}
-
 function applyEase(progress: number, name: string): number {
-  const curve = easeCurves[name] ?? easeCurves['ease-out'];
+  const curve = Object.hasOwn(easeCurves, name) ? easeCurves[name] : easeCurves['ease-out'];
   if (!curve) return progress;
   return cubicBezierAt(progress, ...curve);
 }

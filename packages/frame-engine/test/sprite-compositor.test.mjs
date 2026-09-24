@@ -23,6 +23,18 @@ test("sprite transform maps pixels to clip space and flips y translation", () =>
   assert.ok(Math.abs(value[7] + 0.2) < 1e-6);
 });
 
+test("sprite rotation and scale keep the caption plate center fixed", () => {
+  const draw = { id: "caption", opacity: 1, originX: 60, originY: 150, rotateDeg: 35, scaleX: 1.3, scaleY: 0.8 };
+  const matrix = [...spriteTransformMatrix(draw, 200, 300)];
+  const x = draw.originX * 2 / 200 - 1;
+  const y = 1 - draw.originY * 2 / 300;
+  assert.ok(Math.abs(matrix[0] * x + matrix[3] * y + matrix[6] - x) < 1e-6);
+  assert.ok(Math.abs(matrix[1] * x + matrix[4] * y + matrix[7] - y) < 1e-6);
+  const tenPixelsRightInClip = 10 * 2 / 200;
+  const screenYDelta = -matrix[1] * tenPixelsRightInClip * 300 / 2;
+  assert.ok(Math.abs(screenYDelta + 10 * 1.3 * Math.sin(35 * Math.PI / 180)) < 1e-6);
+});
+
 test("sprite helpers reject invalid input", () => {
   assert.throws(() => normalizeSpriteDraw({ id: "", opacity: 1 }), /non-empty/);
   assert.throws(() => spriteTransformMatrix({ id: "x", opacity: 1 }, 0, 1), /positive/);

@@ -6,6 +6,9 @@ export interface SpriteDraw {
   scaleX?: number;
   scaleY?: number;
   rotateDeg?: number;
+  /** Pixel position of the CSS transform origin; defaults to the canvas center. */
+  originX?: number;
+  originY?: number;
   /** Canvas-space placement of a cropped texture. Omitted means the full canvas. */
   textureRect?: SpriteTextureRect;
   secondaryId?: string;
@@ -62,6 +65,8 @@ interface NormalizedSpriteDraw {
   scaleX: number;
   scaleY: number;
   rotateDeg: number;
+  originX?: number;
+  originY?: number;
 }
 
 interface NormalizedSpriteTile extends Required<Omit<SpriteTile, 'visible'>> {
@@ -150,7 +155,9 @@ export function normalizeSpriteDraw(draw: SpriteDraw): NormalizedSpriteDraw {
     translateY: finite(draw.translateY, 0, 'translateY'),
     scaleX: finite(draw.scaleX, 1, 'scaleX'),
     scaleY: finite(draw.scaleY, 1, 'scaleY'),
-    rotateDeg: finite(draw.rotateDeg, 0, 'rotateDeg')
+    rotateDeg: finite(draw.rotateDeg, 0, 'rotateDeg'),
+    ...(draw.originX === undefined ? {} : { originX: finite(draw.originX, 0, 'originX') }),
+    ...(draw.originY === undefined ? {} : { originY: finite(draw.originY, 0, 'originY') })
   };
 }
 
@@ -221,10 +228,20 @@ export function spriteTransformMatrix(draw: SpriteDraw, width: number, height: n
   const sine = Math.sin(radians);
   const translateX = value.translateX * 2 / width;
   const translateY = -value.translateY * 2 / height;
+  const a = cosine * value.scaleX;
+  // An explicit pixel origin denotes a CSS box transform. Clip space has a
+  // different x/y scale on non-square frames, so compensate before rotation.
+  const pixelOrigin = value.originX !== undefined && value.originY !== undefined;
+  const b = sine * value.scaleX * (pixelOrigin ? width / height : 1);
+  const c = -sine * value.scaleY * (pixelOrigin ? height / width : 1);
+  const d = cosine * value.scaleY;
+  const centerX = value.originX === undefined ? 0 : value.originX * 2 / width - 1;
+  const centerY = value.originY === undefined ? 0 : 1 - value.originY * 2 / height;
   return new Float32Array([
-    cosine * value.scaleX, sine * value.scaleX, 0,
-    -sine * value.scaleY, cosine * value.scaleY, 0,
-    translateX, translateY, 1
+    a, b, 0,
+    c, d, 0,
+    translateX + centerX - a * centerX - c * centerY,
+    translateY + centerY - b * centerX - d * centerY, 1
   ]);
 }
 
