@@ -8,22 +8,22 @@ export class CDP {
   constructor(wsUrl) { this.wsUrl = wsUrl; this.nextId = 1; this.pending = new Map(); this.listeners = new Map(); }
   async connect() {
     this.ws = new WebSocket(this.wsUrl);
-    await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('CDP WebSocket connect timed out after 10000ms')), 10_000); this.ws.addEventListener('open', () => { clearTimeout(timer); resolve(); }); this.ws.addEventListener('error', event => { clearTimeout(timer); reject(event); }); });
+    await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error(`CDP WebSocket connect timed out after ${cdpTimeoutMs}ms`)), cdpTimeoutMs); this.ws.addEventListener('open', () => { clearTimeout(timer); resolve(); }); this.ws.addEventListener('error', event => { clearTimeout(timer); reject(event); }); });
     this.ws.addEventListener('message', event => {
       const msg = JSON.parse(event.data);
       if (msg.id && this.pending.has(msg.id)) { const { resolve, reject, timer } = this.pending.get(msg.id); clearTimeout(timer); this.pending.delete(msg.id); msg.error ? reject(new Error(JSON.stringify(msg.error))) : resolve(msg.result); }
       else if (msg.method) for (const handler of this.listeners.get(msg.method) || []) handler(msg.params);
     });
   }
-  send(method, params = {}) { const id = this.nextId++; return new Promise((resolve, reject) => { const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`CDP ${method} timed out after ${cdpTimeoutMs}ms`)); }, cdpTimeoutMs); this.pending.set(id, { resolve, reject, timer }); this.ws.send(JSON.stringify({ id, method, params })); }); }
+  send(method, params = {}, timeoutMs = cdpTimeoutMs) { const id = this.nextId++; return new Promise((resolve, reject) => { const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`CDP ${method} timed out after ${timeoutMs}ms`)); }, timeoutMs); this.pending.set(id, { resolve, reject, timer }); this.ws.send(JSON.stringify({ id, method, params })); }); }
   on(method, handler) { if (!this.listeners.has(method)) this.listeners.set(method, []); this.listeners.get(method).push(handler); }
   close() { this.ws?.close(); }
 }
 
 export async function listTargets(port) { const response = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(5000) }); return response.json(); }
-export async function evalOn(cdp, expression, contextId) {
+export async function evalOn(cdp, expression, contextId, timeoutMs) {
   const params = { expression, returnByValue: true, awaitPromise: true }; if (contextId !== undefined) params.contextId = contextId;
-  const result = await cdp.send('Runtime.evaluate', params); if (result.exceptionDetails) throw new Error(`eval failed: ${JSON.stringify(result.exceptionDetails)}`); return result.result.value;
+  const result = await cdp.send('Runtime.evaluate', params, timeoutMs); if (result.exceptionDetails) throw new Error(`eval failed: ${JSON.stringify(result.exceptionDetails)}`); return result.result.value;
 }
 export async function realClick(cdp, x, y, opts = {}) {
   const clicks = opts.clickCount || 1, modifiers = opts.modifiers || 0;

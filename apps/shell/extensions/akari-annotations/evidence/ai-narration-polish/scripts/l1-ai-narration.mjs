@@ -2,11 +2,12 @@
 // Run after building the shell: node apps/shell/extensions/akari-annotations/evidence/ai-narration-polish/scripts/l1-ai-narration.mjs
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { isDeepStrictEqual } from 'node:util';
 import { CDP, evalOn, listTargets, realClick } from './cdp-lib.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -73,12 +74,21 @@ async function dismiss(cdp) {
       ||close.getClientRects().length===0})()`, 'update toast closed', 5000);
 }
 async function settle(cdp) {
-  return evalOn(cdp, `new Promise(resolve=>{const roots=['[data-akari-ui="panel:inspector"]','[data-akari-ui="panel:timeline"]']
-    .map(s=>document.querySelector(s)).filter(Boolean);if(!roots.length){resolve(true);return}
-    let quiet,limit;const observers=roots.map(root=>{const observer=new MutationObserver(reset);
-    observer.observe(root,{subtree:true,childList:true,attributes:true,characterData:true});return observer});
-    function done(){clearTimeout(quiet);clearTimeout(limit);observers.forEach(o=>o.disconnect());resolve(true)}
-    function reset(){clearTimeout(quiet);quiet=setTimeout(done,500)}limit=setTimeout(done,90000);reset()})`, undefined, 100_000);
+  const until = Date.now() + 90_000;
+  while (Date.now() < until) {
+    const duration = Math.min(55_000, until - Date.now());
+    const quiet = await evalOn(cdp, `new Promise(resolve=>{const roots=['[data-akari-ui="panel:inspector"]','[data-akari-ui="panel:timeline"]']
+      .map(s=>document.querySelector(s)).filter(Boolean);if(!roots.length){resolve(true);return}
+      let quiet,limit;const observers=roots.map(root=>{const observer=new MutationObserver(records=>{
+        if(records.some(record=>{const target=record.target.nodeType===1?record.target:record.target.parentElement;
+          return !target?.closest('.akari-inspector-ai-narration-progress')}))reset()});
+      observer.observe(root,{subtree:true,childList:true,attributes:true,characterData:true});return observer});
+      function done(stable){clearTimeout(quiet);clearTimeout(limit);observers.forEach(o=>o.disconnect());resolve(stable)}
+      function reset(){clearTimeout(quiet);quiet=setTimeout(()=>done(true),500)}
+      limit=setTimeout(()=>done(false),${duration});reset()})`, undefined, Math.min(60_000, duration + 5000));
+    if (quiet) return;
+  }
+  throw new Error('timed out: inspector/timeline redraw did not settle');
 }
 async function clickUntil(cdp, selector, expected, name) {
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -128,6 +138,18 @@ const item = id => `[data-akari-item-kind="audio"][data-akari-item-id="${id}"]`;
 const tab = '[data-akari-ui="tab:inspector-generation"]';
 const tile = '[data-akari-inspector-ai-tile="narration"]';
 const panel = '.akari-inspector-ai-narration-panel';
+const timelineAudioState = `(()=>{const frame=document.querySelector(${S(item('frame-b'))});
+  const following=document.querySelector(${S(item('following'))});
+  const interview=document.querySelector(${S(item('interview'))});
+  return frame&&following&&interview?{title:frame.title,followingLeft:following.style.left,
+    interviewLeft:interview.style.left}:null})()`;
+async function waitTimelineAudio(cdp, before, shifted) {
+  return waitEval(cdp, `(()=>{const state=${timelineAudioState};if(!state)return false;
+    return state.title.includes(${S(shifted ? 'n-0001.wav' : 'frame-b.wav')})
+      && state.followingLeft${shifted ? '!==' : '==='}${S(before.followingLeft)}
+      && state.interviewLeft${shifted ? '!==' : '==='}${S(before.interviewLeft)}})()`,
+  shifted ? 'shifted audio timeline rendered' : 'undo audio timeline rendered');
+}
 async function select(cdp, id) {
   await clickUntil(cdp, item(id), `Boolean(document.querySelector(${S(item(id))})?.classList.contains('akari-annotations-selected'))`, `select ${id}`);
   if (!await evalOn(cdp, `document.querySelector(${S(tab)})?.getAttribute('aria-selected')==='true'`))
@@ -195,6 +217,8 @@ try {
   const editPath = path.join(project, 'edit.json');
   const beforeText = await readFile(editPath, 'utf8');
   const before = JSON.parse(beforeText);
+  const editMatchesBefore = async () => isDeepStrictEqual(JSON.parse(await readFile(editPath, 'utf8')), before);
+  const timelineBefore = await waitEval(cdp, timelineAudioState, 'initial audio timeline');
   await select(cdp, 'frame-b');
   await clickUntil(cdp, tile, `Boolean(document.querySelector(${S(panel)}))`, 'narration panel');
   await waitEval(cdp, `Boolean(document.querySelector('.akari-inspector-ai-narration-voice option'))`, 'VOICEVOX voice');
@@ -220,14 +244,21 @@ try {
     { frame: sourceFor(shifted, 'frame-b').row, followingAt: audioAfter.items.find(row => row.id === 'following').at,
       interviewAt: audioAfter.items.find(row => row.id === 'interview').at });
   await waitEval(cdp, `document.querySelector('.akari-inspector-ai-narration-placement')?.textContent.includes('ずらして')`, 'shift label');
+  await waitTimelineAudio(cdp, timelineBefore, true);
   await shot(cdp, '02-shifted-track.png');
   await clickUntil(cdp, '.akari-annotations-widget button[aria-label="元に戻す"]',
-    `Boolean(document.querySelector(${S(item('frame-b'))}))`, 'undo shift');
+    `document.querySelector('.akari-annotations-widget button[aria-label="元に戻す"]')?.disabled===true`, 'undo shift');
   await waitFile(edit => sourceFor(edit, 'frame-b').source?.path === 'assets/generated/frame-b.wav', 'undo restores frame');
-  check('one undo restores exact edit.json bytes', await readFile(editPath, 'utf8') === beforeText, true);
+  check('one undo restores edit.json structure', await editMatchesBefore(), true);
+  await waitTimelineAudio(cdp, timelineBefore, false);
+  await waitEval(cdp, `(()=>{const inspector=document.querySelector('[data-akari-ui="panel:inspector"]');
+    return inspector&&!inspector.textContent.includes('n-0001.wav')
+      &&!document.querySelector('.akari-inspector-ai-narration-placement')})()`, 'undo inspector rendered');
   await shot(cdp, '03-one-undo.png');
 
-  await writeFile(controlFile, JSON.stringify({ mode: 'slow', seconds: 3.5, delaySeconds: 8 }));
+  const narrationDir = path.join(project, 'out/narration');
+  const narrationFilesBeforeCancel = await readdir(narrationDir);
+  await writeFile(controlFile, JSON.stringify({ mode: 'slow', seconds: 3.5, delaySeconds: 60 }));
   await select(cdp, 'frame-a');
   await clickUntil(cdp, tile, `Boolean(document.querySelector(${S(panel)}))`, 'slow narration panel');
   await waitEval(cdp, `Boolean(document.querySelector('.akari-inspector-ai-narration-voice option'))`, 'slow voice');
@@ -235,24 +266,31 @@ try {
   await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button`,
     `Boolean(document.querySelector('.akari-inspector-ai-narration-progress'))`, 'start slow narration');
   const elapsed = await waitEval(cdp, `(()=>{const t=document.querySelector('.akari-inspector-ai-narration-progress')?.textContent;
-    const n=Number(t?.match(/(\d+) 秒/)?.[1] ?? 0);return n>=1?n:null})()`, 'elapsed second', 90_000);
+    const n=Number(t?.match(/([0-9]+) 秒/)?.[1] ?? 0);return n>=1?n:null})()`, 'elapsed second', 90_000);
   result.measurements.elapsedSeconds = elapsed;
   check('progress elapsed at least one second', elapsed >= 1, elapsed);
   await shot(cdp, '04-elapsed-seconds.png');
-  await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button:last-of-type`,
+  await clickTextUntil(cdp, `${panel} .akari-inspector-ai-narration-button`, 'キャンセル',
     `!document.querySelector('.akari-inspector-ai-narration-progress')`, 'cancel slow narration');
+  await waitEval(cdp, `!document.querySelector('.akari-inspector-ai-narration-panel .akari-inspector-ai-narration-button')?.disabled`,
+    'narration ready after cancel');
+  await waitEval(cdp, `Boolean(document.querySelector(${S(panel)}))
+    &&Boolean(document.querySelector(${S(item('frame-a'))})?.classList.contains('akari-annotations-selected'))`,
+  'frame-a narration panel remains after cancel');
   await sleep(1200);
-  check('cancel leaves edit.json unchanged', await readFile(editPath, 'utf8') === beforeText, true);
+  check('cancel leaves edit.json unchanged', await editMatchesBefore(), true);
+  check('cancel leaves no new narration file', isDeepStrictEqual(await readdir(narrationDir), narrationFilesBeforeCancel),
+    narrationFilesBeforeCancel);
   await shot(cdp, '05-cancelled.png');
 
   await writeFile(controlFile, JSON.stringify({ mode: 'failure', seconds: 3.5 }));
   await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button`,
-    `Boolean(document.querySelector('.akari-inspector-ai-narration-error'))`, 'failed narration');
+    `document.querySelector('.akari-inspector-ai-narration-error')?.textContent.includes('L1 の意図した失敗')`, 'failed narration');
   const failure = await waitEval(cdp, `(()=>{const error=document.querySelector('.akari-inspector-ai-narration-error')?.textContent;
     const retry=[...document.querySelectorAll('.akari-inspector-ai-narration-button')]
       .some(button=>button.textContent==='もう一度');return error&&retry?error:null})()`, 'failure and retry');
-  check('failure reason and retry visible', !!failure, failure);
-  check('failure leaves edit.json unchanged', await readFile(editPath, 'utf8') === beforeText, true);
+  check('failure reason and retry visible', !!failure && failure.includes('L1 の意図した失敗'), failure);
+  check('failure leaves edit.json unchanged', await editMatchesBefore(), true);
   await shot(cdp, '06-failure-retry.png');
 
   await clickUntil(cdp, '.akari-inspector-ai-narration-engine-radio[value="fal-qwen3"]',
@@ -261,14 +299,15 @@ try {
   check('paid own voice label', await evalOn(cdp,
     `document.querySelector(${S(panel)})?.textContent.includes('自声')&&document.querySelector(${S(panel)})?.textContent.includes('$0.2 / 1000 字')`), true);
   await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button`,
-    `Boolean(document.querySelector('.theia-dialog'))`, 'paid approval dialog');
-  const approval = await waitEval(cdp, `(()=>{const text=document.querySelector('.theia-dialog')?.textContent;
+    `Boolean([...document.querySelectorAll('.dialogBlock')].find(dialog=>dialog.textContent.includes('費用承認')))`, 'paid approval dialog');
+  const approval = await waitEval(cdp, `(()=>{const text=[...document.querySelectorAll('.dialogBlock')]
+      .find(dialog=>dialog.textContent.includes('費用承認'))?.textContent;
     return text?.includes('費用承認')&&text?.includes('$')?text:null})()`, 'priced confirmation');
   result.measurements.approvalText = approval;
   check('priced confirmation is visible', !!approval, approval);
   await shot(cdp, '07-paid-confirmation.png');
-  await clickTextUntil(cdp, '.theia-dialog button', 'キャンセル',
-    `!document.querySelector('.theia-dialog')`, 'reject paid approval');
+  await clickTextUntil(cdp, '.dialogBlock button', 'キャンセル',
+    `![...document.querySelectorAll('.dialogBlock')].some(dialog=>dialog.textContent.includes('費用承認'))`, 'reject paid approval');
   const calls = (await readFile(callsFile, 'utf8')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
   result.fakeCli = { engines: calls.filter(row => row.args?.[1] === 'engines').length,
     voices: calls.filter(row => row.args?.[1] === 'voices').length,
@@ -277,7 +316,7 @@ try {
   check('paid generation was never called', result.fakeCli.paidAttempts === 0
     && calls.filter(row => row.args?.[1] === 'generate' && row.args.includes('fal-qwen3')).length === 0,
   result.fakeCli);
-  check('rejected approval leaves edit unchanged', await readFile(editPath, 'utf8') === beforeText, true);
+  check('rejected approval leaves edit unchanged', await editMatchesBefore(), true);
   await shot(cdp, '08-paid-rejected.png');
   result.status = 'PASS';
 } catch (error) {

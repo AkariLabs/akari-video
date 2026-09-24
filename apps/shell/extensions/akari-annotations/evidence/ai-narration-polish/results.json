@@ -25,6 +25,11 @@
         "followingAt": 240,
         "interviewAt": 315
       }
+    },
+    {
+      "name": "one undo restores edit.json structure",
+      "passed": true,
+      "measured": true
     }
   ],
   "clicks": [
@@ -57,16 +62,49 @@
       "name": "generate shift",
       "attempt": 1,
       "passed": true
+    },
+    {
+      "name": "undo shift",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-a",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "slow narration panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "script field",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "start slow narration",
+      "attempt": 1,
+      "passed": true
     }
   ],
   "screenshots": [
     {
       "name": "01-two-choices.png",
-      "bytes": 246692
+      "bytes": 237292
+    },
+    {
+      "name": "02-shifted-track.png",
+      "bytes": 298330
+    },
+    {
+      "name": "03-one-undo.png",
+      "bytes": 303111
     },
     {
       "name": "error-full.png",
-      "bytes": 289610
+      "bytes": 292058
     }
   ],
   "measurements": {
@@ -75,8 +113,8 @@
   },
   "fakeCli": {
     "engines": 1,
-    "voices": 1,
-    "generated": 1,
+    "voices": 2,
+    "generated": 2,
     "paidAttempts": 0
   },
   "fixture": {
@@ -88,7 +126,7 @@
     ],
     "fps": 30
   },
-  "error": "Error: timed out: shift label",
-  "killedPid": 35900,
-  "electronExited": true
+  "error": "Error: timed out: elapsed second",
+  "killedPid": 88493,
+  "electronExited": false
 }

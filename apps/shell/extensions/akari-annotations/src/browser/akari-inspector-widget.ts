@@ -5261,8 +5261,14 @@ export class AkariInspectorWidget extends BaseWidget {
                 confirm: message => new ConfirmDialog(message).open(),
                 commit: (name, mutate) => timeline.commitEditMutation!(name, mutate), fps });
             if (label) {
+                // The edit.json event may arrive after this read. Do not reuse the pre-placement snapshot.
+                this.narrationEditVersion = (this.narrationEditVersion ?? 0) + 1;
+                this.narrationEditSnapshot = undefined;
+                this.narrationVerified = undefined;
+                this.narrationPlacementContext = undefined;
                 const placedEdit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
                 const sourcePath = aiNarrationSourcePath(placedEdit, itemId);
+                this.narrationSourcePath = sourcePath;
                 state.placement = label;
                 this.narrationPlacementNotice = sourcePath ? { clipKey: key, sourcePath, label } : undefined;
                 this.audioPlanned = false;

@@ -152,6 +152,130 @@ test('widget: 同じ item と edit 版の render を重ねても readFile せず
   assert.equal(reads, 2);
 });
 
+function narrationWidgetHarness(methodNames, dependencies = {}) {
+  const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+  const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
+  const klass = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
+  const methods = methodNames.map(name => {
+    const member = klass.members.find(node => node.name?.getText(ast) === name);
+    assert.ok(member, name);
+    return member.getText(ast);
+  }).join('\n');
+  let editListener;
+  const visit = node => {
+    if (ts.isCallExpression(node) && node.expression.getText(ast) === 'this.fileService.onDidFilesChange'
+      && node.arguments[0].getText(ast).includes('this.narrationEditVersion')) editListener = node.arguments[0].getText(ast);
+    ts.forEachChild(node, visit);
+  };
+  visit(klass.members.find(node => node.name?.getText(ast) === 'init'));
+  assert.ok(editListener);
+  const compiled = ts.transpileModule(`class Harness { ${methods}
+    wireEdit() { this.fileService.onDidFilesChange(${editListener}); }
+  }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+  const names = Object.keys(dependencies);
+  return new Function(...names, `${compiled}; return Harness;`)(...Object.values(dependencies));
+}
+
+test('widget: 古い edit キャッシュがあっても置き先が直後に出て、変更イベント後も残り、undo で消える', async () => {
+  const initial = fixture([clip('after', 105, 30)]);
+  let disk = initial;
+  const key = 'audio-key';
+  const state = { engineId: 'voicevox', voiceId: 'speaker', script: '長い原稿', reading: '',
+    running: false, placementChoice: 'shift' };
+  const Harness = narrationWidgetHarness(
+    ['startAiNarration', 'loadAiTranscribeTarget', 'verifyAiNarrationSource'], {
+      window: { setInterval: () => 1, clearInterval: () => {} },
+      ConfirmDialog: class {},
+      generateAiNarration: async options => {
+        await options.commit('ナレーションを置く', doc => placeAiNarration(doc, 'frame',
+          'out/narration/n-0001.wav', 3.5, 30, 'shift'));
+        return '後ろのクリップを 1.5 秒ずらして A1 に置きました';
+      },
+      aiNarrationSourcePath,
+      resolveAiTranscribeTarget: () => ({ relativePath: 'assets/generated/frame.wav', name: 'frame.wav' })
+    });
+  let changed;
+  let reads = 0;
+  const root = { toString: () => 'project', resolve: name => name };
+  const widget = Object.assign(new Harness(), {
+    narrationStates: new Map([[key, state]]), narrationEngines: [engine],
+    narrationEditVersion: 0, narrationLoadRevision: 0, narrationSourceCheckVersion: 0,
+    narrationEditSnapshot: { itemId: 'frame', editVersion: 0, edit: initial },
+    narrationVerified: { itemId: 'frame', editVersion: 0 },
+    narrationSourcePath: 'assets/generated/frame.wav', transcribeKey: 'audio-key',
+    aiView: 'narration', aiViewClipKey: key, isDisposed: false,
+    model: { snapshot: { kind: 'audio', id: 'frame' } },
+    workspaceService: { ready: Promise.resolve(), tryGetRoots: () => [{ resource: root }] },
+    fileService: { readFile: async () => { reads++; return { value: Buffer.from(JSON.stringify(disk)) }; },
+      exists: async () => true, onDidFilesChange: callback => { changed = callback; } },
+    layerAudioService: { readTranscriptSummary: async () => ({ state: 'none', segments: [], total: 0 }),
+      readGenerationSidecars: async () => ({ entries: [] }) },
+    stillWidgetManager: { getWidgets: () => [{ isDisposed: false, location: { root },
+      commitEditMutation: async (_, mutate) => { disk = mutate(disk); } }] },
+    body: { querySelector: () => null },
+    render() {
+      if (this.transcribeKey === undefined) {
+        this.transcribeKey = key;
+        this.narrationSourcePath = undefined;
+        this.pendingLoad = this.loadAiTranscribeTarget(this.model.snapshot, key);
+      } else if (this.narrationSourcePath) {
+        this.pendingVerify = this.verifyAiNarrationSource(this.model.snapshot, key);
+      }
+    }
+  });
+  widget.wireEdit();
+  await widget.startAiNarration(key, 'frame', 1);
+  await widget.pendingLoad;
+  const placementVisible = () => widget.aiView === 'tiles'
+    && widget.narrationPlacementNotice?.clipKey === key
+    && widget.narrationPlacementNotice.sourcePath === widget.narrationSourcePath;
+  assert.equal(widget.narrationPlacementNotice?.sourcePath, 'out/narration/n-0001.wav');
+  assert.equal(placementVisible(), true);
+  assert.match(widget.narrationPlacementNotice.label, /ずらして/u);
+  changed({ changes: [{ resource: { toString: () => 'edit.json' } }] });
+  await widget.pendingVerify;
+  assert.equal(placementVisible(), true);
+  disk = initial;
+  changed({ changes: [{ resource: { toString: () => 'edit.json' } }] });
+  await widget.pendingVerify;
+  await widget.pendingLoad;
+  assert.equal(placementVisible(), false);
+  assert.equal(widget.narrationPlacementNotice, undefined);
+  assert.equal(widget.narrationSourcePath, 'assets/generated/frame.wav');
+  assert.ok(reads >= 4);
+});
+
+test('widget: 音声以外の文字起こしはナレーションキャッシュを使わず、毎回解決結果を保つ', async () => {
+  const edit = fixture();
+  const cached = fixture([clip('stale', 105, 30)]);
+  const target = { relativePath: 'assets/video.mp4', name: 'video.mp4' };
+  const Harness = narrationWidgetHarness(['loadAiTranscribeTarget'], {
+    aiNarrationSourcePath, resolveAiTranscribeTarget: () => target
+  });
+  let reads = 0;
+  // Keep the id equal to the cached audio item so removing the kind guard would hit the stale cache.
+  const snapshot = { kind: 'cut', id: 'frame', itemId: 'cut-1' };
+  const root = { resolve: name => name, toString: () => 'project' };
+  const verified = { itemId: 'frame', editVersion: 2 };
+  const widget = Object.assign(new Harness(), {
+    narrationLoadRevision: 0, narrationEditVersion: 2, transcribeKey: 'cut-key',
+    narrationEditSnapshot: { itemId: 'frame', editVersion: 2, edit: cached },
+    narrationVerified: verified, narrationSourcePath: 'assets/generated/frame.wav',
+    workspaceService: { ready: Promise.resolve(), tryGetRoots: () => [{ resource: root }] },
+    fileService: { readFile: async () => { reads++; return { value: Buffer.from(JSON.stringify(edit)) }; },
+      exists: async () => true },
+    layerAudioService: { readTranscriptSummary: async () => ({ state: 'none', segments: [], total: 0 }) },
+    render() {}, isDisposed: false
+  });
+  await widget.loadAiTranscribeTarget(snapshot, 'cut-key');
+  await widget.loadAiTranscribeTarget(snapshot, 'cut-key');
+  assert.equal(reads, 2);
+  assert.strictEqual(widget.transcribeTarget, target);
+  assert.strictEqual(widget.narrationEditSnapshot.edit, cached);
+  assert.strictEqual(widget.narrationVerified, verified);
+  assert.equal(widget.narrationSourcePath, 'assets/generated/frame.wav');
+});
+
 const timelineSource = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
 
 function timelineMethod(name) {
