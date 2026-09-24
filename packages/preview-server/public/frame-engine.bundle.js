@@ -6392,12 +6392,401 @@ var require_generation_meta = __commonJS({
   }
 });
 
+// ../edit-store/lib/shape-geometry.js
+var require_shape_geometry = __commonJS({
+  "../edit-store/lib/shape-geometry.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.parseShapePath = parseShapePath;
+    exports.shapePathBounds = shapePathBounds;
+    exports.serializeShapePath = serializeShapePath;
+    exports.fitShapePath = fitShapePath;
+    exports.scaleShapePath = scaleShapePath;
+    exports.roundShapePath = roundShapePath;
+    exports.hasShapeCorners = hasShapeCorners;
+    var numberToken = "-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?";
+    var tokenPattern = new RegExp(`[MLCZ]|${numberToken}`, "gu");
+    var numberPattern = new RegExp(`^${numberToken}$`, "u");
+    var f2 = (v2) => +v2.toFixed(3);
+    var point = (p2) => `${f2(p2[0])} ${f2(p2[1])}`;
+    function parseShapePath(d2) {
+      if (!d2 || d2.length > 1e5)
+        throw new Error("shape path is empty or too long");
+      const tokens = d2.match(tokenPattern) ?? [];
+      if (d2.replace(tokenPattern, "").replace(/[\s,]/gu, "") !== "") {
+        throw new Error("unsupported shape path command");
+      }
+      const subs = [];
+      let i2 = 0;
+      let sub;
+      const number = () => {
+        const token = tokens[i2++];
+        if (!token || !numberPattern.test(token))
+          throw new Error("invalid shape path coordinate");
+        const value = Number(token);
+        if (!Number.isFinite(value))
+          throw new Error("non-finite shape path coordinate");
+        return value;
+      };
+      while (i2 < tokens.length) {
+        const command = tokens[i2++];
+        if (command === "M") {
+          sub = { start: [number(), number()], segs: [], closed: false };
+          subs.push(sub);
+        } else if (command === "L" && sub && !sub.closed)
+          sub.segs.push({ t: "L", p: [number(), number()] });
+        else if (command === "C" && sub && !sub.closed) {
+          sub.segs.push({
+            t: "C",
+            c1: [number(), number()],
+            c2: [number(), number()],
+            p: [number(), number()]
+          });
+        } else if (command === "Z" && sub && !sub.closed) {
+          sub.closed = true;
+          const last = sub.segs.length ? sub.segs[sub.segs.length - 1].p : sub.start;
+          if (Math.hypot(last[0] - sub.start[0], last[1] - sub.start[1]) > 1e-6) {
+            sub.segs.push({ t: "L", p: [...sub.start] });
+          }
+        } else
+          throw new Error("invalid shape path structure");
+      }
+      if (!subs.length || subs.some((s) => !s.segs.length))
+        throw new Error("shape path has no segments");
+      return subs;
+    }
+    function cubic(a, b, c, d2, t) {
+      const u2 = 1 - t;
+      return u2 * u2 * u2 * a + 3 * u2 * u2 * t * b + 3 * u2 * t * t * c + t * t * t * d2;
+    }
+    function cubicExtrema(a, b, c, d2) {
+      const A3 = -a + 3 * b - 3 * c + d2;
+      const B4 = 2 * (a - 2 * b + c);
+      const C4 = b - a;
+      if (Math.abs(A3) < 1e-12)
+        return Math.abs(B4) < 1e-12 ? [] : [-C4 / B4].filter((t) => t > 0 && t < 1);
+      const discriminant = B4 * B4 - 4 * A3 * C4;
+      if (discriminant < 0)
+        return [];
+      return [(-B4 + Math.sqrt(discriminant)) / (2 * A3), (-B4 - Math.sqrt(discriminant)) / (2 * A3)].filter((t) => t > 0 && t < 1);
+    }
+    function shapePathBounds(subs) {
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      const add = (p2) => {
+        x0 = Math.min(x0, p2[0]);
+        y0 = Math.min(y0, p2[1]);
+        x1 = Math.max(x1, p2[0]);
+        y1 = Math.max(y1, p2[1]);
+      };
+      for (const sub of subs) {
+        let prev = sub.start;
+        add(prev);
+        for (const seg of sub.segs) {
+          add(seg.p);
+          if (seg.t === "C") {
+            for (let axis = 0; axis < 2; axis++) {
+              for (const t of cubicExtrema(prev[axis], seg.c1[axis], seg.c2[axis], seg.p[axis])) {
+                const p2 = [...prev];
+                p2[axis] = cubic(prev[axis], seg.c1[axis], seg.c2[axis], seg.p[axis], t);
+                add(p2);
+              }
+            }
+          }
+          prev = seg.p;
+        }
+      }
+      return { x: x0, y: y0, width: Math.max(1e-6, x1 - x0), height: Math.max(1e-6, y1 - y0) };
+    }
+    function serializeShapePath(subs) {
+      return subs.map((s) => `M${point(s.start)}` + s.segs.map((g2) => g2.t === "L" ? `L${point(g2.p)}` : `C${point(g2.c1)} ${point(g2.c2)} ${point(g2.p)}`).join("") + (s.closed ? "Z" : "")).join("");
+    }
+    function fitShapePath(d2, width, height) {
+      const subs = parseShapePath(d2);
+      const b = shapePathBounds(subs);
+      const map = (p2) => [(p2[0] - b.x) * width / b.width, (p2[1] - b.y) * height / b.height];
+      return subs.map((s) => ({
+        start: map(s.start),
+        closed: s.closed,
+        segs: s.segs.map((g2) => g2.t === "L" ? { t: "L", p: map(g2.p) } : { t: "C", c1: map(g2.c1), c2: map(g2.c2), p: map(g2.p) })
+      }));
+    }
+    function scaleShapePath(subs, x3, y2) {
+      const map = (p2) => [p2[0] * x3, p2[1] * y2];
+      return subs.map((s) => ({
+        start: map(s.start),
+        closed: s.closed,
+        segs: s.segs.map((g2) => g2.t === "L" ? { t: "L", p: map(g2.p) } : { t: "C", c1: map(g2.c1), c2: map(g2.c2), p: map(g2.p) })
+      }));
+    }
+    function roundShapePath(subs, radius) {
+      if (radius <= 0)
+        return subs;
+      return subs.map((sub) => {
+        if (!sub.closed || sub.segs.length < 3)
+          return sub;
+        const n2 = sub.segs.length;
+        const corners = sub.segs.map((out, i2) => {
+          const incoming = sub.segs[(i2 - 1 + n2) % n2];
+          if (incoming.t !== "L" || out.t !== "L")
+            return null;
+          const vertex = i2 === 0 ? sub.start : sub.segs[i2 - 1].p;
+          const before = i2 === 0 ? n2 > 1 ? sub.segs[n2 - 2].p : sub.start : i2 > 1 ? sub.segs[i2 - 2].p : sub.start;
+          const after = out.p;
+          const l1 = Math.hypot(vertex[0] - before[0], vertex[1] - before[1]);
+          const l2 = Math.hypot(after[0] - vertex[0], after[1] - vertex[1]);
+          if (!l1 || !l2)
+            return null;
+          const u1 = [(vertex[0] - before[0]) / l1, (vertex[1] - before[1]) / l1];
+          const u2 = [(after[0] - vertex[0]) / l2, (after[1] - vertex[1]) / l2];
+          if (Math.abs(u1[0] * u2[1] - u1[1] * u2[0]) < 0.02 && u1[0] * u2[0] + u1[1] * u2[1] > 0) {
+            return null;
+          }
+          const r = Math.min(radius, l1 / 2, l2 / 2);
+          if (r < 0.01)
+            return null;
+          return {
+            vertex,
+            a: [vertex[0] - u1[0] * r, vertex[1] - u1[1] * r],
+            b: [vertex[0] + u2[0] * r, vertex[1] + u2[1] * r]
+          };
+        });
+        const result = { start: corners[0]?.b ?? sub.start, segs: [], closed: true };
+        for (let i2 = 0; i2 < n2; i2++) {
+          const segment = sub.segs[i2];
+          const next = corners[(i2 + 1) % n2];
+          result.segs.push(segment.t === "L" ? { t: "L", p: next?.a ?? segment.p } : segment);
+          if (next) {
+            const K3 = 0.5523;
+            result.segs.push({
+              t: "C",
+              c1: [
+                next.a[0] + (next.vertex[0] - next.a[0]) * K3,
+                next.a[1] + (next.vertex[1] - next.a[1]) * K3
+              ],
+              c2: [
+                next.b[0] + (next.vertex[0] - next.b[0]) * K3,
+                next.b[1] + (next.vertex[1] - next.b[1]) * K3
+              ],
+              p: next.b
+            });
+          }
+        }
+        return result;
+      });
+    }
+    function hasShapeCorners(d2) {
+      const subs = parseShapePath(d2);
+      const bounds = shapePathBounds(subs);
+      const radius = Math.min(bounds.width, bounds.height) / 4;
+      return serializeShapePath(roundShapePath(subs, radius)) !== serializeShapePath(subs);
+    }
+  }
+});
+
+// ../edit-store/lib/shape-source-validation.js
+var require_shape_source_validation = __commonJS({
+  "../edit-store/lib/shape-source-validation.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.validateShapeSource = validateShapeSource;
+    var shape_geometry_1 = require_shape_geometry();
+    var oldKinds = /* @__PURE__ */ new Set(["rect", "rounded-rect", "ellipse", "line", "arrow", "speech-bubble"]);
+    var kinds = /* @__PURE__ */ new Set([...oldKinds, "path", "bubble"]);
+    var capKinds = /* @__PURE__ */ new Set(["none", "triangle", "chevron", "bar", "square", "circle", "diamond"]);
+    var bubbleStyles = /* @__PURE__ */ new Set(["ellipse", "rounded", "rect", "jagged", "burst", "cloud", "wobble"]);
+    var paramsKeys = /* @__PURE__ */ new Set([
+      "width",
+      "height",
+      "fill",
+      "stroke",
+      "strokeWidth",
+      "cornerRadius",
+      "path",
+      "preset",
+      "dash",
+      "startCap",
+      "endCap",
+      "startCapFilled",
+      "endCapFilled",
+      "lineCap",
+      "style",
+      "count",
+      "depth",
+      "jitter",
+      "seed",
+      "tail",
+      "tailAngle",
+      "tailLength",
+      "tailWidth",
+      "tailCurve"
+    ]);
+    var hex = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/u;
+    var record = (v2) => typeof v2 === "object" && v2 !== null && !Array.isArray(v2);
+    var fail = (path, message) => {
+      throw new Error(`edit.json v2 \u304C\u4E0D\u6B63\u3067\u3059 (${path}): ${message}`);
+    };
+    function requireRecord(value, path) {
+      if (!record(value))
+        fail(path, "object \u304C\u5FC5\u8981\u3067\u3059");
+    }
+    var number = (v2, min, max, integer = false) => typeof v2 === "number" && Number.isFinite(v2) && v2 >= min && v2 <= max && (!integer || Number.isInteger(v2));
+    function assertKeys(value, allowed, path) {
+      for (const key of Object.keys(value))
+        if (!allowed.has(key))
+          fail(`${path}.${key}`, "\u672A\u5BFE\u5FDC\u306E\u30AD\u30FC\u3067\u3059");
+    }
+    function paint(value, path, v1) {
+      if (typeof value === "string") {
+        if (v1 && value !== "none" && !hex.test(value))
+          fail(path, "#RRGGBB(AA) \u307E\u305F\u306F none \u304C\u5FC5\u8981\u3067\u3059");
+        return;
+      }
+      requireRecord(value, path);
+      assertKeys(value, /* @__PURE__ */ new Set(["type", "angle", "stops"]), path);
+      if (value.type !== "linear" && value.type !== "radial") {
+        fail(`${path}.type`, "linear \u307E\u305F\u306F radial \u304C\u5FC5\u8981\u3067\u3059");
+      }
+      if (value.type === "linear" ? !number(value.angle, 0, 360) : "angle" in value) {
+        fail(`${path}.angle`, "\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059");
+      }
+      if (!Array.isArray(value.stops) || value.stops.length < 2 || value.stops.length > 5) {
+        fail(`${path}.stops`, "2\u301C5 \u8272\u304C\u5FC5\u8981\u3067\u3059");
+      }
+      const stops = value.stops;
+      let last = -1;
+      for (let i2 = 0; i2 < stops.length; i2++) {
+        const stop = stops[i2];
+        requireRecord(stop, `${path}.stops[${i2}]`);
+        assertKeys(stop, /* @__PURE__ */ new Set(["color", "offset"]), `${path}.stops[${i2}]`);
+        if (typeof stop.color !== "string" || !hex.test(stop.color)) {
+          fail(`${path}.stops[${i2}].color`, "\u8272\u304C\u4E0D\u6B63\u3067\u3059");
+        }
+        if (!number(stop.offset, 0, 1) || stop.offset < last) {
+          fail(`${path}.stops[${i2}].offset`, "\u4F4D\u7F6E\u306F\u6607\u9806\u306E 0\u301C1 \u3067\u3059");
+        }
+        last = stop.offset;
+      }
+    }
+    function validateShapeSource(value, path) {
+      assertKeys(value, /* @__PURE__ */ new Set(["kind", "shape", "params"]), path);
+      if (!kinds.has(value.shape))
+        fail(`${path}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
+      if (value.params === void 0) {
+        if (value.shape === "path")
+          fail(`${path}.params.path`, "path \u304C\u5FC5\u8981\u3067\u3059");
+        return;
+      }
+      requireRecord(value.params, `${path}.params`);
+      const p2 = value.params;
+      assertKeys(p2, paramsKeys, `${path}.params`);
+      const v1 = value.shape === "path" || value.shape === "bubble" || [
+        "preset",
+        "dash",
+        "startCap",
+        "endCap",
+        "startCapFilled",
+        "endCapFilled",
+        "lineCap",
+        "style",
+        "count",
+        "depth",
+        "jitter",
+        "seed",
+        "tail",
+        "tailAngle",
+        "tailLength",
+        "tailWidth",
+        "tailCurve"
+      ].some((k2) => k2 in p2) || record(p2.fill) || record(p2.stroke);
+      for (const key of ["width", "height"]) {
+        if (key in p2 && !number(p2[key], Number.MIN_VALUE, Infinity)) {
+          fail(`${path}.params.${key}`, "\u6B63\u306E\u6709\u9650\u6570\u304C\u5FC5\u8981\u3067\u3059");
+        }
+      }
+      if ("strokeWidth" in p2 && !number(p2.strokeWidth, 0, v1 ? 100 : Infinity)) {
+        fail(`${path}.params.strokeWidth`, "\u7BC4\u56F2\u5916\u3067\u3059");
+      }
+      if ("cornerRadius" in p2 && !number(p2.cornerRadius, 0, value.shape === "path" ? 100 : Infinity)) {
+        fail(`${path}.params.cornerRadius`, "\u7BC4\u56F2\u5916\u3067\u3059");
+      }
+      for (const key of ["fill", "stroke"])
+        if (key in p2)
+          paint(p2[key], `${path}.params.${key}`, v1);
+      if ("preset" in p2 && (typeof p2.preset !== "string" || !p2.preset.trim())) {
+        fail(`${path}.params.preset`, "ID \u304C\u5FC5\u8981\u3067\u3059");
+      }
+      if ("path" in p2 || value.shape === "path") {
+        if (value.shape !== "path")
+          fail(`${path}.params.path`, "path \u578B\u3060\u3051\u304C\u6301\u3066\u307E\u3059");
+        requireRecord(p2.path, `${path}.params.path`);
+        const pathValue = p2.path;
+        assertKeys(pathValue, /* @__PURE__ */ new Set(["d", "vb", "rule"]), `${path}.params.path`);
+        if (typeof pathValue.d !== "string" || !Array.isArray(pathValue.vb) || pathValue.vb.length !== 2 || !pathValue.vb.every((n2) => number(n2, Number.MIN_VALUE, Infinity)) || pathValue.rule !== void 0 && !["nonzero", "evenodd"].includes(pathValue.rule))
+          fail(`${path}.params.path`, "path \u304C\u4E0D\u6B63\u3067\u3059");
+        try {
+          (0, shape_geometry_1.parseShapePath)(pathValue.d);
+        } catch {
+          fail(`${path}.params.path.d`, "\u7D76\u5BFE\u5EA7\u6A19\u306E M/L/C/Z \u304C\u5FC5\u8981\u3067\u3059");
+        }
+      }
+      if (["startCap", "endCap", "startCapFilled", "endCapFilled", "lineCap"].some((k2) => k2 in p2) && !["line", "arrow"].includes(value.shape))
+        fail(`${path}.params`, "\u7AEF\u306E\u5024\u306F line/arrow \u3060\u3051\u304C\u6301\u3066\u307E\u3059");
+      if ("dash" in p2 && !["solid", "dash", "dot"].includes(p2.dash)) {
+        fail(`${path}.params.dash`, "\u7DDA\u7A2E\u304C\u4E0D\u6B63\u3067\u3059");
+      }
+      for (const key of ["startCap", "endCap"]) {
+        if (key in p2 && !capKinds.has(p2[key])) {
+          fail(`${path}.params.${key}`, "\u7AEF\u306E\u7A2E\u985E\u304C\u4E0D\u6B63\u3067\u3059");
+        }
+      }
+      for (const key of ["startCapFilled", "endCapFilled"]) {
+        if (key in p2 && typeof p2[key] !== "boolean")
+          fail(`${path}.params.${key}`, "boolean \u304C\u5FC5\u8981\u3067\u3059");
+      }
+      if ("lineCap" in p2 && !["butt", "round"].includes(p2.lineCap)) {
+        fail(`${path}.params.lineCap`, "\u7AEF\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059");
+      }
+      if ([
+        "style",
+        "count",
+        "depth",
+        "jitter",
+        "seed",
+        "tail",
+        "tailAngle",
+        "tailLength",
+        "tailWidth",
+        "tailCurve"
+      ].some((k2) => k2 in p2) && value.shape !== "bubble")
+        fail(`${path}.params`, "\u5439\u304D\u51FA\u3057\u306E\u5024\u306F bubble \u3060\u3051\u304C\u6301\u3066\u307E\u3059");
+      if ("style" in p2 && !bubbleStyles.has(p2.style)) {
+        fail(`${path}.params.style`, "\u5439\u304D\u51FA\u3057\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059");
+      }
+      if ("tail" in p2 && !["point", "dots", "none"].includes(p2.tail)) {
+        fail(`${path}.params.tail`, "\u3057\u3063\u307D\u304C\u4E0D\u6B63\u3067\u3059");
+      }
+      for (const key of ["count", "depth", "jitter", "tailAngle", "tailLength", "tailWidth", "tailCurve", "seed"]) {
+        if (key in p2) {
+          const range = key === "count" ? [4, 48, true] : key === "seed" ? [-2147483648, 2147483647, true] : key === "tailCurve" ? [-100, 100, false] : key === "tailAngle" ? [0, 360, false] : [0, 100, false];
+          const [min, max, integer] = range;
+          if (!number(p2[key], min, max, integer))
+            fail(`${path}.params.${key}`, "\u7BC4\u56F2\u5916\u3067\u3059");
+        }
+      }
+    }
+  }
+});
+
 // ../edit-store/lib/edit-v2.js
 var require_edit_v2 = __commonJS({
   "../edit-store/lib/edit-v2.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.readEditV2 = readEditV2;
+    var shape_source_validation_1 = require_shape_source_validation();
     var BLEND_MODES = /* @__PURE__ */ new Set([
       "normal",
       "screen",
@@ -6409,14 +6798,6 @@ var require_edit_v2 = __commonJS({
       "overlay",
       "hardlight",
       "softlight"
-    ]);
-    var SHAPE_KINDS = /* @__PURE__ */ new Set([
-      "rect",
-      "rounded-rect",
-      "ellipse",
-      "line",
-      "arrow",
-      "speech-bubble"
     ]);
     var ITEM_KEYS = /* @__PURE__ */ new Set([
       "id",
@@ -6861,34 +7242,7 @@ var require_edit_v2 = __commonJS({
           }
           return;
         case "shape":
-          requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "shape", "params"]), path);
-          if (!SHAPE_KINDS.has(value.shape)) {
-            throw invalid(`${path}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
-          }
-          if (hasOwn(value, "params")) {
-            requireRecord(value.params, `${path}.params`);
-            requireExactKeys(value.params, /* @__PURE__ */ new Set([
-              "width",
-              "height",
-              "fill",
-              "stroke",
-              "strokeWidth",
-              "cornerRadius"
-            ]), `${path}.params`);
-            for (const key of ["width", "height"]) {
-              if (hasOwn(value.params, key))
-                requirePositiveNumber(value.params[key], `${path}.params.${key}`);
-            }
-            for (const key of ["fill", "stroke"]) {
-              if (hasOwn(value.params, key) && typeof value.params[key] !== "string") {
-                throw invalid(`${path}.params.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
-              }
-            }
-            for (const key of ["strokeWidth", "cornerRadius"]) {
-              if (hasOwn(value.params, key))
-                requireNonNegativeNumber(value.params[key], `${path}.params.${key}`);
-            }
-          }
+          (0, shape_source_validation_1.validateShapeSource)(value, path);
           return;
         case "telop":
           requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked", "from"]), path);
@@ -8078,12 +8432,544 @@ var require_audio_ownership = __commonJS({
   }
 });
 
+// ../edit-store/lib/shape-bubble.js
+var require_shape_bubble = __commonJS({
+  "../edit-store/lib/shape-bubble.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.bubblePath = bubblePath;
+    function seededRandom(seed) {
+      let a = ((seed | 0) * 2654435761 ^ 2654435769) >>> 0;
+      return () => {
+        a = a + 1831565813 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+    function ellipsePerimeter(A3, B4) {
+      const M3 = 1440;
+      const raw = [];
+      const cum = [0];
+      for (let i2 = 0; i2 <= M3; i2++) {
+        const t = i2 / M3 * 2 * Math.PI;
+        raw.push([A3 * Math.sin(t), -B4 * Math.cos(t), t]);
+        if (i2) {
+          cum.push(cum[i2 - 1] + Math.hypot(raw[i2][0] - raw[i2 - 1][0], raw[i2][1] - raw[i2 - 1][1]));
+        }
+      }
+      const L4 = cum[M3];
+      const at2 = (s) => {
+        s = (s % 1 + 1) % 1;
+        const tg = s * L4;
+        let lo = 0;
+        let hi = M3;
+        while (hi - lo > 1) {
+          const mid = lo + hi >> 1;
+          if (cum[mid] <= tg)
+            lo = mid;
+          else
+            hi = mid;
+        }
+        const f2 = (tg - cum[lo]) / (cum[hi] - cum[lo] || 1);
+        const t = raw[lo][2] + (raw[hi][2] - raw[lo][2]) * f2;
+        const x3 = A3 * Math.sin(t);
+        const y2 = -B4 * Math.cos(t);
+        const nx = x3 / (A3 * A3);
+        const ny = y2 / (B4 * B4);
+        const nl = Math.hypot(nx, ny) || 1;
+        return [x3, y2, nx / nl, ny / nl];
+      };
+      return { at: at2, L: L4 };
+    }
+    function normalizeBody(P2, A3, B4) {
+      let x0 = 1e9;
+      let y0 = 1e9;
+      let x1 = -1e9;
+      let y1 = -1e9;
+      P2.forEach(([x3, y2]) => {
+        if (x3 < x0)
+          x0 = x3;
+        if (x3 > x1)
+          x1 = x3;
+        if (y2 < y0)
+          y0 = y2;
+        if (y2 > y1)
+          y1 = y2;
+      });
+      const sx = 2 * A3 / (x1 - x0 || 1);
+      const sy = 2 * B4 / (y1 - y0 || 1);
+      const cx = (x0 + x1) / 2;
+      const cy = (y0 + y1) / 2;
+      return P2.map(([x3, y2]) => [(x3 - cx) * sx, (y2 - cy) * sy]);
+    }
+    function bodyPoints(A3, B4, p2) {
+      const st2 = p2.style;
+      const rnd = seededRandom(p2.seed || 0);
+      const jit = (p2.jitter || 0) / 100;
+      const dep = (p2.depth || 0) / 100;
+      const m2 = Math.min(A3, B4);
+      const P2 = [];
+      if (st2 === "rect" || st2 === "round") {
+        const r = st2 === "round" ? m2 * 0.35 : 0;
+        const step = Math.max(1, (A3 + B4) / 60);
+        const line = (x0, y0, x1, y1) => {
+          const k2 = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / step));
+          for (let i2 = 0; i2 < k2; i2++)
+            P2.push([x0 + (x1 - x0) * i2 / k2, y0 + (y1 - y0) * i2 / k2]);
+        };
+        const arc = (cx, cy, a0) => {
+          if (!r)
+            return;
+          for (let i2 = 0; i2 < 12; i2++) {
+            const a = (a0 + 90 * i2 / 12) * Math.PI / 180;
+            P2.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+          }
+        };
+        line(0, -B4, A3 - r, -B4);
+        arc(A3 - r, -B4 + r, -90);
+        line(A3, -B4 + r, A3, B4 - r);
+        arc(A3 - r, B4 - r, 0);
+        line(A3 - r, B4, -A3 + r, B4);
+        arc(-A3 + r, B4 - r, 90);
+        line(-A3, B4 - r, -A3, -B4 + r);
+        arc(-A3 + r, -B4 + r, 180);
+        line(-A3 + r, -B4, 0, -B4);
+        return P2;
+      }
+      const E3 = ellipsePerimeter(A3, B4);
+      const n2 = Math.max(3, Math.round(p2.count || 12));
+      if (st2 === "spike" || st2 === "burst") {
+        const bu = st2 === "burst";
+        const dp = dep * m2 * (bu ? 0.8 : 0.5);
+        const pts = [];
+        const o0 = 0.5 / n2 * 0.37;
+        for (let i2 = 0; i2 < n2; i2++) {
+          const s1 = (i2 + (rnd() - 0.5) * jit * (bu ? 0.6 : 0.4)) / n2 + o0;
+          const s2 = (i2 + 0.5 + (rnd() - 0.5) * jit * (bu ? 0.36 : 0.3)) / n2 + o0;
+          const t = E3.at(s1);
+          const pull = dp * rnd() * jit * (bu ? 0.9 : 0.45);
+          pts.push([t[0] - t[2] * pull, t[1] - t[3] * pull]);
+          const v2 = E3.at(s2);
+          const dv = dp * (1 - rnd() * jit * (bu ? 0.45 : 0.3));
+          pts.push([v2[0] - v2[2] * dv, v2[1] - v2[3] * dv]);
+        }
+        pts.forEach((a, i2) => {
+          const b = pts[(i2 + 1) % pts.length];
+          for (let j2 = 0; j2 < 6; j2++) {
+            P2.push([a[0] + (b[0] - a[0]) * j2 / 6, a[1] + (b[1] - a[1]) * j2 / 6]);
+          }
+        });
+        return normalizeBody(P2, A3, B4);
+      }
+      if (st2 === "cloud") {
+        const bf = 0.35 + 0.6 * dep;
+        const h0 = E3.L / n2 / 2 * bf * 0.9;
+        const V4 = [];
+        const TAU = 2 * Math.PI;
+        const nm = (x3) => (x3 % TAU + TAU) % TAU;
+        for (let i2 = 0; i2 < n2; i2++) {
+          const q2 = E3.at((i2 + (rnd() - 0.5) * jit * 0.5) / n2);
+          V4.push([q2[0] - q2[2] * h0, q2[1] - q2[3] * h0]);
+        }
+        for (let i2 = 0; i2 < n2; i2++) {
+          const a = V4[i2];
+          const b = V4[(i2 + 1) % n2];
+          const dx = b[0] - a[0];
+          const dy = b[1] - a[1];
+          const c = Math.hypot(dx, dy) || 1;
+          const no = [dy / c, -dx / c];
+          const h = Math.max(0.5, Math.min(c / 2 * 0.95, c / 2 * bf * (1 + (rnd() - 0.5) * jit * 0.7)));
+          const R2 = (c * c / 4 + h * h) / (2 * h);
+          const mx = (a[0] + b[0]) / 2;
+          const my = (a[1] + b[1]) / 2;
+          const cx = mx - no[0] * (R2 - h);
+          const cy = my - no[1] * (R2 - h);
+          const a0 = Math.atan2(a[1] - cy, a[0] - cx);
+          const a1 = Math.atan2(b[1] - cy, b[0] - cx);
+          const ap = Math.atan2(my + no[1] * h - cy, mx + no[0] * h - cx);
+          const d1 = nm(ap - a0);
+          const d2 = nm(a1 - a0);
+          const sw = d1 < d2 ? d2 : d2 - TAU;
+          const k2 = Math.max(8, Math.ceil(Math.abs(sw) * R2 / 2));
+          for (let j2 = 0; j2 < k2; j2++) {
+            const q2 = a0 + sw * j2 / k2;
+            P2.push([cx + R2 * Math.cos(q2), cy + R2 * Math.sin(q2)]);
+          }
+        }
+        return normalizeBody(P2, A3, B4);
+      }
+      if (st2 === "wave") {
+        const N2 = Math.max(480, n2 * 14);
+        const amp = dep * m2 * 0.12;
+        const Wa = [];
+        for (let i2 = 0; i2 < n2; i2++)
+          Wa.push(1 + (rnd() - 0.5) * jit * 1.4);
+        for (let i2 = 0; i2 < N2; i2++) {
+          const s = i2 / N2;
+          const q2 = E3.at(s);
+          const w = s * n2;
+          const o2 = amp * Wa[Math.floor(w) % n2] * Math.sin(2 * Math.PI * w);
+          P2.push([q2[0] + q2[2] * o2, q2[1] + q2[3] * o2]);
+        }
+        return normalizeBody(P2, A3, B4);
+      }
+      for (let i2 = 0; i2 < 480; i2++) {
+        const q2 = E3.at(i2 / 480);
+        P2.push([q2[0], q2[1]]);
+      }
+      return P2;
+    }
+    function bubbleGeometry(A3, B4, p2) {
+      const P2 = bodyPoints(A3, B4, p2);
+      const S_ = (A3 + B4) / 2;
+      const N2 = P2.length;
+      const subs = [];
+      let tip = null;
+      const tail = p2.tail || "none";
+      if (tail === "none")
+        subs.push(P2);
+      else {
+        const phi = (p2.tailAngle || 0) * Math.PI / 180;
+        const dx = Math.sin(phi);
+        const dy = -Math.cos(phi);
+        const qx = Math.cos(phi);
+        const qy = Math.sin(phi);
+        const c = Math.max(-1, Math.min(1, (p2.tailCurve || 0) / 100));
+        const L4 = Math.max(2, (p2.tailLength || 0) / 100 * 1.5 * S_);
+        let i0 = 0;
+        let best = -2;
+        P2.forEach((q2, i2) => {
+          const r = Math.hypot(q2[0], q2[1]) || 1;
+          const cs = (q2[0] * dx + q2[1] * dy) / r;
+          if (cs > best) {
+            best = cs;
+            i0 = i2;
+          }
+        });
+        const rp = P2[i0][0] * dx + P2[i0][1] * dy;
+        const base = [dx * rp, dy * rp];
+        if (tail === "point") {
+          const hw = Math.max(2, (p2.tailWidth || 0) / 100 * S_ * 0.9) / 2;
+          const inb = (q2) => Math.abs(q2[0] * dy - q2[1] * dx) < hw && q2[0] * dx + q2[1] * dy > 0;
+          let ia = i0;
+          let ib = i0;
+          let k2 = 0;
+          while (k2 < N2 / 3 && inb(P2[(ia - 1 + N2) % N2])) {
+            ia = (ia - 1 + N2) % N2;
+            k2++;
+          }
+          ia = (ia - 1 + N2) % N2;
+          k2 = 0;
+          while (k2 < N2 / 3 && inb(P2[(ib + 1) % N2])) {
+            ib = (ib + 1) % N2;
+            k2++;
+          }
+          ib = (ib + 1) % N2;
+          const Pa = P2[ia];
+          const Pb = P2[ib];
+          const R0 = [(Pa[0] + Pb[0]) / 2, (Pa[1] + Pb[1]) / 2];
+          const fw = L4 * (1 - 0.15 * Math.abs(c));
+          tip = [base[0] + dx * fw + qx * c * L4 * 0.6, base[1] + dy * fw + qy * c * L4 * 0.6];
+          const ctl = [base[0] + dx * L4 * 0.5, base[1] + dy * L4 * 0.5];
+          const Qa = [ctl[0] + (Pa[0] - R0[0]) * 0.35, ctl[1] + (Pa[1] - R0[1]) * 0.35];
+          const Qb = [ctl[0] + (Pb[0] - R0[0]) * 0.35, ctl[1] + (Pb[1] - R0[1]) * 0.35];
+          const quad = (a, q2, b) => {
+            const o2 = [];
+            for (let j2 = 1; j2 < 18; j2++) {
+              const t = j2 / 18;
+              const u2 = 1 - t;
+              o2.push([
+                u2 * u2 * a[0] + 2 * u2 * t * q2[0] + t * t * b[0],
+                u2 * u2 * a[1] + 2 * u2 * t * q2[1] + t * t * b[1]
+              ]);
+            }
+            return o2;
+          };
+          const out = [];
+          for (let j2 = ib; j2 !== ia; j2 = (j2 + 1) % N2)
+            out.push(P2[j2]);
+          out.push(Pa, ...quad(Pa, Qa, tip), tip, ...quad(tip, Qb, Pb));
+          subs.push(out);
+        } else {
+          subs.push(P2);
+          const rd = S_ * (0.06 + 0.16 * (p2.tailWidth || 0) / 100);
+          const rs = [rd, rd * 0.66, rd * 0.42];
+          const g2 = 1.5 + L4 * 0.16;
+          const cen = [];
+          let d2 = 0;
+          const minD = (x3, y2) => {
+            let mn = 1e9;
+            for (const q2 of P2) {
+              const e = Math.hypot(q2[0] - x3, q2[1] - y2);
+              if (e < mn)
+                mn = e;
+            }
+            return mn;
+          };
+          rs.forEach((r, i2) => {
+            d2 += (i2 ? rs[i2 - 1] : 0) + g2 + r;
+            const pos = () => {
+              const lat = c * d2 * d2 / (L4 + rd * 3) * 0.5;
+              return [base[0] + dx * d2 + qx * lat, base[1] + dy * d2 + qy * lat];
+            };
+            let q2 = pos();
+            for (let it = 0; it < 30; it++) {
+              const md = minD(q2[0], q2[1]);
+              if (md >= r + g2 * 0.8)
+                break;
+              d2 += r + g2 * 0.8 - md + 0.5;
+              q2 = pos();
+            }
+            cen.push([q2[0], q2[1], r]);
+          });
+          cen.forEach(([x3, y2, r]) => {
+            const o2 = [];
+            for (let j2 = 0; j2 < 40; j2++) {
+              const a = j2 / 40 * 2 * Math.PI;
+              o2.push([x3 + r * Math.sin(a), y2 - r * Math.cos(a)]);
+            }
+            subs.push(o2);
+          });
+          tip = [cen[2][0], cen[2][1]];
+        }
+      }
+      let x0 = 1e9;
+      let y0 = 1e9;
+      let x1 = -1e9;
+      let y1 = -1e9;
+      subs.forEach((s) => s.forEach(([x3, y2]) => {
+        if (x3 < x0)
+          x0 = x3;
+        if (x3 > x1)
+          x1 = x3;
+        if (y2 < y0)
+          y0 = y2;
+        if (y2 > y1)
+          y1 = y2;
+      }));
+      return { subs, tip, x0, y0, x1, y1 };
+    }
+    function fitBubble(W3, H3, p2) {
+      let A3 = W3 / 2;
+      let B4 = H3 / 2;
+      let g2;
+      for (let i2 = 0; i2 < 80; i2++) {
+        g2 = bubbleGeometry(A3, B4, p2);
+        const ex = W3 / (g2.x1 - g2.x0 || 1);
+        const ey = H3 / (g2.y1 - g2.y0 || 1);
+        if (Math.abs(ex - 1) < 1e-7 && Math.abs(ey - 1) < 1e-7)
+          break;
+        A3 *= ex;
+        B4 *= ey;
+        if (i2 === 79)
+          g2 = bubbleGeometry(A3, B4, p2);
+      }
+      return { A: A3, B: B4, g: g2 };
+    }
+    var serializeBubble = (g2, sx, sy, ox, oy) => g2.subs.map((s) => "M" + s.map((q2) => +((q2[0] - g2.x0) * sx + ox).toFixed(2) + " " + +((q2[1] - g2.y0) * sy + oy).toFixed(2)).join("L") + "Z").join("");
+    function bubblePath(width, height, params) {
+      const style = params.style === "rounded" ? "round" : params.style === "jagged" ? "spike" : params.style === "wobble" ? "wave" : params.style;
+      const p2 = {
+        ...params,
+        style
+      };
+      const f2 = fitBubble(width, height, p2);
+      const g2 = f2.g;
+      return serializeBubble(g2, width / (g2.x1 - g2.x0 || 1), height / (g2.y1 - g2.y0 || 1), 0, 0);
+    }
+  }
+});
+
+// ../edit-store/lib/shape-markup-v1.js
+var require_shape_markup_v1 = __commonJS({
+  "../edit-store/lib/shape-markup-v1.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.shapeMarkupV1 = shapeMarkupV1;
+    var shape_geometry_1 = require_shape_geometry();
+    var shape_bubble_1 = require_shape_bubble();
+    var validColor = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/u;
+    var num = (v2) => String(+v2.toFixed(3));
+    var clamp5 = (v2, fallback, min, max) => typeof v2 === "number" && Number.isFinite(v2) && v2 >= min && v2 <= max ? v2 : fallback;
+    var fallbackId = (id) => {
+      let hash = 2166136261;
+      for (let i2 = 0; i2 < id.length; i2++)
+        hash = Math.imul(hash ^ id.charCodeAt(i2), 16777619);
+      return (hash >>> 0).toString(36);
+    };
+    var itemKey = (itemId, source) => {
+      if (itemId === void 0)
+        return fallbackId(JSON.stringify(source));
+      let result = "";
+      for (let i2 = 0; i2 < itemId.length; i2++)
+        result += itemId.charCodeAt(i2).toString(16).padStart(4, "0");
+      return result || "0";
+    };
+    var isGradient = (v2) => typeof v2 === "object" && v2 !== null;
+    var validPaint = (v2, fallback) => {
+      if (typeof v2 === "string")
+        return v2 === "none" || validColor.test(v2) ? v2 : fallback;
+      if (!v2 || !["linear", "radial"].includes(v2.type) || !Array.isArray(v2.stops) || v2.stops.length < 2 || v2.stops.length > 5)
+        return fallback;
+      if (v2.type === "linear" && (typeof v2.angle !== "number" || !Number.isFinite(v2.angle) || v2.angle < 0 || v2.angle > 360))
+        return fallback;
+      if (!v2.stops.every((s) => validColor.test(s.color) && Number.isFinite(s.offset) && s.offset >= 0 && s.offset <= 1))
+        return fallback;
+      if (v2.stops.some((s, i2) => i2 > 0 && s.offset < v2.stops[i2 - 1].offset))
+        return fallback;
+      return v2;
+    };
+    function paint(value, id, width, height) {
+      if (!isGradient(value))
+        return { value, def: "" };
+      const stops = value.stops.map((s) => `<stop offset="${num(s.offset)}" stop-color="${s.color.slice(0, 7)}" stop-opacity="${s.color.length === 9 ? num(parseInt(s.color.slice(7), 16) / 255) : 1}"/>`).join("");
+      if (value.type === "radial") {
+        return {
+          value: `url(#${id})`,
+          def: `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${num(width / 2)}" cy="${num(height / 2)}" r="${num(Math.max(width, height) / 2)}">${stops}</radialGradient>`
+        };
+      }
+      const a = ((value.angle ?? 90) - 90) * Math.PI / 180;
+      const dx = Math.cos(a) / 2;
+      const dy = Math.sin(a) / 2;
+      return {
+        value: `url(#${id})`,
+        def: `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(width * (0.5 - dx))}" y1="${num(height * (0.5 - dy))}" x2="${num(width * (0.5 + dx))}" y2="${num(height * (0.5 + dy))}">${stops}</linearGradient>`
+      };
+    }
+    function cap(kind, filled, x3, y2, direction, size, color, sw, minimumOutline) {
+      if (kind === "none")
+        return "";
+      const h = size / 2;
+      const center = x3 - direction * h;
+      const ow = Math.max(minimumOutline, sw * 0.7);
+      const outline = `fill="${filled ? color : "none"}" stroke="${color}" stroke-width="${num(ow)}"`;
+      const tip = x3 - direction * (filled ? 0 : ow / 2);
+      if (kind === "triangle") {
+        return `<polygon points="${num(tip)},${num(y2)} ${num(x3 - direction * size)},${num(y2 - h)} ${num(x3 - direction * size)},${num(y2 + h)}" ${filled ? `fill="${color}"` : outline}/>`;
+      }
+      if (kind === "chevron") {
+        return `<polyline points="${num(x3 - direction * size * 0.75)},${num(y2 - h)} ${num(x3 - direction * sw / 2)},${num(y2)} ${num(x3 - direction * size * 0.75)},${num(y2 + h)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linejoin="round"/>`;
+      }
+      if (kind === "bar") {
+        return `<line x1="${num(x3 - direction * sw / 2)}" y1="${num(y2 - h)}" x2="${num(x3 - direction * sw / 2)}" y2="${num(y2 + h)}" stroke="${color}" stroke-width="${num(sw)}"/>`;
+      }
+      if (kind === "square") {
+        return `<rect x="${num(center - h + ow / 2)}" y="${num(y2 - h + ow / 2)}" width="${num(size - ow)}" height="${num(size - ow)}" ${outline}/>`;
+      }
+      if (kind === "circle") {
+        return `<circle cx="${num(center)}" cy="${num(y2)}" r="${num(h - ow / 2)}" ${outline}/>`;
+      }
+      return `<polygon points="${num(center - h + ow / 2)},${num(y2)} ${num(center)},${num(y2 - h + ow / 2)} ${num(center + h - ow / 2)},${num(y2)} ${num(center)},${num(y2 + h - ow / 2)}" ${outline}/>`;
+    }
+    function capInset(kind, size) {
+      return kind === "triangle" ? size * 0.6 : ["square", "circle", "diamond"].includes(kind) ? size * 0.5 : 0;
+    }
+    function strokeMetrics(visibleWidth, scaleX, scaleY) {
+      const correction = Math.sqrt(scaleX * scaleY);
+      return {
+        width: visibleWidth / correction,
+        gap: Math.max(visibleWidth * 2, 3) / correction,
+        capSize: Math.max(visibleWidth * 3.2, 8) / correction,
+        minimumOutline: 1 / correction
+      };
+    }
+    function dashAttribute(dash, metrics, roundCaps = false) {
+      if (dash === "dot")
+        return ` stroke-dasharray="${num(metrics.width)} ${num(metrics.gap)}"`;
+      if (dash === "dash") {
+        const gap = metrics.gap + (roundCaps ? metrics.width : 0);
+        return ` stroke-dasharray="${num(metrics.width * 3)} ${num(gap)}"`;
+      }
+      return "";
+    }
+    function lineBody(p2, width, height, metrics, color) {
+      const sw = metrics.width;
+      const y2 = height / 2;
+      const size = metrics.capSize;
+      const start = p2.startCap ?? "none";
+      const end = p2.endCap ?? "none";
+      const dash = p2.dash ?? "solid";
+      const rounded = p2.lineCap === "round" && dash !== "dot";
+      const dashAttr = dashAttribute(dash, metrics, rounded);
+      const x1 = capInset(start, size) + (rounded && start === "none" ? sw / 2 : 0);
+      const x22 = Math.max(x1, width - capInset(end, size) - (rounded && end === "none" ? sw / 2 : 0));
+      return `<line x1="${num(x1)}" y1="${num(y2)}" x2="${num(x22)}" y2="${num(y2)}" fill="none" stroke="${color}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + cap(start, p2.startCapFilled ?? true, 0, y2, -1, size, color, sw, metrics.minimumOutline) + cap(end, p2.endCapFilled ?? true, width, y2, 1, size, color, sw, metrics.minimumOutline);
+    }
+    function primitivePath(shape, width, height) {
+      if (shape === "ellipse") {
+        return `M${width / 2} 0C${width * 0.776} 0 ${width} ${height * 0.224} ${width} ${height / 2}C${width} ${height * 0.776} ${width * 0.776} ${height} ${width / 2} ${height}C${width * 0.224} ${height} 0 ${height * 0.776} 0 ${height / 2}C0 ${height * 0.224} ${width * 0.224} 0 ${width / 2} 0Z`;
+      }
+      if (shape === "speech-bubble") {
+        const bottom = height * 0.75;
+        return `M0 0L${width} 0L${width} ${bottom}L${width * 0.82} ${bottom}L${width * 0.72} ${height}L${width * 0.6} ${bottom}L0 ${bottom}Z`;
+      }
+      return `M0 0L${width} 0L${width} ${height}L0 ${height}Z`;
+    }
+    function shapeMarkupV1(source, itemId, outputWidth = 1920, transform) {
+      const p2 = source.params ?? {};
+      const width = clamp5(p2.width, 600, 1, 1e5);
+      const height = clamp5(p2.height, source.shape === "line" || source.shape === "arrow" ? 80 : 340, 1, 1e5);
+      const scaleX = clamp5(transform?.scaleX ?? transform?.scale, 1, Number.MIN_VALUE, 1e5);
+      const scaleY = clamp5(transform?.scaleY ?? transform?.scale, 1, Number.MIN_VALUE, 1e5);
+      const key = itemKey(itemId, source);
+      const svg = (defs2, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}">${defs2 ? `<defs>${defs2}</defs>` : ""}${body}</svg>`;
+      const line = source.shape === "line" || source.shape === "arrow";
+      const fill = paint(validPaint(p2.fill, line ? "none" : source.shape === "bubble" ? "#ffffff" : "#a6a6a6"), `sh-${key}-fill`, width, height);
+      const stroke = paint(validPaint(p2.stroke, line ? "#000000" : source.shape === "bubble" ? "#000000" : "none"), `sh-${key}-stroke`, width, height);
+      const visibleStrokeWidth = clamp5(p2.strokeWidth, line ? 4 : source.shape === "bubble" ? 5 : 0, 0, 100) * outputWidth / 1920;
+      const metrics = strokeMetrics(visibleStrokeWidth, scaleX, scaleY);
+      const sw = metrics.width;
+      if (line) {
+        const color = stroke.value === "none" ? fill.value : stroke.value;
+        const q2 = source.shape === "arrow" ? { ...p2, endCap: p2.endCap ?? "triangle" } : p2;
+        return svg(stroke.def + fill.def, lineBody(q2, width, height, metrics, color));
+      }
+      let d2;
+      let rule = "nonzero";
+      let closed = true;
+      if (source.shape === "bubble") {
+        const placed = (0, shape_bubble_1.bubblePath)(width * scaleX, height * scaleY, {
+          style: p2.style ?? "ellipse",
+          count: clamp5(p2.count, 16, 4, 48),
+          depth: clamp5(p2.depth, 40, 0, 100),
+          jitter: clamp5(p2.jitter, 25, 0, 100),
+          seed: clamp5(p2.seed, 1, -2147483648, 2147483647),
+          tail: p2.tail ?? "point",
+          tailAngle: clamp5(p2.tailAngle, 210, 0, 360),
+          tailLength: clamp5(p2.tailLength, 45, 0, 100),
+          tailWidth: clamp5(p2.tailWidth, 30, 0, 100),
+          tailCurve: clamp5(p2.tailCurve, 0, -100, 100)
+        });
+        d2 = scaleX === 1 && scaleY === 1 ? placed : (0, shape_geometry_1.serializeShapePath)((0, shape_geometry_1.scaleShapePath)((0, shape_geometry_1.parseShapePath)(placed), 1 / scaleX, 1 / scaleY));
+      } else {
+        const original = source.shape === "path" ? p2.path?.d : primitivePath(source.shape, width, height);
+        if (!original)
+          throw new Error("path shape requires params.path");
+        rule = p2.path?.rule ?? "nonzero";
+        const fitted = (0, shape_geometry_1.fitShapePath)(original, width * scaleX, height * scaleY);
+        closed = fitted.every((s) => s.closed);
+        const radius = source.shape === "path" ? clamp5(p2.cornerRadius, 0, 0, 100) / 100 * Math.min(width * scaleX, height * scaleY) / 2 : source.shape === "rounded-rect" ? clamp5(p2.cornerRadius, 24, 0, Infinity) * Math.sqrt(scaleX * scaleY) : 0;
+        d2 = (0, shape_geometry_1.serializeShapePath)((0, shape_geometry_1.scaleShapePath)((0, shape_geometry_1.roundShapePath)(fitted, radius), 1 / scaleX, 1 / scaleY));
+      }
+      const clipId = `sh-${key}-clip`;
+      const dash = dashAttribute(p2.dash, metrics);
+      const defs = fill.def + stroke.def + (closed && sw > 0 && stroke.value !== "none" ? `<clipPath id="${clipId}"><path d="${d2}" fill-rule="${rule}" clip-rule="${rule}"/></clipPath>` : "");
+      const interior = closed ? `<path d="${d2}" fill-rule="${rule}" fill="${fill.value}"/>` : "";
+      const border = sw > 0 && stroke.value !== "none" ? `<path d="${d2}" fill="none" stroke="${stroke.value}" stroke-width="${num(sw * (closed ? 2 : 1))}" stroke-linejoin="round" stroke-linecap="butt"${dash}${closed ? ` clip-path="url(#${clipId})"` : ""}/>` : "";
+      return svg(defs, interior + border);
+    }
+  }
+});
+
 // ../edit-store/lib/shape-markup.js
 var require_shape_markup = __commonJS({
   "../edit-store/lib/shape-markup.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.shapeMarkup = shapeMarkup;
+    var shape_markup_v1_1 = require_shape_markup_v1();
     var DEFAULT_WIDTH = 600;
     var DEFAULT_HEIGHT = 340;
     var DEFAULT_LINE_HEIGHT = 80;
@@ -8109,8 +8995,11 @@ var require_shape_markup = __commonJS({
     function filledShapeAttributes(fill, stroke, strokeWidth) {
       return `fill="${fill}" stroke="${stroke ?? "none"}" stroke-width="${strokeWidth}"`;
     }
-    function shapeMarkup(source) {
+    function shapeMarkup(source, itemId, outputWidth, transform) {
       const params = source.params ?? {};
+      if (source.shape === "path" || source.shape === "bubble" || params.preset !== void 0 || params.dash !== void 0 || params.startCap !== void 0 || params.endCap !== void 0 || params.startCapFilled !== void 0 || params.endCapFilled !== void 0 || params.lineCap !== void 0 || typeof params.fill === "object" || typeof params.stroke === "object") {
+        return (0, shape_markup_v1_1.shapeMarkupV1)(source, itemId, outputWidth, transform);
+      }
       const width = positiveNumber(params.width, DEFAULT_WIDTH);
       const height = positiveNumber(params.height, source.shape === "line" || source.shape === "arrow" ? DEFAULT_LINE_HEIGHT : DEFAULT_HEIGHT);
       const fill = color(params.fill, DEFAULT_FILL);
@@ -8315,7 +9204,7 @@ var require_internal_model = __commonJS({
         const items = [];
         if ("items" in track) {
           track.items.forEach((item) => {
-            const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, overlappingItemIds.has(item.id));
+            const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width, overlappingItemIds.has(item.id));
             if (built.warning) {
               warnings.push(built.warning);
             }
@@ -8327,7 +9216,7 @@ var require_internal_model = __commonJS({
             at: 0,
             duration: contentDurationFrames,
             source: { kind: "captions", path: "captions.json" }
-          }, fps, 0, "visual", pathOf, chromaKeyOf, legacyIndexCounters).item;
+          }, fps, 0, "visual", pathOf, chromaKeyOf, legacyIndexCounters, edit.output.width).item;
           items.push(normalized);
           Object.defineProperty(items, "toJSON", { value: () => [], enumerable: false });
         }
@@ -8543,9 +9432,9 @@ var require_internal_model = __commonJS({
       counters.set(collection, index + 1);
       return index;
     }
-    function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
-      const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId);
-      const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(child, fps, ref, "visual", pathOf, chromaKeyOf, legacyIndexCounters, false, built.item.atFrames, built.item.id).item) : [];
+    function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+      const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId, outputWidth);
+      const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(child, fps, ref, "visual", pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, false, built.item.atFrames, built.item.id).item) : [];
       if (children.length > 0 || "items" in item && Array.isArray(item.items)) {
         built.item.children = children;
       } else {
@@ -8556,7 +9445,7 @@ var require_internal_model = __commonJS({
         built.item.parentId = parentId;
       return built;
     }
-    function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+    function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId, outputWidth = 1920) {
       const atFrames = parentAtFrames + item.at;
       const durationFrames = item.duration;
       const at2 = atFrames / fps;
@@ -8731,7 +9620,7 @@ var require_internal_model = __commonJS({
           });
         }
         case "shape": {
-          const html = (0, shape_markup_1.shapeMarkup)(item.source);
+          const html = (0, shape_markup_1.shapeMarkup)(item.source, item.id, outputWidth, item.transform);
           const declaration = {
             id: item.id,
             html,
@@ -12159,6 +13048,37 @@ var require_canonical = __commonJS({
   }
 });
 
+// ../edit-store/lib/shape-preset.js
+var require_shape_preset = __commonJS({
+  "../edit-store/lib/shape-preset.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.shapeSourceFromPreset = shapeSourceFromPreset;
+    function shapeSourceFromPreset(row, byId) {
+      const defaults = structuredClone(row.defaults);
+      if (row.kind === "line")
+        return { kind: "shape", shape: "line", params: { ...defaults, preset: row.id } };
+      if (row.kind === "bubble") {
+        return { kind: "shape", shape: "bubble", params: { ...defaults, preset: row.id } };
+      }
+      const base = row.rounded_from ? byId.get(row.rounded_from.base) : row;
+      if (!base || base.kind === "line" || base.kind === "bubble") {
+        throw new Error(`invalid shape base for ${row.id}`);
+      }
+      return {
+        kind: "shape",
+        shape: "path",
+        params: {
+          ...defaults,
+          ...row.rounded_from ? { cornerRadius: row.rounded_from.radius } : {},
+          preset: row.id,
+          path: { d: base.d, vb: [...base.vb], ...base.rule ? { rule: base.rule } : {} }
+        }
+      };
+    }
+  }
+});
+
 // ../edit-store/lib/cut-ranges.js
 var require_cut_ranges = __commonJS({
   "../edit-store/lib/cut-ranges.js"(exports) {
@@ -13016,6 +13936,7 @@ var require_lib = __commonJS({
     __exportStar(require_tree_ops(), exports);
     __exportStar(require_item_anchor(), exports);
     __exportStar(require_shape_markup(), exports);
+    __exportStar(require_shape_preset(), exports);
     __exportStar(require_cut_ranges(), exports);
     __exportStar(require_adjust_css_approx(), exports);
     var legacy_parse_1 = require_legacy_parse();

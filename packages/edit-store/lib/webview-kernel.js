@@ -594,15 +594,15 @@ var AkariEditKernel = (() => {
     }
     return merged;
   }
-  function resolveCaptionStylePreset(record, catalog) {
-    const presetId = record.style_preset;
-    if (typeof presetId !== "string") return { record, resolved: false };
+  function resolveCaptionStylePreset(record2, catalog) {
+    const presetId = record2.style_preset;
+    if (typeof presetId !== "string") return { record: record2, resolved: false };
     const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
-    if (!preset) return { record, resolved: false };
+    if (!preset) return { record: record2, resolved: false };
     return {
       record: {
-        ...record,
-        text_style: mergePresetTextStyle(preset.style, record.text_style)
+        ...record2,
+        text_style: mergePresetTextStyle(preset.style, record2.text_style)
       },
       resolved: true
     };
@@ -1113,7 +1113,7 @@ var AkariEditKernel = (() => {
     const right = normalizedPoints(b);
     if (left.length === 0) return right;
     if (right.length === 0) return left;
-    const boundaries = [...new Set([...left, ...right].map((point) => point.t))].sort((x, y) => x - y);
+    const boundaries = [...new Set([...left, ...right].map((point2) => point2.t))].sort((x, y) => x - y);
     const times = new Set(boundaries);
     for (let index = 1; index < boundaries.length; index += 1) {
       const start = boundaries[index - 1];
@@ -1195,7 +1195,7 @@ var AkariEditKernel = (() => {
     if (!active) return [];
     const clippedTimes = [
       clipStartSec,
-      ...normalized.filter((point) => point.t > clipStartSec && point.t < clipEndSec).map((point) => point.t),
+      ...normalized.filter((point2) => point2.t > clipStartSec && point2.t < clipEndSec).map((point2) => point2.t),
       clipEndSec
     ];
     return [...new Set(clippedTimes)].sort((a, b) => a - b).map((t) => ({
@@ -1205,11 +1205,11 @@ var AkariEditKernel = (() => {
     }));
   }
   function normalizedPoints(points) {
-    const sorted = points.filter((point) => point && Number.isFinite(point.t) && point.t >= 0 && Number.isFinite(point.gainDb)).map((point) => ({ ...point })).sort((a, b) => a.t - b.t);
+    const sorted = points.filter((point2) => point2 && Number.isFinite(point2.t) && point2.t >= 0 && Number.isFinite(point2.gainDb)).map((point2) => ({ ...point2 })).sort((a, b) => a.t - b.t);
     const result = [];
-    for (const point of sorted) {
-      if (result.length > 0 && Math.abs(result[result.length - 1].t - point.t) <= 1e-9) result[result.length - 1] = point;
-      else result.push(point);
+    for (const point2 of sorted) {
+      if (result.length > 0 && Math.abs(result[result.length - 1].t - point2.t) <= 1e-9) result[result.length - 1] = point2;
+      else result.push(point2);
     }
     return result;
   }
@@ -1234,8 +1234,8 @@ var AkariEditKernel = (() => {
     return merged;
   }
   function easingAtExactPoint(points, t) {
-    const point = points.find((candidate) => Math.abs(candidate.t - t) <= 1e-9);
-    return point?.easing ? { easing: point.easing } : {};
+    const point2 = points.find((candidate) => Math.abs(candidate.t - t) <= 1e-9);
+    return point2?.easing ? { easing: point2.easing } : {};
   }
   function dbToLinear(db) {
     return Math.max(MIN_LINEAR_GAIN, 10 ** (db / 20));
@@ -1778,9 +1778,9 @@ var AkariEditKernel = (() => {
       fadeInSec,
       itemDurationSec - fadeOutSec,
       windowEnd
-    ].filter((point) => point >= elapsedIntoItemSec && point <= windowEnd)).map((point, index) => ({
-      offsetSec: point - elapsedIntoItemSec,
-      value: baseGain * multiplierAt(point),
+    ].filter((point2) => point2 >= elapsedIntoItemSec && point2 <= windowEnd)).map((point2, index) => ({
+      offsetSec: point2 - elapsedIntoItemSec,
+      value: baseGain * multiplierAt(point2),
       method: index === 0 ? "set" : "linear"
     }));
   }
@@ -1816,10 +1816,10 @@ var AkariEditKernel = (() => {
       fadeIn,
       itemDurationSec - fadeOut,
       windowEnd
-    ].filter((point) => point >= elapsedIntoItemSec && point <= windowEnd));
-    return points.map((point, index) => ({
-      offsetSec: point - elapsedIntoItemSec,
-      value: baseGain * multiplierAt(point),
+    ].filter((point2) => point2 >= elapsedIntoItemSec && point2 <= windowEnd));
+    return points.map((point2, index) => ({
+      offsetSec: point2 - elapsedIntoItemSec,
+      value: baseGain * multiplierAt(point2),
       method: index === 0 ? "set" : "linear"
     }));
   }
@@ -1844,10 +1844,10 @@ var AkariEditKernel = (() => {
       fadeIn,
       timelineDurationSec - fadeOut,
       timelineEndSec
-    ].filter((point) => point >= timelineStartSec && point <= timelineEndSec));
-    return points.map((point, index) => ({
-      offsetSec: point - timelineStartSec,
-      value: baseGain * multiplierAt(point),
+    ].filter((point2) => point2 >= timelineStartSec && point2 <= timelineEndSec));
+    return points.map((point2, index) => ({
+      offsetSec: point2 - timelineStartSec,
+      value: baseGain * multiplierAt(point2),
       method: index === 0 ? "set" : "linear"
     }));
   }
@@ -1861,19 +1861,19 @@ var AkariEditKernel = (() => {
       clipDurationSec
     }) : [];
     const composed = composeEnvelopesDb(keyframes, duck);
-    if (composed.length === 0 || composed.every((point) => Math.abs(point.gainDb) <= 1e-12)) return [];
+    if (composed.length === 0 || composed.every((point2) => Math.abs(point2.gainDb) <= 1e-12)) return [];
     return envelopeToGainEvents(sliceEnvelope(composed, elapsedIntoClipSec, availableSec));
   }
   function audioKeyframeEnvelope(value) {
     if (!Array.isArray(value)) return [];
     return value.flatMap((entry) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
-      const point = entry;
-      if (!finiteNonNegative(point.t) || typeof point.gain_db !== "number" || !Number.isFinite(point.gain_db)) return [];
+      const point2 = entry;
+      if (!finiteNonNegative(point2.t) || typeof point2.gain_db !== "number" || !Number.isFinite(point2.gain_db)) return [];
       return [{
-        t: point.t,
-        gainDb: point.gain_db,
-        ...typeof point.easing === "string" ? { easing: point.easing } : {}
+        t: point2.t,
+        gainDb: point2.gain_db,
+        ...typeof point2.easing === "string" ? { easing: point2.easing } : {}
       }];
     }).sort((left, right) => left.t - right.t);
   }
@@ -1882,9 +1882,9 @@ var AkariEditKernel = (() => {
     const endSec = startSec + durationSec;
     return [
       { t: 0, gainDb: evaluateEnvelopeDb(points, startSec) },
-      ...points.filter((point) => point.t > startSec && point.t < endSec).map((point) => ({
-        ...point,
-        t: point.t - startSec
+      ...points.filter((point2) => point2.t > startSec && point2.t < endSec).map((point2) => ({
+        ...point2,
+        t: point2.t - startSec
       })),
       { t: durationSec, gainDb: evaluateEnvelopeDb(points, endSec) }
     ];
@@ -1928,6 +1928,350 @@ var AkariEditKernel = (() => {
     return [...new Set(values)].sort((left, right) => left - right);
   }
 
+  // src/shape-geometry.ts
+  var numberToken = "-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?";
+  var tokenPattern = new RegExp(`[MLCZ]|${numberToken}`, "gu");
+  var numberPattern = new RegExp(`^${numberToken}$`, "u");
+  var f = (v) => +v.toFixed(3);
+  var point = (p) => `${f(p[0])} ${f(p[1])}`;
+  function parseShapePath(d) {
+    if (!d || d.length > 1e5) throw new Error("shape path is empty or too long");
+    const tokens = d.match(tokenPattern) ?? [];
+    if (d.replace(tokenPattern, "").replace(/[\s,]/gu, "") !== "") {
+      throw new Error("unsupported shape path command");
+    }
+    const subs = [];
+    let i = 0;
+    let sub;
+    const number2 = () => {
+      const token = tokens[i++];
+      if (!token || !numberPattern.test(token)) throw new Error("invalid shape path coordinate");
+      const value = Number(token);
+      if (!Number.isFinite(value)) throw new Error("non-finite shape path coordinate");
+      return value;
+    };
+    while (i < tokens.length) {
+      const command = tokens[i++];
+      if (command === "M") {
+        sub = { start: [number2(), number2()], segs: [], closed: false };
+        subs.push(sub);
+      } else if (command === "L" && sub && !sub.closed) sub.segs.push({ t: "L", p: [number2(), number2()] });
+      else if (command === "C" && sub && !sub.closed) {
+        sub.segs.push({
+          t: "C",
+          c1: [number2(), number2()],
+          c2: [number2(), number2()],
+          p: [number2(), number2()]
+        });
+      } else if (command === "Z" && sub && !sub.closed) {
+        sub.closed = true;
+        const last = sub.segs.length ? sub.segs[sub.segs.length - 1].p : sub.start;
+        if (Math.hypot(last[0] - sub.start[0], last[1] - sub.start[1]) > 1e-6) {
+          sub.segs.push({ t: "L", p: [...sub.start] });
+        }
+      } else throw new Error("invalid shape path structure");
+    }
+    if (!subs.length || subs.some((s) => !s.segs.length)) throw new Error("shape path has no segments");
+    return subs;
+  }
+  function cubic(a, b, c, d, t) {
+    const u = 1 - t;
+    return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
+  }
+  function cubicExtrema(a, b, c, d) {
+    const A = -a + 3 * b - 3 * c + d;
+    const B = 2 * (a - 2 * b + c);
+    const C = b - a;
+    if (Math.abs(A) < 1e-12) return Math.abs(B) < 1e-12 ? [] : [-C / B].filter((t) => t > 0 && t < 1);
+    const discriminant = B * B - 4 * A * C;
+    if (discriminant < 0) return [];
+    return [(-B + Math.sqrt(discriminant)) / (2 * A), (-B - Math.sqrt(discriminant)) / (2 * A)].filter(
+      (t) => t > 0 && t < 1
+    );
+  }
+  function shapePathBounds(subs) {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    const add = (p) => {
+      x0 = Math.min(x0, p[0]);
+      y0 = Math.min(y0, p[1]);
+      x1 = Math.max(x1, p[0]);
+      y1 = Math.max(y1, p[1]);
+    };
+    for (const sub of subs) {
+      let prev = sub.start;
+      add(prev);
+      for (const seg of sub.segs) {
+        add(seg.p);
+        if (seg.t === "C") {
+          for (let axis = 0; axis < 2; axis++) {
+            for (const t of cubicExtrema(prev[axis], seg.c1[axis], seg.c2[axis], seg.p[axis])) {
+              const p = [...prev];
+              p[axis] = cubic(prev[axis], seg.c1[axis], seg.c2[axis], seg.p[axis], t);
+              add(p);
+            }
+          }
+        }
+        prev = seg.p;
+      }
+    }
+    return { x: x0, y: y0, width: Math.max(1e-6, x1 - x0), height: Math.max(1e-6, y1 - y0) };
+  }
+  function serializeShapePath(subs) {
+    return subs.map(
+      (s) => `M${point(s.start)}` + s.segs.map(
+        (g) => g.t === "L" ? `L${point(g.p)}` : `C${point(g.c1)} ${point(g.c2)} ${point(g.p)}`
+      ).join("") + (s.closed ? "Z" : "")
+    ).join("");
+  }
+  function fitShapePath(d, width, height) {
+    const subs = parseShapePath(d);
+    const b = shapePathBounds(subs);
+    const map = (p) => [(p[0] - b.x) * width / b.width, (p[1] - b.y) * height / b.height];
+    return subs.map((s) => ({
+      start: map(s.start),
+      closed: s.closed,
+      segs: s.segs.map(
+        (g) => g.t === "L" ? { t: "L", p: map(g.p) } : { t: "C", c1: map(g.c1), c2: map(g.c2), p: map(g.p) }
+      )
+    }));
+  }
+  function scaleShapePath(subs, x, y) {
+    const map = (p) => [p[0] * x, p[1] * y];
+    return subs.map((s) => ({
+      start: map(s.start),
+      closed: s.closed,
+      segs: s.segs.map(
+        (g) => g.t === "L" ? { t: "L", p: map(g.p) } : { t: "C", c1: map(g.c1), c2: map(g.c2), p: map(g.p) }
+      )
+    }));
+  }
+  function roundShapePath(subs, radius) {
+    if (radius <= 0) return subs;
+    return subs.map((sub) => {
+      if (!sub.closed || sub.segs.length < 3) return sub;
+      const n = sub.segs.length;
+      const corners = sub.segs.map((out, i) => {
+        const incoming = sub.segs[(i - 1 + n) % n];
+        if (incoming.t !== "L" || out.t !== "L") return null;
+        const vertex = i === 0 ? sub.start : sub.segs[i - 1].p;
+        const before = i === 0 ? n > 1 ? sub.segs[n - 2].p : sub.start : i > 1 ? sub.segs[i - 2].p : sub.start;
+        const after = out.p;
+        const l1 = Math.hypot(vertex[0] - before[0], vertex[1] - before[1]);
+        const l2 = Math.hypot(after[0] - vertex[0], after[1] - vertex[1]);
+        if (!l1 || !l2) return null;
+        const u1 = [(vertex[0] - before[0]) / l1, (vertex[1] - before[1]) / l1];
+        const u2 = [(after[0] - vertex[0]) / l2, (after[1] - vertex[1]) / l2];
+        if (Math.abs(u1[0] * u2[1] - u1[1] * u2[0]) < 0.02 && u1[0] * u2[0] + u1[1] * u2[1] > 0) {
+          return null;
+        }
+        const r = Math.min(radius, l1 / 2, l2 / 2);
+        if (r < 0.01) return null;
+        return {
+          vertex,
+          a: [vertex[0] - u1[0] * r, vertex[1] - u1[1] * r],
+          b: [vertex[0] + u2[0] * r, vertex[1] + u2[1] * r]
+        };
+      });
+      const result = { start: corners[0]?.b ?? sub.start, segs: [], closed: true };
+      for (let i = 0; i < n; i++) {
+        const segment = sub.segs[i];
+        const next = corners[(i + 1) % n];
+        result.segs.push(segment.t === "L" ? { t: "L", p: next?.a ?? segment.p } : segment);
+        if (next) {
+          const K = 0.5523;
+          result.segs.push({
+            t: "C",
+            c1: [
+              next.a[0] + (next.vertex[0] - next.a[0]) * K,
+              next.a[1] + (next.vertex[1] - next.a[1]) * K
+            ],
+            c2: [
+              next.b[0] + (next.vertex[0] - next.b[0]) * K,
+              next.b[1] + (next.vertex[1] - next.b[1]) * K
+            ],
+            p: next.b
+          });
+        }
+      }
+      return result;
+    });
+  }
+
+  // src/shape-source-validation.ts
+  var oldKinds = /* @__PURE__ */ new Set(["rect", "rounded-rect", "ellipse", "line", "arrow", "speech-bubble"]);
+  var kinds = /* @__PURE__ */ new Set([...oldKinds, "path", "bubble"]);
+  var capKinds = /* @__PURE__ */ new Set(["none", "triangle", "chevron", "bar", "square", "circle", "diamond"]);
+  var bubbleStyles = /* @__PURE__ */ new Set(["ellipse", "rounded", "rect", "jagged", "burst", "cloud", "wobble"]);
+  var paramsKeys = /* @__PURE__ */ new Set([
+    "width",
+    "height",
+    "fill",
+    "stroke",
+    "strokeWidth",
+    "cornerRadius",
+    "path",
+    "preset",
+    "dash",
+    "startCap",
+    "endCap",
+    "startCapFilled",
+    "endCapFilled",
+    "lineCap",
+    "style",
+    "count",
+    "depth",
+    "jitter",
+    "seed",
+    "tail",
+    "tailAngle",
+    "tailLength",
+    "tailWidth",
+    "tailCurve"
+  ]);
+  var hex = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/u;
+  var record = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+  var fail = (path, message) => {
+    throw new Error(`edit.json v2 \u304C\u4E0D\u6B63\u3067\u3059 (${path}): ${message}`);
+  };
+  function requireRecord(value, path) {
+    if (!record(value)) fail(path, "object \u304C\u5FC5\u8981\u3067\u3059");
+  }
+  var number = (v, min, max, integer = false) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max && (!integer || Number.isInteger(v));
+  function assertKeys(value, allowed, path) {
+    for (const key of Object.keys(value)) if (!allowed.has(key)) fail(`${path}.${key}`, "\u672A\u5BFE\u5FDC\u306E\u30AD\u30FC\u3067\u3059");
+  }
+  function paint(value, path, v1) {
+    if (typeof value === "string") {
+      if (v1 && value !== "none" && !hex.test(value)) fail(path, "#RRGGBB(AA) \u307E\u305F\u306F none \u304C\u5FC5\u8981\u3067\u3059");
+      return;
+    }
+    requireRecord(value, path);
+    assertKeys(value, /* @__PURE__ */ new Set(["type", "angle", "stops"]), path);
+    if (value.type !== "linear" && value.type !== "radial") {
+      fail(`${path}.type`, "linear \u307E\u305F\u306F radial \u304C\u5FC5\u8981\u3067\u3059");
+    }
+    if (value.type === "linear" ? !number(value.angle, 0, 360) : "angle" in value) {
+      fail(`${path}.angle`, "\u89D2\u5EA6\u304C\u4E0D\u6B63\u3067\u3059");
+    }
+    if (!Array.isArray(value.stops) || value.stops.length < 2 || value.stops.length > 5) {
+      fail(`${path}.stops`, "2\u301C5 \u8272\u304C\u5FC5\u8981\u3067\u3059");
+    }
+    const stops = value.stops;
+    let last = -1;
+    for (let i = 0; i < stops.length; i++) {
+      const stop = stops[i];
+      requireRecord(stop, `${path}.stops[${i}]`);
+      assertKeys(stop, /* @__PURE__ */ new Set(["color", "offset"]), `${path}.stops[${i}]`);
+      if (typeof stop.color !== "string" || !hex.test(stop.color)) {
+        fail(`${path}.stops[${i}].color`, "\u8272\u304C\u4E0D\u6B63\u3067\u3059");
+      }
+      if (!number(stop.offset, 0, 1) || stop.offset < last) {
+        fail(`${path}.stops[${i}].offset`, "\u4F4D\u7F6E\u306F\u6607\u9806\u306E 0\u301C1 \u3067\u3059");
+      }
+      last = stop.offset;
+    }
+  }
+  function validateShapeSource(value, path) {
+    assertKeys(value, /* @__PURE__ */ new Set(["kind", "shape", "params"]), path);
+    if (!kinds.has(value.shape)) fail(`${path}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
+    if (value.params === void 0) {
+      if (value.shape === "path") fail(`${path}.params.path`, "path \u304C\u5FC5\u8981\u3067\u3059");
+      return;
+    }
+    requireRecord(value.params, `${path}.params`);
+    const p = value.params;
+    assertKeys(p, paramsKeys, `${path}.params`);
+    const v1 = value.shape === "path" || value.shape === "bubble" || [
+      "preset",
+      "dash",
+      "startCap",
+      "endCap",
+      "startCapFilled",
+      "endCapFilled",
+      "lineCap",
+      "style",
+      "count",
+      "depth",
+      "jitter",
+      "seed",
+      "tail",
+      "tailAngle",
+      "tailLength",
+      "tailWidth",
+      "tailCurve"
+    ].some((k) => k in p) || record(p.fill) || record(p.stroke);
+    for (const key of ["width", "height"]) {
+      if (key in p && !number(p[key], Number.MIN_VALUE, Infinity)) {
+        fail(`${path}.params.${key}`, "\u6B63\u306E\u6709\u9650\u6570\u304C\u5FC5\u8981\u3067\u3059");
+      }
+    }
+    if ("strokeWidth" in p && !number(p.strokeWidth, 0, v1 ? 100 : Infinity)) {
+      fail(`${path}.params.strokeWidth`, "\u7BC4\u56F2\u5916\u3067\u3059");
+    }
+    if ("cornerRadius" in p && !number(p.cornerRadius, 0, value.shape === "path" ? 100 : Infinity)) {
+      fail(`${path}.params.cornerRadius`, "\u7BC4\u56F2\u5916\u3067\u3059");
+    }
+    for (const key of ["fill", "stroke"]) if (key in p) paint(p[key], `${path}.params.${key}`, v1);
+    if ("preset" in p && (typeof p.preset !== "string" || !p.preset.trim())) {
+      fail(`${path}.params.preset`, "ID \u304C\u5FC5\u8981\u3067\u3059");
+    }
+    if ("path" in p || value.shape === "path") {
+      if (value.shape !== "path") fail(`${path}.params.path`, "path \u578B\u3060\u3051\u304C\u6301\u3066\u307E\u3059");
+      requireRecord(p.path, `${path}.params.path`);
+      const pathValue = p.path;
+      assertKeys(pathValue, /* @__PURE__ */ new Set(["d", "vb", "rule"]), `${path}.params.path`);
+      if (typeof pathValue.d !== "string" || !Array.isArray(pathValue.vb) || pathValue.vb.length !== 2 || !pathValue.vb.every((n) => number(n, Number.MIN_VALUE, Infinity)) || pathValue.rule !== void 0 && !["nonzero", "evenodd"].includes(pathValue.rule)) fail(`${path}.params.path`, "path \u304C\u4E0D\u6B63\u3067\u3059");
+      try {
+        parseShapePath(pathValue.d);
+      } catch {
+        fail(`${path}.params.path.d`, "\u7D76\u5BFE\u5EA7\u6A19\u306E M/L/C/Z \u304C\u5FC5\u8981\u3067\u3059");
+      }
+    }
+    if (["startCap", "endCap", "startCapFilled", "endCapFilled", "lineCap"].some((k) => k in p) && !["line", "arrow"].includes(value.shape)) fail(`${path}.params`, "\u7AEF\u306E\u5024\u306F line/arrow \u3060\u3051\u304C\u6301\u3066\u307E\u3059");
+    if ("dash" in p && !["solid", "dash", "dot"].includes(p.dash)) {
+      fail(`${path}.params.dash`, "\u7DDA\u7A2E\u304C\u4E0D\u6B63\u3067\u3059");
+    }
+    for (const key of ["startCap", "endCap"]) {
+      if (key in p && !capKinds.has(p[key])) {
+        fail(`${path}.params.${key}`, "\u7AEF\u306E\u7A2E\u985E\u304C\u4E0D\u6B63\u3067\u3059");
+      }
+    }
+    for (const key of ["startCapFilled", "endCapFilled"]) {
+      if (key in p && typeof p[key] !== "boolean") fail(`${path}.params.${key}`, "boolean \u304C\u5FC5\u8981\u3067\u3059");
+    }
+    if ("lineCap" in p && !["butt", "round"].includes(p.lineCap)) {
+      fail(`${path}.params.lineCap`, "\u7AEF\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059");
+    }
+    if ([
+      "style",
+      "count",
+      "depth",
+      "jitter",
+      "seed",
+      "tail",
+      "tailAngle",
+      "tailLength",
+      "tailWidth",
+      "tailCurve"
+    ].some((k) => k in p) && value.shape !== "bubble") fail(`${path}.params`, "\u5439\u304D\u51FA\u3057\u306E\u5024\u306F bubble \u3060\u3051\u304C\u6301\u3066\u307E\u3059");
+    if ("style" in p && !bubbleStyles.has(p.style)) {
+      fail(`${path}.params.style`, "\u5439\u304D\u51FA\u3057\u306E\u5F62\u304C\u4E0D\u6B63\u3067\u3059");
+    }
+    if ("tail" in p && !["point", "dots", "none"].includes(p.tail)) {
+      fail(`${path}.params.tail`, "\u3057\u3063\u307D\u304C\u4E0D\u6B63\u3067\u3059");
+    }
+    for (const key of ["count", "depth", "jitter", "tailAngle", "tailLength", "tailWidth", "tailCurve", "seed"]) {
+      if (key in p) {
+        const range = key === "count" ? [4, 48, true] : key === "seed" ? [-2147483648, 2147483647, true] : key === "tailCurve" ? [-100, 100, false] : key === "tailAngle" ? [0, 360, false] : [0, 100, false];
+        const [min, max, integer] = range;
+        if (!number(p[key], min, max, integer)) fail(`${path}.params.${key}`, "\u7BC4\u56F2\u5916\u3067\u3059");
+      }
+    }
+  }
+
   // src/edit-v2.ts
   var BLEND_MODES = /* @__PURE__ */ new Set([
     "normal",
@@ -1940,14 +2284,6 @@ var AkariEditKernel = (() => {
     "overlay",
     "hardlight",
     "softlight"
-  ]);
-  var SHAPE_KINDS = /* @__PURE__ */ new Set([
-    "rect",
-    "rounded-rect",
-    "ellipse",
-    "line",
-    "arrow",
-    "speech-bubble"
   ]);
   var ITEM_KEYS = /* @__PURE__ */ new Set([
     "id",
@@ -2002,7 +2338,7 @@ var AkariEditKernel = (() => {
   ]);
   function readEditV2(json) {
     const parsed = parseInput(json);
-    requireRecord(parsed, "edit.json");
+    requireRecord2(parsed, "edit.json");
     requireExactKeys(parsed, /* @__PURE__ */ new Set(["version", "output", "sources", "tracks", "audio", "captions", "thumbnail"]), "edit.json");
     if (parsed.version !== 2) {
       throw invalid("edit.json.version", "2 \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\uFF08v0/v1 \u306F\u3053\u306E reader \u306E\u5BFE\u8C61\u5916\u3067\u3059\uFF09");
@@ -2015,7 +2351,7 @@ var AkariEditKernel = (() => {
       throw invalid("edit.json.tracks", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
     if (hasOwn(parsed, "audio")) {
-      requireRecord(parsed.audio, "edit.json.audio");
+      requireRecord2(parsed.audio, "edit.json.audio");
       if (hasOwn(parsed.audio, "duck_keys")) {
         if (!Array.isArray(parsed.audio.duck_keys)) throw invalid("edit.json.audio.duck_keys", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         const keys = parsed.audio.duck_keys;
@@ -2028,7 +2364,7 @@ var AkariEditKernel = (() => {
     if (hasOwn(parsed, "captions") && !Array.isArray(parsed.captions)) {
       throw invalid("edit.json.captions", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
-    if (hasOwn(parsed, "thumbnail")) requireRecord(parsed.thumbnail, "edit.json.thumbnail");
+    if (hasOwn(parsed, "thumbnail")) requireRecord2(parsed.thumbnail, "edit.json.thumbnail");
     const sourceIds = /* @__PURE__ */ new Set();
     parsed.sources.forEach((source, index) => validateEditSource(source, index, sourceIds));
     const trackIds = /* @__PURE__ */ new Set();
@@ -2070,14 +2406,14 @@ var AkariEditKernel = (() => {
     }
   }
   function validateOutput(value) {
-    requireRecord(value, "edit.json.output");
+    requireRecord2(value, "edit.json.output");
     requirePositiveNumber(value.width, "edit.json.output.width");
     requirePositiveNumber(value.height, "edit.json.output.height");
     requireInteger(value.fps, 1, "edit.json.output.fps");
   }
   function validateEditSource(value, index, ids) {
     const path = `edit.json.sources[${index}]`;
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["id", "path", "proxy", "chroma_key"]), path);
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id)) throw invalid(`${path}.id`, `source id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
@@ -2085,12 +2421,12 @@ var AkariEditKernel = (() => {
     requireText(value.path, `${path}.path`);
     if (hasOwn(value, "proxy") && value.proxy !== null) requireText(value.proxy, `${path}.proxy`);
     if (hasOwn(value, "chroma_key") && value.chroma_key !== null) {
-      requireRecord(value.chroma_key, `${path}.chroma_key`);
+      requireRecord2(value.chroma_key, `${path}.chroma_key`);
     }
   }
   function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     const path = `edit.json.tracks[${index}]`;
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["id", "lane", "name", "muted", "items", "content"]), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
@@ -2118,14 +2454,14 @@ var AkariEditKernel = (() => {
       });
       return;
     }
-    requireRecord(value.content, `${path}.content`);
+    requireRecord2(value.content, `${path}.content`);
     requireExactKeys(value.content, /* @__PURE__ */ new Set(["from"]), `${path}.content`);
     if (value.content.from !== "captions.json") {
       throw invalid(`${path}.content.from`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
   }
   function validateAudioItem(value, path, ids, sourceIds) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, AUDIO_ITEM_KEYS, path);
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
@@ -2166,7 +2502,7 @@ var AkariEditKernel = (() => {
     validateAudioMediaSource(value.source, `${path}.source`, sourceIds);
   }
   function validateNarrationProvenance(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireText(value.provider, `${path}.provider`);
     for (const key of ["engine", "voice", "credit", "generated_at"]) {
       if (hasOwn(value, key) && typeof value[key] !== "string") {
@@ -2178,7 +2514,7 @@ var AkariEditKernel = (() => {
     }
   }
   function validateAudioMediaSource(value, path, sourceIds) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "src", "in", "out", "speed", "pitch_semitones", "formant"]), path);
     if (value.kind !== "media") throw invalid(`${path}.kind`, "media \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     requireText(value.src, `${path}.src`);
@@ -2199,7 +2535,7 @@ var AkariEditKernel = (() => {
     }
   }
   function validateAudioClipDenoise(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["method", "strength"]), path);
     if (value.method !== "fft" && value.method !== "nlm") {
       throw invalid(`${path}.method`, "fft/nlm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
@@ -2207,7 +2543,7 @@ var AkariEditKernel = (() => {
     requireRange(value.strength, 0, 1, `${path}.strength`);
   }
   function validateItem(value, path, ids, sourceIds) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, ITEM_KEYS, path);
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
@@ -2223,13 +2559,13 @@ var AkariEditKernel = (() => {
     }
     if (hasOwn(value, "crop")) validateCrop(value.crop, `${path}.crop`);
     if (hasOwn(value, "adjust")) validateAdjust(value.adjust, `${path}.adjust`);
-    if (hasOwn(value, "perspective")) requireRecord(value.perspective, `${path}.perspective`);
+    if (hasOwn(value, "perspective")) requireRecord2(value.perspective, `${path}.perspective`);
     if (hasOwn(value, "motion")) validateMotion(value.motion, `${path}.motion`);
     if (hasOwn(value, "animator")) validateAnimators(value.animator, `${path}.animator`);
     if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
     if (value.source.kind === "group") {
-      const transforms = [value.transform, ...Array.isArray(value.keyframes) ? value.keyframes.map((point) => point.transform) : []];
+      const transforms = [value.transform, ...Array.isArray(value.keyframes) ? value.keyframes.map((point2) => point2.transform) : []];
       for (const transform of transforms) {
         if (transform !== null && typeof transform === "object" && (hasOwn(transform, "scaleX") || hasOwn(transform, "scaleY"))) {
           throw invalid(`${path}.transform`, "group \u306F scaleX / scaleY \u3092\u6307\u5B9A\u3067\u304D\u307E\u305B\u3093");
@@ -2257,11 +2593,11 @@ var AkariEditKernel = (() => {
     }
   }
   function validateItemAnchor(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["caption", "range", "offset", "edge", "duration", "attached_by"]), path);
     if (typeof value.caption !== "string" || !/^c-\d{4}$/.test(value.caption)) throw invalid(`${path}.caption`, "\u5B57\u5E55 id \u304C\u5FC5\u8981\u3067\u3059");
     if (hasOwn(value, "range")) {
-      requireRecord(value.range, `${path}.range`);
+      requireRecord2(value.range, `${path}.range`);
       requireExactKeys(value.range, /* @__PURE__ */ new Set(["start", "end"]), `${path}.range`);
       requireNonNegativeNumber(value.range.start, `${path}.range.start`);
       requireNonNegativeNumber(value.range.end, `${path}.range.end`);
@@ -2273,13 +2609,13 @@ var AkariEditKernel = (() => {
     if (hasOwn(value, "attached_by")) validateAttachedBy(value.attached_by, `${path}.attached_by`);
   }
   function validateAttachedBy(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["style_uid", "caption"]), path);
     requireText(value.style_uid, `${path}.style_uid`);
     if (typeof value.caption !== "string" || !/^c-\d{4}$/.test(value.caption)) throw invalid(`${path}.caption`, "\u5B57\u5E55 id \u304C\u5FC5\u8981\u3067\u3059");
   }
   function validateItemSource(value, path, sourceIds) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     switch (value.kind) {
       case "media":
         requireExactKeys(value, /* @__PURE__ */ new Set([
@@ -2302,7 +2638,7 @@ var AkariEditKernel = (() => {
         requireNonNegativeNumber(value.out, `${path}.out`);
         if (value.out <= value.in) throw invalid(path, "media source \u306F out > in \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         for (const key of ["framing", "transition_out", "freeze", "chroma_key"]) {
-          if (hasOwn(value, key) && value[key] !== null) requireRecord(value[key], `${path}.${key}`);
+          if (hasOwn(value, key) && value[key] !== null) requireRecord2(value[key], `${path}.${key}`);
         }
         if (hasOwn(value, "fx") && !Array.isArray(value.fx)) throw invalid(`${path}.fx`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         if (hasOwn(value, "speed")) requirePositiveNumber(value.speed, `${path}.speed`);
@@ -2316,46 +2652,21 @@ var AkariEditKernel = (() => {
         if (hasOwn(value, "text") && typeof value.text !== "string") throw invalid(`${path}.text`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         if (hasOwn(value, "style")) validateStringMap(value.style, `${path}.style`);
         if (hasOwn(value, "exclude")) validateStringList(value.exclude, `${path}.exclude`);
-        if (hasOwn(value, "vars")) requireRecord(value.vars, `${path}.vars`);
+        if (hasOwn(value, "vars")) requireRecord2(value.vars, `${path}.vars`);
         if (hasOwn(value, "params")) {
-          requireRecord(value.params, `${path}.params`);
+          requireRecord2(value.params, `${path}.params`);
           for (const [name, text] of Object.entries(value.params)) {
             if (typeof text !== "string") throw invalid(`${path}.params.${name}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
           }
         }
         return;
       case "shape":
-        requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "shape", "params"]), path);
-        if (!SHAPE_KINDS.has(value.shape)) {
-          throw invalid(`${path}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
-        }
-        if (hasOwn(value, "params")) {
-          requireRecord(value.params, `${path}.params`);
-          requireExactKeys(value.params, /* @__PURE__ */ new Set([
-            "width",
-            "height",
-            "fill",
-            "stroke",
-            "strokeWidth",
-            "cornerRadius"
-          ]), `${path}.params`);
-          for (const key of ["width", "height"]) {
-            if (hasOwn(value.params, key)) requirePositiveNumber(value.params[key], `${path}.params.${key}`);
-          }
-          for (const key of ["fill", "stroke"]) {
-            if (hasOwn(value.params, key) && typeof value.params[key] !== "string") {
-              throw invalid(`${path}.params.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
-            }
-          }
-          for (const key of ["strokeWidth", "cornerRadius"]) {
-            if (hasOwn(value.params, key)) requireNonNegativeNumber(value.params[key], `${path}.params.${key}`);
-          }
-        }
+        validateShapeSource(value, path);
         return;
       case "telop":
         requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked", "from"]), path);
         requireText(value.preset, `${path}.preset`);
-        if (hasOwn(value, "params")) requireRecord(value.params, `${path}.params`);
+        if (hasOwn(value, "params")) requireRecord2(value.params, `${path}.params`);
         if (hasOwn(value, "baked")) requireText(value.baked, `${path}.baked`);
         if (hasOwn(value, "from")) requireText(value.from, `${path}.from`);
         return;
@@ -2381,7 +2692,7 @@ var AkariEditKernel = (() => {
     }
   }
   function validateStringMap(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     for (const [key, entry] of Object.entries(value)) {
       if (typeof entry !== "string") throw invalid(`${path}.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
@@ -2396,7 +2707,7 @@ var AkariEditKernel = (() => {
     });
   }
   function validateFilter(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     switch (value.type) {
       case "invert":
         requireExactKeys(value, /* @__PURE__ */ new Set(["type"]), path);
@@ -2415,7 +2726,7 @@ var AkariEditKernel = (() => {
     }
   }
   function validateTransform(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["x", "y", "scale", "scaleX", "scaleY", "rotate"]), path);
     for (const key of ["x", "y", "rotate"]) {
       if (hasOwn(value, key)) requireNumber(value[key], `${path}.${key}`);
@@ -2425,7 +2736,7 @@ var AkariEditKernel = (() => {
     }
   }
   function validateCrop(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     for (const key of ["x", "y"]) requireRange(value[key], 0, 1, `${path}.${key}`);
     for (const key of ["w", "h"]) {
       requireRange(value[key], 0, 1, `${path}.${key}`);
@@ -2433,7 +2744,7 @@ var AkariEditKernel = (() => {
     }
   }
   function validateAdjust(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["basic", "lut", "sections", "curves", "wheels", "hue", "fx"]), path);
     if (hasOwn(value, "fx")) {
       const fxPath = path + ".fx";
@@ -2454,7 +2765,7 @@ var AkariEditKernel = (() => {
       const seen = /* @__PURE__ */ new Set();
       for (const [index, fx] of value.fx.entries()) {
         const at = fxPath + "[" + index + "]";
-        requireRecord(fx, at);
+        requireRecord2(fx, at);
         if (typeof fx.id !== "string" || !hasOwn(ranges, fx.id)) {
           throw invalid(at + ".id", "adjust.fx.id: unknown effect id");
         }
@@ -2471,7 +2782,7 @@ var AkariEditKernel = (() => {
       if (!hasOwn(value, section)) continue;
       const channels = value[section];
       const sectionPath = `${path}.${section}`;
-      requireRecord(channels, sectionPath);
+      requireRecord2(channels, sectionPath);
       const axis = section === "curves" ? "in" : "hue";
       const output = section === "curves" ? "out" : "value";
       const minimum = section === "curves" ? 2 : 1;
@@ -2482,30 +2793,30 @@ var AkariEditKernel = (() => {
           throw invalid(channelPath, `${minimum} \u304B\u3089 16 \u70B9\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`);
         }
         let previous = -Infinity;
-        for (const [index, point] of points.entries()) {
+        for (const [index, point2] of points.entries()) {
           const pointPath = `${channelPath}[${index}]`;
-          requireRecord(point, pointPath);
-          requireExactKeys(point, /* @__PURE__ */ new Set([axis, output]), pointPath);
-          requireRange(point[axis], 0, 1, `${pointPath}.${axis}`);
-          requireRange(point[output], 0, 1, `${pointPath}.${output}`);
-          if (point[axis] <= previous) throw invalid(`${pointPath}.${axis}`, "\u72ED\u7FA9\u5358\u8ABF\u5897\u52A0\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
-          previous = point[axis];
+          requireRecord2(point2, pointPath);
+          requireExactKeys(point2, /* @__PURE__ */ new Set([axis, output]), pointPath);
+          requireRange(point2[axis], 0, 1, `${pointPath}.${axis}`);
+          requireRange(point2[output], 0, 1, `${pointPath}.${output}`);
+          if (point2[axis] <= previous) throw invalid(`${pointPath}.${axis}`, "\u72ED\u7FA9\u5358\u8ABF\u5897\u52A0\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          previous = point2[axis];
         }
       }
     }
     if (hasOwn(value, "wheels")) {
-      requireRecord(value.wheels, `${path}.wheels`);
+      requireRecord2(value.wheels, `${path}.wheels`);
       const ranges = { lift: 0.25, gamma: 0.5, gain: 0.5, offset: 0.1 };
       requireExactKeys(value.wheels, new Set(Object.keys(ranges)), `${path}.wheels`);
       for (const [wheel, channels] of Object.entries(value.wheels)) {
         const wheelPath = `${path}.wheels.${wheel}`;
-        requireRecord(channels, wheelPath);
+        requireRecord2(channels, wheelPath);
         requireExactKeys(channels, /* @__PURE__ */ new Set(["r", "g", "b"]), wheelPath);
         for (const [channel, amount] of Object.entries(channels)) requireRange(amount, -ranges[wheel], ranges[wheel], `${wheelPath}.${channel}`);
       }
     }
     if (hasOwn(value, "basic")) {
-      requireRecord(value.basic, `${path}.basic`);
+      requireRecord2(value.basic, `${path}.basic`);
       const basicKeys = /* @__PURE__ */ new Set([
         "exposure",
         "contrast",
@@ -2526,13 +2837,13 @@ var AkariEditKernel = (() => {
       }
     }
     if (hasOwn(value, "lut") && value.lut !== null) {
-      requireRecord(value.lut, `${path}.lut`);
+      requireRecord2(value.lut, `${path}.lut`);
       requireExactKeys(value.lut, /* @__PURE__ */ new Set(["lut", "intensity"]), `${path}.lut`);
       requireText(value.lut.lut, `${path}.lut.lut`);
       if (hasOwn(value.lut, "intensity")) requireRange(value.lut.intensity, 0, 1, `${path}.lut.intensity`);
     }
     if (hasOwn(value, "sections")) {
-      requireRecord(value.sections, `${path}.sections`);
+      requireRecord2(value.sections, `${path}.sections`);
       const sectionKeys = /* @__PURE__ */ new Set(["basic", "lut", "curves", "wheels", "hue", "fx"]);
       requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
       for (const key of sectionKeys) {
@@ -2572,12 +2883,12 @@ var AkariEditKernel = (() => {
       }
     };
     if (typeof value === "string") return validateOne(value, path);
-    requireRecord(value, path);
+    requireRecord2(value, path);
     for (const [key, entry] of Object.entries(value)) validateOne(entry, `${path}.${key}`);
   }
   function validateKeyframes(value, path, audio = false) {
     if (!Array.isArray(value)) {
-      requireRecord(value, path);
+      requireRecord2(value, path);
       requireExactKeys(value, /* @__PURE__ */ new Set(["path", "count"]), path);
       requireText(value.path, `${path}.path`);
       if (!/^motion\/.+\.json$/.test(value.path)) throw invalid(`${path}.path`, "motion/ \u914D\u4E0B\u306E JSON \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
@@ -2587,7 +2898,7 @@ var AkariEditKernel = (() => {
     if (!Array.isArray(value) || value.length < 2) throw invalid(path, "2 \u8981\u7D20\u4EE5\u4E0A\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     value.forEach((entry, index) => {
       const itemPath = `${path}[${index}]`;
-      requireRecord(entry, itemPath);
+      requireRecord2(entry, itemPath);
       requireInteger(entry.t, 0, `${itemPath}.t`);
       if (audio) {
         if (!hasOwn(entry, "gain_db")) throw invalid(`${itemPath}.gain_db`, "audio keyframe \u306B\u5FC5\u8981\u3067\u3059");
@@ -2595,12 +2906,12 @@ var AkariEditKernel = (() => {
       }
       if (hasOwn(entry, "transform")) validateTransform(entry.transform, `${itemPath}.transform`);
       if (hasOwn(entry, "crop")) validateCrop(entry.crop, `${itemPath}.crop`);
-      if (hasOwn(entry, "perspective")) requireRecord(entry.perspective, `${itemPath}.perspective`);
+      if (hasOwn(entry, "perspective")) requireRecord2(entry.perspective, `${itemPath}.perspective`);
       if (hasOwn(entry, "opacity")) requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
       if (hasOwn(entry, "animator")) {
-        requireRecord(entry.animator, `${itemPath}.animator`);
+        requireRecord2(entry.animator, `${itemPath}.animator`);
         for (const [id, state] of Object.entries(entry.animator)) {
-          requireRecord(state, `${itemPath}.animator.${id}`);
+          requireRecord2(state, `${itemPath}.animator.${id}`);
           requireExactKeys(state, /* @__PURE__ */ new Set(["offset", "start", "end"]), `${itemPath}.animator.${id}`);
           if (hasOwn(state, "offset")) requireRange(state.offset, -1, 1, `${itemPath}.animator.${id}.offset`);
           for (const key of ["start", "end"]) if (hasOwn(state, key)) requireRange(state[key], 0, 1, `${itemPath}.animator.${id}.${key}`);
@@ -2610,12 +2921,12 @@ var AkariEditKernel = (() => {
     });
   }
   function validateMotion(value, path) {
-    requireRecord(value, path);
+    requireRecord2(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["in", "out", "loop"]), path);
     for (const slot of ["in", "out", "loop"]) {
       if (!hasOwn(value, slot)) continue;
       const entry = value[slot];
-      requireRecord(entry, `${path}.${slot}`);
+      requireRecord2(entry, `${path}.${slot}`);
       requireExactKeys(entry, /* @__PURE__ */ new Set(["preset", slot === "loop" ? "period" : "duration", "ease", "amount"]), `${path}.${slot}`);
       requireText(entry.preset, `${path}.${slot}.preset`);
       requireInteger(entry[slot === "loop" ? "period" : "duration"], slot === "loop" ? 1 : 0, `${path}.${slot}.${slot === "loop" ? "period" : "duration"}`);
@@ -2627,7 +2938,7 @@ var AkariEditKernel = (() => {
     if (!Array.isArray(value)) throw invalid(path, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     value.forEach((entry, index) => {
       const entryPath = `${path}[${index}]`;
-      requireRecord(entry, entryPath);
+      requireRecord2(entry, entryPath);
       requireExactKeys(entry, /* @__PURE__ */ new Set(["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"]), entryPath);
       requireText(entry.id, `${entryPath}.id`);
       if (!["chars", "words", "lines", "segments"].includes(String(entry.basis))) throw invalid(`${entryPath}.basis`, "\u672A\u5BFE\u5FDC\u306E basis \u3067\u3059");
@@ -2636,11 +2947,11 @@ var AkariEditKernel = (() => {
       requireRange(entry.end, 0, 1, `${entryPath}.end`);
       requireRange(entry.offset, -1, 1, `${entryPath}.offset`);
       if (hasOwn(entry, "randomize")) {
-        requireRecord(entry.randomize, `${entryPath}.randomize`);
+        requireRecord2(entry.randomize, `${entryPath}.randomize`);
         requireExactKeys(entry.randomize, /* @__PURE__ */ new Set(["seed"]), `${entryPath}.randomize`);
         if (!Number.isInteger(entry.randomize.seed)) throw invalid(`${entryPath}.randomize.seed`, "\u6574\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
       }
-      requireRecord(entry.amount, `${entryPath}.amount`);
+      requireRecord2(entry.amount, `${entryPath}.amount`);
       requireExactKeys(entry.amount, /* @__PURE__ */ new Set(["x", "y", "scale", "rotate", "opacity", "letterSpacing", "blur"]), `${entryPath}.amount`);
       for (const [key, amount] of Object.entries(entry.amount)) {
         if (key === "opacity") requireRange(amount, -1, 1, `${entryPath}.amount.opacity`);
@@ -2649,7 +2960,7 @@ var AkariEditKernel = (() => {
       if (hasOwn(entry, "ease")) validateEasing(entry.ease, `${entryPath}.ease`);
     });
   }
-  function requireRecord(value, path) {
+  function requireRecord2(value, path) {
     if (value === null || typeof value !== "object" || Array.isArray(value)) {
       throw invalid(path, "object \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
@@ -2709,6 +3020,510 @@ var AkariEditKernel = (() => {
     }
   };
 
+  // src/shape-bubble.ts
+  function seededRandom(seed) {
+    let a = ((seed | 0) * 2654435761 ^ 2654435769) >>> 0;
+    return () => {
+      a = a + 1831565813 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function ellipsePerimeter(A, B) {
+    const M = 1440;
+    const raw = [];
+    const cum = [0];
+    for (let i = 0; i <= M; i++) {
+      const t = i / M * 2 * Math.PI;
+      raw.push([A * Math.sin(t), -B * Math.cos(t), t]);
+      if (i) {
+        cum.push(cum[i - 1] + Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]));
+      }
+    }
+    const L = cum[M];
+    const at = (s) => {
+      s = (s % 1 + 1) % 1;
+      const tg = s * L;
+      let lo = 0;
+      let hi = M;
+      while (hi - lo > 1) {
+        const mid = lo + hi >> 1;
+        if (cum[mid] <= tg) lo = mid;
+        else hi = mid;
+      }
+      const f2 = (tg - cum[lo]) / (cum[hi] - cum[lo] || 1);
+      const t = raw[lo][2] + (raw[hi][2] - raw[lo][2]) * f2;
+      const x = A * Math.sin(t);
+      const y = -B * Math.cos(t);
+      const nx = x / (A * A);
+      const ny = y / (B * B);
+      const nl = Math.hypot(nx, ny) || 1;
+      return [x, y, nx / nl, ny / nl];
+    };
+    return { at, L };
+  }
+  function normalizeBody(P, A, B) {
+    let x0 = 1e9;
+    let y0 = 1e9;
+    let x1 = -1e9;
+    let y1 = -1e9;
+    P.forEach(([x, y]) => {
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    });
+    const sx = 2 * A / (x1 - x0 || 1);
+    const sy = 2 * B / (y1 - y0 || 1);
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    return P.map(([x, y]) => [(x - cx) * sx, (y - cy) * sy]);
+  }
+  function bodyPoints(A, B, p) {
+    const st = p.style;
+    const rnd = seededRandom(p.seed || 0);
+    const jit = (p.jitter || 0) / 100;
+    const dep = (p.depth || 0) / 100;
+    const m = Math.min(A, B);
+    const P = [];
+    if (st === "rect" || st === "round") {
+      const r = st === "round" ? m * 0.35 : 0;
+      const step = Math.max(1, (A + B) / 60);
+      const line = (x0, y0, x1, y1) => {
+        const k = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / step));
+        for (let i = 0; i < k; i++) P.push([x0 + (x1 - x0) * i / k, y0 + (y1 - y0) * i / k]);
+      };
+      const arc = (cx, cy, a0) => {
+        if (!r) return;
+        for (let i = 0; i < 12; i++) {
+          const a = (a0 + 90 * i / 12) * Math.PI / 180;
+          P.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+        }
+      };
+      line(0, -B, A - r, -B);
+      arc(A - r, -B + r, -90);
+      line(A, -B + r, A, B - r);
+      arc(A - r, B - r, 0);
+      line(A - r, B, -A + r, B);
+      arc(-A + r, B - r, 90);
+      line(-A, B - r, -A, -B + r);
+      arc(-A + r, -B + r, 180);
+      line(-A + r, -B, 0, -B);
+      return P;
+    }
+    const E = ellipsePerimeter(A, B);
+    const n = Math.max(3, Math.round(p.count || 12));
+    if (st === "spike" || st === "burst") {
+      const bu = st === "burst";
+      const dp = dep * m * (bu ? 0.8 : 0.5);
+      const pts = [];
+      const o0 = 0.5 / n * 0.37;
+      for (let i = 0; i < n; i++) {
+        const s1 = (i + (rnd() - 0.5) * jit * (bu ? 0.6 : 0.4)) / n + o0;
+        const s2 = (i + 0.5 + (rnd() - 0.5) * jit * (bu ? 0.36 : 0.3)) / n + o0;
+        const t = E.at(s1);
+        const pull = dp * rnd() * jit * (bu ? 0.9 : 0.45);
+        pts.push([t[0] - t[2] * pull, t[1] - t[3] * pull]);
+        const v = E.at(s2);
+        const dv = dp * (1 - rnd() * jit * (bu ? 0.45 : 0.3));
+        pts.push([v[0] - v[2] * dv, v[1] - v[3] * dv]);
+      }
+      pts.forEach((a, i) => {
+        const b = pts[(i + 1) % pts.length];
+        for (let j = 0; j < 6; j++) {
+          P.push([a[0] + (b[0] - a[0]) * j / 6, a[1] + (b[1] - a[1]) * j / 6]);
+        }
+      });
+      return normalizeBody(P, A, B);
+    }
+    if (st === "cloud") {
+      const bf = 0.35 + 0.6 * dep;
+      const h0 = E.L / n / 2 * bf * 0.9;
+      const V = [];
+      const TAU = 2 * Math.PI;
+      const nm = (x) => (x % TAU + TAU) % TAU;
+      for (let i = 0; i < n; i++) {
+        const q = E.at((i + (rnd() - 0.5) * jit * 0.5) / n);
+        V.push([q[0] - q[2] * h0, q[1] - q[3] * h0]);
+      }
+      for (let i = 0; i < n; i++) {
+        const a = V[i];
+        const b = V[(i + 1) % n];
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const c = Math.hypot(dx, dy) || 1;
+        const no = [dy / c, -dx / c];
+        const h = Math.max(0.5, Math.min(c / 2 * 0.95, c / 2 * bf * (1 + (rnd() - 0.5) * jit * 0.7)));
+        const R = (c * c / 4 + h * h) / (2 * h);
+        const mx = (a[0] + b[0]) / 2;
+        const my = (a[1] + b[1]) / 2;
+        const cx = mx - no[0] * (R - h);
+        const cy = my - no[1] * (R - h);
+        const a0 = Math.atan2(a[1] - cy, a[0] - cx);
+        const a1 = Math.atan2(b[1] - cy, b[0] - cx);
+        const ap = Math.atan2(my + no[1] * h - cy, mx + no[0] * h - cx);
+        const d1 = nm(ap - a0);
+        const d2 = nm(a1 - a0);
+        const sw = d1 < d2 ? d2 : d2 - TAU;
+        const k = Math.max(8, Math.ceil(Math.abs(sw) * R / 2));
+        for (let j = 0; j < k; j++) {
+          const q = a0 + sw * j / k;
+          P.push([cx + R * Math.cos(q), cy + R * Math.sin(q)]);
+        }
+      }
+      return normalizeBody(P, A, B);
+    }
+    if (st === "wave") {
+      const N = Math.max(480, n * 14);
+      const amp = dep * m * 0.12;
+      const Wa = [];
+      for (let i = 0; i < n; i++) Wa.push(1 + (rnd() - 0.5) * jit * 1.4);
+      for (let i = 0; i < N; i++) {
+        const s = i / N;
+        const q = E.at(s);
+        const w = s * n;
+        const o = amp * Wa[Math.floor(w) % n] * Math.sin(2 * Math.PI * w);
+        P.push([q[0] + q[2] * o, q[1] + q[3] * o]);
+      }
+      return normalizeBody(P, A, B);
+    }
+    for (let i = 0; i < 480; i++) {
+      const q = E.at(i / 480);
+      P.push([q[0], q[1]]);
+    }
+    return P;
+  }
+  function bubbleGeometry(A, B, p) {
+    const P = bodyPoints(A, B, p);
+    const S_ = (A + B) / 2;
+    const N = P.length;
+    const subs = [];
+    let tip = null;
+    const tail = p.tail || "none";
+    if (tail === "none") subs.push(P);
+    else {
+      const phi = (p.tailAngle || 0) * Math.PI / 180;
+      const dx = Math.sin(phi);
+      const dy = -Math.cos(phi);
+      const qx = Math.cos(phi);
+      const qy = Math.sin(phi);
+      const c = Math.max(-1, Math.min(1, (p.tailCurve || 0) / 100));
+      const L = Math.max(2, (p.tailLength || 0) / 100 * 1.5 * S_);
+      let i0 = 0;
+      let best = -2;
+      P.forEach((q, i) => {
+        const r = Math.hypot(q[0], q[1]) || 1;
+        const cs = (q[0] * dx + q[1] * dy) / r;
+        if (cs > best) {
+          best = cs;
+          i0 = i;
+        }
+      });
+      const rp = P[i0][0] * dx + P[i0][1] * dy;
+      const base = [dx * rp, dy * rp];
+      if (tail === "point") {
+        const hw = Math.max(2, (p.tailWidth || 0) / 100 * S_ * 0.9) / 2;
+        const inb = (q) => Math.abs(q[0] * dy - q[1] * dx) < hw && q[0] * dx + q[1] * dy > 0;
+        let ia = i0;
+        let ib = i0;
+        let k = 0;
+        while (k < N / 3 && inb(P[(ia - 1 + N) % N])) {
+          ia = (ia - 1 + N) % N;
+          k++;
+        }
+        ia = (ia - 1 + N) % N;
+        k = 0;
+        while (k < N / 3 && inb(P[(ib + 1) % N])) {
+          ib = (ib + 1) % N;
+          k++;
+        }
+        ib = (ib + 1) % N;
+        const Pa = P[ia];
+        const Pb = P[ib];
+        const R0 = [(Pa[0] + Pb[0]) / 2, (Pa[1] + Pb[1]) / 2];
+        const fw = L * (1 - 0.15 * Math.abs(c));
+        tip = [base[0] + dx * fw + qx * c * L * 0.6, base[1] + dy * fw + qy * c * L * 0.6];
+        const ctl = [base[0] + dx * L * 0.5, base[1] + dy * L * 0.5];
+        const Qa = [ctl[0] + (Pa[0] - R0[0]) * 0.35, ctl[1] + (Pa[1] - R0[1]) * 0.35];
+        const Qb = [ctl[0] + (Pb[0] - R0[0]) * 0.35, ctl[1] + (Pb[1] - R0[1]) * 0.35];
+        const quad = (a, q, b) => {
+          const o = [];
+          for (let j = 1; j < 18; j++) {
+            const t = j / 18;
+            const u = 1 - t;
+            o.push([
+              u * u * a[0] + 2 * u * t * q[0] + t * t * b[0],
+              u * u * a[1] + 2 * u * t * q[1] + t * t * b[1]
+            ]);
+          }
+          return o;
+        };
+        const out = [];
+        for (let j = ib; j !== ia; j = (j + 1) % N) out.push(P[j]);
+        out.push(Pa, ...quad(Pa, Qa, tip), tip, ...quad(tip, Qb, Pb));
+        subs.push(out);
+      } else {
+        subs.push(P);
+        const rd = S_ * (0.06 + 0.16 * (p.tailWidth || 0) / 100);
+        const rs = [rd, rd * 0.66, rd * 0.42];
+        const g = 1.5 + L * 0.16;
+        const cen = [];
+        let d = 0;
+        const minD = (x, y) => {
+          let mn = 1e9;
+          for (const q of P) {
+            const e = Math.hypot(q[0] - x, q[1] - y);
+            if (e < mn) mn = e;
+          }
+          return mn;
+        };
+        rs.forEach((r, i) => {
+          d += (i ? rs[i - 1] : 0) + g + r;
+          const pos = () => {
+            const lat = c * d * d / (L + rd * 3) * 0.5;
+            return [base[0] + dx * d + qx * lat, base[1] + dy * d + qy * lat];
+          };
+          let q = pos();
+          for (let it = 0; it < 30; it++) {
+            const md = minD(q[0], q[1]);
+            if (md >= r + g * 0.8) break;
+            d += r + g * 0.8 - md + 0.5;
+            q = pos();
+          }
+          cen.push([q[0], q[1], r]);
+        });
+        cen.forEach(([x, y, r]) => {
+          const o = [];
+          for (let j = 0; j < 40; j++) {
+            const a = j / 40 * 2 * Math.PI;
+            o.push([x + r * Math.sin(a), y - r * Math.cos(a)]);
+          }
+          subs.push(o);
+        });
+        tip = [cen[2][0], cen[2][1]];
+      }
+    }
+    let x0 = 1e9;
+    let y0 = 1e9;
+    let x1 = -1e9;
+    let y1 = -1e9;
+    subs.forEach(
+      (s) => s.forEach(([x, y]) => {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      })
+    );
+    return { subs, tip, x0, y0, x1, y1 };
+  }
+  function fitBubble(W, H, p) {
+    let A = W / 2;
+    let B = H / 2;
+    let g;
+    for (let i = 0; i < 80; i++) {
+      g = bubbleGeometry(A, B, p);
+      const ex = W / (g.x1 - g.x0 || 1);
+      const ey = H / (g.y1 - g.y0 || 1);
+      if (Math.abs(ex - 1) < 1e-7 && Math.abs(ey - 1) < 1e-7) break;
+      A *= ex;
+      B *= ey;
+      if (i === 79) g = bubbleGeometry(A, B, p);
+    }
+    return { A, B, g };
+  }
+  var serializeBubble = (g, sx, sy, ox, oy) => g.subs.map(
+    (s) => "M" + s.map(
+      (q) => +((q[0] - g.x0) * sx + ox).toFixed(2) + " " + +((q[1] - g.y0) * sy + oy).toFixed(2)
+    ).join("L") + "Z"
+  ).join("");
+  function bubblePath(width, height, params) {
+    const style = params.style === "rounded" ? "round" : params.style === "jagged" ? "spike" : params.style === "wobble" ? "wave" : params.style;
+    const p = {
+      ...params,
+      style
+    };
+    const f2 = fitBubble(width, height, p);
+    const g = f2.g;
+    return serializeBubble(g, width / (g.x1 - g.x0 || 1), height / (g.y1 - g.y0 || 1), 0, 0);
+  }
+
+  // src/shape-markup-v1.ts
+  var validColor = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/u;
+  var num = (v) => String(+v.toFixed(3));
+  var clamp3 = (v, fallback, min, max) => typeof v === "number" && Number.isFinite(v) && v >= min && v <= max ? v : fallback;
+  var fallbackId = (id) => {
+    let hash = 2166136261;
+    for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 16777619);
+    return (hash >>> 0).toString(36);
+  };
+  var itemKey = (itemId, source) => {
+    if (itemId === void 0) return fallbackId(JSON.stringify(source));
+    let result = "";
+    for (let i = 0; i < itemId.length; i++) result += itemId.charCodeAt(i).toString(16).padStart(4, "0");
+    return result || "0";
+  };
+  var isGradient = (v) => typeof v === "object" && v !== null;
+  var validPaint = (v, fallback) => {
+    if (typeof v === "string") return v === "none" || validColor.test(v) ? v : fallback;
+    if (!v || !["linear", "radial"].includes(v.type) || !Array.isArray(v.stops) || v.stops.length < 2 || v.stops.length > 5) return fallback;
+    if (v.type === "linear" && (typeof v.angle !== "number" || !Number.isFinite(v.angle) || v.angle < 0 || v.angle > 360)) return fallback;
+    if (!v.stops.every(
+      (s) => validColor.test(s.color) && Number.isFinite(s.offset) && s.offset >= 0 && s.offset <= 1
+    )) return fallback;
+    if (v.stops.some((s, i) => i > 0 && s.offset < v.stops[i - 1].offset)) return fallback;
+    return v;
+  };
+  function paint2(value, id, width, height) {
+    if (!isGradient(value)) return { value, def: "" };
+    const stops = value.stops.map(
+      (s) => `<stop offset="${num(s.offset)}" stop-color="${s.color.slice(0, 7)}" stop-opacity="${s.color.length === 9 ? num(parseInt(s.color.slice(7), 16) / 255) : 1}"/>`
+    ).join("");
+    if (value.type === "radial") {
+      return {
+        value: `url(#${id})`,
+        def: `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${num(width / 2)}" cy="${num(height / 2)}" r="${num(Math.max(width, height) / 2)}">${stops}</radialGradient>`
+      };
+    }
+    const a = ((value.angle ?? 90) - 90) * Math.PI / 180;
+    const dx = Math.cos(a) / 2;
+    const dy = Math.sin(a) / 2;
+    return {
+      value: `url(#${id})`,
+      def: `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(width * (0.5 - dx))}" y1="${num(height * (0.5 - dy))}" x2="${num(width * (0.5 + dx))}" y2="${num(height * (0.5 + dy))}">${stops}</linearGradient>`
+    };
+  }
+  function cap(kind, filled, x, y, direction, size, color2, sw, minimumOutline) {
+    if (kind === "none") return "";
+    const h = size / 2;
+    const center = x - direction * h;
+    const ow = Math.max(minimumOutline, sw * 0.7);
+    const outline = `fill="${filled ? color2 : "none"}" stroke="${color2}" stroke-width="${num(ow)}"`;
+    const tip = x - direction * (filled ? 0 : ow / 2);
+    if (kind === "triangle") {
+      return `<polygon points="${num(tip)},${num(y)} ${num(x - direction * size)},${num(y - h)} ${num(x - direction * size)},${num(y + h)}" ${filled ? `fill="${color2}"` : outline}/>`;
+    }
+    if (kind === "chevron") {
+      return `<polyline points="${num(x - direction * size * 0.75)},${num(y - h)} ${num(x - direction * sw / 2)},${num(y)} ${num(x - direction * size * 0.75)},${num(y + h)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linejoin="round"/>`;
+    }
+    if (kind === "bar") {
+      return `<line x1="${num(x - direction * sw / 2)}" y1="${num(y - h)}" x2="${num(x - direction * sw / 2)}" y2="${num(y + h)}" stroke="${color2}" stroke-width="${num(sw)}"/>`;
+    }
+    if (kind === "square") {
+      return `<rect x="${num(center - h + ow / 2)}" y="${num(y - h + ow / 2)}" width="${num(size - ow)}" height="${num(size - ow)}" ${outline}/>`;
+    }
+    if (kind === "circle") {
+      return `<circle cx="${num(center)}" cy="${num(y)}" r="${num(h - ow / 2)}" ${outline}/>`;
+    }
+    return `<polygon points="${num(center - h + ow / 2)},${num(y)} ${num(center)},${num(y - h + ow / 2)} ${num(center + h - ow / 2)},${num(y)} ${num(center)},${num(y + h - ow / 2)}" ${outline}/>`;
+  }
+  function capInset(kind, size) {
+    return kind === "triangle" ? size * 0.6 : ["square", "circle", "diamond"].includes(kind) ? size * 0.5 : 0;
+  }
+  function strokeMetrics(visibleWidth, scaleX, scaleY) {
+    const correction = Math.sqrt(scaleX * scaleY);
+    return {
+      width: visibleWidth / correction,
+      gap: Math.max(visibleWidth * 2, 3) / correction,
+      capSize: Math.max(visibleWidth * 3.2, 8) / correction,
+      minimumOutline: 1 / correction
+    };
+  }
+  function dashAttribute(dash, metrics, roundCaps = false) {
+    if (dash === "dot") return ` stroke-dasharray="${num(metrics.width)} ${num(metrics.gap)}"`;
+    if (dash === "dash") {
+      const gap = metrics.gap + (roundCaps ? metrics.width : 0);
+      return ` stroke-dasharray="${num(metrics.width * 3)} ${num(gap)}"`;
+    }
+    return "";
+  }
+  function lineBody(p, width, height, metrics, color2) {
+    const sw = metrics.width;
+    const y = height / 2;
+    const size = metrics.capSize;
+    const start = p.startCap ?? "none";
+    const end = p.endCap ?? "none";
+    const dash = p.dash ?? "solid";
+    const rounded = p.lineCap === "round" && dash !== "dot";
+    const dashAttr = dashAttribute(dash, metrics, rounded);
+    const x1 = capInset(start, size) + (rounded && start === "none" ? sw / 2 : 0);
+    const x2 = Math.max(x1, width - capInset(end, size) - (rounded && end === "none" ? sw / 2 : 0));
+    return `<line x1="${num(x1)}" y1="${num(y)}" x2="${num(x2)}" y2="${num(y)}" fill="none" stroke="${color2}" stroke-width="${num(sw)}" stroke-linecap="${rounded ? "round" : "butt"}"${dashAttr}/>` + cap(start, p.startCapFilled ?? true, 0, y, -1, size, color2, sw, metrics.minimumOutline) + cap(end, p.endCapFilled ?? true, width, y, 1, size, color2, sw, metrics.minimumOutline);
+  }
+  function primitivePath(shape, width, height) {
+    if (shape === "ellipse") {
+      return `M${width / 2} 0C${width * 0.776} 0 ${width} ${height * 0.224} ${width} ${height / 2}C${width} ${height * 0.776} ${width * 0.776} ${height} ${width / 2} ${height}C${width * 0.224} ${height} 0 ${height * 0.776} 0 ${height / 2}C0 ${height * 0.224} ${width * 0.224} 0 ${width / 2} 0Z`;
+    }
+    if (shape === "speech-bubble") {
+      const bottom = height * 0.75;
+      return `M0 0L${width} 0L${width} ${bottom}L${width * 0.82} ${bottom}L${width * 0.72} ${height}L${width * 0.6} ${bottom}L0 ${bottom}Z`;
+    }
+    return `M0 0L${width} 0L${width} ${height}L0 ${height}Z`;
+  }
+  function shapeMarkupV1(source, itemId, outputWidth = 1920, transform) {
+    const p = source.params ?? {};
+    const width = clamp3(p.width, 600, 1, 1e5);
+    const height = clamp3(p.height, source.shape === "line" || source.shape === "arrow" ? 80 : 340, 1, 1e5);
+    const scaleX = clamp3(transform?.scaleX ?? transform?.scale, 1, Number.MIN_VALUE, 1e5);
+    const scaleY = clamp3(transform?.scaleY ?? transform?.scale, 1, Number.MIN_VALUE, 1e5);
+    const key = itemKey(itemId, source);
+    const svg2 = (defs2, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}">${defs2 ? `<defs>${defs2}</defs>` : ""}${body}</svg>`;
+    const line = source.shape === "line" || source.shape === "arrow";
+    const fill = paint2(
+      validPaint(p.fill, line ? "none" : source.shape === "bubble" ? "#ffffff" : "#a6a6a6"),
+      `sh-${key}-fill`,
+      width,
+      height
+    );
+    const stroke = paint2(
+      validPaint(p.stroke, line ? "#000000" : source.shape === "bubble" ? "#000000" : "none"),
+      `sh-${key}-stroke`,
+      width,
+      height
+    );
+    const visibleStrokeWidth = clamp3(p.strokeWidth, line ? 4 : source.shape === "bubble" ? 5 : 0, 0, 100) * outputWidth / 1920;
+    const metrics = strokeMetrics(visibleStrokeWidth, scaleX, scaleY);
+    const sw = metrics.width;
+    if (line) {
+      const color2 = stroke.value === "none" ? fill.value : stroke.value;
+      const q = source.shape === "arrow" ? { ...p, endCap: p.endCap ?? "triangle" } : p;
+      return svg2(stroke.def + fill.def, lineBody(q, width, height, metrics, color2));
+    }
+    let d;
+    let rule = "nonzero";
+    let closed = true;
+    if (source.shape === "bubble") {
+      const placed = bubblePath(width * scaleX, height * scaleY, {
+        style: p.style ?? "ellipse",
+        count: clamp3(p.count, 16, 4, 48),
+        depth: clamp3(p.depth, 40, 0, 100),
+        jitter: clamp3(p.jitter, 25, 0, 100),
+        seed: clamp3(p.seed, 1, -2147483648, 2147483647),
+        tail: p.tail ?? "point",
+        tailAngle: clamp3(p.tailAngle, 210, 0, 360),
+        tailLength: clamp3(p.tailLength, 45, 0, 100),
+        tailWidth: clamp3(p.tailWidth, 30, 0, 100),
+        tailCurve: clamp3(p.tailCurve, 0, -100, 100)
+      });
+      d = scaleX === 1 && scaleY === 1 ? placed : serializeShapePath(scaleShapePath(parseShapePath(placed), 1 / scaleX, 1 / scaleY));
+    } else {
+      const original = source.shape === "path" ? p.path?.d : primitivePath(source.shape, width, height);
+      if (!original) throw new Error("path shape requires params.path");
+      rule = p.path?.rule ?? "nonzero";
+      const fitted = fitShapePath(original, width * scaleX, height * scaleY);
+      closed = fitted.every((s) => s.closed);
+      const radius = source.shape === "path" ? clamp3(p.cornerRadius, 0, 0, 100) / 100 * Math.min(width * scaleX, height * scaleY) / 2 : source.shape === "rounded-rect" ? clamp3(p.cornerRadius, 24, 0, Infinity) * Math.sqrt(scaleX * scaleY) : 0;
+      d = serializeShapePath(scaleShapePath(roundShapePath(fitted, radius), 1 / scaleX, 1 / scaleY));
+    }
+    const clipId = `sh-${key}-clip`;
+    const dash = dashAttribute(p.dash, metrics);
+    const defs = fill.def + stroke.def + (closed && sw > 0 && stroke.value !== "none" ? `<clipPath id="${clipId}"><path d="${d}" fill-rule="${rule}" clip-rule="${rule}"/></clipPath>` : "");
+    const interior = closed ? `<path d="${d}" fill-rule="${rule}" fill="${fill.value}"/>` : "";
+    const border = sw > 0 && stroke.value !== "none" ? `<path d="${d}" fill="none" stroke="${stroke.value}" stroke-width="${num(sw * (closed ? 2 : 1))}" stroke-linejoin="round" stroke-linecap="butt"${dash}${closed ? ` clip-path="url(#${clipId})"` : ""}/>` : "";
+    return svg2(defs, interior + border);
+  }
+
   // src/shape-markup.ts
   var DEFAULT_WIDTH = 600;
   var DEFAULT_HEIGHT = 340;
@@ -2734,8 +3549,11 @@ var AkariEditKernel = (() => {
   function filledShapeAttributes(fill, stroke, strokeWidth) {
     return `fill="${fill}" stroke="${stroke ?? "none"}" stroke-width="${strokeWidth}"`;
   }
-  function shapeMarkup(source) {
+  function shapeMarkup(source, itemId, outputWidth, transform) {
     const params = source.params ?? {};
+    if (source.shape === "path" || source.shape === "bubble" || params.preset !== void 0 || params.dash !== void 0 || params.startCap !== void 0 || params.endCap !== void 0 || params.startCapFilled !== void 0 || params.endCapFilled !== void 0 || params.lineCap !== void 0 || typeof params.fill === "object" || typeof params.stroke === "object") {
+      return shapeMarkupV1(source, itemId, outputWidth, transform);
+    }
     const width = positiveNumber(params.width, DEFAULT_WIDTH);
     const height = positiveNumber(
       params.height,
@@ -2788,11 +3606,11 @@ var AkariEditKernel = (() => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       throw new Error("\u7DE8\u96C6\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
     }
-    const record = raw;
-    if (record.version !== 2) {
-      throw new LegacyEditVersionError(typeof record.version === "number" ? record.version : -1);
+    const record2 = raw;
+    if (record2.version !== 2) {
+      throw new LegacyEditVersionError(typeof record2.version === "number" ? record2.version : -1);
     }
-    const resolved = options?.captions === void 0 ? record : resolveItemAnchors(record, options.captions).edit;
+    const resolved = options?.captions === void 0 ? record2 : resolveItemAnchors(record2, options.captions).edit;
     return readV2Internal(withoutItemAnchors(resolved));
   }
   function extractV2MediaCaptionSwitches(raw) {
@@ -2865,6 +3683,7 @@ var AkariEditKernel = (() => {
             pathOf,
             chromaKeyOf,
             legacyIndexCounters,
+            edit.output.width,
             overlappingItemIds.has(item.id)
           );
           if (built.warning) {
@@ -2885,7 +3704,8 @@ var AkariEditKernel = (() => {
           "visual",
           pathOf,
           chromaKeyOf,
-          legacyIndexCounters
+          legacyIndexCounters,
+          edit.output.width
         ).item;
         items.push(normalized);
         Object.defineProperty(items, "toJSON", { value: () => [], enumerable: false });
@@ -3016,7 +3836,7 @@ var AkariEditKernel = (() => {
     if ("mask" in item && item.mask !== void 0) return true;
     if (item.blend !== void 0 && item.blend !== "normal") return true;
     if (Array.isArray(item.keyframes) && item.keyframes.some(
-      (point) => point && typeof point === "object" && "perspective" in point && point.perspective !== void 0
+      (point2) => point2 && typeof point2 === "object" && "perspective" in point2 && point2.perspective !== void 0
     )) return true;
     const chromaKey = item.source.chroma_key ?? chromaKeyOf?.(item.source.src);
     if (chromaKey !== void 0 && chromaKey !== null) {
@@ -3088,7 +3908,7 @@ var AkariEditKernel = (() => {
     counters.set(collection, index + 1);
     return index;
   }
-  function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+  function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, outputWidth, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
     const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(
       item,
       fps,
@@ -3098,7 +3918,8 @@ var AkariEditKernel = (() => {
       legacyIndexCounters,
       hasOverlappingSibling,
       parentAtFrames,
-      parentId
+      parentId,
+      outputWidth
     );
     const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(
       child,
@@ -3108,6 +3929,7 @@ var AkariEditKernel = (() => {
       pathOf,
       chromaKeyOf,
       legacyIndexCounters,
+      outputWidth,
       false,
       built.item.atFrames,
       built.item.id
@@ -3121,7 +3943,7 @@ var AkariEditKernel = (() => {
     if (parentId !== void 0) built.item.parentId = parentId;
     return built;
   }
-  function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+  function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId, outputWidth = 1920) {
     const atFrames = parentAtFrames + item.at;
     const durationFrames = item.duration;
     const at = atFrames / fps;
@@ -3295,7 +4117,7 @@ var AkariEditKernel = (() => {
         });
       }
       case "shape": {
-        const html = shapeMarkup(item.source);
+        const html = shapeMarkup(item.source, item.id, outputWidth, item.transform);
         const declaration = {
           id: item.id,
           html,
@@ -4144,13 +4966,13 @@ var AkariEditKernel = (() => {
   function resolveCaptionReferenceScale(style, output) {
     if (!isRecord4(style) || style.reference_height_px === void 0) return 1;
     if (style.layout !== void 0) {
-      fail("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
+      fail2("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
     }
     if (!positiveInteger(style.reference_height_px)) {
-      fail("INVALID_TEXT_STYLE", "text_style.reference_height_px must be an integer >= 1");
+      fail2("INVALID_TEXT_STYLE", "text_style.reference_height_px must be an integer >= 1");
     }
     if (!output || !finitePositive2(output.height)) {
-      fail("INVALID_OUTPUT_GEOMETRY", "output height is required for reference_height_px caption text style");
+      fail2("INVALID_OUTPUT_GEOMETRY", "output height is required for reference_height_px caption text style");
     }
     return output.height / style.reference_height_px;
   }
@@ -4313,7 +5135,7 @@ var AkariEditKernel = (() => {
   function isRecord4(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
   }
-  function fail(code, message) {
+  function fail2(code, message) {
     throw new CaptionDisplayError(code, message);
   }
 
@@ -4334,10 +5156,10 @@ var AkariEditKernel = (() => {
     const hasCurves = source?.sections?.curves !== false && ["master", "r", "g", "b"].some((channel) => {
       const raw = source?.curves?.[channel];
       if (raw == null) return false;
-      const points = raw.map((point) => ({ in: clamp01(point.in), out: clamp01(point.out) })).sort((a, b) => a.in - b.in);
+      const points = raw.map((point2) => ({ in: clamp01(point2.in), out: clamp01(point2.out) })).sort((a, b) => a.in - b.in);
       return !(points.length === 2 && Math.abs(points[0].in) < 1e-5 && Math.abs(points[0].out) < 1e-5 && Math.abs(points[1].in - 1) < 1e-5 && Math.abs(points[1].out - 1) < 1e-5);
     });
-    const hasHue = source?.sections?.hue !== false && ["hue", "sat", "luma"].some((channel) => (source?.hue?.[channel] ?? []).some((point) => Math.abs((Number.isFinite(point.value) ? clamp01(point.value) : 0.5) - 0.5) > 1e-4));
+    const hasHue = source?.sections?.hue !== false && ["hue", "sat", "luma"].some((channel) => (source?.hue?.[channel] ?? []).some((point2) => Math.abs((Number.isFinite(point2.value) ? clamp01(point2.value) : 0.5) - 0.5) > 1e-4));
     const hasUnsupportedSection = hasWheels || hasCurves || hasHue || fx.some((effect) => effect.id !== "blur");
     if (!basic && !transition && !hasUnsupportedSection && fx.length === 0) return null;
     const exposure = basic && Number.isFinite(basic.exposure) ? basic.exposure : 0;

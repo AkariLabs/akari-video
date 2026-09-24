@@ -122,17 +122,49 @@ export interface HtmlSourceV2 {
     params?: Record<string, string>;
 }
 export type ShapeKindV0 = 'rect' | 'rounded-rect' | 'ellipse' | 'line' | 'arrow' | 'speech-bubble';
+export type ShapeKindV1 = ShapeKindV0 | 'path' | 'bubble';
+export type ShapePaintV1 = string | {
+    type: 'linear' | 'radial';
+    angle?: number;
+    stops: Array<{
+        color: string;
+        offset: number;
+    }>;
+};
+export type ShapeCapV1 = 'none' | 'triangle' | 'chevron' | 'bar' | 'square' | 'circle' | 'diamond';
 export interface ShapeParamsV0 {
     width?: number;
     height?: number;
-    fill?: string;
-    stroke?: string;
+    fill?: ShapePaintV1;
+    stroke?: ShapePaintV1;
     strokeWidth?: number;
     cornerRadius?: number;
+    path?: {
+        d: string;
+        vb: [number, number];
+        rule?: 'nonzero' | 'evenodd';
+    };
+    preset?: string;
+    dash?: 'solid' | 'dash' | 'dot';
+    startCap?: ShapeCapV1;
+    endCap?: ShapeCapV1;
+    startCapFilled?: boolean;
+    endCapFilled?: boolean;
+    lineCap?: 'butt' | 'round';
+    style?: 'ellipse' | 'rounded' | 'rect' | 'jagged' | 'burst' | 'cloud' | 'wobble';
+    count?: number;
+    depth?: number;
+    jitter?: number;
+    seed?: number;
+    tail?: 'point' | 'dots' | 'none';
+    tailAngle?: number;
+    tailLength?: number;
+    tailWidth?: number;
+    tailCurve?: number;
 }
 export interface ShapeSourceV2 {
     kind: 'shape';
-    shape: ShapeKindV0;
+    shape: ShapeKindV1;
     params?: ShapeParamsV0;
 }
 export interface TelopSourceV2 {

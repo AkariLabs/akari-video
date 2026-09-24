@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shapeMarkup = shapeMarkup;
+const shape_markup_v1_1 = require("./shape-markup-v1");
 const DEFAULT_WIDTH = 600;
 const DEFAULT_HEIGHT = 340;
 const DEFAULT_LINE_HEIGHT = 80;
@@ -27,8 +28,14 @@ function filledShapeAttributes(fill, stroke, strokeWidth) {
     return `fill="${fill}" stroke="${stroke ?? 'none'}" stroke-width="${strokeWidth}"`;
 }
 /** 図形語彙 v0 を、環境に依存しない 1 行のインライン SVG へ降下する。 */
-function shapeMarkup(source) {
+function shapeMarkup(source, itemId, outputWidth, transform) {
     const params = source.params ?? {};
+    if (source.shape === 'path' || source.shape === 'bubble'
+        || params.preset !== undefined || params.dash !== undefined || params.startCap !== undefined
+        || params.endCap !== undefined || params.startCapFilled !== undefined || params.endCapFilled !== undefined
+        || params.lineCap !== undefined || typeof params.fill === 'object' || typeof params.stroke === 'object') {
+        return (0, shape_markup_v1_1.shapeMarkupV1)(source, itemId, outputWidth, transform);
+    }
     const width = positiveNumber(params.width, DEFAULT_WIDTH);
     const height = positiveNumber(params.height, source.shape === 'line' || source.shape === 'arrow' ? DEFAULT_LINE_HEIGHT : DEFAULT_HEIGHT);
     const fill = color(params.fill, DEFAULT_FILL);

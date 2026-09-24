@@ -52,6 +52,7 @@ __exportStar(require("./canonical"), exports);
 __exportStar(require("./tree-ops"), exports);
 __exportStar(require("./item-anchor"), exports);
 __exportStar(require("./shape-markup"), exports);
+__exportStar(require("./shape-preset"), exports);
 __exportStar(require("./cut-ranges"), exports);
 __exportStar(require("./adjust-css-approx"), exports);
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps

@@ -1,12 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.readEditV2 = readEditV2;
+const shape_source_validation_1 = require("./shape-source-validation");
 const BLEND_MODES = new Set([
     'normal', 'screen', 'multiply', 'add', 'difference',
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
-]);
-const SHAPE_KINDS = new Set([
-    'rect', 'rounded-rect', 'ellipse', 'line', 'arrow', 'speech-bubble'
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
@@ -405,29 +403,7 @@ function validateItemSource(value, path, sourceIds) {
             }
             return;
         case 'shape':
-            requireExactKeys(value, new Set(['kind', 'shape', 'params']), path);
-            if (!SHAPE_KINDS.has(value.shape)) {
-                throw invalid(`${path}.shape`, '未対応の shape です');
-            }
-            if (hasOwn(value, 'params')) {
-                requireRecord(value.params, `${path}.params`);
-                requireExactKeys(value.params, new Set([
-                    'width', 'height', 'fill', 'stroke', 'strokeWidth', 'cornerRadius'
-                ]), `${path}.params`);
-                for (const key of ['width', 'height']) {
-                    if (hasOwn(value.params, key))
-                        requirePositiveNumber(value.params[key], `${path}.params.${key}`);
-                }
-                for (const key of ['fill', 'stroke']) {
-                    if (hasOwn(value.params, key) && typeof value.params[key] !== 'string') {
-                        throw invalid(`${path}.params.${key}`, '文字列である必要があります');
-                    }
-                }
-                for (const key of ['strokeWidth', 'cornerRadius']) {
-                    if (hasOwn(value.params, key))
-                        requireNonNegativeNumber(value.params[key], `${path}.params.${key}`);
-                }
-            }
+            (0, shape_source_validation_1.validateShapeSource)(value, path);
             return;
         case 'telop':
             requireExactKeys(value, new Set(['kind', 'preset', 'params', 'baked', 'from']), path);

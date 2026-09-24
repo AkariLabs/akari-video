@@ -34,6 +34,7 @@ export * from './canonical';
 export * from './tree-ops';
 export * from './item-anchor';
 export * from './shape-markup';
+export * from './shape-preset';
 export * from './cut-ranges';
 export * from './adjust-css-approx';
 export { parseEdit } from './migrate/legacy-parse';
