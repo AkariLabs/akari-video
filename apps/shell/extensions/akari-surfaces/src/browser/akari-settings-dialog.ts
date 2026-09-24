@@ -101,6 +101,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected readonly transcribe = element('section');
     protected readonly connections = element('section');
     protected readonly providerList = element('div');
+    protected readonly imageAiRow = element('div');
     protected readonly storage = element('div');
     protected libraryStatus: AkariLibraryStatus | undefined;
     /** Akari アカウント節の中身（アカウント帯 + AKARI Store のグループ）。renderStore が描き直す。 */
@@ -254,7 +255,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         // AKARI Store は「Akari アカウント」節へ移した（2026-09-22）。接続と API キーの末尾には置かない。
         const storeMoved = settingsNote('読み上げに使う API キーもここで登録できます。AKARI Store の接続は「Akari アカウント」へ移りました。');
         storeMoved.append(' ', inlineLink('Akari アカウントを開く', () => this.showSection('account')));
-        this.connections.append(...this.sectionHeading('connections'), storeMoved, this.providerList, this.storage);
+        this.connections.append(...this.sectionHeading('connections'), storeMoved, this.imageAiRow, this.providerList, this.storage);
         this.providerList.append(settingsNote('接続を読み込んでいます…'));
         this.renderStore();
         this.contentNode.append(nav, this.body);
@@ -1341,12 +1342,52 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const list = await this.service.listConnections();
             if (this.isDisposed) { return; }
             this.renderProviders(list.providers);
+            await this.renderImageAi();
             this.renderStorage(list.credentials);
             this.credentialsPath = list.credentials.path;
             this.renderSection('privacy');
         } catch {
             this.providerList.replaceChildren(settingsNote('接続一覧を読み込めませんでした。'), action('再読み込み', () => void this.loadConnections(), { small: true }));
         }
+    }
+
+    protected async renderImageAi(): Promise<void> {
+        const state = await this.service.imageAiSettings();
+        if (this.isDisposed) return;
+        const status = settingsNote(state.configured
+            ? `fal · キーを登録済み${state.maskedTail ? `（末尾 ${state.maskedTail}）` : ''}`
+            : 'fal · キーを設定すると使えます');
+        status.setAttribute('data-akari-image-ai-status', state.configured ? 'configured' : 'unconfigured');
+        const input = element('input'); input.type = 'password'; input.autocomplete = 'off';
+        input.placeholder = 'fal のキー'; input.setAttribute('aria-label', '画像のキー');
+        const result = settingsNote(''); result.setAttribute('role', 'status');
+        const save = action('保存', () => {
+            if (!input.value.trim()) { result.textContent = 'キーを入力してください。'; return; }
+            save.disabled = true;
+            void this.service.setImageAiKey(input.value).then(() => this.renderImageAi()).catch(() => {
+                result.textContent = 'キーを保存できませんでした。'; save.disabled = false;
+            });
+        }, { small: true });
+        const check = action('接続を確かめる', () => {
+            check.disabled = true; result.textContent = '接続を確かめています…';
+            void this.service.checkImageAiConnection().then(doctor => { result.textContent = doctor.detail; })
+                .catch(() => { result.textContent = '接続を確認できませんでした。'; })
+                .finally(() => { check.disabled = false; });
+        }, { small: true });
+        const card = groupCard('画像の AI', status,
+            settingRow('サービス', '既定: fal。高画質化と背景生成に使います。', element('span', 'fal')),
+            settingRow('キー', 'この PC の鍵の保存先に記録します。', input, save));
+        if (state.narrationKeyAvailable) {
+            const reuse = action(state.useNarrationKey ? '同じキーを使用中' : '同じキーを使う', () => {
+                reuse.disabled = true;
+                void this.service.useNarrationImageAiKey(true).then(() => this.renderImageAi())
+                    .catch(() => { result.textContent = 'キーを切り替えられませんでした。'; reuse.disabled = false; });
+            }, { small: true });
+            reuse.disabled = state.useNarrationKey;
+            card.append(settingRow('読み上げの fal キー', '登録済みのキーを共有できます。', reuse));
+        }
+        card.append(settingRow('接続', 'サービスへ軽い読み取りの問い合わせをします。', check), result);
+        this.imageAiRow.replaceChildren(card);
     }
 
     /** グループ見出し（生成 AI / 文字起こし）ごとのカードに並べる。並びは formatConnections の順を保つ。 */

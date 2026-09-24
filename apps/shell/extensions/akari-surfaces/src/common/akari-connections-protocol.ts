@@ -115,6 +115,10 @@ export interface ProviderBalanceResult {
 }
 
 export interface AkariConnectionsService {
+    imageAiSettings(): Promise<{ provider: 'fal'; configured: boolean; narrationKeyAvailable: boolean; useNarrationKey: boolean; maskedTail: string | null }>;
+    setImageAiKey(value: string): Promise<void>;
+    useNarrationImageAiKey(enabled: boolean): Promise<void>;
+    checkImageAiConnection(): Promise<ConnectionDoctor>;
     listConnections(): Promise<ConnectionsList>;
     setCredential(id: string, value: string): Promise<SetCredentialResult>;
     migrateCredential(id: string): Promise<{ ok: boolean }>;

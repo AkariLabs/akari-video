@@ -1,0 +1,39 @@
+{
+  "checks": [
+    {
+      "name": "key missing shown",
+      "pass": true,
+      "detail": "unconfigured"
+    },
+    {
+      "name": "key saved through settings UI",
+      "pass": true,
+      "detail": "configured"
+    },
+    {
+      "name": "dedicated key stored in credentials file",
+      "pass": true,
+      "detail": "yes"
+    },
+    {
+      "name": "confirmation shows image, destination and price before send",
+      "pass": true,
+      "detail": "写真を直す送る画像: 700 × 460 px · 0.01 MB送信先: fal · 料金の目安: $0.0386送って高画質化戻る背景生成（近日）"
+    },
+    {
+      "name": "no paid request started",
+      "pass": true,
+      "detail": "send button was not pressed"
+    },
+    {
+      "name": "right click offers upscale",
+      "pass": true,
+      "detail": "高画質化"
+    },
+    {
+      "name": "right click opens the same confirmation",
+      "pass": true,
+      "detail": "confirmed"
+    }
+  ]
+}

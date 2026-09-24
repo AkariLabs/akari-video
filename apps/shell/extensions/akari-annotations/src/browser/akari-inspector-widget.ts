@@ -39,6 +39,7 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
+import { appendImageAiPanel, type ImageAiPanelState } from './inspector/image-ai-panel';
 import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariMaterialSelection } from '../common/material-selected-event';
 import { appendAiNarrationPanel, chooseAiNarrationVoice, generateAiNarration, initialAiNarrationState, type AiNarrationState } from './inspector/ai-narration-panel';
 import { aiNarrationSourcePath, type NarrationTrack } from '../common/ai-narration-placement';
@@ -2627,6 +2628,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected narrationLoadRevision = 0;
     protected narrationTick?: number;
     protected aiView?: AiTabView;
+    protected readonly imageAiPanels = new Map<string, ImageAiPanelState>();
+    protected imageAiPanelOpen?: { open: () => void; itemId: string };
     protected aiViewClipKey?: string;
     protected gapAiOpening?: { gap: TimelineGapSelection; view: 'still' | 'video' };
     protected aiStillSelectionClipKey?: string;
@@ -2685,6 +2688,19 @@ export class AkariInspectorWidget extends BaseWidget {
         this.title.iconClass = 'akari-rail-icon akari-rail-icon-inspector';
         this.title.closable = true;
         this.node.classList.add('akari-inspector-widget');
+        const openImageAi = (event: Event): void => {
+            const itemId = (event as CustomEvent<{ itemId?: string }>).detail?.itemId;
+            const selectedId = () => this.model.snapshot?.kind === 'item' ? this.model.snapshot.id
+                : this.model.snapshot?.kind === 'cut' ? this.model.snapshot.itemId : undefined;
+            if (!itemId || selectedId() !== itemId) return;
+            void this.loadAiCatalog().finally(() => {
+                if (selectedId() !== itemId) return;
+                this.explicitTabId = 'generation'; this.aiView = 'tiles'; this.render();
+                this.imageAiPanelOpen?.itemId === itemId && this.imageAiPanelOpen.open();
+            });
+        };
+        window.addEventListener('akari.imageAi.open', openImageAi);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.imageAi.open', openImageAi) });
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:inspector');
         this.node.setAttribute('data-akari-ui-label', 'インスペクター');
@@ -4313,6 +4329,29 @@ export class AkariInspectorWidget extends BaseWidget {
                     }
                     this.render();
                 }, this.transcribeSummary.state === 'done');
+                const imageItemId = rowSnapshot.kind === 'item' && rowSnapshot.sourceKind === 'media' ? rowSnapshot.id
+                    : rowSnapshot.kind === 'cut' && /\.(png|jpe?g|webp)$/i.test(rowSnapshot.sourcePath ?? '')
+                        ? rowSnapshot.itemId : undefined;
+                if (imageItemId && this.imageAiPanels) {
+                    const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                    if (root) {
+                        const key = `${root.toString()}:${imageItemId}`;
+                        let state = this.imageAiPanels.get(key);
+                        if (!state) {
+                            state = { itemId: imageItemId, phase: 'closed' };
+                            this.imageAiPanels.set(key, state);
+                        }
+                        const panel = appendImageAiPanel(this.body, {
+                            projectRootUri: root.toString(), itemId: imageItemId,
+                            state, service: this.layerAudioService,
+                            adopt: result => this.commitWrite({ kind: 'image-ai-apply', binding: result.binding,
+                                relativePath: result.relativePath }),
+                            openSettings: () => void this.commandRegistry.executeCommand('akari.settings.open',
+                                { section: 'connections' })
+                        });
+                        this.imageAiPanelOpen = { ...panel, itemId: imageItemId };
+                    }
+                }
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {

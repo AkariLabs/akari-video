@@ -1,0 +1,59 @@
+{
+  "checks": [
+    {
+      "name": "no key: panel says a key is needed",
+      "pass": true,
+      "detail": "写真を直す送る画像: 700 × 460 px · 0.01 MB送信先: fal · 料金の目安: $0.0386保存済みの別案この案にするキーを設定すると使えます。設定を開く送って高画質化戻る背景生成（近日）"
+    },
+    {
+      "name": "no key: send is disabled",
+      "pass": true,
+      "detail": "true"
+    },
+    {
+      "name": "no key: open-settings button shown",
+      "pass": true,
+      "detail": "true"
+    },
+    {
+      "name": "panel text has no \"AI\"",
+      "pass": true,
+      "detail": "写真を直す送る画像: 700 × 460 px · 0.01 MB送信先: fal · 料金の目安: $0.0386保存済みの別案この案にするキーを設定すると使えます。設定を開く送って高画質化戻る背景生成（近日）"
+    },
+    {
+      "name": "open-settings opens the settings dialog",
+      "pass": true,
+      "detail": "dialog"
+    },
+    {
+      "name": "settings group: \"AI\" appears only in the heading",
+      "pass": true,
+      "detail": "画像の AIfal · キーを設定すると使えますサービス既定: fal。高画質化と背景生成に使います。falキーこの PC の鍵の保存先に記録します。保存接続サービスへ軽い読み取りの問い合わせをします。接続を確かめる"
+    },
+    {
+      "name": "saved alternative offered after reload without sending",
+      "pass": true,
+      "detail": "この案にする"
+    },
+    {
+      "name": "adopt swaps the item source to the alternative",
+      "pass": true,
+      "detail": "assets/generated/<sha256>.png"
+    },
+    {
+      "name": "original file remains",
+      "pass": true,
+      "detail": "assets/still/photo.png"
+    },
+    {
+      "name": "edit.json holds no key or temporary URL",
+      "pass": true,
+      "detail": "clean"
+    },
+    {
+      "name": "one undo restores the original source",
+      "pass": true,
+      "detail": "true"
+    }
+  ]
+}

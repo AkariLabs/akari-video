@@ -20,6 +20,9 @@ import { homedir, tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { NarrationCliManager } from './narration-cli';
+import { ImageAiService } from './image-ai-service';
+import type { ImageAiInspection, ImageAiResult } from '../common/akari-annotations-protocol';
+import type { ImageAiBinding } from '../common/image-ai-binding';
 import type { ApplyNarrationRequest, ApplyNarrationsRequest, GenerateNarrationRequest, GenerateNarrationResult, NarrationEnginesResult, NarrationVoicesResult, NarrationVerificationBackend, VerifyNarrationRequest, VerifyNarrationResult, VoiceAvatar, VoiceCheckResult, VoiceCopyRequest, VoiceCreateRequest, VoiceScript, VoiceTryRequest, VoiceProfileSummary } from '../common/akari-annotations-protocol';
 import {
     ListAdjustLutsRequest, ListAdjustLutsResult, ImportAdjustLutRequest, ImportAdjustLutResult,
@@ -223,6 +226,23 @@ interface CanvasStrokeRecord {
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+    protected readonly imageAiService = new ImageAiService(undefined, async () => {
+        const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+        const credentials = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/creator-root/src/index.mjs')).toString());
+        const values: Map<string, string> = credentials.readCredentials().values;
+        return values.get('AKARI_IMAGE_AI_FAL_KEY') ||
+            (values.get('AKARI_IMAGE_AI_USE_NARRATION_KEY') === '1' ? values.get('FAL_KEY') : undefined);
+    });
+    imageAiInspect(projectRootUri: string, itemId: string): Promise<ImageAiInspection> {
+        return this.imageAiService.inspect(projectRootUri, itemId);
+    }
+    imageAiUpscale(request: { projectRootUri: string; binding: ImageAiBinding; jobId: string }): Promise<ImageAiResult> {
+        return this.imageAiService.upscale(request);
+    }
+    imageAiCancel(jobId: string): Promise<void> { return this.imageAiService.cancel(jobId); }
+    imageAiGenerateBackground(request: { projectRootUri: string; itemId: string; prompt: string; maskPath?: string }): Promise<ImageAiResult> {
+        return this.imageAiService.generateBackground(request);
+    }
     protected readonly narrationCli = new NarrationCliManager();
     protected readonly voiceTempPaths = new Set<string>();
     protected readonly voiceCreatedProfiles = new Set<string>();

@@ -11,14 +11,14 @@ import { PROVIDER_LOGOS } from './provider-logos';
 export type ProviderGroup = 'generate' | 'transcribe';
 
 export const PROVIDER_GROUP_LABELS: Record<ProviderGroup, string> = {
-    generate: '生成 AI',
+    generate: '生成サービス',
     transcribe: '文字起こし'
 };
 
 export const PROVIDER_DISPLAY: Readonly<Record<string, { group: ProviderGroup; description: string; highlight?: string }>> = {
     fal: { group: 'generate', description: '1 つのキーで画像生成・動画生成・文字起こし。既定モデル（静止画 / 動画）もここで選びます' },
     openrouter: {
-        group: 'generate', description: 'いろいろな会社の AI モデルを 1 つのキーで。',
+        group: 'generate', description: 'いろいろな会社のモデルを 1 つのキーで。',
         highlight: 'つなぐと Akari Vibe（声で話しかけて動画を編集）が使えます'
     },
     replicate: { group: 'generate', description: '画像・動画・音声のいろいろなモデルを呼び出します' },

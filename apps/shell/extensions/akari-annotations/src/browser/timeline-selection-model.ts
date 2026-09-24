@@ -1,4 +1,5 @@
 import type { MaterialSwapTarget } from '../common/material-replacement';
+import type { ImageAiBinding } from '../common/image-ai-binding';
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
 import type { EditAudioKeyframe, ReadableTransitionType, TransitionType } from '@akari-video/edit-store';
@@ -301,6 +302,7 @@ export interface TimelineAudioMasterSnapshot {
 }
 
 type InspectorWriteOperation =
+    | { kind: 'image-ai-apply'; binding: ImageAiBinding; relativePath: string; value?: never }
     | {
         kind: 'audio-clip-fx';
         id: string;

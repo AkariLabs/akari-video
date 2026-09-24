@@ -6,6 +6,7 @@ import { calculateFrameDraw, frameDrawDestination, nextFrameTrackNumber, type Fr
 import { advanceMaterialTrialWindow, MaterialTrialWindow } from '../common/material-trial-window';
 import { logSwapTrial, SwapTrialIdentity } from 'akari-preview/lib/common/swap-trial-playback';
 import { materialSwapTarget, locateSwapItem, replaceMaterial, MaterialSwapTarget } from '../common/material-replacement';
+import { imageAiBindingMatches, type ImageAiBinding } from '../common/image-ai-binding';
 import URI from '@theia/core/lib/common/uri';
 import { ClipboardKind, PasteTrack, TimelineFragment, TimelineClipboardSnapshot,
     fragmentForSelection, cutTimelineFragment, pasteTimelineFragment, planPaste, serializeTimelineFragment } from '../common/timeline-clipboard';
@@ -3496,6 +3497,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const location = this.location;
         if (!location) {
             return { ok: false, message: 'プロジェクトの場所を特定できません。' };
+        }
+        if (request.kind === 'image-ai-apply') {
+            try {
+                const inspected = await this.annotationsService.imageAiInspect(location.root.toString(), request.binding.itemId);
+                if (inspected.binding.inputSha256 !== request.binding.inputSha256
+                    || inspected.binding.editVersion !== request.binding.editVersion) {
+                    return { ok: false, message: '編集が変わりました。もう一度高画質化してください。' };
+                }
+                if (!/^assets\/generated\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(request.relativePath)) {
+                    return { ok: false, message: '別案の場所が不正です。' };
+                }
+                await this.commitEditMutation('高画質化した案にする', doc => {
+                    return replaceMaterial(doc, { itemId: request.binding.itemId,
+                        relativePath: request.relativePath, kind: 'image' });
+                }, { imageAiBinding: request.binding });
+                return { ok: true };
+            } catch (error) { return { ok: false, message: error instanceof Error ? error.message : '差し替えられませんでした。' }; }
         }
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
@@ -12470,7 +12488,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
         options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
-            captions?: { before: string; after: string } }
+            captions?: { before: string; after: string }; imageAiBinding?: ImageAiBinding }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         if (!options?.trial && this.materialSwap) {
             return this.finishMaterialSwap(false).then(() => this.commitEditMutation(label, mutate, options));
@@ -12484,7 +12502,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         label: string,
         mutate: (doc: EditV2Document) => EditV2Document,
         options?: { trial?: boolean; reload?: boolean; history?: boolean; optimistic?: boolean;
-            captions?: { before: string; after: string } }
+            captions?: { before: string; after: string }; imageAiBinding?: ImageAiBinding }
     ): Promise<{ before: string; after: string; result: WriteBackResult }> {
         const editUri = this.location?.editUri;
         if (!editUri) throw new Error('edit.json がありません。');
@@ -12493,6 +12511,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const before = previousTrial?.before ?? diskBefore;
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        if (options?.imageAiBinding && !imageAiBindingMatches(raw, options.imageAiBinding,
+            options.imageAiBinding.inputSha256)) {
+            throw new Error('編集が変わりました。もう一度高画質化してください。');
+        }
+        if (options?.imageAiBinding) {
+            const current = await this.annotationsService.imageAiInspect(this.location!.root.toString(),
+                options.imageAiBinding.itemId);
+            if (current.binding.inputSha256 !== options.imageAiBinding.inputSha256
+                || current.binding.editVersion !== options.imageAiBinding.editVersion) {
+                throw new Error('写真が変わりました。もう一度高画質化してください。');
+            }
+        }
         const distribution = options?.trial ? { document: mutate(raw), writes: [] }
             : prepareV2KeyframeDistribution(mutate(pinAutomaticBgmDuration(raw, this.frameAt(this.contentEndDuration()))));
         const resolved = options?.captions
@@ -17571,6 +17601,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
         const swapTarget = this.selectedMaterialSwapTarget(item);
         if (swapTarget) items.push({ id: 'material-swap', label: '入れ替え…' });
+        if (swapTarget?.kind === 'visual' && /\.(png|jpe?g|webp)$/i.test(swapTarget.currentRelativePath)
+            && (item.kind === 'item' || item.kind === 'cut')) items.push({ id: 'image-ai-upscale', label: '高画質化' });
         const attachItem = 'id' in item ? this.rawV2Item(item.id) : undefined;
         if (attachItem && (['html', 'filter'].includes(attachItem.source?.kind)
             || (item.kind === 'audio' && this.audioSfx.some(candidate => candidate.id === item.id)))) {
@@ -17583,6 +17615,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             items,
             onSelect: (id, click) => {
                 if (document !== this.editDocument) return;
+                if (id === 'image-ai-upscale' && (item.kind === 'item' || item.kind === 'cut')) {
+                    window.dispatchEvent(new CustomEvent('akari.imageAi.open', { detail: {
+                        itemId: item.kind === 'item' ? item.id : this.selectedMaterialSwapItemId(item)
+                    } }));
+                    return;
+                }
                 if (id === 'caption-attach' && 'id' in item) { void this.openCaptionAttachDialog(item.id, event.clientX, event.clientY); return; }
                 this.dispatchTimelineClipMenuAction(id, item, clientX, hasAudio, click.altKey);
             }

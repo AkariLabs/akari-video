@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { checkFalImageAiConnection } from './image-ai-connection';
 import {
     AkariConnectionsService, ConnectionDoctor, ConnectionsList, GenerationCatalog, GenerationCatalogModel,
     GenerationDefaultsResult, ProviderBalanceResult, providerHasBalanceEndpoint, SetCredentialResult
@@ -164,6 +165,36 @@ function assertValidConnectionsDocument(value: unknown): void {
 
 @injectable()
 export class AkariConnectionsServiceImpl implements AkariConnectionsService {
+    async imageAiSettings(): Promise<{ provider: 'fal'; configured: boolean; narrationKeyAvailable: boolean; useNarrationKey: boolean; maskedTail: string | null }> {
+        const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+        const values = credentials.readCredentials().values;
+        const own = values.get('AKARI_IMAGE_AI_FAL_KEY');
+        const narration = values.get('FAL_KEY');
+        const useNarrationKey = !own && values.get('AKARI_IMAGE_AI_USE_NARRATION_KEY') === '1' && !!narration;
+        return { provider: 'fal', configured: !!own || useNarrationKey, narrationKeyAvailable: !!narration,
+            useNarrationKey, maskedTail: maskedTail(own || (useNarrationKey ? narration : undefined)) };
+    }
+    async setImageAiKey(value: string): Promise<void> {
+        const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+        if (value.trim()) credentials.writeCredential('AKARI_IMAGE_AI_FAL_KEY', value.trim());
+        else credentials.deleteCredential('AKARI_IMAGE_AI_FAL_KEY');
+        credentials.deleteCredential('AKARI_IMAGE_AI_USE_NARRATION_KEY');
+    }
+    async useNarrationImageAiKey(enabled: boolean): Promise<void> {
+        const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+        if (enabled) {
+            if (!credentials.readCredentials().values.get('FAL_KEY')) throw new Error('読み上げのキーがありません。');
+            credentials.deleteCredential('AKARI_IMAGE_AI_FAL_KEY');
+            credentials.writeCredential('AKARI_IMAGE_AI_USE_NARRATION_KEY', '1');
+        } else credentials.deleteCredential('AKARI_IMAGE_AI_USE_NARRATION_KEY');
+    }
+    async checkImageAiConnection(): Promise<ConnectionDoctor> {
+        const credentials = await this.loadModule<CreatorCredentials>('packages/creator-root/src/index.mjs');
+        const values = credentials.readCredentials().values;
+        const secret = values.get('AKARI_IMAGE_AI_FAL_KEY') ||
+            (values.get('AKARI_IMAGE_AI_USE_NARRATION_KEY') === '1' ? values.get('FAL_KEY') : undefined);
+        return checkFalImageAiConnection(secret);
+    }
     protected readonly doctors = new Map<string, ConnectionDoctor>();
     protected pending: Promise<unknown> = Promise.resolve();
     protected registryPromise: Promise<Registry> | undefined;
