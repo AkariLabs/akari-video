@@ -25,7 +25,8 @@ const optionalValues = {
     display_fragments: ['前半', '後半'],
     style_preset: 'subtitle-standard',
     text_style: { color: '#ffffff' },
-    display_timing: 'speech-tight'
+    display_timing: 'speech-tight',
+    runs: [{ from: 0, to: 1, role: 'emphasis' }]
 };
 
 const baseRecord = edited => ({
