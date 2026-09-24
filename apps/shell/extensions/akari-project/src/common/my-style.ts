@@ -20,6 +20,14 @@ export interface MyStyle {
     revision: number;
 }
 
+/** Internal command result shared by library callers without exposing the full shelf record. */
+export const LIST_MY_STYLES_COMMAND_ID = 'akari.library.listMyStyles';
+export interface MyStyleListItem {
+    id: string;
+    name: string;
+    parts: Array<{ kind: string; text_style?: unknown }>;
+}
+
 export const MY_STYLE_ID = /^[a-z0-9][a-z0-9-]*$/;
 const LOOK_FIELDS: Readonly<Record<string, true | readonly string[]>> = {
     color: true, size_px: true, reference_height_px: true, font_family: true,

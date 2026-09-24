@@ -31,6 +31,7 @@ import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { AkariProjectService, DroppedVideo, DroppedVideoImportResult } from '../common/akari-project-protocol';
+import { LIST_MY_STYLES_COMMAND_ID, MyStyleListItem } from '../common/my-style';
 import { isDelegatedDragOverInput, isDelegatedDropInput } from '../common/delegated-drop';
 import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { AkariProjectModeService } from './akari-project-mode-service';
@@ -115,6 +116,14 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     protected app?: FrontendApplication;
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand({ id: LIST_MY_STYLES_COMMAND_ID }, {
+            execute: async (): Promise<MyStyleListItem[]> => (await this.projectService.listMyStyles()).map(style => ({
+                id: style.id,
+                name: style.name,
+                parts: style.parts.map(part => ({ kind: part.kind,
+                    ...(part.text_style === undefined ? {} : { text_style: part.text_style }) }))
+            }))
+        });
         commands.registerCommand(NEW_AKARI_PROJECT, { execute: () => this.createProject() });
         commands.registerCommand(SHOW_AKARI_CHANGES, { execute: () => this.showChanges() });
         commands.registerCommand(TOGGLE_AKARI_DEVELOPER_MODE, {

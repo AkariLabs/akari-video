@@ -1,5 +1,5 @@
 {
-  "renderSeconds": 5,
+  "renderSeconds": 9,
   "engine": "gpu",
   "rasterizer": {
     "planned": "gpu",

@@ -13,7 +13,7 @@ import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { previewAudioTrimOf } from '../common/preview-audio-trim';
-import { Command, CommandRegistry, Emitter, Event as TheiaEvent, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
+import { Command, CommandRegistry, CommandService, Emitter, Event as TheiaEvent, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
 import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
@@ -56,9 +56,6 @@ import {
 } from '@akari-video/edit-store';
 import type { AdjustCurvesV1, AdjustWheelsV1, AdjustHueCurvesV1, EditV2, GenerationMetaV1 } from '@akari-video/edit-store';
 import type { CaptionRunEdit } from '@akari-video/edit-store';
-// This extension builds before akari-project in build:ext, so its compiled declarations are unavailable here.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { AkariProjectService } = require('akari-project/lib/common/akari-project-protocol') as { AkariProjectService: symbol };
 import type { PreviewItemWriteCommand, ReadableTransitionType } from '@akari-video/edit-store';
 import { applyAdjustBypass } from '../common/adjust-bypass';
 import {
@@ -1362,6 +1359,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     @inject(CommandRegistry)
     protected readonly commandRegistry: CommandRegistry;
 
+    @inject(CommandService)
+    protected readonly commandService: CommandService;
+
     @inject(MenuModelRegistry)
     protected readonly menuModelRegistry: MenuModelRegistry;
 
@@ -1376,10 +1376,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     @inject(PreferenceService)
     protected readonly preferences: PreferenceService;
-
-    @inject(AkariProjectService)
-    protected readonly projectService: { listMyStyles(): Promise<Array<{ id: string; name: string;
-        parts: Array<{ kind: string; text_style?: unknown }> }>> };
 
     @inject(EnvVariablesServer)
     protected readonly envVariables: EnvVariablesServer;
@@ -3188,6 +3184,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    protected async listRunMyStyles(): Promise<Array<{ id: string; name: string;
+        parts: Array<{ kind: string; text_style?: unknown }> }>> {
+        try {
+            const styles: unknown = await this.commandService.executeCommand('akari.library.listMyStyles');
+            return Array.isArray(styles) ? styles : [];
+        } catch {
+            return [];
+        }
+    }
+
+    protected runStyleChoices(saved: Array<{ id: string; name: string;
+        parts: Array<{ kind: string; text_style?: unknown }> }>, baseSize: number): Array<{
+            id: string; name: string; style: ReturnType<typeof captionRunStyleFromLook>['style']; notice: string | undefined
+        }> {
+        return [
+            ...saved.flatMap(item => item.parts.filter(part => part.kind === 'look').map(part => ({
+                id: `mine:${item.id}`, name: item.name, look: part.text_style as Record<string, unknown>
+            }))),
+            ...Object.values(TEXTSTYLE_CATALOG).map(item => ({
+                id: `preset:${item.id}`, name: item.name, look: item.style as Record<string, unknown>
+            }))
+        ].map(item => {
+            const converted = captionRunStyleFromLook(item.look, baseSize);
+            return { id: item.id, name: item.name, style: converted.style,
+                notice: captionRunOmittedNotice(converted.omitted) };
+        });
+    }
+
     protected async doConfigurePreview(
         widget: PreviewWidgetMarker,
         identityUri: URI,
@@ -3475,19 +3499,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         } : {};
                     const caption = source.captions?.find(item => item.id === message.captionId);
                     const baseSize = caption?.text_style?.size_px ?? source.default_text_style?.size_px ?? 38;
-                    const saved = await this.projectService.listMyStyles().catch(() => []);
-                    const choices = [
-                        ...saved.flatMap(item => item.parts.filter(part => part.kind === 'look').map(part => ({
-                            id: `mine:${item.id}`, name: item.name, look: part.text_style as Record<string, unknown>
-                        }))),
-                        ...Object.values(TEXTSTYLE_CATALOG).map(item => ({
-                            id: `preset:${item.id}`, name: item.name, look: item.style as Record<string, unknown>
-                        }))
-                    ].map(item => {
-                        const converted = captionRunStyleFromLook(item.look, baseSize);
-                        return { id: item.id, name: item.name, style: converted.style,
-                            notice: captionRunOmittedNotice(converted.omitted) };
-                    });
+                    const saved = await this.listRunMyStyles();
+                    const choices = this.runStyleChoices(saved, baseSize);
                     widget.sendMessage({ type: 'akari-preview-run-styles', choices });
                 })().catch(error => this.messages.warn(error instanceof Error ? error.message : String(error)));
             }

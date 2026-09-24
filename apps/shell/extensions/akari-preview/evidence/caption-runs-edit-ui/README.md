@@ -19,6 +19,8 @@
 
 ## 結果（最終ビルド・14/14 pass を 2 回連続）
 
+r1（マイスタイルの一覧を akari-project の内部コマンド `akari.library.listMyStyles` 経由で取る形に替えた後）: 14/14 pass を 1 回（範囲にマイスタイルの項目を含む）・`results-after.json` は r0 と byte 一致・書き出し（GPU）の差も同じ値。
+
 | 項目 | 実測 |
 |---|---|
 | 範囲なしのミニパネルは今どおり | 字幕を選ぶだけ → アイコンは group / snap / clamp / bold / color / cushion / inspector / my-style-save（範囲用 0 個）。B → `text_style.font_weight: 900`（`runs` なし）・undo 1 回で byte 一致 |

@@ -37,4 +37,4 @@ run の文字は `akari-caption__run` span として描き、必要な見た目�
 
 文字の編集では、元と先の表示文字列の最小差分を書記素単位で計算する。差分より前の run は保持し、後の run は移動し、差分に掛かる run は伸縮する。全範囲が削除された run は除外する。字幕 split は境界で run を分け、merge は後続行のオフセットを足してつなぐ。
 
-外れた run は edit-store の `updateCaptionFieldsInSourceWithReport` が `removedRuns` として返し、`captionRunsRemovedNotice` が通知文を作る。既存の `updateCaptionFieldsInSource` は文字列を返す契約を保つ。UI への通知配線は後続票で扱う。
+外れた run は edit-store の `updateCaptionFieldsInSourceWithReport` が `removedRuns` として返し、`captionRunsRemovedNotice` が通知文を作る。既存の `updateCaptionFieldsInSource` は文字列を返す契約を保つ。台本・インスペクター・プレビューの文字の書き換えから、`captionEditNotices` が `removedRuns` と `removedEmphasis` の通知文を作り、同じ文言の連続を 1 つにして右下の通知に出す。
