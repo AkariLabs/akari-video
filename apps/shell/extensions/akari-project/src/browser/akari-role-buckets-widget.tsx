@@ -100,6 +100,10 @@ import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event
 import { CatalogPack } from '../common/catalog-packs';
 import { filterPresetShowcaseItems, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, myStyleSamplePresentation, type MyStyle } from '../common/my-style';
+import { planFontApply, selectedFontStyleFromCaptions } from '../common/library-font-shelf';
+import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
+import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
+import { LibraryTextLookPage, LibraryTextLookRow } from './library-text-look-view';
 import {
     LIBRARY_DETAIL_GROUPS,
     LIBRARY_GROUPS,
@@ -587,6 +591,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** 素材カタログとは別系統で読む、テロップ / LUT の読み取り専用参照表。 */
     protected presetShowcase: PresetShowcase = EMPTY_PRESET_SHOWCASE;
+    protected transitionPreviewUrls: Record<string, { preview: string; strip: string }> = {};
     protected myStyles: MyStyle[] = [];
     protected closeMyStyleApplyPopover?: () => void;
     /** `catalog/packs.json`（無ければ空）。パック棚のグループ化はフロント側で行う。 */
@@ -617,6 +622,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected materialQuery = '';
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
     protected libraryCategory?: LibraryCategoryKey;
+    protected libraryTextLookOpen = false;
     protected libraryDetailsOpen = false;
     protected catalogCategory = 'all';
     protected catalogViewMode: CatalogViewMode = 'grid';
@@ -1987,12 +1993,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.update();
         const preferenceRoot = this.preferences.get<string>(AKARI_CATALOG_ROOT_PREFERENCE, '');
         this.catalogPickError = undefined;
-        const [view, presetShowcase, usage, myStyles, favorites] = await Promise.all([
+        const [view, presetShowcase, usage, myStyles, favorites, transitionPreviews] = await Promise.all([
             this.projectService.getAssetCatalogView(preferenceRoot),
             this.projectService.getPresetShowcase().catch(() => EMPTY_PRESET_SHOWCASE),
             this.projectService.getLibraryUsage().catch(() => ({} as Record<string, { count: number; lastUsedAt: string; projects: string[] }>)),
             this.projectService.listMyStyles().catch(() => [] as MyStyle[]),
-            this.projectService.getLibraryFavorites().catch(() => [] as string[])
+            this.projectService.getLibraryFavorites().catch(() => [] as string[]),
+            this.projectService.getTransitionPreviewUrls().catch(() => ({} as Record<string, { preview: string; strip: string }>))
         ]);
         this.libraryFavorites = new Set(favorites);
         this.assetCatalogItems = view.items.map(item => ({ ...item, favorite: this.libraryFavorites.has(item.key),
@@ -2001,6 +2008,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.catalogResolver = view.resolver;
         this.catalogEntitlementsStatus = view.entitlementsStatus;
         this.presetShowcase = presetShowcase;
+        this.transitionPreviewUrls = transitionPreviews;
         this.myStyles = myStyles;
         this.catalogLoading = false;
         this.update();
@@ -2149,6 +2157,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.libraryFolderFilter = undefined;
         this.libraryCategory = key;
+        this.libraryTextLookOpen = false;
         this.catalogCategory = category.chipKey ?? 'all';
         this.update();
     }
@@ -2157,6 +2166,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.stopCatalogAudio();
         this.libraryFolderFilter = undefined;
         this.libraryCategory = undefined;
+        this.libraryTextLookOpen = false;
         this.catalogCategory = 'all';
         this.update();
     }
@@ -3288,7 +3298,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 style={{ minHeight: '100%' }}
                 onClick={() => this.stopCatalogAudio()}
             >
-                {this.libraryCategory ? this.renderLibraryCategoryPage(this.libraryCategory) : this.renderLibraryHome()}
+                {this.libraryTextLookOpen ? this.renderTextLookPage()
+                    : this.libraryCategory ? this.renderLibraryCategoryPage(this.libraryCategory) : this.renderLibraryHome()}
             </div>
         );
     }
@@ -3411,9 +3422,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
                                 {group.categories.map(category => this.renderLibraryMyCategory(category))}
                             </div>
-                            : <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                {group.categories.map(category => this.renderLibraryCategoryRow(category))}
-                            </div>}
+                            : group.label === '文字の見た目'
+                                ? <LibraryTextLookRow counts={[this.presetShowcase.textstyle.length + this.myStyles.length,
+                                    this.presetShowcase.textanim.length, this.assetCatalogItems.filter(item => item.category === 'font').length]}
+                                    onOpen={() => { this.libraryCategory = undefined; this.catalogCategory = 'all';
+                                        this.libraryTextLookOpen = true; this.update(); }} />
+                                : <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {group.categories.map(category => this.renderLibraryCategoryRow(category))}
+                                </div>}
                     </section>
                 ))}
                 </div>}
@@ -3515,6 +3531,17 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 <span style={{ gridColumn: '3', gridRow: '1 / span 2', justifySelf: 'end', fontVariantNumeric: 'tabular-nums', fontSize: '0.72em', opacity: 0.65 }}>{soon ? '近日' : count}</span>
             </button>
         );
+    }
+
+    protected renderTextLookPage(): React.ReactNode {
+        const styleItems = this.filteredPresetShowcaseItems('textstyle');
+        const motionItems = this.filteredPresetShowcaseItems('textanim');
+        const fontItems = this.filteredCatalogItems().filter(item => item.category === 'font');
+        return <LibraryTextLookPage onBack={() => this.showLibraryHome()}
+            styles={styleItems.map(item => this.renderPresetShowcaseCard(item))}
+            myStyles={this.renderMyStyles()}
+            motions={motionItems.map(item => this.renderPresetShowcaseCard(item))}
+            fonts={fontItems.map(item => this.renderCatalogItem(item))} />;
     }
 
     protected renderLibraryCategoryPage(key: LibraryCategoryKey): React.ReactNode {
@@ -3738,12 +3765,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                     >
                                         <LibraryDotsCorner label={transition.labelJa}
                                             onOpen={anchor => this.openLibraryInfo({ kind: 'transition', key: `transition/${transition.id}` }, anchor)} />
-                                        <span aria-hidden='true' style={{
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '25px',
-                                            borderRadius: `${AKARI_RADIUS.chip}px`, background: AKARI_SURFACE.card,
-                                            color: 'var(--theia-button-background)', fontWeight: 700
-                                        }}>
-                                            {transition.glyph}
+                                        <span aria-hidden='true' style={{ display: 'block', width: '100%', aspectRatio: '16 / 9',
+                                            overflow: 'hidden', borderRadius: `${AKARI_RADIUS.chip}px` }}>
+                                            <TransitionStrip url={this.transitionPreviewUrls[transition.id]?.preview}
+                                                stripUrl={this.transitionPreviewUrls[transition.id]?.strip} />
                                         </span>
                                         <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.69em' }}>
                                             {transition.labelJa}
@@ -4035,7 +4060,48 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected renderCatalogItem(item: AssetCatalogViewItem): React.ReactNode {
+        if (item.category === 'font' && !this.generationPick.request) {
+            return <FontShelfCard key={item.key} item={item} layout={this.catalogViewMode}
+                favorite={this.libraryFavorites.has(item.key)} onApply={() => { void this.applyFontItem(item); }}
+                onContextMenu={event => this.openLibraryMenuAt(event, { kind: 'asset', item })}
+                onInfo={anchor => this.openLibraryInfo({ kind: 'asset', item }, anchor)} />;
+        }
         return this.catalogViewMode === 'list' ? this.renderCatalogListRow(item) : this.renderCatalogCard(item);
+    }
+
+    protected selectedLibraryCaption(): { kind: 'caption'; id: string } | undefined {
+        const root = this.workflow.workspaceRoot;
+        const editUri = root?.resolve('edit.json').normalizePath().toString();
+        const selection = editUri ? this.generationTimelineSelections.get(editUri) : undefined;
+        return selection?.kind === 'caption' ? { kind: 'caption', id: selection.id } : undefined;
+    }
+
+    protected async applyFontItem(item: AssetCatalogViewItem): Promise<void> {
+        const selection = this.selectedLibraryCaption();
+        let previousStyle: Record<string, unknown> = {};
+        if (selection && this.workflow.workspaceRoot) {
+            try {
+                const source = (await this.files.readFile(this.workflow.workspaceRoot.resolve('captions.json'))).value.toString();
+                previousStyle = selectedFontStyleFromCaptions(source, selection.id, this.presetShowcase.textstyle);
+            } catch { /* 適用側が字幕の存在を検査して知らせる */ }
+        }
+        const plan = planFontApply(item, selection, previousStyle);
+        if (plan.ok === false) { this.messages.info(plan.message); return; }
+        window.dispatchEvent(new CustomEvent('akari.mystyle.apply', { detail: plan.detail }));
+    }
+
+    protected applyPresetToSelectedCaption(item: PresetShowcaseItem): void {
+        const selection = this.selectedLibraryCaption();
+        if (!selection) { this.messages.info('先に文字を選んでください。'); return; }
+        const part = item.kind === 'textstyle' && item.style
+            ? { kind: 'look', text_style: item.style }
+            : item.kind === 'textanim'
+                ? { kind: 'motion', animation: { [item.tags[0] || 'in']: { id: item.id, duration_sec: 0.6 } } }
+                : undefined;
+        if (!part) return;
+        window.dispatchEvent(new CustomEvent('akari.mystyle.apply', { detail: {
+            ids: [selection.id], selectedParts: [part.kind], style: { parts: [part] }
+        } }));
     }
 
     // --- ライブラリのカード: 右クリック = 操作のメニュー / ⋯ = 情報カード / ★ / 促しのシート ----------
@@ -4106,6 +4172,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (id === 'info') { if (anchor) this.openLibraryInfo(target, anchor); return; }
         if (target.kind === 'asset') {
             const item = this.assetCatalogItems.find(entry => entry.key === key) ?? target.item;
+            if (id === 'apply' && item.category === 'font') { await this.applyFontItem(item); return; }
             if (id === 'lab') this.openLibraryLab(item);
             else if (id === 'place') {
                 if (isPremiumLocked(item)) this.showPremiumPrompt(item.key);
@@ -4118,6 +4185,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return;
         }
         const { preset, style } = this.libraryMenuTargetItem(target);
+        if (preset && id === 'apply') this.applyPresetToSelectedCaption(preset);
         if (preset && id === 'place-text') await this.addTextStyleAtPlayhead(preset);
         if (style) {
             if (id === 'apply') this.openMyStyleApply(style, anchor ?? this.node);
@@ -4189,6 +4257,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const prompt = premium && premiumPromptText(premium);
         return <>
             <LibraryCardStyles />
+            <LibraryShelfVisualStyles />
             {this.libraryFilterAnchor && this.topView === 'catalog' && <LibraryFilterPopover filter={this.libraryFilter()} anchor={this.libraryFilterAnchor}
                 onToggleOption={(section, option) => this.toggleLibraryFilterOption(section, option)}
                 onClear={() => this.clearLibraryFilter()}
@@ -4390,16 +4459,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!slot || !target) return;
         target.getAnimations().forEach(item => item.cancel());
         const id = typeof slot.id === 'string' ? slot.id : '';
-        const distance = typeof slot.amp === 'number' ? Math.min(24, Math.max(3, slot.amp)) : 12;
-        const from = id.includes('slide-left') ? { opacity: 0, transform: `translateX(${distance}px)` }
-            : id.includes('slide-right') ? { opacity: 0, transform: `translateX(-${distance}px)` }
-                : id.includes('slide-down') ? { opacity: 0, transform: `translateY(-${distance}px)` }
-                    : id.includes('slide') || id.includes('fade-up') ? { opacity: 0, transform: `translateY(${distance}px)` }
-            : id.includes('zoom') || id.includes('pop') ? { opacity: 0, transform: 'scale(.72)' }
-                : id.includes('float') ? { opacity: 1, transform: `translateY(${distance / 3}px)` }
-                    : { opacity: 0, transform: 'none' };
-        const duration = typeof slot.duration_sec === 'number' ? Math.min(1800, Math.max(150, slot.duration_sec * 1000)) : 650;
-        target.animate([from, { opacity: 1, transform: 'none' }], { duration, iterations: 1, easing: 'ease-out' });
+        const sample = textAnimationSampleKeyframes(id, animation?.in ? 'in' : animation?.loop ? 'loop' : 'out',
+            typeof slot.amp === 'number' ? slot.amp : undefined,
+            typeof slot.duration_sec === 'number' ? slot.duration_sec : undefined);
+        target.animate(sample.keyframes, { duration: sample.durationMs, iterations: 1, easing: 'ease-out' });
     }
 
     protected async addMyStyleAtPlayhead(style: MyStyle): Promise<void> {
@@ -4487,10 +4550,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             draggable={textstyle ? true : undefined}
             onDragStart={textstyle ? event => this.handleTextStyleDragStart(event, item) : undefined}
             onDragEnd={textstyle ? () => this.handleLibraryTransitionDragEnd() : undefined}
+            onMouseEnter={item.kind === 'textanim' ? event => playTextAnimationSample(event.currentTarget, item.id,
+                item.tags[0] === 'out' ? 'out' : item.tags[0] === 'loop' ? 'loop' : 'in') : undefined}
             onContextMenu={event => this.openLibraryMenuAt(event, target)}
+            onClick={item.kind === 'textstyle' || item.kind === 'textanim' ? () => this.applyPresetToSelectedCaption(item) : undefined}
             onInfo={anchor => this.openLibraryInfo(target, anchor)}
-            face={item.sampleText
-                ? <span draggable={false} data-akari-preset-sample-text style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            face={item.kind === 'lut'
+                ? <LutPreview url={item.previewUrl} />
+                : item.sampleText
+                ? <span draggable={false} data-akari-preset-sample-text data-akari-textanim-sample={item.kind === 'textanim' ? true : undefined}
+                    style={{ maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     padding: '0 4px', fontSize: layout === 'list' ? '0.69em' : '0.86em', fontWeight: 800 }}>{item.sampleText}</span>
                 : <span draggable={false} className={this.presetShowcaseIcon(item)} aria-hidden='true' style={{ fontSize: layout === 'list' ? '1em' : '1.45em', opacity: 0.5 }} />} />;
     }

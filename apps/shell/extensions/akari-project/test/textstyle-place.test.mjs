@@ -40,7 +40,7 @@ test('grid と list のテキストスタイルカードはドラッグでき、
 });
 
 test('テキストスタイルの hint はタイムラインへの配置を案内する', () => {
-  assert.match(home, /hint: 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く'/);
+  assert.match(home, /hint: '選んだ文字に当てる・新しい文字として置く'/);
   assert.doesNotMatch(home, /プレビューへドラッグ/);
 });
 

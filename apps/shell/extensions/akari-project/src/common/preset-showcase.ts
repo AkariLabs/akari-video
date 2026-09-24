@@ -9,6 +9,8 @@ export interface PresetShowcaseItem {
     description?: string;
     whenToUse?: string;
     sampleText?: string;
+    previewUrl?: string;
+    style?: Record<string, unknown>;
 }
 
 export interface PresetShowcase {
@@ -96,6 +98,7 @@ export function parsePresetShowcaseJsonl(raw: string, kind: PresetShowcaseKind):
                 name: parsed.name,
                 category: parsed.category,
                 sampleText: parsed.sample_text,
+                style: parsed.style,
                 tags: [parsed.category]
             });
             continue;

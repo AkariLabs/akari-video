@@ -73,8 +73,9 @@ test('LIBRARY_GROUPS: 操作導線の文言を固定する', () => {
     for (const key of ['overlay', 'scene3d']) {
         assert.equal(categories[key].hint, '右クリックの「取り込む」でプロジェクトに追加');
     }
-    assert.equal(categories.textstyle.hint, 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く');
-    assert.equal(categories.textanim.hint, '選択中のテロップに適用（次のラウンドで有効化）');
+    assert.equal(categories.textstyle.hint, '選んだ文字に当てる・新しい文字として置く');
+    assert.equal(categories.textanim.hint, '選んだ文字に当てる・ホバーで見本を再生');
+    assert.equal(categories.font.hint, '選んだ文字に書体を当てる');
     assert.equal(categories.transition.hint, 'タイムラインのカット境界へドラッグして適用');
     assert.equal(categories.lut.hint, '選択中のカットに適用（強さはインスペクター）');
 });

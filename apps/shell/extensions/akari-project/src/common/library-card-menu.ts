@@ -53,7 +53,9 @@ function favoriteEntry(favorite: boolean, separator = false): LibraryMenuEntry {
 const INFO: LibraryMenuEntry = { id: 'info', label: '情報を見る', icon: 'info' };
 
 export function libraryCardMenuEntries(target: LibraryMenuTarget, favorite: boolean): LibraryMenuEntry[] {
-    if (target.kind === 'asset') return assetMenuEntries(target.item, favorite);
+    if (target.kind === 'asset') return target.item.category === 'font'
+        ? [{ id: 'apply', label: '選択中に当てる', icon: 'check' }, favoriteEntry(favorite, true), INFO]
+        : assetMenuEntries(target.item, favorite);
     if (target.kind === 'mystyle') {
         return [
             { id: 'apply', label: '選択中の文字に当てる', icon: 'check' },
@@ -64,9 +66,11 @@ export function libraryCardMenuEntries(target: LibraryMenuTarget, favorite: bool
         ];
     }
     if (target.kind === 'textstyle') {
-        return [{ id: 'place-text', label: '新しい文字として置く', icon: 'add' }, favoriteEntry(favorite, true), INFO];
+        return [{ id: 'apply', label: '選択中の文字に当てる', icon: 'check' },
+            { id: 'place-text', label: '新しい文字として置く', icon: 'add' }, favoriteEntry(favorite, true), INFO];
     }
-    // テキストアニメ・LUT・トランジション: 「選択中に当てる」の既存経路がまだ無いので出さない。
+    if (target.kind === 'textanim') return [{ id: 'apply', label: '選択中の文字に当てる', icon: 'check' }, favoriteEntry(favorite, true), INFO];
+    // LUT・トランジションはこの棚での適用経路がない。
     return [favoriteEntry(favorite), INFO];
 }
 

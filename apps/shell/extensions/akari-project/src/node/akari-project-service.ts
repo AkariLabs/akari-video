@@ -68,6 +68,7 @@ import { deriveAssetDistribution, mergeAssetCatalogViews, ResolverRawCatalogItem
 import { CatalogPack, parseCatalogPacksFile } from '../common/catalog-packs';
 import { resolveResolverCatalogUrls } from './resolver-preview-url';
 import { parsePresetShowcaseJsonl } from '../common/preset-showcase';
+import { shelfPreviewPath } from '../common/library-shelf-visuals';
 import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
 import {
     pollDeviceConnection,
@@ -376,6 +377,32 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         return { lut, textanim, textstyle };
     }
 
+    async getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>> {
+        const lutCandidates = presetShowcaseIndexCandidates(__dirname, process.cwd(), 'luts', this.resourcesPath());
+        for (const lutIndex of lutCandidates) {
+            const file = resolve(lutIndex, '../../transitions/index.jsonl');
+            try {
+                const raw = await fs.readFile(file, 'utf8');
+                const urls: Record<string, { preview: string; strip: string }> = {};
+                for (const line of raw.split(/\r?\n/)) {
+                    if (!line.trim()) continue;
+                    const item = JSON.parse(line) as { id?: string; preview?: string; preview_strip?: string };
+                    const id = item.id;
+                    const expected = id && shelfPreviewPath('transition', id);
+                    const strip = id && shelfPreviewPath('transition', id, true);
+                    if (id && expected && strip && item.preview === `${id}/preview.webp`
+                        && item.preview_strip === `${id}/preview-strip.webp`) {
+                        const root = resolve(dirname(file), '../..');
+                        urls[id] = { preview: pathToFileURL(join(root, expected)).toString(),
+                            strip: pathToFileURL(join(root, strip)).toString() };
+                    }
+                }
+                return urls;
+            } catch { /* 次の配置を試す */ }
+        }
+        return {};
+    }
+
     /** The library resolver is the single source of the writable root. */
     protected async myStylesDirectory(): Promise<string> {
         const src = await this.findAssetResolverSrcDir();
@@ -468,7 +495,10 @@ export class AkariProjectServiceImpl implements AkariProjectService {
         for (const candidate of candidates) {
             try {
                 const raw = await fs.readFile(candidate, 'utf8');
-                return parsePresetShowcaseJsonl(raw, kind);
+                return parsePresetShowcaseJsonl(raw, kind).map(item => {
+                    const relative = kind === 'lut' ? shelfPreviewPath('lut', item.id) : undefined;
+                    return relative ? { ...item, previewUrl: pathToFileURL(join(resolve(dirname(candidate), '../..'), relative)).toString() } : item;
+                });
             } catch {
                 // 読めない候補は次の開発配置 / パッケージ配置へ進む。
             }
