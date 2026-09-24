@@ -1,0 +1,165 @@
+{
+  "status": "pass",
+  "cdp": {
+    "port": 19711,
+    "launchedPid": 7637,
+    "connectedPid": 7637,
+    "pidMatched": true
+  },
+  "electron": {
+    "processGone": true,
+    "portClosed": true
+  },
+  "voicevox": {
+    "engine": "headless",
+    "processGone": true,
+    "portClosedAtEnd": true,
+    "pid": 4408,
+    "port": 50021,
+    "startedByScript": true
+  },
+  "paidApiRequests": 0,
+  "checks": [
+    {
+      "name": "3 つのまとまりとクラウド初期 3 行",
+      "pass": true,
+      "measured": {
+        "groups": [
+          "local",
+          "cloud",
+          "voice"
+        ],
+        "cloud": [
+          "gemini-3.1-flash-tts",
+          "gemini-tts",
+          "elevenlabs-v3"
+        ],
+        "more": "ほかのクラウド（4）"
+      },
+      "seconds": 0.86
+    },
+    {
+      "name": "Fish と Gemini 3.8 の鍵バッジから接続へ",
+      "pass": true,
+      "measured": {
+        "rows": [
+          {
+            "id": "fish-s2.1-pro",
+            "opacity": "0.5",
+            "badge": "Fish Audio の鍵を登録"
+          },
+          {
+            "id": "gemini-3.8-flash-tts",
+            "opacity": "0.5",
+            "badge": "Google AI の鍵を登録"
+          }
+        ],
+        "connectionsOpened": true
+      },
+      "seconds": 1.59
+    },
+    {
+      "name": "Chatterbox の日本語注記",
+      "pass": true,
+      "measured": {
+        "caution": "日本語の読みが不安定です（聞き取りで確かめるのがおすすめ）"
+      },
+      "seconds": 0.91
+    },
+    {
+      "name": "Gemini 3.1 の見積不可と費用承認キャンセル",
+      "pass": true,
+      "measured": {
+        "estimateText": "Gemini 3.1 Flash TTS（既製の声） · 1 行 · 合計 16 字 · 見積不可（従量）",
+        "approval": true,
+        "cancelled": true,
+        "paidApiRequests": 0
+      },
+      "seconds": 1.44
+    },
+    {
+      "name": "VOICEVOX の試聴と配置",
+      "pass": true,
+      "measured": {
+        "audioBlob": true,
+        "placeEnabled": true,
+        "placed": true
+      },
+      "seconds": 3.91
+    },
+    {
+      "name": "自分の声の作り手一覧",
+      "pass": true,
+      "measured": {
+        "options": [
+          {
+            "id": "irodori",
+            "label": "彩（無料・自分の PC）（つながりません）",
+            "disabled": true
+          },
+          {
+            "id": "fal-qwen3",
+            "label": "fal Qwen3-TTS（写しなし）",
+            "disabled": true
+          },
+          {
+            "id": "minimax-2.6-hd",
+            "label": "MiniMax Speech 2.6 HD（自分の声対応）（写しなし）",
+            "disabled": true
+          },
+          {
+            "id": "fish-s2.1-pro",
+            "label": "Fish Audio S2.1-Pro（鍵なし）",
+            "disabled": true
+          },
+          {
+            "id": "chatterbox",
+            "label": "Chatterbox 多言語（参照音声対応）",
+            "disabled": false
+          },
+          {
+            "id": "index-tts-2",
+            "label": "Index TTS 2（参照音声対応）",
+            "disabled": false
+          }
+        ],
+        "note": "録音を毎回送ります"
+      },
+      "seconds": 0.96
+    },
+    {
+      "name": "設定の既定エンジン 3 optgroup",
+      "pass": true,
+      "measured": {
+        "groups": [
+          {
+            "label": "この Mac",
+            "ids": [
+              "voicevox",
+              "irodori"
+            ]
+          },
+          {
+            "label": "クラウド",
+            "ids": [
+              "gemini-3.8-flash-tts",
+              "gemini-3.1-flash-tts",
+              "gemini-tts",
+              "elevenlabs-v3",
+              "fish-s2.1-pro",
+              "minimax-2.6-hd",
+              "chatterbox"
+            ]
+          },
+          {
+            "label": "自分の声",
+            "ids": [
+              "voice:sample-picker"
+            ]
+          }
+        ]
+      },
+      "seconds": 7.36
+    }
+  ]
+}

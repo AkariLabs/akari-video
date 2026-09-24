@@ -61,6 +61,7 @@ export const FAL_TTS_ENGINES = Object.freeze([
         ...(speed != null ? { speed } : {}) } }),
   }),
   row('chatterbox', 'Chatterbox 多言語（参照音声対応）', 'fal-ai/chatterbox/text-to-speech/multilingual', {
+    caution: '日本語の読みが不安定です（聞き取りで確かめるのがおすすめ）',
     price: price('usd_per_1000_chars', 0.025), voices: [{ id: 'japanese', label: '日本語', default: true }], default_voice: 'japanese',
     supports: { speed: false, style: false, clone: 'per-request' },
     buildPayload: ({ text, audioUrl }) => ({ text, voice: audioUrl ?? 'japanese',

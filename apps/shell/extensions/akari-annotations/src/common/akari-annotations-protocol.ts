@@ -7,10 +7,11 @@ export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
 
 export interface NarrationEngine {
     id: string; label: string; place: 'local' | 'network' | 'cloud'; provider?: string; experimental?: boolean;
-    price?: { usd_per_1000_chars: number; verified: boolean; as_of?: string };
+    price?: { unit?: string | null; value?: number | null; usd_per_1000_chars?: number; verified: boolean; as_of?: string };
+    caution?: string;
     availability: { state: 'available' | 'needs' | 'unconfigured' | 'unsupported'; label: string; detail?: { url?: string; setup_url?: string } };
     default_voice?: string; credit_required?: boolean;
-    supports?: { speed: boolean; style: boolean };
+    supports?: { speed: boolean; style: boolean; clone?: 'none' | 'registered' | 'per-request' };
 }
 export interface NarrationVoice { id: string; label: string; default?: boolean; group?: string }
 export interface NarrationEnginesResult { version: number; engines: NarrationEngine[] }
@@ -27,6 +28,7 @@ export interface VoiceCreateRequest { avatar: string; id: string; label: string;
 export interface VoiceCopyRequest { profile: string; engine: VoiceEngine; irodoriUrl?: string; approved?: boolean }
 export interface VoiceTryRequest extends VoiceCopyRequest { text: string; reading?: string }
 export interface VoiceProfileSummary { id: string; avatar: string | null; label: string; engines: string[];
+    usable_engines?: string[];
     legacy?: boolean; created_at?: string | null; duration_s?: number | null;
     copies?: Record<string, { stale?: boolean }>;
     consent?: { self_voice?: boolean; cloud_upload?: boolean } | string;

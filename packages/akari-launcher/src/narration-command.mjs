@@ -827,7 +827,7 @@ async function listEngines(runtime = {}) {
     { id: "fal-qwen3", label: "fal Qwen3-TTS", place: "cloud", provider: "fal", price: { usd_per_1000_chars: FAL_USD_PER_1000_CHARS, verified: false }, availability: !configured ? { ...falAvailability, detail: { profiles_with_fal: profilesWithFal } } : profilesWithFal ? { state: "available", label: "声プロファイルを使用できます", detail: { profiles_with_fal: profilesWithFal } } : { state: "needs", label: "fal の写しがある声がありません（自分の声をつくる）", detail: { profiles_with_fal: 0 } }, credit_required: false, supports: { speed: false, style: false, clone: 'registered' }, group: 'cloud' },
     ...FAL_TTS_ENGINES.filter(engine => !['gemini-tts', 'fal-qwen3'].includes(engine.id)).map(engine => ({
       id: engine.id, label: engine.label, place: engine.place, provider: engine.provider,
-      group: 'cloud', endpoint: engine.endpoint, price: engine.price,
+      group: 'cloud', endpoint: engine.endpoint, price: engine.price, ...(engine.caution ? { caution: engine.caution } : {}),
       availability: falAvailability, default_voice: engine.default_voice, credit_required: false,
       supports: engine.supports,
     })),

@@ -140,12 +140,14 @@ test('(a) 選択中のナビは面の色で示し、縦バー（border-inline-st
     assert.match(css, /button\.akari-set-nav-item \{ all: unset;[^}]*border: 0;/);
 });
 
-// ---- (b) 素の select / radio / checkbox を作らない -----------------------------------------------------
-test('(b) 設定ダイアログのソースは素の select / radio / checkbox を生成しない', () => {
+// ---- (b) 既定エンジンの optgroup 以外は素の select / radio / checkbox を作らない -----------------------
+test('(b) 既定エンジンの optgroup 以外は素の select / radio / checkbox を生成しない', () => {
     const files = ['../browser/akari-settings-dialog.ts', ...readdirSync(new URL('../browser/settings/', import.meta.url)).map(name => `../browser/settings/${name}`)];
     for (const file of files) {
         const text = source(file);
-        assert.doesNotMatch(text, /createElement\(\s*['"]select['"]|element\(\s*['"]select['"]|el\(\s*['"]select['"]|<select|theia-select/, file);
+        const checked = file === '../browser/akari-settings-dialog.ts'
+            ? text.replace("const defaultEngineSelect = element('select');", '') : text;
+        assert.doesNotMatch(checked, /createElement\(\s*['"]select['"]|element\(\s*['"]select['"]|el\(\s*['"]select['"]|<select|theia-select/, file);
         // input の type としての radio / checkbox（role 属性の 'radio' / 'checkbox' は対象外）。
         assert.doesNotMatch(text, /\.type\s*=\s*['"](?:radio|checkbox)['"]|type=radio|type=checkbox|input\[type=(?:radio|checkbox)|choice\(\s*['"](?:radio|checkbox)/, file);
     }

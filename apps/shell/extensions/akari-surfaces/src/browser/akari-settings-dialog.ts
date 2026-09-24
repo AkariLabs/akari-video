@@ -1118,19 +1118,43 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         const geminiVoice = typeof voices['gemini-tts'] === 'string' && GEMINI_NARRATION_VOICES.some(id => id === voices['gemini-tts'])
             ? voices['gemini-tts'] : 'Leda';
         const voicevoxSpeaker = typeof voices.voicevox === 'string' && voices.voicevox ? voices.voicevox : '未選択';
+        const defaultEngineSelect = element('select');
+        defaultEngineSelect.setAttribute('aria-label', '既定のエンジン');
+        defaultEngineSelect.dataset.akariNarrationDefaultEngine = 'true';
+        const chevron = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12"><path d="m2 4 4 4 4-4" fill="none" stroke="#a0a0a0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+        Object.assign(defaultEngineSelect.style, { appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
+            minWidth: '220px', maxWidth: '320px', minHeight: '34px', padding: '7px 32px 7px 12px', borderRadius: '8px',
+            backgroundColor: 'var(--akari-bg)', border: '1px solid var(--akari-line)', color: 'var(--akari-ink)',
+            fontSize: '13px', cursor: 'pointer', backgroundImage: `url("data:image/svg+xml,${chevron}")`,
+            backgroundPosition: 'right 12px center', backgroundRepeat: 'no-repeat', backgroundSize: '12px 12px' });
+        defaultEngineSelect.addEventListener('focus', () => { defaultEngineSelect.style.borderColor = 'var(--akari-accent-light)'; });
+        defaultEngineSelect.addEventListener('blur', () => { defaultEngineSelect.style.borderColor = 'var(--akari-line)'; });
+        const addGroup = (label: string, rows: Array<[string, string]>): void => {
+            const group = element('optgroup'); group.label = label;
+            for (const [id, title] of rows) {
+                const state = this.narrationState?.engines.find(row => row.id === id);
+                const option = element('option', `${title}${state?.availability.state === 'unconfigured' && label === 'クラウド' ? '（鍵なし）' : ''}`);
+                option.value = id; group.append(option);
+            }
+            defaultEngineSelect.append(group);
+        };
+        addGroup('この Mac', [['voicevox', 'VOICEVOX'], ['irodori', '彩（お試し）']]);
+        addGroup('クラウド', [['gemini-3.8-flash-tts', 'Gemini 3.8 Flash TTS'],
+            ['gemini-3.1-flash-tts', 'Gemini 3.1 Flash TTS'], ['gemini-tts', 'Gemini 2.5 Flash TTS'],
+            ['elevenlabs-v3', 'ElevenLabs v3'], ['fish-s2.1-pro', 'Fish Audio S2.1-Pro'],
+            ['minimax-2.6-hd', 'MiniMax 2.6 HD'], ['chatterbox', 'Chatterbox 多言語']]);
+        addGroup('自分の声', profiles.filter(profile => typeof profile.consent === 'string' ? profile.consent.trim() : profile.consent?.self_voice)
+            .map(profile => [`voice:${profile.id}`, `自分の声（${profile.label}）`]));
+        if (!this.voiceProfilesLoaded && typeof engine === 'string' && engine.startsWith('voice:')
+            && !profiles.some(profile => `voice:${profile.id}` === engine)) {
+            const option = element('option', '自分の声（読み込み中…）'); option.value = engine;
+            defaultEngineSelect.lastElementChild?.append(option);
+        }
+        defaultEngineSelect.value = settingsVoiceEngineValue(engine, profiles, this.voiceProfilesLoaded);
+        defaultEngineSelect.addEventListener('change', () => this.savePreference(AKARI_NARRATION_ENGINE, defaultEngineSelect.value));
         section.append(groupCard('既定値',
             settingRow('既定のエンジン', '読み上げのポップアップを開いたときに選ぶエンジン',
-                dropdown({ label: '既定のエンジン', options: [
-                    { value: 'voicevox', label: 'VOICEVOX · この Mac · 無料' },
-                    { value: 'gemini-tts', label: 'Gemini 2.5 Flash TTS · fal.ai 経由 · 従量' },
-                    { value: 'irodori', label: '彩 · お試し' },
-                    ...profiles.filter(profile => typeof profile.consent === 'string' ? profile.consent.trim() : profile.consent?.self_voice)
-                        .map(profile => ({ value: `voice:${profile.id}`, label: `自分の声（${profile.label}）` })),
-                    ...(!this.voiceProfilesLoaded && typeof engine === 'string' && engine.startsWith('voice:')
-                        && !profiles.some(profile => `voice:${profile.id}` === engine)
-                        ? [{ value: engine, label: '自分の声（読み込み中…）' }] : [])
-                ], value: settingsVoiceEngineValue(engine, profiles, this.voiceProfilesLoaded),
-                onChange: value => this.savePreference(AKARI_NARRATION_ENGINE, value) })),
+                defaultEngineSelect),
             settingRow('Gemini の既定の声', 'Gemini 2.5 Flash TTS で使う声',
                 dropdown({ label: 'Gemini の既定の声', options: GEMINI_NARRATION_VOICES.map(id => ({ value: id, label: id })),
                     value: geminiVoice, onChange: value => {

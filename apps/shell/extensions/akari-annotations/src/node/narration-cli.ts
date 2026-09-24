@@ -72,7 +72,7 @@ export class NarrationCliManager {
             '--text', request.text, ...(request.reading ? ['--reading', request.reading] : []), '--json'], root) as Promise<VerifyNarrationResult>;
     }
     async generate(request: GenerateNarrationRequest, root: string): Promise<GenerateNarrationResult> {
-        if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
+        if (request.engine !== 'voicevox' && request.engine !== 'irodori' && request.approved !== true) {
             throw new Error('費用承認が必要です。');
         }
         const directory = await fs.mkdtemp(join(tmpdir(), 'akari-narration-'));
@@ -87,11 +87,11 @@ export class NarrationCliManager {
             if (request.engine === 'voicevox') args.push('--speaker', request.voice);
             else args.push('--voice', request.voice);
             if (request.profile) args.push('--profile', request.profile);
-            if (request.speed !== undefined && ['voicevox', 'irodori'].includes(request.engine)) args.push('--speed', String(request.speed));
-            if (request.style && ['gemini-tts', 'irodori'].includes(request.engine)) args.push('--style', request.style);
+            if (request.speed !== undefined) args.push('--speed', String(request.speed));
+            if (request.style) args.push('--style', request.style);
             if (request.irodoriUrl) args.push('--irodori-url', request.irodoriUrl);
             if (request.captionId) args.push('--caption-ref', request.captionId);
-            if (['gemini-tts', 'fal-qwen3'].includes(request.engine)) args.push('--yes');
+            if (request.engine !== 'voicevox' && request.engine !== 'irodori') args.push('--yes');
             return await this.run(args, root, true) as GenerateNarrationResult;
         } finally {
             await fs.rm(directory, { recursive: true, force: true });

@@ -1,6 +1,81 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { narrationEstimate, batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, orderedVoiceProfiles, prepareReadAloudEngine, readAloudPreviewPlan, readAloudProvenanceLabel, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations, voiceProfileConsent } from '../lib/common/read-aloud-model.js';
+import { narrationEstimate, batchNarrationEstimate, batchRetryAction, chooseVoiceCopy, compareNarrationDuration, defaultOverflowAction, falKeyAvailable, irodoriCustomVoiceMissing, orderedVoiceProfiles, prepareReadAloudEngine, readAloudAutoVerify, readAloudCopyEngines, readAloudCopyNote, readAloudCopyOptionLabel, readAloudEngineGroups, readAloudPrice, readAloudPreviewPlan, readAloudProvenanceLabel, readAloudStyleEnabled, selectReadAloudEngine, selectReadAloudVoice, selectReadAloudRows, staleNarrations, voiceProfileConsent } from '../lib/common/read-aloud-model.js';
+
+test('クラウドは鍵ありを先にし、初期 3 行と前回選択を表示する', () => {
+    const ids = ['chatterbox', 'gemini-tts', 'fish-s2.1-pro', 'elevenlabs-v3', 'gemini-3.8-flash-tts'];
+    const rows = ids.map(id => ({ id, place: 'cloud', availability: { state: id.startsWith('gemini') ? 'available' : 'unconfigured' } }));
+    const group = readAloudEngineGroups(rows, 'chatterbox');
+    assert.deepEqual(group.cloud.map(row => row.id), ['gemini-3.8-flash-tts', 'gemini-tts', 'elevenlabs-v3', 'fish-s2.1-pro', 'chatterbox']);
+    assert.deepEqual(group.visible.map(row => row.id), ['gemini-3.8-flash-tts', 'gemini-tts', 'elevenlabs-v3', 'chatterbox']);
+    assert.deepEqual(group.hidden.map(row => row.id), ['fish-s2.1-pro']);
+});
+
+test('価格の単位と見積不可を表示し、見積不可の承認は従量と伝える', () => {
+    const cloud = { id: 'gemini-3.1-flash-tts', place: 'cloud', provider: 'fal', price: { unit: null, value: null, verified: false } };
+    assert.equal(readAloudPrice(cloud), '見積不可');
+    assert.equal(narrationEstimate(cloud, 'こんにちは').label, '見積不可（従量）');
+    assert.match(readAloudPreviewPlan(cloud, 'こんにちは').confirm.msg, /見積を出せません。送ると fal の従量で課金されます。送りますか/);
+    assert.equal(readAloudPrice({ ...cloud, price: { unit: 'usd_per_second', value: .0002, verified: true } }), '$0.0002 / 秒');
+});
+
+test('自分の声の作り手は使える彩、前回、先頭の順で選ぶ', () => {
+    const ids = ['irodori', 'fal-qwen3', 'minimax-2.6-hd', 'fish-s2.1-pro', 'chatterbox', 'index-tts-2'];
+    const rows = ids.map(id => ({ id, place: id === 'irodori' ? 'local' : 'cloud', availability: { state: id === 'fish-s2.1-pro' ? 'unconfigured' : 'available' } }));
+    const profile = { usable_engines: ids, copies: { 'minimax-2.6-hd': { stale: true } } };
+    assert.equal(readAloudCopyEngines(profile, rows, 'chatterbox').selected, 'irodori');
+    const withoutLocal = rows.slice(1);
+    assert.equal(readAloudCopyEngines(profile, withoutLocal, 'chatterbox').selected, 'chatterbox');
+    assert.equal(readAloudCopyEngines(profile, withoutLocal).selected, 'fal-qwen3');
+    assert.equal(readAloudCopyEngines(profile, rows).options.find(row => row.engine.id === 'fish-s2.1-pro').usable, false);
+    assert.equal(readAloudCopyEngines(profile, [{ ...rows[0], availability: { state: 'unconfigured' } }]).selected, undefined);
+});
+
+test('使えない作り手は鍵・写し・彩の接続で理由を分ける', () => {
+    const profile = { usable_engines: ['irodori', 'chatterbox'], copies: { 'minimax-2.6-hd': { stale: true } } };
+    const engine = (id, state = 'available') => ({ id, place: id === 'irodori' ? 'local' : 'cloud', availability: { state } });
+    const rows = readAloudCopyEngines(profile, [engine('irodori', 'unconfigured'), engine('fish-s2.1-pro', 'unconfigured'),
+        engine('index-tts-2'), engine('minimax-2.6-hd'), engine('chatterbox')]).options;
+    assert.deepEqual(rows.map(row => [row.engine.id, row.reason]), [
+        ['irodori', 'つながりません'], ['minimax-2.6-hd', '写しなし'],
+        ['fish-s2.1-pro', '鍵なし'], ['chatterbox', undefined], ['index-tts-2', '写しなし']
+    ]);
+});
+
+test('stale の彩は既定で選べて注記が付き、stale の MiniMax も選べる', () => {
+    const irodori = { id: 'irodori', label: '彩', place: 'local', availability: { state: 'available' }, supports: { clone: 'registered' } };
+    const minimax = { id: 'minimax-2.6-hd', label: 'MiniMax', place: 'cloud', availability: { state: 'available' }, supports: { clone: 'registered' } };
+    const chatterbox = { id: 'chatterbox', label: 'Chatterbox', place: 'cloud', availability: { state: 'available' } };
+    const profile = { usable_engines: ['irodori', 'minimax-2.6-hd', 'chatterbox'], copies: {
+        irodori: { stale: true }, 'minimax-2.6-hd': { stale: true }
+    } };
+    const localChoice = readAloudCopyEngines(profile, [irodori, minimax, chatterbox], 'chatterbox');
+    assert.equal(localChoice.selected, 'irodori');
+    const local = localChoice.options.find(row => row.engine.id === 'irodori');
+    assert.equal(local.usable, true);
+    assert.equal(readAloudCopyOptionLabel(local), '彩（無料・自分の PC）（写しが古い）');
+    assert.equal(readAloudCopyNote(local), '写しを使います · 写しが古いです');
+    const cloudChoice = readAloudCopyEngines(profile, [minimax, chatterbox], 'minimax-2.6-hd');
+    assert.equal(cloudChoice.selected, 'minimax-2.6-hd');
+    const cloud = cloudChoice.options.find(row => row.engine.id === 'minimax-2.6-hd');
+    assert.equal(cloud.usable, true);
+    assert.equal(readAloudCopyOptionLabel(cloud), 'MiniMax（写しが古い）');
+    assert.equal(readAloudCopyNote(cloud), '写しを使います · 写しが古いです');
+});
+
+test('彩の既製声は話し方を送らず、custom だけ必須欄を使う', () => {
+    const irodori = { id: 'irodori', supports: { style: true } };
+    assert.equal(readAloudStyleEnabled(irodori, 'narrator-male', false), false);
+    assert.equal(readAloudStyleEnabled(irodori, 'custom', false), true);
+    assert.equal(readAloudStyleEnabled(irodori, 'custom', true), false);
+    assert.equal(readAloudStyleEnabled({ id: 'fish-s2.1-pro', supports: { style: true } }, 'voice', false), true);
+});
+
+test('Chatterbox の自動聞き取りはローカル検証が使えるときだけ', () => {
+    assert.equal(readAloudAutoVerify('chatterbox', true), true);
+    assert.equal(readAloudAutoVerify('chatterbox', false), false);
+    assert.equal(readAloudAutoVerify('voicevox', true), false);
+});
 
 test('配置後はクレジットを優先し、無ければ自分の声の名前を表示する', () => {
     const profiles = [{ id: 'sample', label: 'サンプルの声' }];
@@ -168,10 +243,10 @@ test('needs の VOICEVOX は生成前に start 1 回、カードを available �
     await assert.rejects(prepareReadAloudEngine(needs, async () => {}, async () => [needs]), /起動を確認/);
 });
 
-test('彩カードの注記と状態は別の行に描画する', () => {
+test('彩カードの注記と必要時のバッジは名前の行と分ける', () => {
     const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../src/browser/read-aloud/akari-read-aloud-dialog.ts'), 'utf8');
     assert.match(source, /note\.style\.display = 'block'/);
-    assert.match(source, /badge\.style\.display = 'block'/);
+    assert.match(source, /badge\.style\.marginTop = '4px'/);
 });
 
 test('check / ng のもう一度は読みの変更までフォーカスのみ、変更後だけ再生成する', () => {

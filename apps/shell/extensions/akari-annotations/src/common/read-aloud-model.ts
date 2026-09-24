@@ -41,6 +41,75 @@ export function chooseVoiceCopy(profile: VoiceProfileSummary, irodoriAvailable: 
     return { stale: false };
 }
 
+export const READ_ALOUD_LOCAL_IDS = ['voicevox', 'irodori'] as const;
+export const READ_ALOUD_CLOUD_IDS = ['gemini-3.8-flash-tts', 'gemini-3.1-flash-tts', 'gemini-tts',
+    'elevenlabs-v3', 'fish-s2.1-pro', 'minimax-2.6-hd', 'chatterbox'] as const;
+export const READ_ALOUD_COPY_IDS = ['irodori', 'fal-qwen3', 'minimax-2.6-hd',
+    'fish-s2.1-pro', 'chatterbox', 'index-tts-2'] as const;
+
+export function readAloudProvider(engine: NarrationEngine): string {
+    return engine.provider === 'fish-audio' ? 'Fish Audio' : engine.provider === 'google-ai' ? 'Google' : 'fal';
+}
+
+export function readAloudKeyMissing(engine: NarrationEngine): boolean {
+    return engine.place === 'cloud' && engine.availability.state === 'unconfigured';
+}
+
+export function readAloudStyleEnabled(engine: NarrationEngine | undefined, voice: string, voiceMode: boolean): boolean {
+    if (!engine) return false;
+    return engine.id === 'irodori' ? !voiceMode && voice === 'custom' : engine.supports?.style === true;
+}
+
+export function readAloudAutoVerify(engineId: string, verificationAvailable: boolean): boolean {
+    return engineId === 'chatterbox' && verificationAvailable;
+}
+
+export function readAloudEngineGroups(engines: readonly NarrationEngine[], previous?: string): {
+    local: NarrationEngine[]; cloud: NarrationEngine[]; visible: NarrationEngine[]; hidden: NarrationEngine[]
+} {
+    const local = READ_ALOUD_LOCAL_IDS.flatMap(id => engines.filter(engine => engine.id === id));
+    const cloud = READ_ALOUD_CLOUD_IDS.flatMap(id => engines.filter(engine => engine.id === id))
+        .sort((a, b) => Number(readAloudKeyMissing(a)) - Number(readAloudKeyMissing(b)));
+    const visible = cloud.filter((engine, index) => index < 3 || engine.id === previous);
+    return { local, cloud, visible, hidden: cloud.filter(engine => !visible.includes(engine)) };
+}
+
+export function readAloudPrice(engine: NarrationEngine): string {
+    if (engine.place !== 'cloud') return '無料';
+    const price = engine.price;
+    const unit = price?.unit ?? (price?.usd_per_1000_chars !== undefined ? 'usd_per_1000_chars' : null);
+    const value = price?.value ?? price?.usd_per_1000_chars;
+    if (unit === null || value === undefined || value === null) return '見積不可';
+    const suffix = unit === 'usd_per_second' ? '秒' : unit === 'usd_per_request' ? '回' : '1000 字';
+    return `$${value} / ${suffix}${price?.verified === false ? '（暫定）' : ''}`;
+}
+
+export function readAloudCopyEngines(profile: VoiceProfileSummary, engines: readonly NarrationEngine[], last?: string): {
+    options: Array<{ engine: NarrationEngine; usable: boolean; stale: boolean; reason?: string }>; selected?: string
+} {
+    const usable = new Set(profile.usable_engines ?? profile.engines);
+    const options = READ_ALOUD_COPY_IDS.flatMap(id => engines.filter(engine => engine.id === id)).map(engine => {
+        const stale = profile.copies?.[engine.id]?.stale === true;
+        const reason = engine.id === 'irodori' && engine.availability.state !== 'available' ? 'つながりません'
+            : engine.availability.state === 'unconfigured' ? '鍵なし'
+            : !usable.has(engine.id) || engine.availability.state !== 'available' ? '写しなし' : undefined;
+        return { engine, usable: reason === undefined, stale, reason };
+    });
+    const selected = (options.find(row => row.engine.id === 'irodori' && row.usable)
+        ?? options.find(row => row.engine.id === last && row.usable)
+        ?? options.find(row => row.usable))?.engine.id;
+    return { options, selected };
+}
+
+export function readAloudCopyOptionLabel(row: { engine: NarrationEngine; stale: boolean; reason?: string }): string {
+    const name = row.engine.id === 'irodori' ? '彩（無料・自分の PC）' : row.engine.label;
+    return `${name}${row.stale ? '（写しが古い）' : ''}${row.reason ? `（${row.reason}）` : ''}`;
+}
+
+export function readAloudCopyNote(row: { engine: NarrationEngine; stale: boolean }): string {
+    return `${row.engine.supports?.clone === 'per-request' ? '録音を毎回送ります' : '写しを使います'}${row.stale ? ' · 写しが古いです' : ''}`;
+}
+
 export function selectReadAloudEngine(engines: readonly NarrationEngine[], preferred?: string): NarrationEngine | undefined {
     const available = engines.filter(engine => engine.availability.state === 'available'
         || (engine.id === 'voicevox' && engine.availability.state === 'needs'));
@@ -77,12 +146,16 @@ export function irodoriCustomVoiceMissing(engineId: string | undefined, voiceId:
 }
 
 export function narrationEstimate(engine: NarrationEngine, reading: string): {
-    chars: number; usd: number; yen: number; provisional: boolean; label: string
+    chars: number; usd: number | null; yen: number | null; provisional: boolean; label: string
 } {
     const chars = reading.length;
-    const usd = chars / 1000 * (engine.price?.usd_per_1000_chars ?? 0);
-    return { chars, usd, yen: Math.round(usd * 150), provisional: engine.price?.verified === false,
-        label: engine.place !== 'cloud' ? '費用 ¥0' : `見積 $${usd.toFixed(3)}（≈ ¥${Math.round(usd * 150)}）· 承認 1 回` };
+    const unit = engine.price?.unit ?? (engine.price?.usd_per_1000_chars !== undefined ? 'usd_per_1000_chars' : null);
+    const value = engine.price?.value ?? engine.price?.usd_per_1000_chars;
+    const usd = engine.place !== 'cloud' ? 0 : value == null ? null : unit === 'usd_per_second'
+        ? chars / 5 * value : unit === 'usd_per_request' ? value : chars / 1000 * value;
+    return { chars, usd, yen: usd === null ? null : Math.round(usd * 150), provisional: engine.price?.verified === false,
+        label: engine.place !== 'cloud' ? '費用 ¥0' : usd === null ? '見積不可（従量）' :
+            `見積 $${usd.toFixed(3)}（≈ ¥${Math.round(usd * 150)}）· 承認 1 回` };
 }
 
 export interface ReadAloudRow { id: string; text: string; start: number; end: number;
@@ -141,7 +214,8 @@ export function readAloudPreviewPlan(engine: NarrationEngine, reading: string): 
         needsApproval: true,
         confirm: {
             title: '費用承認',
-            msg: `$${quote.usd.toFixed(3)}（as_of ${engine.price?.as_of ?? '未確認'}）で ${engine.id === 'fal-qwen3' ? 'クラウド（fal）' : 'Gemini（fal）'} に 読み原稿 ${quote.chars} 字 を送ります。費用承認しますか`,
+            msg: quote.usd === null ? `見積を出せません。送ると ${readAloudProvider(engine)} の従量で課金されます。送りますか` :
+                `$${quote.usd.toFixed(3)}（as_of ${engine.price?.as_of ?? '未確認'}）で ${readAloudProvider(engine)} に 読み原稿 ${quote.chars} 字 を送ります。費用承認しますか`,
             ok: '費用承認する', cancel: 'キャンセル'
         }
     };
