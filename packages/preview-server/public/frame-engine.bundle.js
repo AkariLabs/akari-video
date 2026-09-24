@@ -31325,7 +31325,7 @@ var PLAIN_INSTANCE_STRIDE_BYTES = PLAIN_INSTANCE_FLOATS * Float32Array.BYTES_PER
 
 // ../frame-engine/src/timeline/caption-motion.ts
 var motion = (...keyframes) => ({ keyframes });
-var fromTo = (from, to = {}) => motion({ at: 0, ...from }, { at: 1, ...to });
+var fromTo = (from, to = {}) => motion({ at: 0, ...from }, { at: 1, ...Object.keys(from).some((key) => key !== "opacity") ? { xEm: 0, yEm: 0, scaleX: 1, scaleY: 1, rotateDeg: 0 } : {}, ...to });
 var CAPTION_SPRITE_MOTIONS = {
   "fade-in-out": fromTo({ opacity: 0 }),
   "soft-fade": fromTo({ opacity: 0, scaleX: 1.04, scaleY: 1.04 }),
@@ -31389,19 +31389,19 @@ var CAPTION_SPRITE_MOTIONS = {
   "roll-in": fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
   "spiral-in": fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
   shake: motion(
-    { at: 0 },
+    { at: 0, xEm: 0 },
     { at: 0.2, xEm: -0.16 },
     { at: 0.4, xEm: 0.14 },
     { at: 0.6, xEm: -0.1 },
     { at: 0.8, xEm: 0.06 },
-    { at: 1 }
+    { at: 1, xEm: 0 }
   ),
   jitter: motion(
-    { at: 0 },
+    { at: 0, xEm: 0, yEm: 0 },
     { at: 0.25, xEm: 0.05, yEm: -0.04 },
     { at: 0.5, xEm: -0.05, yEm: 0.04 },
     { at: 0.75, xEm: 0.03, yEm: 0.05 },
-    { at: 1 }
+    { at: 1, xEm: 0, yEm: 0 }
   ),
   flash: motion(
     { at: 0, opacity: 0 },
@@ -31412,18 +31412,18 @@ var CAPTION_SPRITE_MOTIONS = {
     { at: 1, opacity: 1 }
   ),
   heartbeat: motion(
-    { at: 0 },
+    { at: 0, scaleX: 1, scaleY: 1 },
     { at: 0.25, scaleX: 1.12, scaleY: 1.12 },
-    { at: 0.45 },
+    { at: 0.45, scaleX: 1, scaleY: 1 },
     { at: 0.65, scaleX: 1.08, scaleY: 1.08 },
-    { at: 1 }
+    { at: 1, scaleX: 1, scaleY: 1 }
   ),
   wobble: motion({ at: 0, rotateDeg: -1.6 }, { at: 0.5, rotateDeg: 1.6 }, { at: 1, rotateDeg: -1.6 }),
-  float: motion({ at: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1 }),
+  float: motion({ at: 0, yEm: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1, yEm: 0 }),
   breath: motion(
-    { at: 0, opacity: 1 },
+    { at: 0, opacity: 1, scaleX: 1, scaleY: 1 },
     { at: 0.5, opacity: 0.92, scaleX: 1.03, scaleY: 1.03 },
-    { at: 1, opacity: 1 }
+    { at: 1, opacity: 1, scaleX: 1, scaleY: 1 }
   ),
   "neon-flicker": motion(
     { at: 0, opacity: 1 },
@@ -31436,10 +31436,10 @@ var CAPTION_SPRITE_MOTIONS = {
     { at: 1, opacity: 1 }
   ),
   hologram: motion(
-    { at: 0, opacity: 1 },
+    { at: 0, opacity: 1, xEm: 0 },
     { at: 0.3, opacity: 0.75, xEm: 0.03 },
     { at: 0.6, opacity: 0.9, xEm: -0.03 },
-    { at: 1, opacity: 1 }
+    { at: 1, opacity: 1, xEm: 0 }
   ),
   "retro-flicker": motion(
     { at: 0, opacity: 1 },

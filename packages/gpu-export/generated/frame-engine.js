@@ -349,8 +349,8 @@ var AkariFrameEngine = (() => {
           }
         }
         return updateArrayElementByIndex(source, "cuts", cutIndex, "\u30AF\u30EA\u30C3\u30D7", (element) => {
-          const hasTransform = hasTopLevelProperty(element, "transform");
-          if (!hasTransform) {
+          const hasTransform2 = hasTopLevelProperty(element, "transform");
+          if (!hasTransform2) {
             const transform2 = Object.fromEntries(Object.entries(updates).filter((entry) => entry[1] !== void 0 && entry[1] !== null));
             return Object.keys(transform2).length > 0 ? appendJsonProperty(element, "transform", transform2) : element;
           }
@@ -672,8 +672,8 @@ var AkariFrameEngine = (() => {
           }
         }
         return updateArrayElementById(source, "layers", layerId, "\u7D20\u6750", (element) => {
-          const hasTransform = hasTopLevelProperty(element, "transform");
-          if (!hasTransform) {
+          const hasTransform2 = hasTopLevelProperty(element, "transform");
+          if (!hasTransform2) {
             const transform2 = Object.fromEntries(Object.entries(updates).filter((entry) => entry[1] !== void 0 && entry[1] !== null));
             return Object.keys(transform2).length > 0 ? appendJsonProperty(element, "transform", transform2) : element;
           }
@@ -32328,7 +32328,9 @@ caused by: ${cause.stack}`;
       translateY: finite5(draw.translateY, 0, "translateY"),
       scaleX: finite5(draw.scaleX, 1, "scaleX"),
       scaleY: finite5(draw.scaleY, 1, "scaleY"),
-      rotateDeg: finite5(draw.rotateDeg, 0, "rotateDeg")
+      rotateDeg: finite5(draw.rotateDeg, 0, "rotateDeg"),
+      ...draw.originX === void 0 ? {} : { originX: finite5(draw.originX, 0, "originX") },
+      ...draw.originY === void 0 ? {} : { originY: finite5(draw.originY, 0, "originY") }
     };
   }
   function normalizeSpriteTile(tile) {
@@ -32380,15 +32382,22 @@ caused by: ${cause.stack}`;
     const sine = Math.sin(radians);
     const translateX = value.translateX * 2 / width;
     const translateY = -value.translateY * 2 / height;
+    const a = cosine * value.scaleX;
+    const pixelOrigin = value.originX !== void 0 && value.originY !== void 0;
+    const b = sine * value.scaleX * (pixelOrigin ? width / height : 1);
+    const c = -sine * value.scaleY * (pixelOrigin ? height / width : 1);
+    const d2 = cosine * value.scaleY;
+    const centerX = value.originX === void 0 ? 0 : value.originX * 2 / width - 1;
+    const centerY = value.originY === void 0 ? 0 : 1 - value.originY * 2 / height;
     return new Float32Array([
-      cosine * value.scaleX,
-      sine * value.scaleX,
+      a,
+      b,
       0,
-      -sine * value.scaleY,
-      cosine * value.scaleY,
+      c,
+      d2,
       0,
-      translateX,
-      translateY,
+      translateX + centerX - a * centerX - c * centerY,
+      translateY + centerY - b * centerX - d2 * centerY,
       1
     ]);
   }
@@ -33363,7 +33372,7 @@ caused by: ${cause.stack}`;
     rotateDeg: 0
   });
   var motion = (...keyframes) => ({ keyframes });
-  var fromTo = (from, to = {}) => motion({ at: 0, ...from }, { at: 1, ...to });
+  var fromTo = (from, to = {}) => motion({ at: 0, ...from }, { at: 1, ...Object.keys(from).some((key) => key !== "opacity") ? { xEm: 0, yEm: 0, scaleX: 1, scaleY: 1, rotateDeg: 0 } : {}, ...to });
   var CAPTION_SPRITE_MOTIONS = {
     "fade-in-out": fromTo({ opacity: 0 }),
     "soft-fade": fromTo({ opacity: 0, scaleX: 1.04, scaleY: 1.04 }),
@@ -33427,19 +33436,19 @@ caused by: ${cause.stack}`;
     "roll-in": fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
     "spiral-in": fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
     shake: motion(
-      { at: 0 },
+      { at: 0, xEm: 0 },
       { at: 0.2, xEm: -0.16 },
       { at: 0.4, xEm: 0.14 },
       { at: 0.6, xEm: -0.1 },
       { at: 0.8, xEm: 0.06 },
-      { at: 1 }
+      { at: 1, xEm: 0 }
     ),
     jitter: motion(
-      { at: 0 },
+      { at: 0, xEm: 0, yEm: 0 },
       { at: 0.25, xEm: 0.05, yEm: -0.04 },
       { at: 0.5, xEm: -0.05, yEm: 0.04 },
       { at: 0.75, xEm: 0.03, yEm: 0.05 },
-      { at: 1 }
+      { at: 1, xEm: 0, yEm: 0 }
     ),
     flash: motion(
       { at: 0, opacity: 0 },
@@ -33450,18 +33459,18 @@ caused by: ${cause.stack}`;
       { at: 1, opacity: 1 }
     ),
     heartbeat: motion(
-      { at: 0 },
+      { at: 0, scaleX: 1, scaleY: 1 },
       { at: 0.25, scaleX: 1.12, scaleY: 1.12 },
-      { at: 0.45 },
+      { at: 0.45, scaleX: 1, scaleY: 1 },
       { at: 0.65, scaleX: 1.08, scaleY: 1.08 },
-      { at: 1 }
+      { at: 1, scaleX: 1, scaleY: 1 }
     ),
     wobble: motion({ at: 0, rotateDeg: -1.6 }, { at: 0.5, rotateDeg: 1.6 }, { at: 1, rotateDeg: -1.6 }),
-    float: motion({ at: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1 }),
+    float: motion({ at: 0, yEm: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1, yEm: 0 }),
     breath: motion(
-      { at: 0, opacity: 1 },
+      { at: 0, opacity: 1, scaleX: 1, scaleY: 1 },
       { at: 0.5, opacity: 0.92, scaleX: 1.03, scaleY: 1.03 },
-      { at: 1, opacity: 1 }
+      { at: 1, opacity: 1, scaleX: 1, scaleY: 1 }
     ),
     "neon-flicker": motion(
       { at: 0, opacity: 1 },
@@ -33474,10 +33483,10 @@ caused by: ${cause.stack}`;
       { at: 1, opacity: 1 }
     ),
     hologram: motion(
-      { at: 0, opacity: 1 },
+      { at: 0, opacity: 1, xEm: 0 },
       { at: 0.3, opacity: 0.75, xEm: 0.03 },
       { at: 0.6, opacity: 0.9, xEm: -0.03 },
-      { at: 1, opacity: 1 }
+      { at: 1, opacity: 1, xEm: 0 }
     ),
     "retro-flicker": motion(
       { at: 0, opacity: 1 },
@@ -33509,6 +33518,8 @@ caused by: ${cause.stack}`;
     "ease-out": [0, 0, 0.58, 1],
     "ease-in-out": [0.42, 0, 0.58, 1]
   };
+  var ampScaleAtStart = /* @__PURE__ */ new Set(["soft-fade", "cinematic-fade", "zoom-in-out", "stomp"]);
+  var ampScaleAtOvershoot = /* @__PURE__ */ new Set(["zoom-pop", "stretch-in"]);
   function isCaptionMotionSupported(declaration) {
     if (!declaration) return { supported: true, unsupported: [] };
     const ids = ["in", "loop", "out"].flatMap((kind) => {
@@ -33518,7 +33529,7 @@ caused by: ${cause.stack}`;
     });
     return { supported: ids.length === 0, unsupported: [...new Set(ids)] };
   }
-  function captionMotionAt(declaration, localSeconds, cueDurationSec, emPx) {
+  function captionMotionAt(declaration, localSeconds, cueDurationSec, emPx, plateWidthPx = 20 * emPx, plateHeightPx = 20 * emPx) {
     const local = Math.max(0, finiteNumber(localSeconds, 0));
     const cueDuration = Math.max(0, finiteNumber(cueDurationSec, 0));
     const em = Math.max(0, finiteNumber(emPx, 0));
@@ -33533,21 +33544,23 @@ caused by: ${cause.stack}`;
     }
     const support = isCaptionMotionSupported(declaration);
     if (!support.supported) throw new Error(`unsupported caption motion: ${support.unsupported.join(", ")}`);
-    const states = [];
+    const state = identity3();
+    const ampValue = [declaration.in, declaration.loop, declaration.out].find((slot) => slot?.amp !== void 0)?.amp;
+    const amp = Number.isFinite(ampValue) ? Number(ampValue) : 1;
     if (declaration.in) {
       const duration = slotDuration(declaration.in, cueDuration, 0.6);
-      states.push(sampleSlot(declaration.in, Math.min(1, local / duration), em));
+      applySlot(state, declaration.in, Math.min(1, local / duration), em, amp, plateWidthPx, plateHeightPx);
     }
     if (declaration.loop) {
       const period = positiveDuration(declaration.loop.durationSec ?? declaration.loop.duration_sec, 1.6);
-      states.push(sampleSlot(declaration.loop, local % period / period, em, "linear"));
+      applySlot(state, declaration.loop, local % period / period, em, amp, plateWidthPx, plateHeightPx, "linear");
     }
     if (declaration.out) {
       const duration = slotDuration(declaration.out, cueDuration, 0.6);
       const delay = Math.max(0, cueDuration - duration);
-      if (local >= delay) states.push(sampleSlot(declaration.out, 1 - Math.min(1, (local - delay) / duration), em));
+      if (local >= delay) applySlot(state, declaration.out, 1 - Math.min(1, (local - delay) / duration), em, amp, plateWidthPx, plateHeightPx);
     }
-    return states.reduce(combine, identity3());
+    return state;
   }
   function slotDuration(slot, cueDuration, fallback) {
     return Math.min(positiveDuration(slot.durationSec ?? slot.duration_sec, fallback), Math.max(0.05, cueDuration));
@@ -33555,56 +33568,62 @@ caused by: ${cause.stack}`;
   function positiveDuration(value, fallback) {
     return Number.isFinite(value) && Number(value) > 0 ? Number(value) : fallback;
   }
-  function sampleSlot(slot, progress, emPx, ease2 = slot.ease ?? "ease-out") {
+  function applySlot(state, slot, progress, emPx, amp, plateWidthPx, plateHeightPx, ease2 = slot.ease ?? "ease-out") {
     const recipe = CAPTION_SPRITE_MOTIONS[slot.id];
     if (!recipe || recipe.keyframes.length === 0) throw new Error(`unsupported caption motion: ${slot.id}`);
-    const eased = applyEase(Math.max(0, Math.min(1, progress)), ease2);
+    const directed = Math.max(0, Math.min(1, progress));
     const points = recipe.keyframes;
-    let left = points[0];
-    let right = points.at(-1) ?? left;
-    for (let index = 1; index < points.length; index += 1) {
-      if (eased <= points[index].at) {
-        left = points[index - 1];
-        right = points[index];
+    const underlying = { ...state };
+    const opacity = propertyInterval(points, (point) => point.opacity !== void 0, directed, ease2);
+    if (opacity) state.opacity = lerp2(
+      opacity.left.opacity ?? underlying.opacity,
+      opacity.right.opacity ?? underlying.opacity,
+      opacity.fraction
+    );
+    const transform = propertyInterval(points, hasTransform, directed, ease2);
+    if (!transform) return;
+    const a = hasTransform(transform.left) ? pointState(transform.left, slot.id, emPx, amp, plateWidthPx, plateHeightPx) : underlying;
+    const b = hasTransform(transform.right) ? pointState(transform.right, slot.id, emPx, amp, plateWidthPx, plateHeightPx) : underlying;
+    state.translateX = lerp2(a.translateX, b.translateX, transform.fraction);
+    state.translateY = lerp2(a.translateY, b.translateY, transform.fraction);
+    state.scaleX = lerp2(a.scaleX, b.scaleX, transform.fraction);
+    state.scaleY = lerp2(a.scaleY, b.scaleY, transform.fraction);
+    state.rotateDeg = lerp2(a.rotateDeg, b.rotateDeg, transform.fraction);
+  }
+  function propertyInterval(points, hasProperty, directed, ease2) {
+    const selected = points.filter(hasProperty);
+    if (selected.length === 0) return null;
+    if (selected[0].at > 0) selected.unshift({ at: 0 });
+    if (selected.at(-1).at < 1) selected.push({ at: 1 });
+    let left = selected[0];
+    let right = selected.at(-1);
+    for (let index = 1; index < selected.length; index += 1) {
+      if (directed <= selected[index].at) {
+        left = selected[index - 1];
+        right = selected[index];
         break;
       }
     }
     const span = right.at - left.at;
-    const fraction = span <= 0 ? 0 : (eased - left.at) / span;
-    const amp = Number.isFinite(slot.amp) ? Number(slot.amp) : 1;
-    const a = pointState(left, emPx, amp);
-    const b = pointState(right, emPx, amp);
-    return {
-      opacity: lerp2(a.opacity, b.opacity, fraction),
-      translateX: lerp2(a.translateX, b.translateX, fraction),
-      translateY: lerp2(a.translateY, b.translateY, fraction),
-      scaleX: lerp2(a.scaleX, b.scaleX, fraction),
-      scaleY: lerp2(a.scaleY, b.scaleY, fraction),
-      rotateDeg: lerp2(a.rotateDeg, b.rotateDeg, fraction)
-    };
+    return { left, right, fraction: span <= 0 ? 0 : applyEase((directed - left.at) / span, ease2) };
   }
-  function pointState(point, emPx, amp) {
+  function hasTransform(point) {
+    return point.xEm !== void 0 || point.yEm !== void 0 || point.xPercent !== void 0 || point.yPercent !== void 0 || point.scaleX !== void 0 || point.scaleY !== void 0 || point.rotateDeg !== void 0;
+  }
+  function pointState(point, id, emPx, amp, plateWidthPx, plateHeightPx) {
+    const ampScale = ampScaleAtStart.has(id) && point.at === 0 || ampScaleAtOvershoot.has(id) && point.at === 0.7 || id === "zoom-pulse" && point.at === 0.55 || id === "pop" && point.at === 0.65 || id === "heartbeat" && (point.at === 0.25 || point.at === 0.65) || id === "breath" && point.at === 0.5;
+    const scale = (value) => ampScale ? 1 + (value - 1) * amp : value;
     return {
       opacity: point.opacity ?? 1,
-      translateX: ((point.xEm ?? 0) + (point.xPercent ?? 0) * 20) * emPx * amp,
-      translateY: ((point.yEm ?? 0) + (point.yPercent ?? 0) * 20) * emPx * amp,
-      scaleX: 1 + ((point.scaleX ?? 1) - 1) * amp,
-      scaleY: 1 + ((point.scaleY ?? point.scaleX ?? 1) - 1) * amp,
+      translateX: (point.xEm ?? 0) * emPx * amp + (point.xPercent ?? 0) * plateWidthPx,
+      translateY: (point.yEm ?? 0) * emPx * amp + (point.yPercent ?? 0) * plateHeightPx,
+      scaleX: scale(point.scaleX ?? 1),
+      scaleY: scale(point.scaleY ?? point.scaleX ?? 1),
       rotateDeg: (point.rotateDeg ?? 0) * amp
     };
   }
-  function combine(left, right) {
-    return {
-      opacity: left.opacity * right.opacity,
-      translateX: left.translateX + right.translateX,
-      translateY: left.translateY + right.translateY,
-      scaleX: left.scaleX * right.scaleX,
-      scaleY: left.scaleY * right.scaleY,
-      rotateDeg: left.rotateDeg + right.rotateDeg
-    };
-  }
   function applyEase(progress, name) {
-    const curve = easeCurves[name] ?? easeCurves["ease-out"];
+    const curve = Object.hasOwn(easeCurves, name) ? easeCurves[name] : easeCurves["ease-out"];
     if (!curve) return progress;
     return cubicBezierAt(progress, ...curve);
   }
