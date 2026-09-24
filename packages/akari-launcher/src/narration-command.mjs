@@ -8,8 +8,8 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveLauncherAssets } from "./repo-assets.mjs";
-import { listProfiles, readFalKey, resolveVoiceProfile } from "./voice-command.mjs";
-import { FAL_TTS_ENGINES, falTtsEngine, estimateTtsCost, referenceDataUri } from "./tts-engines.mjs";
+import { listProfiles, readFalKey, readProviderKey, resolveVoiceProfile } from "./voice-command.mjs";
+import { FAL_TTS_ENGINES, DIRECT_TTS_ENGINES, falTtsEngine, ttsEngine, estimateTtsCost, referenceDataUri } from "./tts-engines.mjs";
 
 const VOICEVOX_BASE_URL = "http://127.0.0.1:50021";
 const VOICEVOX_RUN_ENV = "VOICEVOX_RUN";
@@ -45,7 +45,7 @@ const GEMINI_VOICES = falTtsEngine('gemini-tts').voices;
 const usage = [
   "使い方:",
   "  akari narration generate \\",
-  "    --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2> \\",
+  "    --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2|fish-s2.1-pro|gemini-3.8-flash-tts> \\",
   "    (--reading-file <読み原稿.txt> | --text <原稿>) [--script-file <表示原稿.txt>] \\",
   "    [--t <タイムライン秒>] [--gain-db 0] [--id n-0001] \\",
   "    [--speaker 3] [--voice Leda] [--style <text>] [--speed 1] \\",
@@ -297,8 +297,8 @@ function parseArguments(argv) {
   }
 
   if (!options.project) throw new PublicError("--project が必要です");
-  if (!["voicevox", "irodori"].includes(options.engine) && !falTtsEngine(options.engine)) {
-    throw new PublicError(`--engine には voicevox、irodori、${FAL_TTS_ENGINES.map(engine => engine.id).join('、')} を指定してください`, 2);
+  if (!["voicevox", "irodori"].includes(options.engine) && !ttsEngine(options.engine)) {
+    throw new PublicError(`--engine には voicevox、irodori、${[...FAL_TTS_ENGINES, ...DIRECT_TTS_ENGINES].map(engine => engine.id).join('、')} を指定してください`, 2);
   }
   if (options.engine === "irodori") {
     options.voice ??= "narrator-male";
@@ -306,9 +306,9 @@ function parseArguments(argv) {
     if (options.voice === "custom" && !options.style?.trim()) throw new PublicError("自分で書く声には --style が必要です", 2);
     options.irodori = irodoriEndpoint(options.irodoriUrl);
     irodoriTimeout();
-  } else options.voice ??= falTtsEngine(options.engine)?.default_voice ?? (falTtsEngine(options.engine) ? null : 'Leda');
+  } else options.voice ??= ttsEngine(options.engine)?.default_voice ?? (ttsEngine(options.engine) ? null : 'Leda');
   if (!options.readingFile && !options.text) throw new PublicError("--reading-file または --text が必要です");
-  const catalogVoices = falTtsEngine(options.engine)?.voices;
+  const catalogVoices = ttsEngine(options.engine)?.voices;
   if (catalogVoices && !options.profile && !catalogVoices.some(({ id }) => id === options.voice)) {
     throw new PublicError(`--voice に使える声: ${catalogVoices.map(({ id }) => id).join(", ")}`, 2);
   }
@@ -330,6 +330,9 @@ function parseArguments(argv) {
   }
   if ((options.engine === "fal-qwen3" || options.engine === "index-tts-2") && !options.profile) {
     throw new PublicError(`--engine ${options.engine} には --profile が必要です`);
+  }
+  if (options.engine === 'gemini-3.8-flash-tts' && options.profile) {
+    throw new PublicError('Gemini 3.8 Flash TTS の声クローンは未対応です', 2);
   }
   if (options.engine === 'elevenlabs-v3' && (options.text?.length ?? 0) > 5000) {
     throw new PublicError('ElevenLabs v3 は 1 回 5000 字までです。原稿を短くしてください', 2);
@@ -374,7 +377,7 @@ function computeNextId(projectDir) {
 }
 
 function extensionFor(engine) {
-  return ["voicevox", "irodori", 'chatterbox'].includes(engine) ? "wav" : "mp3";
+  return ["voicevox", "irodori", 'chatterbox', 'gemini-3.8-flash-tts'].includes(engine) ? "wav" : "mp3";
 }
 
 function relativeOutputPath(id, engine) {
@@ -455,10 +458,8 @@ function estimateGeminiTtsCostUsd(chars) {
 async function synthesizeCatalog(engine, payload, falKey) {
   let response;
   try {
-    response = await fetch(`https://fal.run/${engine.endpoint}`, {
-      method: 'POST', headers: { Authorization: `Key ${falKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const request = engine.request(payload, falKey);
+    response = await fetch(request.url, request.options);
   } catch { throw new PublicError('fal API へのネットワーク接続に失敗しました'); }
   if (!response.ok) throw new PublicError(`fal API が HTTP ${response.status} を返しました`);
   const audioUrl = engine.parseAudio(await response.json());
@@ -466,6 +467,16 @@ async function synthesizeCatalog(engine, payload, falKey) {
   const audioResponse = await fetch(audioUrl);
   if (!audioResponse.ok) throw new PublicError(`生成音声の取得に失敗しました（HTTP ${audioResponse.status}）`);
   return Buffer.from(await audioResponse.arrayBuffer());
+}
+
+async function synthesizeDirect(engine, payload, key) {
+  let response;
+  try { const request = engine.request(payload, key); response = await fetch(request.url, request.options); }
+  catch { throw new PublicError(`${engine.label} API へのネットワーク接続に失敗しました`); }
+  if (!response.ok) throw new PublicError(`${engine.label} API が HTTP ${response.status} を返しました`);
+  if (engine.provider === 'fish-audio') return Buffer.from(await response.arrayBuffer());
+  try { return engine.parseAudio(await response.json()); }
+  catch (error) { throw new PublicError(error.message); }
 }
 
 // --- VOICEVOX ローカルエンジン ---
@@ -791,6 +802,13 @@ async function listEngines(runtime = {}) {
   const falAvailability = configured
     ? { state: "available", label: "fal を使用できます" }
     : { state: "unconfigured", label: "fal の鍵を登録" };
+  const directAvailability = Object.fromEntries([['fish-audio', 'FISH_AUDIO_API_KEY', 'Fish Audio'],
+    ['google-ai', 'GEMINI_API_KEY', 'Google AI']].map(([provider, name, label]) => {
+    let hasKey = false;
+    try { hasKey = Boolean(readProviderKey(name, runtime.env || process.env)); } catch { /* 一覧は維持する */ }
+    return [provider, hasKey ? { state: 'available', label: `${label} を使用できます` }
+      : { state: 'unconfigured', label: `${label} の鍵を登録` }];
+  }));
   const profilesWithFal = listFalProfiles(runtime).length;
   let endpoint;
   try { endpoint = irodoriEndpoint(runtime.irodoriUrl, runtime.env || process.env); }
@@ -813,6 +831,12 @@ async function listEngines(runtime = {}) {
       availability: falAvailability, default_voice: engine.default_voice, credit_required: false,
       supports: engine.supports,
     })),
+    ...DIRECT_TTS_ENGINES.map(engine => ({
+      id: engine.id, label: engine.label, place: engine.place, provider: engine.provider,
+      group: 'cloud', endpoint: engine.endpoint, price: engine.price,
+      availability: directAvailability[engine.provider], default_voice: engine.default_voice,
+      credit_required: false, supports: engine.supports,
+    })),
   ] };
 }
 
@@ -820,7 +844,7 @@ async function listVoices(engine, runtime = {}) {
   if (engine === "irodori") return [...IRODORI_RECIPES.map(({ id, label, default: isDefault }) => ({ id, label, ...(isDefault ? { default: true } : {}) })),
     { id: "custom", label: "自分で書く（声の指示）" }];
   if (engine === "gemini-tts") return GEMINI_VOICES;
-  const catalog = falTtsEngine(engine);
+  const catalog = ttsEngine(engine);
   if (catalog && !['fal-qwen3'].includes(engine)) {
     if (catalog.voices) return catalog.voices;
     return catalog.supports.clone === 'per-request' ? listProfiles(resolveProfileEnv(runtime))
@@ -880,6 +904,24 @@ async function runDryRun(options, readingText, io) {
     }, io.log);
     return;
   }
+  if (DIRECT_TTS_ENGINES.some(engine => engine.id === options.engine)) {
+    const engine = ttsEngine(options.engine);
+    const record = options.profile && engine.supports.clone === 'per-request' ? guardedProfile(options.profile, engine) : null;
+    if (record) {
+      profileReferenceDataUri(record); // 送信前と同じ容量ガード。録音は表示しない。
+      if (!record.meta.reference_text) throw new PublicError('声プロファイルの reference_text がありません', 2);
+    }
+    const body = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style,
+      ...(record ? { referenceAudio: Buffer.from('<audio bytes>'), referenceText: record.meta.reference_text } : {}) });
+    if (record) body.references[0].audio = '<audio bytes>';
+    emit({ dry_run: true, engine: engine.id, output_path: outputPath,
+      estimated_cost_usd: estimateTtsCost(engine, readingText),
+      request: { endpoint: engine.endpoint, headers: engine.provider === 'fish-audio'
+        ? { Authorization: `Bearer ${maskKey(readProviderKey('FISH_AUDIO_API_KEY'))}`, model: 's2.1-pro',
+          'Content-Type': record ? 'application/msgpack' : 'application/json' }
+        : { 'x-goog-api-key': maskKey(readProviderKey('GEMINI_API_KEY')), 'Content-Type': 'application/json' }, body } }, io.log);
+    return;
+  }
 
   if (options.engine === "gemini-tts") {
     emit({
@@ -899,7 +941,7 @@ async function runDryRun(options, readingText, io) {
     return;
   }
   if (!['fal-qwen3'].includes(options.engine)) {
-    const engine = falTtsEngine(options.engine);
+    const engine = ttsEngine(options.engine);
     const record = options.profile && engine.supports.clone !== 'none' ? guardedProfile(options.profile, engine) : null;
     let audioUrl;
     if (record && engine.supports.clone === 'per-request') {
@@ -931,7 +973,7 @@ async function runDryRun(options, readingText, io) {
 }
 
 function durationForAudio(buffer, outputPath, engine, warnings) {
-  if (["voicevox", "irodori", 'chatterbox'].includes(engine)) {
+  if (["voicevox", "irodori", 'chatterbox', 'gemini-3.8-flash-tts'].includes(engine)) {
     if (buffer.length >= 44 && buffer.toString("ascii", 0, 4) === "RIFF") {
       const bytesPerSecond = buffer.readUInt32LE(28);
       const dataOffset = buffer.indexOf("data", 36, "ascii");
@@ -1007,7 +1049,7 @@ async function runGenerate(options, io) {
     provenance = { provider: "irodori", engine: "irodori-tts-v4-small", voice: options.profile ? `profile:${options.profile}` : options.style?.trim() ? "caption:custom" : `recipe:${options.voice}`,
       generated_at: new Date().toISOString(), experimental: true, server: options.irodori.server };
   } else {
-    const engine = falTtsEngine(options.engine);
+    const engine = ttsEngine(options.engine);
     const estimatedCostUsd = estimateTtsCost(engine, readingText);
     costUsd = estimatedCostUsd;
     io.logError(estimatedCostUsd === null ? `${options.engine} 見積不可（${readingText.length} 文字）` :
@@ -1020,18 +1062,38 @@ async function runGenerate(options, io) {
         reason: "費用承認（--yes）がありません。実リクエストは送信していません。" }, io.log);
       return 2;
     }
-    const falKey = resolveFalKey();
-    // --yes が明示された場合のみ、ここで初めて課金の発生する fal API を呼び出す。
-    if (options.engine === "gemini-tts") {
+    // --yes が明示された場合のみ、ここで初めて課金の発生する API を呼び出す。
+    if (engine.provider !== 'fal') {
+      const name = engine.provider === 'fish-audio' ? 'FISH_AUDIO_API_KEY' : 'GEMINI_API_KEY';
+      const key = readProviderKey(name);
+      if (!key) throw new PublicError(`${name} が未設定です。<AKARI_HOME>/credentials.env に登録してください`, 2);
+      const record = options.profile && engine.supports.clone === 'per-request' ? guardedProfile(options.profile, engine) : null;
+      let referenceAudio;
+      if (record) {
+        profileReferenceDataUri(record); // 正本 wav と 20 MB 上限を確認する。
+        if (!record.meta.reference_text) throw new PublicError('声プロファイルの reference_text がありません', 2);
+        referenceAudio = fs.readFileSync(path.join(record.dir, record.meta.reference.file));
+      }
+      const payload = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style,
+        referenceAudio, referenceText: record?.meta.reference_text });
+      audioBuffer = await synthesizeDirect(engine, payload, key);
+      provenance = { provider: engine.provider, engine: engine.id,
+        model: engine.provider === 'fish-audio' ? 's2.1-pro' : 'gemini-3.8-flash-tts',
+        voice: record ? `profile:${options.profile}` : options.voice,
+        generated_at: new Date().toISOString(), price_verified: engine.price.verified };
+    } else if (options.engine === "gemini-tts") {
+      const falKey = resolveFalKey();
       audioBuffer = await synthesizeCatalog(engine, engine.buildPayload({ text: readingText, voice: options.voice, style: options.style }), falKey);
       provenance = { provider: "fal", engine: "gemini-2.5-flash-tts", voice: `gemini:${options.voice}`,
         generated_at: new Date().toISOString(), price_verified: false, endpoint: engine.endpoint };
     } else if (options.engine === 'fal-qwen3') {
+      const falKey = resolveFalKey();
       const meta = readProfileMeta(options.profile);
       audioBuffer = await synthesizeCatalog(engine, engine.buildPayload({ text: readingText, profileMeta: meta }), falKey);
       provenance = { provider: "fal", engine: "qwen-3-tts-1.7b", voice: `profile:${options.profile}`,
         generated_at: new Date().toISOString(), endpoint: engine.endpoint, price_verified: false };
     } else {
+      const falKey = resolveFalKey();
       const record = options.profile && engine.supports.clone !== 'none' ? guardedProfile(options.profile, engine) : null;
       const audioUrl = record && engine.supports.clone === 'per-request' ? profileReferenceDataUri(record) : undefined;
       const payload = engine.buildPayload({ text: readingText, voice: options.voice, style: options.style,

@@ -289,6 +289,10 @@ export const adapters = {
     checkGet("https://api.elevenlabs.io/v1/models", { "xi-api-key": secret }, checkedAt),
   openrouter: (secret, checkedAt) =>
     checkGet("https://openrouter.ai/api/v1/key", { Authorization: `Bearer ${secret}` }, checkedAt),
+  'fish-audio': (secret, checkedAt) =>
+    checkGet('https://api.fish.audio/wallet/self/api-credit', { Authorization: `Bearer ${secret}` }, checkedAt),
+  'google-ai': (secret, checkedAt) =>
+    checkGet('https://generativelanguage.googleapis.com/v1beta/models', { 'x-goog-api-key': secret }, checkedAt),
 };
 
 const localAdapters = {

@@ -4,11 +4,11 @@
 
 ```
 akari narration generate \
-  --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2> \
+  --project <projectDir> --engine <voicevox|gemini-tts|irodori|fal-qwen3|gemini-3.1-flash-tts|elevenlabs-v3|minimax-2.6-hd|chatterbox|index-tts-2|fish-s2.1-pro|gemini-3.8-flash-tts> \
   --reading-file <読み原稿.txt> [--script-file <表示原稿.txt>] \
   --t <タイムライン秒> [--gain-db 0] [--id n-0001] \
   [--speaker 3]              # voicevox 用（既定 3 = ずんだもん/ノーマル）
-  [--profile <id>]           # 自分の声（irodori / fal-qwen3 / minimax / chatterbox / index-tts-2）
+  [--profile <id>]           # 自分の声（irodori / fal-qwen3 / minimax / chatterbox / index-tts-2 / Fish）
   [--dry-run] [--yes] [--apply]
 ```
 
@@ -16,7 +16,7 @@ akari narration generate \
 - `--script-file` は任意。渡した場合、表示原稿として `script` に記録される
 - `--id` を省略すると、`<projectDir>/edit.json` の `audio.narration[]` にある既存 id の最大値 + 1
   （無ければ `n-0001`）を自動採番する
-- 出力音声は `<projectDir>/out/narration/<id>.<wav|mp3>` に保存される（voicevox / irodori / chatterbox は wav、ほかの fal TTS は mp3）
+- 出力音声は `<projectDir>/out/narration/<id>.<wav|mp3>` に保存される（voicevox / irodori / chatterbox / Gemini 3.8 は wav、Fish Audio と fal TTS は mp3）
 - `--apply` を付けると `edit.json` の `audio.narration[]` にエントリを追加し（`audio` / `narration` が
   無ければ作る）、直後に `packages/schemas/bin/validate-edit.mjs` を実行する。NG なら書き込みを
   ロールバックする
@@ -117,6 +117,18 @@ Chatterbox の多言語版 schema は `voice: japanese`、参照音声時は `vo
 あるが本実装では送らない。参照音声の data URI は既存の fal Qwen3 clone と同じ形式で、
 schema の説明も禁止していない。fal storage への別アップロードはしない。
 
+## 直接 API の 2 エンジン
+
+| engine | 経路・鍵 | 声と日本語 | 価格・クローン |
+|---|---|---|---|
+| `fish-s2.1-pro` | Fish Audio `POST /v1/tts`。`FISH_AUDIO_API_KEY` は https://fish.audio/app/api-keys/ で取得 | 日本語公開声 5 件、既定「元気な女性」。`--style` は角括弧タグに変換 | $15 / 100 万 UTF-8 バイト（日本語 1000 字で約 $0.045）。`--profile` は正本 wav と録音原稿を MessagePack で毎回送る |
+| `gemini-3.8-flash-tts` | Google AI Interactions API。`GEMINI_API_KEY` は https://aistudio.google.com/api-keys で取得 | 日本語対応・既製 30 声、既定 Leda。`--style` は `speech_metadata.style` | 出力 $9 / 100 万トークン、音声 1 秒 = 25 トークン（2026-12-31 まで。2027-01-01 から $18）。入力 $0.50 → $1.00。声クローンは本票対象外 |
+
+両方とも `~/.akari/credentials.env` の鍵を使う。見積後の `--yes` が無ければ
+有償 API を呼ばない。Fish の参照音声には本人同意・cloud_upload 同意・原稿照合 0.7 以上が必要。
+Gemini は PCM 24 kHz / mono / 16 bit を WAV に包み、RIFF 付き応答も受け取る。
+詳細な API 根拠は `packages/akari-launcher/fixtures/narration/direct/` に記録。
+
 ## エンジンの足し方（表の 1 行）
 
 fal の OpenAPI schema を `packages/akari-launcher/fixtures/narration/openapi/` に保存してから、
@@ -127,7 +139,7 @@ default_voice, supports, buildPayload })` を追加する。`buildPayload` は�
 
 ## `--dry-run`
 
-どちらのエンジンでも実リクエストを送らない。送るはずのペイロード JSON（fal の API キーはマスク表示）と、
+どのエンジンでも実リクエストを送らない。送るはずのペイロード（API キーと Fish の参照音声はマスク表示）と、
 出力予定パス・見積り費用（voicevox は 0、fal-qwen3 は概算 USD）を標準出力に JSON で出して exit 0 で終わる。
 本番実行前の確認や、有償レーンの費用感を人間に見せる用途に使う。
 

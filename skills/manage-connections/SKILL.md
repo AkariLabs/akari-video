@@ -59,6 +59,13 @@ doctor は connections.json の `doctor` ブロックを書き戻し、プロジ
 
 ## 鍵の置き場（環境変数と credentials.env）
 
+読み上げの追加接続は次の対応表に従う。鍵は人間が発行し、値はレジストリへ置かない。
+
+| provider | credentials.env の名前 | 取得先 | doctor の無料 GET |
+|---|---|---|---|
+| `fish-audio` | `FISH_AUDIO_API_KEY` | https://fish.audio/app/api-keys/ | `/wallet/self/api-credit` |
+| `google-ai` | `GEMINI_API_KEY` | https://aistudio.google.com/api-keys | `/v1beta/models`（`x-goog-api-key` ヘッダ） |
+
 - doctor は `auth: env-key` の provider について環境変数 → 新しい credentials.env → 旧い credentials.env の順で鍵を探す。env が優先
 - 報告は `env` / `credentials.env` / `未設定` の 3 値だけで、値も末尾 4 桁も出さない
 - `akari doctor` の `fal_key` 行でも同じ 3 値が見える。鍵が無くても判定（verdict）と終了コードは変わらない

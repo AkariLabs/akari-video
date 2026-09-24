@@ -249,7 +249,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         }
         this.storeRow.setAttribute('data-akari-store-settings', 'true');
         // AKARI Store は「Akari アカウント」節へ移した（2026-09-22）。接続と API キーの末尾には置かない。
-        const storeMoved = settingsNote('AKARI Store の接続は「Akari アカウント」へ移りました。');
+        const storeMoved = settingsNote('読み上げに使う API キーもここで登録できます。AKARI Store の接続は「Akari アカウント」へ移りました。');
         storeMoved.append(' ', inlineLink('Akari アカウントを開く', () => this.showSection('account')));
         this.connections.append(...this.sectionHeading('connections'), storeMoved, this.providerList, this.storage);
         this.providerList.append(settingsNote('接続を読み込んでいます…'));

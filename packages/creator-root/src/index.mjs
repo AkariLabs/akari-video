@@ -112,6 +112,24 @@ export const DEFAULT_CONNECTIONS_REGISTRY = {
             }
         },
         {
+            id: 'fish-audio', kind: 'tts', auth: 'env-key', env: '${FISH_AUDIO_API_KEY}',
+            models: { default: 's2.1-pro', allowed: ['s2.1-pro'] },
+            notes: { description: 'Fish Audio の日本語読み上げと本人同意済みの声の参照。', workflows: ['42 読み上げ'],
+                billing: 'UTF-8 バイトごとの従量課金。商用利用は上位プランの条件を確認する。',
+                quota: '残高は Fish Audio の画面で確認する。', scopes: ['読み上げ'],
+                setup_url: 'https://fish.audio/app/api-keys/' },
+            doctor: { last_checked: null, status: 'unchecked', detail: '未確認' }
+        },
+        {
+            id: 'google-ai', kind: 'tts', auth: 'env-key', env: '${GEMINI_API_KEY}',
+            models: { default: 'gemini-3.8-flash-tts', allowed: ['gemini-3.8-flash-tts'] },
+            notes: { description: 'Google AI の Gemini API による読み上げ。', workflows: ['42 読み上げ'],
+                billing: '入力と出力トークンの従量課金。有償生成は見積と明示承認の後だけ実行する。',
+                quota: 'Google AI Studio で利用量を確認する。', scopes: ['モデル一覧の参照', '読み上げ'],
+                setup_url: 'https://aistudio.google.com/api-keys' },
+            doctor: { last_checked: null, status: 'unchecked', detail: '未確認' }
+        },
+        {
             id: 'groq',
             kind: 'genai',
             auth: 'env-key',

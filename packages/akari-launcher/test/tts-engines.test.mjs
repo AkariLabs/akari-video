@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { FAL_TTS_ENGINES, falTtsEngine, estimateTtsCost, MAX_REFERENCE_BYTES, referenceDataUri } from '../src/tts-engines.mjs';
 import { runNarrationCommand } from '../src/narration-command.mjs';
 import { runVoiceCommand } from '../src/voice-command.mjs';
 
-const fixtures = path.resolve('packages/akari-launcher/fixtures/narration/openapi');
+const fixtures = fileURLToPath(new URL('../fixtures/narration/openapi/', import.meta.url));
 const added = FAL_TTS_ENGINES.filter(row => !['gemini-tts', 'fal-qwen3'].includes(row.id));
 const collect = () => { const lines = []; return { lines, log: line => lines.push(line), logError: () => {} }; };
 
@@ -50,7 +51,7 @@ test('engines --json は既存 4 件の順序を保ち、新規 5 件を cloud �
   assert.equal(result.exitCode, 0);
   const rows = JSON.parse(io.lines[0]).engines;
   assert.deepEqual(rows.slice(0, 4).map(row => row.id), ['voicevox', 'gemini-tts', 'irodori', 'fal-qwen3']);
-  assert.deepEqual(rows.slice(4).map(row => row.id), added.map(row => row.id));
+  assert.deepEqual(rows.slice(4).map(row => row.id), [...added.map(row => row.id), 'fish-s2.1-pro', 'gemini-3.8-flash-tts']);
   for (const row of rows.slice(4)) {
     assert.equal(row.group, 'cloud');
     assert.equal(row.availability.state, 'unconfigured');

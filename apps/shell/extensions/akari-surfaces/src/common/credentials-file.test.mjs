@@ -147,7 +147,7 @@ test('doctor adapter exceptions and reflected secrets cannot leak', async t => {
 test('doctor is import-safe with extra argv and retains CLI usage / exit codes', () => {
     const loaded = spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(doctorUrl.href)}); console.log(Object.keys(m.adapters).sort().join(','));`, 'extra', 'arguments'], { encoding: 'utf8' });
     assert.equal(loaded.status, 0, loaded.stderr);
-    assert.equal(loaded.stdout.trim(), 'elevenlabs,fal,groq,openrouter,replicate');
+    assert.equal(loaded.stdout.trim(), 'elevenlabs,fal,fish-audio,google-ai,groq,openrouter,replicate');
     assert.equal(loaded.stderr, '');
     for (const flag of ['--help', '-h']) {
         const help = spawnSync(process.execPath, [fileURLToPath(doctorUrl), flag], { encoding: 'utf8' });

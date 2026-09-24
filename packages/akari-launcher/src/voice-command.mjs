@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { resolveAkariHome as fallbackResolveAkariHome } from './update-check.mjs';
-import { FAL_TTS_ENGINES, referenceDataUri } from './tts-engines.mjs';
+import { FAL_TTS_ENGINES, DIRECT_TTS_ENGINES, referenceDataUri } from './tts-engines.mjs';
 
 // モノレポと配布物の両方で既存の資産解決を使う。creator-root が欠けた配布物でも
 // voice 以外の CLI 起動を妨げないよう、同じ AKARI_HOME 規約の launcher 実装へ戻す。
@@ -117,12 +117,16 @@ function profileSummary(meta, id, avatar, legacy, env) {
     meta.reference?.verification?.score >= 0.7;
   let key = false;
   try { key = Boolean(readFalKey(env)); } catch { /* 一覧では鍵の不在を表す */ }
+  let fishKey = false;
+  try { fishKey = Boolean(readProviderKey('FISH_AUDIO_API_KEY', env)); } catch { /* 一覧では鍵の不在を表す */ }
   const usable_engines = [
     ...(meta.engines?.irodori?.voice_id && !meta.engines.irodori.stale ? ['irodori'] : []),
     ...FAL_TTS_ENGINES.filter(engine => engine.supports.clone === 'per-request' ? key && ready :
       engine.supports.clone === 'registered' && key && ready && !meta.engines?.[engine.id]?.stale &&
       (engine.id === 'fal-qwen3' ? Boolean(meta.engines?.[engine.id]?.embedding_source_url) :
         Boolean(meta.engines?.[engine.id]?.custom_voice_id))).map(engine => engine.id),
+    ...DIRECT_TTS_ENGINES.filter(engine => engine.id === 'fish-s2.1-pro' && fishKey && ready &&
+      Boolean(meta.reference?.file) && Boolean(meta.reference_text)).map(engine => engine.id),
   ];
   return { id, label: meta.label ?? id, avatar, legacy, created_at: meta.created_at ?? null,
     duration_s: meta.reference?.duration_s ?? null, engines: Object.keys(meta.engines ?? {}),
@@ -193,6 +197,13 @@ export function readFalKey(env = process.env) {
   if (env.FAL_KEY) return env.FAL_KEY;
   if (typeof readCreatorCredentials !== 'function') throw new VoiceError('作業場の鍵読み取りモジュールが見つかりません');
   try { return readCreatorCredentials(env).values.get('FAL_KEY') || null; }
+  catch { throw new VoiceError('credentials.env を読めません'); }
+}
+export function readProviderKey(name, env = process.env) {
+  if (!['FISH_AUDIO_API_KEY', 'GEMINI_API_KEY'].includes(name)) throw new VoiceError('鍵の種類が不正です');
+  if (env[name]) return env[name];
+  if (typeof readCreatorCredentials !== 'function') throw new VoiceError('作業場の鍵読み取りモジュールが見つかりません');
+  try { return readCreatorCredentials(env).values.get(name) || null; }
   catch { throw new VoiceError('credentials.env を読めません'); }
 }
 function durationFromWav(buffer) {
