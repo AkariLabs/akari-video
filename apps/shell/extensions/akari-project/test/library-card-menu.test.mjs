@@ -28,12 +28,18 @@ test('★ の文言は状態で入れ替わる', () => {
     assert.equal(on.icon, 'star-full');
 });
 
-test('置けない種類（オーバーレイ・3D・フォント）: 取り込む / ★ / 情報を見る', () => {
-    for (const category of ['overlay', 'scene3d', 'font']) {
+test('置けない種類（オーバーレイ・3D）: 取り込む / ★ / 情報を見る', () => {
+    for (const category of ['overlay', 'scene3d']) {
         const entries = libraryCardMenuEntries({ kind: 'asset', item: asset({ category, key: `${category}/x`, sourceKind: 'lab', state: 'available' }) }, false);
         assert.deepEqual(ids(entries), ['import', 'favorite', 'info']);
         assert.equal(entries[0].label, '取り込む');
     }
+});
+
+test('フォントは選択中の文字へ当てる', () => {
+    const entries = libraryCardMenuEntries({ kind: 'asset', item: asset({ category: 'font', key: 'font/noto-sans-jp' }) }, false);
+    assert.deepEqual(ids(entries), ['apply', 'favorite', 'info']);
+    assert.equal(entries[0].label, '選択中に当てる');
 });
 
 test('プレミアム未購入: Lab で見る（¥価格）/ プレイヘッドに置く（押すと促しのシート）/ ★ / 情報を見る', () => {
@@ -51,9 +57,10 @@ test('ローカル索引の素材: 取り込む（未取得のみ）/ 頼む / �
     assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'asset', item: { ...local, installed: true } }, false)), ['ask', 'favorite', 'info']);
 });
 
-test('かけるもの・マイスタイル: 既存の経路があるものだけ', () => {
-    assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'textstyle', key: 'textstyle/news' }, false)), ['place-text', 'favorite', 'info']);
-    for (const kind of ['textanim', 'lut', 'transition']) {
+test('文字の見た目をかけるメニューとマイスタイル', () => {
+    assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'textstyle', key: 'textstyle/news' }, false)), ['apply', 'place-text', 'favorite', 'info']);
+    assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'textanim', key: 'textanim/fade' }, false)), ['apply', 'favorite', 'info']);
+    for (const kind of ['lut', 'transition']) {
         assert.deepEqual(ids(libraryCardMenuEntries({ kind, key: `${kind}/x` }, false)), ['favorite', 'info']);
     }
     const mine = libraryCardMenuEntries({ kind: 'mystyle', key: 'mystyle/orange' }, false);
@@ -105,7 +112,7 @@ test('情報カード: プリセット・マイスタイル', () => {
     const style = libraryPresetInfoCard({ key: 'textstyle/news', kind: 'textstyle', name: 'ニュース風', categoryLabel: 'テキストスタイル', tags: ['subtitle'] }, false);
     assert.equal(style.creator, 'AKARI Video（標準）');
     assert.equal(style.license.kind, 'builtin');
-    assert.deepEqual(style.actions.map(action => action.id), ['place-text', 'favorite']);
+    assert.deepEqual(style.actions.map(action => action.id), ['apply', 'place-text', 'favorite']);
     assert.deepEqual(style.keywords, ['テキストスタイル', 'subtitle']);
     const mine = libraryPresetInfoCard({ key: 'mystyle/o', kind: 'mystyle', name: 'オレンジ', categoryLabel: 'マイスタイル', tags: ['強調'] }, true);
     assert.equal(mine.creator, '自分の素材');

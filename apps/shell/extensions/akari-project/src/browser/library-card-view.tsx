@@ -287,6 +287,7 @@ export interface LibrarySimpleCardProps {
     onDragEnd?(): void;
     onMouseEnter?(event: React.MouseEvent<HTMLElement>): void;
     onMouseLeave?(event: React.MouseEvent<HTMLElement>): void;
+    onClick?(event: React.MouseEvent<HTMLElement>): void;
     onContextMenu(event: React.MouseEvent<HTMLElement>): void;
     onInfo(anchor: HTMLElement): void;
 }
@@ -299,6 +300,7 @@ export function LibrarySimpleCard(props: LibrarySimpleCardProps): React.ReactEle
         onDragEnd: props.onDragEnd ? () => props.onDragEnd!() : undefined,
         onMouseEnter: props.onMouseEnter,
         onMouseLeave: props.onMouseLeave,
+        onClick: props.onClick,
         onContextMenu: props.onContextMenu,
         'data-akari-library-card': props.layout,
         'data-akari-favorite': props.favorite ? 'true' : undefined,

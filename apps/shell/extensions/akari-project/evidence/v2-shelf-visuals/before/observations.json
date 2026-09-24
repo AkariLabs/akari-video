@@ -1,0 +1,632 @@
+{
+  "mode": "before",
+  "port": 9551,
+  "passed": true,
+  "checks": {
+    "homeWords": {
+      "oldWordCount": 1,
+      "newWordCount": 0,
+      "hasOldWord": true,
+      "hasNewWord": false
+    },
+    "homeTiles": [
+      {
+        "key": "text",
+        "text": "Tテキスト押すかドラッグで置く"
+      },
+      {
+        "key": "shapes",
+        "text": "◯図形近日"
+      },
+      {
+        "key": "stamps",
+        "text": "☺スタンプ近日"
+      },
+      {
+        "key": "image",
+        "text": "▦画像一覧から選ぶ"
+      },
+      {
+        "key": "broll",
+        "text": "▶B-roll一覧から選ぶ"
+      },
+      {
+        "key": "bgm",
+        "text": "♪BGM一覧から選ぶ"
+      },
+      {
+        "key": "sfx",
+        "text": "♬SFX一覧から選ぶ"
+      },
+      {
+        "key": "overlay",
+        "text": "✦オーバーレイ一覧から選ぶ"
+      },
+      {
+        "key": "scene3d",
+        "text": "⬡3D・アバター一覧から選ぶ"
+      }
+    ],
+    "homeCategories": [
+      {
+        "key": "textstyle",
+        "label": "テキストスタイル",
+        "status": "live",
+        "count": 12
+      },
+      {
+        "key": "textanim",
+        "label": "テキストアニメ",
+        "status": "live",
+        "count": 47
+      },
+      {
+        "key": "font",
+        "label": "フォント",
+        "status": "live",
+        "count": 31
+      },
+      {
+        "key": "stamps",
+        "label": "スタンプ",
+        "status": "soon"
+      }
+    ],
+    "lut": {
+      "count": 10,
+      "cards": [
+        {
+          "key": "lut/natural",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/cinematic",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/film-warm",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/mono",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/silver-retain",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/vintage-fade",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/cool-clear",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/night-neon",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/forest-soft",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "lut/sunset-gold",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        }
+      ]
+    },
+    "transition": {
+      "count": 29,
+      "cards": [
+        {
+          "id": "dissolve",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "fade",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "fade-black",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "fade-white",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "fade-grays",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "wipe-left",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "wipe-right",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "wipe-up",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "wipe-down",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "radial",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "slide-left",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "slide-right",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "slide-up",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "slide-down",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "cover-left",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "cover-right",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "cover-up",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "cover-down",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "reveal-left",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "reveal-right",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "reveal-down",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "reveal-up",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "circle-open",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "circle-close",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "zoom-in",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "squeeze-h",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "squeeze-v",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "blur",
+          "frameCount": 0,
+          "previewImage": "none"
+        },
+        {
+          "id": "pixelize",
+          "frameCount": 0,
+          "previewImage": "none"
+        }
+      ],
+      "hoverMotion": []
+    },
+    "transitionReducedMotion": [],
+    "detailWords": {
+      "oldWordCount": 1,
+      "newWordCount": 0,
+      "hasOldWord": true,
+      "hasNewWord": false
+    },
+    "textLookRow": {
+      "count": 0,
+      "text": null
+    },
+    "textPageWords": {
+      "oldWordCount": 1,
+      "newWordCount": 0,
+      "hasOldWord": true,
+      "hasNewWord": false
+    },
+    "textLookSections": [],
+    "textLookVisibleWords": {
+      "hasOldWord": false,
+      "hasNewWord": false,
+      "hasStyle": true,
+      "hasMotion": false,
+      "hasFont": true
+    },
+    "font": {
+      "count": 31,
+      "sources": {
+        "catalogPreview": 18,
+        "otherPreview": 6,
+        "fallback": 0
+      },
+      "cards": [
+        {
+          "key": "font/851-chikara-dzuyoku",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/851-chikara-yowaku",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/ab-kirigirisu",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "font/biz-udgothic",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/check-and-oudan",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/corporate-logo-rounded",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/dela-gothic-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/dotgothic16",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/isego",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "font/klee-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/kso-kokuryuso",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "font/mgen-plus",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/mplus-1p",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/mplus-rounded-1c",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/noto-sans-jp",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/noto-serif-jp",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/ranobe-pop",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/reggae-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/rocknroll-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/ruika",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "font/shippori-mincho",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/ta-engeifude",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "font/ta-f1-blockline",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "font/ta-fugafude",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "font/togebara",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "font/vdl-logojr-black",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "font/vdl-v7-mincho",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "font/wanpaku-ruika",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "font/zen-kaku-gothic-new",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        },
+        {
+          "key": "font/zen-maru-gothic",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "font/zero-gothic",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": false,
+          "source": "missing"
+        }
+      ]
+    },
+    "textAnimation": {
+      "count": 47,
+      "hoverMotion": []
+    },
+    "fontApply": {
+      "captionVisible": true,
+      "selection": 1,
+      "fontId": "851-chikara-dzuyoku",
+      "applyAction": false,
+      "editChanged": false,
+      "editFontsBefore": [],
+      "editFontsAfter": [],
+      "captionsChanged": false,
+      "selectedCaptionFontBefore": null,
+      "selectedCaptionFontAfter": null,
+      "captionFontsBefore": [],
+      "captionFontsAfter": []
+    },
+    "visibleWords": {
+      "hasOldWord": false,
+      "hasNewWord": false
+    },
+    "fontInventory": {
+      "directories": 31,
+      "previews": 18
+    }
+  },
+  "screenshots": [
+    "before/home.png",
+    "before/lut.png",
+    "before/transition-hover.png",
+    "before/home-details.png",
+    "before/text-look-top.png",
+    "before/font.png",
+    "before/textanim-hover.png",
+    "before/font-apply.png",
+    "before/font-applied-preview.png"
+  ]
+}

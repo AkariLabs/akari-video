@@ -366,6 +366,7 @@ export interface AkariProjectService {
     getAssetCatalogView(preferenceRoot: string | undefined): Promise<AssetCatalogView>;
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
     getPresetShowcase(): Promise<PresetShowcase>;
+    getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>>;
     listMyStyles(): Promise<MyStyle[]>;
     saveMyStyle(style: MyStyle): Promise<void>;
     renameMyStyle(id: string, name: string): Promise<void>;

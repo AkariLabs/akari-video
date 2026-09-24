@@ -74,6 +74,7 @@ test('parsePresetShowcaseJsonl: textstyle は category をタグへ正規化し 
         name: 'ニュース風',
         category: 'subtitle',
         sampleText: '速報ニュース',
+        style: { size_px: 56 },
         tags: ['subtitle']
     }]);
 });

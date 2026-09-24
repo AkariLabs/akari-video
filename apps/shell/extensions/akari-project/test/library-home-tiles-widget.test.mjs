@@ -22,8 +22,9 @@ class CustomEvent {
     constructor(type, init) { this.type = type; this.detail = init?.detail; }
 }
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }) };
-const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK',
-    `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS,
+const LibraryTextLookRow = props => React.createElement('button', { 'data-akari-library-text-look-row': true, ...props });
+const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'LibraryTextLookRow', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK',
+    `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS, LibraryTextLookRow,
     'akari.library.detailsOpen',
     { panel: 6 }, { card: '#111', raised: '#222' }, { ghost: '1px solid #333' }, '#fff');
 
@@ -33,6 +34,9 @@ function fixture() {
     const errors = [];
     handler.catalogQuery = '';
     handler.libraryDetailsOpen = false;
+    handler.presetShowcase = { textstyle: Array(12), textanim: Array(47), lut: [] };
+    handler.myStyles = [];
+    handler.assetCatalogItems = Array.from({ length: 31 }, (_, index) => ({ id: `font-${index}`, category: 'font' }));
     handler.commandService = { executeCommand: async (...args) => { calls.push(args); } };
     handler.messages = { error: message => errors.push(message) };
     handler.update = () => {};
@@ -127,7 +131,10 @@ test('詳細の開閉を localStorage に記憶し、次のインスタンスで
     const details = nodes(openHome, node => node.props['data-akari-library-details'] !== undefined)[0];
     assert.ok(details);
     assert.deepEqual(nodes(details, node => node.props.category).map(node => node.props.category),
-        LIBRARY_DETAIL_GROUPS.flatMap(group => group.categories.map(category => category.key)));
+        LIBRARY_DETAIL_GROUPS.filter(group => group.label !== '文字の見た目').flatMap(group => group.categories.map(category => category.key)));
+    const textRows = nodes(details, node => node.type === LibraryTextLookRow);
+    assert.equal(textRows.length, 1);
+    assert.deepEqual(textRows[0].props.counts, [12, 47, 31]);
     const { handler: restored } = fixture();
     restored.libraryDetailsOpen = restored.readLibraryDetailsOpen();
     assert.equal(restored.libraryDetailsOpen, true);

@@ -1,0 +1,682 @@
+{
+  "mode": "after",
+  "port": 9551,
+  "passed": true,
+  "checks": {
+    "homeWords": {
+      "oldWordCount": 0,
+      "newWordCount": 1,
+      "hasOldWord": false,
+      "hasNewWord": true
+    },
+    "homeTiles": [
+      {
+        "key": "text",
+        "text": "Tテキスト押すかドラッグで置く"
+      },
+      {
+        "key": "shapes",
+        "text": "◯図形近日"
+      },
+      {
+        "key": "stamps",
+        "text": "◇イラスト近日"
+      },
+      {
+        "key": "image",
+        "text": "▦画像一覧から選ぶ"
+      },
+      {
+        "key": "broll",
+        "text": "▶B-roll一覧から選ぶ"
+      },
+      {
+        "key": "bgm",
+        "text": "♪BGM一覧から選ぶ"
+      },
+      {
+        "key": "sfx",
+        "text": "♬SFX一覧から選ぶ"
+      },
+      {
+        "key": "overlay",
+        "text": "✦オーバーレイ一覧から選ぶ"
+      },
+      {
+        "key": "scene3d",
+        "text": "⬡3D・アバター一覧から選ぶ"
+      }
+    ],
+    "homeCategories": [
+      {
+        "key": "textstyle",
+        "label": "テキストスタイル",
+        "status": "live",
+        "count": 0
+      },
+      {
+        "key": "textanim",
+        "label": "テキストアニメ",
+        "status": "live",
+        "count": 0
+      },
+      {
+        "key": "font",
+        "label": "フォント",
+        "status": "live",
+        "count": 0
+      },
+      {
+        "key": "stamps",
+        "label": "イラスト",
+        "status": "soon"
+      }
+    ],
+    "lut": {
+      "count": 10,
+      "cards": [
+        {
+          "key": "lut/natural",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/cinematic",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/film-warm",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/mono",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/silver-retain",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/vintage-fade",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/cool-clear",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/night-neon",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/forest-soft",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "lut/sunset-gold",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        }
+      ]
+    },
+    "transition": {
+      "count": 29,
+      "cards": [
+        {
+          "id": "dissolve",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "fade",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "fade-black",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "fade-white",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "fade-grays",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "wipe-left",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "wipe-right",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "wipe-up",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "wipe-down",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "radial",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "slide-left",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "slide-right",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "slide-up",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "slide-down",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "cover-left",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "cover-right",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "cover-up",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "cover-down",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "reveal-left",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "reveal-right",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "reveal-down",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "reveal-up",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "circle-open",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "circle-close",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "zoom-in",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "squeeze-h",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "squeeze-v",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "blur",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        },
+        {
+          "id": "pixelize",
+          "frameCount": 3,
+          "previewImage": "url(\"file://<local>\")"
+        }
+      ],
+      "hoverMotion": [
+        {
+          "key": "dissolve",
+          "animationName": "akari-shelf-strip",
+          "duration": "0.3s",
+          "animationCount": 1,
+          "running": true,
+          "backgroundImage": "url(\"file://<local>\")",
+          "backgroundPosition": "25% 50%",
+          "opacity": "1"
+        }
+      ]
+    },
+    "transitionReducedMotion": [
+      {
+        "key": "dissolve",
+        "animationName": "none",
+        "duration": "0s",
+        "animationCount": 0,
+        "running": false,
+        "backgroundImage": "url(\"file://<local>\")",
+        "backgroundPosition": "0% 0%",
+        "opacity": "0"
+      }
+    ],
+    "detailWords": {
+      "oldWordCount": 0,
+      "newWordCount": 1,
+      "hasOldWord": false,
+      "hasNewWord": true
+    },
+    "textLookRow": {
+      "count": 1,
+      "text": "A スタイル・動き・フォント 選んだ文字に当てる 12·47·31"
+    },
+    "textPageWords": {
+      "oldWordCount": 0,
+      "newWordCount": 0,
+      "hasOldWord": false,
+      "hasNewWord": false
+    },
+    "textLookSections": [
+      {
+        "key": "style",
+        "text": "スタイル — 置く / かける速報ニュースニュース風読みやすい標準字幕標準字幕ここがすごい！バラエティここで一気に加速！実況テロップ「そう思いました」インタビュ"
+      },
+      {
+        "key": "motion",
+        "text": "動き — かける・ホバーで再生フェードフェードソフトソフトフェード浮かぶ字幕フェードアップ降りる字幕フェードダウンSCENE TITLEシネマフェード左から左か"
+      },
+      {
+        "key": "font",
+        "text": "フォント — かける851チカラヅヨク851チカラヨワクあア亜 ABC 123AB-kirigirisu（ABキリギリス）BIZ UDGothicチェックアンド"
+      }
+    ],
+    "textLookVisibleWords": {
+      "hasOldWord": false,
+      "hasNewWord": false,
+      "hasStyle": true,
+      "hasMotion": true,
+      "hasFont": true
+    },
+    "font": {
+      "count": 31,
+      "sources": {
+        "catalogPreview": 18,
+        "otherPreview": 6,
+        "fallback": 7
+      },
+      "cards": [
+        {
+          "key": "851-chikara-dzuyoku",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "851-chikara-yowaku",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "ab-kirigirisu",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": true,
+          "source": "fallback"
+        },
+        {
+          "key": "biz-udgothic",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "check-and-oudan",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "corporate-logo-rounded",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "dela-gothic-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "dotgothic16",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "isego",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": true,
+          "source": "fallback"
+        },
+        {
+          "key": "klee-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "kso-kokuryuso",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "mgen-plus",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "mplus-1p",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "mplus-rounded-1c",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "noto-sans-jp",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "noto-serif-jp",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "ranobe-pop",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "reggae-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "rocknroll-one",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "ruika",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": true,
+          "source": "fallback"
+        },
+        {
+          "key": "shippori-mincho",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "ta-engeifude",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "ta-f1-blockline",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "ta-fugafude",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "togebara",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": true,
+          "source": "fallback"
+        },
+        {
+          "key": "vdl-logojr-black",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "vdl-v7-mincho",
+          "hasImage": true,
+          "previewPath": false,
+          "loaded": true,
+          "fallback": false,
+          "source": "other-preview"
+        },
+        {
+          "key": "wanpaku-ruika",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": true,
+          "source": "fallback"
+        },
+        {
+          "key": "zen-kaku-gothic-new",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": true,
+          "source": "fallback"
+        },
+        {
+          "key": "zen-maru-gothic",
+          "hasImage": true,
+          "previewPath": true,
+          "loaded": true,
+          "fallback": false,
+          "source": "catalog-preview"
+        },
+        {
+          "key": "zero-gothic",
+          "hasImage": false,
+          "previewPath": false,
+          "loaded": false,
+          "fallback": true,
+          "source": "fallback"
+        }
+      ]
+    },
+    "textAnimation": {
+      "count": 47,
+      "hoverMotion": [
+        {
+          "key": "textanim/fade-in-out",
+          "animationName": "none",
+          "duration": "0s",
+          "animationCount": 1,
+          "running": true,
+          "backgroundImage": "none",
+          "backgroundPosition": "0% 0%",
+          "opacity": "0.31224"
+        }
+      ]
+    },
+    "fontApply": {
+      "captionVisible": true,
+      "selection": 1,
+      "fontId": "851-chikara-dzuyoku",
+      "applyAction": true,
+      "editChanged": false,
+      "editFontsBefore": [],
+      "editFontsAfter": [],
+      "captionsChanged": true,
+      "selectedCaptionFontBefore": null,
+      "selectedCaptionFontAfter": "851チカラヅヨク",
+      "captionFontsBefore": [],
+      "captionFontsAfter": [
+        "\"font_family\":\"851チカラヅヨク\""
+      ]
+    },
+    "visibleWords": {
+      "hasOldWord": false,
+      "hasNewWord": false
+    },
+    "fontInventory": {
+      "directories": 31,
+      "previews": 18
+    }
+  },
+  "screenshots": [
+    "after/home.png",
+    "after/lut.png",
+    "after/transition-hover.png",
+    "after/home-details.png",
+    "after/text-look-top.png",
+    "after/text-look-motion.png",
+    "after/text-look-font.png",
+    "after/font.png",
+    "after/textanim-hover.png",
+    "after/font-apply.png",
+    "after/font-applied-preview.png"
+  ]
+}

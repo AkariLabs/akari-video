@@ -44,11 +44,11 @@ export const LIBRARY_GROUPS = [
     {
         label: '文字・飾り',
         categories: [
-            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: 'タイムラインへドラッグ、右クリックでプレイヘッド位置に置く', status: 'live', chipKey: 'preset:textstyle' },
-            { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選択中のテロップに適用（次のラウンドで有効化）', status: 'live', chipKey: 'preset:textanim' },
-            { key: 'font', label: 'フォント', icon: 'Aa', hint: '右クリックの「取り込む」でこのプロジェクトのフォントに追加', status: 'live', chipKey: 'font' },
+            { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: '選んだ文字に当てる・新しい文字として置く', status: 'live', chipKey: 'preset:textstyle' },
+            { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選んだ文字に当てる・ホバーで見本を再生', status: 'live', chipKey: 'preset:textanim' },
+            { key: 'font', label: 'フォント', icon: 'Aa', hint: '選んだ文字に書体を当てる', status: 'live', chipKey: 'font' },
             { key: 'shapes', label: '図形', icon: '◇', hint: '図形素材は近日利用できるようになります', status: 'soon' },
-            { key: 'stamps', label: 'スタンプ', icon: '✶', hint: 'スタンプ素材は近日利用できるようになります', status: 'soon' }
+            { key: 'stamps', label: 'イラスト', icon: '✶', hint: 'イラスト素材は近日利用できるようになります', status: 'soon' }
         ]
     },
     {
@@ -83,7 +83,7 @@ export interface LibraryPrimaryTile {
 export const LIBRARY_PRIMARY_TILES = [
     { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すかドラッグで置く', status: 'live' },
     { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '近日', status: 'soon' },
-    { key: 'stamps', kind: 'make', label: 'スタンプ', icon: '☺', hint: '近日', status: 'soon' },
+    { key: 'stamps', kind: 'make', label: 'イラスト', icon: '◇', hint: '近日', status: 'soon' },
     { key: 'image', kind: 'pick', label: '画像', icon: '▦', hint: '一覧から選ぶ', status: 'live' },
     { key: 'broll', kind: 'pick', label: 'B-roll', icon: '▶', hint: '一覧から選ぶ', status: 'live' },
     { key: 'bgm', kind: 'pick', label: 'BGM', icon: '♪', hint: '一覧から選ぶ', status: 'live' },
