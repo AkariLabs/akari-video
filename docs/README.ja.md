@@ -159,6 +159,7 @@
 | [contract-2026-09-25-shape-item-v1.md](./contract-2026-09-25-shape-item-v1.md) | 図形アイテム v1 — 値で写す path・角の丸み・線の端・吹き出し・グラデーション・内側の枠線 |
 | [contract-2026-09-13-extension-kit-v0.md](./contract-2026-09-13-extension-kit-v0.md) | 拡張キット v0 — manifest 要件・Store 導入・symlink 合成・Claude ローカル marketplace・更新 |
 | [contract-2026-09-25-image-ai-v0.md](./contract-2026-09-25-image-ai-v0.md) | 画像の AI v0 — キー 1 本・fal 差し替え口・対象だけの版照合・由来付き別案の再表示 |
+| [contract-2026-09-25-color-panel-v0.md](./contract-2026-09-25-color-panel-v0.md) | 色パネル v0 — インスペクターの色の欄（検索・履歴・このデザイン / ブランドキット / 写真の色・既定の単色とグラデーション）・色を作る窓・`akari.inspector.openColorPanel`・利用者ごとのブランドキット |
 
 ### 方向性メモ
 

@@ -385,6 +385,10 @@ export interface AkariProjectService {
     getLibraryFavorites(): Promise<string[]>;
     /** ★ を付ける / 外す。保存後の一覧を返す。 */
     setLibraryFavorite(key: string, favorite: boolean): Promise<string[]>;
+    /** ブランドキットの色（利用者ごと。brand-kit.ts）。 */
+    getBrandKitColors(): Promise<string[]>;
+    /** ブランドカラーを足す / 外す。保存後の一覧を返す。 */
+    updateBrandKitColor(op: 'add' | 'remove', color: string): Promise<string[]>;
     checkLibrary(projectUri?: string): Promise<{ ok: number; warnings: LibraryCheckFinding[]; errors: LibraryCheckFinding[] }>;
     projectCredits(projectUri: string): Promise<string[]>;
     getStoreConnectionStatus(): Promise<StoreConnectionStatus>;

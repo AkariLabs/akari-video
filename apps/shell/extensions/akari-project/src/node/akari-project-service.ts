@@ -1,5 +1,6 @@
 import { LibraryImportPlan, LibraryImportResult } from '../common/library-import';
 import { libraryFavoritesPath, readLibraryFavorites, setLibraryFavorite } from './library-favorites-store';
+import { brandKitPath, readBrandKit, updateBrandKit } from './brand-kit-store';
 import { AssetSite, AssetSiteListing, AssetSiteRecommendation, siteUrlAllowed } from '../common/asset-sites';
 import { libraryImportScript, libraryPacksScript, libraryImportWaveformScript } from './library-import-scripts';
 import { assetResolveOutcome, restrictedReferenceCount } from '../common/project-asset-reference';
@@ -921,6 +922,14 @@ process.stdout.write(JSON.stringify(await readLibraryUsage()));
 
     async setLibraryFavorite(key: string, favorite: boolean): Promise<string[]> {
         return setLibraryFavorite(libraryFavoritesPath(), key, favorite === true);
+    }
+
+    async getBrandKitColors(): Promise<string[]> {
+        return readBrandKit(brandKitPath());
+    }
+
+    async updateBrandKitColor(op: 'add' | 'remove', color: string): Promise<string[]> {
+        return updateBrandKit(brandKitPath(), op === 'remove' ? 'remove' : 'add', color);
     }
 
     async checkLibrary(projectUri?: string): Promise<{ ok: number; warnings: import('../common/akari-project-protocol').LibraryCheckFinding[]; errors: import('../common/akari-project-protocol').LibraryCheckFinding[] }> {

@@ -48,6 +48,8 @@ import {
     OPEN_AKARI_CANVAS,
     OPEN_AKARI_INSPECTOR,
     REVEAL_AKARI_INSPECTOR_FIELD,
+    OPEN_AKARI_INSPECTOR_COLOR_PANEL,
+    CLOSE_AKARI_INSPECTOR_COLOR_PANEL,
     OPEN_AKARI_REVIEW_BOARD,
     OPEN_AKARI_REVIEW_PANEL,
     OPEN_AKARI_SESSION_VIEWER,
@@ -393,6 +395,15 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 const widget = await this.openInspectorPanel();
                 widget?.revealCaptionField(argument);
             }
+        });
+        commands.registerCommand(OPEN_AKARI_INSPECTOR_COLOR_PANEL, {
+            execute: async (argument?: unknown): Promise<boolean> => {
+                const widget = await this.openInspectorPanel();
+                return widget?.openColorPanel(argument) ?? false;
+            }
+        });
+        commands.registerCommand(CLOSE_AKARI_INSPECTOR_COLOR_PANEL, {
+            execute: () => this.widgetManager.tryGetWidget<AkariInspectorWidget>(AkariInspectorWidget.FACTORY_ID)?.closeColorPanel()
         });
         commands.registerCommand(OPEN_AKARI_REVIEW_BOARD, {
             execute: () => this.openBoard()

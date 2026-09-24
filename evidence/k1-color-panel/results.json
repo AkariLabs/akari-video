@@ -1,0 +1,305 @@
+{
+  "checks": [
+    {
+      "name": "row swatch switches the inspector column to the color panel",
+      "pass": true,
+      "detail": "文字の色文字の色このデザインの色ブランドキット編集＋ ブランドカラーを追加写真の色デフォルトの単色すべて表示"
+    },
+    {
+      "name": "text panel has no gradient section",
+      "pass": true,
+      "detail": "no gradient"
+    },
+    {
+      "name": "text panel has no transparent dot",
+      "pass": true,
+      "detail": "no transparent"
+    },
+    {
+      "name": "tabs and rows are hidden while the panel is open",
+      "pass": true,
+      "detail": "rows hidden"
+    },
+    {
+      "name": "default solids: 28 → 42 with すべて表示",
+      "pass": true,
+      "detail": {
+        "collapsed": 28,
+        "expanded": 42,
+        "solidCount": 3
+      }
+    },
+    {
+      "name": "search 青 lists blue colors",
+      "pass": true,
+      "detail": [
+        "青緑",
+        "水色",
+        "水色",
+        "空色",
+        "青",
+        "紺",
+        "紺",
+        "青",
+        "紺"
+      ]
+    },
+    {
+      "name": "clicking a found color writes the caption color",
+      "pass": true,
+      "detail": "#38B6FF"
+    },
+    {
+      "name": "panel stays open after applying",
+      "pass": true,
+      "detail": "open"
+    },
+    {
+      "name": "applied color gets the current mark",
+      "pass": true,
+      "detail": "空色"
+    },
+    {
+      "name": "search #00c4cc shows that color",
+      "pass": true,
+      "detail": "#00C4CC"
+    },
+    {
+      "name": "text picker has no gradient tab",
+      "pass": true,
+      "detail": "solid only"
+    },
+    {
+      "name": "dragging the color square writes one color on release",
+      "pass": true,
+      "detail": "#1B7BB3"
+    },
+    {
+      "name": "history row shows used colors",
+      "pass": true,
+      "detail": 2
+    },
+    {
+      "name": "brand color is saved to AKARI_HOME/brand-kit.json",
+      "pass": true,
+      "detail": {
+        "schema": "akari-brand-kit/v0",
+        "colors": [
+          "#1B7BB3"
+        ]
+      }
+    },
+    {
+      "name": "photo colors: 5 colors from the placed photo",
+      "pass": true,
+      "detail": [
+        "#DBE1E4",
+        "#4C7A8C",
+        "#FDFEFE",
+        "#B0C4CC",
+        "#5C8696"
+      ]
+    },
+    {
+      "name": "design colors section lists colors used in this video",
+      "pass": true,
+      "detail": "このデザインの色"
+    },
+    {
+      "name": "back returns to the inspector rows",
+      "pass": true,
+      "detail": "rows"
+    },
+    {
+      "name": "openColorPanel command opens the panel for an item",
+      "pass": true,
+      "detail": true
+    },
+    {
+      "name": "item panel shows the transparent dot",
+      "pass": true,
+      "detail": "transparent"
+    },
+    {
+      "name": "solid color is written to the item fill",
+      "pass": true,
+      "detail": "#FF3131"
+    },
+    {
+      "name": "transparent writes fill: none",
+      "pass": true,
+      "detail": "none"
+    },
+    {
+      "name": "gradient on the v0 shape is refused with a notice and edit.json stays valid",
+      "pass": true,
+      "detail": "この項目には、まだグラデーションを保存できません。"
+    },
+    {
+      "name": "toggle: the same target closes the panel",
+      "pass": true,
+      "detail": false
+    },
+    {
+      "name": "gradient: ＋ adds a color (3 stops)",
+      "pass": true,
+      "detail": {
+        "type": "linear",
+        "angle": 90,
+        "stops": [
+          {
+            "color": "#A6A6A6",
+            "offset": 0
+          },
+          {
+            "color": "#545454",
+            "offset": 0.5
+          },
+          {
+            "color": "#FFFFFF",
+            "offset": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "gradient: the added color opens its small window",
+      "pass": true,
+      "detail": "stopbox"
+    },
+    {
+      "name": "small window: Esc closes",
+      "pass": true,
+      "detail": "closed"
+    },
+    {
+      "name": "small window: the same dot again closes",
+      "pass": true,
+      "detail": "closed"
+    },
+    {
+      "name": "style 放射 makes a 3-color radial gradient",
+      "pass": true,
+      "detail": {
+        "type": "radial",
+        "stops": [
+          {
+            "color": "#A6A6A6",
+            "offset": 0
+          },
+          {
+            "color": "#545454",
+            "offset": 0.5
+          },
+          {
+            "color": "#FFFFFF",
+            "offset": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "trash is enabled with 3 colors",
+      "pass": true,
+      "detail": "enabled"
+    },
+    {
+      "name": "alpha bar sets #RRGGBBAA on that color only",
+      "pass": true,
+      "detail": [
+        {
+          "color": "#A6A6A6",
+          "offset": 0
+        },
+        {
+          "color": "#54545480",
+          "offset": 0.5
+        },
+        {
+          "color": "#FFFFFF",
+          "offset": 1
+        }
+      ]
+    },
+    {
+      "name": "dragging inside keeps the small window open",
+      "pass": true,
+      "detail": "open"
+    },
+    {
+      "name": "a drag writes once on release",
+      "pass": true,
+      "detail": 3
+    },
+    {
+      "name": "small window: clicking outside closes",
+      "pass": true,
+      "detail": "closed"
+    },
+    {
+      "name": "trash removes that color",
+      "pass": true,
+      "detail": [
+        {
+          "color": "#CC292980",
+          "offset": 0
+        },
+        {
+          "color": "#FFFFFF",
+          "offset": 1
+        }
+      ]
+    },
+    {
+      "name": "trash is disabled with 2 colors",
+      "pass": true,
+      "detail": "disabled"
+    },
+    {
+      "name": "up to 5 colors (＋ disappears at 5)",
+      "pass": true,
+      "detail": 5
+    },
+    {
+      "name": "5 styles: 横・縦・斜め ↘・放射・斜め ↗",
+      "pass": true,
+      "detail": [
+        "横",
+        "縦",
+        "斜め ↘",
+        "放射",
+        "斜め ↗"
+      ]
+    },
+    {
+      "name": "history holds gradients as single dots (max 8)",
+      "pass": true,
+      "detail": 8
+    },
+    {
+      "name": "light theme repaints the panel with theme tokens",
+      "pass": true,
+      "detail": "rgb(229, 229, 229)"
+    },
+    {
+      "name": "brand color shows up in another project",
+      "pass": true,
+      "detail": [
+        "#1B7BB3"
+      ]
+    }
+  ],
+  "shots": [
+    "01-panel-dark.png",
+    "02-search-blue.png",
+    "03-picker-dark.png",
+    "04-brand-photo-dark.png",
+    "05-item-fill-dark.png",
+    "06-gradient-window-dark.png",
+    "07-gradient-window-light.png",
+    "08-text-panel-light.png",
+    "09-brand-other-project.png"
+  ],
+  "passed": 40,
+  "failed": 0
+}
