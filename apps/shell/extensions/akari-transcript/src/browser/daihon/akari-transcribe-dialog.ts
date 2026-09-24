@@ -7,6 +7,7 @@ import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { AkariProjectService, MaterialTranscriptEvent, TranscribeArtifacts, TranscribeOptions } from 'akari-project/lib/common/akari-project-protocol';
 import { transcribeModeView, TranscribeMode, transcribeEngineAvailability, TranscribeToolStatus, TranscribeConnectionStatus, advanceTranscribeSteps, analysisTranscriptSummary, backendKey, completedColumns, initialEngineSelection, startTranscribeSteps, transcribeExitOptions, transcribeSummary, TranscribeDialogResult, TranscribeExit, TranscribeStepState } from '../../common/transcribe-steps';
+export { transcribeEngineList } from '../../common/transcribe-steps';
 import { AKARI_TRANSCRIPT_SEEK_REQUESTED } from '../akari-transcript-commands';
 import { CaptionsApplyPreview, captionsAppliedLine, captionsApplyHistoryLabel, captionsApplyPreviewLine, daihonHistoryService, parseCaptionsApplyPreview } from '../../common/captions-button';
 
@@ -126,11 +127,12 @@ export class AkariTranscribeDialog extends AbstractDialog<TranscribeDialogResult
         protected readonly files: FileService, protected readonly commands: CommandService,
         protected readonly listen: (start: number, end: number) => Promise<void>,
         protected readonly alreadyTranscribed = false,
-        protected readonly autoStart = false) {
+        protected readonly autoStart = false, initialBackend?: string) {
         super({ title: '文字起こし' });
         this.mode = preferences.get('akari.transcribe.mode') === 'advanced' ? 'advanced' : 'simple';
         this.toDispose.push({ dispose: () => clearInterval(this.progressTimer) });
         this.selection = initialEngineSelection(preferences.get('akari.transcribe.backend', 'auto'), preferences.get<string[]>('akari.transcribe.compareSet', []));
+        if (initialBackend !== undefined) this.selection.backend = initialBackend;
         this.node.dataset.akariTranscribeDialog = 'true';
         Object.assign(this.contentNode.parentElement!.style, { width: 'min(1060px, calc(100vw - 48px))', height: 'min(730px, calc(100vh - 48px))', minWidth: '0', borderRadius: '12px', background: '#20242b' });
         Object.assign(this.contentNode.style, { padding: '0', display: 'flex', flexDirection: 'column', flex: '1', minHeight: '0', maxHeight: 'none', color: '#e9ecf2' });

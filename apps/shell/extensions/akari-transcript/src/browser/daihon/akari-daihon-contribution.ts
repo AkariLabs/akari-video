@@ -16,14 +16,16 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { OPEN_AKARI_DAIHON } from '../akari-transcript-commands';
 import { AkariCutsWidget } from './akari-cuts-widget';
 import { AkariDaihonWidget } from './akari-daihon-widget';
-import { AkariTranscribeDialog, listenTranscribeRange } from './akari-transcribe-dialog';
+import { AkariTranscribeDialog, listenTranscribeRange, TRANSCRIBE_ENGINE_CARDS, transcribeEngineList } from './akari-transcribe-dialog';
 import { AkariEditHistoryService } from 'akari-annotations/lib/browser/akari-edit-history-service';
 import { DaihonOpenTarget } from '../../common/daihon-focus-target';
 import { setDaihonHistoryService } from '../../common/captions-button';
+import { TranscribeConnectionStatus, TranscribeToolStatus } from '../../common/transcribe-steps';
 
 const DAIHON_PANEL_RANK = 190;
 export const OPEN_AKARI_CUTS: Command = { id: 'akari.cuts.open', label: 'カット候補を開く' };
 export const AKARI_TRANSCRIBE_OPEN_DIALOG: Command = { id: 'akari.transcribe.openDialog', label: '文字起こしのポップアップを開く' };
+export const AKARI_TRANSCRIBE_ENGINES: Command = { id: 'akari.transcribe.engines', label: '文字起こしエンジン一覧' };
 
 @injectable()
 export class AkariDaihonContribution implements CommandContribution, FrontendApplicationContribution {
@@ -68,12 +70,22 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
         commands.registerCommand(OPEN_AKARI_DAIHON, { execute: (target?: DaihonOpenTarget) => this.open(target) });
         commands.registerCommand(OPEN_AKARI_CUTS, { execute: (request?: { candidateId?: string }) => this.openCuts(request) });
         commands.registerCommand(AKARI_TRANSCRIBE_OPEN_DIALOG, {
-            execute: (request: { projectRoot: string; relativePath: string }) => this.openTranscribeDialog(commands, request)
+            execute: (request: { projectRoot: string; relativePath: string; backend?: string; autoStart?: boolean }) => this.openTranscribeDialog(commands, request)
         });
+        commands.registerCommand(AKARI_TRANSCRIBE_ENGINES, { execute: async (request: { projectRoot: string }) => {
+            if (!request?.projectRoot) throw new Error('プロジェクトが指定されていません');
+            const [tools, connections] = await Promise.all([
+                commands.executeCommand<{ tools: TranscribeToolStatus[] }>('akari.settings.readStatus', '/services/akari-surfaces-new-project')
+                    .then(result => result?.tools ?? [], () => [] as TranscribeToolStatus[]),
+                commands.executeCommand<{ providers: TranscribeConnectionStatus[] }>('akari.settings.readStatus', '/services/akari-surfaces-connections')
+                    .then(result => result?.providers ?? [], () => [] as TranscribeConnectionStatus[])
+            ]);
+            return transcribeEngineList(TRANSCRIBE_ENGINE_CARDS, tools, connections, this.preferences.get('akari.transcribe.backend', 'auto'));
+        } });
     }
 
     protected async openTranscribeDialog(commands: CommandRegistry,
-        request: { projectRoot: string; relativePath: string }): Promise<'opened' | 'running' | 'cancelled'> {
+        request: { projectRoot: string; relativePath: string; backend?: string; autoStart?: boolean }): Promise<'opened' | 'running' | 'cancelled'> {
         if (!request?.projectRoot || !request.relativePath) throw new Error('文字起こし対象が指定されていません');
         const states = await this.projectService.transcriptStates({
             projectRoot: request.projectRoot, relativePaths: [request.relativePath]
@@ -87,7 +99,7 @@ export class AkariDaihonContribution implements CommandContribution, FrontendApp
                 stopListening = await listenTranscribeRange(commands, this.shell, this.opener,
                     root.resolve(request.relativePath).normalizePath().toString(), start, end);
                 if (dialog.isDisposed) stopListening();
-            }, states[request.relativePath] === 'done', true);
+            }, states[request.relativePath] === 'done', request.autoStart ?? true, request.backend);
         await dialog.open().finally(() => stopListening?.());
         return dialog.wasCancelled ? 'cancelled' : 'opened';
     }

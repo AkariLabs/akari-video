@@ -104,12 +104,14 @@ test('専用パネル: 対象解決・まだの openDialog 引数・running・�
   const calls = [];
   let result;
   const commands = { executeCommand: async (...args) => { calls.push(args); return 'running'; } };
-  const base = { projectRoot: 'file:///project', target, commands, onDialogResult: value => { result = value; } };
+  const base = { projectRoot: 'file:///project', target, commands, onDialogResult: value => { result = value; },
+    engines: [{ id: 'auto', label: 'おまかせ（ローカル優先）', place: 'ローカル優先', price: '無料', hourlyUsd: 0,
+      availability: { state: 'available', label: '使える' }, default: true }] };
   const parent = new Node('div');
   appendAiTranscribePanel(parent, { ...base, summary: { state: 'none', segments: [], total: 0 }, running: false });
   find(parent, byText('文字起こしする')).click();
   await tick();
-  assert.deepEqual(calls[0], ['akari.transcribe.openDialog', { projectRoot: 'file:///project', relativePath: 'assets/interview.wav' }]);
+  assert.deepEqual(calls[0], ['akari.transcribe.openDialog', { projectRoot: 'file:///project', relativePath: 'assets/interview.wav', backend: 'auto', autoStart: true }]);
   assert.equal(result, 'running');
   const running = new Node('div');
   appendAiTranscribePanel(running, { ...base, summary: { state: 'none', segments: [], total: 0 }, running: true });
