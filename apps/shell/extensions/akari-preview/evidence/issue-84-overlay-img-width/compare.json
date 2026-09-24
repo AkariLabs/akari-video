@@ -1,0 +1,402 @@
+{
+  "compat": {
+    "exportClasses": {
+      "frame:tl": "green",
+      "frame:tc": "green",
+      "frame:tr": "green",
+      "frame:ml": "green",
+      "frame:mc": "green",
+      "frame:mr": "green",
+      "frame:bl": "green",
+      "frame:bc": "green",
+      "frame:br": "green",
+      "frame:r-inner-900": "green",
+      "outside:right-of-frame": "grey",
+      "outside:below-frame": "grey",
+      "cap:x200": "red",
+      "cap:x500": "grey",
+      "vw:center": "magenta",
+      "px:center": "yellow",
+      "bg:top-left": "grey"
+    },
+    "rows": {
+      "shell-main(before)": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 600,
+        "kbdBorder": "1px",
+        "codeColor": "rgb(215, 186, 125)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": [
+          "cap:x500: red (export grey)"
+        ]
+      },
+      "shell-v0.1.79-sim": {
+        "imgW": 960,
+        "imgH": 240,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "100%",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "1px",
+        "codeColor": "rgb(215, 186, 125)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": [
+          "frame:tl: blue (export green)",
+          "frame:tc: blue (export green)",
+          "frame:tr: blue (export green)",
+          "frame:ml: blue (export green)",
+          "frame:mc: blue (export green)",
+          "frame:mr: blue (export green)",
+          "frame:bl: blue (export green)",
+          "frame:bc: blue (export green)",
+          "frame:br: blue (export green)",
+          "frame:r-inner-900: blue (export green)"
+        ]
+      },
+      "shell-after": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "0px",
+        "codeColor": "rgb(238, 238, 238)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": []
+      },
+      "webui-before": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "0px",
+        "codeColor": "rgb(238, 238, 238)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": []
+      },
+      "webui-after": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "0px",
+        "codeColor": "rgb(238, 238, 238)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": []
+      }
+    },
+    "checks": {
+      "imgWidth1300": true,
+      "imgPos": true,
+      "pixelsMatchExport": true,
+      "webuiPixelsMatchExport": true,
+      "vwBoxUnchanged": true,
+      "pxBoxUnchanged": true,
+      "authorCapHonoured": true
+    }
+  },
+  "source": {
+    "exportClasses": {
+      "frame:tl": "green",
+      "frame:tc": "green",
+      "frame:tr": "green",
+      "frame:ml": "green",
+      "frame:mc": "green",
+      "frame:mr": "green",
+      "frame:bl": "green",
+      "frame:bc": "green",
+      "frame:br": "green",
+      "frame:r-inner-900": "green",
+      "outside:right-of-frame": "grey",
+      "outside:below-frame": "grey",
+      "cap:x200": "red",
+      "cap:x500": "grey",
+      "vw:center": "magenta",
+      "px:center": "yellow",
+      "bg:top-left": "grey"
+    },
+    "rows": {
+      "shell-main(before)": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 600,
+        "kbdBorder": "1px",
+        "codeColor": "rgb(215, 186, 125)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": [
+          "cap:x500: red (export grey)"
+        ]
+      },
+      "shell-v0.1.79-sim": {
+        "imgW": 960,
+        "imgH": 240,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "100%",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "1px",
+        "codeColor": "rgb(215, 186, 125)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": [
+          "frame:tl: blue (export green)",
+          "frame:tc: blue (export green)",
+          "frame:tr: blue (export green)",
+          "frame:ml: blue (export green)",
+          "frame:mc: blue (export green)",
+          "frame:mr: blue (export green)",
+          "frame:bl: blue (export green)",
+          "frame:bc: blue (export green)",
+          "frame:br: blue (export green)",
+          "frame:r-inner-900: blue (export green)"
+        ]
+      },
+      "shell-after": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "0px",
+        "codeColor": "rgb(238, 238, 238)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": []
+      },
+      "webui-before": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "0px",
+        "codeColor": "rgb(238, 238, 238)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": []
+      },
+      "webui-after": {
+        "imgW": 1300,
+        "imgH": 521.969,
+        "imgRelToFrame": {
+          "x": -152,
+          "y": -270
+        },
+        "imgMaxWidth": "none",
+        "frame": {
+          "x": 60,
+          "y": 840,
+          "w": 960,
+          "h": 240
+        },
+        "capImgW": 300,
+        "kbdBorder": "0px",
+        "codeColor": "rgb(238, 238, 238)",
+        "vwBox": {
+          "x": 108,
+          "y": 96,
+          "w": 324,
+          "h": 192
+        },
+        "pxBox": {
+          "x": 700,
+          "y": 1500,
+          "w": 300,
+          "h": 200
+        },
+        "pixelMismatchVsExport": []
+      }
+    },
+    "checks": {
+      "imgWidth1300": true,
+      "imgPos": true,
+      "pixelsMatchExport": true,
+      "webuiPixelsMatchExport": true,
+      "vwBoxUnchanged": true,
+      "pxBoxUnchanged": true,
+      "authorCapHonoured": true
+    }
+  }
+}

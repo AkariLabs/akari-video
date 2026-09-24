@@ -206,6 +206,10 @@ import { PreviewGestureGuard, reducePreviewGesture } from '../common/preview-ges
 import { summarizePreviewError } from '../common/preview-error-summary';
 import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
 import { createRafThrottle } from '../common/raf-throttle';
+import {
+    neutralizeWebviewDefaultStylesForOverlays,
+    scopeSelectorOutsideOverlays
+} from '../common/webview-default-style-scope';
 import { createSharedDurationProbe } from '../common/sfx-duration-probe';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
 import {
@@ -7366,6 +7370,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${streamOrigin}; connect-src ${streamOrigin} blob:; img-src ${streamOrigin} blob: data:; script-src 'unsafe-inline' ${assetOrigin}; style-src 'unsafe-inline'; font-src ${assetOrigin} data:${frameEngineCsp}">
 <!-- 第13項の compute-pressure ガードと初期化段の診断は、どのバンドルよりも先に走らせる。 -->
 <script>${this.previewDiagnosticsGuardScript()}</script>
+<script>(${neutralizeWebviewDefaultStylesForOverlays.toString()})(document, ${scopeSelectorOutsideOverlays.toString()});</script>
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontUrl)}
@@ -7574,7 +7579,6 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
 #caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
-#overlay-stage [data-overlay-id] img { max-width: none; max-height: none; }
 #akari-gen-overlay { --akari-gen-inv-scale: 1; --akari-gen-band-space: 0px; position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
 #akari-gen-overlay *, #akari-gen-overlay *::before, #akari-gen-overlay *::after { pointer-events: none; }
 #akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
