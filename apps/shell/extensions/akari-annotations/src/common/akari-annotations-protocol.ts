@@ -1,6 +1,7 @@
 import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
 import type { CaptionDisplayPolicy, CaptionTextStyle, CaptionTextStylePatch } from '@akari-video/edit-store';
 import type { GenerationBindingView, GenerationSidecarMeta } from './generation-sidecar';
+import type { ImageAiBinding } from './image-ai-binding';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -1058,4 +1059,17 @@ export interface ImportAdjustLutResult { ref: string; }
 export interface AkariAnnotationsService {
     listAdjustLuts(request: ListAdjustLutsRequest): Promise<ListAdjustLutsResult>;
     importAdjustLut(request: ImportAdjustLutRequest): Promise<ImportAdjustLutResult>;
+}
+
+export interface ImageAiInspection {
+    binding: ImageAiBinding; bytes: number; width: number | null; height: number | null;
+    priceUsd: number | null; provider: string; model: string; configured: boolean;
+    alternatives: ImageAiResult[];
+}
+export interface ImageAiResult { binding: ImageAiBinding; relativePath: string; model: string; provider: string; }
+export interface AkariAnnotationsService {
+    imageAiInspect(projectRootUri: string, itemId: string): Promise<ImageAiInspection>;
+    imageAiUpscale(request: { projectRootUri: string; binding: ImageAiBinding; jobId: string }): Promise<ImageAiResult>;
+    imageAiCancel(jobId: string): Promise<void>;
+    imageAiGenerateBackground(request: { projectRootUri: string; itemId: string; prompt: string; maskPath?: string }): Promise<ImageAiResult>;
 }
