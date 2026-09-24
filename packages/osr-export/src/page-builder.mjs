@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { resolveCaptionPlan } from "../../render-cut/src/caption-resolve.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { embedFragmentAssets } from "../../render-cut/src/fragment-assets.mjs";
-import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
+import { resolveDeclaredProjectInput, resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { stampFunctionSource } from "./stamp.mjs";
@@ -205,7 +205,7 @@ export async function loadAndBuildOsrPage({
     const expanded = { ...overlay, z: resolveRecordTrackZ(trackZByItemId, overlay) };
     if (typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")) return expanded;
     const htmlPath = overlay.html;
-    const html = await readFile(resolve(projectRoot, htmlPath), "utf8");
+    const html = await readFile(resolveDeclaredProjectInput(projectRoot, htmlPath, `overlay:${overlay.id}`, process.env), "utf8");
     return { ...expanded, htmlPath, html: embedFragmentAssets(html, { projectRoot, htmlPath, overlayId: overlay.id }) };
   }));
   let lutCubeText = null;

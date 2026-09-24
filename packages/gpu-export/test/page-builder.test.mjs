@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 
 import { extractCaptionMeasureDiffs, gpuRawFramePath, parseElectronArguments } from "../src/electron-main.mjs";
@@ -44,6 +44,53 @@ test("file-backed overlay images embed before page construction", async (t) => {
   await assert.rejects(loadAndBuildGpuPage({ projectRoot, duration: 1 }), error =>
     error.constructor.name === "RenderInputError"
       && ["overlay:logo", "overlays/fragment.html", "../assets/x.png"].every(value => error.message.includes(value)));
+});
+
+test("referenced overlay HTML and its relative image resolve from the library", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-page-overlay-reference-"));
+  const previousHome = process.env.AKARI_HOME;
+  try {
+    const projectRoot = join(root, "project");
+    const home = join(root, "home");
+    const htmlPath = "assets/overlay/frame/frame.html";
+    const libraryHtml = join(home, "assets", "overlay", "frame", "frame.html");
+    const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+    await mkdir(join(projectRoot, ".akari"), { recursive: true });
+    await mkdir(dirname(libraryHtml), { recursive: true });
+    await writeFile(libraryHtml, '<img src="art.png">');
+    await writeFile(join(dirname(libraryHtml), "art.png"), image);
+    await writeFile(join(projectRoot, ".akari", "asset-references.json"), JSON.stringify({
+      version: 0, references: [{ category: "overlay", id: "frame" }],
+    }));
+    await writeFile(join(projectRoot, "edit.json"), JSON.stringify({
+      version: 2, output: { width: 64, height: 36, fps: 30 }, sources: [],
+      tracks: [{ id: "visual", lane: "visual", items: [
+        { id: "frame", at: 0, duration: 30, source: { kind: "html", path: htmlPath } },
+      ] }],
+    }));
+    process.env.AKARI_HOME = home;
+
+    const referenced = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
+    assert.equal(referenced.edit.overlays[0].htmlPath, htmlPath);
+    assert.equal(referenced.spriteManifest.statics[0].html,
+      `<img src="data:image/png;base64,${image.toString("base64")}">`);
+
+    const projectHtml = join(projectRoot, htmlPath);
+    await mkdir(dirname(projectHtml), { recursive: true });
+    await writeFile(projectHtml, "<div>project copy</div>");
+    const local = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
+    assert.equal(local.spriteManifest.statics[0].html, "<div>project copy</div>");
+
+    await rm(projectHtml);
+    await writeFile(join(projectRoot, ".akari", "asset-references.json"),
+      JSON.stringify({ version: 0, references: [] }));
+    await assert.rejects(loadAndBuildGpuPage({ projectRoot, duration: 1 }),
+      /overlay:frame could not be resolved.*ENOENT/u);
+  } finally {
+    if (previousHome === undefined) delete process.env.AKARI_HOME;
+    else process.env.AKARI_HOME = previousHome;
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 const require = createRequire(import.meta.url);

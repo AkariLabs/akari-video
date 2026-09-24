@@ -1,6 +1,6 @@
 {
   "phase": "after",
-  "base": "a8caef72",
+  "base": "d4b37c76",
   "checks": [
     {
       "name": "右クリック「字幕にひも付ける…」: 効果音 sfx-a を c-0001 の登場へ（anchor = {caption c-0001, edge start, duration own}・at 0 のまま）",
@@ -174,18 +174,18 @@
       "name": "保存 → style.json の parts = {look, motion, sfx, decor}（順不同）・sfx = 登場 / 素材 audio:sfx-pop・decor = 全体 / 素材 overlay:deco-frame・絶対パスなし",
       "pass": true,
       "detail": {
-        "relativeFile": "styles/my-style-e7f9dcdf/style.json",
+        "relativeFile": "styles/my-style-a409a9e1/style.json",
         "style": {
           "schema": "akari-style",
           "version": 1,
           "revision": 1,
-          "uid": "01M396TE5H5EB0N9FSDXZD45FW",
-          "id": "my-style-e7f9dcdf",
+          "uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
+          "id": "my-style-a409a9e1",
           "name": "登場でポンと鳴る枠つき",
           "when_to_use": "大事な一言に音と枠を添えたいとき",
           "sample_text": "今日は朝のルーティンを紹介します",
-          "created_at": "2026-09-24T07:59:28.432Z",
-          "updated_at": "2026-09-24T07:59:28.432Z",
+          "created_at": "2026-09-24T09:21:37.358Z",
+          "updated_at": "2026-09-24T09:21:37.358Z",
           "tags": [],
           "visibility": "private",
           "price": null,
@@ -355,7 +355,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0002"
                 }
               }
@@ -373,7 +373,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0002"
                 }
               }
@@ -393,7 +393,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0003"
                 }
               }
@@ -411,7 +411,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0003"
                 }
               }
@@ -423,7 +423,7 @@
             "c-0002",
             "c-0003"
           ],
-          "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+          "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
           "revision": 1,
           "parts": [
             "look",
@@ -431,7 +431,7 @@
             "decor",
             "sfx"
           ],
-          "applied_at": "2026-09-24T07:59:40.846Z"
+          "applied_at": "2026-09-24T09:21:45.854Z"
         }
       }
     },
@@ -453,7 +453,7 @@
             "c-0002",
             "c-0003"
           ],
-          "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+          "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
           "revision": 1,
           "parts": [
             "look",
@@ -461,7 +461,7 @@
             "decor",
             "sfx"
           ],
-          "applied_at": "2026-09-24T07:59:49.405Z"
+          "applied_at": "2026-09-24T09:21:50.192Z"
         }
       }
     },
@@ -484,7 +484,7 @@
               "offset": 0,
               "duration": "caption",
               "attached_by": {
-                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                 "caption": "c-0002"
               }
             }
@@ -502,7 +502,7 @@
               "offset": 0,
               "duration": "own",
               "attached_by": {
-                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                 "caption": "c-0002"
               }
             }
@@ -581,7 +581,7 @@
               "offset": 0,
               "duration": "caption",
               "attached_by": {
-                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                 "caption": "c-0002"
               }
             }
@@ -599,7 +599,7 @@
               "offset": 0,
               "duration": "own",
               "attached_by": {
-                "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                 "caption": "c-0002"
               }
             }
@@ -740,7 +740,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0002"
                 }
               }
@@ -758,7 +758,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0002"
                 }
               }
@@ -778,7 +778,7 @@
                 "offset": 0,
                 "duration": "caption",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0003"
                 }
               }
@@ -796,7 +796,7 @@
                 "offset": 0,
                 "duration": "own",
                 "attached_by": {
-                  "style_uid": "01M396TE5H5EB0N9FSDXZD45FW",
+                  "style_uid": "01M39BGVJE1JKS7ED4A6Z1V3YN",
                   "caption": "c-0003"
                 }
               }
@@ -824,9 +824,150 @@
       }
     },
     {
-      "name": "参照のまま（素材をまとめずに）書き出す: render-cut exit 0",
-      "pass": false,
-      "error": "Error: render-cut exit 2: [\"    at async runGpuExport (file://<worktree>/packages/gpu-export/src/electron-main.mjs:153:17)\",\"    at async runCli (file://<worktree>/packages/gpu-export/src/electron-main.mjs:745:9)\",\"render-cut execution error: OSR Electron exited 1 (no signal)\"] at [\"packages/gpu-export/src/page-builder.mjs:378\",\"packages/gpu-export/src/page-builder.mjs:373\",\"packages/gpu-export/src/electron-main.mjs:153\",\"packages/gpu-export/src/electron-main.mjs:745\"]\n    at assert (file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:37:64)\n    at file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:488:9\n    at async check (file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:41:27)\n    at async file://<worktree>/apps/shell/extensions/akari-project/evidence/mystyle-attach-parts/scripts/after.mjs:484:5"
+      "name": "参照のまま（素材をまとめずに）render-cut --engine gpu: exit 0・効果音の立ち上がり = A・B・C の字幕の頭 / 装飾 = 字幕の間だけ",
+      "pass": true,
+      "detail": {
+        "exit": 0,
+        "seconds": 7,
+        "rasterizer": {
+          "planned": "gpu",
+          "adopted": "gpu",
+          "attempts": [
+            {
+              "method": "gpu",
+              "status": "adopted",
+              "reason": null
+            }
+          ]
+        },
+        "references": [
+          "audio:sfx-pop",
+          "overlay:deco-frame"
+        ],
+        "onsets": [
+          0,
+          3.5,
+          6
+        ],
+        "colors": {
+          "A": {
+            "t": 1.25,
+            "rgb": [
+              252,
+              60,
+              122
+            ]
+          },
+          "B": {
+            "t": 4.75,
+            "rgb": [
+              252,
+              60,
+              122
+            ]
+          },
+          "C": {
+            "t": 7.25,
+            "rgb": [
+              252,
+              60,
+              122
+            ]
+          },
+          "gap-after-A": {
+            "t": 3,
+            "rgb": [
+              37,
+              47,
+              62
+            ]
+          },
+          "after-C": {
+            "t": 9,
+            "rgb": [
+              37,
+              47,
+              62
+            ]
+          }
+        },
+        "renderTail": [
+          "PASS: exports/attach-parts-reference-only-gpu.mp4"
+        ]
+      }
+    },
+    {
+      "name": "参照のまま（素材をまとめずに）render-cut --engine osr: exit 0・効果音の立ち上がり = A・B・C の字幕の頭 / 装飾 = 字幕の間だけ",
+      "pass": true,
+      "detail": {
+        "exit": 0,
+        "seconds": 20,
+        "rasterizer": {
+          "planned": "osr",
+          "adopted": "osr",
+          "attempts": [
+            {
+              "method": "osr",
+              "status": "adopted",
+              "reason": null
+            }
+          ]
+        },
+        "references": [
+          "audio:sfx-pop",
+          "overlay:deco-frame"
+        ],
+        "onsets": [
+          0,
+          3.5,
+          6
+        ],
+        "colors": {
+          "A": {
+            "t": 1.25,
+            "rgb": [
+              251,
+              59,
+              120
+            ]
+          },
+          "B": {
+            "t": 4.75,
+            "rgb": [
+              253,
+              59,
+              124
+            ]
+          },
+          "C": {
+            "t": 7.25,
+            "rgb": [
+              253,
+              59,
+              124
+            ]
+          },
+          "gap-after-A": {
+            "t": 3,
+            "rgb": [
+              37,
+              47,
+              62
+            ]
+          },
+          "after-C": {
+            "t": 9,
+            "rgb": [
+              37,
+              47,
+              62
+            ]
+          }
+        },
+        "renderTail": [
+          "PASS: exports/attach-parts-reference-only-osr.mp4"
+        ]
+      }
     },
     {
       "name": "書き出し（「素材をまとめる」→ render-cut）: 効果音の立ち上がり = A・B・C の字幕の頭 / 装飾（枠の色）= 字幕の間だけ",

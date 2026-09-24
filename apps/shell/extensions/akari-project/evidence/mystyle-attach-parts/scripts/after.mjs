@@ -468,6 +468,31 @@ try {
     await writeFile(RESULTS, `${S(scrub(out), null, 2)}\n`);
 }
 
+// 書き出した動画の測り方（r0 と同じ）: 音の立ち上がり = A・B・C の字幕の頭 / 装飾の枠の色 = 字幕の間だけ
+function measureExport(exported) {
+    // 音: 1/30 秒ごとの RMS（-45 dB を超えたところを立ち上がりとする）
+    const a = spawnSync(FFMPEG, ['-hide_banner', '-nostdin', '-i', exported, '-af', 'asetnsamples=n=1600:p=0,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const lines = a.stdout.split('\n');
+    const levels = [];
+    for (let i = 0; i < lines.length; i++) {
+        const t = /pts_time:([\d.]+)/.exec(lines[i]);
+        const v = t && /RMS_level=(-?[\d.]+|-inf)/.exec(lines[i + 1] ?? '');
+        if (t && v) levels.push({ t: Number(t[1]), db: v[1] === '-inf' ? -200 : Number(v[1]) });
+    }
+    const onsets = levels.filter((x, i) => x.db > -45 && (i === 0 || levels[i - 1].db <= -45)).map(x => Math.round(x.t * 1000) / 1000);
+    const starts = ['c-0001', 'c-0002', 'c-0003'].map(id => finalState.captions[id][0]);
+    assert(onsets.length === 3 && starts.every((s, i) => Math.abs(onsets[i] - s) <= 0.05), `onsets ${S(onsets)} vs caption starts ${S(starts)}`);
+    // 装飾: 枠の左の線（x=54, y=90）の色（yuv420p なので 2×2 で切り出して左上の画素を読む）
+    const pixel = t => { const p = spawnSync(FFMPEG, ['-hide_banner', '-nostdin', '-loglevel', 'error', '-ss', String(t), '-i', exported, '-frames:v', '1', '-vf', 'crop=2:2:54:90', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1024 }); return [...p.stdout].slice(0, 3); };
+    const pink = rgb => rgb[0] > 190 && rgb[1] < 130 && rgb[2] > 80;
+    const mid = id => (finalState.captions[id][0] + finalState.captions[id][1]) / 2;
+    const probes = { A: mid('c-0001'), B: mid('c-0002'), C: mid('c-0003'), 'gap-after-A': (finalState.captions['c-0001'][1] + finalState.captions['c-0002'][0]) / 2, 'after-C': finalState.captions['c-0003'][1] + 0.5 };
+    const colors = Object.fromEntries(Object.entries(probes).map(([k, t]) => [k, { t, rgb: pixel(t) }]));
+    for (const k of ['A', 'B', 'C']) assert(pink(colors[k].rgb), `${k} deco not visible ${S(colors[k])}`);
+    for (const k of ['gap-after-A', 'after-C']) assert(!pink(colors[k].rgb), `${k} deco visible ${S(colors[k])}`);
+    return { onsets, colors };
+}
+
 // ===== 9. 書き出し（render-cut）→ 音の立ち上がりと装飾の色 =====
 if (finalState) {
     const exported = path.join(PJ, 'exports', 'attach-parts.mp4'); // 出力はプロジェクト内に限る（render-cut の制約）
@@ -480,14 +505,25 @@ if (finalState) {
         assert(r.status === 0, `plan-only exit ${r.status}: ${S(tail(r))}`);
         return { exit: r.status, tail: tail(r) };
     });
-    const referenceOnlyOut = path.join(PJ, 'exports', 'attach-parts-reference-only.mp4');
-    await check('参照のまま（素材をまとめずに）書き出す: render-cut exit 0', async () => {
-        await rm(referenceOnlyOut, { force: true });
-        const r = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), PJ, '--out', referenceOnlyOut, '--force'], { cwd: REPO, encoding: 'utf8', env: renderEnv, timeout: 1_800_000 });
-        const at = [...(r.stderr || '').matchAll(/packages\/[a-z-]+\/src\/[a-z-]+\.mjs:\d+/g)].map(m => m[0]);
-        assert(r.status === 0, `render-cut exit ${r.status}: ${S(tail(r))} at ${S([...new Set(at)])}`);
-        return { exit: r.status, tail: tail(r) };
-    });
+    // r2: 参照のまま（素材をまとめずに）gpu と osr の両方で書き出し、r0 と同じ測り方（音の立ち上がり・装飾の枠の色）で確かめる。
+    //     GPU / OSR の page-builder（別の Electron プロセス）も html と fragment の参照を参照台帳でライブラリの実体へ解決する
+    for (const engine of ['gpu', 'osr']) {
+        const referenceOnlyOut = path.join(PJ, 'exports', `attach-parts-reference-only-${engine}.mp4`);
+        await check(`参照のまま（素材をまとめずに）render-cut --engine ${engine}: exit 0・効果音の立ち上がり = A・B・C の字幕の頭 / 装飾 = 字幕の間だけ`, async () => {
+            await rm(referenceOnlyOut, { force: true });
+            const started = Date.now();
+            const r = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), PJ, '--engine', engine, '--out', referenceOnlyOut, '--force'], { cwd: REPO, encoding: 'utf8', env: renderEnv, timeout: 1_800_000 });
+            const at = [...(r.stderr || '').matchAll(/packages\/[a-z-]+\/src\/[a-z-]+\.mjs:\d+/g)].map(m => m[0]);
+            assert(r.status === 0, `render-cut exit ${r.status}: ${S(tail(r))} at ${S([...new Set(at)])}`);
+            const references = JSON.parse(await text('.akari/asset-references.json')).references.map(x => `${x.category}:${x.id}`);
+            const inProject = ['assets/overlay/deco-frame/deco.html', 'assets/audio/sfx-pop/pop.wav'].filter(file => { try { return spawnSync('/bin/test', ['-e', path.join(PJ, file)]).status === 0; } catch { return false; } });
+            assert(inProject.length === 0, `参照のままではない（プロジェクトに実体がある）: ${S(inProject)}`);
+            // 指定した出口で書き出したこと（gpu が落ちて osr へ回った場合は adopted が osr になる）
+            const rasterizer = JSON.parse(await text('.akari/render.json')).provenance?.rasterizer ?? null;
+            assert(rasterizer?.adopted === engine, `adopted ${S(rasterizer)}`);
+            return { exit: r.status, seconds: Math.round((Date.now() - started) / 1000), rasterizer, references, ...measureExport(referenceOnlyOut), renderTail: (r.stdout || '').split('\n').filter(line => /^(PASS|FAIL)/.test(line)).map(line => line.replaceAll(PJ, '<ws>')) };
+        });
+    }
     await check('書き出し（「素材をまとめる」→ render-cut）: 効果音の立ち上がり = A・B・C の字幕の頭 / 装飾（枠の色）= 字幕の間だけ', async () => {
         await rm(exported, { force: true });
         const env = { ...process.env, AKARI_HOME: path.join(ISO, 'akari-home') };
@@ -499,26 +535,7 @@ if (finalState) {
         const r = spawnSync(process.execPath, [path.join(REPO, 'packages', 'render-cut', 'bin', 'render-cut.mjs'), PJ, '--out', exported, '--force'],
             { cwd: REPO, encoding: 'utf8', env: { ...process.env, AKARI_HOME: path.join(ISO, 'akari-home') }, timeout: 1_800_000 });
         assert(r.status === 0, `render-cut exit ${r.status}: ${(r.stderr || r.stdout).slice(-1500)}`);
-        // 音: 1/30 秒ごとの RMS（-45 dB を超えたところを立ち上がりとする）
-        const a = spawnSync(FFMPEG, ['-hide_banner', '-nostdin', '-i', exported, '-af', 'asetnsamples=n=1600:p=0,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-        const lines = a.stdout.split('\n');
-        const levels = [];
-        for (let i = 0; i < lines.length; i++) {
-            const t = /pts_time:([\d.]+)/.exec(lines[i]);
-            const v = t && /RMS_level=(-?[\d.]+|-inf)/.exec(lines[i + 1] ?? '');
-            if (t && v) levels.push({ t: Number(t[1]), db: v[1] === '-inf' ? -200 : Number(v[1]) });
-        }
-        const onsets = levels.filter((x, i) => x.db > -45 && (i === 0 || levels[i - 1].db <= -45)).map(x => Math.round(x.t * 1000) / 1000);
-        const starts = ['c-0001', 'c-0002', 'c-0003'].map(id => finalState.captions[id][0]);
-        assert(onsets.length === 3 && starts.every((s, i) => Math.abs(onsets[i] - s) <= 0.05), `onsets ${S(onsets)} vs caption starts ${S(starts)}`);
-        // 装飾: 枠の左の線（x=54, y=90）の色（yuv420p なので 2×2 で切り出して左上の画素を読む）
-        const pixel = t => { const p = spawnSync(FFMPEG, ['-hide_banner', '-nostdin', '-loglevel', 'error', '-ss', String(t), '-i', exported, '-frames:v', '1', '-vf', 'crop=2:2:54:90', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 1024 }); return [...p.stdout].slice(0, 3); };
-        const pink = rgb => rgb[0] > 190 && rgb[1] < 130 && rgb[2] > 80;
-        const mid = id => (finalState.captions[id][0] + finalState.captions[id][1]) / 2;
-        const probes = { A: mid('c-0001'), B: mid('c-0002'), C: mid('c-0003'), 'gap-after-A': (finalState.captions['c-0001'][1] + finalState.captions['c-0002'][0]) / 2, 'after-C': finalState.captions['c-0003'][1] + 0.5 };
-        const colors = Object.fromEntries(Object.entries(probes).map(([k, t]) => [k, { t, rgb: pixel(t) }]));
-        for (const k of ['A', 'B', 'C']) assert(pink(colors[k].rgb), `${k} deco not visible ${S(colors[k])}`);
-        for (const k of ['gap-after-A', 'after-C']) assert(!pink(colors[k].rgb), `${k} deco visible ${S(colors[k])}`);
+        const { onsets, colors } = measureExport(exported);
         return { captions: finalState.captions, onsets, colors, referenceOnlyPlan: { exit: referenceOnly.status, error: (referenceOnly.stderr || referenceOnly.stdout).trim().split('\n').at(-1)?.replaceAll(PJ, '<ws>') },
             bundle: (bundled.stdout || '').trim().split('\n').slice(-2), lintExit: lint.status, renderTail: (r.stdout || '').split('\n').filter(Boolean).slice(-3) };
     });

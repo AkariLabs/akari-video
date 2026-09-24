@@ -12,7 +12,7 @@
 |---|---|
 | `scripts/gen-fixture.mjs` | fixture（話した言葉 5 行・0 / 3 / 6 / 9 / 12 秒から 2.5 秒ずつ・15 秒・1280×720・30fps）。`anchored/` = html 装飾を c-0002・c-0003 に手書きのアンカー（全体）/ `anchored-sfx/` = さらに効果音にもアンカー / `spoken/` = c-0001 に見た目 + 動き、効果音 `sfx-a`（0 フレーム）と装飾 `deco-a`（0〜75 フレーム）をアンカー無しで置く。素材はライブラリの参照（`.akari/asset-references.json` に記帳・宣言パス `assets/<category>/<id>/<file>`）/ `library/` = 効果音 `audio/sfx-pop/pop.wav` と装飾 `overlay/deco-frame/deco.html` の実体。映像・効果音は ffmpeg（L1 専用） |
 | `scripts/before.mjs` | 手順 0（BEFORE）の記録（判定なし）。基点 `8ec4c16d` のビルドで実行 |
-| `scripts/after.mjs` | 手順 3（AFTER）の受け入れ条件 22 項目 + r1 の 3 項目（棚のチップ・参照のままの書き出し 2 つ）。最終ビルドで 1 回通しで実行 |
+| `scripts/after.mjs` | 手順 3（AFTER）の受け入れ条件 22 項目 + r1 の 2 項目（棚のチップ・参照のままの plan-only）+ r2 の 2 項目（参照のままで `--engine gpu` / `--engine osr` の書き出し）。最終ビルドで 1 回通しで実行 |
 | `scripts/cdp-lib.mjs` / `l1-lib.mjs` / `l1-common.mjs` / `common.mjs` / `view.mjs` / `library-home.mjs` | mystyle-motion-part の写し（変更なし） |
 | `results-before.json` / `results-after.json` | 実測値 |
 | `before-*.png` / `after-*.png` | スクリーンショット |
@@ -65,6 +65,23 @@ r1 の再実行では全 25 項目中 24 pass。落ちた 1 項目は下の「�
 | 参照のまま（素材をまとめずに）`render-cut --plan-only` | **exit 0**（r0 では `deco.html could not be read: ENOENT` で exit 2）。render-cut の `loadOverlays` は参照台帳（`.akari/asset-references.json`）とライブラリの置き場で html の実体を読む |
 | 参照のまま（素材をまとめずに）書き出す | **exit 2（FAIL）**。GPU のページ組み立て（`packages/gpu-export/src/page-builder.mjs` の `loadAndBuildGpuPage`・373〜378 行）が装飾の html をプロジェクト内のパスから読み直し ENOENT で止まり、フォールバック先の OSR も同じ（`packages/osr-export/src/page-builder.mjs`・203〜208 行）。どちらも別の Electron プロセスの中で edit.json を読み直すため、render-cut 側から読み込み済みの html を渡す口が無い。gpu-export / osr-export の src はこのタスクの編集範囲外なので直していない |
 | 書き出し（「素材をまとめる」→ render-cut） | 上表の r0 と同じ判定で pass（効果音の立ち上がり = A・B・C の字幕の頭・装飾は字幕の間だけ） |
+
+## 書き出しとライブラリ参照（r2）
+
+GPU / OSR のページ組み立て（`packages/gpu-export/src/page-builder.mjs` の `loadAndBuildGpuPage`・`packages/osr-export/src/page-builder.mjs` の `loadAndBuildOsrPage`）が、装飾の html を render-cut の `loadOverlays` と同じ `resolveDeclaredProjectInput`（`packages/render-cut/src/render-inputs.mjs`）で解決してから読む。プロジェクト内の実体が優先・台帳に無ければ従来どおりのエラー。fragment の相対参照は従来どおり `embedFragmentAssets` がこの関数で解決する。
+
+手順 0（r2 の基点 `d4b37c76`・fixture `spoken` をシェルなしで `render-cut --engine gpu|osr`）: gpu は `gpu-export/src/page-builder.mjs:378`、osr は `osr-export/src/page-builder.mjs:208` の ENOENT で **exit 2**。装飾がプロジェクト内にある対照の `anchored` はどちらも exit 0。
+
+r2 の実機（`results-after.json`・**26/26 pass**）: 参照のままの 2 項目は、手順 3 で B を動かし C を消したあとの状態（B = 3.5〜6.0 秒）を素材をまとめずに書き出したもの。`.akari/asset-references.json` = `audio:sfx-pop`・`overlay:deco-frame`、プロジェクトに実体なし。測り方は r0 と同じ（音の立ち上がりは 1/30 秒ごとの RMS が -45 dB を超えた時刻、装飾は枠の左の線 x=54・y=90 の色）
+
+| 受け入れ条件 | 実測 |
+|---|---|
+| 参照のまま `render-cut --engine gpu` | **exit 0**（7 秒）・`provenance.rasterizer.adopted = gpu`（試行 1 回・osr への切り替えなし）・音の立ち上がり **0 / 3.5 / 6.0 秒** = A・B・C の字幕の頭・装飾の枠の色は A・B・C の中（1.25 / 4.75 / 7.25 秒）= `rgb(252,60,122)`、字幕の外（3.0 / 9.0 秒）= 背景 `rgb(37,47,62)` |
+| 参照のまま `render-cut --engine osr` | **exit 0**（20 秒）・`adopted = osr`・音の立ち上がり **0 / 3.5 / 6.0 秒**・装飾の中 = `rgb(251,59,120)` / `rgb(253,59,124)`、字幕の外 = 背景 `rgb(37,47,62)` |
+| 書き出し（「素材をまとめる」→ render-cut・比較用） | r0 と同じ判定で pass |
+
+- OSR の書き出しには、リポ直下の `node_modules` の electron が要る（開発配置の tier 2）。`AKARI_OSR_ELECTRON` に開発用の Electron を指定すると、インストール済みのデスクトップアプリ（tier 1）として扱われる。この場合は既定のアプリが立ち上がって止まる（手順 0 で確認）。r2 の実機は指定なしで実行した
+- 同じビルドでの 2 回目の通しは、手で動かす段で帯に手が届かず 17/18 の時点で FATAL になった（`style-part-1 not reached`・判定側の空振り）。3 回目で 26/26 を通した。`results-after.json` は 3 回目のもの
 
 ## 調べた経緯（判定側の修正）
 
