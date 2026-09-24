@@ -37,12 +37,37 @@ function manager(dir, overrides = {}, probeTimeoutMsByRoute) {
     ...overrides }, probeTimeoutMsByRoute });
 }
 
+async function waitForCalls(dir, predicate) {
+  for (;;) {
+    const content = await readFile(join(dir, 'calls.jsonl'), 'utf8').catch(error => {
+      if (error.code === 'ENOENT') return '';
+      throw error;
+    });
+    const calls = content.split('\n').slice(0, -1).filter(Boolean).map(JSON.parse);
+    if (predicate(calls)) return calls;
+    await new Promise(resolve => setImmediate(resolve));
+  }
+}
+
+async function waitForAttempt(dir, route, count) {
+  const file = join(dir, `image-state.${route}.count`);
+  for (;;) {
+    const actual = await readFile(file, 'utf8').catch(error => {
+      if (error.code === 'ENOENT') return '0';
+      throw error;
+    });
+    if (Number(actual) >= count) return;
+    await new Promise(resolve => setImmediate(resolve));
+  }
+}
+
 test('手段ごとの既定上限', () => {
   assert.deepEqual(IMAGE_PROBE_TIMEOUT_MS, { codex: 5000, antigravity: 20000, grok: 20000 });
 });
 
-test('3 手段の ready / signed-out / missing と Grok の一回再確認', async () => {
+test('3 手段の ready / signed-out / missing と Grok の一回再確認', async t => {
   const dir = await workspace();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   try {
     const states = await manager(dir).probeImageRoutes();
     assert.deepEqual(states.map(x => [x.id, x.state]), [['codex', 'ready'], ['antigravity', 'ready'], ['grok', 'ready']]);
@@ -57,18 +82,24 @@ test('3 手段の ready / signed-out / missing と Grok の一回再確認', asy
     assert.deepEqual((await manager(dir).probeImageRoutes(['grok'])).map(x => x.id), ['grok']);
     const missing = await manager(dir, { AKARI_CODEX_BIN: join(dir, 'no-codex'), AKARI_AGY_BIN: join(dir, 'no-agy'), AKARI_GROK_BIN: join(dir, 'no-grok') }).probeImageRoutes();
     assert.ok(missing.every(x => x.state === 'missing'));
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { t.mock.timers.reset(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('Antigravity / Grok は打ち切りを一回確かめ直して unknown にし、鍵を外す', async () => {
+test('Antigravity / Grok は打ち切りを一回確かめ直して unknown にし、鍵を外す', async t => {
   const dir = await workspace();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   try {
     await writeFile(join(dir, 'image-state'), 'sleep');
-    const started = Date.now();
-    const states = await manager(dir, { FAL_KEY: 'secret', GROQ_API_KEY: 'secret', OPENAI_API_KEY: 'secret',
+    const pending = manager(dir, { FAL_KEY: 'secret', GROQ_API_KEY: 'secret', OPENAI_API_KEY: 'secret',
       GEMINI_API_KEY: 'secret', GOOGLE_API_KEY: 'secret', XAI_API_KEY: 'secret' },
     { antigravity: 1500, grok: 1500 }).probeImageRoutes();
-    assert.ok(Date.now() - started >= 2900);
+    const bothCalled = count => calls => ['agy', 'grok'].every(route =>
+      calls.filter(x => x.route === route && x.args[0] === 'models').length >= count);
+    await waitForCalls(dir, bothCalled(1));
+    t.mock.timers.tick(1500);
+    await waitForCalls(dir, bothCalled(2));
+    t.mock.timers.tick(1500);
+    const states = await pending;
     assert.equal(states[0].state, 'ready');
     assert.equal(states[1].state, 'unknown');
     assert.equal(states[2].state, 'unknown');
@@ -76,33 +107,50 @@ test('Antigravity / Grok は打ち切りを一回確かめ直して unknown に�
     const calls = (await readFile(join(dir, 'calls.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
     assert.ok(calls.every(x => x.keys.length === 0));
     for (const route of ['agy', 'grok']) assert.equal(calls.filter(x => x.route === route && x.args[0] === 'models').length, 2);
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { t.mock.timers.reset(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('各試行に独立した上限があり、一回目の打ち切り後に ready になれる', async () => {
+test('各試行に独立した上限があり、一回目の打ち切り後に ready になれる', async t => {
   const dir = await workspace();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   try {
     await writeFile(join(dir, 'image-state'), 'sleep-once');
-    const states = await manager(dir, {}, { antigravity: 1500, grok: 1500 }).probeImageRoutes(['antigravity', 'grok']);
+    let settled = false;
+    const pending = manager(dir, {}, { antigravity: 1500, grok: 1500 })
+      .probeImageRoutes(['antigravity', 'grok']).finally(() => { settled = true; });
+    await Promise.all(['agy', 'grok'].map(route => waitForAttempt(dir, route, 1)));
+    t.mock.timers.tick(1499);
+    assert.equal(settled, false);
+    t.mock.timers.tick(1);
+    await Promise.all(['agy', 'grok'].map(route => waitForAttempt(dir, route, 2)));
+    t.mock.timers.tick(1499);
+    assert.equal(settled, false);
+    const states = await pending;
     assert.deepEqual(states.map(x => x.state), ['ready', 'ready']);
     const calls = (await readFile(join(dir, 'calls.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
     for (const route of ['agy', 'grok']) assert.equal(calls.filter(x => x.route === route && x.args[0] === 'models').length, 2);
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { t.mock.timers.reset(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('Codex は 5 秒で打ち切って missing にし、確かめ直さない', async () => {
+test('Codex は 5 秒で打ち切って missing にし、確かめ直さない', async t => {
   const dir = await workspace();
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   try {
     await writeFile(join(dir, 'image-state'), 'sleep');
     let calls = 0;
+    let spawned;
+    const started = new Promise(resolve => { spawned = resolve; });
     const instance = new StillGenerationManager(findAsset, { env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`,
       AKARI_CODEX_BIN: join(bin, 'codex'), FAKE_CODEX_STATE_FILE: join(dir, 'image-state') },
-      spawnProcess: (...args) => { calls++; return spawn(...args); } });
-    const [route] = await instance.probeImageRoutes(['codex']);
+      spawnProcess: (...args) => { calls++; const child = spawn(...args); child.once('spawn', spawned); return child; } });
+    const pending = instance.probeImageRoutes(['codex']);
+    await started;
+    t.mock.timers.tick(5000);
+    const [route] = await pending;
     assert.equal(route.state, 'missing');
     assert.equal(route.detail, '確かめられませんでした（5 秒で打ち切り）');
     assert.equal(calls, 1);
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { t.mock.timers.reset(); await rm(dir, { recursive: true, force: true }); }
 });
 
 for (const route of ['codex', 'antigravity', 'grok']) test(`${route} は PNG と有効な meta と next を作る`, async () => {
@@ -172,7 +220,7 @@ test('キャンセルは公開ファイルを作らない', async () => {
     await writeFile(join(dir, 'image-state'), 'delay');
     const instance = manager(dir);
     const pending = instance.startGenerateStill(dir, { ...request, route: 'grok' });
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await waitForCalls(dir, calls => calls.some(x => x.route === 'grok' && x.args[0] !== 'models'));
     instance.cancelGenerateStill('clip-1');
     assert.equal((await pending).ok, false);
     assert.deepEqual((await readdir(join(dir, 'assets/generated'))).filter(x => x.startsWith('still-')), []);
