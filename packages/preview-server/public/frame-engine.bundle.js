@@ -1289,6 +1289,10 @@ var require_caption_runs = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.captionGraphemes = captionGraphemes;
+    exports.setCaptionRunStyle = setCaptionRunStyle;
+    exports.setCaptionRunRole = setCaptionRunRole;
+    exports.removeCaptionRun = removeCaptionRun;
+    exports.captionRunStyleFromLook = captionRunStyleFromLook;
     exports.resolveCaptionRuns = resolveCaptionRuns;
     exports.sliceCaptionRuns = sliceCaptionRuns;
     exports.rebaseCaptionRuns = rebaseCaptionRuns;
@@ -1298,6 +1302,133 @@ var require_caption_runs = __commonJS({
     function captionGraphemes(text) {
       const Segmenter = Intl.Segmenter;
       return Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(text), (part) => part.segment);
+    }
+    function validRunRange(text, from, to) {
+      if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to <= from || to > captionGraphemes(text).length) {
+        throw new Error("\u6587\u5B57\u7BC4\u56F2\u304C\u8868\u793A\u6587\u5B57\u5217\u306E\u5916\u306B\u3042\u308A\u307E\u3059\u3002");
+      }
+    }
+    function setCaptionRunStyle(text, runs, from, to, patch) {
+      validRunRange(text, from, to);
+      const allowed = /* @__PURE__ */ new Set([
+        "color",
+        "font_weight",
+        "scale",
+        "baseline_shift_em",
+        "rotate_deg",
+        "letter_spacing_em",
+        "stroke",
+        "italic",
+        "underline"
+      ]);
+      if (!patch || typeof patch !== "object" || !Object.keys(patch).length || Object.entries(patch).some(([key, value]) => !allowed.has(key) || key === "color" && (typeof value !== "string" || !/^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value)) || ["font_weight", "scale", "baseline_shift_em", "rotate_deg", "letter_spacing_em"].includes(key) && (typeof value !== "number" || !Number.isFinite(value)) || key === "font_weight" && (!Number.isInteger(value) || value < 1 || value > 1e3) || key === "scale" && value <= 0 || ["italic", "underline"].includes(key) && typeof value !== "boolean" || key === "stroke" && (!value || typeof value !== "object" || Object.keys(value).some((strokeKey) => !["method", "color", "width_px"].includes(strokeKey)) || value?.method !== void 0 && value?.method !== "webkit-outline" || value?.color !== void 0 && !/^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(value.color) || value?.width_px !== void 0 && (typeof value?.width_px !== "number" || !Number.isFinite(value?.width_px) || value.width_px < 0)))) {
+        throw new Error("\u6587\u5B57\u7BC4\u56F2\u306B\u4F7F\u3048\u306A\u3044\u30B9\u30BF\u30A4\u30EB\u9805\u76EE\u304C\u3042\u308A\u307E\u3059\u3002");
+      }
+      const next = [...runs ?? []];
+      const index = next.map((run) => run.from === from && run.to === to).lastIndexOf(true);
+      const existing = index >= 0 ? next[index] : { from, to };
+      const style = {
+        ...existing.style,
+        ...patch,
+        ...patch.stroke ? { stroke: { ...existing.style?.stroke, ...patch.stroke } } : {}
+      };
+      const updated = { ...existing, style };
+      if (index >= 0)
+        next[index] = updated;
+      else
+        next.push(updated);
+      return next;
+    }
+    function setCaptionRunRole(text, runs, from, to, role) {
+      validRunRange(text, from, to);
+      if (typeof role !== "string" || !role.trim())
+        throw new Error("\u6587\u5B57\u7BC4\u56F2\u306E\u5F79\u5272\u304C\u7A7A\u3067\u3059\u3002");
+      const next = [...runs ?? []];
+      const index = next.map((run) => run.from === from && run.to === to).lastIndexOf(true);
+      const existing = index >= 0 ? next[index] : { from, to };
+      const updated = { ...existing, role };
+      if (index >= 0)
+        next[index] = updated;
+      else
+        next.push(updated);
+      return next;
+    }
+    function removeCaptionRun(runs, index) {
+      if (!Number.isInteger(index) || index < 0 || index >= (runs?.length ?? 0)) {
+        throw new Error("\u5916\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+      }
+      return runs.filter((_run, position) => position !== index);
+    }
+    function captionRunStyleFromLook(look, baseSizePx) {
+      const aliases = {
+        color: "color",
+        fontWeight: "font_weight",
+        font_weight: "font_weight",
+        weight: "font_weight",
+        scale: "scale",
+        rotate: "rotate_deg",
+        rotate_deg: "rotate_deg",
+        letterSpacingEm: "letter_spacing_em",
+        letter_spacing_em: "letter_spacing_em",
+        baseline_shift_em: "baseline_shift_em",
+        italic: "italic",
+        underline: "underline",
+        stroke: "stroke"
+      };
+      const style = {};
+      const omitted = [];
+      for (const [key, value] of Object.entries(look)) {
+        const field = aliases[key];
+        if (key === "size_px" || key === "sizePx") {
+          if (typeof value === "number" && Number.isFinite(baseSizePx) && baseSizePx > 0) {
+            style.scale = value / baseSizePx;
+          } else
+            omitted.push(key);
+          continue;
+        }
+        if (!field) {
+          omitted.push(key);
+          continue;
+        }
+        if (field === "stroke" && value && typeof value === "object") {
+          const stroke = value;
+          const mapped = {};
+          if (typeof stroke.color === "string")
+            mapped.color = stroke.color;
+          if (typeof stroke.width_px === "number")
+            mapped.width_px = stroke.width_px;
+          if (typeof stroke.widthPx === "number")
+            mapped.width_px = stroke.widthPx;
+          if (stroke.method === "webkit-outline")
+            mapped.method = "webkit-outline";
+          if (stroke.method !== void 0 && stroke.method !== "webkit-outline")
+            omitted.push("stroke.method");
+          if (Object.keys(mapped).length)
+            style.stroke = mapped;
+          for (const strokeKey of Object.keys(stroke)) {
+            if (!["color", "width_px", "widthPx", "method"].includes(strokeKey))
+              omitted.push(`stroke.${strokeKey}`);
+          }
+        } else if (field === "color" && typeof value === "string")
+          style.color = value;
+        else if (field === "font_weight" && typeof value === "number")
+          style.font_weight = value;
+        else if (field === "scale" && typeof value === "number")
+          style.scale = value;
+        else if (field === "rotate_deg" && typeof value === "number")
+          style.rotate_deg = value;
+        else if (field === "baseline_shift_em" && typeof value === "number")
+          style.baseline_shift_em = value;
+        else if (field === "letter_spacing_em" && typeof value === "number")
+          style.letter_spacing_em = value;
+        else if (field === "italic" && typeof value === "boolean")
+          style.italic = value;
+        else if (field === "underline" && typeof value === "boolean")
+          style.underline = value;
+        else
+          omitted.push(key);
+      }
+      return { style, omitted };
     }
     function resolveCaptionRuns(text, runs) {
       const characters = captionGraphemes(text).map((value, index) => ({ text: value, index }));
@@ -2299,6 +2430,9 @@ var require_caption_store = __commonJS({
     exports.setCaptionTimingLine = setCaptionTimingLine;
     exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
     exports.updateCaptionFieldsInSourceWithReport = updateCaptionFieldsInSourceWithReport;
+    exports.updateCaptionRunsInSource = updateCaptionRunsInSource;
+    exports.captionEmphasisRemovedNotice = captionEmphasisRemovedNotice;
+    exports.captionEditNotices = captionEditNotices;
     exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
     exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
     exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
@@ -2473,6 +2607,7 @@ var require_caption_store = __commonJS({
       const element = findCaptionElement(array.elements, captionId);
       let nextElement = element.text;
       let removedRuns = [];
+      let removedEmphasis = [];
       let nextEmphasis;
       let oldEmphasis;
       if (updates.text !== void 0) {
@@ -2491,6 +2626,7 @@ var require_caption_store = __commonJS({
               newText: applied.record.text,
               ...typeof parsed.src === "string" ? { src: parsed.src } : {}
             });
+            removedEmphasis = rebased.removed;
             if (rebased.removed.length || rebased.emphasis.some((entry, index) => entry !== oldEmphasis[index]))
               nextEmphasis = rebased.emphasis;
           }
@@ -2546,7 +2682,35 @@ var require_caption_store = __commonJS({
           nextInner += inner.slice(elements[elements.length - 1].end);
         updated = updated.slice(0, open + 1) + nextInner + updated.slice(close);
       }
-      return { source: updated, removedRuns };
+      return { source: updated, removedRuns, removedEmphasis };
+    }
+    function updateCaptionRunsInSource(source, captionId, edit) {
+      const array = locateCaptionArray(source);
+      const element = findCaptionElement(array.elements, captionId);
+      const caption = JSON.parse(element.text);
+      const display = caption.display_text ?? caption.text;
+      const runs = edit.kind === "style" ? (0, caption_runs_1.setCaptionRunStyle)(display, caption.runs, edit.from, edit.to, edit.style) : edit.kind === "role" ? (0, caption_runs_1.setCaptionRunRole)(display, caption.runs, edit.from, edit.to, edit.role) : edit.kind === "remove" ? (0, caption_runs_1.removeCaptionRun)(caption.runs, edit.index) : (() => {
+        if (!Number.isInteger(edit.index) || edit.index < 0 || edit.index > (caption.runs?.length ?? 0) || !Number.isInteger(edit.run.from) || !Number.isInteger(edit.run.to) || edit.run.from < 0 || edit.run.to <= edit.run.from || edit.run.to > (0, caption_runs_1.captionGraphemes)(display).length) {
+          throw new Error("\u623B\u3059\u6587\u5B57\u7BC4\u56F2\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        const restored = [...caption.runs ?? []];
+        restored.splice(edit.index, 0, edit.run);
+        return restored;
+      })();
+      return replaceElement(source, array.openIndex + 1, element, syncOptionalCaptionProperty(element.text, "runs", runs.length ? runs : void 0, captionId));
+    }
+    function captionEmphasisRemovedNotice(removed) {
+      if (!removed.length)
+        return void 0;
+      const first = removed[0];
+      const word = typeof first.word === "string" ? first.word.trim() : "";
+      return `\u5F37\u8ABF ${removed.length} \u4EF6${word ? `\uFF08\u300C${(0, caption_runs_1.captionGraphemes)(word).slice(0, 16).join("")}\u300D\uFF09` : ""}\u304C\u5916\u308C\u307E\u3057\u305F`;
+    }
+    function captionEditNotices(result, oldDisplayText) {
+      return [
+        (0, caption_runs_1.captionRunsRemovedNotice)(result.removedRuns, oldDisplayText),
+        captionEmphasisRemovedNotice(result.removedEmphasis)
+      ].filter((notice) => !!notice);
     }
     function applyWordBookToCaptionsInSource(source, changes) {
       if (changes.length === 0) {
@@ -2890,6 +3054,8 @@ var require_caption_store = __commonJS({
         speaker: value.speaker,
         sourceRef,
         edited: value.edited,
+        ...typeof value.display_text === "string" ? { displayText: value.display_text } : {},
+        ...Array.isArray(value.runs) ? { runs: value.runs } : {},
         ...unrecognized !== void 0 ? { unrecognized } : {},
         ...value.time_domain === "source" || value.time_domain === "output" ? { timeDomain: value.time_domain } : {},
         ...textStyle !== void 0 ? { textStyle } : {}
