@@ -1,5 +1,5 @@
 {
-  "status": "FAIL",
+  "status": "PASS",
   "checks": [
     {
       "name": "two choices shown before generation",
@@ -28,6 +28,58 @@
     },
     {
       "name": "one undo restores edit.json structure",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "progress elapsed at least one second",
+      "passed": true,
+      "measured": 1
+    },
+    {
+      "name": "cancel leaves edit.json unchanged",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "cancel leaves no new narration file",
+      "passed": true,
+      "measured": [
+        "n-0001.wav"
+      ]
+    },
+    {
+      "name": "failure reason and retry visible",
+      "passed": true,
+      "measured": "L1 の意図した失敗です"
+    },
+    {
+      "name": "failure leaves edit.json unchanged",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "paid own voice label",
+      "passed": true,
+      "measured": true
+    },
+    {
+      "name": "priced confirmation is visible",
+      "passed": true,
+      "measured": "費用承認$0.002（as_of 2026-09-24）で クラウド（fal） に 読み原稿 9 字 を送ります。費用承認しますかキャンセル費用承認する"
+    },
+    {
+      "name": "paid generation was never called",
+      "passed": true,
+      "measured": {
+        "engines": 1,
+        "voices": 3,
+        "generated": 3,
+        "paidAttempts": 0
+      }
+    },
+    {
+      "name": "rejected approval leaves edit unchanged",
       "passed": true,
       "measured": true
     }
@@ -87,34 +139,77 @@
       "name": "start slow narration",
       "attempt": 1,
       "passed": true
+    },
+    {
+      "name": "cancel slow narration",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "failed narration",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "choose own voice",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "paid approval dialog",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "reject paid approval",
+      "attempt": 1,
+      "passed": true
     }
   ],
   "screenshots": [
     {
       "name": "01-two-choices.png",
-      "bytes": 237292
+      "bytes": 244909
     },
     {
       "name": "02-shifted-track.png",
-      "bytes": 298330
+      "bytes": 311920
     },
     {
       "name": "03-one-undo.png",
-      "bytes": 303111
+      "bytes": 306755
     },
     {
-      "name": "error-full.png",
-      "bytes": 292058
+      "name": "04-elapsed-seconds.png",
+      "bytes": 226739
+    },
+    {
+      "name": "05-cancelled.png",
+      "bytes": 230996
+    },
+    {
+      "name": "06-failure-retry.png",
+      "bytes": 226877
+    },
+    {
+      "name": "07-paid-confirmation.png",
+      "bytes": 239852
+    },
+    {
+      "name": "08-paid-rejected.png",
+      "bytes": 226967
     }
   ],
   "measurements": {
     "labelTextIntersect": null,
-    "buttons": []
+    "buttons": [],
+    "elapsedSeconds": 1,
+    "approvalText": "費用承認$0.002（as_of 2026-09-24）で クラウド（fal） に 読み原稿 9 字 を送ります。費用承認しますかキャンセル費用承認する"
   },
   "fakeCli": {
     "engines": 1,
-    "voices": 2,
-    "generated": 2,
+    "voices": 3,
+    "generated": 3,
     "paidAttempts": 0
   },
   "fixture": {
@@ -126,7 +221,6 @@
     ],
     "fps": 30
   },
-  "error": "Error: timed out: elapsed second",
-  "killedPid": 88493,
+  "killedPid": 10266,
   "electronExited": false
 }

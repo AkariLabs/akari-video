@@ -144,16 +144,26 @@ const timelineAudioState = `(()=>{const frame=document.querySelector(${S(item('f
   return frame&&following&&interview?{title:frame.title,followingLeft:following.style.left,
     interviewLeft:interview.style.left}:null})()`;
 async function waitTimelineAudio(cdp, before, shifted) {
+  const titleMatches = shifted ? `state.title.includes(${S('n-0001.wav')})`
+    : `state.title===${S(before.title)}`;
   return waitEval(cdp, `(()=>{const state=${timelineAudioState};if(!state)return false;
-    return state.title.includes(${S(shifted ? 'n-0001.wav' : 'frame-b.wav')})
+    return ${titleMatches}
       && state.followingLeft${shifted ? '!==' : '==='}${S(before.followingLeft)}
       && state.interviewLeft${shifted ? '!==' : '==='}${S(before.interviewLeft)}})()`,
   shifted ? 'shifted audio timeline rendered' : 'undo audio timeline rendered');
 }
 async function select(cdp, id) {
   await clickUntil(cdp, item(id), `Boolean(document.querySelector(${S(item(id))})?.classList.contains('akari-annotations-selected'))`, `select ${id}`);
+  await settle(cdp);
   if (!await evalOn(cdp, `document.querySelector(${S(tab)})?.getAttribute('aria-selected')==='true'`))
     await clickUntil(cdp, tab, `document.querySelector(${S(tab)})?.getAttribute('aria-selected')==='true'`, 'AI tab');
+  await settle(cdp);
+}
+async function openNarrationPanel(cdp, name) {
+  const view = await waitEval(cdp, `(()=>{if(document.querySelector(${S(panel)}))return 'panel';
+    if(document.querySelector(${S(tile)}))return 'tiles';return null})()`, `${name} entry`);
+  if (view === 'tiles') await clickUntil(cdp, tile, `Boolean(document.querySelector(${S(panel)}))`, name);
+  await waitEval(cdp, `Boolean(document.querySelector(${S(panel)}))`, name);
 }
 async function typeScript(cdp, value) {
   await clickUntil(cdp, `${panel} textarea[aria-label="原稿"]`, `document.activeElement?.getAttribute('aria-label')==='原稿'`, 'script field');
@@ -207,7 +217,7 @@ try {
   await cdp.connect(); await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
   await waitEval(cdp, `Boolean(window.theia?.container&&document.getElementById('theia-app-shell')&&(()=>{
     const preload=document.querySelector('.theia-preload');if(!preload)return true;
-    const style=getComputedStyle(preload);return style.display==='none'||Number(style.opacity)===0})())`, 'Theia workbench', 180_000);
+    const style=getComputedStyle(preload);return style.display==='none'||Number(style.opacity)===0})())`, 'Theia workbench', 300_000);
   if (!await evalOn(cdp, `Boolean(document.querySelector('[data-akari-ui="timeline:cut:0"]'))`))
     await evalOn(cdp, command('akari.annotations.open'));
   await waitEval(cdp, `Boolean(document.querySelector(${S(item('frame-a'))}))`, 'audio timeline');
@@ -220,7 +230,7 @@ try {
   const editMatchesBefore = async () => isDeepStrictEqual(JSON.parse(await readFile(editPath, 'utf8')), before);
   const timelineBefore = await waitEval(cdp, timelineAudioState, 'initial audio timeline');
   await select(cdp, 'frame-b');
-  await clickUntil(cdp, tile, `Boolean(document.querySelector(${S(panel)}))`, 'narration panel');
+  await openNarrationPanel(cdp, 'narration panel');
   await waitEval(cdp, `Boolean(document.querySelector('.akari-inspector-ai-narration-voice option'))`, 'VOICEVOX voice');
   await typeScript(cdp, 'これは長い声を作るための原稿です。後ろのクリップをずらします。');
   await waitEval(cdp, `!document.querySelector('.akari-inspector-ai-narration-placement-choice')?.hidden`, 'two choices');
@@ -229,7 +239,7 @@ try {
   await shot(cdp, '01-two-choices.png');
   await clickUntil(cdp, '.akari-inspector-ai-narration-placement-radio[value="shift"]',
     `document.querySelector('.akari-inspector-ai-narration-placement-radio[value="shift"]')?.checked===true`, 'choose shift');
-  await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button`,
+  await clickTextUntil(cdp, `${panel} .akari-inspector-ai-narration-button`, '声を作る',
     `Boolean(document.querySelector('.akari-inspector-ai-narration-progress,.akari-inspector-ai-narration-placement'))`, 'generate shift');
   const shifted = await waitFile(edit => sourceFor(edit, 'frame-b').source?.path?.startsWith('out/narration/'), 'shifted narration', 90_000);
   const audioBefore = before.tracks.find(track => track.id === 'audio');
@@ -260,10 +270,10 @@ try {
   const narrationFilesBeforeCancel = await readdir(narrationDir);
   await writeFile(controlFile, JSON.stringify({ mode: 'slow', seconds: 3.5, delaySeconds: 60 }));
   await select(cdp, 'frame-a');
-  await clickUntil(cdp, tile, `Boolean(document.querySelector(${S(panel)}))`, 'slow narration panel');
+  await openNarrationPanel(cdp, 'slow narration panel');
   await waitEval(cdp, `Boolean(document.querySelector('.akari-inspector-ai-narration-voice option'))`, 'slow voice');
   await typeScript(cdp, 'ゆっくり作る声です');
-  await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button`,
+  await clickTextUntil(cdp, `${panel} .akari-inspector-ai-narration-button`, '声を作る',
     `Boolean(document.querySelector('.akari-inspector-ai-narration-progress'))`, 'start slow narration');
   const elapsed = await waitEval(cdp, `(()=>{const t=document.querySelector('.akari-inspector-ai-narration-progress')?.textContent;
     const n=Number(t?.match(/([0-9]+) 秒/)?.[1] ?? 0);return n>=1?n:null})()`, 'elapsed second', 90_000);
@@ -272,7 +282,8 @@ try {
   await shot(cdp, '04-elapsed-seconds.png');
   await clickTextUntil(cdp, `${panel} .akari-inspector-ai-narration-button`, 'キャンセル',
     `!document.querySelector('.akari-inspector-ai-narration-progress')`, 'cancel slow narration');
-  await waitEval(cdp, `!document.querySelector('.akari-inspector-ai-narration-panel .akari-inspector-ai-narration-button')?.disabled`,
+  await waitEval(cdp, `[...document.querySelectorAll(${S(`${panel} .akari-inspector-ai-narration-button`)})]
+    .some(button=>button.textContent==='声を作る'&&!button.disabled)`,
     'narration ready after cancel');
   await waitEval(cdp, `Boolean(document.querySelector(${S(panel)}))
     &&Boolean(document.querySelector(${S(item('frame-a'))})?.classList.contains('akari-annotations-selected'))`,
@@ -284,7 +295,7 @@ try {
   await shot(cdp, '05-cancelled.png');
 
   await writeFile(controlFile, JSON.stringify({ mode: 'failure', seconds: 3.5 }));
-  await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button`,
+  await clickTextUntil(cdp, `${panel} .akari-inspector-ai-narration-button`, '声を作る',
     `document.querySelector('.akari-inspector-ai-narration-error')?.textContent.includes('L1 の意図した失敗')`, 'failed narration');
   const failure = await waitEval(cdp, `(()=>{const error=document.querySelector('.akari-inspector-ai-narration-error')?.textContent;
     const retry=[...document.querySelectorAll('.akari-inspector-ai-narration-button')]
@@ -298,7 +309,7 @@ try {
   await waitEval(cdp, `document.querySelector('.akari-inspector-ai-narration-voice option')?.textContent==='自声プロファイル'`, 'own voice profile');
   check('paid own voice label', await evalOn(cdp,
     `document.querySelector(${S(panel)})?.textContent.includes('自声')&&document.querySelector(${S(panel)})?.textContent.includes('$0.2 / 1000 字')`), true);
-  await clickUntil(cdp, `${panel} .akari-inspector-ai-narration-button`,
+  await clickTextUntil(cdp, `${panel} .akari-inspector-ai-narration-button`, 'もう一度',
     `Boolean([...document.querySelectorAll('.dialogBlock')].find(dialog=>dialog.textContent.includes('費用承認')))`, 'paid approval dialog');
   const approval = await waitEval(cdp, `(()=>{const text=[...document.querySelectorAll('.dialogBlock')]
       .find(dialog=>dialog.textContent.includes('費用承認'))?.textContent;
