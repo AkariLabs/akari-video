@@ -1,5 +1,5 @@
 {
-  "status": "FAIL",
+  "status": "PASS",
   "checks": [
     {
       "name": "FAL_KEY removed before Electron launch",
@@ -10,6 +10,80 @@
       "name": "original image card remains",
       "passed": true,
       "observed": true
+    },
+    {
+      "name": "fake CLI used without fal key",
+      "passed": true,
+      "observed": {
+        "args": [
+          "generate",
+          "video",
+          "<TEMP>/project",
+          "--from-image",
+          "assets/still.png",
+          "--yes",
+          "--json"
+        ],
+        "next": {
+          "kind": "video",
+          "status": "planned",
+          "model": {
+            "id": "fal:h3-i2v"
+          },
+          "inputs": {
+            "prompt": "A slow camera move through a violet garden.",
+            "negative_prompt": null,
+            "first_frame": {
+              "path": "assets/still.png",
+              "sha256": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278",
+              "source_id": null,
+              "name": null,
+              "role": null,
+              "range_s": null
+            },
+            "last_frame": null,
+            "reference_images": [],
+            "reference_videos": [],
+            "reference_audios": [],
+            "source_video": null,
+            "camera": null,
+            "seed": null,
+            "extra": {},
+            "frames_or_refs": "frames"
+          },
+          "output": {
+            "duration_s": 5,
+            "resolution": "768P",
+            "aspect": null,
+            "audio_out": null
+          },
+          "updated_at": "2026-09-24T06:04:32.635Z"
+        },
+        "falKeyPresent": false
+      }
+    },
+    {
+      "name": "generated video file exists",
+      "passed": true,
+      "observed": "still-video-1790229874264.mp4"
+    },
+    {
+      "name": "edit and timeline DOM unchanged",
+      "passed": true,
+      "observed": {
+        "editBytesBefore": 568,
+        "editBytesAfter": 568,
+        "editByteEqual": true,
+        "imageSha256Before": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278",
+        "imageSha256After": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278",
+        "timelineDomEqual": true,
+        "generated": "still-video-1790229874264.mp4"
+      }
+    },
+    {
+      "name": "original image unchanged and still present",
+      "passed": true,
+      "observed": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278"
     }
   ],
   "clicks": [
@@ -26,43 +100,62 @@
     {
       "name": "cost approval",
       "attempt": 1,
-      "passed": false,
-      "error": "Error: Timed out: cost approval target"
-    },
-    {
-      "name": "cost approval",
-      "attempt": 2,
-      "passed": false,
-      "error": "Error: Timed out: cost approval target"
-    },
-    {
-      "name": "cost approval",
-      "attempt": 3,
-      "passed": false,
-      "error": "Error: Timed out: cost approval target"
+      "passed": true
     }
   ],
   "screenshots": [
     {
       "filename": "01-image-video-tile.png",
-      "bytes": 124317
+      "bytes": 99243
     },
     {
       "filename": "02-image-video-form.png",
-      "bytes": 115945
+      "bytes": 98620
+    },
+    {
+      "filename": "03-cost-approval.png",
+      "bytes": 27803
+    },
+    {
+      "filename": "04-generating.png",
+      "bytes": 119459
+    },
+    {
+      "filename": "05-created.png",
+      "bytes": 119830
+    },
+    {
+      "filename": "06-material-cards.png",
+      "bytes": 273053
     }
   ],
   "fakeCli": {
     "configured": true,
     "falKeyPresent": false,
-    "invocations": 0
+    "invocations": 1,
+    "args": [
+      "generate",
+      "video",
+      "<TEMP>/project",
+      "--from-image",
+      "assets/still.png",
+      "--yes",
+      "--json"
+    ]
   },
-  "measurements": {},
+  "measurements": {
+    "editBytesBefore": 568,
+    "editBytesAfter": 568,
+    "editByteEqual": true,
+    "imageSha256Before": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278",
+    "imageSha256After": "2db812cb4ac6eda33e0ddfd7b2ab857df451fec63e15efe721a6849c3f159278",
+    "timelineDomEqual": true,
+    "generated": "still-video-1790229874264.mp4"
+  },
   "fixture": {
     "project": "<TEMP>/project",
     "image": "assets/still.png",
     "timeline": "assets/ordinary.mp4"
   },
-  "error": "Error: Timed out: cost approval target",
-  "killedPid": 11641
+  "killedPid": 97405
 }
