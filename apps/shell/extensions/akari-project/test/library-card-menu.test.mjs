@@ -60,9 +60,8 @@ test('ローカル索引の素材: 取り込む（未取得のみ）/ 頼む / �
 test('文字の見た目をかけるメニューとマイスタイル', () => {
     assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'textstyle', key: 'textstyle/news' }, false)), ['apply', 'place-text', 'favorite', 'info']);
     assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'textanim', key: 'textanim/fade' }, false)), ['apply', 'favorite', 'info']);
-    for (const kind of ['lut', 'transition']) {
-        assert.deepEqual(ids(libraryCardMenuEntries({ kind, key: `${kind}/x` }, false)), ['favorite', 'info']);
-    }
+    assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'lut', key: 'lut/x' }, false)), ['apply', 'favorite', 'info']);
+    assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'transition', key: 'transition/x' }, false)), ['favorite', 'info']);
     const mine = libraryCardMenuEntries({ kind: 'mystyle', key: 'mystyle/orange' }, false);
     assert.deepEqual(ids(mine), ['apply', 'place-text', 'favorite', 'info', 'rename', 'delete']);
     assert.equal(mine.find(entry => entry.id === 'delete').danger, true);
@@ -120,8 +119,8 @@ test('情報カード: プリセット・マイスタイル', () => {
     assert.equal(mine.license.kind, 'own');
     assert.deepEqual(mine.actions.map(action => action.id), ['apply', 'place-text', 'favorite']);
     const lut = libraryPresetInfoCard({ key: 'lut/warm', kind: 'lut', name: '暖色', categoryLabel: 'LUT' }, false);
-    assert.deepEqual(lut.actions.map(action => action.id), ['favorite']);
-    assert.equal(lut.actions[0].primary, false);
+    assert.deepEqual(lut.actions.map(action => action.id), ['apply', 'favorite']);
+    assert.equal(lut.actions[0].primary, true);
 });
 
 test('促しのシートの文言は price から作り、置いていないことを伝える', () => {

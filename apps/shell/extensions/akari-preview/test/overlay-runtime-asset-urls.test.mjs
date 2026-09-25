@@ -41,6 +41,14 @@ test('overlay runtime assets are served by content-hashed URL with immutable cac
         const withoutEngine = await service.getOverlayRuntimeAssetUrls();
         assert.equal(withoutEngine.frameEngineJavaScriptUrl, undefined);
         assert.equal(withoutEngine.captionFontUrl, urls.captionFontUrl);
+        assert.equal(urls.bundledCaptionFontFaces.length, 12);
+        assert.deepEqual(withoutEngine.bundledCaptionFontFaces, urls.bundledCaptionFontFaces);
+        const dela = urls.bundledCaptionFontFaces.find(face => face.id === 'dela-gothic-one');
+        assert.equal(dela.family, 'Dela Gothic One');
+        const delaResponse = await fetch(dela.url);
+        assert.equal(delaResponse.status, 200);
+        assert.equal(delaResponse.headers.get('content-type'), 'font/ttf');
+        assert.ok((await delaResponse.arrayBuffer()).byteLength > 1024);
 
         // 配信内容は文字列形（getOverlayRuntimeAssets）と 1 バイトも違わない
         const assets = await service.getOverlayRuntimeAssets({ includeFrameEngine: true });
@@ -79,6 +87,7 @@ test('prepareHtml references the runtime by URL and never inlines the font or th
     assert.ok(!/inlineScript\(assets\./.test(source), 'handler must not inline asset bundles');
     // URL 参照と CSP の許可
     assert.match(source, /captionFontFaceCss\(assets\.captionFontUrl\)/);
+    assert.match(source, /bundledCaptionFontFaceCss\(assets\.bundledCaptionFontFaces/);
     for (const key of URL_KEYS.filter(k => k !== 'captionFontUrl')) {
         assert.match(source, new RegExp(`externalScriptTag\\(assets\\.${key}\\)`), key);
     }

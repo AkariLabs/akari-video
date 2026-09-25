@@ -1,0 +1,35 @@
+diff --git a/captions.json b/captions.json
+index 012e0c2..6f5bb01 100644
+--- a/captions.json
++++ b/captions.json
+@@ -23,7 +23,29 @@
+       "edited": false,
+       "src": "a"
+     },
+-    { "id": "c-0005", "start": 3, "end": 6, "text": "テキストを入力", "speaker": null, "sourceRef": null, "edited": true, "time_domain": "output", "text_style": {"text_anchor":"mc","position":{"x":0.3835923247043139,"y":0.30159666353465453}} },
++    {
++      "id": "c-0005",
++      "start": 3,
++      "end": 6,
++      "text": "テキストを入力",
++      "speaker": null,
++      "sourceRef": null,
++      "edited": true,
++      "time_domain": "output",
++      "text_style": {
++        "text_anchor": "mc",
++        "position": {
++          "x": 0.3835923247043139,
++          "y": 0.30159666353465453
++        },
++        "animation": {
++          "in": {
++            "id": "fade-up",
++            "duration_sec": 0.6
++          }
++        }
++      }
++    },
+     {
+       "id": "c-0003",
+       "start": 6,

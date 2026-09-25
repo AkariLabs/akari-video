@@ -155,6 +155,7 @@ import {
     RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE,
     RESOLVED_SINGLE_LINE_FRAGMENT_OPEN
 } from '../common/caption-visual-contract';
+import { bundledCaptionFontFaceCss } from '../common/bundled-caption-fonts';
 import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../common/caption-text-animation-recipes';
 import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
 import { computeAdjustCssVisual } from '../common/adjust-css-visual';
@@ -7530,6 +7531,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontUrl)}
+${bundledCaptionFontFaceCss(assets.bundledCaptionFontFaces ?? [])}
 :root {
   color-scheme: light dark;
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
@@ -9447,6 +9449,9 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.akari.reportLibraryDropGeometry = detail => {
                 vscode.postMessage({ type: 'akari-preview-library-drop-geometry', ...detail });
+            };
+            window.akari.reportLibraryApplyHit = detail => {
+                vscode.postMessage({ type: 'akari-preview-hit-test-response', ...detail });
             };
             window.akari.requestMyStyleSave = captionId => {
                 vscode.postMessage({ type: 'akari-preview-my-style-save', captionId });
@@ -11588,6 +11593,40 @@ body { display: grid; place-items: center; padding: 32px; }
                     viewport: { width: window.innerWidth, height: window.innerHeight }, contentFrame, time: outputTime,
                     fps: initial.summary?.output?.fps, canvasDropTargets: initial.summary?.canvasDropTargets || [] });
             });
+            let libraryApplyHighlight;
+            let libraryMediaHitAt = () => null;
+            window.addEventListener('message', event => {
+                const request = event.data;
+                if (request?.type !== 'akari-preview-hit-test' && request?.type !== 'akari-preview-hit-test-clear') return;
+                libraryApplyHighlight?.remove();
+                libraryApplyHighlight = undefined;
+                if (request.type === 'akari-preview-hit-test-clear') return;
+                const stageRect = previewStage.getBoundingClientRect();
+                const x = stageRect.left + Number(request.x) * stageRect.width;
+                const y = stageRect.top + Number(request.y) * stageRect.height;
+                const media = libraryMediaHitAt({ clientX: x, clientY: y });
+                const fallback = media?.dataset?.akariLayerId
+                    ? { kind: 'layer', id: media.dataset.akariLayerId, rect: media.getBoundingClientRect() }
+                    : media && (media.dataset?.akariCutId || (media === stillImage && video.dataset.akariCutId))
+                        ? { kind: 'cut', id: media.dataset?.akariCutId || video.dataset.akariCutId, rect: stageRect } : undefined;
+                const hit = Number.isFinite(x) && Number.isFinite(y) && x >= stageRect.left && x <= stageRect.right
+                    && y >= stageRect.top && y <= stageRect.bottom
+                    ? window.akari.interaction?.libraryApplyHitTest?.(x, y, fallback, request.kind) : null;
+                const accepted = !!hit && (request.kind === 'lut' ? hit.kind !== 'caption' : hit.kind === 'caption');
+                if (accepted && request.highlight) {
+                    libraryApplyHighlight = document.createElement('div');
+                    libraryApplyHighlight.className = 'akari-preview-apply-target';
+                    libraryApplyHighlight.dataset.akariPreviewApplyTarget = hit.kind;
+                    Object.assign(libraryApplyHighlight.style, { position: 'fixed', left: hit.rect.left + 'px', top: hit.rect.top + 'px',
+                        width: hit.rect.width + 'px', height: hit.rect.height + 'px', boxSizing: 'border-box',
+                        border: '2px solid var(--akari-caption-select-color, var(--theia-focusBorder))',
+                        background: 'color-mix(in srgb, var(--akari-caption-select-color, var(--theia-focusBorder)) 12%, transparent)',
+                        borderRadius: 'var(--theia-borderRadius, 6px)', pointerEvents: 'none', zIndex: '2147483646' });
+                    document.body.appendChild(libraryApplyHighlight);
+                }
+                window.akari.reportLibraryApplyHit({ requestId: request.requestId,
+                    hit: accepted ? { kind: hit.kind, id: hit.id } : null });
+            });
             let loopRange = null;
             let isPlaying = false;
             let playToggleRenderedIsPlaying = null;
@@ -13595,6 +13634,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
                     }) || null;
             };
+            libraryMediaHitAt = findVisualMediaHitAt;
             // The interaction layer asks once at pointerdown. The media and pan handlers
             // reuse this answer so all three paths agree for the same pointer.
             const marqueeStartDecisions = new WeakMap();

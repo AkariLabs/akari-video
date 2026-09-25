@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import * as captionStyleEffects from '../lib/browser/inspector/caption-style-effects.js';
 import * as myStyleLook from '../lib/browser/my-style-look.js';
+import * as libraryApplyPlan from '../lib/browser/library-apply-plan.js';
 import * as editStore from '../../../../../packages/edit-store/lib/index.js';
 import { parseCaptions, updateCaptionTextStyleInSource } from '../../../../../packages/edit-store/lib/caption-store.js';
 
@@ -11,7 +12,7 @@ const start = source.indexOf("                case 'caption-style-my-style':");
 const end = source.indexOf("                case 'bgm-duck-db':", start);
 assert.ok(start > 0 && end > start);
 const block = source.slice(start, end);
-const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'edit_store_2', 'buffer_1', `return (async function () {
+const run = new Function('request', 'location', 'caption_style_effects_1', 'my_style_look_1', 'edit_store_2', 'buffer_1', 'library_apply_plan_1', `return (async function () {
   switch (request.kind) { ${block} }
 }).call(this);`);
 const caption = (id, style = {}, stylePreset, rawStyle = style) => ({
@@ -52,7 +53,7 @@ const sourceFor = captions => JSON.stringify(captions.map(item => ({
 })));
 
 async function invoke(kind, value, captions, targets, source = sourceFor(captions),
-  staleSource = source, expectOk = true, editSource) {
+  staleSource = source, expectOk = true, editSource, libraryApplyKind) {
   const calls = [];
   const history = [];
   const writes = [];
@@ -68,13 +69,40 @@ async function invoke(kind, value, captions, targets, source = sourceFor(caption
     reloadCaptions: async () => {}, reloadEdit: async () => {}, hideNotice: () => {}, footer: { textContent: '' }
   };
   let result;
-  try { result = await run.call(context, { kind, id: captions[0].id, value, ...(targets ? { targets } : {}) },
-    location, captionStyleEffects, myStyleLook, editStore, {}); }
+  try { result = await run.call(context, { kind, id: captions[0].id, value,
+    ...(targets ? { targets } : {}), ...(libraryApplyKind ? { libraryApplyKind } : {}) },
+    location, captionStyleEffects, myStyleLook, editStore, {}, libraryApplyPlan); }
   catch (error) { result = { ok: false, message: error.message }; }
   assert.equal(result.ok, expectOk);
   assert.equal(history.length, expectOk ? 1 : 0);
-  return { calls, history, reads, writes, result };
+  return { calls, history, reads, writes, result, footer: context.footer.textContent };
 }
+
+test('ライブラリから当てた動き・スタイルと既存マイスタイルは履歴・足元の言葉を分ける', async () => {
+  for (const [applyKind, label, footer] of [
+    ['textanim', '動きを当てる', '動きを当てました。'],
+    ['textstyle', 'スタイルを当てる', 'スタイルを当てました。'],
+    [undefined, 'マイスタイルを当てる', 'マイスタイルを当てました。'],
+    ['mystyle', 'マイスタイルを当てる', 'マイスタイルを当てました。']
+  ]) {
+    const result = await invoke('caption-style-my-style', { parts: [{ kind: 'look', text_style: { color: '#fff' } }] },
+      [caption('one')], undefined, undefined, undefined, true, undefined, applyKind);
+    assert.equal(result.history[0].label, label);
+    assert.equal(result.footer, footer);
+    assert.equal(result.writes.length, 1);
+  }
+});
+
+test('ライブラリのフォントだけ履歴・足元をフォントの言葉にし、インスペクターは従来どおり', async () => {
+  const fromLibrary = await invoke('caption-style-font-family', 'Dela Gothic One', [caption('one')],
+    undefined, undefined, undefined, true, undefined, 'font');
+  assert.equal(fromLibrary.history[0].label, 'フォントを変える');
+  assert.equal(fromLibrary.footer, 'フォントを変えました。');
+  assert.equal(fromLibrary.calls.length, 1);
+  const inspector = await invoke('caption-style-font-family', 'Dela Gothic One', [caption('one')]);
+  assert.equal(inspector.history[0].label, '字幕のスタイルを変更');
+  assert.equal(inspector.footer, '字幕のスタイルを更新しました。');
+});
 
 test('太さは font_weight と weight を同値で書き、undo で両方戻す', async () => {
   const { calls, history } = await invoke('caption-style-font-weight', 700,

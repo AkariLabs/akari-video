@@ -1,4 +1,6 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
+import { captionLibraryApplyFeedback, planLibraryApply, shouldShowTextPlaceBand, timelineApplyTarget,
+    type ApplyPayload, type ApplyTarget } from './library-apply-plan';
 import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
 import { topVisualTarget } from './preview-material-placement';
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from './canvas-drop-target';
@@ -331,6 +333,7 @@ import {
     LibraryTextStyleDragPayload,
     LibraryMyStyleDragPayload,
     LibraryTextDragPayload,
+    LibraryApplyDragPayload,
     LibraryShapeDragPayload,
     parseLibraryDragPayload,
     libraryAssetGhostPayload,
@@ -1209,7 +1212,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
     protected libraryAssetDragPayload: LibraryAssetDragPayload | undefined;
     protected libraryLockedDragKey: string | undefined;
-    protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | undefined;
+    protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryApplyDragPayload | undefined;
     protected libraryTextStyleOutputDuration = 0;
     protected libraryShapeDragPayload: LibraryShapeDragPayload | undefined;
     protected materialDragLastClientX = 0;
@@ -2521,6 +2524,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     .akari-annotations-widget .akari-annotations-focus-pulse {
         animation: akari-annotations-focus-pulse 1.6s ease-in-out;
     }
+    .akari-annotations-widget [data-akari-library-apply-target] {
+        outline: 2px solid var(--theia-focusBorder);
+        outline-offset: 1px;
+        box-shadow: inset 0 0 0 100px color-mix(in srgb, var(--theia-focusBorder) 12%, transparent);
+    }
 `;
         this.node.appendChild(style);
 
@@ -2878,7 +2886,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.materialDragPayload = libraryAssetGhostPayload(payload);
                 return;
             }
-            if (payload?.kind === 'textstyle' || payload?.kind === 'text' || payload?.kind === 'mystyle') {
+            if (payload?.kind === 'textstyle' || payload?.kind === 'text' || payload?.kind === 'mystyle'
+                || payload?.kind === 'textanim' || payload?.kind === 'font' || payload?.kind === 'lut') {
                 this.libraryTextStyleDragPayload = payload;
                 this.libraryTextStyleOutputDuration = this.editDocument
                     ? timelineDurationSeconds(this.readEdit(JSON.stringify(this.editDocument))).seconds : 0;
@@ -2889,7 +2898,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.libraryShapeDragPayload = payload;
                 return;
             }
-            if (!payload) return;
+            if (payload?.kind !== 'transition') return;
             this.libraryDragPayload = payload;
             this.renderStrip();
         };
@@ -3557,7 +3566,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
     }
 
-    protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+    protected async handleInspectorWrite(request: InspectorWriteRequest & { libraryApplyKind?: ApplyPayload['kind'] }): Promise<InspectorWriteResult> {
         if (this.materialSwap) await this.finishMaterialSwap(false);
         if (request.kind === 'audio-keyframes'
             && audioKeyframeWriteGuard(request.value) === 'too-few') {
@@ -3711,13 +3720,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         });
                     };
                     await write(after, editAfter);
-                    this.pushHistory({ label: 'マイスタイルを当てる',
+                    const feedback = captionLibraryApplyFeedback(request.libraryApplyKind);
+                    this.pushHistory({ label: feedback?.history ?? 'マイスタイルを当てる',
                         undo: async () => { await write(before, editBefore); await this.reloadEdit(); await this.reloadCaptions(); },
                         redo: async () => { await write(after, editAfter); await this.reloadEdit(); await this.reloadCaptions(); } });
                     if (editAfter) await this.reloadEdit();
                     await this.reloadCaptions();
                     this.hideNotice();
-                    this.footer.textContent = 'マイスタイルを当てました。';
+                    this.footer.textContent = feedback?.footer ?? 'マイスタイルを当てました。';
                     return { ok: true };
                 }
                 case 'caption-style-color':
@@ -3834,8 +3844,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                     };
                     await applyStyles(nextStyles);
+                    const feedback = request.kind === 'caption-style-font-family'
+                        ? captionLibraryApplyFeedback(request.libraryApplyKind) : undefined;
                     this.pushHistory({
-                        label: '字幕のスタイルを変更',
+                        label: feedback?.history ?? '字幕のスタイルを変更',
                         undo: async () => {
                             await applyStyles(originalStyles);
                             await this.reloadCaptions();
@@ -3847,7 +3859,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadCaptions();
                     this.hideNotice();
-                    this.footer.textContent = '字幕のスタイルを更新しました。';
+                    this.footer.textContent = feedback?.footer ?? '字幕のスタイルを更新しました。';
                     return { ok: true };
                 }
                 case 'bgm-duck-db':
@@ -4745,14 +4757,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 両方の入口から呼ぶ即置き。ファイルの新規作成も 1 手の履歴に含める。 */
     protected async applyMyStyle(detail: { style?: { uid?: string; revision?: number;
         parts?: Array<{ kind: string; text_style?: unknown; animation?: unknown }> }; ids?: string[];
-        selectedParts?: string[] } | undefined): Promise<void> {
+        selectedParts?: string[] } | undefined): Promise<boolean> {
         const style = detail?.style;
-        if (!style || !Array.isArray(style.parts)) return;
+        if (!style || !Array.isArray(style.parts)) { this.showNotice('スタイルを読み取れませんでした。'); return false; }
         const selected = detail?.selectedParts ?? ['look', 'motion', 'sfx', 'fx', 'decor'];
         const appliedKinds = appliedMyStyleKinds(style.parts, selected);
         const applied = style.parts.filter(part => appliedKinds.includes(part.kind));
         const ids = detail?.ids ?? this.selectionModel.selectedCaptionIds;
-        if (!ids.length) { this.showNotice('字幕を選んでください。'); return; }
+        if (!ids.length) { this.showNotice('字幕を選んでください。'); return false; }
+        if (!applied.length) { this.showNotice('当てられる部品がありません。'); return false; }
         if (applied.length) {
             if (applied.some(part => ['sfx', 'decor'].includes(part.kind))) {
                 try {
@@ -4763,16 +4776,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         if (!asset?.category || !asset.id || !file) throw new Error('素材参照が不正です。');
                         await this.resolveMyStyleAsset(asset.category, asset.id, file);
                     }
-                } catch (error) { this.showNotice(this.errorMessage(error)); return; }
+                } catch (error) { this.showNotice(this.errorMessage(error)); return false; }
             }
             const result = await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: ids[0],
                 value: { parts: applied, style_uid: style.uid },
                 targets: ids.map(id => ({ kind: 'caption' as const, id })) });
-            if (!result.ok) { this.showNotice(result.message ?? 'スタイルを当てられませんでした。'); return; }
+            if (!result.ok) { this.showNotice(result.message ?? 'スタイルを当てられませんでした。'); return false; }
             await this.recordMyStyleUsage(style, ids, appliedKinds);
         }
         const notice = myStyleApplyNotice(style.parts, selected);
         if (notice) this.showNotice(notice);
+        return true;
     }
 
     protected async recordMyStyleUsage(style: { uid?: string; revision?: number;
@@ -4979,6 +4993,42 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } finally {
             this.placingText = false;
         }
+    }
+
+    async applyLibraryItem(payload: ApplyPayload, target?: ApplyTarget): Promise<boolean> {
+        const current = target ?? (this.selection?.kind === 'caption' ? { kind: 'caption' as const, id: this.selection.id }
+            : this.selection?.kind === 'cut' ? { kind: 'cut' as const, id: this.cutItemId(this.selection.index) }
+                : this.selection?.kind === 'layer' || this.selection?.kind === 'item'
+                    ? { kind: this.selection.kind, id: this.selection.id } : undefined);
+        const plan = planLibraryApply(payload, current);
+        if (!plan) {
+            const needsVideo = payload.kind === 'lut';
+            const hasSuitableTarget = current && (needsVideo ? current.kind !== 'caption' : current.kind === 'caption');
+            this.messages.info(hasSuitableTarget ? 'カードの内容を読み取れませんでした。'
+                : needsVideo ? '写真や映像を選んでから当ててください。' : '文字を選んでから当ててください。');
+            return false;
+        }
+        if (payload.kind === 'mystyle' && plan.kind === 'caption') {
+            const applied = await this.applyMyStyle({ style: payload.style as { uid?: string; revision?: number;
+                parts: Array<{ kind: string; text_style?: unknown; animation?: unknown }> }, ids: [plan.id] });
+            if (!applied) return false;
+            if (this.location?.editUri) this.selectCaptions(this.location.editUri.toString(), [plan.id]);
+            return true;
+        }
+        const result = plan.kind === 'lut'
+            ? await this.handleInspectorWrite({ kind: 'item-field', id: plan.id, path: 'adjust.lut.lut', value: plan.lut })
+            : payload.kind === 'font'
+                ? await this.handleInspectorWrite({ kind: 'caption-style-font-family', id: plan.id,
+                    value: payload.fontFamily!.trim(), libraryApplyKind: 'font' })
+                : await this.handleInspectorWrite({ kind: 'caption-style-my-style', id: plan.id,
+                    value: { parts: plan.parts }, libraryApplyKind: payload.kind });
+        if (!result.ok) { this.messages.warn(result.message ?? '当てられませんでした。'); return false; }
+        if (plan.kind === 'caption' && this.location?.editUri) this.selectCaptions(this.location.editUri.toString(), [plan.id]);
+        else if (current?.kind === 'cut') {
+            const index = this.cutItemIds.indexOf(current.id);
+            if (index >= 0) this.applySelection({ kind: 'cut', index }, false);
+        } else if (current?.kind === 'layer') this.applySelection({ kind: 'layer', id: current.id }, false);
+        return true;
     }
 
     protected async withHistory(label: string, operation: () => Promise<void>): Promise<void> {
@@ -6714,7 +6764,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
-        if (this.readLibraryTextStyleDropPayload?.(event.dataTransfer)) {
+        const applyPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
+        if (applyPayload) {
+            this.node?.querySelectorAll?.('[data-akari-library-apply-target]').forEach(element =>
+                element.removeAttribute('data-akari-library-apply-target'));
+            const chip = (event.target as Element | null)?.closest?.('[data-akari-item-kind][data-akari-item-id]') as HTMLElement | null;
+            const applyTarget = timelineApplyTarget(applyPayload.kind, chip?.dataset.akariItemKind,
+                chip?.dataset.akariItemId, this.cutItemIds);
+            const dropBand = this.stripContent?.querySelector?.('[data-akari-textstyle-drop-target]') as HTMLElement | null | undefined;
+            if (dropBand) dropBand.style.display = applyTarget ? 'none' : '';
+            if (applyTarget && chip) {
+                chip.setAttribute('data-akari-library-apply-target', '');
+                if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+                this.hideMaterialGhost();
+                return;
+            }
+            if (applyPayload.kind === 'textanim' || applyPayload.kind === 'font' || applyPayload.kind === 'lut') {
+                if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+                this.hideMaterialGhost();
+                return;
+            }
             if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
             this.updateTextStyleDropGhost(point.x);
             return;
@@ -6750,6 +6819,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.stopMaterialDragAutoScroll();
         this.hideMaterialGhost();
+        if (this.libraryTextStyleDragPayload) {
+            this.node?.querySelectorAll?.('[data-akari-library-apply-target]').forEach(element =>
+                element.removeAttribute('data-akari-library-apply-target'));
+            const dropBand = this.stripContent?.querySelector?.('[data-akari-textstyle-drop-target]') as HTMLElement | null | undefined;
+            if (dropBand) dropBand.style.display = '';
+        }
     }
 
     /**
@@ -6813,9 +6888,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const textPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
         if (textPayload) {
+            this.node?.querySelectorAll?.('[data-akari-library-apply-target]').forEach(element =>
+                element.removeAttribute('data-akari-library-apply-target'));
+            const dropBand = this.stripContent?.querySelector?.('[data-akari-textstyle-drop-target]') as HTMLElement | null | undefined;
+            if (dropBand) dropBand.style.display = '';
             this.hideMaterialGhost();
             this.clearLibraryTransitionDragState();
             if (!this.location?.editUri) return;
+            const chip = (event.target as Element | null)?.closest?.('[data-akari-item-kind][data-akari-item-id]') as HTMLElement | null;
+            const target = timelineApplyTarget(textPayload.kind, chip?.dataset.akariItemKind,
+                chip?.dataset.akariItemId, this.cutItemIds);
+            if (target && textPayload.kind !== 'text') {
+                void this.applyLibraryItem(textPayload, target);
+                return;
+            }
+            if (textPayload.kind === 'textanim' || textPayload.kind === 'font' || textPayload.kind === 'lut') {
+                this.messages.info(textPayload.kind === 'lut' ? '写真や映像の上に落としてください。' : '文字の上に落としてください。');
+                return;
+            }
             const rect = this.strip.getBoundingClientRect();
             const start = point.zone === 'header-column'
                 ? Math.max(0, this.playheadT)
@@ -6930,11 +7020,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return payload?.kind === 'asset' ? payload : undefined;
     }
 
-    protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | undefined {
+    protected readLibraryTextStyleDropPayload(transfer: DataTransfer | null): LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryApplyDragPayload | undefined {
         if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
         const raw = transfer.getData(LIBRARY_DRAG_MIME);
         const payload = raw ? parseLibraryDragPayload(raw) : this.libraryTextStyleDragPayload;
-        return payload?.kind === 'textstyle' || payload?.kind === 'text' || payload?.kind === 'mystyle' ? payload : undefined;
+        return payload?.kind === 'textstyle' || payload?.kind === 'text' || payload?.kind === 'mystyle'
+            || payload?.kind === 'textanim' || payload?.kind === 'font' || payload?.kind === 'lut' ? payload : undefined;
     }
 
     protected readLibraryShapeDropPayload(transfer: DataTransfer | null): LibraryShapeDragPayload | undefined {
@@ -7195,6 +7286,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const hadPayload = this.libraryDragPayload !== undefined;
         this.libraryDragPayload = undefined;
         this.setHoveredTransitionDropTarget(undefined);
+        if (hadTextStyle) this.node?.querySelectorAll?.('[data-akari-library-apply-target]').forEach(element =>
+            element.removeAttribute('data-akari-library-apply-target'));
         if (hadPayload || hadTextStyle) this.renderStrip();
     }
 
@@ -10096,7 +10189,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 band.style.opacity = layout.hidden ? '.28' : '1';
             }
         }
-        if (this.libraryTextStyleDragPayload) {
+        if (shouldShowTextPlaceBand(this.libraryTextStyleDragPayload?.kind)) {
             const bandLayout = this.textStyleDropBandLayout();
             const { element: dropBand } = this.keyedNode(
                 'strip', 'band:textstyle-drop-target', 'textstyle', () => document.createElement('div')

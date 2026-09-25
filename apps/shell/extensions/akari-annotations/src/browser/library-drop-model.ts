@@ -18,10 +18,17 @@ export interface LibraryAssetDragPayload {
 export interface LibraryTextStyleDragPayload {
     kind: 'textstyle';
     id: string;
+    style?: unknown;
 }
 
 export interface LibraryTextDragPayload {
     kind: 'text';
+}
+export interface LibraryApplyDragPayload {
+    kind: 'textanim' | 'font' | 'lut';
+    id: string;
+    slot?: string;
+    fontFamily?: string;
 }
 
 export interface LibraryMyStyleDragPayload {
@@ -35,7 +42,7 @@ export interface LibraryShapeDragPayload {
     preset: string;
 }
 
-export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload;
+export type LibraryDragPayload = LibraryTransitionDragPayload | LibraryAssetDragPayload | LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | LibraryShapeDragPayload | LibraryApplyDragPayload;
 
 export function textPlaceOptions(start: number): { start: number } {
     return { start };
@@ -85,6 +92,12 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     const candidate = decoded as Record<string, unknown>;
     if (candidate.kind === 'transition') return parseLibraryTransitionDragPayload(decoded);
     if (candidate.kind === 'text') return { kind: 'text' };
+    if (candidate.kind === 'textanim' || candidate.kind === 'font' || candidate.kind === 'lut') {
+        return typeof candidate.id === 'string' && candidate.id.trim()
+            ? { kind: candidate.kind, id: candidate.id,
+                ...(typeof candidate.slot === 'string' ? { slot: candidate.slot } : {}),
+                ...(typeof candidate.fontFamily === 'string' ? { fontFamily: candidate.fontFamily } : {}) } : undefined;
+    }
     if (candidate.kind === 'shape') {
         return typeof candidate.preset === 'string' && candidate.preset.trim()
             ? { kind: 'shape', preset: candidate.preset } : undefined;
@@ -96,7 +109,8 @@ export function parseLibraryDragPayload(value: unknown): LibraryDragPayload | un
     }
     if (candidate.kind === 'textstyle') {
         return typeof candidate.id === 'string' && candidate.id.trim()
-            ? { kind: 'textstyle', id: candidate.id } : undefined;
+            ? { kind: 'textstyle', id: candidate.id,
+                ...(candidate.style && typeof candidate.style === 'object' ? { style: candidate.style } : {}) } : undefined;
     }
     if (candidate.kind !== 'asset' || candidate.state === 'locked'
         || typeof candidate.category !== 'string' || !libraryAssetMaterialKind(candidate.category)
