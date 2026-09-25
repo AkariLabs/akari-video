@@ -1,0 +1,312 @@
+{
+  "label": "after-line45",
+  "port": 9554,
+  "pid": 24763,
+  "previewBuilt": true,
+  "maximized": true,
+  "results": {
+    "initial": {
+      "stage": {
+        "x": 36,
+        "y": 179.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "items": {
+        "box-a": null,
+        "box-rot": null,
+        "back": null,
+        "front": null,
+        "line": {
+          "left": 70.58332824707031,
+          "top": 289.7916564941406,
+          "width": 69.16667175292969,
+          "height": 6.91668701171875,
+          "cx": 105.16666412353516,
+          "cy": 293.25,
+          "container": {
+            "left": 70.58332824707031,
+            "top": 289.7916564941406,
+            "width": 332,
+            "height": 186.75,
+            "cx": 236.5833282470703,
+            "cy": 383.1666564941406
+          }
+        },
+        "box-b": null,
+        "box-r": null,
+        "box-g": null,
+        "box-m": null,
+        "box-alt": null
+      },
+      "handles": [],
+      "named": {
+        "se": [],
+        "nw": [],
+        "e": [],
+        "w": [],
+        "n": [],
+        "s": [],
+        "rotate": [],
+        "move": [],
+        "lineStart": [],
+        "lineEnd": [],
+        "frame": [],
+        "cutSe": [],
+        "cutNw": [],
+        "cutRotate": [],
+        "guides": [],
+        "hint": [],
+        "angle": [],
+        "textE": [],
+        "textW": [],
+        "textSe": [],
+        "textNw": [],
+        "textN": [],
+        "textS": [],
+        "textRot": [],
+        "textMove": [],
+        "captionHint": []
+      }
+    },
+    "k": 0.17291666666666666,
+    "line": {
+      "handles": [
+        {
+          "cls": "akari-interaction-selection-frame is-line",
+          "data": "selection-frame",
+          "aria": null,
+          "text": "",
+          "left": 70.578125,
+          "top": 289.7890625,
+          "width": 69.1640625,
+          "height": 6.9140625,
+          "cx": 105.16015625,
+          "cy": 293.24609375,
+          "hitSelf": false,
+          "hitCls": "",
+          "bg": "rgba(0, 0, 0, 0)",
+          "border": "rgba(0, 0, 0, 0) 1px",
+          "radius": "0px",
+          "shadow": "none",
+          "zIndex": "2147483647",
+          "cursor": "auto"
+        },
+        {
+          "cls": "akari-interaction-handle is-line-start",
+          "data": "selection-handle",
+          "aria": "線の始点",
+          "text": "",
+          "left": 65.578125,
+          "top": 287.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 71.578125,
+          "cy": 293.2421875,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-line-start",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
+          "zIndex": "auto",
+          "cursor": "crosshair"
+        },
+        {
+          "cls": "akari-interaction-handle is-line-end",
+          "data": "selection-handle",
+          "aria": "線の終点",
+          "text": "",
+          "left": 132.7421875,
+          "top": 287.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 138.7421875,
+          "cy": 293.2421875,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-line-end",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
+          "zIndex": "auto",
+          "cursor": "crosshair"
+        },
+        {
+          "cls": "akari-interaction-handle akari-interaction-action is-rotate",
+          "data": "selection-handle",
+          "aria": "回転",
+          "text": "",
+          "left": 78.15625,
+          "top": 308.703125,
+          "width": 25,
+          "height": 25,
+          "cx": 90.65625,
+          "cy": 321.203125,
+          "hitSelf": true,
+          "hitCls": "",
+          "bg": "rgb(30, 30, 30)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
+          "zIndex": "auto",
+          "cursor": "grab"
+        },
+        {
+          "cls": "akari-interaction-handle akari-interaction-action is-move",
+          "data": "selection-handle",
+          "aria": "移動",
+          "text": "",
+          "left": 107.15625,
+          "top": 308.703125,
+          "width": 25,
+          "height": 25,
+          "cx": 119.65625,
+          "cy": 321.203125,
+          "hitSelf": true,
+          "hitCls": "",
+          "bg": "rgb(30, 30, 30)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
+          "zIndex": "auto",
+          "cursor": "move"
+        }
+      ],
+      "frame": {
+        "left": 70.578125,
+        "top": 289.7890625,
+        "width": 69.1640625,
+        "height": 6.9140625,
+        "cx": 105.16015625,
+        "cy": 293.24609375,
+        "text": "",
+        "style": "left: 70.5833px; top: 289.792px; width: 69.1667px; height: 6.91669px; transform-origin: 166px 93.375px;",
+        "cls": "akari-interaction-selection-frame is-line"
+      },
+      "angle45": {
+        "startMove": {
+          "x": -0.28,
+          "y": 0.71
+        },
+        "angleDeg": 45,
+        "rotate": 45,
+        "hintDuring": [
+          {
+            "left": 150.7421875,
+            "top": 305.2421875,
+            "width": 89,
+            "height": 22.5,
+            "cx": 195.2421875,
+            "cy": 316.4921875,
+            "text": "線の長さと向き",
+            "style": "left: 150.742px; top: 305.242px;",
+            "cls": "akari-interaction-hint"
+          }
+        ],
+        "guidesDuring": []
+      }
+    }
+  },
+  "windowShot": "after-line45-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 270,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 9
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-line",
+        "lane": "visual",
+        "name": "line",
+        "items": [
+          {
+            "id": "line",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -453.8661680080658,
+              "y": 1161.5249138404768,
+              "scale": 1,
+              "scaleX": 0.9926444057338538,
+              "scaleY": 1,
+              "rotate": 45
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "line",
+              "params": {
+                "fill": "none",
+                "stroke": "#111111",
+                "strokeWidth": 8,
+                "width": 400,
+                "height": 40
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "finalCaptions": {
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 10,
+        "time_domain": "output",
+        "text": "つまみの確かめ用の長めの文字です。折り返しを見ます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

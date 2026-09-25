@@ -361,7 +361,7 @@ function validateTextStyle(value, label) {
   const allowedKeys = new Set([
     "color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout",
     "font_family", "weight", "italic", "underline", "letter_spacing_em", "align",
-    "vertical_align", "vertical", "text_transform", "max_width_pct", "max_characters", "text_anchor",
+    "vertical_align", "vertical", "text_transform", "max_width_pct", "wrap_width_pct", "max_characters", "text_anchor",
     "position", "scale", "rotate", "shadow", "glow", "animation", "reference_height_px",
   ]);
   for (const key of Object.keys(value)) {
@@ -426,6 +426,10 @@ function validateTextStyleV0(value, label) {
   if (hasOwn(value, "max_width_pct")
     && (!isFiniteNumber(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100)) {
     fail(`${label}.max_width_pct は 0 より大きく 100 未満の有限数である必要があります`);
+  }
+  if (hasOwn(value, "wrap_width_pct")
+    && (!isFiniteNumber(value.wrap_width_pct) || value.wrap_width_pct <= 0 || value.wrap_width_pct > 100)) {
+    fail(`${label}.wrap_width_pct は 0 より大きく 100 以下の有限数である必要があります`);
   }
   if (hasOwn(value, "max_characters")
     && (!Number.isInteger(value.max_characters) || value.max_characters <= 0)) {

@@ -6,7 +6,8 @@ function fragment(start,end){return source.slice(source.indexOf(start),source.in
 const gesture=fragment('            const beginMediaTransformDrag =','            const beginLayerMoveDrag =');
 const guard=fragment('            let selectionDragActive =','            let suppressClick =');
 function fixture(staleRead=false){const window=new EventTarget();window.akari={reportGesture(){},interaction:{hideSnapGuides(){}}};let value={x:0,y:0},writes=[];const target={transformNow:()=>staleRead?{x:0,y:0}:{...value},applyTransform:v=>value=v,flushTransform(){},canWrite:()=>true,write:async v=>writes.push(v)};
- const begin=new Function('window',`${guard};let isPlaying=false;const togglePlayback=()=>{};const CLICK_THRESHOLD_PX=3;${gesture};return beginMediaTransformDrag;`)(window);
+ const document={body:{classList:{add(){},remove(){}},style:{},appendChild(){}},createElement:()=>({style:{},setAttribute(){},remove(){}})};
+ const begin=new Function('window','document',`${guard};let isPlaying=false;const togglePlayback=()=>{};const CLICK_THRESHOLD_PX=3;${gesture};return beginMediaTransformDrag;`)(window,document);
  const capture={setPointerCapture(){},hasPointerCapture:()=>false};begin(target,{pointerId:1,currentTarget:capture,clientX:0,clientY:0,preventDefault(){},stopPropagation(){}},e=>({x:e.clientX,y:e.clientY}));
  const emit=(type,x,y)=>{const e=new Event(type);Object.assign(e,{pointerId:1,clientX:x,clientY:y});window.dispatchEvent(e)};return {emit,writes,value:()=>value};}
 test('release-only displacement is committed exactly once',async()=>{const f=fixture();f.emit('pointerup',40,20);f.emit('pointerup',40,20);await Promise.resolve();assert.deepEqual(f.writes,[{transform:{x:40,y:20}}])});
@@ -24,6 +25,17 @@ test('selected cut pointerdown suppresses the overlay capture for that gesture',
  assert.deepEqual(enabled,[false]);
  await Promise.resolve();
  assert.deepEqual(enabled,[false,true]);
+});
+test('selected cut leaves Alt overlay drag enabled when the overlay is visibly on top', () => {
+ const begin=source.indexOf("            window.addEventListener('pointerdown', event => {",source.indexOf("const cutSelectBox ="));
+ const end=source.indexOf('            let selectionCutSource;',begin);
+ let handler;const enabled=[];const video={};
+ class Element { closest(selector) { return selector.includes('[data-overlay-id]') ? this : null; } }
+ const window={akari:{interaction:{setEnabled:value=>enabled.push(value)}},addEventListener:(_type,callback)=>{handler=callback}};
+ new Function('window','video','stillImage','findVisualMediaHitAt','cutSelected','Element',source.slice(begin,end))
+   (window,video,{},()=>video,true,Element);
+ handler({button:0,altKey:true,target:new Element()});
+ assert.deepEqual(enabled,[]);
 });
 test('cut keyframe evaluation yields to an active handle gesture',()=>{
  assert.match(fragment('            const applyCutKeyframesToMedia =','            const clearAdjustBaseFilter ='),

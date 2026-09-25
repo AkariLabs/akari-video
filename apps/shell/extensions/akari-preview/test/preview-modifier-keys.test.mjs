@@ -13,29 +13,30 @@ function between(text, start, end) {
   return rest.slice(0, endMatch.index);
 }
 
-test('all four native snap bypass guards use current move Alt, never Shift', () => {
-  const guards = [...source.matchAll(/\bif\s*\(\s*(moveEvent\.(?:altKey|shiftKey)\s*\|\|\s*!window\.akari\.interaction[^)]*)\)/g)];
+test('all four native snap bypass guards use current move Command, never Shift or Alt', () => {
+  const guards = [...source.matchAll(/\bif\s*\(\s*(moveEvent\.metaKey\s*\|\|\s*moveEvent\.ctrlKey\s*\|\|\s*!window\.akari\.interaction[^)]*)\)/g)];
   assert.equal(guards.length, 4);
   for (const [, guard] of guards) {
-    assert.match(guard, /^moveEvent\.altKey\s*\|\|/);
-    assert.doesNotMatch(guard, /shiftKey/);
+    assert.match(guard, /^moveEvent\.metaKey\s*\|\|\s*moveEvent\.ctrlKey\s*\|\|/);
+    assert.doesNotMatch(guard, /shiftKey|altKey/);
   }
   assert.doesNotMatch(source, /moveEvent\.shiftKey\s*\|\|\s*!window\.akari\.interaction/);
 });
 
-test('layer rotation rounds the absolute angle only while move Shift is held', () => {
+test('layer rotation snaps the absolute angle to 45 degrees unless Command is held', () => {
   const rotateBlock = between(source, /if\s*\(\s*kind\s*===\s*'rotate'\s*\)\s*\{/, /\}\s*else\s*\{/);
   const callback = between(rotateBlock,
     /beginMediaTransformDrag\s*\(\s*layerDragTarget\s*\(\s*entry\s*\)\s*,\s*event\s*,\s*\(\s*moveEvent\s*,\s*original\s*\)\s*=>\s*\{/,
     /\}\s*\)\s*;/);
   assert.match(callback, /const\s+rotate\s*=\s*original\.rotate\s*\+\s*\(\s*angle\s*-\s*startAngle\s*\)\s*;/);
-  assert.match(callback, /return\s*\{\s*\.\.\.original\s*,\s*rotate\s*:\s*moveEvent\.shiftKey\s*\?\s*Math\.round\s*\(\s*rotate\s*\/\s*15\s*\)\s*\*\s*15\s*:\s*rotate\s*\}\s*;/);
+  assert.match(callback, /rotate:\s*window\.akariHandleGeometry\?\.snapAngle\(rotate,[\s\S]*?moveEvent\.metaKey\s*\|\|\s*moveEvent\.ctrlKey\)\s*\?\?\s*rotate/);
 });
 
-test('caption rotation previews and persists the same Shift-rounded patch; Alt targeting stays intact', () => {
+test('caption rotation previews and persists the same 45-degree patch; Alt targeting stays intact', () => {
   const drag = between(source, /const\s+beginCaptionHandleDrag\s*=/, /captionLayer\.addEventListener\s*\(\s*'pointerdown'/);
   const onMove = between(drag, /const\s+onMove\s*=\s*moveEvent\s*=>\s*\{/, /\}\s*;\s*const\s+finish\s*=/);
-  assert.match(onMove, /if\s*\(\s*patch\.rotate\s*!==\s*undefined\s*&&\s*moveEvent\.shiftKey\s*\)\s*\{\s*patch\.rotate\s*=\s*Math\.round\s*\(\s*patch\.rotate\s*\/\s*15\s*\)\s*\*\s*15\s*;\s*\}\s*lastPatch\s*=\s*patch\s*;[\s\S]*?captionPlate\.style\.setProperty\s*\(\s*'--caption-rotate'\s*,\s*patch\.rotate\s*\+\s*'deg'\s*\)/);
+  assert.match(onMove, /if\s*\(\s*!moveEvent\.metaKey\s*&&\s*!moveEvent\.ctrlKey\s*\)\s*\{[\s\S]*?Math\.round\(angle\s*\/\s*45\)\s*\*\s*45;[\s\S]*?Math\.abs\(angle\s*-\s*target\)\s*<=\s*4/);
+  assert.match(onMove, /lastPatch\s*=\s*patch\s*;[\s\S]*?captionPlate\.style\.setProperty\s*\(\s*'--caption-rotate'\s*,\s*patch\.rotate\s*\+\s*'deg'\s*\)/);
 
   const finish = between(drag, /const\s+finish\s*=\s*async\s+cancelled\s*=>\s*\{/, /\}\s*;\s*const\s+onUp\s*=/);
   assert.match(finish, /const\s+patch\s*=\s*lastPatch\s*;\s*pendingCaptionDragReload\s*=\s*true\s*;\s*try\s*\{\s*await\s+window\.akari\.engine\.captionWrite\s*\(\s*cueId\s*,\s*\{\s*plateTransform\s*:\s*\{\s*captionIds\s*:\s*targets\s*,\s*\.\.\.patch\s*\}\s*\}\s*\)\s*;/);

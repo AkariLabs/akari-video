@@ -226,6 +226,7 @@
         "vertical": { "type": "boolean" },
         "text_transform": { "type": "string", "enum": ["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"] },
         "max_width_pct": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 100 },
+        "wrap_width_pct": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
         "max_characters": { "type": "integer", "minimum": 1 },
         "text_anchor": { "$ref": "#/$defs/textAnchor" },
         "position": { "$ref": "#/$defs/textPosition" },

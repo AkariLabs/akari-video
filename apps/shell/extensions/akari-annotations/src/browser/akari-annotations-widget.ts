@@ -2,6 +2,8 @@ import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '
 import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
 import { topVisualTarget } from './preview-material-placement';
 import { probePreviewMediaDimensions } from './preview-media-dimensions';
+import { duplicatePreviewItem, type PreviewDuplicateRequest } from '../common/preview-duplicate';
+import { writePreviewCaptionWrap, duplicatePreviewCaption, type PreviewCaptionWrapRequest } from '../common/preview-caption-wrap';
 import { AkariReadAloudDialog, type ReadAloudPlacement } from './read-aloud/akari-read-aloud-dialog';
 import { selectReadAloudRows, staleNarrations } from '../common/read-aloud-model';
 import { timelineGapAt, type TimelineGap } from '../common/timeline-gap';
@@ -1404,12 +1406,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (!this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')) {
             this.toDispose.push(this.commandRegistry.registerCommand({ id: 'akari.annotations.commitPreviewTransform' }, {
-                execute: async (editUri: string, command: PreviewItemWriteCommand | PreviewItemWriteCommand[]) => {
+                execute: async (editUri: string, command: PreviewItemWriteCommand | PreviewItemWriteCommand[]
+                    | ({ kind: 'duplicate' } & PreviewDuplicateRequest)
+                    | ({ kind: 'caption-wrap' } & PreviewCaptionWrapRequest)
+                    | { kind: 'caption-duplicate'; captionId: string;
+                        position: { anchor: string; position: { x: number; y: number } } }) => {
                     if (!this.location?.editUri || this.normalizeUri(editUri) !== this.normalizeUri(this.location.editUri.toString())) {
                         return false;
                     }
+                    if (!Array.isArray(command) && command.kind === 'caption-wrap') {
+                        const before = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
+                        const after = writePreviewCaptionWrap(before, command);
+                        await this.commitEditMutation('文字の折り返し幅を変更', doc => doc,
+                            { captions: { before, after }, optimistic: true });
+                        return true;
+                    }
+                    if (!Array.isArray(command) && command.kind === 'caption-duplicate') {
+                        const before = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
+                        const after = duplicatePreviewCaption(before, command.captionId, command.position);
+                        await this.commitEditMutation('文字を複製', doc => doc,
+                            { captions: { before, after }, optimistic: true });
+                        return true;
+                    }
                     await this.commitEditMutation('プレビューで変形を変更', doc => {
                         const source = JSON.stringify(doc);
+                        if (!Array.isArray(command) && command.kind === 'duplicate') {
+                            return JSON.parse(duplicatePreviewItem(source, command)) as EditV2Document;
+                        }
                         const resolved = Array.isArray(command)
                             ? resolvePreviewItemWriteBatch(source, command)
                             : resolvePreviewItemWrite(source, command);

@@ -431,3 +431,13 @@ test("max_characters rejects non-positive integers and invalid types in either s
     }
   }
 });
+
+test("wrap_width_pct accepts a positive output-width percentage and rejects invalid values", () => {
+  assert.equal(runValue([{ ...caption, text_style: { wrap_width_pct: 37.5 } }]).status, 0);
+  assert.equal(runValue([{ ...caption, text_style: { wrap_width_pct: 100 } }]).status, 0);
+  for (const value of [0, -1, 101, '40', null]) {
+    const executed = runValue([{ ...caption, text_style: { wrap_width_pct: value } }]);
+    assert.equal(executed.status, 1, executed.stdout);
+    assert.match(executed.stderr, /wrap_width_pct/u);
+  }
+});

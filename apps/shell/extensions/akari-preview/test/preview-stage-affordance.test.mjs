@@ -46,12 +46,13 @@ test('ズーム中も直接操作面はパン捕捉を素通しし、論理座�
     assert.match(directTarget, /\[data-overlay-id\]/);
     assert.match(directTarget, /\[data-akari-layer-id\]/);
     assert.match(directTarget, /#layer-select-box[\s\S]*#cut-select-box[\s\S]*#caption-select-box/);
-    assert.match(directTarget, /if \(!event\.altKey && isDirectManipulationTarget\(event\.target, event\)\) return/);
+    assert.match(directTarget, /if \(isDirectManipulationTarget\(event\.target, event\)\) return/);
+    assert.doesNotMatch(directTarget, /!event\.altKey && isDirectManipulationTarget/);
     assert.doesNotMatch(source, /event\.button !== 0 \|\| zoom > 1\.05 \|\| cropModeActive/);
     assert.match(source, /const displayScale = \(window\.akari\.stageScale\(\) \|\| 1\) \* zoom/);
 });
 
-test('V1 四隅 resize は共通スナップとガイドを使い Alt で無効化する', () => {
+test('V1 四隅 resize は共通スナップとガイドを使い Command で無効化する', () => {
     const cutResize = source.slice(
         source.indexOf('for (const handle of cutHandleElements)'),
         source.indexOf('new ResizeObserver(() => updateCutSelectBox())')
@@ -60,9 +61,34 @@ test('V1 四隅 resize は共通スナップとガイドを使い Alt で無効�
     assert.match(cutResize, /anchorStageX:\s*anchor\.x[\s\S]*anchorStageY:\s*anchor\.y/);
     assert.match(cutResize, /draggedStageX:\s*dragged\.x[\s\S]*draggedStageY:\s*dragged\.y/);
     assert.match(cutResize, /startScale:\s*original\.scale[\s\S]*scale:\s*nextScale/);
-    assert.match(cutResize, /corner\.includes\('w'\)[\s\S]*corner\.includes\('n'\)/);
-    assert.match(cutResize, /moveEvent\.altKey\s*\|\|\s*!window\.akari\.interaction/);
+    assert.match(cutResize, /cutResizeCornersFn\(startBox,\s*corner\)/);
+    assert.match(cutResize, /cutResizeScaleFn\(original\.scale,\s*anchor,\s*dragged,\s*pointerStart,\s*pointer\)/);
+    assert.match(cutResize, /moveEvent\.metaKey\s*\|\|\s*moveEvent\.ctrlKey\s*\|\|\s*!window\.akari\.interaction/);
     assert.match(cutResize, /window\.akari\.interaction\?\.hideSnapGuides\?\.\(\)/);
     const removedSolverName = ['solveCentered', 'ResizeSnap'].join('');
     assert.equal(source.includes(removedSolverName), false);
+});
+
+test('Alt を押した図形の pointerdown はズーム中も複製ドラッグへ届く', () => {
+    const start = source.lastIndexOf("previewPane.addEventListener('pointerdown', event => {");
+    const end = source.indexOf("previewPane.addEventListener('pointermove'", start);
+    assert.ok(start >= 0 && end > start);
+    let pointerdown;
+    let captured = 0;
+    const previewPane = {
+        addEventListener: (_name, handler) => { pointerdown = handler; },
+        setPointerCapture: () => { captured++; }
+    };
+    const window = { akari: { shouldStartPreviewMarquee: () => false } };
+    new Function('previewPane', 'window', 'isDirectManipulationTarget',
+        `const penModeActive=false, zoom=2, pan={x:0,y:0}; let drag;
+         ${source.slice(start, end)}`)
+        (previewPane, window, () => true);
+    let prevented = 0, stopped = 0;
+    pointerdown({ button: 0, altKey: true, pointerId: 1, clientX: 20, clientY: 30,
+        target: { closest: () => null }, preventDefault: () => { prevented++; },
+        stopPropagation: () => { stopped++; } });
+    assert.equal(captured, 0);
+    assert.equal(prevented, 0);
+    assert.equal(stopped, 0);
 });

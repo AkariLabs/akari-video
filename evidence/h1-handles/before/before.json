@@ -1,0 +1,1090 @@
+{
+  "label": "before",
+  "port": 9554,
+  "pid": 54487,
+  "previewBuilt": true,
+  "maximized": true,
+  "results": {
+    "outer": {
+      "x": 221.9140625,
+      "y": 39
+    },
+    "frames": [
+      {
+        "x": 221.9140625,
+        "y": 39,
+        "w": 404,
+        "h": 603,
+        "src": "<webview-origin>"
+      }
+    ],
+    "initial": {
+      "stage": {
+        "x": 36,
+        "y": 179.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "items": {
+        "box-a": {
+          "left": 70.58332824707031,
+          "top": 206.7916717529297,
+          "width": 51.87500762939453,
+          "height": 34.58332824707031,
+          "cx": 96.52083206176758,
+          "cy": 224.08333587646484,
+          "container": {
+            "left": 70.58332824707031,
+            "top": 206.7916717529297,
+            "width": 332,
+            "height": 186.75001525878906,
+            "cx": 236.5833282470703,
+            "cy": 300.1666793823242
+          }
+        },
+        "box-rot": {
+          "left": 219.05227661132812,
+          "top": 136.30154418945312,
+          "width": 62.21673583984375,
+          "height": 55.887542724609375,
+          "cx": 250.16064453125,
+          "cy": 164.2453155517578,
+          "container": {
+            "left": 142.9689483642578,
+            "top": 136.30154418945312,
+            "width": 380.89544677734375,
+            "height": 327.730224609375,
+            "cx": 333.4166717529297,
+            "cy": 300.1666564941406
+          }
+        },
+        "back": {
+          "left": 260.79168701171875,
+          "top": 203.3333282470703,
+          "width": 62.249969482421875,
+          "height": 51.87501525878906,
+          "cx": 291.9166717529297,
+          "cy": 229.27083587646484,
+          "container": {
+            "left": 260.79168701171875,
+            "top": 203.3333282470703,
+            "width": 332,
+            "height": 186.74998474121094,
+            "cx": 426.79168701171875,
+            "cy": 296.7083206176758
+          }
+        },
+        "front": {
+          "left": 281.54168701171875,
+          "top": 217.1666717529297,
+          "width": 62.249969482421875,
+          "height": 51.87498474121094,
+          "cx": 312.6666717529297,
+          "cy": 243.10416412353516,
+          "container": {
+            "left": 281.54168701171875,
+            "top": 217.1666717529297,
+            "width": 332,
+            "height": 186.75001525878906,
+            "cx": 447.54168701171875,
+            "cy": 310.5416793823242
+          }
+        },
+        "line": {
+          "left": 70.58332824707031,
+          "top": 289.7916564941406,
+          "width": 69.16667175292969,
+          "height": 6.91668701171875,
+          "cx": 105.16666412353516,
+          "cy": 293.25,
+          "container": {
+            "left": 70.58332824707031,
+            "top": 289.7916564941406,
+            "width": 332,
+            "height": 186.75,
+            "cx": 236.5833282470703,
+            "cy": 383.1666564941406
+          }
+        },
+        "box-b": {
+          "left": 177.7916717529297,
+          "top": 286.3333435058594,
+          "width": 41.5,
+          "height": 27.666656494140625,
+          "cx": 198.5416717529297,
+          "cy": 300.1666717529297,
+          "container": {
+            "left": 177.7916717529297,
+            "top": 286.3333435058594,
+            "width": 332,
+            "height": 186.75,
+            "cx": 343.7916717529297,
+            "cy": 379.7083435058594
+          }
+        },
+        "captions": null
+      },
+      "handles": [],
+      "named": {
+        "se": [],
+        "nw": [],
+        "e": [],
+        "w": [],
+        "n": [],
+        "s": [],
+        "rotate": [],
+        "move": [],
+        "lineStart": [],
+        "lineEnd": [],
+        "frame": [],
+        "cutSe": [],
+        "cutNw": [],
+        "cutRotate": [],
+        "guides": [],
+        "hint": [],
+        "angle": []
+      }
+    },
+    "corner": {
+      "note": "se handle not found",
+      "handles": [
+        {
+          "cls": "akari-cut-handle akari-cut-handle-nw",
+          "data": "nw",
+          "aria": null,
+          "text": "",
+          "left": 31.5,
+          "top": 174.625,
+          "width": 12,
+          "height": 12,
+          "cx": 37.5,
+          "cy": 180.625,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-nw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-ne",
+          "data": "ne",
+          "aria": null,
+          "text": "",
+          "left": 360.5,
+          "top": 174.625,
+          "width": 12,
+          "height": 12,
+          "cx": 366.5,
+          "cy": 180.625,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-ne",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-sw",
+          "data": "sw",
+          "aria": null,
+          "text": "",
+          "left": 31.5,
+          "top": 358.375,
+          "width": 12,
+          "height": 12,
+          "cx": 37.5,
+          "cy": 364.375,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-sw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-se",
+          "data": "se",
+          "aria": null,
+          "text": "",
+          "left": 360.5,
+          "top": 358.375,
+          "width": 12,
+          "height": 12,
+          "cx": 366.5,
+          "cy": 364.375,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-se",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-rotate",
+          "data": "rotate",
+          "aria": null,
+          "text": "",
+          "left": 196,
+          "top": 146.625,
+          "width": 12,
+          "height": 12,
+          "cx": 202,
+          "cy": 152.625,
+          "hitSelf": false,
+          "hitCls": "",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "50%",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "grab"
+        }
+      ],
+      "probe": [
+        {
+          "x": 96.515625,
+          "y": 224.078125,
+          "t": ""
+        }
+      ],
+      "clickPoint": {
+        "x": 96.52083206176758,
+        "y": 224.08333587646484
+      },
+      "frames": [
+        {
+          "x": 221.9140625,
+          "y": 39,
+          "w": 404,
+          "h": 603,
+          "src": "<webview-origin>"
+        }
+      ],
+      "state": {
+        "hitTag": "DIV",
+        "hitId": "preview-stage",
+        "hitCls": "",
+        "hitChain": [
+          "preview-stage.",
+          "zoom-layer.",
+          "preview-wrapper.",
+          ".preview-pane",
+          ".workspace",
+          ".vscode-dark"
+        ],
+        "hitOverlay": null,
+        "treeLen": 0,
+        "tree": [],
+        "frame": null,
+        "selected": null,
+        "api": [
+          "selectedId",
+          "selectedIds",
+          "selectionKind",
+          "scopeId",
+          "floorScopeId",
+          "activeEdit",
+          "hasSelectionTree",
+          "selectFromTimeline",
+          "setSelectionFloor",
+          "selftest",
+          "fragmentBounds",
+          "canvasAlphaAtPoint",
+          "canvasClientBounds",
+          "captureCanvasContent",
+          "stageLocalPoint",
+          "computeSnapCorrection",
+          "showSnapGuides",
+          "hideSnapGuides",
+          "outputSize",
+          "currentDisplayScale",
+          "anchorPreservingTranslate",
+          "computeAnchorResizeSnap",
+          "applyOverlayHitPolicy",
+          "invalidateOverlayHitPolicy",
+          "syncOverlayHitRegion",
+          "clearSelection",
+          "setEnabled"
+        ]
+      }
+    },
+    "cutCorner": {
+      "handles": [
+        {
+          "cls": "akari-cut-handle akari-cut-handle-nw",
+          "data": "nw",
+          "aria": null,
+          "text": "",
+          "left": 31.5,
+          "top": 174.625,
+          "width": 12,
+          "height": 12,
+          "cx": 37.5,
+          "cy": 180.625,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-nw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-ne",
+          "data": "ne",
+          "aria": null,
+          "text": "",
+          "left": 360.5,
+          "top": 174.625,
+          "width": 12,
+          "height": 12,
+          "cx": 366.5,
+          "cy": 180.625,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-ne",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-sw",
+          "data": "sw",
+          "aria": null,
+          "text": "",
+          "left": 31.5,
+          "top": 358.375,
+          "width": 12,
+          "height": 12,
+          "cx": 37.5,
+          "cy": 364.375,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-sw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-se",
+          "data": "se",
+          "aria": null,
+          "text": "",
+          "left": 360.5,
+          "top": 358.375,
+          "width": 12,
+          "height": 12,
+          "cx": 366.5,
+          "cy": 364.375,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-se",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-rotate",
+          "data": "rotate",
+          "aria": null,
+          "text": "",
+          "left": 196,
+          "top": 146.625,
+          "width": 12,
+          "height": 12,
+          "cx": 202,
+          "cy": 152.625,
+          "hitSelf": false,
+          "hitCls": "",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "50%",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "grab"
+        }
+      ],
+      "before": null,
+      "after": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.7577215471417665,
+        "rotate": 0
+      },
+      "written": true,
+      "nwBefore": {
+        "left": 31.5,
+        "top": 174.625,
+        "width": 12,
+        "height": 12,
+        "cx": 37.5,
+        "cy": 180.625,
+        "text": "",
+        "style": "",
+        "cls": "akari-cut-handle akari-cut-handle-nw"
+      },
+      "nwAfter": {
+        "left": 71.7109375,
+        "top": 197.2421875,
+        "width": 12,
+        "height": 12,
+        "cx": 77.7109375,
+        "cy": 203.2421875,
+        "text": "",
+        "style": "",
+        "cls": "akari-cut-handle akari-cut-handle-nw"
+      },
+      "seBefore": {
+        "left": 360.5,
+        "top": 358.375,
+        "width": 12,
+        "height": 12,
+        "cx": 366.5,
+        "cy": 364.375,
+        "text": "",
+        "style": "",
+        "cls": "akari-cut-handle akari-cut-handle-se"
+      },
+      "seAfter": {
+        "left": 320.2734375,
+        "top": 335.7421875,
+        "width": 12,
+        "height": 12,
+        "cx": 326.2734375,
+        "cy": 341.7421875,
+        "text": "",
+        "style": "",
+        "cls": "akari-cut-handle akari-cut-handle-se"
+      },
+      "midGuides": [],
+      "nwDeltaScreenPx": {
+        "x": 40.21,
+        "y": 22.62
+      },
+      "rotateHandle": {
+        "left": 196,
+        "top": 146.625,
+        "width": 12,
+        "height": 12,
+        "cx": 202,
+        "cy": 152.625,
+        "text": "",
+        "style": "",
+        "cls": "akari-cut-handle akari-cut-handle-rotate"
+      }
+    },
+    "rotatedEdge": {
+      "note": "e handle not found",
+      "handles": []
+    },
+    "text": {
+      "textNode": {
+        "left": 130.4368133544922,
+        "top": 331.3511047363281,
+        "width": 116.56474304199219,
+        "height": 10.380401611328125,
+        "cx": 188.71918487548828,
+        "cy": 336.5413055419922,
+        "cls": "akari-caption__line",
+        "id": null
+      },
+      "handles": [],
+      "hasN": false,
+      "hasS": false,
+      "hasE": false
+    },
+    "line": {
+      "handles": [
+        {
+          "cls": "akari-cut-handle akari-cut-handle-nw",
+          "data": "nw",
+          "aria": null,
+          "text": "",
+          "left": 71.7109375,
+          "top": 197.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 77.7109375,
+          "cy": 203.2421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-nw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-ne",
+          "data": "ne",
+          "aria": null,
+          "text": "",
+          "left": 320.2734375,
+          "top": 197.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 326.2734375,
+          "cy": 203.2421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-ne",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-sw",
+          "data": "sw",
+          "aria": null,
+          "text": "",
+          "left": 71.7109375,
+          "top": 335.7421875,
+          "width": 12,
+          "height": 12,
+          "cx": 77.7109375,
+          "cy": 341.7421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-sw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-se",
+          "data": "se",
+          "aria": null,
+          "text": "",
+          "left": 320.2734375,
+          "top": 335.7421875,
+          "width": 12,
+          "height": 12,
+          "cx": 326.2734375,
+          "cy": 341.7421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-se",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-rotate",
+          "data": "rotate",
+          "aria": null,
+          "text": "",
+          "left": 195.9921875,
+          "top": 169.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 201.9921875,
+          "cy": 175.2421875,
+          "hitSelf": false,
+          "hitCls": "",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "50%",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "grab"
+        }
+      ],
+      "hasFrame": false
+    },
+    "rotate": {
+      "handles": [
+        {
+          "cls": "akari-cut-handle akari-cut-handle-nw",
+          "data": "nw",
+          "aria": null,
+          "text": "",
+          "left": 71.7109375,
+          "top": 197.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 77.7109375,
+          "cy": 203.2421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-nw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-ne",
+          "data": "ne",
+          "aria": null,
+          "text": "",
+          "left": 320.2734375,
+          "top": 197.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 326.2734375,
+          "cy": 203.2421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-ne",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-sw",
+          "data": "sw",
+          "aria": null,
+          "text": "",
+          "left": 71.7109375,
+          "top": 335.7421875,
+          "width": 12,
+          "height": 12,
+          "cx": 77.7109375,
+          "cy": 341.7421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-sw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-se",
+          "data": "se",
+          "aria": null,
+          "text": "",
+          "left": 320.2734375,
+          "top": 335.7421875,
+          "width": 12,
+          "height": 12,
+          "cx": 326.2734375,
+          "cy": 341.7421875,
+          "hitSelf": true,
+          "hitCls": "akari-cut-handle akari-cut-handle-se",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "3px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-rotate",
+          "data": "rotate",
+          "aria": null,
+          "text": "",
+          "left": 195.9921875,
+          "top": 169.2421875,
+          "width": 12,
+          "height": 12,
+          "cx": 201.9921875,
+          "cy": 175.2421875,
+          "hitSelf": false,
+          "hitCls": "",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1.5px",
+          "radius": "50%",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "grab"
+        }
+      ]
+    },
+    "guides": {
+      "k": 0.17291666666666666,
+      "midGuides": [
+        {
+          "left": 36,
+          "top": 272.4135437011719,
+          "width": 332,
+          "height": 0.17291259765625,
+          "cx": 202,
+          "cy": 272.5,
+          "text": "",
+          "style": "top: 540px;",
+          "cls": "akari-interaction-snap-guide is-horizontal"
+        }
+      ],
+      "afterItems": {
+        "x": 820,
+        "y": 620
+      },
+      "mid2Guides": [],
+      "afterCenter": {
+        "x": 820,
+        "y": 620
+      },
+      "guideStyles": [
+        {
+          "cls": "akari-interaction-snap-guide is-vertical",
+          "hidden": true,
+          "style": "left: 0.5px;",
+          "border": "none 0px / none 0px",
+          "bgImage": "none"
+        },
+        {
+          "cls": "akari-interaction-snap-guide is-horizontal",
+          "hidden": true,
+          "style": "top: 540px;",
+          "border": "none 0px / none 0px",
+          "bgImage": "none"
+        }
+      ]
+    },
+    "modifiers": {
+      "shift": {
+        "before": {
+          "x": 200,
+          "y": 160
+        },
+        "after": {
+          "x": 200,
+          "y": 160
+        }
+      },
+      "meta": {
+        "before": {
+          "x": 200,
+          "y": 160
+        },
+        "target": 823,
+        "after": {
+          "x": 200,
+          "y": 160
+        },
+        "midGuides": [
+          {
+            "left": 201.91354370117188,
+            "top": 179.125,
+            "width": 0.17291259765625,
+            "height": 186.75,
+            "cx": 202,
+            "cy": 272.5,
+            "text": "",
+            "style": "left: 960px;",
+            "cls": "akari-interaction-snap-guide is-vertical"
+          },
+          {
+            "left": 36,
+            "top": 365.70208740234375,
+            "width": 332,
+            "height": 0.17291259765625,
+            "cx": 202,
+            "cy": 365.7885437011719,
+            "text": "",
+            "style": "top: 1079.5px;",
+            "cls": "akari-interaction-snap-guide is-horizontal"
+          }
+        ]
+      },
+      "alt": {
+        "itemsBefore": 8,
+        "itemsAfter": 8,
+        "newIds": [],
+        "original": {
+          "before": {
+            "x": 200,
+            "y": 160
+          },
+          "after": {
+            "x": 200,
+            "y": 160
+          }
+        },
+        "copy": []
+      }
+    },
+    "backSelect": {
+      "hitAtSe": null,
+      "frontRect": {
+        "left": 281.54168701171875,
+        "top": 217.1666717529297,
+        "width": 62.249969482421875,
+        "height": 51.87498474121094,
+        "cx": 312.6666717529297,
+        "cy": 243.10416412353516,
+        "container": {
+          "left": 281.54168701171875,
+          "top": 217.1666717529297,
+          "width": 332,
+          "height": 186.75001525878906,
+          "cx": 447.54168701171875,
+          "cy": 310.5416793823242
+        }
+      },
+      "backRect": {
+        "left": 260.79168701171875,
+        "top": 203.3333282470703,
+        "width": 62.249969482421875,
+        "height": 51.87501525878906,
+        "cx": 291.9166717529297,
+        "cy": 229.27083587646484,
+        "container": {
+          "left": 260.79168701171875,
+          "top": 203.3333282470703,
+          "width": 332,
+          "height": 186.74998474121094,
+          "cx": 426.79168701171875,
+          "cy": 296.7083206176758
+        }
+      }
+    }
+  },
+  "windowShot": "before-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 270,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 9
+            },
+            "transform": {
+              "x": 150,
+              "y": 10.83036454344608,
+              "scale": 0.7577215471417665,
+              "rotate": 0
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-a",
+        "lane": "visual",
+        "name": "box-a",
+        "items": [
+          {
+            "id": "box-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 160
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-rot",
+        "lane": "visual",
+        "name": "box-rot",
+        "items": [
+          {
+            "id": "box-rot",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 760,
+              "y": 160,
+              "rotate": 30
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#10b981"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-back",
+        "lane": "visual",
+        "name": "back",
+        "items": [
+          {
+            "id": "back",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1300,
+              "y": 140
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 360,
+                "height": 300,
+                "fill": "#f59e0b"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-front",
+        "lane": "visual",
+        "name": "front",
+        "items": [
+          {
+            "id": "front",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1420,
+              "y": 220
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 360,
+                "height": 300,
+                "fill": "#8b5cf6"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-line",
+        "lane": "visual",
+        "name": "line",
+        "items": [
+          {
+            "id": "line",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 640
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "line",
+              "params": {
+                "fill": "none",
+                "stroke": "#111111",
+                "strokeWidth": 8,
+                "width": 400,
+                "height": 40
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-b",
+        "lane": "visual",
+        "name": "box-b",
+        "items": [
+          {
+            "id": "box-b",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 820,
+              "y": 620
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 240,
+                "height": 160,
+                "fill": "#ef4444"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "finalCaptions": {
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 10,
+        "time_domain": "output",
+        "text": "つまみの確かめ用の長めの文字です。折り返しを見ます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

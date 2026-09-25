@@ -1,0 +1,18 @@
+{
+  "rotate": ".akari-interaction-action.is-rotate",
+  "move": ".akari-interaction-action.is-move",
+  "lineStart": ".akari-interaction-handle.is-line-start",
+  "lineEnd": ".akari-interaction-handle.is-line-end",
+  "guides": ".akari-interaction-snap-guide:not([hidden])",
+  "hint": ".akari-interaction-hint",
+  "angle": ".akari-interaction-angle",
+  "textE": ".akari-caption-handle[data-h=\"e\"]",
+  "textW": ".akari-caption-handle[data-h=\"w\"]",
+  "textSe": ".akari-caption-handle[data-h=\"se\"]",
+  "textNw": ".akari-caption-handle[data-h=\"nw\"]",
+  "textN": ".akari-caption-handle[data-h=\"n\"]",
+  "textS": ".akari-caption-handle[data-h=\"s\"]",
+  "textRot": ".akari-caption-handle[data-h=\"rot\"]",
+  "textMove": ".akari-caption-handle[data-h=\"move\"]",
+  "captionHint": ".akari-caption-gesture-label, [class*=\"gesture-label\"]"
+}

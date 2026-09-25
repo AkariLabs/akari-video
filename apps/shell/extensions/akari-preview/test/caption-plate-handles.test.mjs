@@ -11,6 +11,8 @@ import {
   captionHandleScaleFactor,
   captionHandleScaleValue,
   captionHandleTargets,
+  captionWrapWidthDrag,
+  captionCornerTransform,
   persistCaptionPlateTransform,
   updateCaptionTransformSource,
 } from '../lib/common/caption-plate-handles.js';
@@ -56,6 +58,35 @@ test('caption targets preserve allIds order and remove duplicates', () => {
   assert.deepEqual(captionHandleTargets(['c2'], 'c1', all, false), ['c1']);
   assert.deepEqual(captionHandleTargets([], 'c1', all, true), ['c3', 'c1', 'c2']);
   assert.deepEqual(captionHandleTargets([], '', all, false), []);
+});
+
+test('left and right text handles keep the opposite edge and change only wrapping width', () => {
+  const start = { left: 200, right: 400 };
+  const right = captionWrapWidthDrag('e', start, 50, 1000);
+  assert.deepEqual(right, { widthPct: 25, centerX: 325 });
+  assert.equal(right.centerX - right.widthPct * 10 / 2, start.left);
+  const left = captionWrapWidthDrag('w', start, -50, 1000);
+  assert.deepEqual(left, { widthPct: 25, centerX: 275 });
+  assert.equal(left.centerX + left.widthPct * 10 / 2, start.right);
+  const saved = JSON.parse(updateCaptionTransformSource(JSON.stringify([{ id: 'c1', text_style: { size_px: 50 } }]),
+    ['c1'], { wrapWidthPct: right.widthPct }));
+  assert.deepEqual(saved[0].text_style, { size_px: 50, wrap_width_pct: 25 });
+});
+
+test('text corner scaling fixes its opposite corner at 30 degrees', () => {
+  const layout = { left: 100, right: 300, top: 100, bottom: 200 };
+  const rad = Math.PI / 6;
+  const anchor = { x: 200 - 100 * Math.cos(rad) + 50 * Math.sin(rad),
+    y: 150 - 100 * Math.sin(rad) - 50 * Math.cos(rad) };
+  const dragged = { x: 200 + 100 * Math.cos(rad) - 50 * Math.sin(rad),
+    y: 150 + 100 * Math.sin(rad) + 50 * Math.cos(rad) };
+  const now = { x: anchor.x + 1.5 * (dragged.x - anchor.x),
+    y: anchor.y + 1.5 * (dragged.y - anchor.y) };
+  const result = captionCornerTransform('se', layout, 1, 30, now);
+  assert.equal(result.scale, 1.5);
+  const nextCx = result.left + 100, nextCy = result.top + 50;
+  assert.ok(Math.abs(nextCx - result.scale * (100 * Math.cos(rad) - 50 * Math.sin(rad)) - anchor.x) < 1e-8);
+  assert.ok(Math.abs(nextCy - result.scale * (100 * Math.sin(rad) + 50 * Math.cos(rad)) - anchor.y) < 1e-8);
 });
 
 test('transform writer updates multiple object-root cues and preserves other style fields', () => {
@@ -130,14 +161,14 @@ test('webview wiring contains five selected-only handles and local CSS variable 
   assert.match(handlerSource, /plateTransform: \{ captionIds: targets, \.\.\.patch \}/u);
 });
 
-test('selected captions create one handle box with five handles and deselection removes all of them', () => {
+test('selected captions create bottom controls and deselection removes all handles', () => {
   const view = harness({
     cues: [{ id: 'c1', start: 0, end: 2, text: '字幕' }],
     selectedIds: ['c1'],
   });
   view.tick(1);
-  assert.equal(view.plate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle').length, 6);
-  assert.equal(view.plate.querySelectorAll('.akari-caption-handle').length, 5);
+  assert.equal(view.plate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle').length, 7);
+  assert.equal(view.plate.querySelectorAll('.akari-caption-handle').length, 6);
   view.run('selectedCaptionIds = new Set(); applyCaptionSelectionAttrs();');
   assert.equal(view.plate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle').length, 0);
   assert.equal(view.plate.querySelectorAll('.akari-caption-handle').length, 0);
@@ -187,14 +218,14 @@ test('all three caption plate CSS rules consume scale/rotate around the center',
   assert.ok(visualContract.resolved_caption_style_variable_names.includes('--caption-rotate'));
 });
 
-test('explicit-x caption handles keep the ink center fixed through scale and rotation', () => {
+test('explicit-x caption handles measure the ink box and preserve the opposite corner', () => {
   assert.equal(captionAnchorPositionVars('bc', { x: 0.2, y: 0.8 }, undefined)['--caption-width'], 'max-content');
   assert.equal((handlerSource.match(/width:var\(--caption-width,auto\);[^']*?transform-origin:center;/gu) ?? []).length, 2);
   assert.equal((renderCaptionSource.match(/width: var\(--caption-width, auto\);[\s\S]{0,350}?transform-origin: center;/gu) ?? []).length, 2);
   assert.match(visualContract.resolved_single_line_caption_css,
     /width:var\(--caption-width,auto\);[\s\S]*?transform-origin:center;/u);
   assert.match(handlerSource, /const captionLayoutRect = [\s\S]*?plate\.style\.transform = 'none';[\s\S]*?return captionVisualRect\(captionPlate\);[\s\S]*?plate\.style\.transform = previousTransform;/u);
-  assert.match(handlerSource, /const rect = captionVisualRect\(\);\s*const center = \{ x: \(rect\.left \+ rect\.right\) \/ 2, y: \(rect\.top \+ rect\.bottom\) \/ 2 \};/u);
+  assert.match(handlerSource, /const rect = captionVisualRect\(\);\s*const layoutRect = captionLayoutRect\(captionPlate\);\s*const center = \{ x: \(rect\.left \+ rect\.right\) \/ 2, y: \(rect\.top \+ rect\.bottom\) \/ 2 \};/u);
 
   const center = { x: 256 + 109, y: 540 };
   const corners = [[-109, -31], [109, -31], [109, 31], [-109, 31]];

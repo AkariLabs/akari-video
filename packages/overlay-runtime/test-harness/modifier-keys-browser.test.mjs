@@ -108,7 +108,7 @@ test('Escape restores HTML/part/slot content, mirrors, attributes and selection 
   }
 });
 
-test('pointermove Alt disables snapping; Shift frees corner axes while preserving move snap', async t => {
+test('pointermove Meta disables snapping; Shift keeps corner ratio and move snap', async t => {
   const browser = await launchBrowser(); t.after(() => browser.close());
   for (const kind of ['leaf', 'group', 'resize']) await t.test(kind, async () => {
     const page = await fixture(browser, { id: 'sample', part: null,
@@ -125,23 +125,40 @@ test('pointermove Alt disables snapping; Shift frees corner axes while preservin
       const x = start.x + start.width / 2, y = start.y + start.height / 2;
       await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
       const results = [];
-      for (const modifiers of [0, 1, 8, 1, 0]) {
+      for (const modifiers of [0, 4, 8, 4, 0]) {
         const target = kind === 'resize' ? { x: 3, y: 18 } : { x: x - 37, y };
         await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...target, button: 'left', buttons: 1, modifiers });
         results.push(await page.evaluate(() => window.akari.interaction.fragmentBounds(document.querySelector('[data-overlay-id]')).left));
       }
       if (kind !== 'resize') assert.ok(Math.abs(results[0]) < 0.1, JSON.stringify(results));
       assert.ok(Math.abs(results[0] - results[1]) > 0.5, JSON.stringify(results));
-      if (kind === 'resize') {
-        assert.ok(Math.abs(results[2] - results[0]) > 0.1, JSON.stringify(results));
-        assert.deepEqual([results[3], results[4]], [results[1], results[0]]);
-      } else {
-        assert.deepEqual(results, [results[0], results[1], results[0], results[1], results[0]]);
-      }
+      assert.deepEqual(results, [results[0], results[1], results[0], results[1], results[0]]);
       await page.keyboard.press('Escape');
       await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
       await cdp.detach();
       assert.deepEqual(await page.evaluate(() => window.writes), []);
     } finally { await page.close(); }
   });
+});
+
+test('Shift horizontal drag does not magnetize the frozen vertical axis', async () => {
+  const browser = await launchBrowser();
+  try {
+    const page = await fixture(browser, { id: 'sample', part: null,
+      html: '<div style="position:absolute;left:40px;top:40px;width:100px;height:60px;background:red">Box</div>' });
+    await page.evaluate(() => document.querySelector('[data-overlay-id="sample"]')
+      .style.setProperty('--y', '105px'));
+    await page.mouse.move(90, 175); await page.mouse.down();
+    await page.keyboard.down('Shift');
+    await page.mouse.move(130, 188, { steps: 4 });
+    await page.mouse.up(); await page.keyboard.up('Shift');
+    const pose = await page.evaluate(() => {
+      const node = document.querySelector('[data-overlay-id="sample"]');
+      return { x: Number.parseFloat(node.style.getPropertyValue('--x')),
+        y: Number.parseFloat(node.style.getPropertyValue('--y')) };
+    });
+    assert.ok(pose.x >= 39 && pose.x <= 41, JSON.stringify(pose));
+    assert.equal(pose.y, 105);
+    await page.close();
+  } finally { await browser.close(); }
 });

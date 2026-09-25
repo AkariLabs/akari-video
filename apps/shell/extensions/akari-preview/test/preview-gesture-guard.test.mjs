@@ -200,6 +200,8 @@ function dragFixture(crop = false) {
     const event = (x = 0, y = 0) => ({ pointerId: 1, clientX: x, clientY: y,
         currentTarget: capture, preventDefault() {}, stopPropagation() {} });
     const context = vm.createContext({
+        document: { body: { classList: { add() {}, remove() {} }, style: {}, appendChild() {} },
+            createElement: () => ({ style: {}, setAttribute() {}, remove() {} }) },
         window: {
             akari: { reportGesture: (...args) => messages.push(args), showWriteError: error => errors.push(String(error)) },
             addEventListener: (name, fn) => listeners.set(name, fn),

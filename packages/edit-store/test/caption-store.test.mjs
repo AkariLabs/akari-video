@@ -48,6 +48,17 @@ test('background.fit は captions.json の読み書きで保持する', () => {
   assert.equal(JSON.parse(inserted)[0].text_style.background.fit, 'frame');
 });
 
+test('wrap_width_pct survives caption parsing and insertion without changing size', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '長い文字', {
+    text_style: { size_px: 48, wrap_width_pct: 35 }
+  })]);
+  const parsed = parseCaptions(source).captions[0].textStyle;
+  assert.equal(parsed.sizePx, 48);
+  assert.equal(parsed.wrapWidthPct, 35);
+  const inserted = insertCaptionLine('[]', caption('c-0002', 0, '長い文字', { textStyle: parsed }));
+  assert.deepEqual(JSON.parse(inserted)[0].text_style, { size_px: 48, wrap_width_pct: 35 });
+});
+
 test('style を karaoke に設定しても edited は立たない', () => {
   const source = JSON.stringify([caption('c-0001', 0, '本文')]);
   const record = JSON.parse(updateCaptionFieldsInSource(source, 'c-0001', { style: 'karaoke' }))[0];

@@ -1,0 +1,305 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "base",
+      "path": "assets/base.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 270,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 0,
+            "out": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-a",
+      "lane": "visual",
+      "name": "box-a",
+      "items": [
+        {
+          "id": "box-a",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 200,
+            "y": 160
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 300,
+              "height": 200,
+              "fill": "#3b82f6"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-rot",
+      "lane": "visual",
+      "name": "box-rot",
+      "items": [
+        {
+          "id": "box-rot",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 810,
+            "y": 440,
+            "rotate": 30
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 300,
+              "height": 200,
+              "fill": "#10b981"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-back",
+      "lane": "visual",
+      "name": "back",
+      "items": [
+        {
+          "id": "back",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 1300,
+            "y": 140
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 360,
+              "height": 300,
+              "fill": "#f59e0b"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-front",
+      "lane": "visual",
+      "name": "front",
+      "items": [
+        {
+          "id": "front",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 1420,
+            "y": 220
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 360,
+              "height": 300,
+              "fill": "#8b5cf6"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-line",
+      "lane": "visual",
+      "name": "line",
+      "items": [
+        {
+          "id": "line",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 200,
+            "y": 640
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "line",
+            "params": {
+              "fill": "none",
+              "stroke": "#111111",
+              "strokeWidth": 8,
+              "width": 400,
+              "height": 40
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-b",
+      "lane": "visual",
+      "name": "box-b",
+      "items": [
+        {
+          "id": "box-b",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 820,
+            "y": 620
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 240,
+              "height": 160,
+              "fill": "#ef4444"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-r",
+      "lane": "visual",
+      "name": "box-r",
+      "items": [
+        {
+          "id": "box-r",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 1400,
+            "y": 640
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 240,
+              "height": 160,
+              "fill": "#0ea5e9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-g",
+      "lane": "visual",
+      "name": "box-g",
+      "items": [
+        {
+          "id": "box-g",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 560,
+            "y": 700
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 200,
+              "height": 100,
+              "fill": "#a3a3a3"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-m",
+      "lane": "visual",
+      "name": "box-m",
+      "items": [
+        {
+          "id": "box-m",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 620,
+            "y": 300
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 160,
+              "height": 100,
+              "fill": "#84cc16"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-alt",
+      "lane": "visual",
+      "name": "box-alt",
+      "items": [
+        {
+          "id": "box-alt",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 1500,
+            "y": 860
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 160,
+              "height": 100,
+              "fill": "#ec4899"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-text",
+      "lane": "visual",
+      "name": "text",
+      "items": [
+        {
+          "id": "captions",
+          "name": "字幕",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "captions",
+            "path": "captions.json"
+          },
+          "items": []
+        }
+      ]
+    }
+  ]
+}

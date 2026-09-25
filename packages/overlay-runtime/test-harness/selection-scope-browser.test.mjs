@@ -75,9 +75,9 @@ async function drag(page, id, dx = 25, dy = 18) {
   const p = await point(page, id);
   await page.mouse.move(p.x, p.y); await page.mouse.down();
   // Disable snapping to make the expected pixel displacement deterministic.
-  await page.keyboard.down('Alt');
+  await page.keyboard.down('Meta');
   await page.mouse.move(p.x + dx, p.y + dy, { steps: 6 });
-  await page.mouse.up(); await page.keyboard.up('Alt');
+  await page.mouse.up(); await page.keyboard.up('Meta');
   await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 30)));
 }
 async function bounds(page) {
@@ -113,12 +113,12 @@ function assertWorldDelta(oldPose, nextPose, starts, actuals) {
 
 test('hierarchical interaction gestures in the classic browser runtime', async t => {
   const browser = await launchBrowser(); t.after(() => browser.close());
-  await t.test('root click selects group; frame unions visible descendants and has five handles', async () => {
+  await t.test('root click selects group; frame unions visible descendants and has six controls', async () => {
     const page = await fixture(browser); try {
       await click(page, 'a');
       assert.equal((await state(page)).selectedId, 'outer');
       const geometry = await bounds(page);
-      assert.ok(near(geometry.frame, geometry.union), JSON.stringify(geometry)); assert.equal(geometry.handles, 5);
+      assert.ok(near(geometry.frame, geometry.union), JSON.stringify(geometry)); assert.equal(geometry.handles, 6);
       await click(page, 'a', 2);
       assert.deepEqual(await state(page), { selectedId: 'g', scopeId: 'outer', floorScopeId: null, activeEdit: false }, JSON.stringify(await page.evaluate(() => window.pointerTrace)));
       assert.match(await (await page.$('[data-akari-ui="preview-scope-breadcrumb"]')).evaluate(e => e.textContent), /全体.*Outer/u);
@@ -158,9 +158,9 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       const handle = await page.$('.akari-interaction-handle.is-se');
       const r = await handle.boundingBox();
       await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
-      await page.mouse.down(); await page.keyboard.down('Alt');
+      await page.mouse.down(); await page.keyboard.down('Meta');
       await page.mouse.move(r.x + r.width / 2 + 45, r.y + r.height / 2 + 30, { steps: 6 });
-      await page.mouse.up(); await page.keyboard.up('Alt');
+      await page.mouse.up(); await page.keyboard.up('Meta');
       const result = await page.evaluate(() => ({ writes: window.writes,
         children: ['a','b'].map(id => { const e = document.querySelector(`[data-overlay-id="${id}"]`);
           return { x: Number.parseFloat(e.style.getPropertyValue('--x')), scale: Number(e.style.getPropertyValue('--scale')) }; }) }));
@@ -177,7 +177,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         JSON.stringify({ before, after: await bounds(page), result }));
     } finally { await page.close(); }
   });
-  await t.test('group rotate uses Shift 15 degrees and rollback restores children', async () => {
+  await t.test('group rotation writes a normalized angle and updates children', async () => {
     const page = await fixture(browser); try {
       await click(page, 'a');
       const oldPose = await page.evaluate(() => window.akari.state.summary.tree.find(node => node.id === 'outer').transform);
@@ -192,7 +192,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         angles: ['a','b'].map(id => document.querySelector(`[data-overlay-id="${id}"]`).style.getPropertyValue('--rotate')) }));
       assert.equal(result.writes.length, 1);
       assert.equal(result.writes[0].id, 'outer');
-      assert.equal(result.writes[0].patch.transform.rotate % 15, 0);
+      assert.ok(result.writes[0].patch.transform.rotate >= -180 && result.writes[0].patch.transform.rotate <= 180);
       assert.ok(result.angles.every(value => Number.parseFloat(value) === result.writes[0].patch.transform.rotate));
       assertWorldDelta(oldPose, result.writes[0].patch.transform, starts, await childWorlds(page));
       assert.deepEqual(await page.evaluate(() => ['g', 'a', 'b'].map(id =>
@@ -200,7 +200,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       Array(3).fill(result.writes[0].patch.transform.rotate));
     } finally { await page.close(); }
   });
-  await t.test('leaf rotate writes rotate only; Esc cancels group resize', async () => {
+  await t.test('leaf rotation saves position compensation; Esc cancels group resize', async () => {
     const page = await fixture(browser); try {
       await click(page, 'a');
       const groupHandle = await page.$('.akari-interaction-handle.is-se');
@@ -210,6 +210,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       await page.keyboard.press('Escape'); await page.mouse.up();
       assert.deepEqual(await page.evaluate(() => window.writes), []);
       await click(page, 'plain');
+      const centerBefore = await point(page, 'plain');
       const rotate = await page.$('.akari-interaction-handle.is-rotate');
       const r = await rotate.boundingBox();
       await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await page.mouse.down();
@@ -219,8 +220,10 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       const writes = await page.evaluate(() => window.writes);
       assert.equal(writes.length, 1);
       assert.equal(writes[0].id, 'plain');
-      assert.deepEqual(Object.keys(writes[0].patch.transform), ['rotate']);
-      assert.equal(writes[0].patch.transform.rotate % 15, 0);
+      assert.deepEqual(Object.keys(writes[0].patch.transform), ['x', 'y', 'rotate']);
+      assert.ok(writes[0].patch.transform.rotate >= -180 && writes[0].patch.transform.rotate <= 180);
+      const centerAfter = await point(page, 'plain');
+      assert.ok(Math.hypot(centerAfter.x - centerBefore.x, centerAfter.y - centerBefore.y) < 1);
     } finally { await page.close(); }
   });
   await t.test('failed group resize restores child poses and tree pose', async () => {
@@ -274,9 +277,9 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
       const handle = await page.$('.akari-interaction-handle.is-se');
       const r = await handle.boundingBox();
       await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await page.mouse.down();
-      await page.keyboard.down('Alt');
+      await page.keyboard.down('Meta');
       await page.mouse.move(r.x + r.width / 2 + 35, r.y + r.height / 2 + 25, { steps: 5 });
-      await page.mouse.up(); await page.keyboard.up('Alt');
+      await page.mouse.up(); await page.keyboard.up('Meta');
       const writes = await page.evaluate(() => window.writes);
       assert.equal(writes.length, 1, JSON.stringify({ handle: r, state: await state(page),
         trace: await page.evaluate(() => window.pointerTrace) }));
@@ -379,7 +382,7 @@ test('hierarchical interaction gestures in the classic browser runtime', async t
         await page.keyboard.type(' legacy'); await page.keyboard.press('Escape');
         const after = await state(page);
         const writes = await page.evaluate(() => window.writes);
-        assert.equal(after.selectedId, 'plain'); assert.equal(after.activeEdit, false); assert.equal(handles, 9);
+        assert.equal(after.selectedId, 'plain'); assert.equal(after.activeEdit, false); assert.equal(handles, 12);
         assert.equal(writes.length, 2); assert.notEqual(writes[1].patch.transform.scale, 1);
         traces.push({ selected, after, writes, handles });
       } finally { await page.close(); }

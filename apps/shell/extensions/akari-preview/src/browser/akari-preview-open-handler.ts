@@ -1,3 +1,7 @@
+import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
+import { previewShapeRoles } from '../common/preview-shape-roles';
+import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
+import { captionControlScale } from '../common/caption-control-scale';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
 import { projectCanvasCaptionRows } from '../common/canvas-caption-projection';
 import { canvasCaptionZPlan } from '../common/canvas-caption-z';
@@ -127,7 +131,9 @@ import {
     resetCaptionCueGeometrySource,
     type CaptionToolStylePatch
 } from '../common/caption-zone-write';
-import { persistCaptionPlateTransform } from '../common/caption-plate-handles';
+import { persistCaptionPlateTransform, captionWrapWidthDrag, captionCornerTransform } from '../common/caption-plate-handles';
+import { captionWrapPosition } from '../common/caption-wrap-position';
+import { duplicatePreviewCaptionSource, duplicatePreviewItemSource } from '../common/preview-duplicate-fallback';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
@@ -276,7 +282,7 @@ interface EditSummaryOverlay {
     opacity?: number;
     part?: string;
     parentId?: string;
-    role?: 'background';
+    role?: 'background' | 'shape' | 'shape-line';
     blend: string;
 }
 
@@ -792,6 +798,7 @@ interface OverlayWriteRequest {
     patch: {
         vars?: Record<string, unknown>;
         transform?: OverlayTransform;
+        duplicate?: boolean;
         // 断片テキスト編集（contenteditable）の書き戻し。overlays[].html は契約上ファイル参照
         // なので、この値は edit.json ではなく参照先の断片ファイルへ書く
         html?: string;
@@ -866,6 +873,7 @@ interface CaptionWriteRequest {
     captionId: string;
     patch: { zone: CaptionZoneValue }
         | { text: string }
+        | { duplicate: CaptionCuePosition }
         | { run: CaptionRunEdit }
         | { groupZone: CaptionZoneValue }
         | { groupPosition: CaptionCuePosition }
@@ -876,6 +884,7 @@ interface CaptionWriteRequest {
                 captionIds: string[];
                 scale?: number;
                 rotate?: number;
+                wrapWidthPct?: number;
                 cuePosition?: {
                     captionId: string;
                     value: CaptionCuePosition;
@@ -5327,6 +5336,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!tree.some(node => node.kind !== 'leaf')) tree.length = 0;
             }
             // END preview selection tree
+            const shapeRoles = previewShapeRoles(rawEdit);
             // 断片ごとの 3D 資産解決（モデル・環境マップ・フォントのストリーム化 + GLB ヘッダ検査）は
             // 互いに独立なので並列に走らせ、overlays には宣言順で積む。
             const resolvedOverlayHtml = await Promise.all(projectedOverlays.map(value => {
@@ -5361,6 +5371,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     vars: this.stringRecord(value?.vars),
                     params: this.stringRecord(value?.params),
                     blend,
+                    ...(shapeRoles.has(String(value?.id ?? '')) ? { role: shapeRoles.get(String(value?.id ?? '')) } : {}),
                     ...buildItemKeyframeSummaryFields(value as Record<string, unknown>),
                     ...(typeof value?.part === 'string' ? { part: value.part } : {}),
                     ...(value?.role === 'background' ? { role: 'background' as const } : {}),
@@ -6459,6 +6470,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if ('text' in request.patch && typeof request.patch.text !== 'string') {
                 throw new Error('部品の text は文字列である必要があります');
             }
+            if (request.patch.duplicate) {
+                if (!request.patch.transform) throw new Error('複製を書き込めません');
+                const handled = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                    ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                        editUri.toString(), { kind: 'duplicate', itemId: request.overlayId,
+                            transform: request.patch.transform }) : false;
+                if (handled !== true) {
+                    const source = await this.readText(editUri);
+                    const candidateText = duplicatePreviewItemSource(source, request.overlayId, request.patch.transform);
+                    const lintResult = await this.previewService.lintEditCandidate({
+                        editUri: editUri.toString(), candidateText
+                    });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    this.recentWrites.set(editUri.toString(), Date.now());
+                    await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+                    this.queueRefresh(widget, editUri, 'output', undefined, false, candidateText);
+                }
+                widget.sendMessage({ type: 'akari-preview-overlay-write-response', requestId: request.requestId, ok: true });
+                return;
+            }
             const originalText = await this.readText(editUri);
             const write: PreviewItemWriteCommand = {
                 kind: 'overlay',
@@ -6795,7 +6826,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const patch = request.patch;
         if ('cueGeometryReset' in patch || 'cuePositionReset' in patch) return '字幕の位置を既定に戻す';
         if ('toolStyle' in patch || 'run' in patch) return '字幕の見た目を変更';
-        if ('plateTransform' in patch) return '字幕を拡縮・回転';
+        if ('plateTransform' in patch) return patch.plateTransform.wrapWidthPct === undefined ? '字幕を拡縮・回転' : '文字の折り返し幅を変更';
         if ('cuePosition' in patch || 'cuePositions' in patch || 'groupPosition' in patch) return '字幕を移動';
         if ('text' in patch) return '字幕の文字を変更';
         return '字幕の配置を変更';
@@ -6834,6 +6865,76 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const captionsUri = widget.akariPreviewCaptionsUri;
         if (!captionsUri) {
             respond(false, '字幕ファイル（captions.json）がありません');
+            return;
+        }
+        if ('duplicate' in request.patch) {
+            const editUri = widget.akariPreviewEditUri;
+            try {
+                if (!editUri) throw new Error('編集中の edit.json がありません');
+                const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                    ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                        editUri.toString(), { kind: 'caption-duplicate', captionId: request.captionId,
+                            position: request.patch.duplicate }) : false;
+                if (committed !== true) {
+                    const source = await this.readText(captionsUri);
+                    const candidateText = duplicatePreviewCaptionSource(source, request.captionId, request.patch.duplicate);
+                    const lintResult = await this.previewService.lintEditCandidate({
+                        editUri: captionsUri.toString(), candidateText
+                    });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    this.markRecentWrite(captionsUri);
+                    await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+                    this.notifyCaptionWrite(widget, captionsUri, source, candidateText, '文字を複製');
+                }
+                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
+                respond(true);
+            } catch (error) {
+                respond(false, error instanceof Error ? error.message : String(error));
+            }
+            return;
+        }
+        if ('plateTransform' in request.patch && request.patch.plateTransform.wrapWidthPct !== undefined) {
+            const patch = request.patch.plateTransform;
+            const position = patch.cuePosition?.value;
+            const editUri = widget.akariPreviewEditUri;
+            if (!editUri || !position || patch.cuePosition?.captionId !== request.captionId
+                || !Number.isFinite(patch.wrapWidthPct) || patch.wrapWidthPct <= 0 || patch.wrapWidthPct > 100
+                || !Number.isFinite(position.position.x) || !Number.isFinite(position.position.y)) {
+                respond(false, '文字の幅または位置が不正です');
+                return;
+            }
+            try {
+                const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                    ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                        editUri.toString(), { kind: 'caption-wrap', captionId: request.captionId,
+                            wrapWidthPct: patch.wrapWidthPct, anchor: position.anchor,
+                            position: position.position }) : false;
+                if (committed !== true) {
+                    const originalText = await this.readText(captionsUri);
+                    let writtenText: string | undefined;
+                    const lintResult = await persistCaptionPlateTransform({
+                        source: originalText, captionIds: [request.captionId],
+                        patch: { wrapWidthPct: patch.wrapWidthPct },
+                        cuePosition: { captionId: request.captionId, value: position },
+                        lint: candidateText => this.previewService.lintEditCandidate({
+                            editUri: captionsUri.toString(), candidateText
+                        }),
+                        write: async candidateText => {
+                            this.markRecentWrite(captionsUri);
+                            await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+                            writtenText = candidateText;
+                        }
+                    });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    if (writtenText !== undefined) {
+                        this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, '文字の折り返し幅を変更');
+                    }
+                }
+                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
+                respond(true);
+            } catch (error) {
+                respond(false, error instanceof Error ? error.message : String(error));
+            }
             return;
         }
         const requestedZone = 'zone' in request.patch ? request.patch.zone
@@ -6896,7 +6997,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             ...(request.patch.plateTransform.scale === undefined
                                 ? {} : { scale: request.patch.plateTransform.scale }),
                             ...(request.patch.plateTransform.rotate === undefined
-                                ? {} : { rotate: request.patch.plateTransform.rotate })
+                                ? {} : { rotate: request.patch.plateTransform.rotate }),
+                            ...(request.patch.plateTransform.wrapWidthPct === undefined
+                                ? {} : { wrapWidthPct: request.patch.plateTransform.wrapWidthPct })
                         },
                         ...(request.patch.plateTransform.cuePosition
                             ? { cuePosition: request.patch.plateTransform.cuePosition } : {}),
@@ -7020,21 +7123,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const hasPlateRotate = plateTransform?.rotate !== undefined
             && Number.isFinite(plateTransform.rotate)
             && plateTransform.rotate >= -180 && plateTransform.rotate <= 180;
+        const hasWrapWidth = plateTransform?.wrapWidthPct !== undefined
+            && Number.isFinite(plateTransform.wrapWidthPct)
+            && plateTransform.wrapWidthPct > 0 && plateTransform.wrapWidthPct <= 100;
         const hasPlateTransform = !!plateTransform
             && Array.isArray(plateTransform.captionIds)
             && plateTransform.captionIds.length > 0
             && plateTransform.captionIds.every((id: unknown) => typeof id === 'string' && id.length > 0)
-            && (hasPlateScale || hasPlateRotate)
+            && (hasPlateScale || hasPlateRotate || hasWrapWidth)
             && (plateTransform.scale === undefined || hasPlateScale)
             && (plateTransform.rotate === undefined || hasPlateRotate)
+            && (plateTransform.wrapWidthPct === undefined || hasWrapWidth)
             && hasValidPlateCuePosition;
+        const duplicate = message?.patch?.duplicate;
+        const hasDuplicate = duplicate && ['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br'].includes(duplicate.anchor)
+            && Number.isFinite(duplicate.position?.x) && Number.isFinite(duplicate.position?.y);
         return message?.type === 'akari-preview-caption-write'
             && typeof message.requestId === 'string'
             && typeof message.captionId === 'string'
             && message.patch
             && typeof message.patch === 'object'
             && [hasZone, hasText, hasRun, hasGroupZone, !!hasGroupPosition,
-                !!hasCuePosition, hasCuePositions, hasCuePositionReset, hasPlateTransform, hasToolStyle, hasGeometryReset].filter(Boolean).length === 1;
+                !!hasCuePosition, hasCuePositions, hasCuePositionReset, hasPlateTransform, hasToolStyle,
+                hasGeometryReset, hasDuplicate].filter(Boolean).length === 1;
     }
 
     protected async persistCaptionGroupZoneForWidget(
@@ -7639,13 +7750,23 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }
 .caption-row-plate[data-selected], .caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: none; }
 .caption-row-plate .akari-caption-handle-box { position:absolute;pointer-events:none; }
-.caption-row-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:2px solid var(--akari-caption-select-color);box-shadow:0 1px 4px rgba(0,0,0,.6);pointer-events:auto; }
-.caption-row-plate .akari-caption-handle[data-h="nw"] { left:-10px;top:-10px;cursor:nwse-resize; }
-.caption-row-plate .akari-caption-handle[data-h="ne"] { right:-10px;top:-10px;cursor:nesw-resize; }
-.caption-row-plate .akari-caption-handle[data-h="sw"] { left:-10px;bottom:-10px;cursor:nesw-resize; }
-.caption-row-plate .akari-caption-handle[data-h="se"] { right:-10px;bottom:-10px;cursor:nwse-resize; }
-.caption-row-plate .akari-caption-handle[data-h="rot"] { left:50%;top:-34px;transform:translateX(-50%);width:14px;height:14px;border-radius:50%;background:var(--akari-caption-select-color);border:2px solid #fff;cursor:grab; }
-.caption-row-plate .akari-caption-handle[data-h="rot"]::before { content:"";position:absolute;left:50%;top:12px;width:1.5px;height:18px;background:var(--akari-caption-select-color);transform:translateX(-50%); }
+.caption-row-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:1px solid var(--akari-caption-select-color);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:auto; }
+.caption-row-plate .akari-caption-handle[data-h="nw"] { left:-5px;top:-5px;cursor:nwse-resize; }
+.caption-row-plate .akari-caption-handle[data-h="ne"] { right:-5px;top:-5px;cursor:nesw-resize; }
+.caption-row-plate .akari-caption-handle[data-h="sw"] { left:-5px;bottom:-5px;cursor:nesw-resize; }
+.caption-row-plate .akari-caption-handle[data-h="se"] { right:-5px;bottom:-5px;cursor:nwse-resize; }
+.caption-row-plate .akari-caption-handle[data-h="e"], .caption-row-plate .akari-caption-handle[data-h="w"] { top:50%;width:11px;height:20px;border:0;border-radius:0;background:transparent;box-shadow:none;transform:translateY(-50%);cursor:ew-resize; }
+.caption-row-plate .akari-caption-handle[data-h="e"] { right:-5px; }
+.caption-row-plate .akari-caption-handle[data-h="w"] { left:-5px; }
+.caption-row-plate .akari-caption-handle[data-h="e"]::after, .caption-row-plate .akari-caption-handle[data-h="w"]::after { content:"";position:absolute;left:3px;top:3px;width:5px;height:14px;border-radius:3px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35); }
+.caption-row-plate .akari-caption-handle[data-h="rot"], .caption-row-plate .akari-caption-handle[data-h="move"] { top:calc(100% + 13px);width:25px;height:25px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--akari-caption-select-color);background:var(--theia-editor-background, #252526);color:var(--theia-editor-foreground, #eee);font-size:0;cursor:grab; }
+.caption-row-plate .akari-caption-handle[data-h="rot"] { left:calc(50% - 27px); }
+.caption-row-plate .akari-caption-handle[data-h="move"] { left:calc(50% + 2px);cursor:move; }
+.caption-row-plate .akari-caption-handle[data-h="rot"]::after, .caption-row-plate .akari-caption-handle[data-h="move"]::after { content:"";display:block;width:15px;height:15px;background:currentColor;mask-size:contain;mask-repeat:no-repeat;mask-position:center; }
+.caption-row-plate .akari-caption-handle[data-h="rot"]::after { mask-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath d="M19 7v5h-5M5 17v-5h5M19 12a7 7 0 0 0-12-5M5 12a7 7 0 0 0 12 5" fill="none" stroke="black" stroke-width="2"/%3E%3C/svg%3E'); }
+.caption-row-plate .akari-caption-handle[data-h="move"]::after { mask-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath d="M12 2v20M2 12h20M12 2 9 5m3-3 3 3m-3 17-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3" fill="none" stroke="black" stroke-width="2"/%3E%3C/svg%3E'); }
+body.akari-caption-transforming .akari-caption-handle[data-h="rot"], body.akari-caption-transforming .akari-caption-handle[data-h="move"] { display:none; }
+body.akari-caption-transforming #caption-select-box [data-caption-tool] { visibility:hidden; }
 .caption-row-plate.akari-caption-host--editing, .caption-row-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
 .caption-row-plate.akari-caption-host--styled .akari-caption__line, .caption-row-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
 .caption-row-plate [data-akari-caption-editing="true"], .caption-row-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: none; caret-color: currentColor; }
@@ -7762,6 +7883,7 @@ html.akari-gen-capturing #caption-plate *::selection { background: transparent !
 #indicator-toggle { display: inline-flex; align-items: center; position: absolute; top: 8px; right: 8px; z-index: 20; width: auto; height: 24px; padding: 0 8px; border-radius: 6px; background: var(--akari-badge-bg); color: var(--akari-badge-fg); font-size: 11px; white-space: nowrap; }
 #indicator-toggle[hidden] { display: none; }
 #indicator-popup { top: 36px; right: 8px; bottom: auto; max-width: calc(100% - 16px); font-size: 11px; line-height: 1.5; }
+${previewSelectionHandlesStyle}
 </style>
 </head>
 <body>
@@ -7789,7 +7911,7 @@ html.akari-gen-capturing #caption-plate *::selection { background: transparent !
               <div id="akari-gen-band" hidden><span id="akari-gen-band-text"></span><span id="akari-gen-band-bar"><i id="akari-gen-band-fill"></i></span></div>
             </div>
           </div>
-          <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
+          <div id="layer-select-box"><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><button type="button" class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate" aria-label="回転" title="回転"></button><button type="button" class="akari-layer-handle akari-layer-handle-move" data-akari-handle="move" aria-label="移動" title="移動"></button><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
           <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
           <div id="layer-perspective-toggle" title="パース変形パネル">◈</div>
@@ -7807,7 +7929,7 @@ html.akari-gen-capturing #caption-plate *::selection { background: transparent !
             </div>
             <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>パースを解除</button>
           </div>
-          <div id="cut-select-box"><div class="akari-cut-rotate-stem"></div><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div><div class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate"></div><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
+          <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div><button type="button" class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate" aria-label="回転" title="回転"></button><button type="button" class="akari-cut-handle akari-cut-handle-move" data-akari-handle="move" aria-label="移動" title="移動"></button><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="caption-zone-highlight"></div>
           <div id="zone-hint-layer"></div>
           <div id="caption-row-box"><span>折り返しの幅</span></div>
@@ -12514,12 +12636,18 @@ body { display: grid; place-items: center; padding: 32px; }
             const layerSelectBox = document.getElementById('layer-select-box');
             const layerHandleElements = Array.from(layerSelectBox.querySelectorAll('[data-akari-handle]'));
             const findLayerEntry = id => layerEntries.find(entry => String(entry.spec.id) === String(id));
-            const layerTransformNow = entry => ({
-                x: Number(entry.video.dataset.akariTransformX) || 0,
-                y: Number(entry.video.dataset.akariTransformY) || 0,
-                scale: Number(entry.video.dataset.akariTransformScale) || 1,
-                rotate: Number(entry.video.dataset.akariTransformRotate) || 0
-            });
+            const layerTransformNow = entry => {
+                const scale = Number(entry.video.dataset.akariTransformScale) || 1;
+                const scaleX = Number(entry.video.dataset.akariTransformScaleX) || scale;
+                const scaleY = Number(entry.video.dataset.akariTransformScaleY) || scale;
+                return {
+                    x: Number(entry.video.dataset.akariTransformX) || 0,
+                    y: Number(entry.video.dataset.akariTransformY) || 0,
+                    scale,
+                    ...(scaleX !== scale || scaleY !== scale ? { scaleX, scaleY } : {}),
+                    rotate: Number(entry.video.dataset.akariTransformRotate) || 0
+                };
+            };
             // RAF スロットリング（2026-08-09 raf-throttle・オーナー実機フィードバック「サイズ変更が
             // すごくもたつく」）: dataset への書き込みは常に同期（pointerup の確定読み取りが最新値を
             // 読めるように）。重い方（updateLayerLayout = 全レイヤー + stage 再配置、と選択枠の再描画）
@@ -12535,6 +12663,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 entry.video.dataset.akariTransformX = String(transform.x);
                 entry.video.dataset.akariTransformY = String(transform.y);
                 entry.video.dataset.akariTransformScale = String(transform.scale);
+                entry.video.dataset.akariTransformScaleX = String(transform.scaleX ?? transform.scale);
+                entry.video.dataset.akariTransformScaleY = String(transform.scaleY ?? transform.scale);
                 entry.video.dataset.akariTransformRotate = String(transform.rotate);
                 layerTransformVisualThrottle.call();
             };
@@ -12638,7 +12768,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const rad = -transform.rotate * Math.PI / 180;
                 const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
                 const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
-                return { x: rx / (transform.scale || 1) + pivotPx.x, y: ry / (transform.scale || 1) + pivotPx.y };
+                return { x: rx / (transform.scaleX ?? transform.scale ?? 1) + pivotPx.x,
+                    y: ry / (transform.scaleY ?? transform.scale ?? 1) + pivotPx.y };
             };
             const layerVideoPointFor = (entry, clientX, clientY) => {
                 const t = layerTransformNow(entry);
@@ -12687,10 +12818,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 const frameScale = window.akari.stageScale() || 1;
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
-                const outputW = videoRect.w * transform.scale;
-                const outputH = videoRect.h * transform.scale;
-                const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * transform.scale;
-                const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * transform.scale;
+                const scaleX = transform.scaleX ?? transform.scale;
+                const scaleY = transform.scaleY ?? transform.scale;
+                const outputW = videoRect.w * scaleX;
+                const outputH = videoRect.h * scaleY;
+                const offX = (videoRect.x + videoRect.w / 2 - pivotPx.x) * scaleX;
+                const offY = (videoRect.y + videoRect.h / 2 - pivotPx.y) * scaleY;
                 const rad = transform.rotate * Math.PI / 180;
                 const rotOffX = offX * Math.cos(rad) - offY * Math.sin(rad);
                 const rotOffY = offX * Math.sin(rad) + offY * Math.cos(rad);
@@ -13109,6 +13242,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 centerX,
                 centerY
             });
+            const cutResizeCornersFn = (${cutResizeCorners.toString()});
+            const cutResizeScaleFn = (${cutResizeScale.toString()});
             const layerOutputBoundsForTransform = (entry, transform) => {
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
@@ -13118,8 +13253,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 return outputBoundsForCenteredBox(
                     outputWidth / 2 + transform.x,
                     outputHeight / 2 + transform.y,
-                    (entry.video.videoWidth || 0) * crop.w * transform.scale,
-                    (entry.video.videoHeight || 0) * crop.h * transform.scale
+                    (entry.video.videoWidth || 0) * crop.w * (transform.scaleX ?? transform.scale),
+                    (entry.video.videoHeight || 0) * crop.h * (transform.scaleY ?? transform.scale)
                 );
             };
             // 裁定 0: 移動 / 角点 / 回転の確定書き戻しは cut と layer で 1 本。対象の違い
@@ -13135,12 +13270,32 @@ body { display: grid; place-items: center; padding: 32px; }
                 const original = target.transformNow();
                 let latestTransform = original;
                 const captureTarget = startEvent.currentTarget;
+                const handleKind = captureTarget?.getAttribute?.('data-akari-handle')
+                    || captureTarget?.getAttribute?.('data-akari-crop-edge');
+                const duplicating = startEvent.altKey && (!handleKind || handleKind === 'move');
+                const rotating = handleKind === 'rotate';
+                const movingControls = rotating || handleKind === 'move' || !handleKind;
+                const gestureLabel = document.createElement('div');
+                gestureLabel.className = rotating ? 'akari-interaction-angle' : 'akari-interaction-hint';
+                gestureLabel.setAttribute('data-akari-interaction', rotating ? 'rotation-angle' : 'handle-hint');
+                gestureLabel.textContent = rotating ? '回転'
+                    : ['n', 'e', 's', 'w'].includes(handleKind) ? '形を伸ばす'
+                    : ['nw', 'ne', 'sw', 'se'].includes(handleKind) ? '大きさ' : '移動';
+                gestureLabel.style.left = startEvent.clientX + 12 + 'px';
+                gestureLabel.style.top = startEvent.clientY + 12 + 'px';
+                document.body.appendChild(gestureLabel);
+                document.body.classList.add('akari-media-transforming');
+                if (movingControls) document.body.classList.add('akari-media-moving');
                 let moved = false;
                 let cancelled = false;
                 let finished = false;
                 try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const cleanup = () => {
                     selectionDragActive = false;
+                    document.body.classList.remove('akari-media-transforming');
+                    document.body.classList.remove('akari-media-moving');
+                    gestureLabel.remove();
+                    document.body.style.cursor = '';
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onCancel);
@@ -13157,6 +13312,21 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
                     latestTransform = computeTransform(moveEvent, original);
+                    if (rotating) {
+                        gestureLabel.textContent = Math.round(window.akariHandleGeometry?.normalizeAngle(
+                            latestTransform.rotate) ?? latestTransform.rotate) + '°';
+                        gestureLabel.style.left = moveEvent.clientX + 15 + 'px';
+                        gestureLabel.style.top = moveEvent.clientY + 17 + 'px';
+                        const box = captureTarget.closest('#layer-select-box, #cut-select-box')?.getBoundingClientRect();
+                        const tangent = box ? Math.atan2(moveEvent.clientY - (box.top + box.height / 2),
+                            moveEvent.clientX - (box.left + box.width / 2)) * 180 / Math.PI + 90 : 0;
+                        const cursor = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">'
+                            + '<g transform="rotate(' + Math.round(tangent) + ' 16 16)" fill="none" stroke="white" stroke-width="2">'
+                            + '<path d="M5 16a11 11 0 0 1 19-7m3 7a11 11 0 0 1-19 7"/>'
+                            + '<path d="m21 8 4 1-1-4M11 24l-4-1 1 4"/></g></svg>';
+                        document.body.style.cursor = 'url("data:image/svg+xml,' + encodeURIComponent(cursor)
+                            + '") 16 16, crosshair';
+                    }
                     target.applyTransform(latestTransform);
                 };
                 const finish = async () => {
@@ -13181,7 +13351,15 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                         const finalTransform = latestTransform;
                         try {
-                            await target.write({ transform: finalTransform });
+                            if (duplicating) {
+                                const itemId = target.kind === 'layer' ? target.entry.spec.id
+                                    : cutSelectionVideo().dataset.akariCutId;
+                                if (!itemId) throw new Error('複製する要素が見つかりません');
+                                await window.akari.engine.overlayWrite(null, itemId,
+                                    { transform: finalTransform, duplicate: true });
+                                target.applyTransform(original);
+                                target.flushTransform();
+                            } else await target.write({ transform: finalTransform });
                             window.akari.reportGesture('saved');
                         } catch (error) {
                             window.akari.showWriteError(error);
@@ -13230,9 +13408,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 let dragSnap = { x: null, y: null };
                 beginMediaTransformDrag(layerDragTarget(entry), startEvent, (moveEvent, original) => {
                     const movement = translate(moveEvent);
+                    if (moveEvent.shiftKey) {
+                        if (Math.abs(movement.x) >= Math.abs(movement.y)) movement.y = 0;
+                        else movement.x = 0;
+                    }
                     let nextX = original.x + movement.x;
                     let nextY = original.y + movement.y;
-                    if (moveEvent.altKey || !window.akari.interaction) {
+                    if (moveEvent.metaKey || moveEvent.ctrlKey || !window.akari.interaction) {
                         dragSnap = { x: null, y: null };
                         window.akari.interaction?.hideSnapGuides?.();
                     } else {
@@ -13360,9 +13542,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     let dragSnap = { x: null, y: null };
                     beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
                         const movement = translate(moveEvent);
+                        if (moveEvent.shiftKey) {
+                            if (Math.abs(movement.x) >= Math.abs(movement.y)) movement.y = 0;
+                            else movement.x = 0;
+                        }
                         let nextX = original.x + movement.x;
                         let nextY = original.y + movement.y;
-                        if (moveEvent.altKey || !window.akari.interaction) {
+                        if (moveEvent.metaKey || moveEvent.ctrlKey || !window.akari.interaction) {
                             dragSnap = { x: null, y: null };
                             window.akari.interaction?.hideSnapGuides?.();
                         } else {
@@ -13412,12 +13598,14 @@ body { display: grid; place-items: center; padding: 32px; }
                         x: boxRect.left + boxRect.width / 2 - pivotOffX,
                         y: boxRect.top + boxRect.height / 2 - pivotOffY
                     };
+                    if (kind === 'move') { beginLayerMoveDrag(entry, event); return; }
                     if (kind === 'rotate') {
                         const startAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180 / Math.PI;
                         beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {
                             const angle = Math.atan2(moveEvent.clientY - center.y, moveEvent.clientX - center.x) * 180 / Math.PI;
                             const rotate = original.rotate + (angle - startAngle);
-                            return { ...original, rotate: moveEvent.shiftKey ? Math.round(rotate / 15) * 15 : rotate };
+                            return { ...original, rotate: window.akariHandleGeometry?.snapAngle(rotate,
+                                moveEvent.metaKey || moveEvent.ctrlKey) ?? rotate };
                         });
                     } else {
                         const oppositeKind = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' }[kind];
@@ -13442,7 +13630,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y);
                             const factor = distance / startDistance;
                             let nextScale = Math.max(0.01, original.scale * factor);
-                            if (moveEvent.altKey || !window.akari.interaction.computeAnchorResizeSnap) {
+                            if (moveEvent.metaKey || moveEvent.ctrlKey || !window.akari.interaction.computeAnchorResizeSnap) {
                                 dragSnap = { x: null, y: null };
                                 window.akari.interaction?.hideSnapGuides?.();
                             } else {
@@ -13698,6 +13886,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const cutHandleElements = Array.from(cutSelectBox.querySelectorAll('[data-akari-handle]'));
             window.addEventListener('pointerdown', event => {
                 if (event.button !== 0 || !cutSelected) return;
+                if (event.target instanceof Element
+                    && event.target.closest('[data-overlay-id], [data-akari-interaction], .caption-row-plate')) return;
                 const onCutHandle = event.target instanceof Element && Boolean(event.target.closest('#cut-select-box'));
                 const hit = findVisualMediaHitAt(event);
                 if (!onCutHandle && hit !== video && hit !== stillImage) return;
@@ -14030,7 +14220,33 @@ body { display: grid; place-items: center; padding: 32px; }
                         const startAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180 / Math.PI;
                         beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
                             const angle = Math.atan2(moveEvent.clientY - center.y, moveEvent.clientX - center.x) * 180 / Math.PI;
-                            return { ...original, rotate: original.rotate + (angle - startAngle) };
+                            const rotate = original.rotate + (angle - startAngle);
+                            return { ...original, rotate: window.akariHandleGeometry?.snapAngle(rotate,
+                                moveEvent.metaKey || moveEvent.ctrlKey) ?? rotate };
+                        });
+                        return;
+                    }
+                    if (corner === 'move') {
+                        const translate = pointerTranslationFrom(event);
+                        let dragSnap = { x: null, y: null };
+                        beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
+                            const movement = translate(moveEvent);
+                            if (moveEvent.shiftKey) {
+                                if (Math.abs(movement.x) >= Math.abs(movement.y)) movement.y = 0;
+                                else movement.x = 0;
+                            }
+                            let x = original.x + movement.x, y = original.y + movement.y;
+                            if (!moveEvent.metaKey && !moveEvent.ctrlKey && window.akari.interaction) {
+                                const outputWidth = Number(summary.output?.width) || 1280;
+                                const outputHeight = Number(summary.output?.height) || 720;
+                                const snap = window.akari.interaction.computeSnapCorrection(
+                                    outputBoundsForCenteredBox(outputWidth / 2 + x, outputHeight / 2 + y,
+                                        outputWidth * original.scale, outputHeight * original.scale), dragSnap);
+                                dragSnap = snap;
+                                x += snap.x?.correction ?? 0; y += snap.y?.correction ?? 0;
+                                window.akari.interaction.showSnapGuides(snap.x, snap.y);
+                            } else { dragSnap = { x: null, y: null }; window.akari.interaction?.hideSnapGuides?.(); }
+                            return { ...original, x, y };
                         });
                         return;
                     }
@@ -14038,20 +14254,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     // 裁定 7: crop を持つ cut は「ソース実寸 × crop × scale」の箱で描かれる。
                     // 角ドラッグの基準 box も選択枠と同じ cutSelectBoxGeometry から取る。
                     const startBox = cutSelectBoxGeometry();
-                    const anchor = { x: startBox.centerX, y: startBox.centerY };
-                    // ハンドル装飾の client 矩形ではなく、出力幾何からドラッグ中の
-                    // 角を固定する。これが computeAnchorResizeSnap の pointerdown 基準になる。
-                    const dragged = {
-                        x: anchor.x + (corner.includes('w') ? -1 : 1) * startBox.width / 2,
-                        y: anchor.y + (corner.includes('n') ? -1 : 1) * startBox.height / 2
-                    };
-                    const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
+                    const { anchor, dragged } = cutResizeCornersFn(startBox, corner);
+                    const pointerStart = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                    if (!pointerStart) return;
                     let dragSnap = { x: null, y: null };
                     beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
-                        const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
-                        const factor = distance / startDistance;
-                        let nextScale = Math.max(0.01, original.scale * factor);
-                        if (moveEvent.altKey || !window.akari.interaction?.computeAnchorResizeSnap) {
+                        const pointer = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
+                        if (!pointer) return original;
+                        let nextScale = cutResizeScaleFn(original.scale, anchor, dragged, pointerStart, pointer);
+                        if (moveEvent.metaKey || moveEvent.ctrlKey || !window.akari.interaction?.computeAnchorResizeSnap) {
                             dragSnap = { x: null, y: null };
                             window.akari.interaction?.hideSnapGuides?.();
                         } else {
@@ -14070,7 +14281,11 @@ body { display: grid; place-items: center; padding: 32px; }
                                 dragSnap = { x: solved.snapX, y: solved.snapY };
                             }
                         }
-                        return { ...original, scale: nextScale };
+                        const translated = window.akari.interaction.anchorPreservingTranslate({
+                            startX: original.x, startY: original.y, startScale: original.scale,
+                            scale: nextScale, anchorStageX: anchor.x, anchorStageY: anchor.y
+                        });
+                        return translated ? { ...original, ...translated, scale: nextScale } : original;
                     });
                 });
             }
@@ -14085,18 +14300,56 @@ body { display: grid; place-items: center; padding: 32px; }
             ];
             for (const edge of cropEdgeHandleElements) {
                 edge.element.addEventListener('pointerdown', event => {
-                    if (event.button !== 0) return;
-                    let target = null;
-                    if (edge.kind === 'cut') {
-                        if (!cutSelected || !cutCropEditable()) return;
-                        target = cutDragTarget();
-                    } else {
-                        if (!selectedLayerId || cropModeActive) return;
-                        const entry = findLayerEntry(selectedLayerId);
-                        if (!entry) return;
-                        target = layerDragTarget(entry);
-                    }
-                    beginMediaCropDrag(target, edge.element.getAttribute('data-akari-crop-edge'), event);
+                if (event.button !== 0) return;
+                let target = null;
+                if (edge.kind === 'cut') {
+                    if (!cutSelected || !cutCropEditable()) return;
+                    target = cutDragTarget();
+                } else {
+                    if (!selectedLayerId || cropModeActive) return;
+                    const entry = findLayerEntry(selectedLayerId);
+                    if (!entry) return;
+                    const geometry = window.akariHandleGeometry;
+                    if (!geometry) return;
+                    const side = edge.element.getAttribute('data-akari-crop-edge');
+                    const rect = layerSelectBox.getBoundingClientRect();
+                    const boxZoom = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+                    const width = (Number.parseFloat(layerSelectBox.style.width) || rect.width) * boxZoom;
+                    const height = (Number.parseFloat(layerSelectBox.style.height) || rect.height) * boxZoom;
+                    const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
+                    const radians = layerTransformNow(entry).rotate * Math.PI / 180;
+                    const c = Math.cos(radians), s = Math.sin(radians);
+                    const edgePoint = (x, y) => ({ x: center.x + c * x - s * y,
+                        y: center.y + s * x + c * y });
+                    const pair = side === 'e' ? [edgePoint(-width / 2, 0), edgePoint(width / 2, 0)]
+                        : side === 'w' ? [edgePoint(width / 2, 0), edgePoint(-width / 2, 0)]
+                        : side === 'n' ? [edgePoint(0, height / 2), edgePoint(0, -height / 2)]
+                        : [edgePoint(0, -height / 2), edgePoint(0, height / 2)];
+                    const anchor = window.akari.interaction?.stageLocalPoint?.(pair[0].x, pair[0].y);
+                    const dragged = window.akari.interaction?.stageLocalPoint?.(pair[1].x, pair[1].y);
+                    const pointer = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                    if (!anchor || !dragged || !pointer) return;
+                    const offset = { x: dragged.x - pointer.x, y: dragged.y - pointer.y };
+                    beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {
+                        const now = window.akari.interaction.stageLocalPoint(moveEvent.clientX, moveEvent.clientY);
+                        if (!now) return original;
+                        const scales = geometry.anchoredScales({ anchor, dragged,
+                            pointer: { x: now.x + offset.x, y: now.y + offset.y },
+                            rotation: original.rotate, scaleX: original.scaleX ?? original.scale,
+                            scaleY: original.scaleY ?? original.scale, edge: side, min: .01, max: 10 });
+                        const stageCenter = { x: Number(summary.output?.width) / 2 || 640,
+                            y: Number(summary.output?.height) / 2 || 360 };
+                        const pivot = { x: stageCenter.x + original.x, y: stageCenter.y + original.y };
+                        const next = geometry.anchorPreservingPosition({ anchor, pivot,
+                            rotation: original.rotate,
+                            ratioX: scales.scaleX / (original.scaleX ?? original.scale),
+                            ratioY: scales.scaleY / (original.scaleY ?? original.scale) });
+                        return { ...original, x: next.x - stageCenter.x, y: next.y - stageCenter.y,
+                            scaleX: scales.scaleX, scaleY: scales.scaleY };
+                    });
+                    return;
+                }
+                beginMediaCropDrag(target, edge.element.getAttribute('data-akari-crop-edge'), event);
                 });
             }
 
@@ -14362,9 +14615,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     rotate: Number.isFinite(rotate) ? rotate : 0
                 };
             };
+            const captionControlScaleFn = (${captionControlScale.toString()});
             const syncCaptionHandleBox = (captionPlate = selectedCaptionPlate()) => {
                 const box = captionPlate.querySelector('.akari-caption-handle-box');
                 if (!box) return;
+                const surface = typeof stage !== 'undefined' && stage?.getBoundingClientRect ? stage : captionPlate;
+                const display = surface.getBoundingClientRect?.();
+                const vars = captionControlScaleFn(surface.clientWidth || surface.offsetWidth || 0,
+                    display?.width || 0, surface.clientHeight || surface.offsetHeight || 0,
+                    display?.height || 0);
+                for (const [name, value] of Object.entries(vars)) box.style.setProperty?.(name, value);
                 if (!captionPlate.classList.contains('akari-caption-host--styled')) {
                     // 非 styled の #caption-plate 自身が文字の箱（shrink-to-fit）。
                     box.style.inset = '0';
@@ -14567,6 +14827,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 return activeId ? [activeId] : [];
             };
+            const captionWrapWidthDragFn = (${captionWrapWidthDrag.toString()});
+            const captionWrapPositionFn = (${captionWrapPosition.toString()});
+            const captionCornerTransformFn = (${captionCornerTransform.toString()});
             const captionPositionFromVisualRect = (${captionPositionFromVisualRect.toString()});
             const captionGroupPositionFromRects = (plateRect, layoutRect, frameRect, anchor, transform) =>
                 captionPositionFromVisualRect(plateRect, layoutRect, frameRect,
@@ -14966,10 +15229,12 @@ body { display: grid; place-items: center; padding: 32px; }
             const beginCaptionHandleDrag = (event, handle, caption, cueId) => {
                 const captionPlate = handle.closest('.caption-row-plate');
                 const kind = handle.getAttribute('data-h');
-                if (!['nw', 'ne', 'sw', 'se', 'rot'].includes(kind)) return false;
+                if (!['nw', 'ne', 'sw', 'se', 'rot', 'e', 'w', 'move'].includes(kind)) return false;
+                if (kind === 'move') return false;
+                if (['e', 'w'].includes(kind) && caption.timeDomain !== 'output') return false;
                 event.preventDefault();
                 event.stopPropagation();
-                selectCaption(cueId);
+                if (selectedCaptionId !== cueId) selectCaption(cueId);
                 const altAll = event.altKey || captionAltAll;
                 setCaptionGroupMode(altAll);
                 const targets = captionHandleTargets(
@@ -14979,6 +15244,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     altAll
                 );
                 const rect = captionVisualRect();
+                const layoutRect = captionLayoutRect(captionPlate);
                 const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
                 const start = captionOutputPoint(event.clientX, event.clientY);
                 const currentStyle = getComputedStyle(captionPlate);
@@ -14986,18 +15252,46 @@ body { display: grid; place-items: center; padding: 32px; }
                 const currentRotate = parseFloat(currentStyle.getPropertyValue('--caption-rotate'));
                 const baseScale = Number.isFinite(currentScale) ? currentScale : 1;
                 const baseRotate = Number.isFinite(currentRotate) ? currentRotate : 0;
+                const originalWrap = captionPlate.style.getPropertyValue('--caption-wrap-width');
+                const originalLeft = captionPlate.style.getPropertyValue('--caption-left');
+                const originalTop = captionPlate.style.getPropertyValue('--caption-top');
+                const originalBottom = captionPlate.style.getPropertyValue('--caption-bottom');
+                const originalTranslate = captionPlate.style.getPropertyValue('--caption-translate');
                 const pointerId = event.pointerId;
                 let moved = false;
                 selectionDragActive = true;
+                document.body.classList.add('akari-caption-transforming');
+                if (kind === 'rot') document.body.classList.add('akari-caption-rotating');
+                const gestureLabel = document.createElement('div');
+                gestureLabel.className = kind === 'rot' ? 'akari-interaction-angle' : 'akari-interaction-hint';
+                gestureLabel.setAttribute('data-akari-interaction', kind === 'rot' ? 'rotation-angle' : 'handle-hint');
+                gestureLabel.textContent = kind === 'e' || kind === 'w' ? '折り返し幅'
+                    : kind === 'rot' ? '回転' : '大きさ';
+                gestureLabel.style.left = event.clientX + 12 + 'px';
+                gestureLabel.style.top = event.clientY + 12 + 'px';
+                document.body.appendChild(gestureLabel);
                 try { handle.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const restoreLocalTransform = () => {
                     if (baseScale === 1) captionPlate.style.removeProperty('--caption-scale');
                     else captionPlate.style.setProperty('--caption-scale', String(baseScale));
                     if (baseRotate === 0) captionPlate.style.removeProperty('--caption-rotate');
                     else captionPlate.style.setProperty('--caption-rotate', baseRotate + 'deg');
+                    if (originalWrap) captionPlate.style.setProperty('--caption-wrap-width', originalWrap);
+                    else captionPlate.style.removeProperty('--caption-wrap-width');
+                    if (originalLeft) captionPlate.style.setProperty('--caption-left', originalLeft);
+                    else captionPlate.style.removeProperty('--caption-left');
+                    for (const [name, value] of [['--caption-top', originalTop],
+                        ['--caption-bottom', originalBottom], ['--caption-translate', originalTranslate]]) {
+                        if (value) captionPlate.style.setProperty(name, value);
+                        else captionPlate.style.removeProperty(name);
+                    }
                 };
                 const cleanup = () => {
                     selectionDragActive = false;
+                    document.body.classList.remove('akari-caption-transforming');
+                    document.body.classList.remove('akari-caption-rotating');
+                    gestureLabel.remove();
+                    document.body.style.cursor = '';
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onCancel);
@@ -15015,11 +15309,43 @@ body { display: grid; place-items: center; padding: 32px; }
                     const now = captionOutputPoint(moveEvent.clientX, moveEvent.clientY);
                     if (!moved && Math.hypot(now.x - start.x, now.y - start.y) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
-                    const patch = kind === 'rot'
-                        ? { rotate: captionHandleRotateValue(baseRotate, center, start, now) }
-                        : { scale: captionHandleScaleValue(baseScale, center, start, now) };
-                    if (patch.rotate !== undefined && moveEvent.shiftKey) {
-                        patch.rotate = Math.round(patch.rotate / 15) * 15;
+                    let patch;
+                    if (kind === 'rot') {
+                        let angle = captionHandleRotateValue(baseRotate, center, start, now);
+                        if (!moveEvent.metaKey && !moveEvent.ctrlKey) {
+                            const target = Math.round(angle / 45) * 45;
+                            if (Math.abs(angle - target) <= 4) angle = target;
+                        }
+                        patch = { rotate: angle };
+                    } else if (kind === 'e' || kind === 'w') {
+                        const outputWidth = Number(summary.output?.width) || 1280;
+                        const outputHeight = Number(summary.output?.height) || 720;
+                        const wrap = captionWrapWidthDragFn(kind, rect, now.x - start.x, outputWidth);
+                        const left = wrap.centerX - wrap.widthPct / 100 * outputWidth / 2;
+                        const plateRect = captionPlate.querySelector('.akari-caption__plate')?.getBoundingClientRect()
+                            || captionPlate.getBoundingClientRect();
+                        const plateTop = captionOutputPoint(plateRect.left, plateRect.top).y;
+                        const placement = captionWrapPositionFn(left, plateTop, outputWidth, outputHeight);
+                        patch = { wrapWidthPct: wrap.widthPct,
+                            cuePosition: { captionId: cueId, value: {
+                                ...placement
+                            } } };
+                        captionPlate.style.setProperty('--caption-wrap-width', patch.wrapWidthPct + '%');
+                        captionPlate.style.setProperty('--caption-left', placement.position.x * 100 + '%');
+                        captionPlate.style.setProperty('--caption-top', placement.position.y * 100 + '%');
+                        captionPlate.style.setProperty('--caption-bottom', 'auto');
+                        captionPlate.style.setProperty('--caption-translate', 'none');
+                    } else {
+                        const next = captionCornerTransformFn(kind, layoutRect, baseScale, baseRotate, now, start);
+                        const outputWidth = Number(summary.output?.width) || 1280;
+                        const outputHeight = Number(summary.output?.height) || 720;
+                        patch = { scale: next.scale, cuePosition: { captionId: cueId,
+                            value: { anchor: 'tl', position: { x: next.left / outputWidth,
+                                y: next.top / outputHeight } } } };
+                        captionPlate.style.setProperty('--caption-left', next.left / outputWidth * 100 + '%');
+                        captionPlate.style.setProperty('--caption-top', next.top / outputHeight * 100 + '%');
+                        captionPlate.style.setProperty('--caption-bottom', 'auto');
+                        captionPlate.style.setProperty('--caption-translate', 'none');
                     }
                     lastPatch = patch;
                     if (patch.scale !== undefined) {
@@ -15027,6 +15353,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     if (patch.rotate !== undefined) {
                         captionPlate.style.setProperty('--caption-rotate', patch.rotate + 'deg');
+                        gestureLabel.textContent = Math.round(patch.rotate) + '°';
+                        gestureLabel.style.left = moveEvent.clientX + 15 + 'px';
+                        gestureLabel.style.top = moveEvent.clientY + 17 + 'px';
+                        const box = captionPlate.getBoundingClientRect();
+                        const tangent = Math.atan2(moveEvent.clientY - (box.top + box.height / 2),
+                            moveEvent.clientX - (box.left + box.width / 2)) * 180 / Math.PI + 90;
+                        const cursor = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">'
+                            + '<g transform="rotate(' + Math.round(tangent) + ' 16 16)" fill="none" stroke="white" stroke-width="2">'
+                            + '<path d="M5 16a11 11 0 0 1 19-7m3 7a11 11 0 0 1-19 7"/>'
+                            + '<path d="m21 8 4 1-1-4M11 24l-4-1 1 4"/></g></svg>';
+                        document.body.style.cursor = 'url("data:image/svg+xml,' + encodeURIComponent(cursor)
+                            + '") 16 16, crosshair';
                     }
                     updateCaptionSelectBoxForRect(captionVisualRect());
                 };
@@ -15081,6 +15419,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.preventDefault();
                 event.stopPropagation();
                 const placedText = caption.timeDomain === 'output';
+                const duplicatePlacedText = placedText && event.altKey;
                 const groupMode = (event.altKey || captionGroupToolEnabled) && !placedText;
                 const clampOn = captionClampEnabled(caption);
                 const startAnchor = caption.textStyle?.text_anchor || 'bc';
@@ -15144,11 +15483,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 let moved = false;
                 let lastOutputDelta = { x: 0, y: 0 };
                 selectionDragActive = true;
+                document.body.classList.add('akari-caption-moving');
                 try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const outputFrame = captionOutputFrame();
                 let dragSnap = { x: null, y: null };
                 const cleanup = () => {
                     selectionDragActive = false;
+                    document.body.classList.remove('akari-caption-moving');
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onCancel);
@@ -15168,6 +15509,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     const nowOutputPoint = captionOutputPoint(moveEvent.clientX, moveEvent.clientY);
                     let outputDx = nowOutputPoint.x - startOutputPoint.x;
                     let outputDy = nowOutputPoint.y - startOutputPoint.y;
+                    if (moveEvent.shiftKey) {
+                        if (Math.abs(outputDx) >= Math.abs(outputDy)) outputDy = 0;
+                        else outputDx = 0;
+                    }
                     if (!groupMode && clampOn) {
                         const plateW = startPlateRect.right - startPlateRect.left;
                         const plateH = startPlateRect.bottom - startPlateRect.top;
@@ -15180,7 +15525,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         outputDy = maxDy < minDy
                             ? maxDy : Math.min(maxDy, Math.max(minDy, outputDy));
                     }
-                    if (!captionSnapEnabled || moveEvent.altKey || !window.akari.interaction?.computeSnapCorrection) {
+                    if (!captionSnapEnabled || moveEvent.metaKey || moveEvent.ctrlKey
+                        || !window.akari.interaction?.computeSnapCorrection) {
                         dragSnap = { x: null, y: null };
                         window.akari.interaction?.hideSnapGuides?.();
                     } else {
@@ -15233,6 +15579,14 @@ body { display: grid; place-items: center; padding: 32px; }
                                 startTransform
                             );
                             await window.akari.engine.captionWrite(cueId, { groupPosition });
+                        } else if (duplicatePlacedText) {
+                            const cuePosition = captionPositionFromVisualRect(
+                                captionVisualRect(), captionLayoutRect(), outputFrame,
+                                { anchor: startAnchor, clamp: clampOn,
+                                    timeDomain: caption.timeDomain, ...startTransform }
+                            );
+                            await window.akari.engine.captionWrite(cueId, { duplicate: cuePosition });
+                            captionPlate.style.translate = '';
                         } else if (multiMove) {
                             const cuePositions = moveIds.map(id => {
                                 const target = captions.find(item => (item.sourceCueId || item.id) === id);
@@ -16544,7 +16898,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!captionPlate.hasAttribute('data-selected')) return;
                 const handleBox = document.createElement('div');
                 handleBox.className = 'akari-caption-handle-box';
-                for (const kind of ['nw', 'ne', 'sw', 'se', 'rot']) {
+                for (const kind of ['nw', 'ne', 'sw', 'se', 'e', 'w', 'rot', 'move']) {
+                    if ((kind === 'e' || kind === 'w') && caption.timeDomain !== 'output') continue;
                     const handle = document.createElement('i');
                     handle.className = 'akari-caption-handle';
                     handle.setAttribute('data-h', kind);
@@ -18030,10 +18385,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 奪っていたため、audio-notice の × 等インタラクティブ操作系の上で押しても
                 // preventDefault() が click 合成を止めてしまい押せなくなっていた（実測: Chromium は
                 // pointerdown.preventDefault() を呼ぶと後続の click を合成しない）。ボタンに加え、
-                // 選択済みレイヤー/カット・オーバーレイの直接操作面も素通しする。Alt+drag は
-                // 操作面の上からでも明示的にパンできる。
+                // 選択済みレイヤー/カット・オーバーレイの直接操作面も素通しする。
+                // Alt+drag は要素の複製として届ける。
                 if (event.target.closest && event.target.closest('button, [role="button"], input, textarea, select, a[href]')) return;
-                if (!event.altKey && isDirectManipulationTarget(event.target, event)) return;
+                if (isDirectManipulationTarget(event.target, event)) return;
                 event.preventDefault();
                 event.stopPropagation();
                 previewPane.setPointerCapture(event.pointerId);
