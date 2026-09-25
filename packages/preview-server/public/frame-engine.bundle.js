@@ -7812,11 +7812,19 @@ var require_transform_keyframe_edit = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.evaluatedItemTransform = evaluatedItemTransform;
+    exports.hasItemKeyframeGroup = hasItemKeyframeGroup;
     exports.hasTransformKeyframe = hasTransformKeyframe;
+    exports.evaluatedItemOpacity = evaluatedItemOpacity;
+    exports.normalizeItemKeyframeGroup = normalizeItemKeyframeGroup;
+    exports.activateItemKeyframeGroup = activateItemKeyframeGroup;
+    exports.activateItemKeyframe = activateItemKeyframe;
     exports.activateItemTransformKeyframe = activateItemTransformKeyframe;
     exports.writeItemTransformAt = writeItemTransformAt;
+    exports.writeItemOpacityAt = writeItemOpacityAt;
+    exports.removeItemKeyframeGroup = removeItemKeyframeGroup;
+    exports.removeItemKeyframePoint = removeItemKeyframePoint;
+    exports.moveItemKeyframeGroup = moveItemKeyframeGroup;
     var FIELDS = ["x", "y", "scale", "scaleX", "scaleY", "rotate"];
-    var DEFAULTS = { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 };
     var finite4 = (value) => typeof value === "number" && Number.isFinite(value);
     var isMedia = (item) => item.source.kind === "media";
     var pointsOf = (item) => Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.t - b.t) : [];
@@ -7899,8 +7907,6 @@ var require_transform_keyframe_edit = __commonJS({
         if (!finite4(value) && (field === "scaleX" || field === "scaleY")) {
           value = transform.scale ?? (media ? statics[field] ?? statics.scale ?? 1 : fallback);
         }
-        if (!finite4(value) && media)
-          value = DEFAULTS[field];
         return finite4(value) ? [{ point, value }] : [];
       });
       if (!declared.length)
@@ -7931,16 +7937,57 @@ var require_transform_keyframe_edit = __commonJS({
         rotate: staticValue.rotate ?? 0
       };
       const points = pointsOf(item), media = isMedia(item);
-      if (points.length < 2 || !points.some((point) => point.transform))
+      if (!points.some((point) => point.transform))
         return base;
       const at2 = frameOf(item, frame);
       return Object.fromEntries(FIELDS.map((field) => [
         field,
-        valueAt2(points, at2, field, media && field !== "scaleX" && field !== "scaleY" ? DEFAULTS[field] : base[field], media, staticValue)
+        valueAt2(points, at2, field, base[field], media, staticValue)
       ]));
     }
+    var GROUP_FIELDS = {
+      position: ["x", "y"],
+      size: ["scale", "scaleX", "scaleY"],
+      rotation: ["rotate"]
+    };
+    var groupOf = (field) => field === "x" || field === "y" ? "position" : field === "rotate" ? "rotation" : "size";
+    var declares = (point, group) => group === "opacity" ? finite4(point.opacity) : GROUP_FIELDS[group].some((field) => finite4(point.transform?.[field]));
+    var groupPoints = (item, group) => pointsOf(item).filter((point) => declares(point, group));
+    var hasPointValue = (point) => Object.entries(point).some(([key, value]) => key !== "t" && key !== "easing" && value !== void 0);
+    function legalPointArray(item, points) {
+      const meaningful = points.filter(hasPointValue).sort((a, b) => a.t - b.t);
+      if (!meaningful.length)
+        return void 0;
+      if (meaningful.length > 1)
+        return meaningful;
+      const t = meaningful[0].t < item.duration ? meaningful[0].t + 1 : meaningful[0].t - 1;
+      return [...meaningful, { t }].sort((a, b) => a.t - b.t);
+    }
+    function hasItemKeyframeGroup(item, group) {
+      return groupPoints(item, group).length > 0;
+    }
     function hasTransformKeyframe(item, field) {
-      return pointsOf(item).some((point) => finite4(point.transform?.[field]));
+      return hasItemKeyframeGroup(item, groupOf(field));
+    }
+    function evaluatedItemOpacity(item, frame) {
+      const points = groupPoints(item, "opacity");
+      const fallback = item.opacity ?? 1;
+      if (!points.length)
+        return fallback;
+      const at2 = frameOf(item, frame);
+      if (at2 <= points[0].t)
+        return points[0].opacity;
+      const last = points[points.length - 1];
+      if (at2 >= last.t)
+        return last.opacity;
+      for (let index = 1; index < points.length; index++) {
+        const right = points[index], left = points[index - 1];
+        if (at2 > right.t)
+          continue;
+        const u2 = eased(right, "opacity", (at2 - left.t) / (right.t - left.t || 1), false);
+        return left.opacity + (right.opacity - left.opacity) * u2;
+      }
+      return fallback;
     }
     function validPatch(patch) {
       for (const [field, value] of Object.entries(patch)) {
@@ -7956,74 +8003,158 @@ var require_transform_keyframe_edit = __commonJS({
       const ratio = previous > 0 ? patch.scale / previous : 1;
       return { ...patch, scaleX: current.scaleX * ratio, scaleY: current.scaleY * ratio };
     }
+    function valuesAt(item, frame, group) {
+      if (group === "opacity")
+        return evaluatedItemOpacity(item, frame);
+      const pose = evaluatedItemTransform(item, frame);
+      if (group === "position")
+        return { x: pose.x, y: pose.y };
+      if (group === "rotation")
+        return { rotate: pose.rotate };
+      return { scale: pose.scale, scaleX: pose.scaleX, scaleY: pose.scaleY };
+    }
+    function withStaticGroup(item, group, value) {
+      if (group === "opacity")
+        return { ...item, opacity: value };
+      return { ...item, transform: { ...item.transform, ...value } };
+    }
+    function normalizeItemKeyframeGroup(item, group) {
+      const keyframes = pointsOf(item).map((point) => {
+        const copy = structuredClone(point);
+        if (!declares(point, group))
+          return copy;
+        const value = valuesAt(item, point.t, group);
+        if (group === "opacity")
+          copy.opacity = value;
+        else
+          copy.transform = { ...copy.transform, ...value };
+        return copy;
+      });
+      return keyframes.length ? { ...item, keyframes } : item;
+    }
     function fullMediaPoint(item, point) {
       if (!point.transform)
         return { ...point };
       return { ...point, transform: evaluatedItemTransform(item, point.t) };
     }
-    function activateItemTransformKeyframe(item, frame, field) {
-      const at2 = frameOf(item, frame), before = evaluatedItemTransform(item, at2);
-      const points = pointsOf(item);
-      if (hasTransformKeyframe(item, field) && points.some((point) => point.t === at2 && finite4(point.transform?.[field])))
-        return item;
-      const next = points.map((point) => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
-      const value = isMedia(item) ? { ...before } : field === "scale" ? { scale: Math.sqrt(before.scaleX * before.scaleY), scaleX: before.scaleX, scaleY: before.scaleY } : { [field]: before[field] };
-      const seat = next.find((point) => point.t === at2);
-      if (seat)
-        seat.transform = { ...seat.transform, ...value };
-      else
-        next.push({ t: at2, transform: value });
-      if (next.length === 1) {
-        next.push({ t: at2 === 0 ? item.duration : 0, transform: { ...value } });
+    function addGroupPoint(item, frame, group, value) {
+      const at2 = frameOf(item, frame);
+      const normalized = normalizeItemKeyframeGroup(item, group);
+      const keyframes = pointsOf(normalized).map((point) => isMedia(item) ? fullMediaPoint(normalized, point) : structuredClone(point));
+      let seat = keyframes.find((point) => point.t === at2);
+      if (!seat) {
+        seat = { t: at2 };
+        keyframes.push(seat);
       }
-      return { ...item, keyframes: next.sort((a, b) => a.t - b.t) };
+      if (group === "opacity") {
+        seat.opacity = value;
+        if (isMedia(item))
+          seat.transform = evaluatedItemTransform(item, at2);
+      } else
+        seat.transform = {
+          ...isMedia(item) ? evaluatedItemTransform(item, at2) : seat.transform,
+          ...value
+        };
+      return { ...normalized, keyframes: legalPointArray(item, keyframes) };
+    }
+    function activateItemKeyframeGroup(item, frame, group) {
+      const at2 = frameOf(item, frame);
+      const hadGroup = hasItemKeyframeGroup(item, group);
+      const value = valuesAt(item, at2, group);
+      if (groupPoints(item, group).some((point) => point.t === at2))
+        return normalizeItemKeyframeGroup(item, group);
+      const updated = addGroupPoint(item, at2, group, value);
+      return hadGroup ? updated : withStaticGroup(updated, group, value);
+    }
+    function activateItemKeyframe(item, frame) {
+      return ["position", "size", "rotation", "opacity"].reduce((current, group) => activateItemKeyframeGroup(current, frame, group), item);
+    }
+    function activateItemTransformKeyframe(item, frame, field) {
+      return activateItemKeyframeGroup(item, frame, groupOf(field));
+    }
+    function patchedGroupValue(item, frame, group, patch) {
+      const current = evaluatedItemTransform(item, frame);
+      if (group === "position")
+        return { x: patch.x ?? current.x, y: patch.y ?? current.y };
+      if (group === "rotation")
+        return { rotate: patch.rotate ?? current.rotate };
+      const adjusted = normalizedAxisPatch(current, patch);
+      const scaleX = adjusted.scaleX ?? current.scaleX, scaleY = adjusted.scaleY ?? current.scaleY;
+      return { scale: Math.sqrt(scaleX * scaleY), scaleX, scaleY };
+    }
+    function writeGroup(item, frame, group, patch) {
+      const value = patchedGroupValue(item, frame, group, patch);
+      if (!hasItemKeyframeGroup(item, group))
+        return withStaticGroup(item, group, value);
+      const initialPoint = groupPoints(item, group)[0];
+      const updated = addGroupPoint(item, frame, group, value);
+      return groupPoints(item, group).length === 1 ? withStaticGroup(updated, group, valuesAt(updated, initialPoint.t, group)) : updated;
     }
     function writeItemTransformAt(item, frame, input) {
       validPatch(input);
-      const at2 = frameOf(item, frame), current = evaluatedItemTransform(item, at2);
-      const patch = normalizedAxisPatch(current, input);
-      const animated = new Set(FIELDS.filter((field) => hasTransformKeyframe(item, field)));
-      if (patch.scale !== void 0 && (animated.has("scaleX") || animated.has("scaleY")))
-        animated.add("scale");
-      if (animated.has("scale")) {
-        animated.add("scaleX");
-        animated.add("scaleY");
-      }
-      const base = { ...item.transform };
-      const pointPatch = {};
-      for (const field of FIELDS) {
-        const value = patch[field];
-        if (value === void 0)
-          continue;
-        if (animated.has(field))
-          pointPatch[field] = value;
-        else
-          base[field] = value;
-      }
-      if (patch.scaleX !== void 0 || patch.scaleY !== void 0) {
-        if (animated.has("scale")) {
-          pointPatch.scaleX ??= current.scaleX;
-          pointPatch.scaleY ??= current.scaleY;
+      return [...new Set(Object.keys(input).map((field) => groupOf(field)))].reduce((current, group) => writeGroup(current, frame, group, input), item);
+    }
+    function writeItemOpacityAt(item, frame, opacity) {
+      if (!finite4(opacity) || opacity < 0 || opacity > 1)
+        throw new Error("Invalid opacity");
+      if (!hasItemKeyframeGroup(item, "opacity"))
+        return withStaticGroup(item, "opacity", opacity);
+      const initialPoint = groupPoints(item, "opacity")[0];
+      const updated = addGroupPoint(item, frame, "opacity", opacity);
+      return groupPoints(item, "opacity").length === 1 ? withStaticGroup(updated, "opacity", valuesAt(updated, initialPoint.t, "opacity")) : updated;
+    }
+    function removeItemKeyframeGroup(item, frame, group) {
+      const at2 = frameOf(item, frame);
+      if (!groupPoints(item, group).some((point) => point.t === at2))
+        return item;
+      const before = valuesAt(item, at2, group);
+      const normalized = normalizeItemKeyframeGroup(item, group);
+      const keyframes = pointsOf(normalized).map((point) => {
+        const copy = structuredClone(point);
+        if (copy.t !== at2)
+          return copy;
+        if (group === "opacity")
+          delete copy.opacity;
+        else if (copy.transform) {
+          for (const field of GROUP_FIELDS[group])
+            delete copy.transform[field];
+          if (!Object.keys(copy.transform).length)
+            delete copy.transform;
         }
-        const x3 = pointPatch.scaleX ?? base.scaleX ?? base.scale ?? current.scaleX;
-        const y2 = pointPatch.scaleY ?? base.scaleY ?? base.scale ?? current.scaleY;
-        if (animated.has("scale"))
-          pointPatch.scale = Math.sqrt(x3 * y2);
-        else if (base.scaleX !== void 0 || base.scaleY !== void 0)
-          base.scale = Math.sqrt(x3 * y2);
-      }
-      let keyframes = pointsOf(item);
-      if (Object.keys(pointPatch).length) {
-        keyframes = keyframes.map((point) => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
-        let seat = keyframes.find((point) => point.t === at2);
-        if (!seat) {
-          seat = { t: at2 };
-          keyframes.push(seat);
+        return copy;
+      }).filter((point) => point.transform || point.opacity !== void 0 || point.crop || point.perspective || point.animator || point.gain_db !== void 0);
+      let updated = { ...normalized, keyframes: legalPointArray(item, keyframes) };
+      const remaining = groupPoints(updated, group);
+      if (!remaining.length)
+        updated = withStaticGroup(updated, group, before);
+      else if (remaining.length === 1)
+        updated = withStaticGroup(updated, group, valuesAt(normalized, remaining[0].t, group));
+      return updated;
+    }
+    function removeItemKeyframePoint(item, frame) {
+      const at2 = frameOf(item, frame);
+      const point = pointsOf(item).find((entry) => entry.t === at2);
+      if (!point)
+        return item;
+      const values = ["position", "size", "rotation", "opacity"].filter((group) => declares(point, group)).map((group) => [group, valuesAt(item, at2, group)]);
+      const keyframes = pointsOf(item).filter((entry) => entry.t !== at2).map((entry) => structuredClone(entry));
+      let updated = { ...item, keyframes: legalPointArray(item, keyframes) };
+      for (const [group, value] of values)
+        if (!hasItemKeyframeGroup(updated, group)) {
+          updated = withStaticGroup(updated, group, value);
         }
-        seat.transform = { ...isMedia(item) ? current : seat.transform, ...pointPatch };
-        keyframes.sort((a, b) => a.t - b.t);
-      }
-      return { ...item, transform: base, ...keyframes.length ? { keyframes } : {} };
+      return updated;
+    }
+    function moveItemKeyframeGroup(item, fromFrame, toFrame, group) {
+      const from = frameOf(item, fromFrame), to = frameOf(item, toFrame);
+      if (from === to)
+        return item;
+      const point = groupPoints(item, group).find((entry) => entry.t === from);
+      if (!point)
+        return item;
+      const value = valuesAt(item, from, group);
+      const removed = removeItemKeyframeGroup(item, from, group);
+      return addGroupPoint(removed, to, group, value);
     }
   }
 });
@@ -8317,33 +8448,6 @@ var require_motion_keyframe_replace = __commonJS({
   }
 });
 
-// ../edit-store/lib/motion-position-write.js
-var require_motion_position_write = __commonJS({
-  "../edit-store/lib/motion-position-write.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.writeItemPositionAt = writeItemPositionAt;
-    function writeItemPositionAt(item, frame, position) {
-      if (!Number.isInteger(frame) || frame < 0 || frame > item.duration || Object.keys(position).length === 0 || Object.keys(position).some((axis) => axis !== "x" && axis !== "y" || !Number.isFinite(position[axis]))) {
-        throw new Error("\u4F4D\u7F6E\u307E\u305F\u306F\u6642\u523B\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093");
-      }
-      const copy = structuredClone(item);
-      if (Array.isArray(copy.keyframes) && copy.keyframes.length >= 2) {
-        let point = copy.keyframes.find((entry) => entry.t === frame);
-        if (!point) {
-          point = { t: frame };
-          copy.keyframes.push(point);
-          copy.keyframes.sort((left, right) => left.t - right.t);
-        }
-        point.transform = { ...point.transform, ...position };
-      } else {
-        copy.transform = { ...copy.transform, ...position };
-      }
-      return copy;
-    }
-  }
-});
-
 // ../edit-store/lib/edit-v2-item-write.js
 var require_edit_v2_item_write = __commonJS({
   "../edit-store/lib/edit-v2-item-write.js"(exports) {
@@ -8356,7 +8460,6 @@ var require_edit_v2_item_write = __commonJS({
     var transform_keyframe_edit_1 = require_transform_keyframe_edit();
     var item_motion_js_1 = require_item_motion();
     var motion_keyframe_replace_1 = require_motion_keyframe_replace();
-    var motion_position_write_1 = require_motion_position_write();
     var isRecord2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
     var recordOf = (value) => isRecord2(value) ? value : {};
     var stringifyEdit = (value) => `${JSON.stringify(value, void 0, 2)}
@@ -8463,17 +8566,9 @@ var require_edit_v2_item_write = __commonJS({
       const writeTransform = (patch) => {
         const seconds = command.playheadSeconds;
         const positionOnly = Object.keys(patch).length > 0 && Object.keys(patch).every((key) => key === "x" || key === "y");
-        if (positionOnly) {
+        if (positionOnly || Number.isFinite(seconds)) {
           const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
           const frame = Number.isFinite(seconds) ? Math.max(0, Math.min(item.duration, Math.round(seconds * edit.output.fps) - start)) : 0;
-          const updated = (0, motion_position_write_1.writeItemPositionAt)(item, frame, patch);
-          item.transform = updated.transform;
-          item.keyframes = updated.keyframes;
-          return;
-        }
-        if (Number.isFinite(seconds) && Array.isArray(item.keyframes) && item.keyframes.some((point) => point.transform)) {
-          const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
-          const frame = Math.round(seconds * edit.output.fps) - start;
           const updated = (0, transform_keyframe_edit_1.writeItemTransformAt)(item, frame, patch);
           item.transform = updated.transform;
           item.keyframes = updated.keyframes;
@@ -8557,7 +8652,10 @@ var require_edit_v2_item_write = __commonJS({
             throw new Error(`\u30B0\u30EB\u30FC\u30D7\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
           }
           if (command.patch.xyKeyframes)
-            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({
+              ...item,
+              keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration)
+            }, "position").keyframes;
           if (command.patch.transform)
             writeTransform(command.patch.transform);
           if (!command.patch.transform && !command.patch.xyKeyframes)
@@ -8601,12 +8699,18 @@ var require_edit_v2_item_write = __commonJS({
           editChanged = true;
         }
         if (command.patch.xyKeyframes) {
-          item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+          item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({
+            ...item,
+            keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration)
+          }, "position").keyframes;
           editChanged = true;
         }
       } else if (command.kind === "layer") {
         if (command.patch.xyKeyframes) {
-          item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+          item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({
+            ...item,
+            keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration)
+          }, "position").keyframes;
           editChanged = true;
         }
         if (command.patch.transform) {
@@ -8632,7 +8736,10 @@ var require_edit_v2_item_write = __commonJS({
           throw new Error(`\u6620\u50CF\u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
         }
         if (command.patch.xyKeyframes) {
-          item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+          item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({
+            ...item,
+            keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration)
+          }, "position").keyframes;
           editChanged = true;
         }
         if (command.patch.transform) {

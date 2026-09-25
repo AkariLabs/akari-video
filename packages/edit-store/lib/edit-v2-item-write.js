@@ -7,7 +7,6 @@ const transform_1 = require("./transform");
 const transform_keyframe_edit_1 = require("./transform-keyframe-edit");
 const item_motion_js_1 = require("../../overlay-runtime/src/item-motion.js");
 const motion_keyframe_replace_1 = require("./motion-keyframe-replace");
-const motion_position_write_1 = require("./motion-position-write");
 const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const recordOf = (value) => isRecord(value) ? value : {};
 const stringifyEdit = (value) => `${JSON.stringify(value, undefined, 2)}\n`;
@@ -130,19 +129,10 @@ function resolveV2Write(parsed, command) {
         const seconds = command.playheadSeconds;
         const positionOnly = Object.keys(patch).length > 0
             && Object.keys(patch).every(key => key === 'x' || key === 'y');
-        if (positionOnly) {
+        if (positionOnly || Number.isFinite(seconds)) {
             const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
             const frame = Number.isFinite(seconds)
                 ? Math.max(0, Math.min(item.duration, Math.round(seconds * edit.output.fps) - start)) : 0;
-            const updated = (0, motion_position_write_1.writeItemPositionAt)(item, frame, patch);
-            item.transform = updated.transform;
-            item.keyframes = updated.keyframes;
-            return;
-        }
-        if (Number.isFinite(seconds) && Array.isArray(item.keyframes)
-            && item.keyframes.some(point => point.transform)) {
-            const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
-            const frame = Math.round(seconds * edit.output.fps) - start;
             const updated = (0, transform_keyframe_edit_1.writeItemTransformAt)(item, frame, patch);
             item.transform = updated.transform;
             item.keyframes = updated.keyframes;
@@ -219,7 +209,8 @@ function resolveV2Write(parsed, command) {
                 throw new Error(`グループアイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
             }
             if (command.patch.xyKeyframes)
-                item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+                item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({ ...item,
+                    keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             if (command.patch.transform)
                 writeTransform(command.patch.transform);
             if (!command.patch.transform && !command.patch.xyKeyframes)
@@ -264,13 +255,15 @@ function resolveV2Write(parsed, command) {
             editChanged = true;
         }
         if (command.patch.xyKeyframes) {
-            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({ ...item,
+                keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             editChanged = true;
         }
     }
     else if (command.kind === 'layer') {
         if (command.patch.xyKeyframes) {
-            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({ ...item,
+                keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             editChanged = true;
         }
         if (command.patch.transform) {
@@ -298,7 +291,8 @@ function resolveV2Write(parsed, command) {
             throw new Error(`映像アイテムではありません: ${itemId}`);
         }
         if (command.patch.xyKeyframes) {
-            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            item.keyframes = (0, transform_keyframe_edit_1.normalizeItemKeyframeGroup)({ ...item,
+                keyframes: (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             editChanged = true;
         }
         if (command.patch.transform) {

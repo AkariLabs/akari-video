@@ -112,6 +112,26 @@
     let activeDrag = null;
     let activeResize = null;
     let activeRotate = null;
+    function reportLiveValues(id, values, clear = false) {
+      if (!id || typeof window.akari?.reportLiveValues !== "function") return;
+      window.akari.reportLiveValues({ id, ...clear ? { clear: true } : { values } });
+    }
+    function reportLivePose(gesture) {
+      if (!gesture || !gesture.moved) return;
+      const pose = gesture.group ? gesture.pose ?? {
+        ...gesture.transform,
+        x: gesture.startX + gesture.dx,
+        y: gesture.startY + gesture.dy
+      } : readTransform(gesture.container);
+      reportLiveValues(gesture.overlayId, {
+        x: pose.x,
+        y: pose.y,
+        scale: pose.scale,
+        scaleX: pose.scaleX ?? pose.scale,
+        scaleY: pose.scaleY ?? pose.scale,
+        rotate: pose.rotate
+      });
+    }
     let activeLine = null;
     let rotationBadge = null;
     let handleHint = null;
@@ -1434,6 +1454,7 @@
     function cancelDrag() {
       if (!activeDrag) return;
       const drag = activeDrag;
+      reportLiveValues(drag.overlayId, void 0, true);
       activeDrag = null;
       if (drag.group) {
         moveGroupMembers(drag, 0, 0);
@@ -2099,6 +2120,7 @@
     function cancelRotate() {
       if (!activeRotate) return;
       const rotation = activeRotate;
+      reportLiveValues(rotation.overlayId, void 0, true);
       activeRotate = null;
       rotationBadge?.remove();
       rotationBadge = null;
@@ -2409,6 +2431,7 @@
     function cancelResize() {
       if (!activeResize) return;
       const resize = activeResize;
+      reportLiveValues(resize.overlayId, void 0, true);
       activeResize = null;
       handleHint?.remove();
       handleHint = null;
@@ -2631,10 +2654,12 @@
       }
       if (activeRotate && event.pointerId === activeRotate.pointerId) {
         updateRotate(event);
+        reportLivePose(activeRotate);
         return;
       }
       if (activeResize && event.pointerId === activeResize.pointerId) {
         updateResize(event);
+        reportLivePose(activeResize);
         return;
       }
       const drag = activeDrag;
@@ -2655,6 +2680,7 @@
       if (drag.group) {
         const locked2 = globalThis.akariHandleGeometry?.axisLock(videoDeltaX, videoDeltaY, event.shiftKey) ?? (event.shiftKey && Math.abs(videoDeltaX) >= Math.abs(videoDeltaY) ? { x: videoDeltaX, y: 0 } : event.shiftKey ? { x: 0, y: videoDeltaY } : { x: videoDeltaX, y: videoDeltaY });
         moveGroupDrag(drag, locked2.x, locked2.y, event.metaKey || event.ctrlKey, lockedAxis);
+        reportLivePose(drag);
         if (event.cancelable) event.preventDefault();
         return;
       }
@@ -2666,6 +2692,7 @@
         event.metaKey || event.ctrlKey,
         lockedAxis
       );
+      reportLivePose(drag);
       if (event.cancelable) event.preventDefault();
     }
     function onPointerUp(event) {
