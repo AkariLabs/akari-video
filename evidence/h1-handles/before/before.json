@@ -15,7 +15,7 @@
         "y": 39,
         "w": 404,
         "h": 603,
-        "src": "http://53cc0c59-aac9-5a10-b57d-a8a1dd188707.webview.localhos"
+        "src": "<webview-origin>"
       }
     ],
     "initial": {
@@ -266,7 +266,7 @@
           "y": 39,
           "w": 404,
           "h": 603,
-          "src": "http://53cc0c59-aac9-5a10-b57d-a8a1dd188707.webview.localhos"
+          "src": "<webview-origin>"
         }
       ],
       "state": {
