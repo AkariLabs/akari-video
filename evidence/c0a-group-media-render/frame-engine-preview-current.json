@@ -1,0 +1,15 @@
+{
+  "isolated": {
+    "code": 1,
+    "durationMs": 76195,
+    "tests": 1,
+    "pass": 0,
+    "fail": 1,
+    "failure": "file-level failure without an individual assertion"
+  },
+  "fullSuite": {
+    "code": 1,
+    "durationMs": 354579,
+    "failure": "the same file-level failure"
+  }
+}

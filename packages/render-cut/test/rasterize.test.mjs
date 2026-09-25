@@ -37,6 +37,15 @@ test("renderOverlaySheet embeds declared overlays deterministically", () => {
   assert.match(renderOverlaySheet(input), /data-overlay-id="o1"/);
 });
 
+test("static overlay opacity is applied without keyframes", () => {
+  const sheet = renderOverlaySheet({
+    overlays: [{ id: 'half', start: 0, duration: 1, html: '<div>half</div>', opacity: 0.5 }],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: '/tmp/project', duration: 1,
+  });
+  assert.match(sheet, /data-overlay-id="half"[^>]*style="[^"]*opacity:0\.5"/u);
+});
+
 test("HTML comments cannot enable the render-cut 3D runtime", () => {
   const html = "<div>2D only</div><!-- 3D scene declarations (data-akari-3d-scene): 0 -->";
   const sheet = renderOverlaySheet({

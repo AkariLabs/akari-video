@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    { "id": "duration", "lane": "visual", "items": [
+      { "id": "duration-marker", "at": 0, "duration": 120,
+        "source": { "kind": "html", "path": "overlays/empty.html" } }
+    ] },
+    { "id": "direct", "lane": "visual", "items": [
+      { "id": "caption-line", "at": 42, "duration": 36,
+        "transform": { "x": 115.06457847577869, "y": -1.364005169388733,
+          "scale": 0.65, "rotate": 18 }, "opacity": 0.5,
+        "source": { "kind": "caption", "path": "captions.json", "id": "c-0001" } }
+    ] },
+    { "id": "captions", "lane": "visual", "items": [
+      { "id": "captions-bag", "at": 0, "duration": 120,
+        "source": { "kind": "captions", "path": "captions.json", "exclude": ["c-0001"] },
+        "items": [] }
+    ] }
+  ]
+}

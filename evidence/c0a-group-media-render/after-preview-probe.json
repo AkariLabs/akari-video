@@ -1,0 +1,16 @@
+{
+  "phase": "after",
+  "times": [
+    0.5,
+    2,
+    3.5
+  ],
+  "preview": {},
+  "export": {},
+  "comparisons": {},
+  "errors": [
+    "Error: Electron exited SIGABRT: \n    at file://<repo>/evidence/c0a-group-media-render/run.mjs:66:13"
+  ],
+  "captionC0001RenderRecords": 1,
+  "electronStderr": ""
+}

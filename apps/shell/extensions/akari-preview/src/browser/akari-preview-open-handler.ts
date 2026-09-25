@@ -3,7 +3,6 @@ import { previewShapeRoles } from '../common/preview-shape-roles';
 import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
 import { captionControlScale } from '../common/caption-control-scale';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
-import { projectCanvasCaptionRows } from '../common/canvas-caption-projection';
 import { canvasCaptionZPlan } from '../common/canvas-caption-z';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
 import { installPreviewFrameCapture } from '../common/preview-frame-controller';
@@ -110,7 +109,7 @@ import {
     resolveThreeSceneDescriptorAssets,
     threeSceneDeclarations
 } from '../common/three-scene-assets';
-import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
+import { resolvePreviewCaptionTrackOrder, resolvePreviewItemStackOrder } from '../common/caption-track-order';
 import { previewContentEnd } from '../common/preview-content-end';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
 import { captionRunOmittedNotice } from '../common/caption-run-style-notice';
@@ -135,7 +134,7 @@ import { persistCaptionPlateTransform, captionWrapWidthDrag, captionCornerTransf
 import { captionWrapPosition } from '../common/caption-wrap-position';
 import { duplicatePreviewCaptionSource, duplicatePreviewItemSource } from '../common/preview-duplicate-fallback';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
-import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
+import { collectItems, hasInlineCaptions, projectPreviewCaptionRows, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
 import { parseRenderScaleMode, resolveRenderScale, scaledOutputSize, scaleEvaluationPlan, RenderScaleMode } from '../common/frame-engine-render-scale';
 import { isAlphaIntakeSource } from '../common/alpha-intake-routing';
@@ -375,6 +374,9 @@ interface PreviewCaptionClockInput extends AnimatedPreviewCaption {
     timeDomain?: 'source' | 'output';
     /** 複数 source の source-domain cue を該当 cut だけへ射影するための任意 source id。 */
     clockSourceId?: string;
+    groupTransform?: OverlayTransform;
+    groupOpacity?: number;
+    groupTrackId?: string;
 }
 
 interface OutputPreviewCaption extends PreviewCaptionClockInput {
@@ -708,6 +710,8 @@ interface EditSummary {
     audio?: EditSummaryAudio;
     tracks?: EditSummaryTracks;
     timelineTracks?: EditSummaryTimelineTrack[];
+    itemStackZ?: Record<string, number>;
+    trackStackZ?: Record<string, number>;
     captionTrackId?: string;
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
@@ -4119,12 +4123,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, widget.akariPreviewEditUri, 'output');
                 return;
             }
-            const baseCaptionRows = widget.akariPreviewExcludedCaptionIds?.size
-                ? loaded.captions.filter(caption => !widget.akariPreviewExcludedCaptionIds?.has(caption.id))
+            const captionRows = widget.akariPreviewCaptionAnimatorInternal
+                ? projectPreviewCaptionRows(widget.akariPreviewCaptionAnimatorInternal, loaded.captions,
+                    widget.akariPreviewExcludedCaptionIds)
                 : loaded.captions;
-            const explicitCaptionRows = widget.akariPreviewCaptionAnimatorInternal
-                ? projectCanvasCaptionRows(widget.akariPreviewCaptionAnimatorInternal, loaded.captions) : [];
-            const captionRows = explicitCaptionRows.length ? [...baseCaptionRows, ...explicitCaptionRows] : baseCaptionRows;
             const captions = normalizePreviewCaptionClock(
                 captionRows,
                 this.previewCaptionTimelineSegments(
@@ -5008,16 +5010,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             })();
             const internal = readPreviewInternalEdit(editText, loadedCaptions.captions.length > 0, anchorCaptions);
             const excludedCaptionIds = collectExcludedCaptionIds(internal);
-            const captions = [
-                ...loadedCaptions.captions.filter(caption => !excludedCaptionIds.has(caption.id)),
-                ...projectCanvasCaptionRows(internal, loadedCaptions.captions)
-            ];
+            const captions = projectPreviewCaptionRows(internal, loadedCaptions.captions, excludedCaptionIds);
             const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                 loadedCaptions.emphasisWords,
                 legacyEmphasisWords
             ));
             const trackIdByItem = new Map(internal.tracks.flatMap(track =>
                 track.items.map(item => [item, track.id] as const)));
+            const trackIdByItemId = new Map<string, string>();
+            const registerTrackIds = (item: typeof internal.tracks[number]['items'][number], trackId: string): void => {
+                trackIdByItemId.set(item.id, trackId);
+                for (const child of item.children) registerTrackIds(child, trackId);
+            };
+            for (const track of internal.tracks) for (const item of track.items) registerTrackIds(item, track.id);
+            const trackIdOfItem = (item: typeof internal.tracks[number]['items'][number]): string =>
+                String(trackIdByItem.get(item) ?? trackIdByItemId.get(item.id) ?? '');
             const declaredSources = internal.sources;
             // ソースも描画アイテムも字幕も無い場合だけ、新規プロジェクトの案内を出す。
             // HTML 中心の構成は sources: [] でも有効なので、通常の要約読込へ進める。
@@ -5152,7 +5159,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const cutResults = await Promise.all(cutItems.map(async (item): Promise<EditSummaryCut | undefined> => {
                 const value = item.declaration as any;
                 await resolveItemAdjustLut(item);
-                const trackId = String(trackIdByItem.get(item) ?? '');
+                const trackId = trackIdOfItem(item);
                 // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06）の
                 // 再発防止として、この呼び出し自体を配線検査テストの対象にしている
@@ -5411,7 +5418,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             id: item.id,
                             t: item.at,
                             duration: item.duration,
-                            trackId: String(trackIdByItem.get(item) ?? ''),
+                            trackId: trackIdOfItem(item),
                             track: Number.isInteger(item.declaration.track) && Number(item.declaration.track) >= 0
                                 ? Number(item.declaration.track) : 0,
                             filter: item.source.filter as EditSummaryFilter['filter'],
@@ -5446,8 +5453,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...result.base,
                     ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
-                    trackId: String(trackIdByItem.get(item) ?? ''),
-                    renderTrack: resolveInternalTrackZ(internal.tracks, String(trackIdByItem.get(item) ?? ''))
+                    trackId: trackIdOfItem(item),
+                    renderTrack: resolveInternalTrackZ(internal.tracks, trackIdOfItem(item))
                 };
                 const maskSourceId = rawVersion === 2 ? base.mask : undefined;
                 // Summary ids must never leak into the layer's URL seat, including early returns.
@@ -5661,6 +5668,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             );
             const timelineTracks: EditSummaryTimelineTrack[] = captionTrackOrder.tracks;
             const captionTrackId = captionTrackOrder.captionTrackId;
+            const itemStackOrder = resolvePreviewItemStackOrder(internal.tracks);
             const audio = await this.resolveAudioAssets(
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
                 previewAudioKeepProbes, previewAudioPendingRequests, sidecarRequests,
@@ -5758,6 +5766,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     } : {}),
                     ...(tracks ? { tracks } : {}),
                     timelineTracks,
+                    ...(itemStackOrder ?? {}),
                     ...(captionTrackId ? { captionTrackId } : {}),
                     ...(captions.length > 0 || hasInlineCaptions(internal) ? { hasCaptions: true } : {}),
                     ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {}),
@@ -12130,8 +12139,13 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             rebuildVisualTrackZ();
             const zForTrack = trackId => {
+                if (Number.isInteger(summary.trackStackZ?.[trackId])) {
+                    return summary.trackStackZ[trackId];
+                }
                 return resolveInternalTrackZFn(resolvedTracks, trackId);
             };
+            const zForItem = (itemId, trackZ) => Number.isInteger(summary.itemStackZ?.[itemId])
+                ? summary.itemStackZ[itemId] : trackZ;
             const applyCutsZIndex = segment => {
                 if (segment && segment.kind === 'src') {
                     const z = zForTrack(segment.trackId);
@@ -12316,7 +12330,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     label.className = 'akari-deferred-telop-placeholder__label';
                     label.textContent = 'テロップ（ATF）は退役しました。Lab の HTML 素材版へ差し替えてください。';
                     deferredPlaceholder.appendChild(label);
-                    deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
+                    deferredPlaceholder.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                     layersStage.appendChild(deferredPlaceholder);
                 }
                 if (layerIsImage) {
@@ -12362,7 +12376,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 setAdjustBaseFilter(layerVideo, layer);
-                layerVideo.style.zIndex = String(zForTrack(layer.trackId));
+                layerVideo.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                 const transform = layer.transform || {};
                 const x = Number.isFinite(transform.x) ? transform.x : 0;
                 const y = Number.isFinite(transform.y) ? transform.y : 0;
@@ -12566,7 +12580,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const filterEntries = (Array.isArray(summary.filters) ? summary.filters : []).map(filter => {
                 const element = document.createElement('div');
                 element.dataset.akariFilterId = String(filter.id);
-                element.style.zIndex = String(zForTrack(filter.trackId));
+                element.style.zIndex = String(zForItem(filter.id, zForTrack(filter.trackId)));
                 element.style.backdropFilter = cssFilterFor(filter.filter);
                 element.style.webkitBackdropFilter = cssFilterFor(filter.filter);
                 setAdjustBaseFilter(element, filter);
@@ -12604,9 +12618,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 clearAdjustBaseFilter(layerVideo);
                 setAdjustBaseFilter(layerVideo, layer);
-                layerVideo.style.zIndex = String(zForTrack(layer.trackId));
+                layerVideo.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                 if (entry.deferredPlaceholder) {
-                    entry.deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
+                    entry.deferredPlaceholder.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                 }
                 const transform = layer.transform || {};
                 layerVideo.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
@@ -15762,16 +15776,20 @@ body { display: grid; place-items: center; padding: 32px; }
                     const overlay = summary.overlays.find(candidate => String(candidate.id) === id);
                     const track = Number.isInteger(overlay?.track) && overlay.track >= 0 ? overlay.track : 0;
                     container.setAttribute('data-akari-track', String(track));
-                    container.style.zIndex = String(zForTrack(overlay?.trackId));
+                    container.style.zIndex = String(zForItem(overlay?.id, zForTrack(overlay?.trackId)));
                     // Blend the whole HTML item against lower items and the preview image.
                     container.style.mixBlendMode = overlay?.blend || 'normal';
+                    if (!Array.isArray(overlay?.keyframes)) {
+                        container.style.opacity = overlay?.opacity === undefined ? '' : String(overlay.opacity);
+                    }
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
                 const captionZ = typeof summary.captionTrackId === 'string' && summary.captionTrackId
                     ? zForTrack(summary.captionTrackId) : -1;
-                captionLayer.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
+                captionLayer.style.zIndex = summary.itemStackZ ? '' : captionZ >= 0 ? String(captionZ) : '';
             };
             window.akari.updateCanvasCaptionLayer = () => {
+                if (summary.itemStackZ) return;
                 const plan = canvasCaptionZPlanFn([...captionRows.values()].map(row => row.caption),
                     summary.captionTrackId, zForTrack);
                 captionLayer.style.zIndex = plan.split ? 'auto' : plan.layerZ >= 0 ? String(plan.layerZ) : '';
@@ -17042,6 +17060,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (caption !== row.renderedCaption) {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
+                    const groupTransform = caption?.groupTransform;
+                    if (captionPlate.style) {
+                        captionPlate.style.transform = groupTransform
+                            ? 'translate(' + (groupTransform.x || 0) + 'px,' + (groupTransform.y || 0)
+                                + 'px) rotate(' + (groupTransform.rotate || 0) + 'deg) scale(' + (groupTransform.scale || 1) + ')'
+                            : '';
+                        captionPlate.style.opacity = caption?.groupOpacity === undefined
+                            ? '' : String(caption.groupOpacity);
+                    }
                     const captionAnimation = caption && !caption.resolvedTimeline && caption.textStyle?.animation
                         ? buildPreviewCaptionAnimation(caption.textStyle.animation, caption.end - caption.start,
                             message => console.warn('[akari-preview] captions.json item '
@@ -17059,7 +17086,11 @@ body { display: grid; place-items: center; padding: 32px; }
                                 && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
                     row.styledCaptionActive = Boolean(caption);
                     captionPlate.classList.toggle('akari-caption-host--styled', row.styledCaptionActive);
-                    if (caption?.timeDomain === 'output') captionPlate.dataset.outputCaption = '';
+                    // caption item は書き出しと同じ全幅プレートを使う。通常の出力字幕だけ
+                    // 既存の 92% 幅・右端 auto の配置規則を適用する。
+                    if (caption?.timeDomain === 'output' && !caption.captionItemProjection) {
+                        captionPlate.dataset.outputCaption = '';
+                    }
                     else delete captionPlate.dataset.outputCaption;
                     if (caption) {
                         const usesWords = hasCaptionWords
@@ -17120,6 +17151,20 @@ body { display: grid; place-items: center; padding: 32px; }
             const renderCaption = () => {
                 // All preview cues are normalized to output time by the host.
                 const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime);
+                const activeTrackId = active.find(caption => caption.groupTrackId)?.groupTrackId;
+                const itemStack = typeof summary !== 'undefined' && summary.itemStackZ ? summary : null;
+                if (itemStack && captionLayer?.style) {
+                    // 一枚の字幕面を段 z で固定すると、同じ段の写真が後から DOM に追加された
+                    // 場合に子の順が失われる。面は透明にし、各字幕行を item 順で重ねる。
+                    captionLayer.style.zIndex = '';
+                    renderCaption.groupZApplied = false;
+                } else if ((activeTrackId || renderCaption.groupZApplied) && captionLayer?.style
+                    && typeof summary !== 'undefined' && Array.isArray(summary.timelineTracks)) {
+                    const targetId = activeTrackId || summary.captionTrackId;
+                    const captionZ = summary.timelineTracks.findIndex(track => track?.id === targetId);
+                    captionLayer.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
+                    renderCaption.groupZApplied = Boolean(activeTrackId);
+                }
                 const keys = new Set(active.map(caption => caption.id));
                 for (const [key, row] of captionRows) {
                     if (!keys.has(key)) { row.plate.remove(); captionRows.delete(key); }
@@ -17135,6 +17180,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         captionRows.set(caption.id, row);
                     }
                     row.caption = caption;
+                    if (itemStack && row.plate?.style) {
+                        const itemZ = itemStack.itemStackZ[caption.groupItemId || caption.id];
+                        const rowZ = Number.isInteger(itemZ) ? itemZ
+                            : itemStack.trackStackZ?.[caption.groupTrackId || itemStack.captionTrackId];
+                        row.plate.style.zIndex = Number.isInteger(rowZ) ? String(rowZ) : '';
+                    }
                     // Reconcile order without moving a focused editor or captured pointer.
                     const index = active.indexOf(caption);
                     if (captionLayer.children[index] !== row.plate) {
@@ -18987,13 +19038,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyCutVisual(activeSegment);
                 applyCutsZIndex(activeSegment);
                 for (const entry of layerEntries) {
-                    entry.video.style.zIndex = String(zForTrack(entry.spec.trackId));
+                    entry.video.style.zIndex = String(zForItem(entry.spec.id, zForTrack(entry.spec.trackId)));
                 }
                 for (const [index, entry] of filterEntries.entries()) {
                     const filter = summary.filters[index];
                     clearAdjustBaseFilter(entry.element);
                     setAdjustBaseFilter(entry.element, filter);
-                    entry.element.style.zIndex = String(zForTrack(entry.spec.trackId));
+                    entry.element.style.zIndex = String(zForItem(entry.spec.id, zForTrack(entry.spec.trackId)));
                 }
                 applyOverlayTracks();
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();

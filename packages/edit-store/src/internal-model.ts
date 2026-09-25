@@ -23,6 +23,7 @@ import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } 
 import { LegacyEditVersionError } from './migrate/error';
 import { isAudioItemAudible } from './audio-ownership';
 import { shapeMarkup } from './shape-markup';
+import { flattenGroupDescendants } from './group-flatten';
 
 export type InternalLane = 'visual' | 'audio';
 
@@ -112,6 +113,8 @@ export interface InternalItem {
     children: InternalItem[];
     /** 親があるときだけ宣言 id を保持する。 */
     parentId?: string;
+    /** group 内 caption の宣言値。描画投影で親の変形を二重適用しないために保持する。 */
+    groupCaptionLocal?: { transform?: TransformV2; opacity?: number };
     /** この media item から source 字幕を射影するか。省略時は on。 */
     captions?: 'on' | 'off';
     /** motion/ 袋参照。A1 ではファイルを解決しない。 */
@@ -848,6 +851,10 @@ function buildV2Item(
         const clipEnd = clipStart + built.item.durationFrames;
         const clipCaptions = (node: InternalItem): void => {
             if (node.source.kind === 'caption') {
+                node.groupCaptionLocal ??= {
+                    transform: node.declaration.transform as TransformV2 | undefined,
+                    opacity: typeof node.declaration.opacity === 'number' ? node.declaration.opacity : undefined
+                };
                 const start = Math.max(clipStart, node.atFrames);
                 const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
                 node.atFrames = start;
@@ -1497,7 +1504,7 @@ export interface LegacyEditView {
 }
 
 /**
- * 内部表現 → 旧種別別配列。**`tracks[].items[]` だけを見て組み立てる**（生 JSON も版も見ない）。
+ * 内部表現 → 旧種別別配列。宣言木を共通の描画投影で平らにして組み立てる。
  * まだ内部表現へ移せていない描画経路のための橋で、Phase 3 で消える。
  */
 export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
@@ -1509,15 +1516,21 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
     const audioSpeech: Array<{ index: number; value: EditAudioNarration }> = [];
     const audioBgms: EditAudioBgm[] = [];
 
+    const flattened = flattenGroupDescendants(internal);
+    const hasGroupMedia = flattened.some(entry => entry.descendant && entry.item.source.kind === 'media');
+    const byTrack = new Map<InternalTrack, typeof flattened>(internal.tracks.map(track => [track, []]));
+    for (const entry of flattened) byTrack.get(entry.track)?.push(entry);
     for (const track of internal.tracks) {
         if (track.lane === 'audio' && !isAudioItemAudible(track, undefined)) continue;
-        for (const item of track.items) {
+        for (const { item, descendant, order } of byTrack.get(track) ?? []) {
+            if (descendant && item.source.kind !== 'media') continue;
             const value = item.legacy.value;
             if (value === undefined) {
                 // 未焼成 telop / filter は旧型 EditLayer に完全には表せないが、
                 // 消費者から黙って消すより宣言レコードを運ぶ方が安全。
                 if (item.source.kind === 'telop' || item.source.kind === 'filter') {
-                    layers.push({ index: item.legacy.index, value: item.declaration as unknown as EditLayer });
+                    layers.push({ index: hasGroupMedia ? order : item.legacy.index,
+                        value: item.declaration as unknown as EditLayer });
                 }
                 continue;
             }
@@ -1540,7 +1553,8 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
                             audioBgms.push(value as EditAudioBgm);
                             break;
                         case 'layers':
-                            layers.push({ index: item.legacy.index, value: (track.lane === 'visual' && track.muted === true
+                            layers.push({ index: hasGroupMedia ? order : item.legacy.index,
+                                value: (track.lane === 'visual' && track.muted === true
                                 ? { ...value, mute: true } : value) as EditLayer });
                             break;
                         default:
@@ -1557,7 +1571,7 @@ export function projectLegacyEdit(internal: InternalEdit): LegacyEditView {
                     break;
                 case 'telop':
                 case 'filter':
-                    layers.push({ index: item.legacy.index, value: value as EditLayer });
+                    layers.push({ index: hasGroupMedia ? order : item.legacy.index, value: value as EditLayer });
                     break;
                 default:
                     break;

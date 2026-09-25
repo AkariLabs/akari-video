@@ -1,0 +1,8 @@
+{
+  "phase": "after",
+  "engines": {
+    "gpu": { "exitCode": 1, "reason": "OSR Electron exited SIGABRT" },
+    "osr": { "exitCode": 1, "reason": "OSR Electron exited SIGABRT" }
+  },
+  "frameWritten": false
+}

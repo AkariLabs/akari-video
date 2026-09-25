@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [{ "id": "garden", "path": "assets/garden.jpg" }],
+  "tracks": [
+    { "id": "duration", "lane": "visual", "items": [
+      { "id": "duration-marker", "at": 0, "duration": 120,
+        "source": { "kind": "html", "path": "overlays/empty.html" } }
+    ] },
+    { "id": "visual", "lane": "visual", "items": [
+      { "id": "canvas", "at": 30, "duration": 60,
+        "source": { "kind": "group" },
+        "transform": { "x": 100, "y": 45, "scale": 0.65, "rotate": 18 },
+        "opacity": 0.5,
+        "items": [
+          { "id": "photo", "at": 0, "duration": 60, "source": { "kind": "media", "src": "garden", "in": 0, "out": 2 },
+            "transform": { "x": -40, "y": -15, "scale": 0.75 } },
+          { "id": "caption-line", "at": 12, "duration": 36,
+            "source": { "kind": "caption", "path": "captions.json", "id": "c-0001" },
+            "transform": { "x": 0, "y": -75 } },
+          { "id": "html-card", "at": 12, "duration": 36,
+            "source": { "kind": "html", "path": "overlays/card.html" },
+            "transform": { "x": -100, "y": 105 } }
+        ] }
+    ] },
+    { "id": "captions", "lane": "visual", "items": [
+      { "id": "captions-bag", "at": 0, "duration": 120,
+        "source": { "kind": "captions", "path": "captions.json", "exclude": ["c-0001"] }, "items": [] }
+    ] }
+  ]
+}

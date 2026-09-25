@@ -1,0 +1,396 @@
+{
+  "phase": "after",
+  "times": [
+    0.5,
+    2,
+    3.5
+  ],
+  "preview": {
+    "2": {
+      "seek": 2,
+      "layerIds": [
+        "photo"
+      ],
+      "overlayIds": [
+        "duration-marker",
+        "html-card"
+      ],
+      "captionText": "キャンバス内の字幕",
+      "captionTransform": "none",
+      "captionRows": 1,
+      "captionC0001DrawCount": 1,
+      "captionRowTransform": "matrix(0.618187, 0.200861, -0.200861, 0.618187, 115.065, -1.36401)",
+      "captionRowOpacity": "0.5",
+      "captionGeometry": {
+        "row": {
+          "x": 237.08984375,
+          "y": 386.58685302734375,
+          "width": 467.949462890625,
+          "height": 351.09832763671875,
+          "cx": 471.0645751953125,
+          "cy": 562.1360168457031
+        },
+        "line": {
+          "x": 324.3984069824219,
+          "y": 583.172119140625,
+          "width": 243.20181274414062,
+          "height": 112.21368408203125,
+          "cx": 445.9993133544922,
+          "cy": 639.2789611816406
+        },
+        "rowOrigin": "320px 180px",
+        "lineFont": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "outputFitApplied": false,
+        "plateLayout": {
+          "width": "640px",
+          "left": "0px",
+          "right": "0px"
+        }
+      },
+      "htmlOpacity": "0.5",
+      "frameEngineReady": "true",
+      "seekMax": 4,
+      "summaryLayers": [
+        {
+          "id": "photo",
+          "t": 1,
+          "duration": 2,
+          "transform": {
+            "x": 78.28544627148175,
+            "y": 27.69275711237362,
+            "scale": 0.48750000000000004,
+            "rotate": 18
+          },
+          "opacity": 0.5
+        }
+      ],
+      "stack": {
+        "frameEngineActive": "true",
+        "frameEngine": {
+          "z": "auto",
+          "visibility": "visible",
+          "parent": "preview-layers"
+        },
+        "photo": {
+          "z": "4",
+          "visibility": "hidden",
+          "parent": "preview-layers"
+        },
+        "captionLayer": {
+          "z": "auto",
+          "visibility": "visible",
+          "parent": "overlay-stage"
+        },
+        "captionRow": {
+          "z": "5",
+          "visibility": "visible",
+          "parent": "caption-plate"
+        },
+        "html": {
+          "z": "6",
+          "visibility": "visible",
+          "parent": "overlay-stage"
+        },
+        "itemOrder": {
+          "duration-marker": 1,
+          "canvas": 3,
+          "photo": 4,
+          "caption-line": 5,
+          "html-card": 6,
+          "captions-bag": 8
+        }
+      },
+      "stage": {
+        "width": 640,
+        "height": 360
+      },
+      "captureClip": {
+        "x": 417.015625,
+        "y": 422.5,
+        "width": 640,
+        "height": 360
+      },
+      "captureMethod": "playwright-stage-clip",
+      "capturePixels": {
+        "width": 640,
+        "height": 360
+      }
+    },
+    "0_5": {
+      "seek": 0.5,
+      "layerIds": [
+        "photo"
+      ],
+      "overlayIds": [
+        "duration-marker",
+        "html-card"
+      ],
+      "captionText": "",
+      "captionTransform": "none",
+      "captionRows": 0,
+      "captionC0001DrawCount": 0,
+      "captionRowTransform": null,
+      "captionRowOpacity": null,
+      "captionGeometry": {
+        "row": null,
+        "line": null,
+        "rowOrigin": null,
+        "lineFont": null,
+        "outputFitApplied": null,
+        "plateLayout": null
+      },
+      "htmlOpacity": "0.5",
+      "frameEngineReady": "true",
+      "seekMax": 4,
+      "summaryLayers": [
+        {
+          "id": "photo",
+          "t": 1,
+          "duration": 2,
+          "transform": {
+            "x": 78.28544627148175,
+            "y": 27.69275711237362,
+            "scale": 0.48750000000000004,
+            "rotate": 18
+          },
+          "opacity": 0.5
+        }
+      ],
+      "stack": {
+        "frameEngineActive": "true",
+        "frameEngine": {
+          "z": "auto",
+          "visibility": "visible",
+          "parent": "preview-layers"
+        },
+        "photo": {
+          "z": "4",
+          "visibility": "hidden",
+          "parent": "preview-layers"
+        },
+        "captionLayer": {
+          "z": "auto",
+          "visibility": "visible",
+          "parent": "overlay-stage"
+        },
+        "captionRow": null,
+        "html": {
+          "z": "6",
+          "visibility": "hidden",
+          "parent": "overlay-stage"
+        },
+        "itemOrder": {
+          "duration-marker": 1,
+          "canvas": 3,
+          "photo": 4,
+          "caption-line": 5,
+          "html-card": 6,
+          "captions-bag": 8
+        }
+      },
+      "stage": {
+        "width": 640,
+        "height": 360
+      },
+      "captureClip": {
+        "x": 417.015625,
+        "y": 422.5,
+        "width": 640,
+        "height": 360
+      },
+      "captureMethod": "playwright-stage-clip",
+      "capturePixels": {
+        "width": 640,
+        "height": 360
+      }
+    },
+    "3_5": {
+      "seek": 3.5,
+      "layerIds": [
+        "photo"
+      ],
+      "overlayIds": [
+        "duration-marker",
+        "html-card"
+      ],
+      "captionText": "",
+      "captionTransform": "none",
+      "captionRows": 0,
+      "captionC0001DrawCount": 0,
+      "captionRowTransform": null,
+      "captionRowOpacity": null,
+      "captionGeometry": {
+        "row": null,
+        "line": null,
+        "rowOrigin": null,
+        "lineFont": null,
+        "outputFitApplied": null,
+        "plateLayout": null
+      },
+      "htmlOpacity": "0.5",
+      "frameEngineReady": "true",
+      "seekMax": 4,
+      "summaryLayers": [
+        {
+          "id": "photo",
+          "t": 1,
+          "duration": 2,
+          "transform": {
+            "x": 78.28544627148175,
+            "y": 27.69275711237362,
+            "scale": 0.48750000000000004,
+            "rotate": 18
+          },
+          "opacity": 0.5
+        }
+      ],
+      "stack": {
+        "frameEngineActive": "true",
+        "frameEngine": {
+          "z": "auto",
+          "visibility": "visible",
+          "parent": "preview-layers"
+        },
+        "photo": {
+          "z": "4",
+          "visibility": "hidden",
+          "parent": "preview-layers"
+        },
+        "captionLayer": {
+          "z": "auto",
+          "visibility": "visible",
+          "parent": "overlay-stage"
+        },
+        "captionRow": null,
+        "html": {
+          "z": "6",
+          "visibility": "hidden",
+          "parent": "overlay-stage"
+        },
+        "itemOrder": {
+          "duration-marker": 1,
+          "canvas": 3,
+          "photo": 4,
+          "caption-line": 5,
+          "html-card": 6,
+          "captions-bag": 8
+        }
+      },
+      "stage": {
+        "width": 640,
+        "height": 360
+      },
+      "captureClip": {
+        "x": 417.015625,
+        "y": 422.5,
+        "width": 640,
+        "height": 360
+      },
+      "captureMethod": "playwright-stage-clip",
+      "capturePixels": {
+        "width": 640,
+        "height": 360
+      }
+    }
+  },
+  "export": {
+    "gpu": {
+      "code": 1,
+      "signal": null,
+      "error": "",
+      "stderr": "akari-gpu-export: --audio 未指定のため映像のみで書き出します（音声トラックなし）。音声を付けるには --audio <path> を指定してください\nError: GPU eligibility failed: overlay:caption-line:absolute-external-url, font-face-external-resource, animation-timing\n    at exportWithGpu (file://<repo>/packages/gpu-export/src/index.mjs:70:11)\n    at runCli (file://<repo>/packages/gpu-export/bin/akari-gpu-export.mjs:62:11)\n    at async file://<repo>/packages/gpu-export/bin/akari-gpu-export.mjs:140:33\n",
+      "refusal": "GPU eligibility failed: overlay:caption-line:absolute-external-url, font-face-external-resource, animation-timing"
+    },
+    "osr": {
+      "code": 0,
+      "signal": null,
+      "error": "",
+      "stderr": "[88934:0925/143258.812920:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400321800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[88934:0925/143259.562705:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400321800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[88934:0925/143259.596625:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400321800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[88934:0925/143259.629973:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11400321800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n"
+    },
+    "osr-0_5": {
+      "code": 0,
+      "signal": null,
+      "error": "",
+      "stderr": ""
+    },
+    "osr-2": {
+      "code": 0,
+      "signal": null,
+      "error": "",
+      "stderr": ""
+    },
+    "osr-3_5": {
+      "code": 0,
+      "signal": null,
+      "error": "",
+      "stderr": ""
+    }
+  },
+  "comparisons": {
+    "osr-preview-0_5": {
+      "max": 48,
+      "mean": 0.12685185185185185
+    },
+    "osr-preview-2": {
+      "max": 105,
+      "mean": 2.10173900462963
+    },
+    "osr-preview-3_5": {
+      "max": 48,
+      "mean": 0.12685185185185185
+    }
+  },
+  "errors": [],
+  "electronPreflight": {
+    "code": 0,
+    "signal": null,
+    "error": "",
+    "stderr": ""
+  },
+  "captionC0001RenderRecords": 1,
+  "previewOpened": true,
+  "runtimeMessages": [
+    "%cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged.",
+    "2026-09-25T05:32:44.421Z root WARN Frontend db.configure took longer than the expected maximum 100 milliseconds: 696.8 ms [2.598 s since frontend page start]",
+    "2026-09-25T05:32:44.566Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 120.5 ms [2.736 s since frontend page start]",
+    "2026-09-25T05:32:44.747Z root WARN Linked preference \"workbench.colorCustomizations\" not found.",
+    "2026-09-25T05:32:44.747Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found.",
+    "2026-09-25T05:32:45.019Z root WARN Frontend ght.onStart took longer than the expected maximum 100 milliseconds: 417.6 ms [3.195 s since frontend page start]",
+    "2026-09-25T05:32:45.249Z root WARN Frontend FC.onStart took longer than the expected maximum 100 milliseconds: 161.2 ms [3.426 s since frontend page start]",
+    "2026-09-25T05:32:45.450Z root WARN Frontend Lm.initializeLayout took longer than the expected maximum 100 milliseconds: 100.3 ms [3.626 s since frontend page start]"
+  ],
+  "noCaption": {
+    "removedItemId": "caption-line",
+    "export": {
+      "gpu": {
+        "code": 0,
+        "signal": null,
+        "error": "",
+        "stderr": "akari-gpu-export: --audio 未指定のため映像のみで書き出します（音声トラックなし）。音声を付けるには --audio <path> を指定してください\n[OpenH264] this = 0x0x10402933a50, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[gpu-renderer] WARN WebCodecs の quantizer レート制御が使えないため固定ビットレート（12000000bps）へ切り替えました（quality=high codec=h264 reason=quantizer-config-unsupported）\n[OpenH264] this = 0x0x104026a0870, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[89512:0925/143310.677070:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10400484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89512:0925/143311.254510:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10400487800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89512:0925/143311.255586:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10400484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[OpenH264] this = 0x0x104026a0870, Warning:CWelsH264SVCEncoder::Initialize(), reinitialize, m_bInitialFlag= 1.\n[OpenH264] this = 0x0x104026a0870, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[89512:0925/143311.264971:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10400484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n"
+      },
+      "gpu-2": {
+        "code": 0,
+        "signal": null,
+        "error": "",
+        "stderr": ""
+      },
+      "osr": {
+        "code": 0,
+        "signal": null,
+        "error": "",
+        "stderr": "[89882:0925/143320.815894:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89882:0925/143321.762661:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89882:0925/143321.796398:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[89882:0925/143321.829819:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x114004f7e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n"
+      },
+      "osr-2": {
+        "code": 0,
+        "signal": null,
+        "error": "",
+        "stderr": ""
+      }
+    },
+    "gpuOsrDifference": {
+      "max": 146,
+      "mean": 1.863548900462963
+    }
+  },
+  "electronStderr": "ctron main start]\n2026-09-25T05:32:44.426Z root WARN Frontend db.configure took longer than the expected maximum 100 milliseconds: 696.8 ms [2.598 s since frontend page start]\n2026-09-25T05:32:44.568Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 120.5 ms [2.736 s since frontend page start]\n2026-09-25T05:32:44.770Z root WARN Linked preference \"workbench.colorCustomizations\" not found.\n2026-09-25T05:32:44.781Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found.\n2026-09-25T05:32:45.021Z root WARN Frontend ght.onStart took longer than the expected maximum 100 milliseconds: 417.6 ms [3.195 s since frontend page start]\n2026-09-25T05:32:45.250Z root WARN Frontend FC.onStart took longer than the expected maximum 100 milliseconds: 161.2 ms [3.426 s since frontend page start]\n2026-09-25T05:32:45.454Z root WARN Frontend Lm.initializeLayout took longer than the expected maximum 100 milliseconds: 100.3 ms [3.626 s since frontend page start]\n[88616:0925/143250.147840:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 \"paramErr: error in user parameter list\" (-50)\n"
+}

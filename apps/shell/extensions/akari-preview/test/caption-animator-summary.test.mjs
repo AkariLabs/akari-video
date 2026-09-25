@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import { buildCaptionAnimatorSummaryFields as project } from '../lib/common/edit-summary-fields.js';
-import { projectCanvasCaptionRows } from '../lib/common/canvas-caption-projection.js';
 import { readPreviewInternalEdit } from '../lib/common/preview-items.js';
 import { cutFixture, captionHost } from './caption-animator-cut-fixture.mjs';
 import { collectTrackZByItemId, resolveRecordTrackZ } from '../../../../../packages/edit-store/lib/index.js';
@@ -175,7 +174,7 @@ test('初期モデルと字幕差分更新は同じ純関数で宣言を供給�
     assert.ok(start >= 0 && end > start);
     const host = vm.runInNewContext('({' + compiled.slice(start, end).trim() + '})', {
         edit_summary_fields_1: { buildCaptionAnimatorSummaryFields: project },
-        canvas_caption_projection_1: { projectCanvasCaptionRows },
+        preview_items_1: { projectPreviewCaptionRows: (_internal, rows) => rows },
         exports: { normalizePreviewCaptionClock: values => values }, console
     });
     host.loadPreviewCaptions = async () => ({ captions });

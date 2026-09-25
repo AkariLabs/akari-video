@@ -22,8 +22,9 @@ test('空のキャンバスも選択の木に残り、プレビューだけに�
   assert.match(handler, /dataSet|dataset\.akariUi = 'preview-empty-canvas'/u);
   assert.match(handler, /emptyCanvasHint\.textContent = active\.emptyCanvas\.intent \|\| active\.label/u);
   assert.match(handler, /value\?\.role === 'background' \? \{ role: 'background' as const \}/u);
-  assert.match(handler, /projectCanvasCaptionRows\(internal, loadedCaptions\.captions\)/u);
-  assert.match(handler, /projectCanvasCaptionRows\(widget\.akariPreviewCaptionAnimatorInternal, loaded\.captions\)/u);
+  assert.match(handler, /projectPreviewCaptionRows\(internal, loadedCaptions\.captions, excludedCaptionIds\)/u);
+  assert.match(handler, /projectPreviewCaptionRows\(widget\.akariPreviewCaptionAnimatorInternal, loaded\.captions,/u);
+  assert.match(handler, /if \(summary\.itemStackZ\) return;[\s\S]*canvasCaptionZPlanFn/u);
   const tick = handler.slice(handler.indexOf('const tick = (immediatePlaybackTick = false) =>'),
     handler.indexOf('const runTickGuarded =', handler.indexOf('const tick = (immediatePlaybackTick = false) =>')));
   assert.doesNotMatch(tick, /updateEmptyCanvasHint/u);

@@ -1,0 +1,47 @@
+{
+  "baselineRevision": "b76f12758e857f7f0b688c01d8bbc6799b9c799c",
+  "captionItemCount": 1,
+  "projection": [
+    {
+      "start": 1.4,
+      "duration": 1.1999999999999997,
+      "transform": {
+        "x": 0,
+        "y": -75,
+        "scale": 1,
+        "rotate": 0
+      },
+      "opacity": null
+    }
+  ],
+  "directCaptionGpuEligibility": [
+    {
+      "kind": "overlay",
+      "id": "c2-out",
+      "classification": "degraded",
+      "reason": "absolute-external-url, font-face-external-resource, animation-timing",
+      "conditions": [
+        "absolute-external-url",
+        "font-face-external-resource",
+        "animation-timing"
+      ]
+    }
+  ],
+  "directComposedControl": {
+    "previewCaptionRows": 0,
+    "exportCaptionRecords": 1,
+    "exportProjection": [
+      {
+        "start": 1.4,
+        "duration": 1.1999999999999997,
+        "transform": {
+          "x": 115.06457847577869,
+          "y": -1.364005169388733,
+          "scale": 0.65,
+          "rotate": 18
+        },
+        "opacity": 0.5
+      }
+    ]
+  }
+}

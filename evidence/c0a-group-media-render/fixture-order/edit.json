@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [{ "id": "still", "path": "assets/still.png" }],
+  "tracks": [
+    { "id": "v1", "lane": "visual", "items": [
+      { "id": "A", "at": 0, "duration": 20, "blend": "screen", "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } },
+      { "id": "group", "at": 30, "duration": 30, "source": { "kind": "group" }, "items": [
+        { "id": "B", "at": 0, "duration": 30, "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } },
+        { "id": "C", "at": 0, "duration": 30, "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } }
+      ] },
+      { "id": "D", "at": 70, "duration": 20, "blend": "screen", "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } }
+    ] },
+    { "id": "v2", "lane": "visual", "items": [
+      { "id": "E", "at": 0, "duration": 20, "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } }
+    ] }
+  ]
+}

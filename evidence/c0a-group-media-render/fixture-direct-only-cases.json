@@ -1,0 +1,48 @@
+[
+  {
+    "name": "cuts-only",
+    "tracks": [{ "id": "cuts", "lane": "visual", "items": [
+      { "id": "cut-a", "at": 0, "duration": 30, "source": { "kind": "media", "src": "video", "in": 0, "out": 1 } }
+    ] }]
+  },
+  {
+    "name": "overlapping-layers",
+    "tracks": [{ "id": "layers", "lane": "visual", "items": [
+      { "id": "layer-a", "at": 0, "duration": 30, "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } },
+      { "id": "layer-b", "at": 10, "duration": 30, "opacity": 0.8, "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } }
+    ] }]
+  },
+  {
+    "name": "telop-filter",
+    "tracks": [
+      { "id": "telop", "lane": "visual", "items": [
+        { "id": "title", "at": 0, "duration": 30, "source": { "kind": "telop", "preset": "ref3_chapter_tag", "baked": "assets/title.mov" } }
+      ] },
+      { "id": "filter", "lane": "visual", "items": [
+        { "id": "invert", "at": 0, "duration": 30, "source": { "kind": "filter", "filter": { "type": "invert" } } }
+      ] }
+    ]
+  },
+  {
+    "name": "html-captions",
+    "tracks": [
+      { "id": "html", "lane": "visual", "items": [
+        { "id": "card", "at": 0, "duration": 30, "source": { "kind": "html", "path": "overlays/card.html" } }
+      ] },
+      { "id": "captions", "lane": "visual", "items": [
+        { "id": "bag", "at": 0, "duration": 30, "source": { "kind": "captions", "path": "captions.json", "exclude": [] }, "items": [] }
+      ] }
+    ]
+  },
+  {
+    "name": "muted-hidden",
+    "tracks": [
+      { "id": "muted", "lane": "visual", "muted": true, "items": [
+        { "id": "quiet", "at": 0, "duration": 30, "source": { "kind": "media", "src": "still", "in": 0, "out": 1 } }
+      ] },
+      { "id": "hidden", "lane": "visual", "items": [
+        { "id": "hidden-cut", "at": 0, "duration": 30, "hidden": true, "source": { "kind": "media", "src": "video", "in": 0, "out": 1 } }
+      ] }
+    ]
+  }
+]

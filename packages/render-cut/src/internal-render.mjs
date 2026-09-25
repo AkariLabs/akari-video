@@ -7,6 +7,7 @@ import { generateCaptionOverlays } from "./captions.mjs";
 
 const require = createRequire(import.meta.url);
 const { readInternalEdit, resolveInternalTrackZ, projectLegacyAudioView, isAudioItemAudible, isCutAudioAudible, referencedCaptionSourceCount } = require("../../edit-store/lib/index.js");
+const { flattenGroupDescendants } = require("../../edit-store/lib/group-flatten.js");
 const projectRoots = new WeakMap();
 const hiddenItemIds = new WeakMap();
 const frameNormalizedHtmlItems = new WeakSet();
@@ -54,8 +55,10 @@ export function projectRendererCompatibilityEdit(
     if (track.lane !== "visual" || track.muted !== true) continue;
     for (const item of track.items) collectMutedItemIds(item, mutedVisualItemIds);
   }
-  const ordered = internal.tracks.flatMap(track => track.items)
-    .sort((left, right) => left.legacy.index - right.legacy.index);
+  const ordered = flattenGroupDescendants(internal)
+    .filter(({ item, descendant }) => !descendant || item.source.kind === "media")
+    .sort((left, right) => left.order - right.order)
+    .map(({ item }) => item);
   const cuts = [];
   const projectRoot = projectRootOverride === undefined
     ? projectRoots.get(internal) ?? projectRootFromTemporaryDirectory(temporaryDirectory)
@@ -117,8 +120,10 @@ export function projectRendererCompatibilityEdit(
   const overlays = captionOverlays.length === 0
     ? htmlOverlays
     : mergeItemOverlays(internal, htmlOverlays, captionOverlays);
+  const projectedTracks = groupedCaptionBagTracks(raw, internal, projectRoot);
   return {
     ...(isRecord(raw) ? raw : {}),
+    ...(projectedTracks ? { tracks: projectedTracks } : {}),
     // v2 is projected into the sole multi-source compatibility shape consumed below.
     version: 1,
     output,
@@ -136,18 +141,11 @@ export function captionItemOverlays(
   projectRoot,
   { cuts = [], output, sourceCount = 1, emphasisWords: editEmphasisWords, onWarning = console.warn } = {},
 ) {
-  const items = [];
-  const visit = (item, hidden = false) => {
-    const itemIsHidden = hidden
-      || hiddenItemIds.get(internal)?.has(String(item?.id)) === true
-      || item?.hidden === true
-      || item?.declaration?.hidden === true;
-    if (!itemIsHidden && item?.source?.kind === "caption") items.push(item);
-    for (const child of item?.children ?? []) visit(child, itemIsHidden);
-  };
-  for (const track of internal?.tracks ?? []) {
-    for (const item of track.items ?? []) visit(item);
-  }
+  const items = flattenGroupDescendants(internal)
+    .filter(({ item, descendant }) => (item.source.kind === "caption"
+      || (descendant && item.source.kind === "captions"))
+      && !hiddenItemIds.get(internal)?.has(String(item.id)))
+    .map(({ item }) => item);
   if (items.length === 0) return [];
 
   let root;
@@ -167,19 +165,32 @@ export function captionItemOverlays(
   const overlays = [];
 
   for (const item of items) {
-    const captionId = String(item.source.id);
-    const row = byId.get(captionId);
+    const selected = item.source.kind === "caption"
+      ? [{ row: byId.get(String(item.source.id)), id: item.id, at: item.at, duration: item.duration }]
+      : captions.filter(row => !item.source.exclude?.includes(String(row?.id)))
+        .map(row => ({ row, id: `${item.id}::${row.id}`,
+          at: Math.max(item.at, item.at + Number(row.start)),
+          duration: Math.min(item.at + item.duration, item.at + Number(row.end))
+            - Math.max(item.at, item.at + Number(row.start)) }))
+        .filter(entry => entry.duration > 0);
+    for (const selectedRow of selected) {
+    const { row } = selectedRow;
+    const captionId = String(row?.id ?? item.source.id);
     if (row === undefined) {
       onWarning?.(`captions.json item ${captionId} was not found; caption item ${item.id} was skipped`);
       continue;
     }
+    // Output-domain caption items may live over layer-only timelines. The shared caption
+    // generator clamps output cues to the cut timeline, so supply a timing-only span.
+    const captionCuts = cuts.length > 0 ? cuts : [{ in: 0, out: selectedRow.at + selectedRow.duration,
+      at: 0, src: "__caption_item_clock__" }];
     const generated = generateCaptionOverlays([{
       ...row,
-      start: item.at,
-      end: item.at + item.duration,
+      start: selectedRow.at,
+      end: selectedRow.at + selectedRow.duration,
       time_domain: "output",
       src: undefined,
-    }], cuts, {
+    }], captionCuts, {
       output,
       sourceCount,
       defaultTextStyle,
@@ -189,16 +200,45 @@ export function captionItemOverlays(
     for (const record of generated) {
       overlays.push({
         ...record,
-        id: item.id,
+        id: selectedRow.id,
         transform: { x: 0, y: 0, scale: 1, rotate: 0, ...item.declaration?.transform },
         ...(item.declaration?.opacity !== undefined ? { opacity: item.declaration.opacity } : {}),
         generatedFrom: captionId,
         captionId,
         htmlPath: "captions.json",
+        ...(item.source.kind === "captions" ? { parentId: item.id } : {}),
       });
+    }
     }
   }
   return overlays;
+}
+
+function groupedCaptionBagTracks(raw, internal, projectRoot) {
+  const ids = new Set();
+  const collect = (item, inGroup = false) => {
+    const nested = inGroup || item?.source?.kind === "group";
+    if (inGroup && item?.source?.kind === "captions") ids.add(String(item.id));
+    for (const child of item?.children ?? []) collect(child, nested);
+  };
+  for (const track of internal?.tracks ?? []) for (const item of track.items ?? []) collect(item);
+  if (ids.size === 0 || !Array.isArray(raw?.tracks)) return null;
+  let captions;
+  try {
+    const root = JSON.parse(readFileSync(resolve(projectRoot, "captions.json"), "utf8"));
+    captions = Array.isArray(root) ? root : root?.captions;
+  } catch { return null; }
+  if (!Array.isArray(captions)) return null;
+  const cueIds = captions.map(row => row?.id).filter(id => typeof id === "string");
+  const tracks = structuredClone(raw.tracks);
+  const visit = item => {
+    if (ids.has(String(item?.id))) {
+      item.source.exclude = [...new Set([...(item.source.exclude ?? []), ...cueIds])];
+    }
+    for (const child of item?.items ?? []) visit(child);
+  };
+  for (const track of tracks) for (const item of track?.items ?? []) visit(item);
+  return tracks;
 }
 
 function collectHiddenItemIds(raw) {

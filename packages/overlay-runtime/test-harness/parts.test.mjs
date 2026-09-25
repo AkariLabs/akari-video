@@ -158,6 +158,8 @@ test("expandBagOverlays は袋、分離部品、hidden、純グループ合成�
   assert.equal(explicit.duration, 3.8);
   assert.deepEqual(explicit.transform, { x: 7, y: -40, scale: 1, rotate: 0 });
   assert.deepEqual(explicit.vars, { "--a": "parent", "--b": "child" });
+  assert.equal(explicit.keyframes, undefined);
+  assert.equal(explicit.opacity, 0.75);
   assert.match(explicit.html, /color:red/u);
   assert.match(explicit.html, /差し替え/u);
 
@@ -169,7 +171,20 @@ test("expandBagOverlays は袋、分離部品、hidden、純グループ合成�
   assert.equal(grouped.transform.scale, 1);
   assert.equal(grouped.transform.rotate, 75);
   assert.equal(grouped.opacity, 0.4);
+  assert.equal(grouped.keyframes, undefined);
+  assert.equal(grouped.html, "plain.html");
   assert.equal(grouped.blend, "screen");
+});
+
+test('group HTML retains its reference and carries static opacity without invented keyframes', () => {
+  const internal = { tracks: [{ id: 'v', items: [{ id: 'group', at: 0, duration: 2,
+    source: { kind: 'group' }, declaration: { opacity: 0.5 }, children: [
+      htmlItem('child', 0, 2, 'plain.html')
+    ] }] }] };
+  const [record] = expandBagOverlays(internal, () => '<div>plain</div>');
+  assert.equal(record.opacity, 0.5);
+  assert.equal(record.keyframes, undefined);
+  assert.equal(record.html, 'plain.html');
 });
 
 function htmlItem(id, at, duration, html, overrides = {}) {

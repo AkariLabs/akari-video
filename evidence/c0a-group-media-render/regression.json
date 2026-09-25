@@ -1,0 +1,73 @@
+{
+  "baselineRevision": "b76f12758e857f7f0b688c01d8bbc6799b9c799c",
+  "fixtures": {
+    "engine-parity": {
+      "gpu-head": {
+        "code": 0
+      },
+      "gpu-head-frame": {
+        "code": 0
+      },
+      "gpu-worktree": {
+        "code": 0
+      },
+      "gpu-worktree-frame": {
+        "code": 0
+      },
+      "gpu-difference": {
+        "max": 0,
+        "mean": 0
+      },
+      "osr-head": {
+        "code": 0
+      },
+      "osr-head-frame": {
+        "code": 0
+      },
+      "osr-worktree": {
+        "code": 0
+      },
+      "osr-worktree-frame": {
+        "code": 0
+      },
+      "osr-difference": {
+        "max": 0,
+        "mean": 0
+      }
+    },
+    "flat-overlay": {
+      "gpu-head": {
+        "code": 0
+      },
+      "gpu-head-frame": {
+        "code": 0
+      },
+      "gpu-worktree": {
+        "code": 0
+      },
+      "gpu-worktree-frame": {
+        "code": 0
+      },
+      "gpu-difference": {
+        "max": 0,
+        "mean": 0
+      },
+      "osr-head": {
+        "code": 0
+      },
+      "osr-head-frame": {
+        "code": 0
+      },
+      "osr-worktree": {
+        "code": 0
+      },
+      "osr-worktree-frame": {
+        "code": 0
+      },
+      "osr-difference": {
+        "max": 0,
+        "mean": 0
+      }
+    }
+  }
+}

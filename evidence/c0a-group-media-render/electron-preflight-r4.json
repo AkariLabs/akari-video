@@ -1,0 +1,8 @@
+{
+  "command": "apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron --version",
+  "exitCode": 134,
+  "signal": "SIGABRT",
+  "previewAttempted": false,
+  "gpuAttempted": false,
+  "osrAttempted": false
+}

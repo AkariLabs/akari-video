@@ -103,6 +103,32 @@ test('output cues retain the frame-relative fallback and fit explicit-x plates t
     assert.equal((source.match(/\.caption-row-plate\[data-output-caption\]/g) ?? []).length, 3);
 });
 
+test('caption items use the export full-frame plate while ordinary output cues keep their fit rule', () => {
+    const context = {
+        activeCaptionEdit: null,
+        applyCaptionStyleVars() {},
+        applyCaptionRowSelectionAttrs() {},
+        renderPlainCaptionFragment: () => '<div class="akari-caption__plate"></div>',
+        captionEntryAnimationsSettledFn: () => true,
+        clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
+        outputTime: 1.5,
+        window: { akari: { interaction: { syncOverlayHitRegion() {} } } }
+    };
+    const renderCaptionRow = vm.runInNewContext(`${section('const renderCaptionRow =', '            const renderCaption = ()')} renderCaptionRow`, context);
+    const plate = () => ({ style: {}, dataset: {}, classList: { toggle() {} },
+        getAnimations: () => [], innerHTML: '' });
+    const itemPlate = plate();
+    renderCaptionRow({ id: 'item', text: '文字', start: 1, end: 2,
+        timeDomain: 'output', captionItemProjection: true }, { plate: itemPlate });
+    assert.equal(Object.hasOwn(itemPlate.dataset, 'outputCaption'), false);
+    const ordinaryPlate = plate();
+    renderCaptionRow({ id: 'cue', text: '文字', start: 1, end: 2,
+        timeDomain: 'output' }, { plate: ordinaryPlate });
+    assert.equal(Object.hasOwn(ordinaryPlate.dataset, 'outputCaption'), true);
+    assert.match(source, /\.caption-row-plate\[data-output-caption\] \.akari-caption__plate \{ width: var\(--caption-width, 92%\); right: auto; \}/u);
+    assert.match(source, /\.akari-caption__plate\{position:absolute;top:var\(--caption-top,auto\);translate:var\(--caption-translate,none\);left:var\(--caption-left,0\);right:var\(--caption-right,0\);bottom:var\(--caption-bottom,7%\);width:var\(--caption-width,auto\);/u);
+});
+
 test('renderCaptionRow clears output-only styling when the caption is absent', () => {
     const context = {
         activeCaptionEdit: null,
