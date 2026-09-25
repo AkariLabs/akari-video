@@ -27,9 +27,39 @@ import {
     resolveUpdaterCheckChannel,
     resolveUpdateButtonAction,
     resolveUpdateChannel,
+    resolveUpdateUiEnabled,
     shouldApplyFeedUrlFallback,
     shouldOpenUpdaterBrowserFallback
 } from '../../lib/common/shell-update-applier.js';
+
+test('更新 UI はパッケージ版と明示フィード付き開発版で有効になる', () => {
+    assert.equal(resolveUpdateUiEnabled({ isPackaged: true, feedUrlOverridden: false, testFeedUrlSet: false }), true);
+    assert.equal(resolveUpdateUiEnabled({ isPackaged: false, feedUrlOverridden: false, testFeedUrlSet: false }), false);
+    assert.equal(resolveUpdateUiEnabled({ isPackaged: false, feedUrlOverridden: true, testFeedUrlSet: false }), true);
+    assert.equal(resolveUpdateUiEnabled({ isPackaged: false, feedUrlOverridden: false, testFeedUrlSet: true }), true);
+});
+
+test('パッケージ版はフィード指定の有無によらず従来の更新 UI とブラウザ縮退を維持する', () => {
+    for (const feedUrlOverridden of [false, true]) {
+        for (const testFeedUrlSet of [false, true]) {
+            assert.equal(resolveUpdateUiEnabled({ isPackaged: true, feedUrlOverridden, testFeedUrlSet }), true);
+        }
+    }
+    const checking = beginUserInitiatedUpdaterCheck(INITIAL_SHELL_UPDATER_UI_STATE);
+    const error = { kind: 'error', reason: 'update failed' };
+    const updateUiEnabled = resolveUpdateUiEnabled({ isPackaged: true, feedUrlOverridden: false, testFeedUrlSet: false });
+    assert.equal(shouldOpenUpdaterBrowserFallback(checking, error, updateUiEnabled), true);
+    assert.equal(shouldOpenUpdaterBrowserFallback(checking, error, updateUiEnabled), shouldOpenUpdaterBrowserFallback(checking, error));
+});
+
+test('フィード未指定の開発版では明示クリック後の error イベントでもブラウザを開かない', () => {
+    const updateUiEnabled = resolveUpdateUiEnabled({ isPackaged: false, feedUrlOverridden: false, testFeedUrlSet: false });
+    const checking = beginUserInitiatedUpdaterCheck(INITIAL_SHELL_UPDATER_UI_STATE);
+    const error = { kind: 'error', reason: 'このビルドではアプリ内更新を利用できません' };
+    let browserOpens = 0;
+    if (shouldOpenUpdaterBrowserFallback(checking, error, updateUiEnabled)) { browserOpens += 1; }
+    assert.equal(browserOpens, 0);
+});
 
 test('feed URL フォールバックはパッケージ版かつ app-update.yml 欠如時だけ適用する', () => {
     assert.equal(shouldApplyFeedUrlFallback(true, true), false);

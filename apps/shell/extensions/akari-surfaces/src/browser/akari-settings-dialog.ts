@@ -760,7 +760,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     protected renderAbout(section: HTMLElement): void {
         section.append(groupCard('AKARI Video', settingsNote('バージョンとビルド情報を調べています…')));
-        void Promise.all([this.maintenance.appInfo(), window.electronAkariUpdater?.getLastEvent(), this.maintenance.getUpdateSettings().catch(() => undefined)]).then(([info, update, updateSettings]) => {
+        void Promise.all([this.maintenance.appInfo(), window.electronAkariUpdater?.getLastEvent(), this.maintenance.getUpdateSettings().catch(() => undefined),
+            window.electronAkariUpdater?.getCapabilities().catch(() => ({ updateUiEnabled: false }))]).then(([info, update, updateSettings, capabilities]) => {
             if (this.isDisposed || !section.isConnected) { return; }
             section.replaceChildren(...this.sectionHeading('about'));
             const icon = element('img'); icon.src = info.icon || AKARI_APP_ICON; icon.alt = 'AKARI Video'; icon.width = 64; icon.height = 64;
@@ -772,8 +773,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const status = update?.kind === 'update-not-available' || (info.recentChanges && compareVersions(info.version, info.recentChanges.version) >= 0) ? '最新です'
                 : update?.kind === 'update-available' || update?.kind === 'update-downloaded' ? '更新があります' : 'アップデートを確認できます';
             const checked = info.lastChecked ? new Date(info.lastChecked).toLocaleString('ja-JP') : 'まだ確認していません';
+            const updateRow = capabilities && !capabilities.updateUiEnabled
+                ? settingsNote('開発版のため更新は確認できません')
+                : settingRow(status, `最後に確かめた: ${checked}`, action('アップデートを確認', () => void window.electronAkariUpdater?.checkForUpdatesNow({ userInitiated: true }), { small: true, icon: 'refresh' }));
             const main = groupCard(undefined, hero,
-                settingRow(status, `最後に確かめた: ${checked}`, action('アップデートを確認', () => void window.electronAkariUpdater?.checkForUpdatesNow({ userInitiated: true }), { small: true, icon: 'refresh' })),
+                updateRow,
                 settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
                     value: updateSettings?.channel ?? this.preferences.get('akari.update.channel', 'prerelease'), onChange: value => {
                         this.savePreference('akari.update.channel', value);

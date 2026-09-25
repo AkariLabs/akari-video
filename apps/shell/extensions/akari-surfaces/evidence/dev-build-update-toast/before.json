@@ -1,0 +1,117 @@
+{
+  "scenario": "before",
+  "startedAt": "2026-09-25T08:54:14.906Z",
+  "checks": {
+    "openExternalStub": {
+      "isStub": true,
+      "sameShell": true,
+      "calls": [
+        "stub-probe:dev-build-update-toast"
+      ],
+      "isPackaged": false
+    },
+    "homeShownAt": "2026-09-25T08:54:42.050Z",
+    "capabilities": "no-getCapabilities",
+    "toast": {
+      "present": true,
+      "visible": true,
+      "title": "新しい版（プレリリース）があります — v99.0.0",
+      "card": {
+        "x": 785,
+        "y": 528,
+        "w": 300,
+        "h": 35
+      },
+      "buttons": [
+        {
+          "text": "×",
+          "x": 1062,
+          "y": 534,
+          "w": 23,
+          "h": 23
+        },
+        {
+          "text": "後で",
+          "x": 928,
+          "y": 600,
+          "w": 49,
+          "h": 34
+        },
+        {
+          "text": "ダウンロード",
+          "x": 983,
+          "y": 600,
+          "w": 102,
+          "h": 34
+        }
+      ],
+      "viewport": {
+        "w": 1120,
+        "h": 668
+      }
+    },
+    "clickedDownloadAt": {
+      "x": 1034,
+      "y": 617
+    },
+    "openExternalCalls": [
+      {
+        "url": "http://127.0.0.1:48880/shell-mac.zip",
+        "at": "2026-09-25T08:54:52.133Z"
+      }
+    ],
+    "toastAfterClick": {
+      "present": true,
+      "visible": true,
+      "title": "新しい版（プレリリース）があります — v99.0.0",
+      "card": {
+        "x": 785,
+        "y": 491,
+        "w": 300,
+        "h": 35
+      },
+      "buttons": [
+        {
+          "text": "×",
+          "x": 1062,
+          "y": 497,
+          "w": 23,
+          "h": 23
+        },
+        {
+          "text": "後で",
+          "x": 862,
+          "y": 600,
+          "w": 49,
+          "h": 34
+        },
+        {
+          "text": "ブラウザでダウンロード",
+          "x": 916,
+          "y": 600,
+          "w": 169,
+          "h": 34
+        }
+      ],
+      "viewport": {
+        "w": 1120,
+        "h": 668
+      }
+    }
+  },
+  "feedRequests": [],
+  "env": {
+    "AKARI_UPDATE_FEED_URL": null,
+    "AKARI_UPDATER_TEST_FEED_URL": null
+  },
+  "pid": 48413,
+  "status": "REPRODUCED",
+  "cacheAfter": "99.0.0",
+  "finalOpenExternalCalls": [
+    {
+      "url": "http://127.0.0.1:48880/shell-mac.zip",
+      "at": "2026-09-25T08:54:52.133Z"
+    }
+  ],
+  "finishedAt": "2026-09-25T08:55:00.815Z"
+}

@@ -1,0 +1,68 @@
+{
+  "scenario": "after-noenv",
+  "startedAt": "2026-09-25T09:01:42.706Z",
+  "checks": {
+    "openExternalStub": {
+      "isStub": true,
+      "sameShell": true,
+      "calls": [
+        "stub-probe:dev-build-update-toast"
+      ],
+      "isPackaged": false
+    },
+    "homeShownAt": "2026-09-25T09:02:11.064Z",
+    "capabilities": {
+      "isPackaged": false,
+      "updateUiEnabled": false
+    },
+    "toastSamples": {
+      "count": 15,
+      "anyPresent": false,
+      "anyVisible": false,
+      "last": {
+        "present": false,
+        "visible": false,
+        "title": null,
+        "card": null,
+        "buttons": [],
+        "viewport": {
+          "w": 1120,
+          "h": 668
+        }
+      }
+    },
+    "openExternalAfter30s": [],
+    "settingsAbout": {
+      "devNote": true,
+      "checkButton": null
+    },
+    "directUserInitiatedCheck": "sent",
+    "lastUpdaterEvent": {
+      "kind": "error",
+      "message": "このビルドではアプリ内更新を利用できません",
+      "reason": "このビルドではアプリ内更新を利用できません"
+    },
+    "openExternalAfterSettings": [],
+    "toastEnd": {
+      "present": false,
+      "visible": false,
+      "title": null,
+      "card": null,
+      "buttons": [],
+      "viewport": {
+        "w": 1120,
+        "h": 668
+      }
+    }
+  },
+  "feedRequests": [],
+  "env": {
+    "AKARI_UPDATE_FEED_URL": null,
+    "AKARI_UPDATER_TEST_FEED_URL": null
+  },
+  "pid": 71206,
+  "status": "PASS",
+  "cacheAfter": "99.0.0",
+  "finalOpenExternalCalls": [],
+  "finishedAt": "2026-09-25T09:03:06.499Z"
+}
