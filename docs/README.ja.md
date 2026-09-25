@@ -81,6 +81,7 @@
 | ファイル | 内容 |
 |---|---|
 | [contract-2026-09-25-canvas-v0.md](./contract-2026-09-25-canvas-v0.md) | キャンバス v0 — 明示的な器・固定尺・背景・表示だけの畳み |
+| [contract-2026-09-25-motion-layers-v0.md](./contract-2026-09-25-motion-layers-v0.md) | 動きの重ね方 v0 — 評価順・時間基準・座標系・ドラッグの逆算 |
 | [contract-2026-07-13-m1-m4.md](./contract-2026-07-13-m1-m4.md) | edit.json スキーマ v0 の確定契約 |
 | [contract-2026-07-18-edit-json-v1-sources.md](./contract-2026-07-18-edit-json-v1-sources.md) | v1 sources（複数素材・(src, source 秒) 永続化の鉄則） |
 | [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | v1 crop（リフレーミング） |

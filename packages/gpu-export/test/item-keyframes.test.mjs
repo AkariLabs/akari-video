@@ -3,6 +3,9 @@ import test from "node:test";
 
 import { evaluateGpuEligibility } from "../src/eligibility.mjs";
 import { buildGpuPage } from "../src/page-builder.mjs";
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { evaluateOverlayMotion } = require('../../overlay-runtime/src/item-motion.js');
 
 const overlay = {
   id: "moving",
@@ -69,4 +72,29 @@ test("GPU page omits the keyframe runtime for keyframe-less overlays", () => {
   });
   assert.equal(page.spriteManifest.statics.length, 1);
   assert.doesNotMatch(page.html, /function interpolateKeyframes/u);
+});
+
+test('GPU routes item motion to DOM and preserves preview values at the same frames', () => {
+  const moving = { ...overlay, keyframes: undefined,
+    motion: { in: { preset: 'pop', duration: 30 }, loop: { preset: 'blink', period: 30 } },
+    motionSource: { at: 0, duration: 4, transform: { x: 10, y: 20, scale: 1 },
+      opacity: .5, motion: { in: { preset: 'pop', duration: 30 }, loop: { preset: 'blink', period: 30 } } },
+    motionParents: [{ at: 0, duration: 4, transform: { x: 5, scale: 2 } }],
+  };
+  const page = buildGpuPage({
+    edit: { output: { width: 640, height: 360, fps: 30 }, cuts: [], sources: [] },
+    overlays: [moving], captions: [], projectRoot: '/unused', duration: 4,
+    frameEngineBundle: 'window.AkariFrameEngine={};', pageRuntime: '/*PAGE-RUNTIME*/',
+  });
+  assert.equal(page.spriteManifest.statics.length, 0);
+  assert.equal(page.spriteManifest.dom.length, 1);
+  assert.match(page.html, /function evaluateOverlayMotion/u);
+  const payload = page.html.match(/window\.__AKARI_GPU_CONFIG__=([\s\S]*?);<\/script>/u)?.[1];
+  assert.ok(payload);
+  const declared = JSON.parse(payload).edit.overlays[0];
+  for (const seconds of [0, .25, .5, 1, 2.75]) {
+    const expected = evaluateOverlayMotion(moving, seconds, 30);
+    const actual = evaluateOverlayMotion(declared, seconds, 30);
+    for (const field of ['x', 'y', 'scale', 'opacity']) assert.equal(actual[field], expected[field]);
+  }
 });

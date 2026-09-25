@@ -1590,6 +1590,7 @@ function marqueeHits(candidates, rect) {
     }
     drag.container.style.setProperty("--x", `${drag.startX}px`);
     drag.container.style.setProperty("--y", `${drag.startY}px`);
+    if (drag.motionDriven) delete drag.container.dataset.akariMotionDragging;
     releasePointer(drag);
     hideSnapGuides();
     refreshSelectionFrame();
@@ -1604,7 +1605,10 @@ function marqueeHits(candidates, rect) {
     hideSnapGuides();
 
     if (drag.group) return finishGroupDrag(drag);
-    if (!drag.moved) return null;
+    if (!drag.moved) {
+      if (drag.motionDriven) delete drag.container.dataset.akariMotionDragging;
+      return null;
+    }
 
     const transform = readTransform(drag.container);
     // 位置が実質変わっていないなら書かない。drag.moved は「動き始めたか」しか見ていないので、
@@ -1619,20 +1623,31 @@ function marqueeHits(candidates, rect) {
       // 端数を残さないよう開始値へ戻し、何も書かずに終える
       drag.container.style.setProperty("--x", `${drag.startX}px`);
       drag.container.style.setProperty("--y", `${drag.startY}px`);
+      if (drag.motionDriven) delete drag.container.dataset.akariMotionDragging;
       refreshSelectionFrame();
       return null;
     }
+    const patch = drag.motionDriven && !drag.duplicate ? { x: transform.x, y: transform.y } : transform;
     const record = enqueueWrite(
       drag.writeContext,
       drag.overlayId,
-      { transform, ...(drag.duplicate ? { duplicate: true } : {}) },
+      { transform: patch, ...(drag.duplicate ? { duplicate: true } : {}) },
       "transform"
     );
     if (drag.duplicate) {
       drag.container.style.setProperty('--x', `${drag.startX}px`);
       drag.container.style.setProperty('--y', `${drag.startY}px`);
+      if (drag.motionDriven) delete drag.container.dataset.akariMotionDragging;
       refreshSelectionFrame();
-    } else syncLeafTransformOnSuccess(record, drag.overlayId, transform);
+    } else {
+      syncLeafTransformOnSuccess(record, drag.overlayId, transform);
+      if (drag.motionDriven) record.promise.catch(() => {
+        delete drag.container.dataset.akariMotionDragging;
+        drag.container.style.setProperty('--x', `${drag.startX}px`);
+        drag.container.style.setProperty('--y', `${drag.startY}px`);
+        refreshSelectionFrame();
+      });
+    }
     lastTransformWrite = record;
     return record;
   }
@@ -2790,6 +2805,8 @@ function marqueeHits(candidates, rect) {
   function beginLeafDrag(event, container) {
     if (!container || !isMovable(container)) return;
     const transform = readTransform(container);
+    const motionDriven = container.dataset.akariMotionDriven === 'true';
+    if (motionDriven) container.dataset.akariMotionDragging = 'true';
     activeDrag = {
       container,
       overlayId: container.dataset.overlayId ?? "",
@@ -2803,6 +2820,7 @@ function marqueeHits(candidates, rect) {
       snapY: null,
       moved: false,
       duplicate: event.altKey,
+      motionDriven,
       writeContext: captureWriteContext(),
     };
     hideSnapGuides();

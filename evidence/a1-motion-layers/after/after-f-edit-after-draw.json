@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [
+    { "id": "bg", "path": "assets/bg.png" },
+    { "id": "red", "path": "assets/red.png" },
+    { "id": "green", "path": "assets/green.png" },
+    { "id": "blue", "path": "assets/blue.png" },
+    { "id": "yellow", "path": "assets/yellow.png" }
+  ],
+  "tracks": [
+    { "id": "v-bg", "lane": "visual", "name": "Base", "items": [
+      { "id": "bg", "at": 0, "duration": 360, "source": { "kind": "media", "src": "bg", "in": 0, "out": 12 } }
+    ] },
+    { "id": "v-a", "lane": "visual", "name": "V1", "items": [
+      { "id": "a-red", "at": 0, "duration": 120, "transform": { "x": -200, "y": 0, "scale": 0.25 }, "motion": { "in": { "preset": "slide-up", "duration": 30, "amount": 100 } }, "keyframes": [{ "t": 0, "transform": { "x": -200 } }, { "t": 120, "transform": { "x": 200 } }], "source": { "kind": "media", "src": "red", "in": 0, "out": 4 } },
+      { "id": "b-green", "at": 120, "duration": 120, "transform": { "x": -150, "y": 0, "scale": 0.25 }, "opacity": 0.5, "motion": { "in": { "preset": "fade", "duration": 30 } }, "keyframes": [{ "t": 30, "transform": { "x": -150, "y": 0 } }, { "t": 41, "transform": { "x": -96.67168674698794, "y": 44.57831325301203 } }, { "t": 47, "transform": { "x": -70, "y": 57.063253012048165 } }, { "t": 50, "transform": { "x": -56.671686746987945, "y": 59.66867469879517 } }, { "t": 55, "transform": { "x": -29.99999999999997, "y": 57.063253012048165 } }, { "t": 61, "transform": { "x": -3.3283132530120554, "y": 44.57831325301203 } }, { "t": 77, "transform": { "x": 49.99999999999997, "y": 0 } }], "source": { "kind": "media", "src": "green", "in": 0, "out": 4 } },
+      { "id": "c-canvas", "name": "キャンバス 1", "at": 240, "duration": 120, "motion": { "in": { "preset": "scale", "duration": 30, "amount": 0.5 } }, "source": { "kind": "group", "canvas": { "origin": "user", "durationMode": "fixed" } }, "items": [
+        { "id": "c-blue", "at": 0, "duration": 120, "transform": { "x": -120, "y": 0, "scale": 0.25 }, "source": { "kind": "media", "src": "blue", "in": 0, "out": 4 } },
+        { "id": "c-yellow", "at": 0, "duration": 120, "transform": { "x": 120, "y": 0, "scale": 0.25 }, "source": { "kind": "media", "src": "yellow", "in": 0, "out": 4 } }
+      ] }
+    ] }
+  ]
+}

@@ -1,0 +1,1108 @@
+{
+  "label": "after",
+  "port": 9559,
+  "times": {
+    "a": [
+      0.25,
+      0.5,
+      2
+    ],
+    "b": [
+      4.25,
+      4.5,
+      6
+    ],
+    "c": [
+      8.25,
+      8.5,
+      10
+    ]
+  },
+  "pid": 47877,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "export": {
+    "usesDrawnEdit": true,
+    "osr": {
+      "code": 0,
+      "stderr": "[52009:0925/234647.557743:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x104004f1800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52009:0925/234647.740618:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x104004f1800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52009:0925/234647.756972:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x104004f1800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52009:0925/234647.790061:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x104004f1800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n",
+      "rows": {
+        "a": [
+          {
+            "t": 0.25,
+            "center": {
+              "x": -173,
+              "y": 73
+            },
+            "box": {
+              "x": 102,
+              "y": 208,
+              "w": 90,
+              "h": 90
+            }
+          },
+          {
+            "t": 0.5,
+            "center": {
+              "x": -150,
+              "y": 50
+            },
+            "box": {
+              "x": 124,
+              "y": 184,
+              "w": 92,
+              "h": 92
+            }
+          },
+          {
+            "t": 2,
+            "center": {
+              "x": 0,
+              "y": 0
+            },
+            "box": {
+              "x": 274,
+              "y": 134,
+              "w": 92,
+              "h": 92
+            }
+          }
+        ],
+        "b": [
+          {
+            "t": 4.25,
+            "center": null,
+            "box": null
+          },
+          {
+            "t": 4.5,
+            "center": {
+              "x": -150,
+              "y": 0
+            },
+            "box": {
+              "x": 126,
+              "y": 136,
+              "w": 88,
+              "h": 88
+            },
+            "alpha": 0.25
+          },
+          {
+            "t": 6,
+            "center": {
+              "x": -8,
+              "y": 47
+            },
+            "box": {
+              "x": 267,
+              "y": 182,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          }
+        ],
+        "c-blue": [
+          {
+            "t": 8.25,
+            "center": {
+              "x": -76.06,
+              "y": 0.06
+            },
+            "box": {
+              "x": 214,
+              "y": 150,
+              "w": 60,
+              "h": 60
+            }
+          },
+          {
+            "t": 8.5,
+            "center": {
+              "x": -90,
+              "y": 0
+            },
+            "box": {
+              "x": 196,
+              "y": 146,
+              "w": 68,
+              "h": 68
+            }
+          },
+          {
+            "t": 10,
+            "center": {
+              "x": -120,
+              "y": 0
+            },
+            "box": {
+              "x": 154,
+              "y": 134,
+              "w": 92,
+              "h": 92
+            }
+          }
+        ],
+        "c-yellow": [
+          {
+            "t": 8.25,
+            "center": {
+              "x": 76,
+              "y": 0
+            },
+            "box": {
+              "x": 368,
+              "y": 152,
+              "w": 56,
+              "h": 56
+            }
+          },
+          {
+            "t": 8.5,
+            "center": {
+              "x": 90,
+              "y": 0
+            },
+            "box": {
+              "x": 376,
+              "y": 146,
+              "w": 68,
+              "h": 68
+            }
+          },
+          {
+            "t": 10,
+            "center": {
+              "x": 120,
+              "y": 0
+            },
+            "box": {
+              "x": 396,
+              "y": 136,
+              "w": 88,
+              "h": 88
+            }
+          }
+        ],
+        "f": [
+          {
+            "t": 5,
+            "center": {
+              "x": -149.97,
+              "y": 0.01
+            },
+            "box": {
+              "x": 125,
+              "y": 135,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          },
+          {
+            "t": 5.5,
+            "center": {
+              "x": -79,
+              "y": 53
+            },
+            "box": {
+              "x": 196,
+              "y": 188,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          },
+          {
+            "t": 6,
+            "center": {
+              "x": -8,
+              "y": 47
+            },
+            "box": {
+              "x": 267,
+              "y": 182,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          },
+          {
+            "t": 7,
+            "center": {
+              "x": 50.01,
+              "y": 0.01
+            },
+            "box": {
+              "x": 325,
+              "y": 135,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          }
+        ]
+      }
+    },
+    "gpu": {
+      "code": 0,
+      "stderr": "r RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[gpu-renderer] WARN WebCodecs の quantizer レート制御が使えないため固定ビットレート（12000000bps）へ切り替えました（quality=high codec=h264 reason=quantizer-config-unsupported）\n[OpenH264] this = 0x0x10c02880e40, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[52430:0925/234702.073983:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10c00484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52430:0925/234702.498395:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10c00487800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52430:0925/234702.499234:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10c00484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[OpenH264] this = 0x0x10c02880e40, Warning:CWelsH264SVCEncoder::Initialize(), reinitialize, m_bInitialFlag= 1.\n[OpenH264] this = 0x0x10c02880e40, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[52430:0925/234702.505253:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x10c00484e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n",
+      "rows": {
+        "a": [
+          {
+            "t": 0.25,
+            "center": {
+              "x": -173.01,
+              "y": 73.01
+            },
+            "box": {
+              "x": 95,
+              "y": 208,
+              "w": 97,
+              "h": 97
+            }
+          },
+          {
+            "t": 0.5,
+            "center": {
+              "x": -150.01,
+              "y": 50.01
+            },
+            "box": {
+              "x": 95,
+              "y": 184,
+              "w": 121,
+              "h": 121
+            }
+          },
+          {
+            "t": 2,
+            "center": {
+              "x": 0.01,
+              "y": 0
+            },
+            "box": {
+              "x": 274,
+              "y": 134,
+              "w": 92,
+              "h": 92
+            }
+          }
+        ],
+        "b": [
+          {
+            "t": 4.25,
+            "center": null,
+            "box": null
+          },
+          {
+            "t": 4.5,
+            "center": {
+              "x": -150,
+              "y": 0
+            },
+            "box": {
+              "x": 126,
+              "y": 136,
+              "w": 88,
+              "h": 88
+            },
+            "alpha": 0.25
+          },
+          {
+            "t": 6,
+            "center": {
+              "x": -8,
+              "y": 47
+            },
+            "box": {
+              "x": 267,
+              "y": 182,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          }
+        ],
+        "c-blue": [
+          {
+            "t": 8.25,
+            "center": {
+              "x": -76.1,
+              "y": -0.61
+            },
+            "box": {
+              "x": 214,
+              "y": 150,
+              "w": 60,
+              "h": 58
+            }
+          },
+          {
+            "t": 8.5,
+            "center": {
+              "x": -89.38,
+              "y": -0.19
+            },
+            "box": {
+              "x": 196,
+              "y": 146,
+              "w": 78,
+              "h": 68
+            }
+          },
+          {
+            "t": 10,
+            "center": {
+              "x": -120,
+              "y": 0
+            },
+            "box": {
+              "x": 154,
+              "y": 134,
+              "w": 92,
+              "h": 92
+            }
+          }
+        ],
+        "c-yellow": [
+          {
+            "t": 8.25,
+            "center": {
+              "x": 76,
+              "y": 0
+            },
+            "box": {
+              "x": 368,
+              "y": 152,
+              "w": 56,
+              "h": 56
+            }
+          },
+          {
+            "t": 8.5,
+            "center": {
+              "x": 90,
+              "y": 0
+            },
+            "box": {
+              "x": 376,
+              "y": 146,
+              "w": 68,
+              "h": 68
+            }
+          },
+          {
+            "t": 10,
+            "center": {
+              "x": 119.56,
+              "y": 0.05
+            },
+            "box": {
+              "x": 395,
+              "y": 136,
+              "w": 89,
+              "h": 88
+            }
+          }
+        ],
+        "f": [
+          {
+            "t": 5,
+            "center": {
+              "x": -150,
+              "y": 0
+            },
+            "box": {
+              "x": 125,
+              "y": 135,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          },
+          {
+            "t": 5.5,
+            "center": {
+              "x": -79,
+              "y": 53
+            },
+            "box": {
+              "x": 196,
+              "y": 188,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          },
+          {
+            "t": 6,
+            "center": {
+              "x": -8,
+              "y": 47
+            },
+            "box": {
+              "x": 267,
+              "y": 182,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          },
+          {
+            "t": 7,
+            "center": {
+              "x": 50,
+              "y": 0
+            },
+            "box": {
+              "x": 325,
+              "y": 135,
+              "w": 90,
+              "h": 90
+            },
+            "alpha": 0.5
+          }
+        ]
+      }
+    }
+  },
+  "results": {
+    "a-keyframes-plus-slide": [
+      {
+        "t": 0.25,
+        "expected": {
+          "x": -175,
+          "y": 75
+        },
+        "measured": {
+          "x": -173,
+          "y": 74
+        }
+      },
+      {
+        "t": 0.5,
+        "expected": {
+          "x": -150,
+          "y": 50
+        },
+        "measured": {
+          "x": -149.99,
+          "y": 50.51
+        }
+      },
+      {
+        "t": 2,
+        "expected": {
+          "x": 0,
+          "y": 0
+        },
+        "measured": {
+          "x": 0.01,
+          "y": 0.51
+        }
+      }
+    ],
+    "b-opacity-times-fade": [
+      {
+        "t": 4.25,
+        "expectedAlpha": 0.125,
+        "measuredAlpha": 0,
+        "medianG": null
+      },
+      {
+        "t": 4.5,
+        "expectedAlpha": 0.25,
+        "measuredAlpha": 0.24,
+        "medianG": 86
+      },
+      {
+        "t": 6,
+        "expectedAlpha": 0.5,
+        "measuredAlpha": 0.48,
+        "medianG": 140
+      }
+    ],
+    "c-canvas-scale": [
+      {
+        "t": 8.25,
+        "expectedScale": 0.625,
+        "expectedCenters": {
+          "blue": -75,
+          "yellow": 75
+        },
+        "blue": {
+          "pixels": 3421,
+          "center": {
+            "x": -75.99,
+            "y": 0.49
+          },
+          "box": {
+            "x": 215,
+            "y": 151,
+            "w": 59,
+            "h": 59
+          }
+        },
+        "yellow": {
+          "pixels": 3419,
+          "center": {
+            "x": 76.99,
+            "y": 0.51
+          },
+          "box": {
+            "x": 368,
+            "y": 151,
+            "w": 58,
+            "h": 59
+          }
+        }
+      },
+      {
+        "t": 8.5,
+        "expectedScale": 0.75,
+        "expectedCenters": {
+          "blue": -90,
+          "yellow": 90
+        },
+        "blue": {
+          "pixels": 4758,
+          "center": {
+            "x": -89.51,
+            "y": 0.51
+          },
+          "box": {
+            "x": 196,
+            "y": 146,
+            "w": 69,
+            "h": 69
+          }
+        },
+        "yellow": {
+          "pixels": 4758,
+          "center": {
+            "x": 90.49,
+            "y": 0.51
+          },
+          "box": {
+            "x": 376,
+            "y": 146,
+            "w": 69,
+            "h": 69
+          }
+        }
+      },
+      {
+        "t": 10,
+        "expectedScale": 1,
+        "expectedCenters": {
+          "blue": -120,
+          "yellow": 120
+        },
+        "blue": {
+          "pixels": 8278,
+          "center": {
+            "x": -119.51,
+            "y": 0.51
+          },
+          "box": {
+            "x": 155,
+            "y": 135,
+            "w": 91,
+            "h": 91
+          }
+        },
+        "yellow": {
+          "pixels": 8278,
+          "center": {
+            "x": 120.49,
+            "y": 0.51
+          },
+          "box": {
+            "x": 395,
+            "y": 135,
+            "w": 91,
+            "h": 91
+          }
+        }
+      }
+    ],
+    "d-playback-no-write": {
+      "play": {
+        "ok": true,
+        "value": true
+      },
+      "pause": {
+        "ok": true,
+        "value": true
+      },
+      "playheadAfter3s": 2.967,
+      "before": "b01dde090ed3eef173728ab82d0d0b32bda797aef0b937575ce3e2f14167cc3e",
+      "after": "b01dde090ed3eef173728ab82d0d0b32bda797aef0b937575ce3e2f14167cc3e",
+      "unchanged": true,
+      "equalHead": true
+    },
+    "e-drag-no-jump": {
+      "t": 0.5,
+      "before": {
+        "x": -149.99,
+        "y": 50.51
+      },
+      "duringDrag": {
+        "x": -67.62,
+        "y": 41.7
+      },
+      "afterRelease": {
+        "x": -69.47,
+        "y": 45.63
+      },
+      "afterReseek": {
+        "x": -69.47,
+        "y": 45.63
+      },
+      "expectedAfter": {
+        "x": -69.99000000000001,
+        "y": 50.51
+      },
+      "jumpOnRelease": {
+        "x": -1.8499999999999943,
+        "y": 3.9299999999999997
+      },
+      "writtenTransform": {
+        "x": -200,
+        "y": 0,
+        "scale": 0.25
+      },
+      "writtenKeyframes": [
+        {
+          "t": 0,
+          "transform": {
+            "x": -200
+          }
+        },
+        {
+          "t": 15,
+          "transform": {
+            "x": -70,
+            "y": -5
+          }
+        },
+        {
+          "t": 120,
+          "transform": {
+            "x": 200
+          }
+        }
+      ],
+      "undoEqualHead": true
+    },
+    "f-draw-motion": {
+      "undoEqualHead": true,
+      "upLog": [
+        {
+          "where": "down-window-capture",
+          "type": "pointerdown",
+          "id": 1,
+          "trusted": true,
+          "target": "preview-stage"
+        },
+        {
+          "where": "lostcapture",
+          "type": "lostpointercapture",
+          "id": 1,
+          "trusted": true,
+          "target": "SECTION"
+        }
+      ],
+      "focus": {
+        "ok": true,
+        "value": true
+      },
+      "inspectorOpen": {
+        "ok": true,
+        "value": "object"
+      },
+      "tab": true,
+      "shelf": {
+        "sections": [
+          {
+            "ui": "section:inspector-motion:draw",
+            "text": "動きを描く動きを描くプレビューで描く"
+          },
+          {
+            "ui": "section:inspector-motion:in",
+            "text": "登場登場なしフェードスライド（上へ）スライド（下へ）スライド（左へ）スライド（右へ）拡縮ワイプポップズーム回転登場の尺f登場のイージングlinearease-i"
+          },
+          {
+            "ui": "section:inspector-motion:loop",
+            "text": "強調強調なし脈動浮遊回り続ける点滅小刻みな動き周期f強調のイージングlinearease-in-outin-quadout-quadin-out-quadin-"
+          },
+          {
+            "ui": "section:inspector-motion:out",
+            "text": "退場退場なしフェードスライド（上へ）スライド（下へ）スライド（左へ）スライド（右へ）拡縮ワイプポップズーム回転退場の尺f退場のイージングlinearease-i"
+          }
+        ],
+        "fields": [
+          {
+            "field": "motion-draw",
+            "label": "動きを描く",
+            "options": []
+          },
+          {
+            "field": "motion-in-preset",
+            "label": "登場",
+            "options": [
+              "なし",
+              "フェード",
+              "スライド（上へ）",
+              "スライド（下へ）",
+              "スライド（左へ）",
+              "スライド（右へ）",
+              "拡縮",
+              "ワイプ",
+              "ポップ",
+              "ズーム",
+              "回転"
+            ]
+          },
+          {
+            "field": "motion-in-duration",
+            "label": "登場の尺",
+            "options": []
+          },
+          {
+            "field": "motion-in-ease",
+            "label": "登場のイージング",
+            "options": [
+              "linear",
+              "ease-in-out",
+              "in-quad",
+              "out-quad",
+              "in-out-quad",
+              "in-cubic",
+              "out-cubic",
+              "in-out-cubic",
+              "in-quart",
+              "out-quart",
+              "in-out-quart",
+              "in-expo",
+              "out-expo",
+              "in-out-expo",
+              "in-back",
+              "out-back",
+              "in-out-back",
+              "out-bounce",
+              "out-elastic",
+              "hold"
+            ]
+          },
+          {
+            "field": "motion-in-amount",
+            "label": "登場の量",
+            "options": []
+          },
+          {
+            "field": "motion-loop-preset",
+            "label": "強調",
+            "options": [
+              "なし",
+              "脈動",
+              "浮遊",
+              "回り続ける",
+              "点滅",
+              "小刻みな動き"
+            ]
+          },
+          {
+            "field": "motion-loop-duration",
+            "label": "周期",
+            "options": []
+          },
+          {
+            "field": "motion-loop-ease",
+            "label": "強調のイージング",
+            "options": [
+              "linear",
+              "ease-in-out",
+              "in-quad",
+              "out-quad",
+              "in-out-quad",
+              "in-cubic",
+              "out-cubic",
+              "in-out-cubic",
+              "in-quart",
+              "out-quart",
+              "in-out-quart",
+              "in-expo",
+              "out-expo",
+              "in-out-expo",
+              "in-back",
+              "out-back",
+              "in-out-back",
+              "out-bounce",
+              "out-elastic",
+              "hold"
+            ]
+          },
+          {
+            "field": "motion-loop-amount",
+            "label": "強調の量",
+            "options": []
+          },
+          {
+            "field": "motion-out-preset",
+            "label": "退場",
+            "options": [
+              "なし",
+              "フェード",
+              "スライド（上へ）",
+              "スライド（下へ）",
+              "スライド（左へ）",
+              "スライド（右へ）",
+              "拡縮",
+              "ワイプ",
+              "ポップ",
+              "ズーム",
+              "回転"
+            ]
+          },
+          {
+            "field": "motion-out-duration",
+            "label": "退場の尺",
+            "options": []
+          },
+          {
+            "field": "motion-out-ease",
+            "label": "退場のイージング",
+            "options": [
+              "linear",
+              "ease-in-out",
+              "in-quad",
+              "out-quad",
+              "in-out-quad",
+              "in-cubic",
+              "out-cubic",
+              "in-out-cubic",
+              "in-quart",
+              "out-quart",
+              "in-out-quart",
+              "in-expo",
+              "out-expo",
+              "in-out-expo",
+              "in-back",
+              "out-back",
+              "in-out-back",
+              "out-bounce",
+              "out-elastic",
+              "hold"
+            ]
+          },
+          {
+            "field": "motion-out-amount",
+            "label": "退場の量",
+            "options": []
+          }
+        ]
+      },
+      "pressed": true,
+      "before": {
+        "x": -149.99,
+        "y": 0.5
+      },
+      "drawnPath": [
+        {
+          "x": -149.99,
+          "y": 0.5
+        },
+        {
+          "x": -136.65666666666667,
+          "y": 12.97470144906556
+        },
+        {
+          "x": -123.32333333333334,
+          "y": 24.90419858454801
+        },
+        {
+          "x": -109.99000000000001,
+          "y": 35.76711513754839
+        },
+        {
+          "x": -96.65666666666667,
+          "y": 45.088689528643656
+        },
+        {
+          "x": -83.32333333333334,
+          "y": 52.46152422706631
+        },
+        {
+          "x": -69.99000000000001,
+          "y": 57.56339097770921
+        },
+        {
+          "x": -56.65666666666668,
+          "y": 60.1713137220964
+        },
+        {
+          "x": -43.32333333333334,
+          "y": 60.17131372209641
+        },
+        {
+          "x": -29.99000000000001,
+          "y": 57.56339097770922
+        },
+        {
+          "x": -16.656666666666666,
+          "y": 52.46152422706632
+        },
+        {
+          "x": -3.323333333333352,
+          "y": 45.08868952864367
+        },
+        {
+          "x": 10.009999999999991,
+          "y": 35.767115137548394
+        },
+        {
+          "x": 23.343333333333334,
+          "y": 24.904198584548002
+        },
+        {
+          "x": 36.67666666666665,
+          "y": 12.97470144906556
+        },
+        {
+          "x": 50.00999999999999,
+          "y": 0.500000000000034
+        }
+      ],
+      "banner": [
+        "位置の点 1〜2.4 秒を置き換えます（Esc でやめる）"
+      ],
+      "drawingShot": "after-f-while-drawing.png",
+      "keyframes": [
+        {
+          "t": 30,
+          "transform": {
+            "x": -150,
+            "y": 0
+          }
+        },
+        {
+          "t": 41,
+          "transform": {
+            "x": -96.67168674698794,
+            "y": 44.57831325301203
+          }
+        },
+        {
+          "t": 47,
+          "transform": {
+            "x": -70,
+            "y": 57.063253012048165
+          }
+        },
+        {
+          "t": 50,
+          "transform": {
+            "x": -56.671686746987945,
+            "y": 59.66867469879517
+          }
+        },
+        {
+          "t": 55,
+          "transform": {
+            "x": -29.99999999999997,
+            "y": 57.063253012048165
+          }
+        },
+        {
+          "t": 61,
+          "transform": {
+            "x": -3.3283132530120554,
+            "y": 44.57831325301203
+          }
+        },
+        {
+          "t": 77,
+          "transform": {
+            "x": 49.99999999999997,
+            "y": 0
+          }
+        }
+      ],
+      "xyCount": 7,
+      "preview": {
+        "5": {
+          "pixels": 6411,
+          "center": {
+            "x": -149.48,
+            "y": 0.41
+          },
+          "box": {
+            "x": 128,
+            "y": 138,
+            "w": 85,
+            "h": 85
+          },
+          "medianG": 140,
+          "alphaEstimate": 0.48
+        },
+        "6": {
+          "pixels": 6607,
+          "center": {
+            "x": -7.25,
+            "y": 47.22
+          },
+          "box": {
+            "x": 269,
+            "y": 184,
+            "w": 87,
+            "h": 86
+          },
+          "medianG": 140,
+          "alphaEstimate": 0.48
+        },
+        "7": {
+          "pixels": 6536,
+          "center": {
+            "x": 50.51,
+            "y": 0.43
+          },
+          "box": {
+            "x": 327,
+            "y": 138,
+            "w": 87,
+            "h": 85
+          },
+          "medianG": 140,
+          "alphaEstimate": 0.48
+        },
+        "5.5": {
+          "pixels": 6554,
+          "center": {
+            "x": -78.53,
+            "y": 53.64
+          },
+          "box": {
+            "x": 198,
+            "y": 191,
+            "w": 87,
+            "h": 85
+          },
+          "medianG": 140,
+          "alphaEstimate": 0.48
+        }
+      },
+      "drawnSha": "4c5c73eb2301009ee9694cb3b59d058bf80be678f7335e031dbd5f59b31f7cdc"
+    }
+  },
+  "consoleErrors": [],
+  "allConsoleErrors": []
+}

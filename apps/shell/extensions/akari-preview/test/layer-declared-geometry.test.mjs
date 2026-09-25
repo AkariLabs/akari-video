@@ -103,6 +103,17 @@ test('engine picks frontmost of three overlapping clips with no metadata; hidden
     }
 });
 
+test('engine layer hit uses the visible motion pose rather than the keyframe base', () => {
+    const context = hitContext(true);
+    context.layerTransformNow = () => ({ x: 0, y: 0, scale: .25, rotate: 0 });
+    context.layerVisualTransformNow = () => ({ x: 0, y: 100, scale: .25, rotate: 0 });
+    context.layerCropNow = () => ({ x: 0, y: 0, w: 1, h: 1 });
+    context.layerGeometryHitAt = extract('layerGeometryHitAt', context);
+    const find = extract('findVisualMediaHitAt', context);
+    assert.equal(find({ clientX: 500, clientY: 350 }), context.layerEntries[1].video);
+    assert.equal(find({ clientX: 500, clientY: 250 }), context.video);
+});
+
 test('legacy elementsFromPoint and alpha hit selection remain authoritative', () => {
     const context = hitContext(false);
     const front = context.layerEntries[1];

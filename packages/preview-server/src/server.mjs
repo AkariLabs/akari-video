@@ -112,6 +112,7 @@ const THREE_ROUTES = {
   // （task/2026-09-02-preview-perf: パリティ）。app.js が mount 時に window.akari.slotParams を通す。
   '/slot-params.js': fileURLToPath(new URL('../../overlay-runtime/src/slot-params.js', import.meta.url)),
   '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
+  '/item-motion.js': fileURLToPath(new URL('../../overlay-runtime/src/item-motion.js', import.meta.url)),
   // テキスト分割（data-akari-split）。断片は分割済みで出荷する規約なので
   // 書き出し（rasterize）は無改造で通るが、プレビューは打ち替え編集をするため
   // 再分割の実装が要る。three と同じ「リポ所有の固定ルート」で配る。

@@ -332,7 +332,7 @@ type InspectorWriteOperation =
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
             | 'opacity' | 'blend' | 'perspective' | 'mask' | 'photo-mask' | 'photo-brush-toggle' | 'flip.h' | 'flip.v' | 'erase'
-            | 'motion' | 'animator' | 'name' | 'duration'
+            | 'motion' | 'motion-draw' | 'animator' | 'name' | 'duration'
             | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | 'source.params' | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
         value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | boolean | null;

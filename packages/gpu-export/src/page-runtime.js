@@ -2117,6 +2117,8 @@
           containers.push({
             entry,
             container,
+            itemMotion: Array.isArray(declaration?.keyframes) || declaration?.motion
+              || declaration?.motionSource ? declaration : null,
             ...(Array.isArray(declaration?.keyframes) ? {
               itemKeyframes: {
                 points: declaration.keyframes,
@@ -2237,7 +2239,7 @@
       const record = this.records.get(run.runId);
       if (!record) throw new Error(`GPU DOM layer record is missing: ${run.runId}`);
       const started = performance.now();
-      for (const { entry, container, itemKeyframes } of record.containers) {
+      for (const { entry, container, itemKeyframes, itemMotion } of record.containers) {
         const active = activeAt(entry, seconds);
         // 時間窓の外は display: none で落とす。visibility: hidden は継承するだけなので、
         // 子孫が visibility: visible を再宣言すると打ち消される — 実制作の断片は
@@ -2262,7 +2264,18 @@
           try { animation.currentTime = Math.max(0, seconds - entry.start) * 1000; } catch {}
         }
         if (!active) continue;
-        if (itemKeyframes) {
+        if (itemMotion) {
+          const state = window.akari.itemMotion.evaluateOverlayMotion(itemMotion, seconds, this.config.fps);
+          const background = itemMotion.role === "background";
+          container.style.setProperty("--x", background ? "0px" : `${state.x}px`);
+          container.style.setProperty("--y", background ? "0px" : `${state.y}px`);
+          container.style.setProperty("--scale", background ? "1" : String(state.scale));
+          container.style.setProperty("--scale-x", background ? "1" : String(state.scaleX));
+          container.style.setProperty("--scale-y", background ? "1" : String(state.scaleY));
+          container.style.setProperty("--rotate", background ? "0deg" : `${state.rotate}deg`);
+          container.style.setProperty("opacity", String(state.opacity));
+          container.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
+        } else if (itemKeyframes) {
           const state = window.akari.keyframes.interpolateKeyframes(
             itemKeyframes.points,
             Math.max(0, seconds - entry.start) * Number(this.config.fps),

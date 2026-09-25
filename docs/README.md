@@ -85,6 +85,7 @@ All contracts follow the
 | File | Contents |
 |---|---|
 | [contract-2026-09-25-canvas-v0.md](./contract-2026-09-25-canvas-v0.md) | Canvas v0: explicit containers, fixed duration, background, and display-only folding (Japanese) |
+| [contract-2026-09-25-motion-layers-v0.md](./contract-2026-09-25-motion-layers-v0.md) | Motion composition order, clocks, coordinates, and inverse editing (Japanese) |
 | [contract-2026-07-13-m1-m4.md](./contract-2026-07-13-m1-m4.md) | The settled edit.json schema v0 contract |
 | [contract-2026-07-18-edit-json-v1-sources.md](./contract-2026-07-18-edit-json-v1-sources.md) | v1 sources (multiple clips; the iron rule of persisting (src, source seconds)) |
 | [contract-2026-07-14-edit-json-v1-crop.md](./contract-2026-07-14-edit-json-v1-crop.md) | v1 crop (reframing) — **superseded** by `cuts[].framing.crop` (see [contract-2026-07-22-render-basics.md](./contract-2026-07-22-render-basics.md) #6) |

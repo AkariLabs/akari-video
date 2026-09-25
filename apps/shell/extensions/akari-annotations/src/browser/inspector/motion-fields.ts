@@ -1,7 +1,7 @@
 import type { InspectorWriteRequest } from '../timeline-selection-model';
 
-export const MOTION_IN_OUT_PRESETS = ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe'] as const;
-export const MOTION_LOOP_PRESETS = ['pulse', 'float', 'spin'] as const;
+export const MOTION_IN_OUT_PRESETS = ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe', 'pop', 'zoom', 'twirl'] as const;
+export const MOTION_LOOP_PRESETS = ['pulse', 'float', 'spin', 'blink', 'jiggle'] as const;
 export const MOTION_EASES = [
     'linear', 'ease-in-out', 'in-quad', 'out-quad', 'in-out-quad',
     'in-cubic', 'out-cubic', 'in-out-cubic', 'in-quart', 'out-quart', 'in-out-quart',
@@ -14,14 +14,18 @@ type MotionPreset = typeof MOTION_IN_OUT_PRESETS[number] | typeof MOTION_LOOP_PR
 export const MOTION_PRESET_LABELS: Record<MotionPreset, string> = {
     fade: 'フェード', 'slide-up': 'スライド（上へ）', 'slide-down': 'スライド（下へ）',
     'slide-left': 'スライド（左へ）', 'slide-right': 'スライド（右へ）',
-    scale: '拡縮', wipe: 'ワイプ', pulse: '脈動', float: '浮遊', spin: '回転'
+    scale: '拡縮', wipe: 'ワイプ', pop: 'ポップ', zoom: 'ズーム', twirl: '回転',
+    pulse: '脈動', float: '浮遊', spin: '回り続ける', blink: '点滅', jiggle: '小刻みな動き'
 };
 export const MOTION_DURATION_DEFAULTS = { in: 12, out: 8, loop: 90 } as const;
 export const MOTION_AMOUNT_DEFAULTS: Partial<Record<MotionPreset, { value: number; unit: string }>> = {
     'slide-up': { value: 40, unit: 'px' }, 'slide-down': { value: 40, unit: 'px' },
     'slide-left': { value: 40, unit: 'px' }, 'slide-right': { value: 40, unit: 'px' },
     scale: { value: 0.2, unit: '倍' }, pulse: { value: 0.05, unit: '倍' },
-    float: { value: 6, unit: 'px' }, spin: { value: 1, unit: '方向' }
+    float: { value: 6, unit: 'px' }, spin: { value: 1, unit: '方向' },
+    pop: { value: 0.25, unit: '倍' }, zoom: { value: 0.55, unit: '倍' },
+    twirl: { value: 200, unit: '°' }, blink: { value: 0.75, unit: '量' },
+    jiggle: { value: 1, unit: '量' }
 };
 type MotionSeat = { preset: MotionPreset; ease?: string; amount?: number };
 export type InspectorMotion = {
@@ -136,7 +140,6 @@ export function validateInspectorMotion(motion: unknown, itemDurationFrames: num
 export function createMotionWriteRequest(
     snapshot: InspectorMotionSnapshot, slot: InspectorMotionSlot, field: InspectorMotionField, input: string | number | null
 ): Extract<InspectorWriteRequest, { kind: 'item-field' }> {
-    if (snapshot.sourceKind === 'html') throw new Error('HTML 部品の動きはパラメータから変更してください。');
     const value = updateInspectorMotion(snapshot.motion, slot, field, input);
     validateInspectorMotion(value, snapshot.durationFrames);
     return { kind: 'item-field', id: snapshot.id, path: 'motion', value };

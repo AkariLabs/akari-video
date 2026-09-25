@@ -414,6 +414,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     readText('keyframes.mjs')
                         .replace(/\nexport \{ interpolateKeyframes \};\s*$/u, '\n')
                 }\n${
+                    readText('item-motion.js')
+                }\n${
+                    readText('motion-stroke.js')
+                }\n${
                     readText('overlay-runtime.js')
                 }\n${
                     ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT

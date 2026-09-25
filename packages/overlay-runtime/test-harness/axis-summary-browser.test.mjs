@@ -9,6 +9,7 @@ test('incremental axis summaries update CSS and keyframe caches without remounti
     const page = await browser.newPage();
     await page.setContent('<style>body{margin:0}#overlay-stage{position:relative;width:640px;height:360px}</style><div id="overlay-stage"></div>');
     await page.addScriptTag({ type: 'module', content: await readFile(new URL('../src/keyframes.mjs', import.meta.url), 'utf8') });
+    await page.addScriptTag({ content: await readFile(new URL('../src/item-motion.js', import.meta.url), 'utf8') });
     await page.addScriptTag({ content: await readFile(new URL('../src/overlay-runtime.js', import.meta.url), 'utf8') });
     const observed = await page.evaluate(async () => {
       const html = '<div class="rect" style="width:100px;height:60px;background:green"></div>';

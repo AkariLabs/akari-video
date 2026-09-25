@@ -15,6 +15,10 @@ import { MaterialPreviewSlot } from './material-preview-slot';
 import { PreviewLibraryDrop } from './preview-library-drop';
 import URI from '@theia/core/lib/common/uri';
 import { partitionPreviewMediaPlanes } from '../common/preview-media-planes';
+import { previewDomOpacity } from '../common/preview-motion-opacity';
+import { withPreviewPosition } from '../common/preview-motion-write';
+import { previewMotionGeometryTransform, previewMotionBoxHitAt } from '../common/preview-motion-geometry';
+import { motionDrawFinishTransition } from '../common/preview-motion-draw-finish';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
@@ -279,6 +283,10 @@ interface EditSummaryOverlay {
     vars: Record<string, string>;
     params: Record<string, string>;
     keyframes?: readonly ItemKeyframe[];
+    keyframeUnit?: 'seconds' | 'frames';
+    motion?: any;
+    motionSource?: any;
+    motionParents?: any[];
     opacity?: number;
     part?: string;
     parentId?: string;
@@ -327,6 +335,8 @@ interface EditSummaryLayer {
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
     motion?: MotionSummary;
+    motionSource?: any;
+    motionParents?: any[];
     adjust?: EditSummaryAdjust;
 }
 
@@ -468,6 +478,8 @@ interface EditSummaryCut {
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
     motion?: MotionSummary;
+    motionSource?: any;
+    motionParents?: any[];
     speed?: number;
     gain_db?: number;
     gainDb?: number;
@@ -695,6 +707,12 @@ interface PreviewSelectionNode {
     label: string;
     /** Composed output-space transform, used for a group translation write. */
     transform: OverlayTransform;
+    localTransform?: OverlayTransform;
+    at?: number;
+    duration?: number;
+    motion?: any;
+    keyframes?: any[];
+    opacity?: number;
     emptyCanvas?: { at: number; duration: number; intent?: string };
 }
 
@@ -813,6 +831,7 @@ interface OverlayWriteRequest {
         text?: string;
         // data-akari-slot の編集は共有テンプレを変更せず、v2 source.params へ書き戻す。
         params?: Record<string, string>;
+        xyKeyframes?: Array<{ t: number; transform: { x: number; y: number } }>;
     };
 }
 
@@ -848,6 +867,7 @@ interface LayerWriteRequest {
         transform?: OverlayTransform;
         crop?: LayerCropPatch;
         perspective?: LayerPerspectivePatch | null;
+        xyKeyframes?: Array<{ t: number; transform: { x: number; y: number } }>;
     };
 }
 
@@ -3289,6 +3309,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.photo.brush', onPhotoBrush);
         disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.brush', onPhotoBrush)));
+        const onMotionDraw = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; itemId?: string }>).detail;
+            if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
+            widget.sendMessage({ type: 'akari-preview-motion-draw', itemId: detail.itemId });
+        };
+        window.addEventListener('akari.motion.draw', onMotionDraw);
+        disposables.push(Disposable.create(() => window.removeEventListener('akari.motion.draw', onMotionDraw)));
         let lastAudioMeterFrame: AudioMeterFrame | undefined;
         widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
             type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
@@ -5181,6 +5208,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(item.source.kind === 'media' && typeof item.source.path === 'string'
                         ? { sourcePath: item.source.path } : {}),
                     ...result.fields,
+                    ...(value.motionSource ? { motionSource: value.motionSource,
+                        motionParents: value.motionParents } : {}),
                     ...(value.audio === false ? { audio: false } : {}),
                     ...(typeof value.mute === 'boolean' ? { mute: value.mute } : {}),
                     ...(typeof value.gain_db === 'number' && Number.isFinite(value.gain_db)
@@ -5321,6 +5350,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         return [{ id: item.id, parentId, kind: 'group',
                             label: typeof item.declaration.name === 'string' && item.declaration.name.trim()
                                 ? item.declaration.name : 'キャンバス', transform: world,
+                            at: item.at, duration: item.duration,
+                            localTransform: item.declaration.transform as OverlayTransform | undefined,
+                            motion: item.declaration.motion, keyframes: item.declaration.keyframes as any[],
+                            opacity: item.declaration.opacity as number | undefined,
                             ...(item.children.length === 0 ? { emptyCanvas: {
                                 at: item.at, duration: item.duration,
                                 ...(item.source.canvas?.intent ? { intent: item.source.canvas.intent } : {})
@@ -5397,6 +5430,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     blend,
                     ...(shapeRoles.has(String(value?.id ?? '')) ? { role: shapeRoles.get(String(value?.id ?? '')) } : {}),
                     ...buildItemKeyframeSummaryFields(value as Record<string, unknown>),
+                    ...(value.motion ? { motion: value.motion } : {}),
+                    ...(value.motionSource ? { motionSource: value.motionSource,
+                        motionParents: value.motionParents } : {}),
+                    ...(value.keyframeUnit ? { keyframeUnit: value.keyframeUnit } : {}),
                     ...(typeof value?.part === 'string' ? { part: value.part } : {}),
                     ...(value?.role === 'background' ? { role: 'background' as const } : {}),
                     ...(typeof value?.parentId === 'string' ? { parentId: value.parentId } : {})
@@ -5452,6 +5489,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const unsupportedBlend = result.unsupportedBlend === true;
                 const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = {
                     ...result.base,
+                    ...(value.motionSource ? { motionSource: value.motionSource,
+                        motionParents: value.motionParents } : {}),
                     ...(isTruthyObject(value.adjust) ? { adjust: value.adjust as EditSummaryAdjust } : {}),
                     chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: trackIdOfItem(item),
@@ -6570,7 +6609,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     return;
                 }
                 this.recentWrites.set(editUri.toString(), Date.now());
-                if (request.patch.transform && request.patch.html === undefined) {
+                if ((request.patch.transform || request.patch.xyKeyframes) && request.patch.html === undefined) {
                     await this.persistPreviewTransform(editUri, candidateText, write);
                 } else {
                     await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
@@ -6772,7 +6811,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.markRecentWrite(editUri);
-            await this.persistPreviewTransform(editUri, candidateText, request.patch.transform ? write : undefined);
+            await this.persistPreviewTransform(editUri, candidateText,
+                request.patch.transform || request.patch.xyKeyframes ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -6824,7 +6864,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.markRecentWrite(editUri);
-            await this.persistPreviewTransform(editUri, candidateText, request.patch.transform ? write : undefined);
+            await this.persistPreviewTransform(editUri, candidateText,
+                request.patch.transform || (request.patch as { xyKeyframes?: unknown }).xyKeyframes ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -10570,6 +10611,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 可視 canvas を WebGL2Compositor が直接所有する。毎フレームの 2D 読み戻しは行わない。
                 const baseCompositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
                 const partitionMediaPlanes = (${partitionPreviewMediaPlanes.toString()});
+                const withPreviewPositionFn = (${withPreviewPosition.toString()});
                 const upperPlanes = new Map();
                 let upperCompositor = null;
                 const compositor = {
@@ -10579,7 +10621,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         const bands = partitionMediaPlanes(plan, engineSummary);
                         const used = new Set(bands.filter(band => band.key > 0).map(band => band.key));
                         for (const [key, plane] of upperPlanes) {
-                            if (!used.has(key)) { plane.remove(); upperPlanes.delete(key); }
+                            if (!used.has(key)) {
+                                plane.compositor.dispose(); plane.element.remove(); upperPlanes.delete(key);
+                            }
                         }
                         let surface;
                         for (const band of bands) {
@@ -10593,33 +10637,28 @@ body { display: grid; place-items: center; padding: 32px; }
                                 surface = await baseCompositor.compose(bandBase, bandLayers, renderOutput, metricsRecorder, bandPlan);
                                 continue;
                             }
-                            if (!upperCompositor) upperCompositor = new engine.WebGL2Compositor(
-                                document.createElement('canvas'), { synchronization: 'flush', transparent: true });
                             let plane = upperPlanes.get(band.key);
                             if (!plane) {
-                                plane = document.createElement('canvas');
-                                plane.dataset.akariMediaPlane = String(band.key);
-                                Object.assign(plane.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' });
-                                layersStage.appendChild(plane);
+                                const element = document.createElement('canvas');
+                                element.dataset.akariMediaPlane = String(band.key);
+                                Object.assign(element.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' });
+                                plane = { element, compositor: new engine.WebGL2Compositor(
+                                    element, { synchronization: 'flush', transparent: true }) };
+                                layersStage.appendChild(element);
                                 upperPlanes.set(band.key, plane);
                             }
-                            plane.style.zIndex = String(band.zIndex);
+                            plane.element.style.zIndex = String(band.zIndex);
+                            upperCompositor = plane.compositor;
                             const upper = await upperCompositor.compose(bandBase, bandLayers, renderOutput, metricsRecorder, bandPlan);
-                            try {
-                                if (plane.width !== outputSpec.width) plane.width = outputSpec.width;
-                                if (plane.height !== outputSpec.height) plane.height = outputSpec.height;
-                                const context = plane.getContext('2d');
-                                context.clearRect(0, 0, plane.width, plane.height);
-                                // GPU canvas copy; no pixel readback or per-frame image encoding.
-                                context.drawImage(upper.canvas, 0, 0);
-                            } finally { upper.close(); }
+                            upper.close();
                         }
                         return surface;
                     },
                     dispose() {
                         baseCompositor.dispose();
-                        upperCompositor?.dispose();
-                        for (const plane of upperPlanes.values()) plane.remove();
+                        for (const plane of upperPlanes.values()) {
+                            plane.compositor.dispose(); plane.element.remove();
+                        }
                         upperPlanes.clear();
                     }
                 };
@@ -10893,6 +10932,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     },
                     applyTransformPreview(target, transform, playheadSeconds) {
                         return queueEngineSummaryUpdate(current => {
+                            if (Number.isFinite(playheadSeconds) && Object.keys(transform).length > 0
+                                && Object.keys(transform).every(key => key === 'x' || key === 'y')) {
+                                return withPreviewPositionFn(current, target, transform, playheadSeconds);
+                            }
                             const cut = target.kind === 'cut' ? current.cuts?.[target.index] : undefined;
                             if (cut && Array.isArray(cut.keyframes) && cut.keyframes.length >= 2
                                 && Number.isFinite(playheadSeconds)) {
@@ -11222,6 +11265,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const resolveGenerationStateFn = (${resolveGenerationState.toString()});
             const describeNextDraftV1 = (${generationNextDraftHelperV1.toString()});
             const describeOverlayFn = (${describeOverlay.toString()});
+            const previewDomOpacityFn = (${previewDomOpacity.toString()});
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
             const frameEngineMediaIdle = initial.frameEngineEnabled === true;
             let playbackMountReady = false;
@@ -12296,7 +12340,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     setAdjustBaseFilter(media, segment);
                 }
-                video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
+                video.style.opacity = previewDomOpacityFn('media', segment.opacity, frameEngineMediaIdle, false);
                 stillImage.style.opacity = video.style.opacity;
                 video.dataset.akariCutIndex = Number.isInteger(segment.cutIndex) ? String(segment.cutIndex) : '';
                 video.dataset.akariCutId = typeof segment.id === 'string' ? segment.id : '';
@@ -12377,7 +12421,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariLayerIndex = String(index);
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
                 if (layer.kind === 'baked') layerVideo.style.pointerEvents = 'none';
-                layerVideo.style.opacity = String(layer.opacity);
+                layerVideo.style.opacity = previewDomOpacityFn('media', layer.opacity, frameEngineMediaIdle, false);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 setAdjustBaseFilter(layerVideo, layer);
                 layerVideo.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
@@ -12618,7 +12662,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     layerVideo.src = layer.src;
                     entry.opaqueBox = undefined;
                 }
-                layerVideo.style.opacity = String(layer.opacity);
+                layerVideo.style.opacity = previewDomOpacityFn('media', layer.opacity, frameEngineMediaIdle, false);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 clearAdjustBaseFilter(layerVideo);
                 setAdjustBaseFilter(layerVideo, layer);
@@ -12672,6 +12716,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const layerPerspectiveClearButton = layerPerspectivePanel.querySelector('[data-akari-perspective-clear]');
             const layerSelectBox = document.getElementById('layer-select-box');
             const layerHandleElements = Array.from(layerSelectBox.querySelectorAll('[data-akari-handle]'));
+            const previewMotionGeometryTransformFn = (${previewMotionGeometryTransform.toString()});
+            const previewMotionBoxHitAtFn = (${previewMotionBoxHitAt.toString()});
             const findLayerEntry = id => layerEntries.find(entry => String(entry.spec.id) === String(id));
             const layerTransformNow = entry => {
                 const scale = Number(entry.video.dataset.akariTransformScale) || 1;
@@ -12692,11 +12738,14 @@ body { display: grid; place-items: center; padding: 32px; }
             // 最終値の反映を RAF 待ちにしない。
             const layerTransformVisualThrottle = createRafThrottleFn(() => {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : null;
-                if (entry) void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'layer', id: entry.spec.id }, layerTransformNow(entry));
+                if (entry) void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'layer', id: entry.spec.id },
+                    entry.previewPositionPatch ?? layerTransformNow(entry), outputTime);
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 updateLayerSelectBox();
             });
-            const applyLayerTransformNow = (entry, transform) => {
+            const applyLayerTransformNow = (entry, transform, previewPatch = transform, visiblePosition = null) => {
+                entry.previewPositionPatch = previewPatch;
+                entry.previewVisiblePosition = visiblePosition;
                 entry.video.dataset.akariTransformX = String(transform.x);
                 entry.video.dataset.akariTransformY = String(transform.y);
                 entry.video.dataset.akariTransformScale = String(transform.scale);
@@ -12767,6 +12816,20 @@ body { display: grid; place-items: center; padding: 32px; }
             // 裁定 0（cut と layer の操作系を統一）: 選択枠の幾何計算・角点 / 回転 / 辺バーの
             // ドラッグ・確定書き戻しを 1 組の関数へ寄せ、対象の違いだけをこの記述子で渡す。
             // layer は entry（media 実体 + spec）、cut は #preview-video / #preview-still。
+            const motionAtForSpec = (spec, start, duration) => {
+                if (!spec || !window.akari.itemMotion) return null;
+                const fps = Number(summary.output?.fps) || 30;
+                const item = spec.motionSource ? { ...spec.motionSource, fps }
+                    : { at: Number(start) || 0, duration: Number(duration) || 0, fps,
+                        keyframeUnit: 'seconds', transform: spec.transform, opacity: spec.opacity,
+                        keyframes: spec.keyframes, motion: spec.motion };
+                const parents = (spec.motionParents ?? []).map(parent => ({ ...parent, fps }));
+                return { item, parents, time: outputTime,
+                    visible: window.akari.itemMotion.evaluateItemMotion(item, outputTime, parents) };
+            };
+            const layerVisualTransformNow = entry => previewMotionGeometryTransformFn(
+                layerTransformNow(entry), motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible,
+                entry.previewVisiblePosition);
             const layerDragTarget = entry => ({
                 kind: 'layer',
                 entry,
@@ -12774,10 +12837,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 visible: () => entry.video.style.display !== 'none',
                 naturalSize: () => ({ width: entry.video.videoWidth, height: entry.video.videoHeight }),
                 transformNow: () => layerTransformNow(entry),
+                visualNow: () => layerVisualTransformNow(entry),
+                motionAt: () => motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration),
                 cropNow: () => layerCropNow(entry),
                 // layers[] は最初からソース実寸基準（layer-style）なので fit の焼き込みは無い。
                 cropEntryTransform: transform => ({ ...transform }),
-                applyTransform: transform => applyLayerTransformNow(entry, transform),
+                applyTransform: (transform, previewPatch, visiblePosition) =>
+                    applyLayerTransformNow(entry, transform, previewPatch, visiblePosition),
                 applyCropAndTransform: (crop, transform) => applyLayerCropAndTransformNow(entry, crop, transform),
                 cropRestorePoint: () => ({ crop: layerCropNow(entry), transform: layerTransformNow(entry) }),
                 restoreCrop: point => applyLayerCropAndTransformNow(entry, point.crop, point.transform),
@@ -12809,7 +12875,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     y: ry / (transform.scaleY ?? transform.scale ?? 1) + pivotPx.y };
             };
             const layerVideoPointFor = (entry, clientX, clientY) => {
-                const t = layerTransformNow(entry);
+                const t = typeof layerVisualTransformNow === 'function'
+                    ? layerVisualTransformNow(entry) : layerTransformNow(entry);
                 const crop = layerCropNow(entry);
                 const pivotPx = {
                     x: (crop.x + crop.w / 2) * entry.video.videoWidth,
@@ -12828,12 +12895,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     const size = resolveDeclaredSize(entry.video.videoWidth || entry.video.naturalWidth,
                         entry.video.videoHeight || entry.video.naturalHeight, dimensions || summary.output);
                     const point = window.akari.interaction?.stageLocalPoint?.(clientX, clientY) || null;
-                    return declaredHitAt(size, summary.output, layerTransformNow(entry), layerCropNow(entry), point);
+                    const transform = typeof layerVisualTransformNow === 'function'
+                        ? layerVisualTransformNow(entry) : layerTransformNow(entry);
+                    return declaredHitAt(size, summary.output, transform, layerCropNow(entry), point);
                 }
                 const width = Number(entry.video.videoWidth) || 0;
                 const height = Number(entry.video.videoHeight) || 0;
                 if (!(width > 0) || !(height > 0)) return false;
-                const transform = layerTransformNow(entry);
+                const transform = typeof layerVisualTransformNow === 'function'
+                    ? layerVisualTransformNow(entry) : layerTransformNow(entry);
                 const crop = layerCropNow(entry);
                 const pivotPx = {
                     x: (crop.x + crop.w / 2) * width,
@@ -12981,7 +13051,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     positionLayerPerspectiveToggle(null);
                     return;
                 }
-                const transform = layerTransformNow(entry);
+                const transform = typeof layerVisualTransformNow === 'function'
+                    ? layerVisualTransformNow(entry) : layerTransformNow(entry);
                 const crop = layerCropNow(entry);
                 if (engineGeometry && entry.video.readyState < 2) entry.opaqueBox = undefined;
                 if (frameEngineMediaIdle) {
@@ -13067,7 +13138,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     layerCropBox.classList.remove('is-active');
                     return;
                 }
-                const transform = target.transformNow();
+                const transform = target.visualNow ? target.visualNow() : target.transformNow();
                 const crop = target.cropNow();
                 const vw = natural.width;
                 const vh = natural.height;
@@ -13395,6 +13466,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     || captureTarget?.getAttribute?.('data-akari-crop-edge');
                 const duplicating = startEvent.altKey && (!handleKind || handleKind === 'move');
                 const rotating = handleKind === 'rotate';
+                const positionOnly = !rotating && (handleKind === 'move' || !handleKind);
+                const motion = positionOnly && typeof target.motionAt === 'function' ? target.motionAt() : null;
                 const movingControls = rotating || handleKind === 'move' || !handleKind;
                 const gestureLabel = document.createElement('div');
                 gestureLabel.className = rotating ? 'akari-interaction-angle' : 'akari-interaction-hint';
@@ -13433,6 +13506,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
                     latestTransform = computeTransform(moveEvent, original);
+                    let previewPatch;
+                    let visiblePosition;
+                    if (positionOnly && motion) {
+                        const movedPosition = window.akari.itemMotion.dragItemMotionPosition(motion.item, motion.time,
+                            motion.parents, motion.visible, latestTransform.x - original.x, latestTransform.y - original.y);
+                        latestTransform = { ...original, x: movedPosition.base.x, y: movedPosition.base.y };
+                        previewPatch = movedPosition.base;
+                        visiblePosition = movedPosition.visible;
+                    }
                     if (rotating) {
                         gestureLabel.textContent = Math.round(window.akariHandleGeometry?.normalizeAngle(
                             latestTransform.rotate) ?? latestTransform.rotate) + '°';
@@ -13448,7 +13530,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         document.body.style.cursor = 'url("data:image/svg+xml,' + encodeURIComponent(cursor)
                             + '") 16 16, crosshair';
                     }
-                    target.applyTransform(latestTransform);
+                    target.applyTransform(latestTransform, previewPatch, visiblePosition);
                 };
                 const finish = async () => {
                     if (finished) return;
@@ -13456,7 +13538,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     try {
                         cleanup();
                         if (cancelled) {
-                            target.applyTransform(original);
+                            target.applyTransform(original, positionOnly ? { x: original.x, y: original.y } : undefined);
                             // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
                             target.flushTransform();
                             return;
@@ -13466,7 +13548,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         // 書き戻し先を特定できない場合は理由を示して元へ戻す。
                         if (!target.canWrite()) {
                             window.akari.showWriteError('変更を保存できませんでした。対象を選択し直してください。');
-                            target.applyTransform(original);
+                            target.applyTransform(original, positionOnly ? { x: original.x, y: original.y } : undefined);
                             target.flushTransform();
                             return;
                         }
@@ -13478,14 +13560,16 @@ body { display: grid; place-items: center; padding: 32px; }
                                 if (!itemId) throw new Error('複製する要素が見つかりません');
                                 await window.akari.engine.overlayWrite(null, itemId,
                                     { transform: finalTransform, duplicate: true });
-                                target.applyTransform(original);
+                                target.applyTransform(original, positionOnly ? { x: original.x, y: original.y } : undefined);
                                 target.flushTransform();
-                            } else await target.write({ transform: finalTransform });
+                            } else if (positionOnly && motion) await target.write({ transform: {
+                                x: finalTransform.x, y: finalTransform.y } });
+                            else await target.write({ transform: finalTransform });
                             window.akari.reportGesture('saved');
                         } catch (error) {
                             window.akari.showWriteError(error);
                             if (selectionGestureIsLatest(gesture)) {
-                                target.applyTransform(original);
+                                target.applyTransform(original, positionOnly ? { x: original.x, y: original.y } : undefined);
                                 target.flushTransform();
                             }
                         }
@@ -13539,7 +13623,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         dragSnap = { x: null, y: null };
                         window.akari.interaction?.hideSnapGuides?.();
                     } else {
-                        const bounds = layerOutputBoundsForTransform(entry, { ...original, x: nextX, y: nextY });
+                        const visual = previewMotionGeometryTransformFn(original,
+                            motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible);
+                        const bounds = layerOutputBoundsForTransform(entry, { ...visual,
+                            x: visual.x + nextX - original.x, y: visual.y + nextY - original.y });
                         const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
                         dragSnap = snap;
                         if (snap.x) nextX += snap.x.correction;
@@ -13578,9 +13665,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     const segment = segments[activeSegmentIndex];
                     if (hasCut && segment?.kind === 'src' && !allTracksHiddenByScope.cuts
                         && !hiddenTracksByScope.cuts.has(segment.track)) {
-                        const bounds = video.getBoundingClientRect();
-                        if (event.clientX >= bounds.left && event.clientX <= bounds.right
-                            && event.clientY >= bounds.top && event.clientY <= bounds.bottom) hits.push(video);
+                        const point = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                        if (typeof cutSelectBoxGeometry === 'function'
+                            && typeof previewMotionBoxHitAtFn === 'function') {
+                            if (previewMotionBoxHitAtFn(cutSelectBoxGeometry(), point)) hits.push(video);
+                        } else {
+                            const bounds = video.getBoundingClientRect();
+                            if (event.clientX >= bounds.left && event.clientX <= bounds.right
+                                && event.clientY >= bounds.top && event.clientY <= bounds.bottom) hits.push(video);
+                        }
                     }
                     hits.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex));
                     return hits[0] || null;
@@ -13675,9 +13768,14 @@ body { display: grid; place-items: center; padding: 32px; }
                         } else {
                             const outputWidth = Number(summary.output && summary.output.width) || 1280;
                             const outputHeight = Number(summary.output && summary.output.height) || 720;
+                            const segment = cutInteractionSegment();
+                            const visual = previewMotionGeometryTransformFn(original,
+                                motionAtForSpec(segment, segment?.outStart,
+                                    Number(segment?.outEnd) - Number(segment?.outStart))?.visible);
                             const bounds = outputBoundsForCenteredBox(
-                                outputWidth / 2 + nextX, outputHeight / 2 + nextY,
-                                outputWidth * original.scale, outputHeight * original.scale
+                                outputWidth / 2 + visual.x + nextX - original.x,
+                                outputHeight / 2 + visual.y + nextY - original.y,
+                                outputWidth * visual.scale, outputHeight * visual.scale
                             );
                             const snap = window.akari.interaction.computeSnapCorrection(bounds, dragSnap);
                             dragSnap = snap;
@@ -13733,7 +13831,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const boxZoom = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
                         const boxWidth = (Number.parseFloat(layerSelectBox.style.width) || 0) * boxZoom;
                         const boxHeight = (Number.parseFloat(layerSelectBox.style.height) || 0) * boxZoom;
-                        const rotate = layerTransformNow(entry).rotate;
+                        const rotate = layerVisualTransformNow(entry).rotate;
                         const anchorClient = layerResizeCornerPointFn(
                             boxCenter.x, boxCenter.y, boxWidth, boxHeight, rotate, oppositeKind
                         );
@@ -14058,18 +14156,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 scale: Number(cutSelectionVideo().dataset.akariTransformScale) || 1,
                 rotate: Number(cutSelectionVideo().dataset.akariTransformRotate) || 0
             });
+            let cutPreviewPositionPatch = null;
+            let cutPreviewVisiblePosition = null;
+            const cutVisualTransformNow = () => {
+                const segment = cutInteractionSegment();
+                return previewMotionGeometryTransformFn(cutTransformNow(), motionAtForSpec(segment,
+                    segment?.outStart, Number(segment?.outEnd) - Number(segment?.outStart))?.visible,
+                    cutPreviewVisiblePosition);
+            };
             // RAF スロットリング（2026-08-09 raf-throttle）: layer 側と同じ規律。
             // 裁定 3: 辺バードラッグ中はゴースト枠（#layer-crop-box）も同じフレームで測り直す。
             const cutTransformVisualThrottle = createRafThrottleFn(() => {
                 const index = Number(cutSelectionVideo().dataset.akariCutIndex);
                 if (cutSelectionVideo().dataset.akariCutIndex !== '' && Number.isInteger(index)) {
-                    void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'cut', index }, cutTransformNow(), outputTime);
+                    void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'cut', index },
+                        cutPreviewPositionPatch ?? cutTransformNow(), outputTime);
                 }
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (cropModeActive || edgeCropDragActive) updateLayerCropBox();
                 updateCutSelectBox();
             });
-            const applyCutTransformNow = transform => {
+            const applyCutTransformNow = (transform, previewPatch = transform, visiblePosition = null) => {
+                cutPreviewPositionPatch = previewPatch;
+                cutPreviewVisiblePosition = visiblePosition;
                 cutSelectionVideo().dataset.akariCutTransformActive = 'true';
                 cutSelectionVideo().dataset.akariTransformX = String(transform.x);
                 cutSelectionVideo().dataset.akariTransformY = String(transform.y);
@@ -14152,10 +14261,11 @@ body { display: grid; place-items: center; padding: 32px; }
             const cutSelectBoxGeometry = () => {
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
-                const transform = cutTransformNow();
+                const transform = typeof cutVisualTransformNow === 'function'
+                    ? cutVisualTransformNow() : cutTransformNow();
                 const natural = cutNaturalSizeNow();
-                const scaleX = Number(cutSelectionVideo().dataset.akariTransformScaleX) || transform.scale;
-                const scaleY = Number(cutSelectionVideo().dataset.akariTransformScaleY) || transform.scale;
+                const scaleX = transform.scaleX ?? transform.scale;
+                const scaleY = transform.scaleY ?? transform.scale;
                 const useLayerStyle = cutUsesLayerStyleBox() && natural.width > 0 && natural.height > 0
                     && cutSelectionVideo().dataset.akariCutCropDeclared === 'true';
                 const size = useLayerStyle
@@ -14190,6 +14300,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 return editable;
             };
             const applyCutCropAndTransformNow = (crop, transform) => {
+                cutPreviewPositionPatch = transform;
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
                 // cutHasLayerStyleVisual は segment を見るので、ドラッグ中のモデルにも同じ crop を
                 // 置いて描画レール（applyCutFramingVisual / applyCutLayerStyleLayout）を揃える。
@@ -14248,6 +14359,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     visible: cutInteractionVisible,
                     naturalSize: cutNaturalSizeNow,
                     transformNow: cutTransformNow,
+                    visualNow: cutVisualTransformNow,
+                    motionAt: () => {
+                        const segment = cutInteractionSegment();
+                        return motionAtForSpec(segment, segment?.outStart,
+                            Number(segment?.outEnd) - Number(segment?.outStart));
+                    },
                     cropNow: cutCropNow,
                     // 素材実寸の箱へ初めて入るときは、従来どおり fit を scale へ焼く。
                     cropEntryTransform: (transform, natural) => (
@@ -14438,7 +14555,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     const width = (Number.parseFloat(layerSelectBox.style.width) || rect.width) * boxZoom;
                     const height = (Number.parseFloat(layerSelectBox.style.height) || rect.height) * boxZoom;
                     const center = { x: (rect.left + rect.right) / 2, y: (rect.top + rect.bottom) / 2 };
-                    const radians = layerTransformNow(entry).rotate * Math.PI / 180;
+                    const radians = layerVisualTransformNow(entry).rotate * Math.PI / 180;
                     const c = Math.cos(radians), s = Math.sin(radians);
                     const edgePoint = (x, y) => ({ x: center.x + c * x - s * y,
                         y: center.y + s * x + c * y });
@@ -15783,9 +15900,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     container.style.zIndex = String(zForItem(overlay?.id, zForTrack(overlay?.trackId)));
                     // Blend the whole HTML item against lower items and the preview image.
                     container.style.mixBlendMode = overlay?.blend || 'normal';
-                    if (!Array.isArray(overlay?.keyframes)) {
-                        container.style.opacity = overlay?.opacity === undefined ? '' : String(overlay.opacity);
-                    }
+                    const domOpacity = previewDomOpacityFn('overlay', overlay?.opacity, frameEngineMediaIdle,
+                        Array.isArray(overlay?.keyframes) || Boolean(overlay?.motion || overlay?.motionSource));
+                    if (domOpacity !== null) container.style.opacity = domOpacity;
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
                 const captionZ = typeof summary.captionTrackId === 'string' && summary.captionTrackId
@@ -17849,20 +17966,22 @@ body { display: grid; place-items: center; padding: 32px; }
                         continue;
                     }
                     layerVideo.style.display = 'block';
-                    if (Array.isArray(layer.keyframes) && layer.keyframes.length >= 2) {
+                    if (!selectionGestureProtects('layer', entry)
+                        && Array.isArray(layer.keyframes) && layer.keyframes.length >= 2) {
                         // computeLayerKeyframesVisualFn is a webview-injected copy (toString()
                         // serialization) -- guarded the same way computeLayerPerspectiveVisualFn's
                         // call in updateStageScale is, so a future injection regression degrades to
                         // "keyframes not applied" instead of aborting the rest of this loop.
                         try {
-                            const resolved = computeLayerKeyframesVisualFn(layer.keyframes, localTime);
+                            const resolved = computeLayerKeyframesVisualFn(layer.keyframes, localTime,
+                                layer.transform || {}, true);
                             if (resolved) {
                                 if (resolved.transform) {
                                     layerVideo.dataset.akariTransformX = String(resolved.transform.x);
                                     layerVideo.dataset.akariTransformY = String(resolved.transform.y);
                                     layerVideo.dataset.akariTransformScale = String(resolved.transform.scale);
-                            layerVideo.dataset.akariTransformScaleX = String(resolved.transform.scaleX ?? resolved.transform.scale);
-                            layerVideo.dataset.akariTransformScaleY = String(resolved.transform.scaleY ?? resolved.transform.scale);
+                                    layerVideo.dataset.akariTransformScaleX = String(resolved.transform.scaleX ?? resolved.transform.scale);
+                                    layerVideo.dataset.akariTransformScaleY = String(resolved.transform.scaleY ?? resolved.transform.scale);
                                     layerVideo.dataset.akariTransformRotate = String(resolved.transform.rotate);
                                 }
                                 if (resolved.crop) {
@@ -19609,6 +19728,177 @@ body { display: grid; place-items: center; padding: 32px; }
                 attributeFilter: ['data-akari-interaction-selected'],
                 subtree: true
             });
+
+            let motionDraw = null;
+            let motionStroke = null;
+            const motionDrawFps = Number(summary.output.fps) || 30;
+            const motionDrawFinishTransitionFn = (${motionDrawFinishTransition.toString()});
+            let motionDrawFinishState = { pointerId: null, claimed: false };
+            const stopMotionDraw = () => {
+                motionDrawFinishState = { pointerId: null, claimed: true };
+                if (motionStroke && previewPane.hasPointerCapture?.(motionStroke.pointerId)) {
+                    previewPane.releasePointerCapture(motionStroke.pointerId);
+                }
+                motionDraw?.feedback.dispose();
+                motionDraw = null; motionStroke = null;
+                previewPane.style.cursor = ''; previewPane.title = '';
+            };
+            const motionDrawSpec = draw => {
+                const spec = draw.kind === 'layer' ? draw.layer.spec
+                    : draw.kind === 'cut' ? summary.cuts[draw.cutIndex]
+                    : draw.kind === 'canvas' ? draw.node : draw.overlay;
+                const cutSpan = draw.kind === 'cut' ? cutInteractionSegment() : null;
+                const at = Number(spec.motionSource?.at ?? (draw.kind === 'layer' ? spec.t
+                    : draw.kind === 'cut' ? cutSpan?.outStart : spec.at ?? spec.start)) || 0;
+                const duration = Number(spec.motionSource?.duration ?? spec.duration
+                    ?? (cutSpan ? cutSpan.outEnd - at : 0)) || 0;
+                const source = spec.motionSource
+                    ? { ...spec.motionSource, fps: motionDrawFps }
+                    : { at, duration, fps: motionDrawFps, keyframeUnit: 'seconds',
+                        transform: draw.kind === 'canvas' ? spec.localTransform : spec.transform,
+                        opacity: spec.opacity, keyframes: spec.keyframes, motion: spec.motion };
+                let parents = (spec.motionParents ?? []).map(parent => ({ ...parent, fps: motionDrawFps }));
+                if (draw.kind === 'canvas') {
+                    const nodes = summary.tree || [];
+                    let parentId = spec.parentId;
+                    parents = [];
+                    while (parentId) {
+                        const parent = nodes.find(node => node.id === parentId);
+                        if (!parent) break;
+                        if (parent.kind === 'group') parents.push({ at: parent.at, duration: parent.duration,
+                            fps: motionDrawFps, keyframeUnit: 'seconds', transform: parent.localTransform,
+                            opacity: parent.opacity, keyframes: parent.keyframes, motion: parent.motion });
+                        parentId = parent.parentId;
+                    }
+                }
+                return { spec, at, duration, source, parents };
+            };
+            const motionDrawRangeText = (range, existing) => {
+                const seconds = value => String(Math.round(value * 10) / 10);
+                return range ? '位置の点 ' + seconds(range.start) + '〜' + seconds(range.end)
+                    + ' 秒を置き換えます（Esc でやめる）'
+                    : existing ? '今の位置の点 ' + seconds(existing.start) + '〜' + seconds(existing.end)
+                        + ' 秒があります。描く範囲を置き換えます（Esc でやめる）'
+                    : 'プレビューで道筋を描きます（Esc でやめる）';
+            };
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message?.type !== 'akari-preview-motion-draw' || typeof message.itemId !== 'string') return;
+                stopMotionDraw();
+                const layer = findLayerEntry(message.itemId);
+                const cutIndex = summary.cuts.findIndex(cut => cut.id === message.itemId);
+                const overlay = summary.overlays.find(item => item.id === message.itemId);
+                const node = (summary.tree || []).find(item => item.id === message.itemId && item.kind === 'group');
+                if (!layer && cutIndex < 0 && !overlay && !node) return;
+                const feedback = window.akari.motionStroke.createStrokeFeedback();
+                motionDraw = layer ? { kind: 'layer', id: message.itemId, layer, feedback }
+                    : cutIndex >= 0 ? { kind: 'cut', id: message.itemId, cutIndex, feedback }
+                    : node ? { kind: 'canvas', id: message.itemId, node, feedback }
+                    : { kind: 'overlay', id: message.itemId, overlay, feedback };
+                if (layer) selectLayer(message.itemId);
+                else if (cutIndex >= 0) { requestedCutId = message.itemId; selectCut({ report: false }); }
+                else { requestedOverlayId = message.itemId; applyRequestedOverlaySelection(); }
+                const { spec } = motionDrawSpec(motionDraw);
+                const existing = window.akari.motionStroke.positionKeyframeRange(spec.keyframes,
+                    motionDrawFps, spec.keyframeUnit || 'seconds');
+                motionDraw.existing = existing;
+                feedback.show(motionDrawRangeText(null, existing));
+                previewPane.style.cursor = 'crosshair';
+                previewPane.title = '道筋を描きます。Esc で終わります';
+            });
+            window.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && motionDraw) stopMotionDraw();
+            });
+            const motionDrawBox = draw => draw.kind === 'layer' ? layerSelectBox
+                : draw.kind === 'cut' ? cutSelectBox
+                : document.querySelector('[data-akari-interaction="selection-frame"]')
+                    || Array.from(stage.querySelectorAll('[data-overlay-id]'))
+                        .find(element => element.dataset.overlayId === draw.id)
+                    || previewPane;
+            const onMotionDrawPointerDown = event => {
+                if (!motionDraw || event.button !== 0) return;
+                const rect = motionDrawBox(motionDraw).getBoundingClientRect();
+                if (event.clientX < rect.left || event.clientX > rect.right
+                    || event.clientY < rect.top || event.clientY > rect.bottom) return;
+                const point = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                if (!point) return;
+                event.preventDefault(); event.stopImmediatePropagation();
+                previewPane.setPointerCapture(event.pointerId);
+                const details = motionDrawSpec(motionDraw);
+                const visible = window.akari.itemMotion.evaluateItemMotion(details.source,
+                    outputTime, details.parents);
+                motionStroke = { pointerId: event.pointerId, startTime: outputTime,
+                    offsetX: visible.x - (point.x - summary.output.width / 2),
+                    offsetY: visible.y - (point.y - summary.output.height / 2),
+                    samples: [{ x: visible.x, y: visible.y, ms: 0 }],
+                    screen: [{ x: event.clientX, y: event.clientY }], started: performance.now() };
+                motionDrawFinishState = { pointerId: event.pointerId, claimed: false };
+            };
+            previewPane.addEventListener('pointerdown', onMotionDrawPointerDown, true);
+            const recordMotionDrawPoint = event => {
+                if (!motionStroke || event.pointerId !== motionStroke.pointerId) return;
+                const point = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                if (!point) return;
+                motionStroke.samples.push({ x: point.x - summary.output.width / 2 + motionStroke.offsetX,
+                    y: point.y - summary.output.height / 2 + motionStroke.offsetY,
+                    ms: performance.now() - motionStroke.started });
+                motionStroke.screen.push({ x: event.clientX, y: event.clientY });
+                motionDraw.feedback.draw(motionStroke.screen);
+                const details = motionDrawSpec(motionDraw);
+                const start = Math.max(0, motionStroke.startTime - details.at);
+                const end = Math.min(details.duration, start + motionStroke.samples.at(-1).ms / 1000);
+                motionDraw.feedback.show(motionDrawRangeText({ start, end }, motionDraw.existing));
+            };
+            const finishMotionDraw = event => {
+                if (!motionStroke || !motionDraw) return;
+                const decision = motionDrawFinishTransitionFn(motionDrawFinishState, event);
+                if (!decision.finish) return;
+                motionDrawFinishState = decision.state;
+                event.preventDefault(); event.stopImmediatePropagation();
+                const draw = motionDraw, stroke = motionStroke;
+                try {
+                    if (event.type === 'pointerup') recordMotionDrawPoint(event);
+                    const { at, duration, source, parents } = motionDrawSpec(draw);
+                    const samples = stroke.samples.map(sample => ({
+                        ...window.akari.itemMotion.invertItemMotionPosition(source,
+                            stroke.startTime + sample.ms / 1000, parents, sample.x, sample.y), ms: sample.ms
+                    }));
+                    const points = window.akari.motionStroke.strokeToXYKeyframes(samples, {
+                        fps: motionDrawFps, startFrame: Math.round((stroke.startTime - at) * motionDrawFps),
+                        durationFrames: Math.round(duration * motionDrawFps), mode: 'speed'
+                    });
+                    stopMotionDraw();
+                    if (points.length < 2) throw new Error('道筋をもう少し長く描いてください。');
+                    void (async () => {
+                        try {
+                            if (draw.kind === 'layer') await window.akari.engine.layerWrite(draw.id, { xyKeyframes: points });
+                            else if (draw.kind === 'cut') await window.akari.engine.cutWrite(draw.cutIndex, draw.id, { xyKeyframes: points });
+                            else await window.akari.engine.overlayWrite(null, draw.id, { xyKeyframes: points });
+                        } catch (error) { window.akari.showWriteError(error); }
+                    })();
+                } catch (error) {
+                    stopMotionDraw();
+                    window.akari.showWriteError(error);
+                }
+            };
+            window.addEventListener('pointerup', finishMotionDraw, true);
+            previewPane.addEventListener('pointerup', finishMotionDraw, true);
+            previewPane.addEventListener('lostpointercapture', finishMotionDraw, true);
+            window.addEventListener('mouseup', finishMotionDraw, true);
+            window.addEventListener('pointermove', finishMotionDraw, true);
+            window.addEventListener('mousemove', finishMotionDraw, true);
+            previewPane.addEventListener('pointermove', event => {
+                if (!motionStroke || event.pointerId !== motionStroke.pointerId) return;
+                if (motionDrawFinishTransitionFn(motionDrawFinishState, event).finish) {
+                    finishMotionDraw(event);
+                    return;
+                }
+                event.preventDefault(); event.stopImmediatePropagation();
+                recordMotionDrawPoint(event);
+            }, true);
+            window.addEventListener('pointercancel', () => {
+                if (motionStroke) stopMotionDraw();
+            }, true);
 
             Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();

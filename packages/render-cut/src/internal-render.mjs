@@ -296,7 +296,7 @@ function expandedHtmlOverlays(internal, projectRoot) {
       }
     }
     return htmlCache.get(reference);
-  }).map(overlay => {
+  }, { keyframeUnit: "frames" }).map(overlay => {
     if (!overlay.html.trimStart().startsWith("<")) return overlay;
     const htmlPath = sourceById.get(String(overlay.id))
       ?? sourceById.get(String(overlay.parentId ?? ""));

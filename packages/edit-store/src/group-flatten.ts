@@ -15,6 +15,7 @@ interface Context {
     clipStart: number;
     clipEnd: number;
     hidden: boolean;
+    motionParents: Array<Record<string, unknown>>;
 }
 
 /** 描画だけに使う投影。宣言木を変更せず、group の子を絶対時刻の葉へ写す。 */
@@ -37,10 +38,15 @@ export function flattenGroupDescendants(internal: InternalEdit): FlattenedVisual
             ? item.groupCaptionLocal.transform : item.declaration?.transform as TransformV2 | undefined;
         const localOpacity = item.groupCaptionLocal
             ? item.groupCaptionLocal.opacity : item.declaration?.opacity;
+        const motionSource = { at: item.atFrames / fps, duration: item.durationFrames / fps,
+            keyframeUnit: 'seconds', transform: localTransform, opacity: localOpacity,
+            keyframes: item.declaration?.keyframes, motion: item.declaration?.motion };
+        const motionParents = parent?.motionParents ?? [];
         const transform = composeTransforms(parent?.transform, localTransform);
         const opacity = (parent?.opacity ?? 1) * (typeof localOpacity === 'number' ? localOpacity : 1);
         if (item.source.kind === 'group') {
-            const context: Context = { transform, opacity, clipStart: start, clipEnd: end, hidden };
+            const context: Context = { transform, opacity, clipStart: start, clipEnd: end, hidden,
+                motionParents: [motionSource, ...motionParents] };
             for (const child of item.children ?? []) visit(child, track, context, true);
             return;
         }
@@ -50,6 +56,10 @@ export function flattenGroupDescendants(internal: InternalEdit): FlattenedVisual
             ...item.declaration,
             ...(transform === undefined ? {} : { transform }),
             opacity,
+            ...((motionParents.length && [motionSource, ...motionParents].some(source =>
+                source.motion !== undefined || (Array.isArray(source.keyframes) && source.keyframes.length >= 2
+                    && source.keyframes.some(point => point?.transform || Number.isFinite(point?.opacity)))))
+                ? { motionSource, motionParents } : {}),
             at,
             t: at,
             start: at,
@@ -77,7 +87,7 @@ export function flattenGroupDescendants(internal: InternalEdit): FlattenedVisual
         result.push({ item: flat, track, order: currentOrder, descendant: true });
         // A bag can also have explicit children. Only group ancestry changes media/caption projection.
         for (const child of item.children ?? []) visit(child, track, {
-            transform, opacity, clipStart: start, clipEnd: end, hidden
+            transform, opacity, clipStart: start, clipEnd: end, hidden, motionParents
         }, true);
     };
     for (const track of internal.tracks) for (const item of track.items) visit(item, track);

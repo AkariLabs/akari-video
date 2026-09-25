@@ -1261,7 +1261,7 @@
           "additionalProperties": false,
           "required": ["preset", "duration"],
           "properties": {
-            "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "preset": { "enum": ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"] },
             "duration": { "$ref": "#/$defs/frames" },
             "ease": { "type": "string", "minLength": 1 },
             "amount": { "type": "number" }
@@ -1272,7 +1272,7 @@
           "additionalProperties": false,
           "required": ["preset", "duration"],
           "properties": {
-            "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "preset": { "enum": ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"] },
             "duration": { "$ref": "#/$defs/frames" },
             "ease": { "type": "string", "minLength": 1 },
             "amount": { "type": "number" }
@@ -1283,7 +1283,7 @@
           "additionalProperties": false,
           "required": ["preset", "period"],
           "properties": {
-            "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "preset": { "enum": ["pulse", "float", "spin", "blink", "jiggle"] },
             "period": { "type": "integer", "minimum": 1 },
             "ease": { "type": "string", "minLength": 1 },
             "amount": { "type": "number" }

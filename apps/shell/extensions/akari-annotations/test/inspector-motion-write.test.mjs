@@ -17,15 +17,17 @@ const allMotion = {
     in: { preset: 'slide-up', duration: 12, ease: 'out-cubic', amount: 40 },
     out: { preset: 'fade', duration: 8 }, loop: { preset: 'float', period: 90 }
 };
-const rows = (snapshot, write, factory = layerSections) => factory(snapshot, write)
-    .find(section => section.id === 'motion').fields;
+const rows = (snapshot, write, factory = layerSections) => {
+    const sections = factory(snapshot, write);
+    return ['in', 'out', 'loop'].flatMap(slot => sections.find(section => section.id === `motion:${slot}`).fields);
+};
 
 test('motion の語彙・日本語ラベルと既定値は契約どおり', () => {
-    assert.deepEqual(MOTION_IN_OUT_PRESETS, ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe']);
-    assert.deepEqual(MOTION_LOOP_PRESETS, ['pulse', 'float', 'spin']);
+    assert.deepEqual(MOTION_IN_OUT_PRESETS, ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe', 'pop', 'zoom', 'twirl']);
+    assert.deepEqual(MOTION_LOOP_PRESETS, ['pulse', 'float', 'spin', 'blink', 'jiggle']);
     assert.deepEqual([...MOTION_IN_OUT_PRESETS, ...MOTION_LOOP_PRESETS].map(id => MOTION_PRESET_LABELS[id]), [
         'フェード', 'スライド（上へ）', 'スライド（下へ）', 'スライド（左へ）', 'スライド（右へ）',
-        '拡縮', 'ワイプ', '脈動', '浮遊', '回転'
+        '拡縮', 'ワイプ', 'ポップ', 'ズーム', '回転', '脈動', '浮遊', '回り続ける', '点滅', '小刻みな動き'
     ]);
     assert.deepEqual(MOTION_EASES, ['linear', 'ease-in-out', 'in-quad', 'out-quad', 'in-out-quad',
         'in-cubic', 'out-cubic', 'in-out-cubic', 'in-quart', 'out-quart', 'in-out-quart',
@@ -179,7 +181,7 @@ test('cubic-bezier の現在値は raw 選択肢に残し、未設定の select 
 const handleWrite = timelineMethod('handleInspectorWriteV2', {
     updateTreeV2Item, legacyTransformOpFor, isCutFramingWriteRequest, isCutFreezeWriteRequest, validateInspectorMotion
 });
-test('書き込みブリッジは motion を保存・席削除・全削除し、超過とHTMLを拒否する', async () => {
+test('書き込みブリッジは motion を保存・席削除・全削除し、尺超過を拒否して HTML を受理する', async () => {
     const state = {
         commits: 0, editDocument: { version: 2, tracks: [{ id: 'video', lane: 'visual', items: [{
             id: 'visual-1', at: 0, duration: 150, source: { kind: 'media', src: 'main' }
@@ -199,9 +201,10 @@ test('書き込みブリッジは motion を保存・席削除・全削除し、
     assert.equal((await handleWrite.call(state, request)).ok, false);
     state.rawKeyframeItem().duration = 150;
     state.rawKeyframeItem().source.kind = 'html';
-    assert.equal((await handleWrite.call(state, request)).ok, false);
-    assert.equal(state.commits, 3);
-    assert.throws(() => createMotionWriteRequest(visualSnapshot('item', { sourceKind: 'html' }), 'in', 'preset', 'fade'), /HTML/u);
+    assert.equal((await handleWrite.call(state, request)).ok, true);
+    assert.equal(state.commits, 4);
+    assert.deepEqual(createMotionWriteRequest(visualSnapshot('item', { sourceKind: 'html' }), 'in', 'preset', 'fade'),
+        { kind: 'item-field', id: 'visual-1', path: 'motion', value: { in: { preset: 'fade', duration: 12 } } });
 });
 
 const treeSnapshot = timelineMethod('treeItemSnapshot', { readInspectorAdjustSnapshot, maskSourceOptionsForSources });

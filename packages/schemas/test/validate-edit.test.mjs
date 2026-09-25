@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +41,32 @@ test("v2 clip adjust v0 example passes", () => {
   const executed = run("edit-v2-adjust-valid");
   assert.equal(executed.status, 0, executed.stderr);
   assert.match(executed.stdout, /^OK: /);
+});
+
+test('new motion presets validate only in their declared seats', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'akari-motion-enum-'));
+  try {
+    const value = JSON.parse(readFileSync(join(exampleRoot, 'edit-v2-adjust-valid', 'edit.json'), 'utf8'));
+    const item = value.tracks[0].items[0];
+    const path = join(directory, 'edit.json');
+    const validate = motion => {
+      item.motion = motion;
+      writeFileSync(path, JSON.stringify(value));
+      return spawnSync(process.execPath, [cliPath, path], { encoding: 'utf8' });
+    };
+    for (const preset of ['pop', 'zoom', 'twirl']) {
+      assert.equal(validate({ in: { preset, duration: 10 } }).status, 0);
+      assert.equal(validate({ out: { preset, duration: 10 } }).status, 0);
+    }
+    for (const preset of ['blink', 'jiggle']) {
+      assert.equal(validate({ loop: { preset, period: 30 } }).status, 0);
+    }
+    const schema = JSON.parse(readFileSync(join(packageRoot, 'edit.schema.json'), 'utf8'));
+    const seats = schema.$defs.motionV0.properties;
+    assert.deepEqual(seats.in.properties.preset.enum, seats.out.properties.preset.enum);
+    assert.equal(seats.in.properties.preset.enum.includes('blink'), false);
+    assert.equal(seats.loop.properties.preset.enum.includes('pop'), false);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
 for (const [name, expected] of [

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 const require = createRequire(import.meta.url);
 const { readInternalEdit, projectLegacyEdit, collectExcludedCaptionIds, isAudioItemAudible, toLegacyTrack } = require('../lib/index.js');
 const { flattenGroupDescendants } = require('../lib/group-flatten.js');
+const { evaluateItemMotion } = require('../../overlay-runtime/src/item-motion.js');
 
 const edit = tracks => JSON.stringify({
   version: 2, output: { width: 640, height: 360, fps: 30 },
@@ -54,6 +55,7 @@ test('two nested groups compose time, transform, opacity and child order', () =>
   assert.deepEqual(flat.map(x => x.item.id), ['photo', 'line', 'html']);
   assert.deepEqual(flat.map(x => x.order), [2, 3, 4]);
   const photo = flat[0].item;
+  assert.equal(photo.declaration.motionSource, undefined);
   assert.equal(photo.atFrames, 40);
   assert.equal(photo.durationFrames, 40);
   assert.equal(photo.legacy.collection, 'layers');
@@ -68,6 +70,25 @@ test('two nested groups compose time, transform, opacity and child order', () =>
   const legacy = projectLegacyEdit(internal);
   assert.equal(legacy.layers.length, 1);
   assert.equal(legacy.layers[0].id, 'photo');
+});
+
+test('a canvas motion is carried to child evaluation on the parent clock', () => {
+  const internal = readInternalEdit(edit([{ id: 'v', lane: 'visual', items: [{
+    id: 'canvas', at: 30, duration: 60, source: { kind: 'group' },
+    transform: { x: 10, scale: 2 }, motion: { in: { preset: 'scale', duration: 30, amount: .2 } },
+    items: [{ id: 'child', at: 0, duration: 60,
+      source: { kind: 'media', src: 'image', in: 0, out: 2 },
+      transform: { x: 5 }, opacity: .5 }]
+  }] }]));
+  const flat = flattenGroupDescendants(internal)[0].item.declaration;
+  assert.equal(flat.motionParents.length, 1);
+  const start = evaluateItemMotion({ ...flat.motionSource, fps: 30 }, 1,
+    flat.motionParents.map(parent => ({ ...parent, fps: 30 })));
+  const end = evaluateItemMotion({ ...flat.motionSource, fps: 30 }, 2,
+    flat.motionParents.map(parent => ({ ...parent, fps: 30 })));
+  assert.equal(start.x, 18);
+  assert.equal(end.x, 20);
+  assert.equal(start.opacity, .5);
 });
 
 test('caption exclusion is recursive and an ordinary top-level edit keeps its legacy projection', () => {

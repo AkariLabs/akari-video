@@ -53,8 +53,8 @@ const { captionsHaveRenderableCues, collectFitBasisCandidates } = createRequire(
 
 const VERSION = 1;
 const EPSILON = 1e-6;
-const MOTION_IN_OUT_PRESETS = new Set(["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"]);
-const MOTION_LOOP_PRESETS = new Set(["pulse", "float", "spin"]);
+const MOTION_IN_OUT_PRESETS = new Set(["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"]);
+const MOTION_LOOP_PRESETS = new Set(["pulse", "float", "spin", "blink", "jiggle"]);
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const CAPTIONS_SCHEMA = JSON.parse(readFileSync(
   new URL("../../schemas/captions.schema.json", import.meta.url),

@@ -1,6 +1,8 @@
 /** Item motion uses frame counts for spans and output-local seconds for evaluation. */
-export const MOTION_IN_OUT_PRESETS = ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe'] as const;
-export const MOTION_LOOP_PRESETS = ['pulse', 'float', 'spin'] as const;
+import itemMotion from '../../../overlay-runtime/src/item-motion.js';
+const { evaluateItemMotion } = itemMotion;
+export const MOTION_IN_OUT_PRESETS = ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe', 'pop', 'zoom', 'twirl'] as const;
+export const MOTION_LOOP_PRESETS = ['pulse', 'float', 'spin', 'blink', 'jiggle'] as const;
 
 export interface MotionV0 {
   in?: { preset: string; duration: number; ease?: string; amount?: number };
@@ -21,7 +23,6 @@ const inOutPresets: ReadonlySet<string> = new Set(MOTION_IN_OUT_PRESETS);
 const loopPresets: ReadonlySet<string> = new Set(MOTION_LOOP_PRESETS);
 const unit = (u: number): number => Math.max(0, Math.min(1, u));
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-const identity = (): MotionVisual => ({ dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 });
 
 function bounce(u: number): number {
   const n = 7.5625;
@@ -82,22 +83,6 @@ export function easeValue(name: string | undefined, u: number): number {
   return u;
 }
 
-function compose(target: MotionVisual, effect: MotionVisual): void {
-  target.dx += effect.dx;
-  target.dy += effect.dy;
-  target.scale *= effect.scale;
-  target.rotate += effect.rotate;
-  target.opacity *= effect.opacity;
-  if (effect.reveal) {
-    const a = target.reveal ?? { x: 0, y: 0, w: 1, h: 1 };
-    const b = effect.reveal;
-    const x = Math.max(a.x, b.x);
-    const y = Math.max(a.y, b.y);
-    target.reveal = { x, y, w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x),
-      h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y) };
-  }
-}
-
 /** A valid declaration holds its endpoint outside its span; absent/invalid declarations return null. */
 export function motionVisualAt(
   motion: MotionV0 | null | undefined,
@@ -107,43 +92,12 @@ export function motionVisualAt(
 ): MotionVisual | null {
   if (!motion || !finite(localSeconds) || !finite(itemDurationSeconds)
     || itemDurationSeconds <= 0 || !finite(fps) || fps <= 0) return null;
-  const result = identity();
-  let applied = false;
-  for (const seat of ['in', 'out'] as const) {
-    const entry = motion[seat];
-    if (!entry || !inOutPresets.has(entry.preset) || !finite(entry.duration) || entry.duration <= 0) continue;
-    const span = entry.duration / fps;
-    if (!finite(span) || span <= 0) continue;
-    applied = true;
-    const progress = seat === 'in' ? localSeconds / span : 1 - (itemDurationSeconds - localSeconds) / span;
-    const eased = easeValue(entry.ease, progress);
-    const hidden = seat === 'in' ? 1 - eased : eased;
-    const amount = finite(entry.amount) ? entry.amount : entry.preset === 'scale' ? 0.2 : 40;
-    const effect = identity();
-    switch (entry.preset) {
-      case 'fade': effect.opacity = unit(1 - hidden); break;
-      case 'slide-up': effect.dy = hidden * amount; break;
-      case 'slide-down': effect.dy = -hidden * amount; break;
-      case 'slide-left': effect.dx = hidden * amount; break;
-      case 'slide-right': effect.dx = -hidden * amount; break;
-      case 'scale': effect.scale = 1 - hidden * amount; break;
-      case 'wipe': effect.reveal = { x: 0, y: 0, w: unit(1 - hidden), h: 1 }; break;
-    }
-    compose(result, effect);
-  }
-  const loop = motion.loop;
-  if (loop && loopPresets.has(loop.preset) && finite(loop.period) && loop.period > 0) {
-    const span = loop.period / fps;
-    if (finite(span) && span > 0) {
-      applied = true;
-      const phase = easeValue(loop.ease, ((localSeconds % span + span) % span) / span);
-      const amount = finite(loop.amount) ? loop.amount : loop.preset === 'pulse' ? 0.05 : loop.preset === 'float' ? 6 : 1;
-      const effect = identity();
-      if (loop.preset === 'pulse') effect.scale = 1 + amount * Math.sin(2 * Math.PI * phase);
-      if (loop.preset === 'float') effect.dy = amount * Math.sin(2 * Math.PI * phase);
-      if (loop.preset === 'spin') effect.rotate = 360 * phase * amount;
-      compose(result, effect);
-    }
-  }
-  return applied ? result : null;
+  const evaluated = evaluateItemMotion({ at: 0, duration: itemDurationSeconds, fps, motion }, localSeconds);
+  const result: MotionVisual = { dx: evaluated.x, dy: evaluated.y, scale: evaluated.scale,
+    rotate: evaluated.rotate, opacity: evaluated.opacity,
+    ...(evaluated.reveal ? { reveal: evaluated.reveal } : {}) };
+  return Boolean((motion.in && inOutPresets.has(motion.in.preset) && finite(motion.in.duration) && motion.in.duration > 0)
+    || (motion.out && inOutPresets.has(motion.out.preset) && finite(motion.out.duration) && motion.out.duration > 0)
+    || (motion.loop && loopPresets.has(motion.loop.preset) && finite(motion.loop.period) && motion.loop.period > 0)) ? result : null;
+
 }

@@ -1,0 +1,88 @@
+{
+  "label": "after-drag-t025",
+  "port": 9559,
+  "times": {
+    "a": [
+      0.25,
+      0.5,
+      2
+    ],
+    "b": [
+      4.25,
+      4.5,
+      6
+    ],
+    "c": [
+      8.25,
+      8.5,
+      10
+    ]
+  },
+  "pid": 53000,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "results": {
+    "e-drag-no-jump": {
+      "t": 0.25,
+      "before": {
+        "x": -173,
+        "y": 74
+      },
+      "duringDrag": {
+        "x": -90.37,
+        "y": 68.88
+      },
+      "afterRelease": {
+        "x": -93.03,
+        "y": 74.21
+      },
+      "afterReseek": {
+        "x": -93.03,
+        "y": 74.21
+      },
+      "expectedAfter": {
+        "x": -93,
+        "y": 74
+      },
+      "jumpOnRelease": {
+        "x": -2.6599999999999966,
+        "y": 5.329999999999998
+      },
+      "writtenTransform": {
+        "x": -200,
+        "y": 0,
+        "scale": 0.25
+      },
+      "writtenKeyframes": [
+        {
+          "t": 0,
+          "transform": {
+            "x": -200
+          }
+        },
+        {
+          "t": 8,
+          "transform": {
+            "x": -93.33333333333334,
+            "y": 0
+          }
+        },
+        {
+          "t": 120,
+          "transform": {
+            "x": 200
+          }
+        }
+      ],
+      "undoEqualHead": true
+    }
+  },
+  "consoleErrors": [],
+  "allConsoleErrors": []
+}

@@ -56,6 +56,90 @@ test('v2 transform patch persists on tracks[].items[].transform', () => {
   assert.equal(written.tracks[0].items[0].mask, 'mask');
 });
 
+test('dragged visible position removes entrance offset before saving the base value', () => {
+  const value = v2();
+  const title = value.tracks[1].items[0];
+  title.transform = { x: 10, y: 5 };
+  title.motion = { in: { preset: 'slide-up', duration: 30, amount: 40 } };
+  const result = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay', itemId: 'title-1', playheadSeconds: 0,
+    patch: { transform: { x: 20, y: 45 } },
+  });
+  const saved = JSON.parse(result.candidateText).tracks[1].items[0].transform;
+  assert.equal(saved.x, 20);
+  assert.equal(saved.y, 5);
+});
+
+test('dragged keyframed overlay writes only X/Y at the playhead', () => {
+  const value = v2();
+  const title = value.tracks[1].items[0];
+  title.transform = { x: 0, y: 0, scale: .5, rotate: 12 };
+  title.keyframes = [{ t: 0, transform: { x: 0, scale: .5 } },
+    { t: 60, transform: { x: 100, scale: .75 } }];
+  const result = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay', itemId: 'title-1', playheadSeconds: 1,
+    patch: { transform: { x: 70, y: 0 } },
+  });
+  const saved = JSON.parse(result.candidateText).tracks[1].items[0];
+  assert.deepEqual(saved.transform, title.transform);
+  assert.deepEqual(saved.keyframes[1], { t: 30, transform: { x: 70, y: 0 } });
+  assert.deepEqual(saved.keyframes[0], title.keyframes[0]);
+  assert.deepEqual(saved.keyframes[2], title.keyframes[1]);
+});
+
+test('media move writes only position at the playhead and keeps scale and rotation', () => {
+  const value = v2();
+  const item = value.tracks[0].items[0];
+  item.transform = { x: -200, y: 0, scale: .25, rotate: 8 };
+  item.keyframes = [{ t: 0, transform: { x: -200 } }, { t: 90, transform: { x: 100 } }];
+  const result = resolvePreviewItemWrite(JSON.stringify(value), { kind: 'layer', itemId: item.id,
+    playheadSeconds: .5, patch: { transform: { x: -70, y: 0 } } });
+  const saved = JSON.parse(result.candidateText).tracks[0].items[0];
+  assert.deepEqual(saved.transform, item.transform);
+  assert.deepEqual(saved.keyframes.find(point => point.t === 15),
+    { t: 15, transform: { x: -70, y: 0 } });
+  assert.deepEqual(saved.keyframes[0], item.keyframes[0]);
+  assert.deepEqual(saved.keyframes[2], item.keyframes[1]);
+});
+
+test('one path write replaces only X/Y inside its span', () => {
+  const value = v2();
+  const clip = value.tracks[0].items[0];
+  clip.keyframes = [
+    { t: 0, transform: { x: 1, y: 2 }, opacity: .2 },
+    { t: 30, transform: { x: 3, y: 4, rotate: 10 }, opacity: .8 },
+    { t: 90, transform: { x: 9, y: 9 } },
+  ];
+  const result = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'cut', itemId: 'clip-1', legacyIndex: 0,
+    patch: { xyKeyframes: [{ t: 20, transform: { x: 10, y: 20 } },
+      { t: 40, transform: { x: 30, y: 40 } }] },
+  });
+  const points = JSON.parse(result.candidateText).tracks[0].items[0].keyframes;
+  assert.deepEqual(points.map(point => point.t), [0, 20, 30, 40, 90]);
+  assert.deepEqual(points[2].transform, { rotate: 10 });
+  assert.equal(points[2].opacity, .8);
+  assert.deepEqual(points[4].transform, { x: 9, y: 9 });
+});
+
+test('one path write also saves HTML, shape, and canvas positions', () => {
+  for (const source of [{ kind: 'html', path: 'overlays/title.html' },
+    { kind: 'shape', shape: 'ellipse' }, { kind: 'group' }]) {
+    const value = v2();
+    const item = value.tracks[1].items[0];
+    item.source = source;
+    if (source.kind === 'group') item.items = [];
+    const result = resolvePreviewItemWrite(JSON.stringify(value), {
+      kind: 'overlay', itemId: item.id,
+      patch: { xyKeyframes: [{ t: 0, transform: { x: 10, y: 20 } },
+        { t: 30, transform: { x: 40, y: 50 } }] },
+    });
+    const saved = JSON.parse(result.candidateText).tracks[1].items[0];
+    assert.deepEqual(saved.keyframes.map(point => point.transform),
+      [{ x: 10, y: 20 }, { x: 40, y: 50 }]);
+  }
+});
+
 test('v2 html patch resolves its referenced fragment and never embeds html in edit.json', () => {
   const source = JSON.stringify(v2());
   const htmlOnly = resolvePreviewItemWrite(source, {
@@ -170,15 +254,15 @@ test('single move and uniform resize preserve the legacy transform key set', () 
     { x: 34, y: 19.18, scale: 1.5, rotate: 0 });
 });
 
-test('single move keeps unequal axes, fills a missing axis, and folds equality', () => {
+test('single move keeps the declared axes; an explicit resize folds equality', () => {
   const value = v2();
   value.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, scaleX: 2, rotate: 0 };
   const move = resolvePreviewItemWrite(JSON.stringify(value), {
     kind: 'overlay', itemId: 'title-1', patch: { transform: { x: 5, y: 6 } },
   });
   const moved = JSON.parse(move.candidateText).tracks[1].items[0].transform;
-  assert.deepEqual(moved, { x: 5, y: 6, scale: 1, scaleX: 2, scaleY: 1, rotate: 0 });
-  assert.deepEqual(Object.keys(moved), ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
+  assert.deepEqual(moved, { x: 5, y: 6, scale: 1, scaleX: 2, rotate: 0 });
+  assert.deepEqual(Object.keys(moved), ['x', 'y', 'scale', 'scaleX', 'rotate']);
   const equal = resolvePreviewItemWrite(move.candidateText, {
     kind: 'overlay', itemId: 'title-1', patch: { transform: { scaleX: 1, scaleY: 1 } },
   });

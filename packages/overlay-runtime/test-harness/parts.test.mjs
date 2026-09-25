@@ -7,6 +7,24 @@ import {
   projectBagChildren,
   scanHtmlParts,
 } from "../src/parts.mjs";
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { evaluateItemMotion } = require('../src/item-motion.js');
+
+test('HTML child inherits canvas motion after its own motion', () => {
+  const records = expandBagOverlays({ tracks: [{ items: [{ id: 'canvas', at: 1, duration: 2,
+    source: { kind: 'group' }, declaration: { transform: { x: 10 },
+      motion: { in: { preset: 'slide-up', duration: 30, amount: 40 } } },
+    children: [{ id: 'child', at: 1, duration: 2, source: { kind: 'html', html: 'card.html' },
+      declaration: { transform: { x: 5 }, opacity: .5 } }] }] }] }, () => '<div>card</div>');
+  const child = records.find(record => record.id === 'child');
+  assert.equal(child.motionParents.length, 1);
+  const state = evaluateItemMotion({ ...child.motionSource, fps: 30 }, 1,
+    child.motionParents.map(parent => ({ ...parent, fps: 30 })));
+  assert.equal(state.x, 15);
+  assert.equal(state.y, 40);
+  assert.equal(state.opacity, .5);
+});
 
 test("scanHtmlParts は引用符・大小文字を受理し、コメント/script/style を無視して重複を保つ", () => {
   const html = [

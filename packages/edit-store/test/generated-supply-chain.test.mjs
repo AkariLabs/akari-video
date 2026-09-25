@@ -39,6 +39,8 @@ const expectedSources = [
   'internal-model.ts',
   'item-anchor.ts',
   'legacy-audio-view.ts',
+  'motion-keyframe-replace.ts',
+  'motion-position-write.ts',
   'project.ts',
   'retime.ts',
   'shape-bubble.ts',

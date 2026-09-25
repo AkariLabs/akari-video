@@ -19,7 +19,7 @@ export function resolveLayerDeclaredSize(
 export function layerDeclaredGeometryHitAt(
     size: LayerDeclaredSize,
     output: LayerDeclaredSize,
-    transform: { x: number; y: number; scale: number; rotate: number },
+    transform: { x: number; y: number; scale: number; scaleX?: number; scaleY?: number; rotate: number },
     crop: { x: number; y: number; w: number; h: number },
     point: { x: number; y: number } | null
 ): boolean {
@@ -27,9 +27,9 @@ export function layerDeclaredGeometryHitAt(
     const dx = point.x - (output.width / 2 + transform.x);
     const dy = point.y - (output.height / 2 + transform.y);
     const rad = -transform.rotate * Math.PI / 180;
-    const x = (dx * Math.cos(rad) - dy * Math.sin(rad)) / (transform.scale || 1)
+    const x = (dx * Math.cos(rad) - dy * Math.sin(rad)) / (transform.scaleX ?? transform.scale ?? 1)
         + (crop.x + crop.w / 2) * size.width;
-    const y = (dx * Math.sin(rad) + dy * Math.cos(rad)) / (transform.scale || 1)
+    const y = (dx * Math.sin(rad) + dy * Math.cos(rad)) / (transform.scaleY ?? transform.scale ?? 1)
         + (crop.y + crop.h / 2) * size.height;
     return x >= crop.x * size.width && x < (crop.x + crop.w) * size.width
         && y >= crop.y * size.height && y < (crop.y + crop.h) * size.height;
