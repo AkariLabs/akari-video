@@ -1,0 +1,16 @@
+{
+ "tile": "heart-heart",
+ "newItems": [
+  {
+   "id": "shape-3",
+   "track": "v1",
+   "at": 375,
+   "duration": 150,
+   "preset": "heart-heart",
+   "center": {
+    "x": 640,
+    "y": 360
+   }
+  }
+ ]
+}

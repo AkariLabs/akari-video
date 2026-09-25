@@ -55,6 +55,7 @@ test('ジオメトリが未取得でも層を即表示し、応答後に仮枠�
             commandCalls.push(args);
             if (args[0] === 'akari.timeline.addMaterialAtOutputPoint') previewTime = 0;
             if (args[0] === 'akari.preview.seekOutput') previewTime = args[1].time;
+            if (args[0] === 'akari.timeline.addShapeAt') return 'shape-1';
             return args[0] === 'akari.catalog.resolveMaterial'
                 ? { relativePath: 'assets/still/photo.png', kind: 'image' } : undefined;
         } };
@@ -121,6 +122,55 @@ test('ジオメトリが未取得でも層を即表示し、応答後に仮枠�
         await new Promise(resolve => setTimeout(resolve, 20));
         assert.equal(commandCalls.at(-2)[1].canvasAware, true);
         assert.equal(commandCalls.at(-2)[1].outsideCanvas, false);
+        windowListeners.get('akari.library.dragStart')({ detail: {
+            kind: 'shape', preset: 'star-5', name: '星', vb: [100, 95]
+        } });
+        const shapeLayer = node.children.at(-1);
+        shapeLayer.listeners.get('dragover')({ ...over, altKey: false });
+        for (const receive of [...receivers]) receive({
+            type: 'akari-preview-library-drop-geometry', requestId: messages.at(-1).requestId,
+            rect: { x: 150.9, y: 16, width: 478.2, height: 269 },
+            viewport: { width: 780, height: 359 }, time: 12, fps: 30,
+            canvasDropTargets: [{ id: 'g', name: '導入', at: 300, duration: 150, trackIndex: 0, itemIndex: 0 }]
+        });
+        await new Promise(resolve => setImmediate(resolve));
+        const shapeGhost = shapeLayer.children[0];
+        assert.equal(shapeGhost.children[0].textContent, '星');
+        assert.ok(Math.abs(Number.parseFloat(shapeGhost.style.width) - 89.66) < 0.1);
+        assert.match(shapeGhost.children.at(-1).textContent, /0:12\.0 → 0:15\.0 · 導入 に入ります/);
+        const frame = drop.geometry.rect;
+        shapeLayer.listeners.get('drop')({ clientX: 670, clientY: 190, altKey: false,
+            dataTransfer: { getData: () => JSON.stringify({ kind: 'shape', preset: 'star-5', name: '星', vb: [100, 95] }) },
+            preventDefault() {}, stopPropagation() {} });
+        await new Promise(resolve => setTimeout(resolve, 20));
+        assert.equal(commandCalls.at(-2)[0], 'akari.timeline.addShapeAt');
+        assert.equal(commandCalls.at(-2)[1].preset, 'star-5');
+        assert.equal(commandCalls.at(-2)[1].t, 12);
+        assert.ok(Math.abs(commandCalls.at(-2)[1].center.x - (670 - frame.x) * 1280 / frame.width) < 0.01);
+        assert.ok(Math.abs(commandCalls.at(-2)[1].center.y - (190 - frame.y) * 720 / frame.height) < 0.01);
+        assert.equal(commandCalls.at(-2)[1].canvasAware, true);
+        assert.deepEqual(commandCalls.at(-1), ['akari.preview.seekOutput',
+            { editUri: 'edit.json', time: 12, waitForReady: true }]);
+        windowListeners.get('akari.library.dragStart')({ detail: {
+            kind: 'shape', preset: 'line-dash-tri-tri', name: 'ライン', vb: [100, 20]
+        } });
+        const lineLayer = node.children.at(-1);
+        lineLayer.listeners.get('dragover')({ ...over, altKey: true });
+        for (const receive of [...receivers]) receive({
+            type: 'akari-preview-library-drop-geometry', requestId: messages.at(-1).requestId,
+            rect: { x: 150.9, y: 16, width: 478.2, height: 269 },
+            viewport: { width: 780, height: 359 }, time: 12, fps: 30,
+            canvasDropTargets: [{ id: 'g', name: '導入', at: 300, duration: 150, trackIndex: 0, itemIndex: 0 }]
+        });
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(lineLayer.children[0].children.at(-1).dataset.akariCanvasDropHint, 'false');
+        lineLayer.listeners.get('drop')({ clientX: 670, clientY: 190, altKey: true,
+            dataTransfer: { getData: () => JSON.stringify({ kind: 'shape', preset: 'line-dash-tri-tri', vb: [100, 20] }) },
+            preventDefault() {}, stopPropagation() {} });
+        await new Promise(resolve => setTimeout(resolve, 20));
+        assert.equal(commandCalls.at(-2)[1].preset, 'line-dash-tri-tri');
+        assert.equal(commandCalls.at(-2)[1].outsideCanvas, true);
+        assert.equal(commandCalls.at(-2)[1].canvasAware, undefined);
         dispose();
         assert.equal(layer.removed, true);
         assert.equal(windowListeners.has('akari.library.dragStart'), false);

@@ -536,9 +536,15 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(ADD_SHAPE_AT, {
             execute: async (request: unknown) => {
-                const widget = this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
+                const editUri = (request as { editUri?: unknown } | undefined)?.editUri;
+                const location = typeof editUri === 'string'
+                    ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
+                const widget = typeof editUri === 'string'
+                    ? (location ? await this.configureQuietTimeline(location) : undefined)
+                    : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
                 if (!widget) {
-                    this.messages.warn('タイムラインを開いてから図形を置いてください。');
+                    this.messages.warn(typeof editUri === 'string'
+                        ? 'プロジェクトを特定できません。' : 'タイムラインを開いてから図形を置いてください。');
                     return undefined;
                 }
                 return widget.addShapeAt(request);

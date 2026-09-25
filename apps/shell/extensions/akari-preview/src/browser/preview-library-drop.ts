@@ -3,13 +3,14 @@ import { CommandService, MessageService } from '@theia/core/lib/common';
 import { hostToOutput, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
 import { canvasAtFrame, canvasDropLabel, type CanvasDropTarget } from '../common/canvas-drop-target';
 import { claimScene3dDrop, previewOverlayKind } from '../common/preview-overlay-drop';
+import { previewShapeDropBox, previewShapePayload } from '../common/preview-shape-drop';
 
 const MIME = 'application/x-akari-library-item';
 const START = 'akari.library.dragStart';
 const END = 'akari.library.dragEnd';
 type Payload = { kind: string; key?: string; id?: string; category?: string; title?: string;
     width?: number; height?: number; thumb?: string; durationSeconds?: number; locked?: boolean;
-    style?: unknown; slot?: string; fontFamily?: string };
+    style?: unknown; slot?: string; fontFamily?: string; preset?: string; name?: string; vb?: [number, number] };
 type Geometry = { rect: DropRect; time: number; fps: number; canvases: CanvasDropTarget[];
     output: { width: number; height: number } };
 type ApplyHit = { kind: 'caption' | 'cut' | 'layer' | 'item'; id: string };
@@ -248,7 +249,9 @@ export class PreviewLibraryDrop {
         const text = placeable || applying;
         const transition = payload.kind === 'transition';
         const overlay = previewOverlayKind(payload) === 'overlay';
-        const outputBox = previewDropBox(geometry.output, { width: payload.width, height: payload.height }, overlay ? 0.4 : 0.25);
+        const shape = previewShapePayload(payload);
+        const outputBox = shape ? previewShapeDropBox(geometry.output, shape.vb)
+            : previewDropBox(geometry.output, { width: payload.width, height: payload.height }, overlay ? 0.4 : 0.25);
         const width = audio ? 160 : text ? 190 : transition ? 230
             : outputBox ? outputBox.width * geometry.rect.width / geometry.output.width : 0;
         const height = audio || text || transition ? 46
@@ -268,7 +271,8 @@ export class PreviewLibraryDrop {
             ghost.append(note, document.createTextNode(' 時刻に置く'));
         } else ghost.append(document.createTextNode(applying
             ? (payload.kind === 'lut' ? '画面に当てます' : '文字に当てます')
-            : transition ? 'カットの境目に置いてください' : text ? 'テキストを置く' : payload.title ?? '素材'));
+            : transition ? 'カットの境目に置いてください' : text ? 'テキストを置く'
+                : shape ? shape.name ?? '図形' : payload.title ?? '素材'));
         if (!transition && !applying) {
             const duration = audio || payload.category === 'broll' ? payload.durationSeconds
                 : text ? 3 : 5;
@@ -327,6 +331,19 @@ export class PreviewLibraryDrop {
         }
         const editUri = this.editUri();
         if (!editUri) return;
+        if (payload.kind === 'shape') {
+            const shape = previewShapePayload(payload);
+            if (!shape) return;
+            const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addShapeAt', {
+                preset: shape.preset, t: geometry.time, center: point, editUri,
+                ...(!event.altKey ? { canvasAware: true } : {}), outsideCanvas: event.altKey
+            });
+            if (!placed) return;
+            await this.commands.executeCommand('akari.preview.seekOutput', {
+                editUri, time: geometry.time, waitForReady: true
+            });
+            return;
+        }
         const overlayKind = previewOverlayKind(payload);
         if (overlayKind === 'scene3d') {
             if (!claimScene3dDrop(dragSession)) return;

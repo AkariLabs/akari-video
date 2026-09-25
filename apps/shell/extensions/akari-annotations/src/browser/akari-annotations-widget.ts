@@ -4,6 +4,7 @@ import { captionLibraryApplyFeedback, planLibraryApply, shouldShowTextPlaceBand,
 import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
 import { topVisualTarget } from './preview-material-placement';
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from './canvas-drop-target';
+import { placePreviewShapeInCanvas } from './shape-canvas-place';
 import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from './timeline/canvas-row-drop';
 import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars,
     parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../common/overlay-place';
@@ -7135,7 +7136,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 const tracks = Array.isArray(doc.tracks) ? doc.tracks as Array<{ id?: unknown }> : [];
                 const locked = new Set(tracks.map(track => String(track.id)).filter(trackId => this.isTrackLocked(trackId)));
-                const inserted = insertShapeItem(doc, item, locked);
+                const inCanvas = placePreviewShapeInCanvas(doc, item,
+                    options.canvasAware === true, options.outsideCanvas === true);
+                const inserted = inCanvas ? { doc: inCanvas, createdTrack: false } : insertShapeItem(doc, item, locked);
                 placement.placed = { id, createdTrack: inserted.createdTrack };
                 return inserted.doc;
             });
