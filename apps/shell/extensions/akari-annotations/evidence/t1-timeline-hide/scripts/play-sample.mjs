@@ -1,0 +1,5 @@
+// 再生して置いた文字 c-0005 の不透明度・transform を 60ms ごとに 1.8 秒サンプリングする（フェードが再生で見えるかの確認）: node play-sample.mjs
+import { view } from './l1-common.mjs';
+const v = await view(9562);
+const r = await v.eval(`(async()=>{const btn=[...document.querySelectorAll('button')].find(b=>/再生/.test(b.getAttribute('aria-label')||b.title||''));const out=[];const vid=document.querySelector('video');btn?.click();const t0=performance.now();while(performance.now()-t0<1800){await new Promise(r=>setTimeout(r,60));const p=document.querySelector('.caption-row-plate[data-caption-key="c-0005"]');const l=p?.querySelector('.akari-caption__line')||p;const els=p?[p,...p.querySelectorAll('*')]:[];const op=els.reduce((a,e)=>a*Number(getComputedStyle(e).opacity||1),1);const tf=els.map(e=>getComputedStyle(e).transform).filter(t=>t&&t!=='none')[0]||'none';out.push({t:+(vid?.currentTime??-1).toFixed(2),present:!!p,op:+op.toFixed(3),tf:tf.slice(0,50)})}btn?.click();return {btn:btn?.getAttribute('aria-label')||btn?.title||null,out}})()`);
+console.log(JSON.stringify(r)); process.exit(0);

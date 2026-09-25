@@ -1,0 +1,35 @@
+{
+ "hiddenFlag": "false",
+ "bottomPanel": {
+  "x": 221,
+  "y": 310,
+  "w": 843,
+  "h": 333
+ },
+ "mainPanel": {
+  "x": 221,
+  "y": 3,
+  "w": 843,
+  "h": 300
+ },
+ "preview": {
+  "x": 222,
+  "y": 39,
+  "w": 841,
+  "h": 263
+ },
+ "button": {
+  "title": "タイムラインを隠す（⌘⇧L）",
+  "pressed": "false",
+  "icon": "codicon codicon-layout-panel",
+  "rect": {
+   "x": 990,
+   "y": 10,
+   "w": 65,
+   "h": 24
+  }
+ },
+ "timelineVisible": false,
+ "label": "⌘⇧L で出した",
+ "at": "2026-09-25T11:19:49.869Z"
+}

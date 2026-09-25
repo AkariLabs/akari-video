@@ -1,4 +1,5 @@
 import type { PlaceTextOptions } from '../common/place-text';
+import * as React from '@theia/core/shared/react';
 import type { MaterialSwapTarget } from '../common/material-replacement';
 import type { OnWillStopAction } from '@theia/core/lib/browser/frontend-application-contribution';
 import { guardInitLayout } from 'akari-theme/lib/browser/init-layout-guard';
@@ -10,6 +11,7 @@ import {
     Command,
     CommandContribution,
     CommandRegistry,
+    Emitter,
     MenuContribution,
     MenuModelRegistry,
     MessageService
@@ -17,6 +19,8 @@ import {
 import { DisposableCollection } from '@theia/core/lib/common/disposable';
 import { KeybindingContribution, KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
+import { FrontendApplicationStateService } from '@theia/core/lib/browser/frontend-application-state';
+import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariPreviewOpenHandler } from 'akari-preview/lib/browser/akari-preview-open-handler';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
@@ -26,6 +30,7 @@ import {
     CommonMenus,
     FrontendApplication,
     FrontendApplicationContribution,
+    StorageService,
     WidgetManager
 } from '@theia/core/lib/browser';
 import { FileChangeType, FileStat } from '@theia/filesystem/lib/common/files';
@@ -74,6 +79,7 @@ import { computeRightPanelOrder, defaultRightRailGroup, RightRailGroup } from '.
 import { installRightPanelTabStyle } from './right-panel-tab-style';
 import { ReviewModel } from './review-model';
 import { coalesceReviewOpens, shouldOpenReviewPanelFor } from '../common/review-watch';
+import { isOutputPreviewWidgetId, storedTimelineHidden, shouldRevealTimeline, TIMELINE_HIDDEN_STORAGE_KEY } from '../common/timeline-visibility';
 
 export { OPEN_AKARI_ANNOTATIONS, OPEN_AKARI_CANVAS, OPEN_AKARI_INSPECTOR, OPEN_AKARI_REVIEW_BOARD, OPEN_AKARI_REVIEW_PANEL };
 
@@ -149,7 +155,7 @@ interface AkariInspectorOpenOptions {
 }
 
 @injectable()
-export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution, KeybindingContribution {
+export class AkariAnnotationsContribution implements CommandContribution, FrontendApplicationContribution, MenuContribution, KeybindingContribution, TabBarToolbarContribution {
 
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
@@ -188,6 +194,12 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
 
+    @inject(StorageService)
+    protected readonly storage!: StorageService;
+
+    @inject(FrontendApplicationStateService)
+    protected readonly stateService!: FrontendApplicationStateService;
+
     @inject(FileService)
     protected readonly fileService!: FileService;
 
@@ -217,6 +229,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     protected openTimelinePromise?: Promise<AkariAnnotationsWidget | undefined>;
     /** セッション内でユーザーがタイムラインを明示的に閉じたら true。以降の自動アタッチを抑止する（アプリ再起動でリセット）。 */
     protected timelineDismissedThisSession = false;
+    protected timelineHidden = false;
+    protected readonly timelineVisibilityChanged = new Emitter<void>();
 
     /**
      * レポート面のブロック選択導線（doc-annotation-ui タスク）で使う、開いている akari-surface
@@ -239,6 +253,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     async onStart(): Promise<void> {
+        this.timelineHidden = storedTimelineHidden(await this.storage.getData<unknown>(TIMELINE_HIDDEN_STORAGE_KEY));
+        this.syncTimelineVisibility();
         this.toDispose.push(this.previewHandler.onDidWriteCaption(change => {
             this.history.pushPreviewCaptionWrite(change, {
                 read: captionsUri => this.readText(new URI(captionsUri)),
@@ -286,10 +302,19 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         }));
         // Restored widgets already have their URI identity, but still need project context.
         this.toDispose.push(this.shell.onDidAddWidget(widget => {
+            if (this.timelineHidden && widget instanceof AkariAnnotationsWidget) {
+                void this.shell.collapsePanel('bottom');
+            }
             if (widget instanceof AkariAnnotationsWidget && !widget.timelineLocation) {
                 void this.configureRestoredTimeline(widget);
             }
         }));
+        const keepTimelineHidden = (): void => {
+            if (this.timelineHidden && !this.shell.bottomPanel.isHidden) void this.shell.collapsePanel('bottom');
+        };
+        this.shell.bottomPanel.layoutModified.connect(keepTimelineHidden);
+        this.toDispose.push({ dispose: () => this.shell.bottomPanel.layoutModified.disconnect(keepTimelineHidden) });
+        void this.stateService.reachedState('initialized_layout').then(keepTimelineHidden);
         await this.workspaceService.ready;
         for (const widget of this.widgetManager.getWidgets(AkariAnnotationsWidget.FACTORY_ID)) {
             if (widget instanceof AkariAnnotationsWidget && !widget.timelineLocation) {
@@ -300,6 +325,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             await this.watchForReview(root.resource);
         }
         await this.ensureReviewPanelTab();
+        keepTimelineHidden();
         this.widgetManager.onDidCreateWidget(event => {
             if (event.factoryId !== WebviewWidget.FACTORY_ID || !(event.widget instanceof WebviewWidget)) {
                 return;
@@ -333,9 +359,56 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     onStop(): void {
         this.toDispose.dispose();
+        this.timelineVisibilityChanged.dispose();
         if (this.reconcileHandle) {
             clearInterval(this.reconcileHandle);
             this.reconcileHandle = undefined;
+        }
+    }
+
+    protected syncTimelineVisibility(): void {
+        document.documentElement.dataset.akariTimelineHidden = String(this.timelineHidden);
+        this.timelineVisibilityChanged.fire();
+    }
+
+    registerToolbarItems(toolbar: TabBarToolbarRegistry): void {
+        toolbar.registerItem({
+            id: 'akari.timeline.toggleVisibility.toolbar',
+            command: 'akari.timeline.toggleVisibility',
+            group: 'navigation',
+            priority: 101,
+            isVisible: widget => isOutputPreviewWidgetId(widget?.id),
+            onDidChange: this.timelineVisibilityChanged.event,
+            render: () => {
+                const label = this.timelineHidden ? 'タイムラインを出す（⌘⇧L）' : 'タイムラインを隠す（⌘⇧L）';
+                return React.createElement('button', {
+                    type: 'button', className: 'theia-button secondary',
+                    title: label, 'aria-label': label, 'aria-pressed': this.timelineHidden,
+                    style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        height: '24px', width: '28px', margin: '0 2px', padding: '0 6px' },
+                    onClick: (event: React.MouseEvent) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        void this.commands.executeCommand('akari.timeline.toggleVisibility');
+                    }
+                }, React.createElement('span', {
+                    className: this.timelineHidden ? 'codicon codicon-layout-panel-off' : 'codicon codicon-layout-panel',
+                    'aria-hidden': true
+                }));
+            }
+        });
+    }
+
+    protected async setTimelineHidden(hidden: boolean): Promise<void> {
+        this.timelineHidden = hidden;
+        await this.storage.setData(TIMELINE_HIDDEN_STORAGE_KEY, hidden);
+        this.syncTimelineVisibility();
+        if (hidden) {
+            await this.shell.collapsePanel('bottom');
+        } else {
+            const widget = await this.attach();
+            this.shell.expandPanel('bottom');
+            if (widget) await this.shell.revealWidget(widget.id);
         }
     }
 
@@ -357,6 +430,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     registerCommands(commands: CommandRegistry): void {
         this.getShortcutKeybindings().registerCommands(commands);
+        commands.registerCommand({ id: 'akari.timeline.toggleVisibility', label: 'タイムラインを隠す / 出す', category: 'タイムライン' }, {
+            execute: () => this.setTimelineHidden(!this.timelineHidden),
+            isToggled: () => this.timelineHidden
+        });
         commands.registerCommand(CREATE_TIMELINE_CANVAS, {
             execute: async (options?: { at?: number; duration?: number }) => {
                 const widget = this.timelineWidget ?? await this.attach();
@@ -399,7 +476,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(READ_ALOUD, {
             execute: async (options: { captionIds?: string[] } = {}, editUri?: string) => {
                 const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
-                const widget = editUri ? (location ? await this.attachAt(location) : undefined) : await this.attach();
+                const widget = editUri ? (location ? await this.configureQuietTimeline(location) : undefined) : await this.attach();
                 if (widget) await widget.openReadAloud({ captionIds: options.captionIds ?? [] });
             }
         });
@@ -886,6 +963,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         const closed = locations.find(location => !this.findTimelineWidget(location)?.isAttached);
         const location = closed ?? await this.createTimeline(locations);
         if (!location) return undefined;
+        if (this.timelineHidden) await this.setTimelineHidden(false);
         const widget = await this.attachAt(location);
         this.timelineDismissedThisSession = false;
         this.timelineWidget = widget;
@@ -923,7 +1001,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     /** Internal callers reopen the current timeline without starting the creation flow. */
     protected async openCurrentTimeline(): Promise<AkariAnnotationsWidget | undefined> {
         const widget = await this.attach();
-        if (widget) {
+        if (widget && shouldRevealTimeline(this.timelineHidden)) {
             this.timelineDismissedThisSession = false;
             await this.shell.activateWidget(widget.id);
         }
@@ -986,6 +1064,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     async attachPassively(): Promise<void> {
         if (this.timelineDismissedThisSession) return;
         const locations = (await this.locateAll()).filter(location => location.editUri);
+        if (!shouldRevealTimeline(this.timelineHidden)) {
+            const location = this.timelineWidget?.timelineLocation ?? locations[0];
+            if (location) await this.configureQuietTimeline(location);
+            return;
+        }
         const current = this.timelineWidget;
         let first: AkariAnnotationsWidget | undefined;
         for (const location of locations) {
@@ -1000,9 +1083,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     protected async attach(): Promise<AkariAnnotationsWidget | undefined> {
-        if (this.timelineWidget?.isAttached && !this.timelineWidget.isDisposed) return this.timelineWidget;
+        if (this.timelineWidget && !this.timelineWidget.isDisposed
+            && (this.timelineHidden || this.timelineWidget.isAttached)) return this.timelineWidget;
         const location = this.timelineWidget?.timelineLocation ?? await this.locate();
-        return location ? this.attachAt(location) : undefined;
+        return location ? (this.timelineHidden ? this.configureQuietTimeline(location) : this.attachAt(location)) : undefined;
     }
 
     protected findTimelineWidget(location: ProjectLocation): AkariAnnotationsWidget | undefined {
@@ -1027,7 +1111,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         await widget.configure(location, uri => this.refreshLocationEditUri(uri));
         if (!this.timelineWidget || this.timelineWidget.isDisposed) this.timelineWidget = widget;
         this.review.location = this.timelineWidget.timelineLocation;
-        if (!widget.isAttached) this.shell.addWidget(widget, { area: 'bottom' });
+        if (!widget.isAttached && shouldRevealTimeline(this.timelineHidden)) this.shell.addWidget(widget, { area: 'bottom' });
         return widget;
     }
 
@@ -1037,6 +1121,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 { editUri: location.editUri?.toString() });
         this.trackTimelineWidget(widget);
         await widget.configure(location, uri => this.refreshLocationEditUri(uri));
+        if (this.timelineHidden || !this.timelineWidget || this.timelineWidget.isDisposed || !this.timelineWidget.isAttached) {
+            this.timelineWidget = widget;
+            this.review.location = widget.timelineLocation;
+        }
         return widget;
     }
 
