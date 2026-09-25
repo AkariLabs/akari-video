@@ -272,19 +272,21 @@ export class ContextBarController implements Disposable {
                 case 'fit': {
                     const locked = guardLocked();
                     if (locked) return this.notice(locked);
-                    return this.commit('画面に合わせる', doc => fitItemToScreen(doc, id!));
+                    return this.commit('画面に合わせる', doc => fitItemToScreen(doc, id!, Math.round(source.playhead * source.fps)));
                 }
                 case 'nudge': {
                     const locked = guardLocked();
                     if (locked) return this.notice(locked);
-                    return this.commit('位置を揃える', doc => nudgeItem(doc, id!, Number(request.dx) || 0, Number(request.dy) || 0));
+                    return this.commit('位置を揃える', doc => nudgeItem(doc, id!, Number(request.dx) || 0, Number(request.dy) || 0,
+                        Math.round(source.playhead * source.fps)));
                 }
                 case 'resize': {
                     const locked = guardLocked();
                     if (locked) return this.notice(locked);
                     return this.commit('大きさを変更', doc => resizeShapeTo(doc, id!, {
                         ...(request.width !== undefined ? { width: request.width } : {}),
-                        ...(request.height !== undefined ? { height: request.height } : {}), keepRatio: request.keepRatio === true }));
+                        ...(request.height !== undefined ? { height: request.height } : {}), keepRatio: request.keepRatio === true },
+                    Math.round(source.playhead * source.fps)));
                 }
                 default:
                     return { ok: false, message: `不明な操作: ${request.action}` };

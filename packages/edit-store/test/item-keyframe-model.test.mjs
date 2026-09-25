@@ -12,8 +12,6 @@ const { activateItemKeyframe, activateItemKeyframeGroup, activateItemTransformKe
 const { resolvePreviewItemWrite } = require('../lib/edit-v2-item-write.js');
 const { readEditV2 } = require('../lib/edit-v2.js');
 const { evaluateItemMotion } = require('../../overlay-runtime/src/item-motion.js');
-const { computeLayerKeyframesVisual: shellLayerVisual } =
-  require('../../../apps/shell/extensions/akari-preview/lib/common/layer-keyframes-visual.js');
 
 const html = () => ({ id: 'item', at: 0, duration: 150,
   source: { kind: 'html', path: 'overlays/title.html' },
@@ -106,7 +104,9 @@ test('size and opacity axes share group points; media points remain complete', (
     { x: 12, y: 25, scale: .8, scaleX: .8, scaleY: .8, rotate: 7 });
 });
 
-test('five evaluators agree on complete points: 1/2/3 points, with and without easing', () => {
+// シェルのプレビュー評価器（akari-preview の layer-keyframes-visual）を加えた 5 評価器の版は
+// apps/shell/extensions/akari-preview/test/item-keyframe-evaluators-parity.test.mjs（拡張の build 後に走る）。
+test('four non-shell evaluators agree on complete points: 1/2/3 points, with and without easing', () => {
   for (const count of [1, 2, 3]) for (const easing of [false, true]) {
     const values = [
       { t: 0, transform: { x: -100, y: 25, scale: .5, scaleX: .5, scaleY: .5, rotate: -30 }, opacity: .2 },
@@ -121,11 +121,9 @@ test('five evaluators agree on complete points: 1/2/3 points, with and without e
       const linear = interpolateKeyframes(item.keyframes, frame,
         { statics: { ...item.transform, opacity: item.opacity } });
       const store = at(item, frame);
-      const shell = shellLayerVisual(secondsPoints, frame / 30, item.transform);
       const web = webLayerVisual(secondsPoints, frame / 30);
       for (const field of ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate', 'opacity']) {
         const outcomes = [motion[field], linear[field], store[field],
-          field === 'opacity' ? shell.opacity : shell.transform[field],
           field === 'opacity' ? web.opacity : web.transform[field]];
         for (const value of outcomes) assert.ok(Math.abs(value - outcomes[0]) < 1e-5,
           `${field} count=${count} easing=${easing} frame=${frame}: ${outcomes.join(', ')}`);

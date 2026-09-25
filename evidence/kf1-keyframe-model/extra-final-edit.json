@@ -1,0 +1,217 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "k1",
+      "lane": "visual",
+      "name": "KF 1",
+      "items": [
+        {
+          "id": "shape-c",
+          "at": 0,
+          "duration": 150,
+          "transform": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 50,
+              "transform": {
+                "x": 259.9698795180723,
+                "y": -140.01506024096392
+              }
+            },
+            {
+              "t": 51
+            }
+          ],
+          "source": {
+            "kind": "shape",
+            "shape": "bubble",
+            "params": {
+              "fill": "#ffffff",
+              "stroke": "#000000",
+              "strokeWidth": 5,
+              "style": "rect",
+              "count": 16,
+              "depth": 40,
+              "jitter": 25,
+              "seed": 1,
+              "tail": "point",
+              "tailAngle": 195,
+              "tailLength": 42,
+              "tailWidth": 26,
+              "tailCurve": 0,
+              "dash": "solid",
+              "preset": "manga-rect-tail",
+              "width": 360,
+              "height": 360
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "k2",
+      "lane": "visual",
+      "name": "KF 2",
+      "items": [
+        {
+          "id": "shape-a",
+          "at": 150,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8333,
+            "rotate": -29.992705117180833
+          },
+          "keyframes": [
+            {
+              "t": 20,
+              "transform": {
+                "x": 300,
+                "y": 108.0000176487199
+              }
+            },
+            {
+              "t": 45,
+              "transform": {
+                "x": 368.2921602290355,
+                "y": 161.91436142519302
+              }
+            },
+            {
+              "t": 60,
+              "transform": {
+                "x": 404.4674563664569,
+                "y": 191.0629676910769
+              }
+            },
+            {
+              "t": 90,
+              "transform": {
+                "x": 265.1952865667545,
+                "y": -269.783392488199
+              }
+            },
+            {
+              "t": 100,
+              "transform": {
+                "x": 216.8,
+                "y": -209.86
+              }
+            },
+            {
+              "t": 110,
+              "transform": {
+                "x": -150,
+                "y": -104.93
+              }
+            },
+            {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "t": 130,
+              "transform": {
+                "x": -0.47,
+                "y": -0.26
+              }
+            }
+          ],
+          "source": {
+            "kind": "shape",
+            "shape": "bubble",
+            "params": {
+              "fill": "#ffffff",
+              "stroke": "#000000",
+              "strokeWidth": 5,
+              "style": "rect",
+              "count": 16,
+              "depth": 40,
+              "jitter": 25,
+              "seed": 1,
+              "tail": "point",
+              "tailAngle": 195,
+              "tailLength": 42,
+              "tailWidth": 26,
+              "tailCurve": 0,
+              "dash": "solid",
+              "preset": "manga-rect-tail",
+              "width": 360,
+              "height": 360
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "k3",
+      "lane": "visual",
+      "name": "KF 3",
+      "items": [
+        {
+          "id": "shape-b",
+          "at": 300,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "opacity": 1,
+          "keyframes": [
+            {
+              "t": 10,
+              "transform": {
+                "scale": 0.6
+              },
+              "opacity": 1
+            },
+            {
+              "t": 11
+            }
+          ],
+          "source": {
+            "kind": "shape",
+            "shape": "bubble",
+            "params": {
+              "fill": "#ffffff",
+              "stroke": "#000000",
+              "strokeWidth": 5,
+              "style": "rect",
+              "count": 16,
+              "depth": 40,
+              "jitter": 25,
+              "seed": 1,
+              "tail": "point",
+              "tailAngle": 195,
+              "tailLength": 42,
+              "tailWidth": 26,
+              "tailCurve": 0,
+              "dash": "solid",
+              "preset": "manga-rect-tail",
+              "width": 360,
+              "height": 360
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

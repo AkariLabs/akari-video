@@ -1,0 +1,259 @@
+{
+  "commandExit": 0,
+  "stdout": "PROGRESS frame=56 total=150\nPROGRESS frame=57 total=150\nPROGRESS frame=58 total=150\nPROGRESS frame=59 total=150\nPROGRESS frame=60 total=150\nPROGRESS frame=61 total=150\nPROGRESS frame=62 total=150\nPROGRESS frame=63 total=150\nPROGRESS frame=64 total=150\nPROGRESS frame=65 total=150\nPROGRESS frame=66 total=150\nPROGRESS frame=67 total=150\nPROGRESS frame=68 total=150\nPROGRESS frame=69 total=150\nPROGRESS frame=70 total=150\nPROGRESS frame=71 total=150\nPROGRESS frame=72 total=150\nPROGRESS frame=73 total=150\nPROGRESS frame=74 total=150\nPROGRESS frame=75 total=150\nPROGRESS frame=76 total=150\nPROGRESS frame=77 total=150\nPROGRESS frame=78 total=150\nPROGRESS frame=79 total=150\nPROGRESS frame=80 total=150\nPROGRESS frame=81 total=150\nPROGRESS frame=82 total=150\nPROGRESS frame=83 total=150\nPROGRESS frame=84 total=150\nPROGRESS frame=85 total=150\nPROGRESS frame=86 total=150\nPROGRESS frame=87 total=150\nPROGRESS frame=88 total=150\nPROGRESS frame=89 total=150\nPROGRESS frame=90 total=150\nPROGRESS frame=91 total=150\nPROGRESS frame=92 total=150\nPROGRESS frame=93 total=150\nPROGRESS frame=94 total=150\nPROGRESS frame=95 total=150\nPROGRESS frame=96 total=150\nPROGRESS frame=97 total=150\nPROGRESS frame=98 total=150\nPROGRESS frame=99 total=150\nPROGRESS frame=100 total=150\nPROGRESS frame=101 total=150\nPROGRESS frame=102 total=150\nPROGRESS frame=103 total=150\nPROGRESS frame=104 total=150\nPROGRESS frame=105 total=150\nPROGRESS frame=106 total=150\nPROGRESS frame=107 total=150\nPROGRESS frame=108 total=150\nPROGRESS frame=109 total=150\nPROGRESS frame=110 total=150\nPROGRESS frame=111 total=150\nPROGRESS frame=112 total=150\nPROGRESS frame=113 total=150\nPROGRESS frame=114 total=150\nPROGRESS frame=115 total=150\nPROGRESS frame=116 total=150\nPROGRESS frame=117 total=150\nPROGRESS frame=118 total=150\nPROGRESS frame=119 total=150\nPROGRESS frame=120 total=150\nPROGRESS frame=121 total=150\nPROGRESS frame=122 total=150\nPROGRESS frame=123 total=150\nPROGRESS frame=124 total=150\nPROGRESS frame=125 total=150\nPROGRESS frame=126 total=150\nPROGRESS frame=127 total=150\nPROGRESS frame=128 total=150\nPROGRESS frame=129 total=150\nPROGRESS frame=130 total=150\nPROGRESS frame=131 total=150\nPROGRESS frame=132 total=150\nPROGRESS frame=133 total=150\nPROGRESS frame=134 total=150\nPROGRESS frame=135 total=150\nPROGRESS frame=136 total=150\nPROGRESS frame=137 total=150\nPROGRESS frame=138 total=150\nPROGRESS frame=139 total=150\nPROGRESS frame=140 total=150\nPROGRESS frame=141 total=150\nPROGRESS frame=142 total=150\nPROGRESS frame=143 total=150\nPROGRESS frame=144 total=150\nPROGRESS frame=145 total=150\nPROGRESS frame=146 total=150\nPROGRESS frame=147 total=150\nPROGRESS frame=148 total=150\nPROGRESS frame=149 total=150\nPROGRESS frame=150 total=150\nPROGRESS timing name=encoder_flush ms=17\nPROGRESS timing name=osr_ffprobe ms=48\nPROGRESS timing name=window_destroy ms=6\nPROGRESS timing name=child_run_json ms=4\nPROGRESS timing name=window_destroy_to_exit ms=5\nWARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）\nPASS: exports/shape-c-osr.mp4\n",
+  "stderr": "",
+  "shapeC": {
+    "id": "shape-c",
+    "at": 0,
+    "duration": 150,
+    "transform": {
+      "x": 259.9698795180723,
+      "y": -140.01506024096392,
+      "scale": 0.6,
+      "rotate": 0
+    },
+    "keyframes": [
+      {
+        "t": 50,
+        "transform": {
+          "x": 259.9698795180723,
+          "y": -140.01506024096392
+        }
+      },
+      {
+        "t": 51
+      }
+    ],
+    "source": {
+      "kind": "shape",
+      "shape": "bubble",
+      "params": {
+        "fill": "#ffffff",
+        "stroke": "#000000",
+        "strokeWidth": 5,
+        "style": "rect",
+        "count": 16,
+        "depth": 40,
+        "jitter": 25,
+        "seed": 1,
+        "tail": "point",
+        "tailAngle": 195,
+        "tailLength": 42,
+        "tailWidth": 26,
+        "tailCurve": 0,
+        "dash": "solid",
+        "preset": "manga-rect-tail",
+        "width": 360,
+        "height": 360
+      }
+    }
+  },
+  "frames": [
+    {
+      "frame": 0,
+      "preview": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "reopened": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 250.5,
+        "y": 56,
+        "box": {
+          "x": 217,
+          "y": 27,
+          "w": 68,
+          "h": 59
+        }
+      },
+      "delta": {
+        "x": 0,
+        "y": 0.5
+      },
+      "deltaReopened": {
+        "x": 0,
+        "y": 0.5
+      }
+    },
+    {
+      "frame": 20,
+      "preview": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "reopened": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 250.5,
+        "y": 56,
+        "box": {
+          "x": 217,
+          "y": 27,
+          "w": 68,
+          "h": 59
+        }
+      },
+      "delta": {
+        "x": 0,
+        "y": 0.5
+      },
+      "deltaReopened": {
+        "x": 0,
+        "y": 0.5
+      }
+    },
+    {
+      "frame": 50,
+      "preview": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "reopened": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 250.5,
+        "y": 56,
+        "box": {
+          "x": 217,
+          "y": 27,
+          "w": 68,
+          "h": 59
+        }
+      },
+      "delta": {
+        "x": 0,
+        "y": 0.5
+      },
+      "deltaReopened": {
+        "x": 0,
+        "y": 0.5
+      }
+    },
+    {
+      "frame": 80,
+      "preview": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "reopened": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 250.5,
+        "y": 56,
+        "box": {
+          "x": 217,
+          "y": 27,
+          "w": 68,
+          "h": 59
+        }
+      },
+      "delta": {
+        "x": 0,
+        "y": 0.5
+      },
+      "deltaReopened": {
+        "x": 0,
+        "y": 0.5
+      }
+    },
+    {
+      "frame": 149,
+      "preview": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "reopened": {
+        "x": 250.5,
+        "y": 55.5,
+        "box": {
+          "x": 217,
+          "y": 28,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 250.5,
+        "y": 56,
+        "box": {
+          "x": 217,
+          "y": 27,
+          "w": 68,
+          "h": 59
+        }
+      },
+      "delta": {
+        "x": 0,
+        "y": 0.5
+      },
+      "deltaReopened": {
+        "x": 0,
+        "y": 0.5
+      }
+    }
+  ],
+  "maxAbsDeltaPx": 0.5
+}
