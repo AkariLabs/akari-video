@@ -4117,6 +4117,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assets.runtimeJavaScriptUrl,
                 assets.interactionJavaScriptUrl,
                 assets.interactionCss,
+                assets.motionVocabCss,
                 assets.webviewKernelJavaScriptUrl,
                 assets.scrubAudioJavaScriptUrl ?? '',
                 assets.captionFontUrl
@@ -7372,6 +7373,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <script>${this.previewDiagnosticsGuardScript()}</script>
 <script>(${neutralizeWebviewDefaultStylesForOverlays.toString()})(document, ${scopeSelectorOutsideOverlays.toString()});</script>
 <style>
+${this.inlineStyle(assets.motionVocabCss)}
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontUrl)}
 :root {

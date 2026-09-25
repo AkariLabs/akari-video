@@ -138,6 +138,7 @@ body{display:grid;place-items:center;padding:32px}p{max-width:480px;text-align:c
         return `<!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
+${assets.motionVocabCss}
 @font-face{font-family:AkariCaption;src:url("${this.escapeHtml(assets.captionFontUrl)}")}
 :root{color-scheme:dark;font-family:system-ui,sans-serif;color:#eee;background:#111}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}
