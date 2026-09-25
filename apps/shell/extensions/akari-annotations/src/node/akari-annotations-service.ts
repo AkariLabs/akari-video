@@ -130,6 +130,7 @@ import {
 import type { SetAudioDuckRequest, SetAudioKeyframesRequest } from '../common/akari-annotations-protocol';
 import type { MeasureAudioForLevelRequest, MeasureAudioForLevelResult } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
+import { projectOutputPath, referencedLibraryMediaFile, resolveProjectMediaFile } from './project-asset-path';
 import type { GenerationBindingView, GenerationSidecarMeta } from '../common/generation-sidecar';
 import { measureAudioForLevel } from './audio-level-resolver';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
@@ -254,7 +255,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async generatePhotoMask(request: { projectRootUri: string; sourceUri: string }): Promise<
         { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }> {
         const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
-        return savePhotoMask(this.fsPath(request.projectRootUri), this.fsPath(request.sourceUri), helper);
+        return savePhotoMask(this.fsPath(request.projectRootUri),
+            helper ? await this.resolveMediaUri(request.projectRootUri, request.sourceUri)
+                : this.fsPath(request.sourceUri), helper);
     }
 
     async voiceAvatars(): Promise<{ avatars: VoiceAvatar[] }> {
@@ -516,9 +519,26 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!request?.projectRootUri || !request?.videoUri) {
             return { status: 'unavailable', reason: 'source-missing' };
         }
+        const mediaPath = await this.resolveMediaUri(request.projectRootUri, request.videoUri).catch(error => {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+            throw error;
+        });
+        if (!mediaPath) return { status: 'unavailable', reason: 'source-missing' };
         return mediaCache.getClipThumbnail(
-            this.fsPath(request.projectRootUri), this.fsPath(request.videoUri), request.atSeconds
+            this.fsPath(request.projectRootUri), mediaPath, request.atSeconds
         );
+    }
+
+    protected async resolveMediaUri(projectRootUri: string, mediaUri: string): Promise<string> {
+        const root = resolve(this.fsPath(projectRootUri));
+        const requested = this.fsPath(mediaUri);
+        const declared = relative(root, requested).split(sep).join('/');
+        if (declared && declared !== '..' && !declared.startsWith('../') && !isAbsolute(declared)) {
+            return resolveProjectMediaFile(root, declared);
+        }
+        // The browser may already have replaced the declared path with its library URI.
+        // Other external URIs retain the read-only RPC behavior that preceded this resolver.
+        return await referencedLibraryMediaFile(root, requested) ?? requested;
     }
 
     async readTranscriptSummary(request: ReadTranscriptSummaryRequest): Promise<TranscriptSummary> {
@@ -579,6 +599,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const canonicalRoot = await fs.realpath(root).catch(() => root);
         const loaded = await Promise.all([...candidates].map(async ([sourcePath, candidate]) => {
             try {
+                const declared = relative(root, candidate.sourceAbsolutePath).split(sep).join('/');
+                const projectSource = !!declared && declared !== '..' && !declared.startsWith('../') && !isAbsolute(declared);
+                const sidecar = await fs.realpath(candidate.sidecarPath);
+                const sidecarRelative = relative(canonicalRoot, sidecar);
+                if (projectSource && (sidecarRelative === '..' || sidecarRelative.startsWith(`..${sep}`)
+                    || isAbsolute(sidecarRelative))) return undefined;
                 const parsed = JSON.parse(await fs.readFile(candidate.sidecarPath, 'utf8')) as unknown;
                 if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
                 const meta = parsed as GenerationSidecarMeta;
@@ -593,18 +619,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                     if (bindsFirstFramePath) {
                         actual = null;
                         try {
-                            const hashTarget = resolve(root, firstFramePath);
-                            const canonicalParent = await fs.realpath(dirname(hashTarget));
-                            const requestedHashTarget = join(canonicalParent, basename(hashTarget));
-                            const relativeHashTarget = relative(canonicalRoot, requestedHashTarget);
-                            const contained = relativeHashTarget === ''
-                                || (!relativeHashTarget.startsWith('..') && !isAbsolute(relativeHashTarget));
-                            if (contained) actual = await this.sourceSha256(requestedHashTarget);
+                            actual = await this.sourceSha256(await resolveProjectMediaFile(root, firstFramePath));
                         } catch {
                             actual = null;
                         }
                     } else {
-                        actual = await this.sourceSha256(candidate.sourceAbsolutePath);
+                        actual = null;
+                        try {
+                            actual = await this.sourceSha256(projectSource
+                                ? await resolveProjectMediaFile(root, declared) : candidate.sourceAbsolutePath);
+                        } catch { /* Missing source keeps the sidecar with a null binding. */ }
                     }
                     binding = {
                         expected: expected.sha256,
@@ -796,30 +820,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = request.fromImage ? { path: request.fromImage } : item?.source?.kind === 'media'
             ? (edit.sources ?? []).find(candidate => candidate.id === item.source.src) : undefined;
         if (!source?.path) throw new Error('生成対象の素材が見つかりません。');
-        const path = resolve(projectRoot, `${source.path}.meta.json`);
-        const within = (target: string, root: string): boolean => {
-            const rel = relative(root, target);
-            return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
-        };
-        if (!within(path, projectRoot) || (request.fromImage && (isAbsolute(request.fromImage)
-            || request.fromImage.split(/[\\/]/u).includes('..')))) throw new Error('素材はプロジェクト内で指定してください。');
+        const imagePath = await resolveProjectMediaFile(projectRoot, source.path);
+        const path = await projectOutputPath(projectRoot, `${source.path}.meta.json`);
         let original: string;
         let imported = false;
         try {
-            if (!within(await fs.realpath(path), await fs.realpath(projectRoot))) {
-                throw new Error('素材はプロジェクト内で指定してください。');
-            }
             original = await fs.readFile(path, 'utf8');
         } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
             if (!['.png', '.jpg', '.jpeg', '.webp'].includes(extname(source.path).toLowerCase())) {
                 throw new Error('この素材には生成の記録がありません。静止画か、空の枠で使えます。');
-            }
-            const canonicalRoot = await fs.realpath(projectRoot);
-            const imagePath = resolve(projectRoot, source.path);
-            if (!within(await fs.realpath(imagePath), canonicalRoot)
-                || !within(await fs.realpath(dirname(path)), canonicalRoot)) {
-                throw new Error('素材はプロジェクト内で指定してください。');
             }
             original = await this.importedImageGenerationMeta(imagePath, source.path, request.output?.duration_s);
             imported = true;
@@ -830,11 +840,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         let inputs = request.inputs ?? {};
         if (importedImage) {
             inputs = { ...meta.inputs, ...inputs, prompt: inputs.prompt ?? '' };
-            const canonicalRoot = await fs.realpath(projectRoot);
             const reference = async (value: any): Promise<any> => {
                 if (!value || value.sha256) return value;
-                const target = await fs.realpath(resolve(projectRoot, value.path));
-                if (!within(target, canonicalRoot)) throw new Error('素材はプロジェクト内で指定してください。');
+                const target = await resolveProjectMediaFile(projectRoot, value.path);
                 return { ...value, sha256: createHash('sha256').update(await fs.readFile(target)).digest('hex') };
             };
             for (const slot of ['first_frame', 'last_frame', 'source_video']) inputs[slot] = await reference(inputs[slot]);
@@ -884,7 +892,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             await fs.writeFile(temp, content, 'utf8');
             await fs.rename(temp, path);
         } finally { await fs.unlink(temp).catch(() => undefined); }
-        return { ok: true, path: relative(projectRoot, path).split(sep).join('/') };
+        return { ok: true, path: `${source.path.replace(/\\/gu, '/')}.meta.json` };
     }
 
     protected async importedImageGenerationMeta(imagePath: string, sourcePath: string, duration: unknown): Promise<string> {
@@ -962,7 +970,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             return { status: 'unavailable', reason: 'source-missing' };
         }
         return mediaCache.getClipFilmstripChunk(
-            this.fsPath(request.projectRootUri), this.fsPath(request.videoUri), request.chunkIndex,
+            this.fsPath(request.projectRootUri), await this.resolveMediaUri(request.projectRootUri, request.videoUri), request.chunkIndex,
             request.frameWidth, request.fps
         );
     }
@@ -973,12 +981,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         if (request.bucketCount !== undefined) {
             return mediaCache.getClipWaveform(
-                this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
+                this.fsPath(request.projectRootUri), await this.resolveMediaUri(request.projectRootUri, request.videoUri),
                 request.startSeconds, request.endSeconds, request.bucketCount
             );
         }
         return mediaCache.getClipWaveform(
-            this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
+            this.fsPath(request.projectRootUri), await this.resolveMediaUri(request.projectRootUri, request.videoUri),
             request.startSeconds, request.endSeconds
         );
     }
@@ -989,7 +997,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
         try {
             const projectRoot = this.fsPath(request.projectRootUri);
-            const videoPath = this.fsPath(request.videoUri);
+            const videoPath = await this.resolveMediaUri(request.projectRootUri, request.videoUri);
             const sourceStat = await fs.stat(videoPath).catch(() => undefined);
             if (!sourceStat?.isFile()) return { status: 'unavailable', reason: 'source-missing' };
             let ffmpeg = process.env.AKARI_FFMPEG_BIN;
@@ -1059,7 +1067,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!request?.projectRootUri || !request?.audioUri) {
             return { status: 'unavailable', reason: 'source-missing' };
         }
-        return mediaCache.getAudioDuration(this.fsPath(request.projectRootUri), this.fsPath(request.audioUri));
+        return mediaCache.getAudioDuration(this.fsPath(request.projectRootUri),
+            await this.resolveMediaUri(request.projectRootUri, request.audioUri));
     }
 
     async probeSourceDimensions(request: ProbeSourceDimensionsRequest): Promise<ProbeSourceDimensionsResult> {
@@ -1355,7 +1364,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(editPath, 'utf8');
         const maxOutSeconds = request.maxOutSeconds !== undefined
             ? request.maxOutSeconds
-            : await this.probeMaxOutSeconds(source, editPath, this.fsPath(request.projectRootUri), request.cutIndex);
+            : await this.probeMaxOutSeconds(source, this.fsPath(request.projectRootUri), request.cutIndex);
         const updated = trimCutInSource(
             source, request.cutIndex, request.in, request.out, maxOutSeconds
         );
@@ -1373,7 +1382,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(editPath, 'utf8');
         const maxOutSeconds = request.maxOutSeconds !== undefined
             ? request.maxOutSeconds
-            : await this.probeMaxOutSeconds(source, editPath, this.fsPath(request.projectRootUri), request.cutIndex);
+            : await this.probeMaxOutSeconds(source, this.fsPath(request.projectRootUri), request.cutIndex);
         const updated = slipCutInSource(source, request.cutIndex, request.in, request.out, maxOutSeconds);
         await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップをスリップ') };
@@ -1387,7 +1396,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
      * 呼び出し側（trimCutInSource）は従来どおりクランプなしで進む。
      */
     protected async probeMaxOutSeconds(
-        rawEditSource: string, editPath: string, projectRootPath: string, cutIndex: number
+        rawEditSource: string, projectRootPath: string, cutIndex: number
     ): Promise<number | undefined> {
         let value: unknown;
         try {
@@ -1412,20 +1421,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!mediaPath) {
             return undefined;
         }
-        const audioPath = this.resolveMediaFsPath(mediaPath, editPath);
+        const declared = /^[a-z][a-z\d+.-]*:/iu.test(mediaPath) && !/^[a-z]:[\\/]/iu.test(mediaPath)
+            ? relative(projectRootPath, new URI(mediaPath).path.fsPath())
+            : isAbsolute(mediaPath) ? relative(projectRootPath, mediaPath) : mediaPath;
+        const audioPath = await resolveProjectMediaFile(projectRootPath, declared).catch(() => undefined);
+        if (!audioPath) return undefined;
         const result = await mediaCache.getAudioDuration(projectRootPath, audioPath);
         return result.status === 'ready' ? result.durationSeconds : undefined;
-    }
-
-    /** edit.json 内の相対/絶対/URI いずれの表記も fs パスへ解決する（ブラウザ側 resolveEditMediaUri と同じ判定）。 */
-    protected resolveMediaFsPath(mediaPath: string, editPath: string): string {
-        if (/^[a-z][a-z\d+.-]*:/iu.test(mediaPath) && !/^[a-z]:[\\/]/iu.test(mediaPath)) {
-            return new URI(mediaPath).path.fsPath();
-        }
-        if (/^[a-z]:[\\/]/iu.test(mediaPath) || mediaPath.startsWith('\\\\') || mediaPath.startsWith('/')) {
-            return mediaPath.replace(/\\/gu, '/');
-        }
-        return join(dirname(editPath), mediaPath);
     }
 
     async setCutSpeed(request: SetCutSpeedRequest): Promise<WriteBackResult> {

@@ -1,9 +1,10 @@
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { tmpdir, release } from 'os';
-import { join, resolve, sep } from 'path';
+import { join } from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { projectOutputPath } from './project-asset-path';
 
 const run = promisify(execFile);
 
@@ -16,12 +17,7 @@ export async function savePhotoMask(projectRoot: string, input: string, helper: 
     const root = await fs.realpath(projectRoot);
     const inputBefore = await fs.readFile(input);
     const inputSha256 = createHash('sha256').update(inputBefore).digest('hex');
-    const folder = resolve(root, 'assets', 'masks');
-    for (const directory of [resolve(root, 'assets'), folder]) {
-        await fs.mkdir(directory, { recursive: true });
-        const actual = await fs.realpath(directory);
-        if (!actual.startsWith(root + sep)) throw new Error('プロジェクト外には保存できません');
-    }
+    await projectOutputPath(root, 'assets/masks/.mask-output');
     const temp = await fs.mkdtemp(join(tmpdir(), 'akari-photo-mask-'));
     try {
         const output = join(temp, 'mask.png');
@@ -36,7 +32,7 @@ export async function savePhotoMask(projectRoot: string, input: string, helper: 
         }
         const hash = createHash('sha256').update(png).digest('hex');
         const name = `${hash}.png`;
-        const destination = join(folder, name);
+        const destination = await projectOutputPath(root, `assets/masks/${name}`);
         try { await fs.writeFile(destination, png, { flag: 'wx' }); }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
         const metadata = {
@@ -44,7 +40,8 @@ export async function savePhotoMask(projectRoot: string, input: string, helper: 
             os: `${process.platform}-${release()}`,
             parameters: {}, createdAt: new Date().toISOString(), width: details.width, height: details.height
         };
-        try { await fs.writeFile(destination + '.meta.json', JSON.stringify(metadata, null, 2) + '\n', { flag: 'wx' }); }
+        const metaPath = await projectOutputPath(root, `assets/masks/${name}.meta.json`);
+        try { await fs.writeFile(metaPath, JSON.stringify(metadata, null, 2) + '\n', { flag: 'wx' }); }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
         return { ok: true, ref: `assets/masks/${name}`, inputSha256 };
     } finally {

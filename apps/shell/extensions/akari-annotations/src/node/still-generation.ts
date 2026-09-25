@@ -4,6 +4,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep 
 import { homedir } from 'os';
 import { pathToFileURL } from 'url';
 import type { GenerateStillResult, ImageRouteState, StartGenerateStillRequest } from '../common/akari-annotations-protocol';
+import { projectOutputPath } from './project-asset-path';
 
 type SpawnProcess = typeof spawn;
 type Asset = (path: string) => Promise<string>;
@@ -118,7 +119,7 @@ export class StillGenerationManager {
             return { ok: false, reason: '空の枠か静止画を選んでください。' };
         }
         const outputDir = join(root, 'assets', 'generated');
-        await fs.mkdir(outputDir, { recursive: true });
+        await projectOutputPath(root, 'assets/generated/.still-output');
         const realOutputDir = await fs.realpath(outputDir);
         const rel = relative(root, realOutputDir);
         if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return { ok: false, reason: '生成先がプロジェクト外です。' };
@@ -151,9 +152,8 @@ export class StillGenerationManager {
             if (run.cancelled) return { ok: false, cancelled: true, reason: '中止しました。' };
             if (!result?.ok) return { ok: false, reason: brief(result?.error ?? `${route} から結果が返りませんでした`) };
             const image = await metas.inspectPng(join(staging, 'image.png'));
-            const sourceAbsolute = resolve(root, sourcePath);
-            if (!sourceAbsolute.startsWith(root + sep)) return { ok: false, reason: '元画像のパスが不正です。' };
-            const oldMeta = await fs.readFile(`${sourceAbsolute}.meta.json`, 'utf8').then(JSON.parse).catch(() => undefined);
+            const oldMetaPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
+            const oldMeta = await fs.readFile(oldMetaPath, 'utf8').then(JSON.parse).catch(() => undefined);
             const at = new Date().toISOString();
             const duration_s = Number(item.duration) / (Number(edit.output?.fps) || 30);
             let meta = metas.doneStillMeta({ prompt, duration_s, at, asOf: route === 'codex' ? await metas.readCodexModelAsOf() : at.slice(0, 10),
