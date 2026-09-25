@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { imageAiEditVersion, type ImageAiBinding } from '../common/image-ai-binding';
+import { projectOutputPath, resolveProjectMediaFile } from './project-asset-path';
 
 export const IMAGE_AI_MODELS = {
     upscale: 'fal-ai/clarity-upscaler',
@@ -177,9 +178,8 @@ export class ImageAiService {
         for (const track of edit.tracks ?? []) { if (track.lane === 'visual') found = visit(track.items ?? []); if (found) break; }
         if (found?.source?.kind !== 'media') throw new Error('写真を選んでください。');
         const sourcePath = edit.sources?.find((row: any) => row.id === found.source.src)?.path;
-        if (typeof sourcePath !== 'string' || path.isAbsolute(sourcePath) || sourcePath.startsWith('..')) throw new Error('素材の場所が不正です。');
-        const file = path.resolve(root, sourcePath);
-        if (!file.startsWith(path.resolve(root) + path.sep)) throw new Error('素材の場所が不正です。');
+        if (typeof sourcePath !== 'string') throw new Error('素材の場所が不正です。');
+        const file = await resolveProjectMediaFile(root, sourcePath);
         const mime = MIME[path.extname(file).toLowerCase()];
         if (!mime) throw new Error('この写真形式には対応していません。');
         const stat = await fs.stat(file);
@@ -240,14 +240,14 @@ export class ImageAiService {
             if (running.abort.signal.aborted) throw new Error('取り消しました。既に処理が始まった場合は課金されることがあります。');
             const hash = sha256(output.bytes);
             const relativePath = `assets/generated/${hash}${output.extension}`;
-            const destination = path.join(input.root, relativePath);
-            await fs.mkdir(path.dirname(destination), { recursive: true });
+            const destination = await projectOutputPath(input.root, relativePath);
             await fs.writeFile(destination, output.bytes, { flag: 'wx' }).catch(error => { if (error.code !== 'EEXIST') throw error; });
             const meta = { provider: this.provider.id, model: output.model, item_id: input.binding.itemId,
                 operation: 'upscale', input_sha256: input.binding.inputSha256,
                 edit_version: input.binding.editVersion,
                 parameters: { upscale_factor: 2, enable_safety_checker: true }, created_at: new Date().toISOString() };
-            await fs.writeFile(`${destination}.meta.json`, `${JSON.stringify(meta, null, 2)}\n`, { flag: 'wx' })
+            const metaPath = await projectOutputPath(input.root, `${relativePath}.meta.json`);
+            await fs.writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`, { flag: 'wx' })
                 .catch(error => { if (error.code !== 'EEXIST') throw error; });
             return { binding: input.binding, relativePath, model: output.model, provider: this.provider.id };
         } finally { this.running.delete(request.jobId); }
@@ -267,16 +267,16 @@ export class ImageAiService {
         if (!request.maskPath || path.isAbsolute(request.maskPath) || request.maskPath.startsWith('..')) {
             throw new Error('背景を選ぶマスクが必要です。');
         }
-        const maskFile = path.resolve(input.root, request.maskPath);
-        if (!maskFile.startsWith(path.resolve(input.root) + path.sep)) throw new Error('マスクの場所が不正です。');
+        const maskFile = await resolveProjectMediaFile(input.root, request.maskPath);
         const mask = await fs.readFile(maskFile);
         const output = await this.provider.generateBackground({ bytes: input.bytes, mime: input.mime, key,
             prompt: request.prompt, mask, signal: new AbortController().signal, setCancel: () => undefined });
         const relativePath = `assets/generated/${sha256(output.bytes)}${output.extension}`;
-        await fs.mkdir(path.join(input.root, 'assets/generated'), { recursive: true });
-        await fs.writeFile(path.join(input.root, relativePath), output.bytes, { flag: 'wx' })
+        const destination = await projectOutputPath(input.root, relativePath);
+        await fs.writeFile(destination, output.bytes, { flag: 'wx' })
             .catch(error => { if (error.code !== 'EEXIST') throw error; });
-        await fs.writeFile(path.join(input.root, `${relativePath}.meta.json`), `${JSON.stringify({ provider: this.provider.id,
+        const metaPath = await projectOutputPath(input.root, `${relativePath}.meta.json`);
+        await fs.writeFile(metaPath, `${JSON.stringify({ provider: this.provider.id,
             model: output.model, item_id: input.binding.itemId, operation: 'generateBackground',
             input_sha256: input.binding.inputSha256, edit_version: input.binding.editVersion,
             parameters: { prompt: request.prompt },

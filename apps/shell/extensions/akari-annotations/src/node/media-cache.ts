@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path';
+import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'path';
 import { promisify } from 'util';
 import { pathToFileURL } from 'url';
 import {
@@ -23,6 +23,7 @@ import {
 import { clampWaveformBucketCount, planFilmstripChunk } from '../common/filmstrip-geometry';
 import { waveformBucketsForDuration } from '../common/waveform-band';
 import { createAsyncSemaphore } from './async-semaphore';
+import { projectOutputPath, resolveProjectMediaFile } from './project-asset-path';
 
 const execFileAsync = promisify(execFile);
 
@@ -136,8 +137,8 @@ function cacheHash(parts: readonly (string | number)[]): string {
 }
 
 async function ensureCacheDirectory(directory: string, projectRoot: string): Promise<void> {
-    await fs.mkdir(directory, { recursive: true });
     const gitignore = join(projectRoot, 'cache', '.gitignore');
+    await projectOutputPath(projectRoot, relative(projectRoot, join(directory, '.gitignore')));
     try {
         await fs.writeFile(gitignore, '*\n', { encoding: 'utf8', flag: 'wx' });
     } catch (error) {
@@ -219,12 +220,10 @@ export async function extractSourceFrame(projectRoot: string, sourcePath: string
         const rel = relative(root, target);
         return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
     };
-    const candidate = resolve(root, sourcePath);
-    if (!within(candidate) || !within(await fs.realpath(candidate))) throw new Error('素材はプロジェクト内で指定してください。');
-    const source = await fs.realpath(candidate);
+    const source = await resolveProjectMediaFile(root, sourcePath);
     const digest = async (path: string): Promise<string> => createHash('sha256').update(await fs.readFile(path)).digest('hex');
     if (isFilmstripImageSource(source) || /\.gif$/iu.test(source)) {
-        return { relativePath: relative(root, candidate).split(sep).join('/'), sha256: await digest(source) };
+        return { relativePath: sourcePath.replace(/\\/gu, '/'), sha256: await digest(source) };
     }
     if (!/\.(mp4|mov|m4v|webm|mkv|avi|mts|m2ts)$/iu.test(source)) throw new Error('画像または動画の素材が必要です。');
     // Check each existing ancestor before mkdir: even an assets symlink must not create a directory outside.
@@ -297,8 +296,8 @@ function evenUp(value: number): number {
 }
 
 async function ensureAkariCacheDirectory(directory: string, projectRoot: string): Promise<void> {
-    await fs.mkdir(directory, { recursive: true });
     const gitignore = join(projectRoot, '.akari', 'cache', '.gitignore');
+    await projectOutputPath(projectRoot, relative(projectRoot, join(directory, '.gitignore')));
     try {
         await fs.writeFile(gitignore, '*\n', { encoding: 'utf8', flag: 'wx' });
     } catch (error) {
