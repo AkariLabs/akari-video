@@ -129,6 +129,8 @@ import {
     type CaptionToolStylePatch
 } from '../common/caption-zone-write';
 import { persistCaptionPlateTransform, captionWrapWidthDrag, captionCornerTransform } from '../common/caption-plate-handles';
+import { captionWrapPosition } from '../common/caption-wrap-position';
+import { duplicatePreviewCaptionSource, duplicatePreviewItemSource } from '../common/preview-duplicate-fallback';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
@@ -6444,13 +6446,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 throw new Error('部品の text は文字列である必要があります');
             }
             if (request.patch.duplicate) {
-                if (!request.patch.transform || !this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')) {
-                    throw new Error('複製を書き込めません');
+                if (!request.patch.transform) throw new Error('複製を書き込めません');
+                const handled = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                    ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                        editUri.toString(), { kind: 'duplicate', itemId: request.overlayId,
+                            transform: request.patch.transform }) : false;
+                if (handled !== true) {
+                    const source = await this.readText(editUri);
+                    const candidateText = duplicatePreviewItemSource(source, request.overlayId, request.patch.transform);
+                    const lintResult = await this.previewService.lintEditCandidate({
+                        editUri: editUri.toString(), candidateText
+                    });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    this.recentWrites.set(editUri.toString(), Date.now());
+                    await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+                    this.queueRefresh(widget, editUri, 'output', undefined, false, candidateText);
                 }
-                const handled = await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
-                    editUri.toString(), { kind: 'duplicate', itemId: request.overlayId,
-                        transform: request.patch.transform });
-                if (handled !== true) throw new Error('複製を書き込めません');
                 widget.sendMessage({ type: 'akari-preview-overlay-write-response', requestId: request.requestId, ok: true });
                 return;
             }
@@ -6835,11 +6846,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const editUri = widget.akariPreviewEditUri;
             try {
                 if (!editUri) throw new Error('編集中の edit.json がありません');
-                const committed = await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
-                    editUri.toString(), { kind: 'caption-duplicate', captionId: request.captionId,
-                        position: request.patch.duplicate });
-                if (committed === true) this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
-                respond(committed === true, committed === true ? undefined : '文字を複製できません');
+                const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                    ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                        editUri.toString(), { kind: 'caption-duplicate', captionId: request.captionId,
+                            position: request.patch.duplicate }) : false;
+                if (committed !== true) {
+                    const source = await this.readText(captionsUri);
+                    const candidateText = duplicatePreviewCaptionSource(source, request.captionId, request.patch.duplicate);
+                    const lintResult = await this.previewService.lintEditCandidate({
+                        editUri: captionsUri.toString(), candidateText
+                    });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    this.markRecentWrite(captionsUri);
+                    await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+                    this.notifyCaptionWrite(widget, captionsUri, source, candidateText, '文字を複製');
+                }
+                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
+                respond(true);
             } catch (error) {
                 respond(false, error instanceof Error ? error.message : String(error));
             }
@@ -6856,12 +6879,34 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             try {
-                const committed = await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
-                    editUri.toString(), { kind: 'caption-wrap', captionId: request.captionId,
-                        wrapWidthPct: patch.wrapWidthPct, anchor: position.anchor,
-                        position: position.position });
-                if (committed === true) this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
-                respond(committed === true, committed === true ? undefined : '文字の幅を書き込めません');
+                const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                    ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                        editUri.toString(), { kind: 'caption-wrap', captionId: request.captionId,
+                            wrapWidthPct: patch.wrapWidthPct, anchor: position.anchor,
+                            position: position.position }) : false;
+                if (committed !== true) {
+                    const originalText = await this.readText(captionsUri);
+                    let writtenText: string | undefined;
+                    const lintResult = await persistCaptionPlateTransform({
+                        source: originalText, captionIds: [request.captionId],
+                        patch: { wrapWidthPct: patch.wrapWidthPct },
+                        cuePosition: { captionId: request.captionId, value: position },
+                        lint: candidateText => this.previewService.lintEditCandidate({
+                            editUri: captionsUri.toString(), candidateText
+                        }),
+                        write: async candidateText => {
+                            this.markRecentWrite(captionsUri);
+                            await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+                            writtenText = candidateText;
+                        }
+                    });
+                    if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    if (writtenText !== undefined) {
+                        this.notifyCaptionWrite(widget, captionsUri, originalText, writtenText, '文字の折り返し幅を変更');
+                    }
+                }
+                this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
+                respond(true);
             } catch (error) {
                 respond(false, error instanceof Error ? error.message : String(error));
             }
@@ -14717,6 +14762,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 return activeId ? [activeId] : [];
             };
             const captionWrapWidthDragFn = (${captionWrapWidthDrag.toString()});
+            const captionWrapPositionFn = (${captionWrapPosition.toString()});
             const captionCornerTransformFn = (${captionCornerTransform.toString()});
             const captionPositionFromVisualRect = (${captionPositionFromVisualRect.toString()});
             const captionGroupPositionFromRects = (plateRect, layoutRect, frameRect, anchor, transform) =>
@@ -15207,16 +15253,22 @@ body { display: grid; place-items: center; padding: 32px; }
                         patch = { rotate: angle };
                     } else if (kind === 'e' || kind === 'w') {
                         const outputWidth = Number(summary.output?.width) || 1280;
+                        const outputHeight = Number(summary.output?.height) || 720;
                         const wrap = captionWrapWidthDragFn(kind, rect, now.x - start.x, outputWidth);
                         const left = wrap.centerX - wrap.widthPct / 100 * outputWidth / 2;
-                        const vertical = (caption.textStyle?.text_anchor || 'tc')[0];
+                        const plateRect = captionPlate.querySelector('.akari-caption__plate')?.getBoundingClientRect()
+                            || captionPlate.getBoundingClientRect();
+                        const plateTop = captionOutputPoint(plateRect.left, plateRect.top).y;
+                        const placement = captionWrapPositionFn(left, plateTop, outputWidth, outputHeight);
                         patch = { wrapWidthPct: wrap.widthPct,
                             cuePosition: { captionId: cueId, value: {
-                                anchor: vertical + 'l', position: { x: left / outputWidth,
-                                    y: caption.textStyle?.position?.y ?? 0.4625 }
+                                ...placement
                             } } };
                         captionPlate.style.setProperty('--caption-wrap-width', patch.wrapWidthPct + '%');
-                        captionPlate.style.setProperty('--caption-left', left / outputWidth * 100 + '%');
+                        captionPlate.style.setProperty('--caption-left', placement.position.x * 100 + '%');
+                        captionPlate.style.setProperty('--caption-top', placement.position.y * 100 + '%');
+                        captionPlate.style.setProperty('--caption-bottom', 'auto');
+                        captionPlate.style.setProperty('--caption-translate', 'none');
                     } else {
                         const next = captionCornerTransformFn(kind, layoutRect, baseScale, baseRotate, now, start);
                         const outputWidth = Number(summary.output?.width) || 1280;

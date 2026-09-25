@@ -1,7 +1,7 @@
 {
-  "label": "r3tl-modifiers",
+  "label": "after-timeline-text",
   "port": 9554,
-  "pid": 46997,
+  "pid": 26001,
   "timelineOpen": {
     "ok": true
   },
@@ -208,44 +208,86 @@
       }
     },
     "k": 0.17291666666666666,
-    "modifiers": {
-      "shift": {
-        "moveScreenPx": {
-          "x": 41.5,
-          "y": 0
+    "text": {
+      "captionHandles": {
+        "textNw": {
+          "w": 11.000015258789062,
+          "h": 11
+        },
+        "textSe": {
+          "w": 10.999984741210938,
+          "h": 11
+        },
+        "textE": {
+          "w": 10.999984741210938,
+          "h": 19.999984741210938
+        },
+        "textW": {
+          "w": 11.000015258789062,
+          "h": 19.999984741210938
+        },
+        "textN": null,
+        "textS": null,
+        "textRot": {
+          "w": 25.000015258789062,
+          "h": 25.000015258789062
+        },
+        "textMove": {
+          "w": 25.000015258789062,
+          "h": 25.000015258789062
         }
       },
-      "meta": {
-        "leftGapToBoxBScreenPx": 3,
-        "guidesDuring": []
+      "hintDuring": [
+        {
+          "left": 259,
+          "top": 232.0703125,
+          "width": 67,
+          "height": 22.5,
+          "cx": 292.5,
+          "cy": 243.3203125,
+          "text": "折り返し幅",
+          "style": "left: 259px; top: 232.07px;",
+          "cls": "akari-interaction-hint"
+        }
+      ],
+      "wMoveScreenPx": {
+        "x": -0.02,
+        "y": 4.65
       },
-      "noMeta": {
-        "leftGapToBoxBScreenPx": 6.92
+      "nwMoveScreenPx": {
+        "x": -0.02,
+        "y": -0.01
       },
-      "alt": {
-        "itemsBefore": 12,
-        "itemsAfter": 13,
-        "newIds": [
-          "box-alt-copy-1"
+      "textStyleBefore": null,
+      "textStyleAfter": {
+        "wrap_width_pct": 21.56,
+        "text_anchor": "tl",
+        "position": {
+          "x": 0.2844,
+          "y": 0.8151
+        }
+      },
+      "before": {
+        "lines": 2,
+        "visualRows": 2,
+        "texts": [
+          "つまみの確かめ用の長めの文字です。",
+          "折り返しを見ます"
         ],
-        "originalMoveScreenPx": {
-          "x": 0,
-          "y": 0
-        },
-        "copies": [
-          {
-            "id": "box-alt-copy-1",
-            "moveFromOriginalScreenPx": {
-              "x": -62.25,
-              "y": -24.21
-            }
-          }
+        "fontSize": "38px"
+      },
+      "after": {
+        "lines": 2,
+        "visualRows": 2,
+        "texts": [
+          "つまみの確かめ用の長めの文字です。",
+          "折り返しを見ます"
         ],
-        "itemsAfterUndo": 12
+        "fontSize": "38px"
       }
     }
   },
-  "windowShot": "r3tl-modifiers-window.png",
+  "windowShot": "after-timeline-text-window.png",
   "finalEdit": {
     "version": 2,
     "output": {
@@ -491,10 +533,8 @@
             "at": 0,
             "duration": 300,
             "transform": {
-              "x": 859.9999558782004,
-              "y": 649.9999264636672,
-              "scale": 1,
-              "rotate": 0
+              "x": 620,
+              "y": 300
             },
             "source": {
               "kind": "shape",
@@ -563,12 +603,20 @@
         "text": "つまみの確かめ用の長めの文字です。折り返しを見ます",
         "speaker": null,
         "sourceRef": null,
-        "edited": true
+        "edited": true,
+        "text_style": {
+          "wrap_width_pct": 21.56,
+          "text_anchor": "tl",
+          "position": {
+            "x": 0.2844,
+            "y": 0.8151
+          }
+        }
       }
     ]
   },
   "consoleErrors": [
-    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at ybc (<file>)\n    at async QRn.reloadResolvedCaptionDisplay (<file>)\n    at async bbc (<file>)\n  ",
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Tbc (<file>)\n    at async ZRn.reloadResolvedCaptionDisplay (<file>)\n    at async Ebc (<file>)\n  ",
     "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
   ]
 }

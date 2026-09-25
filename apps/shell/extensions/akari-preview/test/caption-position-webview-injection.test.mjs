@@ -10,6 +10,7 @@ import {
     placedCaptionPositionFromRects
 } from '../lib/common/caption-zone-write.js';
 import { captionWrapWidthDrag, captionCornerTransform } from '../lib/common/caption-plate-handles.js';
+import { captionWrapPosition } from '../lib/common/caption-wrap-position.js';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const { minify } = require('terser');
@@ -23,6 +24,7 @@ const definitions = source.slice(start, end)
     .replace('${captionPositionFromVisualRect.toString()}', captionPositionFromVisualRect.toString())
     .replace('${placedCaptionPositionFromRects.toString()}', placedCaptionPositionFromRects.toString())
     .replace('${captionWrapWidthDrag.toString()}', captionWrapWidthDrag.toString())
+    .replace('${captionWrapPosition.toString()}', captionWrapPosition.toString())
     .replace('${captionCornerTransform.toString()}', captionCornerTransform.toString());
 
 function webviewFunctions() {

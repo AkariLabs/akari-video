@@ -1,7 +1,7 @@
 {
-  "label": "r3-line",
+  "label": "after-backSelect",
   "port": 9554,
-  "pid": 38191,
+  "pid": 23058,
   "previewBuilt": true,
   "maximized": true,
   "results": {
@@ -205,198 +205,51 @@
       }
     },
     "k": 0.17291666666666666,
-    "line": {
-      "handles": [
-        {
-          "cls": "akari-interaction-selection-frame is-line",
-          "data": "selection-frame",
-          "aria": null,
-          "text": "",
-          "left": 70.578125,
-          "top": 289.7890625,
-          "width": 69.1640625,
-          "height": 6.9140625,
-          "cx": 105.16015625,
-          "cy": 293.24609375,
-          "hitSelf": false,
-          "hitCls": "",
-          "bg": "rgba(0, 0, 0, 0)",
-          "border": "rgba(0, 0, 0, 0) 1px",
-          "radius": "0px",
-          "shadow": "none",
-          "zIndex": "2147483647",
-          "cursor": "auto"
-        },
-        {
-          "cls": "akari-interaction-handle is-line-start",
-          "data": "selection-handle",
-          "aria": "線の始点",
-          "text": "",
-          "left": 65.578125,
-          "top": 287.2421875,
-          "width": 12,
-          "height": 12,
-          "cx": 71.578125,
-          "cy": 293.2421875,
-          "hitSelf": true,
-          "hitCls": "akari-interaction-handle is-line-start",
-          "bg": "rgb(255, 255, 255)",
-          "border": "rgb(77, 163, 255) 1px",
-          "radius": "50%",
-          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
-          "zIndex": "auto",
-          "cursor": "crosshair"
-        },
-        {
-          "cls": "akari-interaction-handle is-line-end",
-          "data": "selection-handle",
-          "aria": "線の終点",
-          "text": "",
-          "left": 132.7421875,
-          "top": 287.2421875,
-          "width": 12,
-          "height": 12,
-          "cx": 138.7421875,
-          "cy": 293.2421875,
-          "hitSelf": true,
-          "hitCls": "akari-interaction-handle is-line-end",
-          "bg": "rgb(255, 255, 255)",
-          "border": "rgb(77, 163, 255) 1px",
-          "radius": "50%",
-          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
-          "zIndex": "auto",
-          "cursor": "crosshair"
-        },
-        {
-          "cls": "akari-interaction-handle akari-interaction-action is-rotate",
-          "data": "selection-handle",
-          "aria": "回転",
-          "text": "",
-          "left": 78.15625,
-          "top": 308.703125,
-          "width": 25,
-          "height": 25,
-          "cx": 90.65625,
-          "cy": 321.203125,
-          "hitSelf": true,
-          "hitCls": "",
-          "bg": "rgb(30, 30, 30)",
-          "border": "rgb(77, 163, 255) 1px",
-          "radius": "50%",
-          "shadow": "rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
-          "zIndex": "auto",
-          "cursor": "grab"
-        },
-        {
-          "cls": "akari-interaction-handle akari-interaction-action is-move",
-          "data": "selection-handle",
-          "aria": "移動",
-          "text": "",
-          "left": 107.15625,
-          "top": 308.703125,
-          "width": 25,
-          "height": 25,
-          "cx": 119.65625,
-          "cy": 321.203125,
-          "hitSelf": true,
-          "hitCls": "",
-          "bg": "rgb(30, 30, 30)",
-          "border": "rgb(77, 163, 255) 1px",
-          "radius": "50%",
-          "shadow": "rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
-          "zIndex": "auto",
-          "cursor": "move"
-        }
-      ],
-      "frame": {
-        "left": 70.578125,
-        "top": 289.7890625,
-        "width": 69.1640625,
-        "height": 6.9140625,
-        "cx": 105.16015625,
-        "cy": 293.24609375,
+    "backSelect": {
+      "seInsideFront": true,
+      "hitAtSe": "akari-interaction-handle is-se",
+      "frameBefore": {
+        "left": 260.7890625,
+        "top": 203.328125,
+        "width": 62.2421875,
+        "height": 51.875,
+        "cx": 291.91015625,
+        "cy": 229.265625,
         "text": "",
-        "style": "left: 70.5833px; top: 289.792px; width: 69.1667px; height: 6.91669px; transform-origin: 166px 93.375px;",
-        "cls": "akari-interaction-selection-frame is-line"
+        "style": "left: 260.792px; top: 203.333px; width: 62.25px; height: 51.875px; transform-origin: 166px 93.375px;",
+        "cls": "akari-interaction-selection-frame"
       },
-      "angle45": {
-        "startMove": {
-          "x": -0.22,
-          "y": 0.64
-        },
-        "angleDeg": 39.81,
-        "rotate": 39.80556031721335,
-        "hintDuring": [
-          {
-            "left": 150.7421875,
-            "top": 305.2421875,
-            "width": 89,
-            "height": 22.5,
-            "cx": 195.2421875,
-            "cy": 316.4921875,
-            "text": "線の長さと向き",
-            "style": "left: 150.742px; top: 305.242px;",
-            "cls": "akari-interaction-hint"
-          }
-        ],
-        "guidesDuring": [
-          {
-            "left": 121.953125,
-            "top": 206.7890625,
-            "width": 1,
-            "height": 131.390625,
-            "cx": 122.453125,
-            "cy": 272.484375,
-            "text": "",
-            "style": "left: 122.458px; top: 206.792px; bottom: auto; height: 131.396px;",
-            "cls": "akari-interaction-snap-guide is-vertical is-item"
-          },
-          {
-            "left": 122.4921875,
-            "top": 335.9765625,
-            "width": 200.546875,
-            "height": 1,
-            "cx": 222.765625,
-            "cy": 336.4765625,
-            "text": "",
-            "style": "top: 336.479px; left: 122.492px; right: auto; width: 200.549px;",
-            "cls": "akari-interaction-snap-guide is-horizontal is-item"
-          }
-        ]
+      "frameAfterInsideClick": {
+        "left": 281.5390625,
+        "top": 217.1640625,
+        "width": 62.2421875,
+        "height": 51.8671875,
+        "cx": 312.66015625,
+        "cy": 243.09765625,
+        "text": "",
+        "style": "left: 281.542px; top: 217.167px; width: 62.25px; height: 51.875px; transform-origin: 166px 93.375px;",
+        "cls": "akari-interaction-selection-frame"
       },
-      "pointSnap": {
-        "endToBoxCenterScreenPx": {
-          "x": -1,
-          "y": -0.07
-        },
-        "guidesDuring": [
-          {
-            "left": 198.0390625,
-            "top": 286.328125,
-            "width": 1,
-            "height": 27.6640625,
-            "cx": 198.5390625,
-            "cy": 300.16015625,
-            "text": "",
-            "style": "left: 198.542px; top: 286.333px; bottom: auto; height: 27.6667px;",
-            "cls": "akari-interaction-snap-guide is-vertical is-item"
-          },
-          {
-            "left": 177.7890625,
-            "top": 299.6640625,
-            "width": 41.5,
-            "height": 1,
-            "cx": 198.5390625,
-            "cy": 300.1640625,
-            "text": "",
-            "style": "top: 300.167px; left: 177.792px; right: auto; width: 41.5px;",
-            "cls": "akari-interaction-snap-guide is-horizontal is-item"
-          }
-        ]
-      }
+      "frontRect": {
+        "left": 281.54168701171875,
+        "top": 217.1666717529297,
+        "width": 62.249969482421875,
+        "height": 51.87498474121094,
+        "cx": 312.6666717529297,
+        "cy": 243.10416412353516,
+        "container": {
+          "left": 281.54168701171875,
+          "top": 217.1666717529297,
+          "width": 332,
+          "height": 186.75001525878906,
+          "cx": 447.54168701171875,
+          "cy": 310.5416793823242
+        }
+      },
+      "selectedFrontAfter": true
     }
   },
-  "windowShot": "r3-line-window.png",
+  "windowShot": "after-backSelect-window.png",
   "finalEdit": {
     "version": 2,
     "output": {
@@ -540,12 +393,8 @@
             "at": 0,
             "duration": 300,
             "transform": {
-              "x": 987.9329094952197,
-              "y": 735.2420113209432,
-              "scale": 1,
-              "scaleX": 1.8527008214520098,
-              "scaleY": 1,
-              "rotate": 3.0940574265619034
+              "x": 200,
+              "y": 640
             },
             "source": {
               "kind": "shape",

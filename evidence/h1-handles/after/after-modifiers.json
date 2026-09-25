@@ -1,7 +1,7 @@
 {
-  "label": "r3-rotate",
+  "label": "after-modifiers",
   "port": 9554,
-  "pid": 40170,
+  "pid": 42049,
   "previewBuilt": true,
   "maximized": true,
   "results": {
@@ -205,57 +205,55 @@
       }
     },
     "k": 0.17291666666666666,
-    "rotate": {
-      "rotate": {
-        "left": 271.828125,
-        "top": 329.453125,
-        "width": 25,
-        "height": 25,
-        "cx": 284.328125,
-        "cy": 341.953125,
-        "text": "",
-        "style": "top: auto; bottom: -38px; left: calc(50% - 27px); width: 25px; height: 25px; transform: none;",
-        "cls": "akari-interaction-handle akari-interaction-action is-rotate"
-      },
-      "move": {
-        "left": 300.828125,
-        "top": 329.453125,
-        "width": 25,
-        "height": 25,
-        "cx": 313.328125,
-        "cy": 341.953125,
-        "text": "",
-        "style": "top: auto; bottom: -38px; left: calc(50% + 2px); width: 25px; height: 25px; transform: none;",
-        "cls": "akari-interaction-handle akari-interaction-action is-move"
-      },
-      "angleDuring": [
-        {
-          "left": 277.078125,
-          "top": 338.7578125,
-          "width": 31.265625,
-          "height": 19,
-          "cx": 292.7109375,
-          "cy": 348.2578125,
-          "text": "45°",
-          "style": "left: 277.078px; top: 338.758px;",
-          "cls": "akari-interaction-angle"
+    "modifiers": {
+      "shift": {
+        "moveScreenPx": {
+          "x": 41.5,
+          "y": 0
         }
-      ],
-      "visibleDuring": {
-        "se": 0,
-        "e": 0,
-        "rotate": 0,
-        "move": 0
       },
-      "rotatedCursor": true,
-      "rotateAfter": 45,
-      "centerMoveScreenPx": {
-        "x": 0,
-        "y": 0
+      "meta": {
+        "leftGapToBoxBScreenPx": 3,
+        "guidesDuring": []
+      },
+      "noMeta": {
+        "leftGapToBoxBScreenPx": 6.92
+      },
+      "alt": {
+        "itemsBefore": 12,
+        "itemsAfter": 13,
+        "newIds": [
+          "box-alt-copy-1"
+        ],
+        "originalMoveScreenPx": {
+          "x": 0,
+          "y": 0
+        },
+        "copies": [
+          {
+            "id": "box-alt-copy-1",
+            "track": 11,
+            "moveFromOriginalScreenPx": {
+              "x": -62.25,
+              "y": -24.21
+            }
+          }
+        ],
+        "originalTrack": 10,
+        "tracksBefore": 12,
+        "tracksAfter": 13,
+        "lintAfterDuplicate": {
+          "status": 0,
+          "head": [
+            "PASS: <path> (3 findings, 5 skipped)"
+          ]
+        },
+        "itemsAfterUndo": 13,
+        "tracksAfterUndo": 13
       }
     }
   },
-  "windowShot": "r3-rotate-window.png",
+  "windowShot": "after-modifiers-window.png",
   "finalEdit": {
     "version": 2,
     "output": {
@@ -451,9 +449,8 @@
             "at": 0,
             "duration": 300,
             "transform": {
-              "x": 828.7005058379234,
-              "y": 1099.2388104957759,
-              "rotate": 45
+              "x": 1400,
+              "y": 640
             },
             "source": {
               "kind": "shape",
@@ -502,8 +499,10 @@
             "at": 0,
             "duration": 300,
             "transform": {
-              "x": 620,
-              "y": 300
+              "x": 859.9999558782004,
+              "y": 649.9999705854668,
+              "scale": 1,
+              "rotate": 0
             },
             "source": {
               "kind": "shape",
@@ -539,6 +538,33 @@
                 "fill": "#ec4899"
               }
             }
+          }
+        ]
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "items": [
+          {
+            "id": "box-alt-copy-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1140,
+              "y": 720.0000294145333,
+              "scale": 1,
+              "rotate": 0
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 160,
+                "height": 100,
+                "fill": "#ec4899"
+              }
+            },
+            "locked": false
           }
         ]
       },

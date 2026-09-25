@@ -465,7 +465,8 @@ async function runScenarios() {
     if (!e) return res;
     const capBefore = await readCaptions();
     const plateLines = async () => evaluate(browser, `(() => { const ls = [...document.querySelectorAll('.akari-caption__line')].filter(x => x.getBoundingClientRect().width > 0);
-      return { lines: ls.length, texts: ls.map(l => l.textContent), fontSize: ls[0] ? getComputedStyle(ls[0]).fontSize : null }; })()`, view.contextId, view.sessionId);
+      const rects = ls.flatMap(l => [...l.getClientRects()]); const rowTops = [...new Set(rects.map(r => Math.round(r.top)))];
+      return { lines: ls.length, visualRows: rowTops.length, texts: ls.map(l => l.textContent), fontSize: ls[0] ? getComputedStyle(ls[0]).fontSize : null }; })()`, view.contextId, view.sessionId);
     const before = await plateLines();
     const mid = await drag({ x: e.cx, y: e.cy }, { x: e.cx - 45, y: e.cy }, { midObserve: true, shotName: '07-text-edge-drag' });
     await sleep(2500);
@@ -476,6 +477,7 @@ async function runScenarios() {
     const o2 = await observe([]);
     await stageShot('08-text-after', o2.stage);
     return { ...res, hintDuring: mid.named.hint, wMoveScreenPx: delta(pt(w), pt(firstNamed(o2, 'textW'))),
+      nwMoveScreenPx: delta(pt(firstNamed(o, 'textNw')), pt(firstNamed(o2, 'textNw'))),
       textStyleBefore: capBefore.captions[0].text_style ?? null, textStyleAfter: capAfter.captions[0].text_style ?? null,
       before, after };
   });
@@ -591,15 +593,22 @@ async function runScenarios() {
     const newIds = allItemIds(afterEdit).filter(id => !allItemIds(beforeEdit).includes(id));
     const o2 = await observe(['box-alt', ...newIds]);
     await stageShot('16-alt-duplicate', o2.stage);
+    // 複製後の edit.json が edit-lint を通るか（同じトラックの重なりを作っていないか）
+    const lint = spawnSync(process.execPath, [path.join(shellDir, '..', '..', 'packages', 'edit-lint', 'bin', 'edit-lint.mjs'), project], { encoding: 'utf8' });
+    const trackOf = id => (afterEdit.tracks ?? []).findIndex(track => (track.items ?? []).some(item => item.id === id));
     out.alt = { itemsBefore: allItemIds(beforeEdit).length, itemsAfter: allItemIds(afterEdit).length, newIds,
       originalMoveScreenPx: delta({ x: alt.left, y: alt.top }, { x: o2.items['box-alt'].left, y: o2.items['box-alt'].top }),
-      copies: newIds.map(id => ({ id, moveFromOriginalScreenPx: o2.items[id] ? delta({ x: alt.left, y: alt.top }, { x: o2.items[id].left, y: o2.items[id].top }) : null })) };
+      copies: newIds.map(id => ({ id, track: trackOf(id), moveFromOriginalScreenPx: o2.items[id] ? delta({ x: alt.left, y: alt.top }, { x: o2.items[id].left, y: o2.items[id].top }) : null })),
+      originalTrack: trackOf('box-alt'), tracksBefore: beforeEdit.tracks.length, tracksAfter: afterEdit.tracks.length,
+      lintAfterDuplicate: { status: lint.status, head: (lint.stdout ?? '').split('\n').filter(line => /^(PASS|FAIL)|\[error\]/.test(line)).slice(0, 4) } };
     // undo 1 回で複製が消えるか
     if (newIds.length) {
       await main.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, modifiers: MOD.meta, commands: ['undo'] });
       await main.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, modifiers: MOD.meta });
       await sleep(2000);
-      out.alt.itemsAfterUndo = allItemIds(await readEdit()).length;
+      const undone = await readEdit();
+      out.alt.itemsAfterUndo = allItemIds(undone).length;
+      out.alt.tracksAfterUndo = undone.tracks.length;
     }
     return out;
   });

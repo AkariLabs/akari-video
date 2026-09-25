@@ -1,176 +1,179 @@
 {
-  "label": "r3-modifiers",
+  "label": "after-timeline-modifiers",
   "port": 9554,
-  "pid": 41973,
+  "pid": 42750,
+  "timelineOpen": {
+    "ok": true
+  },
   "previewBuilt": true,
   "maximized": true,
   "results": {
     "initial": {
       "stage": {
         "x": 36,
-        "y": 179.125,
+        "y": 57.125,
         "width": 332,
         "height": 186.75
       },
       "items": {
         "box-a": {
           "left": 70.58332824707031,
-          "top": 206.7916717529297,
+          "top": 84.79166412353516,
           "width": 51.87500762939453,
-          "height": 34.58332824707031,
+          "height": 34.583335876464844,
           "cx": 96.52083206176758,
-          "cy": 224.08333587646484,
+          "cy": 102.08333206176758,
           "container": {
             "left": 70.58332824707031,
-            "top": 206.7916717529297,
+            "top": 84.79166412353516,
             "width": 332,
-            "height": 186.75001525878906,
+            "height": 186.75003051757812,
             "cx": 236.5833282470703,
-            "cy": 300.1666793823242
+            "cy": 178.16667938232422
           }
         },
         "box-rot": {
           "left": 227.6981201171875,
-          "top": 184.7182159423828,
+          "top": 62.71821212768555,
           "width": 62.21673583984375,
-          "height": 55.887542724609375,
+          "height": 55.88754653930664,
           "cx": 258.8064880371094,
-          "cy": 212.6619873046875,
+          "cy": 90.66198539733887,
           "container": {
             "left": 151.61477661132812,
-            "top": 184.7182159423828,
+            "top": 62.71821212768555,
             "width": 380.8954162597656,
-            "height": 327.73028564453125,
+            "height": 327.7302551269531,
             "cx": 342.06248474121094,
-            "cy": 348.58335876464844
+            "cy": 226.5833396911621
           }
         },
         "back": {
           "left": 260.79168701171875,
-          "top": 203.3333282470703,
+          "top": 81.33333587646484,
           "width": 62.249969482421875,
-          "height": 51.87501525878906,
+          "height": 51.87500762939453,
           "cx": 291.9166717529297,
-          "cy": 229.27083587646484,
+          "cy": 107.27083969116211,
           "container": {
             "left": 260.79168701171875,
-            "top": 203.3333282470703,
+            "top": 81.33333587646484,
             "width": 332,
-            "height": 186.74998474121094,
+            "height": 186.74996948242188,
             "cx": 426.79168701171875,
-            "cy": 296.7083206176758
+            "cy": 174.70832061767578
           }
         },
         "front": {
           "left": 281.54168701171875,
-          "top": 217.1666717529297,
+          "top": 95.16667175292969,
           "width": 62.249969482421875,
           "height": 51.87498474121094,
           "cx": 312.6666717529297,
-          "cy": 243.10416412353516,
+          "cy": 121.10416412353516,
           "container": {
             "left": 281.54168701171875,
-            "top": 217.1666717529297,
+            "top": 95.16667175292969,
             "width": 332,
             "height": 186.75001525878906,
             "cx": 447.54168701171875,
-            "cy": 310.5416793823242
+            "cy": 188.54167938232422
           }
         },
         "line": {
           "left": 70.58332824707031,
-          "top": 289.7916564941406,
+          "top": 167.79165649414062,
           "width": 69.16667175292969,
           "height": 6.91668701171875,
           "cx": 105.16666412353516,
-          "cy": 293.25,
+          "cy": 171.25,
           "container": {
             "left": 70.58332824707031,
-            "top": 289.7916564941406,
+            "top": 167.79165649414062,
             "width": 332,
             "height": 186.75,
             "cx": 236.5833282470703,
-            "cy": 383.1666564941406
+            "cy": 261.1666564941406
           }
         },
         "box-b": {
           "left": 177.7916717529297,
-          "top": 286.3333435058594,
+          "top": 164.33334350585938,
           "width": 41.5,
           "height": 27.666656494140625,
           "cx": 198.5416717529297,
-          "cy": 300.1666717529297,
+          "cy": 178.1666717529297,
           "container": {
             "left": 177.7916717529297,
-            "top": 286.3333435058594,
+            "top": 164.33334350585938,
             "width": 332,
             "height": 186.75,
             "cx": 343.7916717529297,
-            "cy": 379.7083435058594
+            "cy": 257.7083435058594
           }
         },
         "box-r": {
           "left": 278.08331298828125,
-          "top": 289.7916564941406,
+          "top": 167.79165649414062,
           "width": 41.500030517578125,
-          "height": 27.666656494140625,
+          "height": 27.666671752929688,
           "cx": 298.8333282470703,
-          "cy": 303.62498474121094,
+          "cy": 181.62499237060547,
           "container": {
             "left": 278.08331298828125,
-            "top": 289.7916564941406,
+            "top": 167.79165649414062,
             "width": 332,
             "height": 186.75,
             "cx": 444.08331298828125,
-            "cy": 383.1666564941406
+            "cy": 261.1666564941406
           }
         },
         "box-g": {
           "left": 132.83334350585938,
-          "top": 300.1666564941406,
+          "top": 178.16665649414062,
           "width": 34.58332824707031,
-          "height": 17.291656494140625,
+          "height": 17.291671752929688,
           "cx": 150.12500762939453,
-          "cy": 308.81248474121094,
+          "cy": 186.81249237060547,
           "container": {
             "left": 132.83334350585938,
-            "top": 300.1666564941406,
+            "top": 178.16665649414062,
             "width": 332,
             "height": 186.75,
             "cx": 298.8333435058594,
-            "cy": 393.5416564941406
+            "cy": 271.5416564941406
           }
         },
         "box-m": {
           "left": 143.20834350585938,
-          "top": 231,
+          "top": 109,
           "width": 27.666656494140625,
-          "height": 17.291656494140625,
+          "height": 17.291664123535156,
           "cx": 157.0416717529297,
-          "cy": 239.6458282470703,
+          "cy": 117.64583206176758,
           "container": {
             "left": 143.20834350585938,
-            "top": 231,
+            "top": 109,
             "width": 332,
             "height": 186.75,
             "cx": 309.2083435058594,
-            "cy": 324.375
+            "cy": 202.375
           }
         },
         "box-alt": {
           "left": 295.375,
-          "top": 327.83331298828125,
+          "top": 205.8333282470703,
           "width": 27.666656494140625,
-          "height": 17.29168701171875,
+          "height": 17.291671752929688,
           "cx": 309.2083282470703,
-          "cy": 336.4791564941406,
+          "cy": 214.47916412353516,
           "container": {
             "left": 295.375,
-            "top": 327.83331298828125,
+            "top": 205.8333282470703,
             "width": 332,
-            "height": 186.75006103515625,
+            "height": 186.75001525878906,
             "cx": 461.375,
-            "cy": 421.2083435058594
+            "cy": 299.20833587646484
           }
         }
       },
@@ -221,17 +224,39 @@
       },
       "alt": {
         "itemsBefore": 12,
-        "itemsAfter": 12,
-        "newIds": [],
+        "itemsAfter": 13,
+        "newIds": [
+          "box-alt-copy-1"
+        ],
         "originalMoveScreenPx": {
           "x": 0,
           "y": 0
         },
-        "copies": []
+        "copies": [
+          {
+            "id": "box-alt-copy-1",
+            "track": 11,
+            "moveFromOriginalScreenPx": {
+              "x": -62.25,
+              "y": -24.21
+            }
+          }
+        ],
+        "originalTrack": 10,
+        "tracksBefore": 12,
+        "tracksAfter": 13,
+        "lintAfterDuplicate": {
+          "status": 0,
+          "head": [
+            "PASS: <path> (3 findings, 5 skipped)"
+          ]
+        },
+        "itemsAfterUndo": 12,
+        "tracksAfterUndo": 12
       }
     }
   },
-  "windowShot": "r3-modifiers-window.png",
+  "windowShot": "after-timeline-modifiers-window.png",
   "finalEdit": {
     "version": 2,
     "output": {
@@ -478,7 +503,7 @@
             "duration": 300,
             "transform": {
               "x": 859.9999558782004,
-              "y": 649.9999705854668,
+              "y": 649.9999264636672,
               "scale": 1,
               "rotate": 0
             },
@@ -554,7 +579,7 @@
     ]
   },
   "consoleErrors": [
-    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument",
-    "root ERROR [webview: akari-output-preview-m2vc5k] transform の永続化に失敗しました (box-alt): Object"
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Tbc (<file>)\n    at async ZRn.reloadResolvedCaptionDisplay (<file>)\n    at async Ebc (<file>)\n  ",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
   ]
 }

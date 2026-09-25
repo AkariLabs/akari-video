@@ -1,7 +1,7 @@
 {
-  "label": "r3-text",
+  "label": "after-corner",
   "port": 9554,
-  "pid": 37085,
+  "pid": 19271,
   "previewBuilt": true,
   "maximized": true,
   "results": {
@@ -205,73 +205,290 @@
       }
     },
     "k": 0.17291666666666666,
-    "text": {
-      "captionHandles": {
-        "textNw": {
-          "w": 11.000015258789062,
-          "h": 11
+    "corner": {
+      "handles": [
+        {
+          "cls": "akari-interaction-selection-frame",
+          "data": "selection-frame",
+          "aria": null,
+          "text": "",
+          "left": 70.578125,
+          "top": 206.7890625,
+          "width": 51.875,
+          "height": 34.578125,
+          "cx": 96.515625,
+          "cy": 224.078125,
+          "hitSelf": false,
+          "hitCls": "",
+          "bg": "rgba(0, 0, 0, 0)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "0px",
+          "shadow": "none",
+          "zIndex": "2147483647",
+          "cursor": "auto"
         },
-        "textSe": {
-          "w": 10.999984741210938,
-          "h": 11
+        {
+          "cls": "akari-interaction-handle is-nw",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 66.078125,
+          "top": 202.2890625,
+          "width": 11,
+          "height": 11,
+          "cx": 71.578125,
+          "cy": 207.7890625,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-nw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
         },
-        "textE": {
-          "w": 10.999984741210938,
-          "h": 20
+        {
+          "cls": "akari-interaction-handle is-ne",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 115.953125,
+          "top": 202.2890625,
+          "width": 11,
+          "height": 11,
+          "cx": 121.453125,
+          "cy": 207.7890625,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-ne",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
         },
-        "textW": {
-          "w": 11.000015258789062,
-          "h": 20
+        {
+          "cls": "akari-interaction-handle is-se",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 115.953125,
+          "top": 234.8671875,
+          "width": 11,
+          "height": 11,
+          "cx": 121.453125,
+          "cy": 240.3671875,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-se",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
+          "zIndex": "auto",
+          "cursor": "nwse-resize"
         },
-        "textN": null,
-        "textS": null,
-        "textRot": {
-          "w": 25.000015258789062,
-          "h": 25
+        {
+          "cls": "akari-interaction-handle is-sw",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 66.078125,
+          "top": 234.8671875,
+          "width": 11,
+          "height": 11,
+          "cx": 71.578125,
+          "cy": 240.3671875,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-sw",
+          "bg": "rgb(255, 255, 255)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.35) 0px 1px 5px 0px",
+          "zIndex": "auto",
+          "cursor": "nesw-resize"
         },
-        "textMove": {
-          "w": 25.000015258789062,
-          "h": 25
+        {
+          "cls": "akari-interaction-handle is-edge is-n",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 86.515625,
+          "top": 202.2890625,
+          "width": 20,
+          "height": 11,
+          "cx": 96.515625,
+          "cy": 207.7890625,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-edge is-n",
+          "bg": "rgba(0, 0, 0, 0)",
+          "border": "rgb(238, 238, 238) 0px",
+          "radius": "0px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "ns-resize"
+        },
+        {
+          "cls": "akari-interaction-handle is-edge is-e",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 115.953125,
+          "top": 214.078125,
+          "width": 11,
+          "height": 20,
+          "cx": 121.453125,
+          "cy": 224.078125,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-edge is-e",
+          "bg": "rgba(0, 0, 0, 0)",
+          "border": "rgb(238, 238, 238) 0px",
+          "radius": "0px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "ew-resize"
+        },
+        {
+          "cls": "akari-interaction-handle is-edge is-s",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 86.515625,
+          "top": 234.8671875,
+          "width": 20,
+          "height": 11,
+          "cx": 96.515625,
+          "cy": 240.3671875,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-edge is-s",
+          "bg": "rgba(0, 0, 0, 0)",
+          "border": "rgb(238, 238, 238) 0px",
+          "radius": "0px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "ns-resize"
+        },
+        {
+          "cls": "akari-interaction-handle is-edge is-w",
+          "data": "selection-handle",
+          "aria": null,
+          "text": "",
+          "left": 66.078125,
+          "top": 214.078125,
+          "width": 11,
+          "height": 20,
+          "cx": 71.578125,
+          "cy": 224.078125,
+          "hitSelf": true,
+          "hitCls": "akari-interaction-handle is-edge is-w",
+          "bg": "rgba(0, 0, 0, 0)",
+          "border": "rgb(238, 238, 238) 0px",
+          "radius": "0px",
+          "shadow": "none",
+          "zIndex": "auto",
+          "cursor": "ew-resize"
+        },
+        {
+          "cls": "akari-interaction-handle akari-interaction-action is-rotate",
+          "data": "selection-handle",
+          "aria": "回転",
+          "text": "",
+          "left": 69.515625,
+          "top": 253.3671875,
+          "width": 25,
+          "height": 25,
+          "cx": 82.015625,
+          "cy": 265.8671875,
+          "hitSelf": true,
+          "hitCls": "",
+          "bg": "rgb(30, 30, 30)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
+          "zIndex": "auto",
+          "cursor": "grab"
+        },
+        {
+          "cls": "akari-interaction-handle akari-interaction-action is-move",
+          "data": "selection-handle",
+          "aria": "移動",
+          "text": "",
+          "left": 98.515625,
+          "top": 253.3671875,
+          "width": 25,
+          "height": 25,
+          "cx": 111.015625,
+          "cy": 265.8671875,
+          "hitSelf": true,
+          "hitCls": "",
+          "bg": "rgb(30, 30, 30)",
+          "border": "rgb(77, 163, 255) 1px",
+          "radius": "50%",
+          "shadow": "rgba(0, 0, 0, 0.3) 0px 2px 6px 0px",
+          "zIndex": "auto",
+          "cursor": "move"
         }
-      },
+      ],
+      "written": true,
       "hintDuring": [
         {
-          "left": 259,
-          "top": 354.0703125,
-          "width": 67,
+          "left": 133.453125,
+          "top": 252.3671875,
+          "width": 45,
           "height": 22.5,
-          "cx": 292.5,
-          "cy": 365.3203125,
-          "text": "折り返し幅",
-          "style": "left: 259px; top: 354.07px;",
+          "cx": 155.953125,
+          "cy": 263.6171875,
+          "text": "大きさ",
+          "style": "left: 133.453px; top: 252.367px;",
           "cls": "akari-interaction-hint"
         }
       ],
-      "wMoveScreenPx": {
+      "domBefore": {
+        "left": 70.58332824707031,
+        "top": 206.7916717529297,
+        "width": 51.87500762939453,
+        "height": 34.58332824707031,
+        "cx": 96.52083206176758,
+        "cy": 224.08333587646484,
+        "container": {
+          "left": 70.58332824707031,
+          "top": 206.7916717529297,
+          "width": 332,
+          "height": 186.75001525878906,
+          "cx": 236.5833282470703,
+          "cy": 300.1666793823242
+        }
+      },
+      "domAfter": {
+        "left": 70.58332824707031,
+        "top": 206.79164123535156,
+        "width": 106.09855651855469,
+        "height": 70.73237609863281,
+        "cx": 123.63260650634766,
+        "cy": 242.15782928466797,
+        "container": {
+          "left": 70.58332824707031,
+          "top": 206.79164123535156,
+          "width": 679.03076171875,
+          "height": 381.954833984375,
+          "cx": 410.0987091064453,
+          "cy": 397.76905822753906
+        }
+      },
+      "nwMoveScreenPx": {
         "x": 0,
         "y": 0
       },
-      "textStyleBefore": null,
-      "textStyleAfter": null,
-      "before": {
-        "lines": 2,
-        "texts": [
-          "つまみの確かめ用の長めの文字です。",
-          "折り返しを見ます"
-        ],
-        "fontSize": "38px"
-      },
-      "after": {
-        "lines": 2,
-        "texts": [
-          "つまみの確かめ用の長めの文字です。",
-          "折り返しを見ます"
-        ],
-        "fontSize": "38px"
+      "aspectBefore": 1.5,
+      "aspectAfter": 1.5,
+      "transformAfter": {
+        "x": 1203.4624246279172,
+        "y": 724.4475658122237,
+        "scale": 2.045273326960094,
+        "rotate": 0
       }
     }
   },
-  "windowShot": "r3-text-window.png",
+  "windowShot": "after-corner-window.png",
   "finalEdit": {
     "version": 2,
     "output": {
@@ -314,8 +531,10 @@
             "at": 0,
             "duration": 300,
             "transform": {
-              "x": 200,
-              "y": 160
+              "x": 1203.4624246279172,
+              "y": 724.4475658122237,
+              "scale": 2.045273326960094,
+              "rotate": 0
             },
             "source": {
               "kind": "shape",
@@ -592,7 +811,6 @@
     ]
   },
   "consoleErrors": [
-    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument",
-    "root WARN [webview: akari-output-preview-sngmiy] [akari-preview] caption plate transform write rejected; reverting Object"
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
   ]
 }

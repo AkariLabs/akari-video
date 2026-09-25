@@ -1,7 +1,7 @@
 {
-  "label": "r3-backSelect",
+  "label": "after-rotate",
   "port": 9554,
-  "pid": 43040,
+  "pid": 28115,
   "previewBuilt": true,
   "maximized": true,
   "results": {
@@ -205,51 +205,57 @@
       }
     },
     "k": 0.17291666666666666,
-    "backSelect": {
-      "seInsideFront": true,
-      "hitAtSe": "akari-interaction-handle is-se",
-      "frameBefore": {
-        "left": 260.7890625,
-        "top": 203.328125,
-        "width": 62.2421875,
-        "height": 51.875,
-        "cx": 291.91015625,
-        "cy": 229.265625,
+    "rotate": {
+      "rotate": {
+        "left": 271.828125,
+        "top": 329.453125,
+        "width": 25,
+        "height": 25,
+        "cx": 284.328125,
+        "cy": 341.953125,
         "text": "",
-        "style": "left: 260.792px; top: 203.333px; width: 62.25px; height: 51.875px; transform-origin: 166px 93.375px;",
-        "cls": "akari-interaction-selection-frame"
+        "style": "top: auto; bottom: -38px; left: calc(50% - 27px); width: 25px; height: 25px; transform: none;",
+        "cls": "akari-interaction-handle akari-interaction-action is-rotate"
       },
-      "frameAfterInsideClick": {
-        "left": 281.5390625,
-        "top": 217.1640625,
-        "width": 62.2421875,
-        "height": 51.8671875,
-        "cx": 312.66015625,
-        "cy": 243.09765625,
+      "move": {
+        "left": 300.828125,
+        "top": 329.453125,
+        "width": 25,
+        "height": 25,
+        "cx": 313.328125,
+        "cy": 341.953125,
         "text": "",
-        "style": "left: 281.542px; top: 217.167px; width: 62.25px; height: 51.875px; transform-origin: 166px 93.375px;",
-        "cls": "akari-interaction-selection-frame"
+        "style": "top: auto; bottom: -38px; left: calc(50% + 2px); width: 25px; height: 25px; transform: none;",
+        "cls": "akari-interaction-handle akari-interaction-action is-move"
       },
-      "frontRect": {
-        "left": 281.54168701171875,
-        "top": 217.1666717529297,
-        "width": 62.249969482421875,
-        "height": 51.87498474121094,
-        "cx": 312.6666717529297,
-        "cy": 243.10416412353516,
-        "container": {
-          "left": 281.54168701171875,
-          "top": 217.1666717529297,
-          "width": 332,
-          "height": 186.75001525878906,
-          "cx": 447.54168701171875,
-          "cy": 310.5416793823242
+      "angleDuring": [
+        {
+          "left": 277.078125,
+          "top": 338.7578125,
+          "width": 31.265625,
+          "height": 19,
+          "cx": 292.7109375,
+          "cy": 348.2578125,
+          "text": "45°",
+          "style": "left: 277.078px; top: 338.758px;",
+          "cls": "akari-interaction-angle"
         }
+      ],
+      "visibleDuring": {
+        "se": 0,
+        "e": 0,
+        "rotate": 0,
+        "move": 0
       },
-      "selectedFrontAfter": true
+      "rotatedCursor": true,
+      "rotateAfter": 45,
+      "centerMoveScreenPx": {
+        "x": 0,
+        "y": 0
+      }
     }
   },
-  "windowShot": "r3-backSelect-window.png",
+  "windowShot": "after-rotate-window.png",
   "finalEdit": {
     "version": 2,
     "output": {
@@ -445,8 +451,9 @@
             "at": 0,
             "duration": 300,
             "transform": {
-              "x": 1400,
-              "y": 640
+              "x": 828.7005058379234,
+              "y": 1099.2388104957759,
+              "rotate": 45
             },
             "source": {
               "kind": "shape",
