@@ -2757,6 +2757,7 @@ ${indent}`);
           let textStyle = located.text;
           textStyle = updateOptionalStyleProperty(textStyle, "color", updates.color, `\u5B57\u5E55 ${captionId} \u306E text_style`);
           textStyle = updateOptionalStyleProperty(textStyle, "size_px", updates.sizePx, `\u5B57\u5E55 ${captionId} \u306E text_style`);
+          textStyle = updateOptionalStyleProperty(textStyle, "wrap_width_pct", updates.wrapWidthPct, `\u5B57\u5E55 ${captionId} \u306E text_style`);
           textStyle = updateOptionalStyleProperty(textStyle, "font_weight", updates.fontWeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
           textStyle = updateOptionalStyleProperty(textStyle, "weight", updates.weight === void 0 && updates.fontWeight !== void 0 ? null : updates.weight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
           textStyle = updateOptionalStyleProperty(textStyle, "line_height", updates.lineHeight, `\u5B57\u5E55 ${captionId} \u306E text_style`);
@@ -3733,7 +3734,7 @@ ${indent}`);
         return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
       }
       function validateTextStylePatch(updates) {
-        const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
+        const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.wrapWidthPct !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
         if (!hasUpdate) {
           throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
@@ -3744,6 +3745,9 @@ ${indent}`);
         }
         if (updates.sizePx !== void 0 && updates.sizePx !== null && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
           throw new Error("\u5B57\u5E55\u30B5\u30A4\u30BA\u306F\u6B63\u306E\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        if (updates.wrapWidthPct !== void 0 && updates.wrapWidthPct !== null && (!Number.isFinite(updates.wrapWidthPct) || updates.wrapWidthPct <= 0 || updates.wrapWidthPct > 100)) {
+          throw new Error("\u6587\u5B57\u306E\u6298\u308A\u8FD4\u3057\u5E45\u306F 0 \u3088\u308A\u5927\u304D\u304F 100% \u4EE5\u4E0B\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
         }
         for (const [value, min, max, label] of [
           [updates.fontWeight, 1, 1e3, "font_weight"],
@@ -3841,6 +3845,7 @@ ${indent}`);
         return {
           ...updates.color !== void 0 && updates.color !== null ? { color: updates.color } : {},
           ...updates.sizePx !== void 0 && updates.sizePx !== null ? { size_px: updates.sizePx } : {},
+          ...updates.wrapWidthPct !== void 0 && updates.wrapWidthPct !== null ? { wrap_width_pct: updates.wrapWidthPct } : {},
           ...updates.fontWeight !== void 0 && updates.fontWeight !== null ? { font_weight: updates.fontWeight } : {},
           ...updates.weight !== void 0 && updates.weight !== null ? { weight: updates.weight } : {},
           ...updates.lineHeight !== void 0 && updates.lineHeight !== null ? { line_height: updates.lineHeight } : {},

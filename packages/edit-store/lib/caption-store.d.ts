@@ -95,6 +95,7 @@ export interface CaptionTextStyle {
 export interface CaptionTextStylePatch {
     color?: string | null;
     sizePx?: number | null;
+    wrapWidthPct?: number | null;
     fontWeight?: number | null;
     weight?: number | null;
     lineHeight?: number | null;
