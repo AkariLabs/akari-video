@@ -6837,6 +6837,8 @@ ${indent}`);
         "keyframes",
         "items",
         "mask",
+        "erase",
+        "flip",
         "source",
         "audio",
         "anchor"
@@ -6928,6 +6930,8 @@ ${indent}`);
       function cloneItem(item) {
         return {
           ...item,
+          ..."erase" in item && item.erase ? { erase: structuredClone(item.erase) } : {},
+          ..."flip" in item && item.flip ? { flip: { ...item.flip } } : {},
           source: { ...item.source },
           ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
         };
@@ -7155,6 +7159,36 @@ ${indent}`);
           requireText(value.mask, `${path}.mask`);
           if (!sourceIds.has(value.mask))
             throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+        }
+        if (hasOwn(value, "erase")) {
+          if (value.source.kind !== "media" || !Array.isArray(value.erase))
+            throw invalid(`${path}.erase`, "media item \u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          value.erase.forEach((stroke, index) => {
+            const at2 = `${path}.erase[${index}]`;
+            requireRecord(stroke, at2);
+            requireExactKeys(stroke, /* @__PURE__ */ new Set(["mode", "points", "size", "hardness"]), at2);
+            if (stroke.mode !== "erase" && stroke.mode !== "restore")
+              throw invalid(`${at2}.mode`, "erase \u307E\u305F\u306F restore \u304C\u5FC5\u8981\u3067\u3059");
+            if (!Array.isArray(stroke.points) || stroke.points.length === 0)
+              throw invalid(`${at2}.points`, "\u70B9\u304C\u5FC5\u8981\u3067\u3059");
+            stroke.points.forEach((point, pointIndex) => {
+              if (!Array.isArray(point) || point.length !== 2)
+                throw invalid(`${at2}.points[${pointIndex}]`, "2 \u5EA7\u6A19\u304C\u5FC5\u8981\u3067\u3059");
+              requireRange(point[0], 0, 1, `${at2}.points[${pointIndex}][0]`);
+              requireRange(point[1], 0, 1, `${at2}.points[${pointIndex}][1]`);
+            });
+            requireRange(stroke.size, Number.EPSILON, 1, `${at2}.size`);
+            requireRange(stroke.hardness, 0, 1, `${at2}.hardness`);
+          });
+        }
+        if (hasOwn(value, "flip")) {
+          if (value.source.kind !== "media")
+            throw invalid(`${path}.flip`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+          requireRecord(value.flip, `${path}.flip`);
+          requireExactKeys(value.flip, /* @__PURE__ */ new Set(["h", "v"]), `${path}.flip`);
+          for (const axis of ["h", "v"])
+            if (hasOwn(value.flip, axis) && typeof value.flip[axis] !== "boolean")
+              throw invalid(`${path}.flip.${axis}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
         if (hasOwn(value, "items")) {
           if (!Array.isArray(value.items))
@@ -9912,6 +9946,97 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/group-flatten.js
+  var require_group_flatten = __commonJS({
+    "packages/edit-store/lib/group-flatten.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.flattenGroupDescendants = flattenGroupDescendants;
+      var tree_ops_1 = require_tree_ops();
+      function flattenGroupDescendants(internal) {
+        const result = [];
+        const fps = internal.output.fps;
+        let order = 0;
+        const visit = (item, track, parent, descendant = false) => {
+          const currentOrder = order++;
+          if (!descendant && item.source.kind !== "group") {
+            result.push({ item, track, order: currentOrder, descendant: false });
+            return;
+          }
+          const start = Math.max(item.atFrames, parent?.clipStart ?? -Infinity);
+          const end = Math.min(item.atFrames + item.durationFrames, parent?.clipEnd ?? Infinity);
+          const hidden = parent?.hidden === true || track.hidden === true || item.declaration?.hidden === true;
+          if (hidden || end <= start)
+            return;
+          const localTransform = item.groupCaptionLocal ? item.groupCaptionLocal.transform : item.declaration?.transform;
+          const localOpacity = item.groupCaptionLocal ? item.groupCaptionLocal.opacity : item.declaration?.opacity;
+          const transform = (0, tree_ops_1.composeTransforms)(parent?.transform, localTransform);
+          const opacity = (parent?.opacity ?? 1) * (typeof localOpacity === "number" ? localOpacity : 1);
+          if (item.source.kind === "group") {
+            const context = { transform, opacity, clipStart: start, clipEnd: end, hidden };
+            for (const child of item.children ?? [])
+              visit(child, track, context, true);
+            return;
+          }
+          const at2 = start / fps;
+          const duration = (end - start) / fps;
+          const declaration = {
+            ...item.declaration,
+            ...transform === void 0 ? {} : { transform },
+            opacity,
+            at: at2,
+            t: at2,
+            start: at2,
+            duration
+          };
+          let source = item.source;
+          let legacy = item.legacy;
+          if (item.source.kind === "media") {
+            const speed = typeof item.declaration.speed === "number" && item.declaration.speed > 0 ? item.declaration.speed : 1;
+            const sourceIn = item.source.in + (start - item.atFrames) / fps * speed;
+            const sourceOut = Math.min(item.source.out, sourceIn + duration * speed);
+            source = { ...item.source, in: sourceIn, out: sourceOut };
+            Object.assign(declaration, {
+              kind: "video",
+              src: item.source.path ?? item.source.sourceId,
+              in: sourceIn,
+              out: sourceOut
+            });
+            legacy = {
+              collection: "layers",
+              index: item.legacy.index,
+              value: declaration
+            };
+          }
+          const flat = {
+            ...item,
+            atFrames: start,
+            durationFrames: end - start,
+            at: at2,
+            duration,
+            source,
+            declaration,
+            legacy,
+            children: []
+          };
+          result.push({ item: flat, track, order: currentOrder, descendant: true });
+          for (const child of item.children ?? [])
+            visit(child, track, {
+              transform,
+              opacity,
+              clipStart: start,
+              clipEnd: end,
+              hidden
+            }, true);
+        };
+        for (const track of internal.tracks)
+          for (const item of track.items)
+            visit(item, track);
+        return result;
+      }
+    }
+  });
+
   // packages/edit-store/lib/internal-model.js
   var require_internal_model = __commonJS({
     "packages/edit-store/lib/internal-model.js"(exports) {
@@ -9933,6 +10058,7 @@ ${indent}`);
       var error_1 = require_error();
       var audio_ownership_1 = require_audio_ownership();
       var shape_markup_1 = require_shape_markup();
+      var group_flatten_1 = require_group_flatten();
       function readInternalEdit(source, options) {
         const text = typeof source === "string" ? source : JSON.stringify(source);
         if (typeof text !== "string") {
@@ -10295,7 +10421,7 @@ ${indent}`);
       }
       function needsCrossTrackLayers(item, pathOf) {
         const transform = item.transform;
-        return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+        return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
       }
       function nextRef(counters, kind) {
         const ref = counters.get(kind) ?? 0;
@@ -10322,6 +10448,10 @@ ${indent}`);
           const clipEnd = clipStart + built.item.durationFrames;
           const clipCaptions = (node) => {
             if (node.source.kind === "caption") {
+              node.groupCaptionLocal ??= {
+                transform: node.declaration.transform,
+                opacity: typeof node.declaration.opacity === "number" ? node.declaration.opacity : void 0
+              };
               const start = Math.max(clipStart, node.atFrames);
               const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
               node.atFrames = start;
@@ -10361,6 +10491,8 @@ ${indent}`);
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
           ...item.blend !== void 0 ? { blend: item.blend } : {},
           ...item.crop !== void 0 ? { crop: item.crop } : {},
+          ...item.source.kind === "media" && "erase" in item && item.erase !== void 0 ? { erase: structuredClone(item.erase) } : {},
+          ...item.source.kind === "media" && "flip" in item && item.flip !== void 0 ? { flip: { ...item.flip } } : {},
           ...item.adjust !== void 0 ? { adjust: structuredClone(item.adjust) } : {},
           ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
           ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
@@ -10983,14 +11115,24 @@ ${indent}`);
         const audioNarration = [];
         const audioSpeech = [];
         const audioBgms = [];
+        const flattened = (0, group_flatten_1.flattenGroupDescendants)(internal);
+        const hasGroupMedia = flattened.some((entry) => entry.descendant && entry.item.source.kind === "media");
+        const byTrack = new Map(internal.tracks.map((track) => [track, []]));
+        for (const entry of flattened)
+          byTrack.get(entry.track)?.push(entry);
         for (const track of internal.tracks) {
           if (track.lane === "audio" && !(0, audio_ownership_1.isAudioItemAudible)(track, void 0))
             continue;
-          for (const item of track.items) {
+          for (const { item, descendant, order } of byTrack.get(track) ?? []) {
+            if (descendant && item.source.kind !== "media")
+              continue;
             const value = item.legacy.value;
             if (value === void 0) {
               if (item.source.kind === "telop" || item.source.kind === "filter") {
-                layers.push({ index: item.legacy.index, value: item.declaration });
+                layers.push({
+                  index: hasGroupMedia ? order : item.legacy.index,
+                  value: item.declaration
+                });
               }
               continue;
             }
@@ -11010,7 +11152,10 @@ ${indent}`);
                     audioBgms.push(value);
                     break;
                   case "layers":
-                    layers.push({ index: item.legacy.index, value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value });
+                    layers.push({
+                      index: hasGroupMedia ? order : item.legacy.index,
+                      value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value
+                    });
                     break;
                   default:
                     cuts.push({
@@ -11025,7 +11170,7 @@ ${indent}`);
                 break;
               case "telop":
               case "filter":
-                layers.push({ index: item.legacy.index, value });
+                layers.push({ index: hasGroupMedia ? order : item.legacy.index, value });
                 break;
               default:
                 break;
@@ -12718,7 +12863,7 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-      exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
+      exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "erase", "flip", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
       exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
       exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
       exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -12745,6 +12890,8 @@ ${indent}`);
           "keyframes",
           "items",
           "mask",
+          "erase",
+          "flip",
           "source",
           "audio"
         ],
@@ -13003,6 +13150,9 @@ ${indent}`);
         "opacity",
         "blend",
         "crop",
+        "flip",
+        "mask",
+        "erase",
         "perspective",
         "motion",
         "animator",
@@ -21212,6 +21362,7 @@ ${indent}`);
     chooseSource: () => chooseSource,
     cloneWithRotation: () => cloneWithRotation,
     compareRgba: () => compareRgba,
+    composeStillMask: () => composeStillMask,
     compositeCutGeometry: () => compositeCutGeometry,
     compositionSourceSize: () => compositionSourceSize,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
@@ -22290,6 +22441,7 @@ uniform int hasMask;
 uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
+uniform ivec2 flipAxes;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -22348,7 +22500,9 @@ void main() {
     color = dst;
     return;
   }
-  vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec2 sampledLocal = vec2(flipAxes.x == 1 ? 1.0 - local.x : local.x,
+                           flipAxes.y == 1 ? 1.0 - local.y : local.y);
+  vec2 sourceUv = cropRect.xy + sampledLocal * cropRect.zw;
   vec2 colorUv = unrotate(sourceUv, layerRotation);
   vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
@@ -23567,6 +23721,7 @@ void main() {
       const maskFormatLoc = uniform(gl, this.layerProgram, "maskFormat");
       const layerRotationLoc = uniform(gl, this.layerProgram, "layerRotation");
       const maskRotationLoc = uniform(gl, this.layerProgram, "maskRotation");
+      const flipAxesLoc = uniform(gl, this.layerProgram, "flipAxes");
       const blendLoc = uniform(gl, this.layerProgram, "blendMode");
       const layerAdjustUniforms = {
         hasAdjustLut: uniform(gl, this.layerProgram, "hasAdjustLut"),
@@ -23635,7 +23790,12 @@ void main() {
           gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
         }
         if (input.mask) {
-          if (isVideoFrame(input.mask)) {
+          if ("bitmap" in input.mask) {
+            this.bind(MASK_RGBA_UNIT, this.stillTexture(input.mask));
+            if ("bitmap" in color) this.bind(4, this.stillTexture(color));
+            gl.uniform1i(maskFormatLoc, 2);
+            gl.uniform1i(maskRotationLoc, 0);
+          } else if (isVideoFrame(input.mask)) {
             this.uploadVideoFrameTexture(
               this.layerRgbaTextures[1],
               MASK_RGBA_UNIT,
@@ -23671,6 +23831,7 @@ void main() {
           output.height
         ) : { visual: layer.visual, width: sourceLogical.width, height: sourceLogical.height };
         const visual = geometry.visual;
+        gl.uniform2i(flipAxesLoc, layer.flip?.h ? 1 : 0, layer.flip?.v ? 1 : 0);
         gl.uniform2f(outLoc, output.width, output.height);
         gl.uniformMatrix3fv(
           inverseLoc,
@@ -23836,6 +23997,65 @@ void main() {
     }
   };
 
+  // packages/frame-engine/src/mask/compose-still-mask.ts
+  function composeStillMask(basePixels, width, height, strokes, originalAlpha) {
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width > 65536 || height > 65536 || width * height > 268435456) {
+      throw new RangeError("invalid mask dimensions");
+    }
+    const length = width * height;
+    if (basePixels && basePixels.length !== length) throw new RangeError("base mask size mismatch");
+    if (originalAlpha && originalAlpha.length !== length) throw new RangeError("original alpha size mismatch");
+    const output = basePixels ? new Uint8Array(basePixels) : new Uint8Array(length).fill(255);
+    const unit2 = 64;
+    for (const stroke of strokes) {
+      if (stroke.mode !== "erase" && stroke.mode !== "restore" || !Number.isFinite(stroke.size) || stroke.size <= 0 || stroke.size > 1 || !Number.isFinite(stroke.hardness) || stroke.hardness < 0 || stroke.hardness > 1 || stroke.points.length === 0) {
+        throw new RangeError("invalid mask stroke");
+      }
+      const points = stroke.points.map(([x3, y2]) => {
+        if (!Number.isFinite(x3) || !Number.isFinite(y2) || x3 < 0 || x3 > 1 || y2 < 0 || y2 > 1) throw new RangeError("invalid mask point");
+        return [Math.round(x3 * width * unit2), Math.round(y2 * height * unit2)];
+      });
+      const radius = Math.max(1, Math.round(stroke.size * Math.min(width, height) * unit2 / 2));
+      const inner = Math.round(radius * stroke.hardness);
+      const outerSq = radius * radius;
+      const innerSq = inner * inner;
+      const coveragePixels = new Uint8Array(length);
+      for (let segment = 0; segment < points.length; segment += 1) {
+        const a = points[Math.max(0, segment - 1)];
+        const b = points[segment];
+        const lowX = Math.max(0, Math.floor((Math.min(a[0], b[0]) - radius) / unit2));
+        const highX = Math.min(width - 1, Math.ceil((Math.max(a[0], b[0]) + radius) / unit2));
+        const lowY = Math.max(0, Math.floor((Math.min(a[1], b[1]) - radius) / unit2));
+        const highY = Math.min(height - 1, Math.ceil((Math.max(a[1], b[1]) + radius) / unit2));
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const segmentSq = dx * dx + dy * dy;
+        for (let y2 = lowY; y2 <= highY; y2 += 1) {
+          for (let x3 = lowX; x3 <= highX; x3 += 1) {
+            const px = (x3 * 2 + 1) * unit2 / 2;
+            const py = (y2 * 2 + 1) * unit2 / 2;
+            const projection = segmentSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / segmentSq));
+            const distX = px - a[0] - Math.round(dx * projection);
+            const distY = py - a[1] - Math.round(dy * projection);
+            const distanceSq = distX * distX + distY * distY;
+            if (distanceSq >= outerSq) continue;
+            const coverage = distanceSq <= innerSq || outerSq === innerSq ? 255 : Math.floor((outerSq - distanceSq) * 255 / (outerSq - innerSq));
+            const index = y2 * width + x3;
+            if (coverage > coveragePixels[index]) coveragePixels[index] = coverage;
+          }
+        }
+      }
+      for (let index = 0; index < length; index += 1) {
+        const coverage = coveragePixels[index];
+        if (!coverage) continue;
+        const old = output[index];
+        const cap = originalAlpha?.[index] ?? 255;
+        output[index] = stroke.mode === "erase" ? Math.floor((old * (255 - coverage) + 127) / 255) : Math.min(cap, old + Math.floor(((cap - old) * coverage + 127) / 255));
+      }
+    }
+    return output;
+  }
+
   // packages/frame-engine/src/evaluate.ts
   var FrameEvaluator = class {
     constructor(context) {
@@ -23858,17 +24078,74 @@ void main() {
     notified.add(layerId);
     context.onLayerFailure(layerId, error);
   }
+  var composedStillMasks = /* @__PURE__ */ new WeakMap();
+  var stillMaskIds = /* @__PURE__ */ new WeakMap();
+  var nextStillMaskId = 1;
+  async function stillMaskForLayer(layer, color) {
+    const mask = layer.mask?.kind === "still" ? layer.mask.source : null;
+    const strokes = layer.erase ?? [];
+    if (!mask && strokes.length === 0) return null;
+    if (mask && strokes.length === 0) return mask.load({ colorSpaceConversion: "none" });
+    const owner = layer.image;
+    let cache = composedStillMasks.get(owner);
+    if (!cache) {
+      cache = /* @__PURE__ */ new Map();
+      composedStillMasks.set(owner, cache);
+    }
+    if (mask && !stillMaskIds.has(mask)) stillMaskIds.set(mask, nextStillMaskId++);
+    const key = `${mask ? stillMaskIds.get(mask) : 0}:${color.width}x${color.height}:${JSON.stringify(strokes)}`;
+    let pending = cache.get(key);
+    if (!pending) {
+      pending = (async () => {
+        const width = color.width;
+        const height = color.height;
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) throw new Error("still mask pixel context unavailable");
+        let base = null;
+        if (mask) {
+          const loaded = await mask.load({ colorSpaceConversion: "none" });
+          if (loaded.width !== width || loaded.height !== height) throw new Error("still mask size mismatch");
+          context.drawImage(loaded.bitmap, 0, 0);
+          const rgba = context.getImageData(0, 0, width, height).data;
+          base = new Uint8Array(width * height);
+          for (let i2 = 0; i2 < base.length; i2 += 1) base[i2] = rgba[i2 * 4];
+        }
+        context.clearRect(0, 0, width, height);
+        context.drawImage(color.bitmap, 0, 0);
+        const alphaRgba = context.getImageData(0, 0, width, height).data;
+        const alpha = new Uint8Array(width * height);
+        for (let i2 = 0; i2 < alpha.length; i2 += 1) alpha[i2] = alphaRgba[i2 * 4 + 3];
+        const gray = composeStillMask(base, width, height, strokes, alpha);
+        const image = context.createImageData(width, height);
+        for (let i2 = 0; i2 < gray.length; i2 += 1) {
+          image.data[i2 * 4] = gray[i2];
+          image.data[i2 * 4 + 1] = gray[i2];
+          image.data[i2 * 4 + 2] = gray[i2];
+          image.data[i2 * 4 + 3] = 255;
+        }
+        const bitmap = await createImageBitmap(image, { colorSpaceConversion: "none" });
+        return { bitmap, width, height };
+      })();
+      cache.set(key, pending);
+      pending.catch(() => cache?.delete(key));
+    }
+    return pending;
+  }
   async function prepareCompositeLayer(layer, metrics) {
     if (layer.kind === "image") {
       if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
-      return { color: await layer.image.load() };
+      const color = await layer.image.load();
+      return { color, mask: await stillMaskForLayer(layer, color) };
     }
     if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
     const decodeStarted = performance.now();
     const frame = await layer.source.decode(layer.sourceTimeUs, metrics, { streamId: `layer-${layer.id}` });
     metrics.record("decode", performance.now() - decodeStarted);
     const sourceTimeUs = layer.sourceTimeUs;
-    if (!(layer.kind === "matte" && layer.mask)) return { color: frame, mask: null, sourceTimeUs };
+    if (!(layer.kind === "matte" && layer.mask?.kind === "greyscale")) return { color: frame, mask: null, sourceTimeUs };
     let maskFrame;
     try {
       const maskDecodeStarted = performance.now();
@@ -23915,8 +24192,8 @@ void main() {
           noteLayerFailure(context, layer.id, error);
           continue;
         }
-        if ("bitmap" in prepared.color) {
-          layerFrames.push({ color: prepared.color });
+        if (!("sourceTimeUs" in prepared)) {
+          layerFrames.push({ color: prepared.color, mask: prepared.mask });
           composedLayers.push(layer);
           continue;
         }
@@ -23955,7 +24232,7 @@ void main() {
             continue;
           }
           const color = "bitmap" in input.color ? input.color : await copyFrame(input.color);
-          const mask = input.mask ? await copyFrame(input.mask) : input.mask;
+          const mask = input.mask && "bitmap" in input.mask ? input.mask : input.mask ? await copyFrame(input.mask) : input.mask;
           layers.push({ color, mask });
         }
         return { base, layers };
@@ -24707,6 +24984,8 @@ void main() {
     "kind",
     "src",
     "mask",
+    "erase",
+    "flip",
     "transform",
     "crop",
     "perspective",
@@ -25187,15 +25466,26 @@ void main() {
         visual,
         blend,
         opacity,
+        ...layer.flip ? { flip: layer.flip } : {},
         ...adjustLut ? { adjustLut } : {},
         ...adjustFx ? { adjustFx } : {}
       };
       if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
-        if (layer.mask || layer.kind === "matte") timeline.warn(`mask ignored for still image layer ${id}`);
         if (!("load" in source)) throw new Error(`no still image source registered for ${layer.src}`);
-        resolved.push({ ...common, kind: "image", image: source, mask: null });
+        const maskSource = layer.mask ? sources.get(layer.mask) : void 0;
+        if (layer.mask && (!maskSource || !("load" in maskSource))) {
+          timeline.warn(`no still mask source registered for ${layer.mask}; layer ${id} will render without a mask`);
+        }
+        resolved.push({
+          ...common,
+          kind: "image",
+          image: source,
+          mask: maskSource && "load" in maskSource ? { kind: "still", source: maskSource } : null,
+          ...layer.erase ? { erase: layer.erase } : {}
+        });
         return;
       }
+      if (layer.erase?.length) timeline.warn(`erase ignored for video layer ${id}`);
       if (!("decode" in source)) throw new Error(`no video frame source registered for ${layer.src}`);
       const sourceTimeUs = Math.round((finite4(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite4(layer.speed, 1))) * 1e6);
       const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
@@ -30461,26 +30751,30 @@ caused by: ${cause.stack}`;
     constructor(url) {
       this.url = url;
     }
-    pending = null;
-    value = null;
-    load() {
-      if (this.value) return Promise.resolve(this.value);
-      if (!this.pending) {
-        this.pending = fetch(this.url).then((response) => {
+    pending = /* @__PURE__ */ new Map();
+    values = /* @__PURE__ */ new Map();
+    load(options) {
+      const mode = options?.colorSpaceConversion ?? "default";
+      const value = this.values.get(mode);
+      if (value) return Promise.resolve(value);
+      let pending = this.pending.get(mode);
+      if (!pending) {
+        pending = fetch(this.url).then((response) => {
           if (!response.ok) throw new Error(`image fetch failed (${response.status}): ${this.url}`);
           return response.blob();
-        }).then(createImageBitmap).then((bitmap) => {
-          const value = { bitmap, width: bitmap.width, height: bitmap.height };
-          this.value = value;
-          return value;
+        }).then((blob) => mode === "none" ? createImageBitmap(blob, { colorSpaceConversion: "none" }) : createImageBitmap(blob)).then((bitmap) => {
+          const value2 = { bitmap, width: bitmap.width, height: bitmap.height };
+          this.values.set(mode, value2);
+          return value2;
         });
+        this.pending.set(mode, pending);
       }
-      return this.pending;
+      return pending;
     }
     destroy() {
-      this.value?.bitmap.close();
-      this.value = null;
-      this.pending = null;
+      for (const value of this.values.values()) value.bitmap.close();
+      this.values.clear();
+      this.pending.clear();
     }
   };
 
@@ -30685,7 +30979,7 @@ caused by: ${cause.stack}`;
     for (const layer of plan.layers) {
       if (layer.kind === "filter") continue;
       add(layer.source, `layer-${layer.id}`);
-      if (layer.mask) add(layer.mask.source, `layer-${layer.id}-mask`);
+      if (layer.mask?.kind === "greyscale") add(layer.mask.source, `layer-${layer.id}-mask`);
     }
     return streams;
   }
@@ -30896,7 +31190,7 @@ caused by: ${cause.stack}`;
         if (layer.kind === "image" || layer.kind === "filter") continue;
         const declared = layer.cutVisual ? { src: timeline.cuts[Number(layer.id.slice("cut-".length))]?.cut.src, mask: null } : layerSources.get(layer.id);
         append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, "layer");
-        if (layer.mask) {
+        if (layer.mask?.kind === "greyscale") {
           append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs, "mask");
         }
       }

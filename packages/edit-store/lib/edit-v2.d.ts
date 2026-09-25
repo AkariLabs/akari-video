@@ -320,7 +320,7 @@ export interface ItemV2Base {
     name?: string;
     hidden?: boolean;
     locked?: boolean;
-    /** 出力タイムライン上の絶対位置（整数フレーム）。 */
+    /** 段直下では絶対位置、子では親相対の位置（整数フレーム）。 */
     at: number;
     /** 表示・再生尺（整数フレーム）。 */
     duration: number;
@@ -341,9 +341,20 @@ export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
     /** 省略時は埋め込み音声を供給。false は明示分離後の停止。 */
     audio?: false;
-    /** sources[].id of a gray-h264-fullrange mask video. */
+    /** sources[].id of a gray mask video or a still-image PNG mask. */
     mask?: string;
+    erase?: PhotoEraseStrokeV2[];
+    flip?: {
+        h?: boolean;
+        v?: boolean;
+    };
 };
+export interface PhotoEraseStrokeV2 {
+    mode: 'erase' | 'restore';
+    points: [number, number][];
+    size: number;
+    hardness: number;
+}
 export type ItemV2 = MediaItemV2 | (ItemV2Base & {
     source: HtmlSourceV2;
 }) | (ItemV2Base & {

@@ -3,7 +3,7 @@
  * トラック配列順が下→上の合成順で、時刻は整数フレーム宣言を正本とする。
  */
 import { EditAudioBgm, EditAudioNarration, EditAudioSfx, EditBeat, EditCut, EditLayer, EditOverlay, EditSource, EditTimelineTrack, TimelineTrackKind } from './edit-store';
-import { GroupSourceV2, KeyframesReferenceV2 } from './edit-v2';
+import { GroupSourceV2, KeyframesReferenceV2, TransformV2 } from './edit-v2';
 import { AnchorCaption } from './item-anchor';
 export type InternalLane = 'visual' | 'audio';
 /** 素材の出どころ。1 アイテム = 1 種別で、種別ごとの分岐はここ 1 軸に集約する。 */
@@ -88,6 +88,11 @@ export interface InternalItem {
     children: InternalItem[];
     /** 親があるときだけ宣言 id を保持する。 */
     parentId?: string;
+    /** group 内 caption の宣言値。描画投影で親の変形を二重適用しないために保持する。 */
+    groupCaptionLocal?: {
+        transform?: TransformV2;
+        opacity?: number;
+    };
     /** この media item から source 字幕を射影するか。省略時は on。 */
     captions?: 'on' | 'off';
     /** motion/ 袋参照。A1 ではファイルを解決しない。 */
@@ -245,7 +250,7 @@ export interface LegacyEditView {
     warnings: string[];
 }
 /**
- * 内部表現 → 旧種別別配列。**`tracks[].items[]` だけを見て組み立てる**（生 JSON も版も見ない）。
+ * 内部表現 → 旧種別別配列。宣言木を共通の描画投影で平らにして組み立てる。
  * まだ内部表現へ移せていない描画経路のための橋で、Phase 3 で消える。
  */
 export declare function projectLegacyEdit(internal: InternalEdit): LegacyEditView;

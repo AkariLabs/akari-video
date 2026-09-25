@@ -7,7 +7,7 @@ const transform_1 = require("./transform");
 const edit_v2_keys_1 = require("./generated/edit-v2-keys");
 const ITEM_KEY_ORDER = [
     'id', 'name', 'at', 'duration', 'hidden', 'locked', 'transform', 'opacity',
-    'blend', 'crop', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
+    'blend', 'crop', 'flip', 'mask', 'erase', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
     'role', 'link', 'mute'
 ];
 const EDIT_KEY_ORDER = ['version', 'output', 'sources', 'audio', 'tracks'];

@@ -20,6 +20,7 @@ const cut_adjacency_1 = require("./cut-adjacency");
 const error_1 = require("./migrate/error");
 const audio_ownership_1 = require("./audio-ownership");
 const shape_markup_1 = require("./shape-markup");
+const group_flatten_1 = require("./group-flatten");
 /**
  * edit.json v2 を内部表現へ読む。v0/v1 は凍結変換ユニットのみが読む。
  * 文字列でもパース済みオブジェクトでも受け取る。
@@ -538,6 +539,7 @@ function needsCrossTrackLayers(item, pathOf) {
         || (item.opacity !== undefined && item.opacity < 1)
         || item.keyframes !== undefined
         || (item.source.kind === 'media' && 'mask' in item && item.mask !== undefined)
+        || (item.source.kind === 'media' && (('erase' in item && item.erase !== undefined) || ('flip' in item && item.flip !== undefined)))
         || (item.source.kind === 'media' && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)))
         || (item.source.kind === 'media' && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src)));
 }
@@ -575,6 +577,10 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
         const clipEnd = clipStart + built.item.durationFrames;
         const clipCaptions = (node) => {
             if (node.source.kind === 'caption') {
+                node.groupCaptionLocal ??= {
+                    transform: node.declaration.transform,
+                    opacity: typeof node.declaration.opacity === 'number' ? node.declaration.opacity : undefined
+                };
                 const start = Math.max(clipStart, node.atFrames);
                 const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
                 node.atFrames = start;
@@ -615,6 +621,8 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
+        ...(item.source.kind === 'media' && 'erase' in item && item.erase !== undefined ? { erase: structuredClone(item.erase) } : {}),
+        ...(item.source.kind === 'media' && 'flip' in item && item.flip !== undefined ? { flip: { ...item.flip } } : {}),
         ...(item.adjust !== undefined ? { adjust: structuredClone(item.adjust) } : {}),
         ...(item.perspective !== undefined ? { perspective: item.perspective } : {}),
         ...(item.motion !== undefined ? { motion: structuredClone(item.motion) } : {}),
@@ -1181,7 +1189,7 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
     tracks.forEach((track, index) => { track.z = index; });
 }
 /**
- * 内部表現 → 旧種別別配列。**`tracks[].items[]` だけを見て組み立てる**（生 JSON も版も見ない）。
+ * 内部表現 → 旧種別別配列。宣言木を共通の描画投影で平らにして組み立てる。
  * まだ内部表現へ移せていない描画経路のための橋で、Phase 3 で消える。
  */
 function projectLegacyEdit(internal) {
@@ -1192,16 +1200,24 @@ function projectLegacyEdit(internal) {
     const audioNarration = [];
     const audioSpeech = [];
     const audioBgms = [];
+    const flattened = (0, group_flatten_1.flattenGroupDescendants)(internal);
+    const hasGroupMedia = flattened.some(entry => entry.descendant && entry.item.source.kind === 'media');
+    const byTrack = new Map(internal.tracks.map(track => [track, []]));
+    for (const entry of flattened)
+        byTrack.get(entry.track)?.push(entry);
     for (const track of internal.tracks) {
         if (track.lane === 'audio' && !(0, audio_ownership_1.isAudioItemAudible)(track, undefined))
             continue;
-        for (const item of track.items) {
+        for (const { item, descendant, order } of byTrack.get(track) ?? []) {
+            if (descendant && item.source.kind !== 'media')
+                continue;
             const value = item.legacy.value;
             if (value === undefined) {
                 // 未焼成 telop / filter は旧型 EditLayer に完全には表せないが、
                 // 消費者から黙って消すより宣言レコードを運ぶ方が安全。
                 if (item.source.kind === 'telop' || item.source.kind === 'filter') {
-                    layers.push({ index: item.legacy.index, value: item.declaration });
+                    layers.push({ index: hasGroupMedia ? order : item.legacy.index,
+                        value: item.declaration });
                 }
                 continue;
             }
@@ -1224,7 +1240,8 @@ function projectLegacyEdit(internal) {
                             audioBgms.push(value);
                             break;
                         case 'layers':
-                            layers.push({ index: item.legacy.index, value: (track.lane === 'visual' && track.muted === true
+                            layers.push({ index: hasGroupMedia ? order : item.legacy.index,
+                                value: (track.lane === 'visual' && track.muted === true
                                     ? { ...value, mute: true } : value) });
                             break;
                         default:
@@ -1241,7 +1258,7 @@ function projectLegacyEdit(internal) {
                     break;
                 case 'telop':
                 case 'filter':
-                    layers.push({ index: item.legacy.index, value: value });
+                    layers.push({ index: hasGroupMedia ? order : item.legacy.index, value: value });
                     break;
                 default:
                     break;

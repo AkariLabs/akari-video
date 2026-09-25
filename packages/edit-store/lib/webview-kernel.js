@@ -2305,6 +2305,8 @@ var AkariEditKernel = (() => {
     "keyframes",
     "items",
     "mask",
+    "erase",
+    "flip",
     "source",
     "audio",
     "anchor"
@@ -2393,6 +2395,8 @@ var AkariEditKernel = (() => {
   function cloneItem(item) {
     return {
       ...item,
+      ..."erase" in item && item.erase ? { erase: structuredClone(item.erase) } : {},
+      ..."flip" in item && item.flip ? { flip: { ...item.flip } } : {},
       source: { ...item.source },
       ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
     };
@@ -2580,6 +2584,29 @@ var AkariEditKernel = (() => {
       if (value.source.kind !== "media") throw invalid(`${path}.mask`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
       requireText(value.mask, `${path}.mask`);
       if (!sourceIds.has(value.mask)) throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+    }
+    if (hasOwn(value, "erase")) {
+      if (value.source.kind !== "media" || !Array.isArray(value.erase)) throw invalid(`${path}.erase`, "media item \u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      value.erase.forEach((stroke, index) => {
+        const at = `${path}.erase[${index}]`;
+        requireRecord2(stroke, at);
+        requireExactKeys(stroke, /* @__PURE__ */ new Set(["mode", "points", "size", "hardness"]), at);
+        if (stroke.mode !== "erase" && stroke.mode !== "restore") throw invalid(`${at}.mode`, "erase \u307E\u305F\u306F restore \u304C\u5FC5\u8981\u3067\u3059");
+        if (!Array.isArray(stroke.points) || stroke.points.length === 0) throw invalid(`${at}.points`, "\u70B9\u304C\u5FC5\u8981\u3067\u3059");
+        stroke.points.forEach((point2, pointIndex) => {
+          if (!Array.isArray(point2) || point2.length !== 2) throw invalid(`${at}.points[${pointIndex}]`, "2 \u5EA7\u6A19\u304C\u5FC5\u8981\u3067\u3059");
+          requireRange(point2[0], 0, 1, `${at}.points[${pointIndex}][0]`);
+          requireRange(point2[1], 0, 1, `${at}.points[${pointIndex}][1]`);
+        });
+        requireRange(stroke.size, Number.EPSILON, 1, `${at}.size`);
+        requireRange(stroke.hardness, 0, 1, `${at}.hardness`);
+      });
+    }
+    if (hasOwn(value, "flip")) {
+      if (value.source.kind !== "media") throw invalid(`${path}.flip`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+      requireRecord2(value.flip, `${path}.flip`);
+      requireExactKeys(value.flip, /* @__PURE__ */ new Set(["h", "v"]), `${path}.flip`);
+      for (const axis of ["h", "v"]) if (hasOwn(value.flip, axis) && typeof value.flip[axis] !== "boolean") throw invalid(`${path}.flip.${axis}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
     }
     if (hasOwn(value, "items")) {
       if (!Array.isArray(value.items)) throw invalid(`${path}.items`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
@@ -3651,6 +3678,84 @@ var AkariEditKernel = (() => {
     }
   }
 
+  // src/group-flatten.ts
+  function flattenGroupDescendants(internal) {
+    const result = [];
+    const fps = internal.output.fps;
+    let order = 0;
+    const visit = (item, track, parent, descendant = false) => {
+      const currentOrder = order++;
+      if (!descendant && item.source.kind !== "group") {
+        result.push({ item, track, order: currentOrder, descendant: false });
+        return;
+      }
+      const start = Math.max(item.atFrames, parent?.clipStart ?? -Infinity);
+      const end = Math.min(item.atFrames + item.durationFrames, parent?.clipEnd ?? Infinity);
+      const hidden = parent?.hidden === true || track.hidden === true || item.declaration?.hidden === true;
+      if (hidden || end <= start) return;
+      const localTransform = item.groupCaptionLocal ? item.groupCaptionLocal.transform : item.declaration?.transform;
+      const localOpacity = item.groupCaptionLocal ? item.groupCaptionLocal.opacity : item.declaration?.opacity;
+      const transform = composeTransforms(parent?.transform, localTransform);
+      const opacity = (parent?.opacity ?? 1) * (typeof localOpacity === "number" ? localOpacity : 1);
+      if (item.source.kind === "group") {
+        const context = { transform, opacity, clipStart: start, clipEnd: end, hidden };
+        for (const child of item.children ?? []) visit(child, track, context, true);
+        return;
+      }
+      const at = start / fps;
+      const duration = (end - start) / fps;
+      const declaration = {
+        ...item.declaration,
+        ...transform === void 0 ? {} : { transform },
+        opacity,
+        at,
+        t: at,
+        start: at,
+        duration
+      };
+      let source = item.source;
+      let legacy = item.legacy;
+      if (item.source.kind === "media") {
+        const speed = typeof item.declaration.speed === "number" && item.declaration.speed > 0 ? item.declaration.speed : 1;
+        const sourceIn = item.source.in + (start - item.atFrames) / fps * speed;
+        const sourceOut = Math.min(item.source.out, sourceIn + duration * speed);
+        source = { ...item.source, in: sourceIn, out: sourceOut };
+        Object.assign(declaration, {
+          kind: "video",
+          src: item.source.path ?? item.source.sourceId,
+          in: sourceIn,
+          out: sourceOut
+        });
+        legacy = {
+          collection: "layers",
+          index: item.legacy.index,
+          value: declaration
+        };
+      }
+      const flat = {
+        ...item,
+        atFrames: start,
+        durationFrames: end - start,
+        at,
+        duration,
+        source,
+        declaration,
+        legacy,
+        children: []
+      };
+      result.push({ item: flat, track, order: currentOrder, descendant: true });
+      for (const child of item.children ?? []) visit(child, track, {
+        transform,
+        opacity,
+        clipStart: start,
+        clipEnd: end,
+        hidden
+      }, true);
+    };
+    for (const track of internal.tracks) for (const item of track.items) visit(item, track);
+    return result;
+  }
+
   // src/internal-model.ts
   function readInternalEdit(source, options) {
     const text = typeof source === "string" ? source : JSON.stringify(source);
@@ -3951,7 +4056,7 @@ var AkariEditKernel = (() => {
   }
   function needsCrossTrackLayers(item, pathOf) {
     const transform = item.transform;
-    return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && isStillImageSourcePath(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+    return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && isStillImageSourcePath(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
   }
   function nextRef(counters, kind) {
     const ref = counters.get(kind) ?? 0;
@@ -4001,6 +4106,10 @@ var AkariEditKernel = (() => {
       const clipEnd = clipStart + built.item.durationFrames;
       const clipCaptions = (node) => {
         if (node.source.kind === "caption") {
+          node.groupCaptionLocal ??= {
+            transform: node.declaration.transform,
+            opacity: typeof node.declaration.opacity === "number" ? node.declaration.opacity : void 0
+          };
           const start = Math.max(clipStart, node.atFrames);
           const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
           node.atFrames = start;
@@ -4036,6 +4145,8 @@ var AkariEditKernel = (() => {
       ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
       ...item.blend !== void 0 ? { blend: item.blend } : {},
       ...item.crop !== void 0 ? { crop: item.crop } : {},
+      ...item.source.kind === "media" && "erase" in item && item.erase !== void 0 ? { erase: structuredClone(item.erase) } : {},
+      ...item.source.kind === "media" && "flip" in item && item.flip !== void 0 ? { flip: { ...item.flip } } : {},
       ...item.adjust !== void 0 ? { adjust: structuredClone(item.adjust) } : {},
       ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
       ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
@@ -4654,13 +4765,21 @@ var AkariEditKernel = (() => {
     const audioNarration = [];
     const audioSpeech = [];
     const audioBgms = [];
+    const flattened = flattenGroupDescendants(internal);
+    const hasGroupMedia = flattened.some((entry) => entry.descendant && entry.item.source.kind === "media");
+    const byTrack = new Map(internal.tracks.map((track) => [track, []]));
+    for (const entry of flattened) byTrack.get(entry.track)?.push(entry);
     for (const track of internal.tracks) {
       if (track.lane === "audio" && !isAudioItemAudible(track, void 0)) continue;
-      for (const item of track.items) {
+      for (const { item, descendant, order } of byTrack.get(track) ?? []) {
+        if (descendant && item.source.kind !== "media") continue;
         const value = item.legacy.value;
         if (value === void 0) {
           if (item.source.kind === "telop" || item.source.kind === "filter") {
-            layers.push({ index: item.legacy.index, value: item.declaration });
+            layers.push({
+              index: hasGroupMedia ? order : item.legacy.index,
+              value: item.declaration
+            });
           }
           continue;
         }
@@ -4680,7 +4799,10 @@ var AkariEditKernel = (() => {
                 audioBgms.push(value);
                 break;
               case "layers":
-                layers.push({ index: item.legacy.index, value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value });
+                layers.push({
+                  index: hasGroupMedia ? order : item.legacy.index,
+                  value: track.lane === "visual" && track.muted === true ? { ...value, mute: true } : value
+                });
                 break;
               default:
                 cuts.push({
@@ -4695,7 +4817,7 @@ var AkariEditKernel = (() => {
             break;
           case "telop":
           case "filter":
-            layers.push({ index: item.legacy.index, value });
+            layers.push({ index: hasGroupMedia ? order : item.legacy.index, value });
             break;
           default:
             break;
