@@ -357,14 +357,16 @@ import type { ShapePresetV1 } from '@akari-video/edit-store';
 import {
     applyTimelineCollapsedRows,
     buildTimelineTreeRows,
-    foldSameTimeRows,
     childRow,
     parentRow,
     rowsByTrack,
     TimelineTreeRow,
     visibleTimelineTreeRows,
 } from './timeline/timeline-tree-model';
-import { calculateTimelineTrackHeight, timelineTreeRowOffset } from './timeline/timeline-track-height';
+import {
+    canvasChildChipSpan, cutMediaRowHeight, timelineCanvasRowGeometry, timelineItemRenderRoute,
+    timelineTrackHeight, TimelineCanvasRowGeometry
+} from './timeline/timeline-canvas-row-layout';
 import {
     assignDetachedCaptionChipSubRows,
     detachedCaptionChipRows
@@ -1171,6 +1173,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly extraKeyframeProperties = new Map<string, Set<KeyframeProperty>>();
     protected readonly timelineCollapsedIds = new Set<string>();
     protected treeRowsByTrack = new Map<string, TimelineTreeRow[]>();
+    protected treeRowGeometry = new Map<string, TimelineCanvasRowGeometry>();
     /** ヘッダ列へ行を生やさず、帯のチップだけに描くトップレベル caption 葉。 */
     protected detachedCaptionChipRows: TimelineTreeRow[] = [];
     protected timelineCollapsedState: TimelineCollapsedState | undefined;
@@ -9683,11 +9686,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const layout = this.captionLayouts.get(caption.id);
             return layout ? [{ id: caption.id, at: layout.start, duration: layout.end - layout.start }] : [];
         })]]);
-        this.expandedTimelineTreeRows = foldSameTimeRows(buildTimelineTreeRows(this.timelineTreeTracks, {
+        this.expandedTimelineTreeRows = buildTimelineTreeRows(this.timelineTreeTracks, {
             includeAllItems: true,
             partsByHtml: this.timelineTreePartsByHtml,
             captionsByPath
-        }));
+        });
         if (this.focusScope.rootId !== null
             && this.expandedTimelineTreeRows.some(row => row.id === this.focusScope.rootId)) {
             this.focusScope = enterFocusScope(this.expandedTimelineTreeRows, this.focusScope.rootId);
@@ -9695,7 +9698,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.focusScope = initialFocusScope(this.expandedTimelineTreeRows);
         }
         const pureGroupIds = this.expandedTimelineTreeRows
-            .filter(row => (row.sourceKind === 'group' || row.sourceKind === 'same-time') && row.hasChildren).map(row => row.id);
+            .filter(row => row.sourceKind === 'group' && row.hasChildren).map(row => row.id);
         const expanded = this.timelineCollapsedState?.snapshot(pureGroupIds) ?? new Set<string>();
         const collapsed = new Set(pureGroupIds.filter(id => !expanded.has(id)));
         this.timelineCollapsedIds.clear();
@@ -9737,6 +9740,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         let captions: LaneBounds = { top: nextTop, height: 0 };
         this.overlayRows.clear();
+        this.treeRowGeometry.clear();
         this.overlayTrackLayouts = [];
         this.layerRows.clear();
         const layerTracks: TrackGroupLayout[] = [];
@@ -9834,21 +9838,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 height = Math.max(subrowCount * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
             }
             const treeRows = this.treeRowsByTrack.get(timelineTrack.id) ?? [];
-            const treeRowOffset = timelineTreeRowOffset(treeRows.length);
-            let propertyRowCount = 0;
-            treeRows.forEach((row, visualRow) => {
-                this.overlayRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
-                this.layerRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
-                this.audioSfxRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
-                this.audioNarrationRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
-                propertyRowCount += this.keyframeRowsByItem.get(row.id)?.length ?? 0;
-            });
-            height = calculateTimelineTrackHeight({
-                baseHeight: height,
-                treeRowCount: treeRows.length,
-                propertyRowCount,
-                subrowStride: rowStride
-            });
+            const hasOrdinaryItem = this.timelineTreeTracks.find(track => track.id === timelineTrack.id)
+                ?.items.some(item => item.source.kind !== 'group') ?? false;
+            const treeGeometry = timelineCanvasRowGeometry(
+                treeRows, rowStride, SUBROW_STRIDE, SUBROW_GAP,
+                id => this.keyframeRowsByItem.get(id)?.length ?? 0,
+                hasOrdinaryItem ? rowStride : SUBROW_STRIDE
+            );
+            for (const [id, geometry] of treeGeometry.rows) this.treeRowGeometry.set(id, geometry);
+            height = timelineTrackHeight(height, treeGeometry);
             if (!captionRowsMixedWithItems && captionRows.length > 0) {
                 const chipLayout = assignDetachedCaptionChipSubRows([], captionRows, {
                     placement: 'append', baseHeight: height, subrowStride: rowStride
@@ -10179,10 +10177,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyInitialVerticalScroll(stripHeight, viewportHeight, centerGapPx);
         this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         this.renderTrackHeaders(beatsBandTop, beatsBandHeight);
-        const foldedMemberIds = new Set(this.expandedTimelineTreeRows
-            .filter(row => row.sourceKind === 'same-time' && this.timelineCollapsedIds.has(row.id))
-            .flatMap(row => row.memberIds ?? []));
-
         if (this.worldMapData) {
             const signature = JSON.stringify([this.worldMapData, this.laneLayout.world, this.layoutViewStart, this.layoutViewDuration, stripLayoutWidthPx]);
             const { element } = this.keyedNode('strip', 'band:world', signature, () => createWorldBand({
@@ -10259,7 +10253,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.layers.map(item => item.id),
             ...this.audioSfx.map(item => item.id),
             ...this.audioNarration.map(item => item.id),
-        ]);
+        ].filter(id => timelineItemRenderRoute(id, this.itemLocations, this.timelineTreeRows) === 'legacy'));
         // captions 袋（sourceKind 'captions'）の帯チップと目盛りは描かない: 字幕チップ自体が常に描かれるため
         // 二重表示になり、オーナー実機 2026-09-02「謎のグループの茶色い帯、いらない」。html 袋は従来どおり
         // トラック帯へ目盛りを載せる。
@@ -10321,9 +10315,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ].flat()) {
             const layout = this.laneLayout.tracks.find(candidate => candidate.id === row.trackId);
             const rowIndex = this.overlayRows.get(row.id) ?? -1;
-            if (layout && rowIndex >= 0) this.renderKeyframePropertyRows(row, layout.top, rowIndex);
+            const rowGeometry = this.treeRowGeometry.get(row.id);
+            if (layout && (rowIndex >= 0 || rowGeometry)) this.renderKeyframePropertyRows(row, layout.top, rowIndex);
             if (renderedItemIds.has(row.id)) continue;
-            if (!layout || rowIndex < 0 || !this.isRangeMounted(row.at, row.at + row.duration)) continue;
+            if (!layout || !rowGeometry && rowIndex < 0 || !this.isRangeMounted(row.at, row.at + row.duration)) continue;
             const raw = this.rawKeyframeItem(row.id);
             const captionId = raw?.source?.kind === 'caption' ? raw.source.id : undefined;
             const labelBase = typeof captionId === 'string'
@@ -10336,8 +10331,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const generation = row.sourceKind === 'media' ? this.generationForPath(path) : undefined;
             const { element, created } = this.keyedStripSegment(
                 `tree:${row.id}`, JSON.stringify({ row, label, generation }), row.at, row.at + row.duration,
-                layout.top + rowIndex * this.timelineRowStride(row.trackId),
-                row.sourceKind === 'caption' || row.sourceKind === 'captions' ? SUBROW_HEIGHT : this.timelineRowStride(row.trackId) - SUBROW_GAP,
+                layout.top + (this.treeRowGeometry.get(row.id)?.top ?? rowIndex * this.timelineRowStride(row.trackId)),
+                this.treeRowGeometry.get(row.id)?.height ?? this.timelineRowStride(row.trackId) - SUBROW_GAP,
                 'akari-annotations-strip-overlay akari-timeline-tree-item', label
             );
             element.dataset.akariItemKind = 'item';
@@ -10345,8 +10340,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTreeItemKind = row.itemKind;
             element.dataset.akariTreeParentId = row.parentId ?? '';
             element.dataset.akariTreeTrackId = row.trackId;
-            element.setAttribute('data-akari-ui', row.sourceKind === 'group' ? 'timeline-canvas-chip'
-                : row.sourceKind === 'same-time' ? 'timeline-same-time-chip' : 'timeline-tree-chip');
+            element.setAttribute('data-akari-ui', row.sourceKind === 'group' ? 'timeline-canvas-chip' : 'timeline-tree-chip');
             element.style.pointerEvents = 'auto';
             this.applyGenerationChip(element, generation);
             if (created) {
@@ -10363,15 +10357,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     element.appendChild(marker);
                 }
+                if (row.sourceKind === 'group' && row.collapsed) {
+                    for (const child of this.expandedTimelineTreeRows.filter(candidate => candidate.parentId === row.id)) {
+                        const span = canvasChildChipSpan(row, child);
+                        if (!span) continue;
+                        const childChip = document.createElement('span');
+                        childChip.dataset.akariCanvasChild = child.id;
+                        childChip.title = child.label;
+                        Object.assign(childChip.style, {
+                            position: 'absolute', top: '0', height: `${SUBROW_GAP}px`,
+                            left: `${span.left * 100}%`, width: `${span.width * 100}%`,
+                            background: 'var(--theia-focusBorder)', pointerEvents: 'none'
+                        });
+                        element.appendChild(childChip);
+                    }
+                }
                 element.addEventListener('click', event => {
                     event.preventDefault();
                     event.stopPropagation();
                     if (element.dataset.akariChipDrag === 'done') {
                         delete element.dataset.akariChipDrag;
-                        return;
-                    }
-                    if (row.sourceKind === 'same-time') {
-                        this.toggleTimelineTreeRow(row.id);
                         return;
                     }
                     if (this.detectTreeDoubleClick(row.id, event.clientX, event.clientY)) {
@@ -10507,7 +10512,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         });
         this.overlays.forEach(overlay => {
-            if (foldedMemberIds.has(overlay.id)) return;
+            if (timelineItemRenderRoute(overlay.id, this.itemLocations, this.timelineTreeRows) !== 'legacy') return;
             if (!this.itemVisibleInFocus(overlay.id)) return;
             const layout = resolveItemRowLayout(
                 this.laneLayout.tracks,
@@ -10552,7 +10557,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }));
         });
         this.layers.forEach(layer => {
-            if (foldedMemberIds.has(layer.id)) return;
+            if (timelineItemRenderRoute(layer.id, this.itemLocations, this.timelineTreeRows) !== 'legacy') return;
             if (!this.itemVisibleInFocus(layer.id)) return;
             const layout = resolveItemRowLayout(
                 this.laneLayout.tracks,
@@ -10916,7 +10921,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
         this.segments.forEach(segment => {
             const cutItemId = this.cutItemIds[segment.index] ?? '';
-            if (foldedMemberIds.has(cutItemId)) return;
+            if (timelineItemRenderRoute(cutItemId, this.itemLocations, this.timelineTreeRows) !== 'legacy') return;
             if (!this.itemVisibleInFocus(cutItemId)) return;
             const itemTrackId = this.itemLocations.get(cutItemId)?.trackId;
             const cutLayout = resolveItemRowLayout(
@@ -10925,6 +10930,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!cutLayout || !this.isRangeMounted(segment.tlStart, segment.tlEnd)) {
                 return;
             }
+            const cutTrack = this.displayTimelineTracks.find(track => track.id === cutLayout.id);
+            const cutRowHeight = cutMediaRowHeight(
+                cutLayout.height,
+                cutTrack ? this.trackHeightFor(cutTrack) : undefined,
+                !!this.treeRowsByTrack.get(cutLayout.id)?.length
+            );
             const cut = this.cuts[segment.index];
             const widthPercent = Math.max(
                 this.layoutPercent(segment.tlEnd) - this.layoutPercent(segment.tlStart), 0.3
@@ -10939,7 +10950,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // ドラッグリスナー）を破棄・再生成していた。トリマー中の 1 本だけはウィング描画が幅依存なので
             // 従来どおり幾何込みで作り直す。
             const cutSignature = JSON.stringify([
-                cut, segment, this.videoClipLabel(cutItemId, cut), cutLayout.height, cutTrimmerActive,
+                cut, segment, this.videoClipLabel(cutItemId, cut), cutRowHeight, cutTrimmerActive,
                 cutTrimmerActive ? [this.layoutViewDuration, stripLayoutWidthPx, this.filmstripContentRevision] : 0,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
                 unsupportedDeclaredTransitions.has(segment.index), cutGeneration,
@@ -10950,7 +10961,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ]);
             const { element, created } = this.keyedStripSegment(
                 `cut:${segment.index}`, cutSignature, segment.tlStart, segment.tlEnd,
-                cutLayout.top, cutLayout.height, 'akari-annotations-strip-clip', `C${segment.index + 1}`
+                cutLayout.top, cutRowHeight, 'akari-annotations-strip-clip', `C${segment.index + 1}`
             );
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
@@ -10993,7 +11004,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (showTrimmer) {
                 if (created) {
                     this.renderTrimmerClip(
-                        element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration
+                        element, cut, clipWidth, segment, cutRowHeight, trimmerVideoUri, trimmerSourceDuration
                     );
                     element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
                     this.appendClipKindBadge(element, this.rawKeyframeItem(cutItemId) ?? { source: { kind: 'media' } }, { path: cut.src, lane: 'visual' });
@@ -11016,11 +11027,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
             } else {
                 if (created) {
-                    this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
+                    this.renderClipMedia(element, cut, clipWidth, segment, cutRowHeight);
                     element.appendChild(this.clipHeader(this.videoClipLabel(cutItemId, cut), segment.tlEnd - segment.tlStart));
                     this.appendClipKindBadge(element, this.rawKeyframeItem(cutItemId) ?? { source: { kind: 'media' } }, { path: cut.src, lane: 'visual' });
                 } else {
-                    this.updateClipMediaGeometry(element, cut, clipWidth, segment, cutLayout.height);
+                    this.updateClipMediaGeometry(element, cut, clipWidth, segment, cutRowHeight);
                 }
                 this.installDragListeners(element, (event, rect) => {
                     const edgeMode = this.resolveClipEdgeMode(event, rect, element);
@@ -11740,7 +11751,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!this.isRangeMounted(row.at, row.at + row.duration)) return;
             const { element, created } = this.keyedStripSegment(
                 `kf:${row.id}:${propertyRow.property}`, JSON.stringify([propertyRow, durationFrames]),
-                row.at, row.at + row.duration, trackTop + (itemRowIndex + index + 1) * stride,
+                row.at, row.at + row.duration,
+                trackTop + (this.treeRowGeometry.get(row.id)?.propertyTops[index]
+                    ?? (itemRowIndex + index + 1) * stride),
                 stride - SUBROW_GAP, 'akari-timeline-keyframe-property-row', propertyRow.label
             );
             element.style.pointerEvents = 'auto';
@@ -12331,19 +12344,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         header.insertBefore(trackLine, header.firstChild);
         header.dataset.akariTreeTrack = 'true';
-        let visualIndex = timelineTreeRowOffset(rows.length);
         rows.forEach(treeRow => {
             const stride = this.timelineRowStride(treeRow.trackId);
+            const geometry = this.treeRowGeometry.get(treeRow.id);
             const row = document.createElement('div');
             row.dataset.akariTreeRowId = treeRow.id;
             if (treeRow.sourceKind === 'group') row.dataset.akariUi = 'timeline-canvas-row';
-            if (treeRow.sourceKind === 'same-time') row.dataset.akariUi = 'timeline-same-time-row';
             row.dataset.akariItemId = treeRow.id;
             row.dataset.akariItemKind = 'item';
             row.dataset.akariLocked = String(this.isTrackLocked(treeRow.trackId));
             Object.assign(row.style, {
-                position: 'absolute', left: '0', right: '0', top: `${visualIndex * stride}px`,
-                height: `${treeRow.sourceKind === 'caption' || treeRow.sourceKind === 'captions' ? SUBROW_HEIGHT : stride - SUBROW_GAP}px`,
+                position: 'absolute', left: '0', right: '0', top: `${geometry?.top ?? stride}px`,
+                height: `${geometry?.height ?? stride - SUBROW_GAP}px`,
                 display: 'flex', alignItems: 'center', gap: '3px',
                 paddingLeft: `${4 + treeRow.depth * 16}px`, boxSizing: 'border-box', overflow: 'hidden'
             });
@@ -12351,7 +12363,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (canvasRaw && (!Array.isArray(canvasRaw.items) || canvasRaw.items.length === 0)) {
                 row.style.backgroundImage = 'repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)';
             }
-            const canToggle = (treeRow.sourceKind === 'group' || treeRow.sourceKind === 'same-time') && treeRow.hasChildren;
+            const canToggle = treeRow.sourceKind === 'group' && treeRow.hasChildren;
             const label = document.createElement('span');
             label.textContent = String(this.rawKeyframeItem(treeRow.id)?.name ?? treeRow.label);
             if (canvasRaw?.source?.canvas?.intent) label.textContent += ` · ${canvasRaw.source.canvas.intent}`;
@@ -12401,10 +12413,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             row.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
-                if (treeRow.sourceKind === 'same-time') {
-                    this.toggleTimelineTreeRow(treeRow.id);
-                    return;
-                }
                 if (this.detectTreeDoubleClick(treeRow.id, event.clientX, event.clientY)) {
                     this.enterTreeItem(treeRow);
                     return;
@@ -12418,21 +12426,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.stopPropagation();
                 void this.openTimelineClipContextMenu(event, row);
             });
-            if (treeRow.sourceKind !== 'same-time') this.installTreeRowDrag(row, treeRow, rows);
+            this.installTreeRowDrag(row, treeRow, rows);
             header.appendChild(row);
-            visualIndex++;
-            for (const propertyRow of this.keyframeRowsByItem.get(treeRow.id) ?? []) {
+            for (const [index, propertyRow] of (this.keyframeRowsByItem.get(treeRow.id) ?? []).entries()) {
                 const property = document.createElement('div');
                 property.dataset.akariKeyframePropertyHeader = `${treeRow.id}:${propertyRow.property}`;
                 property.textContent = propertyRow.label;
                 Object.assign(property.style, {
-                    position: 'absolute', left: '0', right: '0', top: `${visualIndex * stride}px`,
+                    position: 'absolute', left: '0', right: '0', top: `${geometry?.propertyTops[index] ?? stride}px`,
                     height: `${stride - SUBROW_GAP}px`, paddingLeft: `${24 + treeRow.depth * 16}px`,
                     boxSizing: 'border-box', fontSize: '10px', lineHeight: `${stride - SUBROW_GAP}px`,
                     opacity: propertyRow.editable ? '.9' : '.55', overflow: 'hidden', textOverflow: 'ellipsis'
                 });
                 header.appendChild(property);
-                visualIndex++;
             }
         });
     }
@@ -12520,8 +12526,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return;
                     }
                 }
-                const sourceParentId = source.parentId?.startsWith('same-time:') ? undefined : source.parentId;
-                const targetParentId = target.parentId?.startsWith('same-time:') ? undefined : target.parentId;
+                const sourceParentId = source.parentId;
+                const targetParentId = target.parentId;
                 if (sourceParentId && sourceParentId !== targetParentId && hit!.mode === 'line') {
                     if (this.rawV2Item(sourceParentId)?.source?.kind === 'group') {
                         void this.takeItemsOutOfCanvas([source.id]);
@@ -18232,20 +18238,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async openTimelineClipContextMenu(event: MouseEvent, element: HTMLElement): Promise<void> {
         event.preventDefault();
         closeTimelineContextMenu();
-        const folded = this.timelineTreeRows.find(row => row.id === (element.dataset.akariTreeRowId ?? element.dataset.akariItemId)
-            && row.sourceKind === 'same-time');
-        if (folded?.memberIds) {
-            openTimelineContextMenu({ x: event.clientX, y: event.clientY,
-                items: [{ id: 'canvas', label: 'キャンバスにする' },
-                    { id: 'toggle', label: folded.collapsed ? '展開' : '折りたたむ' }],
-                onSelect: id => {
-                    if (id === 'toggle') this.toggleTimelineTreeRow(folded.id);
-                    else if (id === 'canvas') void this.commitEditMutation('キャンバスにする', doc =>
-                        groupTreeV2Items(doc, [...folded.memberIds!], { canvas: true }).document
-                    ).catch(error => this.showNotice(`キャンバスにできません: ${canvasOperationReason(error)}`));
-                } });
-            return;
-        }
         const captionTreeRow = element.dataset.akariLane === PLACED_TEXT_TRACK_ID ? undefined
             : element.dataset.akariTreeRowId
             ? this.expandedTimelineTreeRows.find(row => row.id === element.dataset.akariTreeRowId) : undefined;
@@ -18297,12 +18289,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.clipboard !== undefined,
             row ? {
                 canSplit: this.splittableItemId(item) !== undefined,
-                canDetach: row.parentId !== undefined && !row.parentId.startsWith('same-time:'),
+                canDetach: row.parentId !== undefined,
                 canGroup: this.multiSelection.length >= 2,
                 canUngroup: row.sourceKind === 'group',
                 canToggleCollapse: row.sourceKind === 'group' && row.hasChildren,
                 collapsed: row.collapsed,
-                hasParent: row.parentId !== undefined && !row.parentId.startsWith('same-time:')
+                hasParent: row.parentId !== undefined
             } : { canSplit: this.splittableItemId(item) !== undefined },
             {
                 ...(item.kind === 'cut' && document ? { split: canSplitCutAudio(
