@@ -3359,6 +3359,7 @@ var require_caption_store = __commonJS({
       "vertical",
       "text_transform",
       "max_width_pct",
+      "wrap_width_pct",
       "max_characters",
       "text_anchor",
       "position",
@@ -3427,6 +3428,9 @@ var require_caption_store = __commonJS({
       }
       if (isFiniteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100) {
         style.maxWidthPct = value.max_width_pct;
+      }
+      if (isFiniteNumber(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100) {
+        style.wrapWidthPct = value.wrap_width_pct;
       }
       if (Number.isInteger(value.max_characters) && value.max_characters > 0) {
         style.maxCharacters = value.max_characters;
@@ -3633,6 +3637,7 @@ var require_caption_store = __commonJS({
         ...style.vertical !== void 0 ? { vertical: style.vertical } : {},
         ...style.textTransform !== void 0 ? { text_transform: style.textTransform } : {},
         ...style.maxWidthPct !== void 0 ? { max_width_pct: style.maxWidthPct } : {},
+        ...style.wrapWidthPct !== void 0 ? { wrap_width_pct: style.wrapWidthPct } : {},
         ...style.maxCharacters !== void 0 ? { max_characters: style.maxCharacters } : {},
         ...style.textAnchor !== void 0 ? { text_anchor: style.textAnchor } : {},
         ...style.position !== void 0 ? {
@@ -4588,6 +4593,7 @@ var require_caption_display = __commonJS({
       "vertical",
       "text_transform",
       "max_width_pct",
+      "wrap_width_pct",
       "max_characters",
       "text_anchor",
       "position",
@@ -5236,6 +5242,7 @@ var require_caption_display = __commonJS({
       failIf(has("vertical") && typeof value.vertical !== "boolean", "vertical must be a boolean");
       failIf(has("text_transform") && !CAPTION_TEXT_TRANSFORM_VALUES.has(value.text_transform), "text_transform must be one of upper, uppercase, lower, lowercase, title, capitalize, none");
       failIf(has("max_width_pct") && (!finiteNumber(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100), "max_width_pct must be a finite number within (0, 100)");
+      failIf(has("wrap_width_pct") && (!finiteNumber(value.wrap_width_pct) || value.wrap_width_pct <= 0 || value.wrap_width_pct > 100), "wrap_width_pct must be a finite number within (0, 100]");
       failIf(has("max_characters") && !positiveInteger(value.max_characters), "max_characters must be an integer greater than zero");
       failIf(has("text_anchor") && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor), "text_anchor must be one of the nine anchor codes");
       if (has("position")) {
@@ -5887,6 +5894,7 @@ var require_caption_display = __commonJS({
         ...value.vertical === true ? { vertical: true } : {},
         ...CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] ? { text_transform: CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] } : {},
         ...finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100 ? { max_width_pct: value.max_width_pct } : {},
+        ...finiteNumber(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100 ? { wrap_width_pct: value.wrap_width_pct } : {},
         ...positiveInteger(value.max_characters) ? { max_characters: value.max_characters } : {},
         ...CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor) ? { text_anchor: value.text_anchor } : {},
         ...isRecord2(value.position) && (finiteNumber(value.position.x) || finiteNumber(value.position.y)) ? { position: {
@@ -6074,6 +6082,8 @@ var require_caption_display = __commonJS({
       }
       if (finiteNumber(style.max_width_pct))
         vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
+      if (finiteNumber(style.wrap_width_pct))
+        vars["--caption-wrap-width"] = `${style.wrap_width_pct}%`;
       if (style.vertical)
         vars["--caption-writing-mode"] = "vertical-rl";
       if (extendedBackground && isRecord2(style.background)) {
@@ -7259,7 +7269,26 @@ var require_edit_v2 = __commonJS({
           validateFilter(value.filter, `${path}.filter`);
           return;
         case "group":
-          requireExactKeys(value, /* @__PURE__ */ new Set(["kind"]), path);
+          requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "canvas"]), path);
+          if (hasOwn(value, "canvas")) {
+            requireRecord(value.canvas, `${path}.canvas`);
+            requireExactKeys(value.canvas, /* @__PURE__ */ new Set(["origin", "durationMode", "intent", "background"]), `${path}.canvas`);
+            if (value.canvas.origin !== "user" && value.canvas.origin !== "plan")
+              throw invalid(`${path}.canvas.origin`, "user / plan \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+            if (value.canvas.durationMode !== "fixed")
+              throw invalid(`${path}.canvas.durationMode`, "fixed \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+            if (hasOwn(value.canvas, "intent") && typeof value.canvas.intent !== "string")
+              throw invalid(`${path}.canvas.intent`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            if (hasOwn(value.canvas, "background")) {
+              requireRecord(value.canvas.background, `${path}.canvas.background`);
+              requireExactKeys(value.canvas.background, /* @__PURE__ */ new Set(["type", "color"]), `${path}.canvas.background`);
+              if (value.canvas.background.type === "color") {
+                if (typeof value.canvas.background.color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(value.canvas.background.color))
+                  throw invalid(`${path}.canvas.background.color`, "#RRGGBB \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+              } else if (value.canvas.background.type !== "none" || hasOwn(value.canvas.background, "color"))
+                throw invalid(`${path}.canvas.background`, "none \u307E\u305F\u306F color \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+            }
+          }
           return;
         case "captions":
           requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "exclude"]), path);
@@ -8395,6 +8424,843 @@ var require_item_anchor = __commonJS({
   }
 });
 
+// ../edit-store/lib/tree-ops.js
+var require_tree_ops = __commonJS({
+  "../edit-store/lib/tree-ops.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.attachEditHelpers = attachEditHelpers;
+    exports.updateItem = updateItem;
+    exports.setItemAnchor = setItemAnchor;
+    exports.clearItemAnchor = clearItemAnchor;
+    exports.refreshItemAnchors = refreshItemAnchors;
+    exports.setKeyframe = setKeyframe;
+    exports.removeKeyframe = removeKeyframe;
+    exports.moveKeyframe = moveKeyframe;
+    exports.setSegmentEasing = setSegmentEasing;
+    exports.hydrateKeyframes = hydrateKeyframes;
+    exports.moveItem = moveItem;
+    exports.createCanvas = createCanvas;
+    exports.putIntoCanvas = putIntoCanvas;
+    exports.putPlacedCaptionIntoCanvas = putPlacedCaptionIntoCanvas;
+    exports.takeOutOfCanvas = takeOutOfCanvas;
+    exports.insertItem = insertItem;
+    exports.removeItem = removeItem;
+    exports.detachItem = detachItem;
+    exports.materializeProjectedPart = materializeProjectedPart;
+    exports.collectExcludedCaptionIds = collectExcludedCaptionIds;
+    exports.filterCaptionRootByExcludedIds = filterCaptionRootByExcludedIds;
+    exports.groupItems = groupItems;
+    exports.ungroupItem = ungroupItem;
+    exports.normalizeTracks = normalizeTracks;
+    exports.allLocations = allLocations;
+    exports.locate = locate;
+    exports.createTrackAbove = createTrackAbove;
+    exports.createTrackAt = createTrackAt;
+    exports.nextTrackId = nextTrackId;
+    exports.nextGroupId = nextGroupId;
+    exports.overlapsAny = overlapsAny;
+    exports.changedZOrderIds = changedZOrderIds;
+    exports.absoluteAt = absoluteAt;
+    exports.worldTransformOfAncestors = worldTransformOfAncestors;
+    exports.opacityOfAncestors = opacityOfAncestors;
+    exports.composeTransforms = composeTransforms;
+    exports.relativeTransform = relativeTransform;
+    exports.ensureChildren = ensureChildren;
+    exports.clone = clone;
+    var transform_1 = require_transform();
+    var item_anchor_1 = require_item_anchor();
+    var SEGMENT_EASINGS = /* @__PURE__ */ new Set([
+      "linear",
+      "ease-in-out",
+      "in-quad",
+      "out-quad",
+      "in-out-quad",
+      "in-cubic",
+      "out-cubic",
+      "in-out-cubic",
+      "in-quart",
+      "out-quart",
+      "in-out-quart",
+      "in-expo",
+      "out-expo",
+      "in-out-expo",
+      "in-back",
+      "out-back",
+      "in-out-back",
+      "out-bounce",
+      "out-elastic",
+      "hold"
+    ]);
+    function attachEditHelpers(edit) {
+      Object.defineProperties(edit, {
+        find: { enumerable: false, value: (id) => locate(edit, id)?.item },
+        walk: { enumerable: false, value: (fn) => {
+          for (const location2 of allLocations(edit))
+            fn(location2.item, location2.parent, location2.track);
+        } },
+        parentOf: { enumerable: false, value: (id) => locate(edit, id)?.parent },
+        update: { enumerable: false, value: (id, patch) => updateItem(edit, id, patch) },
+        move: { enumerable: false, value: (id, target) => moveItem(edit, id, target) },
+        insert: { enumerable: false, value: (target, item, index) => insertItem(edit, target, item, index) },
+        remove: { enumerable: false, value: (id) => removeItem(edit, id) },
+        detach: { enumerable: false, value: (id, target) => detachItem(edit, id, target) },
+        group: { enumerable: false, value: (ids, options) => groupItems(edit, ids, options) },
+        ungroup: { enumerable: false, value: (id) => ungroupItem(edit, id) }
+      });
+    }
+    function updateItem(edit, id, patch) {
+      const location2 = requireLocation(edit, id);
+      for (const [key, value] of Object.entries(patch)) {
+        if (key === "source" && isRecord2(value) && isRecord2(location2.item.source)) {
+          location2.item.source = mergePatch(location2.item.source, value);
+        } else if (value === null || value === void 0) {
+          delete location2.item[key];
+        } else {
+          location2.item[key] = clone(value);
+        }
+      }
+      return location2.item;
+    }
+    function setItemAnchor(edit, id, anchor, captions) {
+      const item = requireLocation(edit, id).item;
+      item.anchor = clone(anchor);
+      if (item.anchor.attached_by?.caption !== anchor.caption)
+        delete item.anchor.attached_by;
+      const refreshed = (0, item_anchor_1.resolveItemAnchors)(edit, captions);
+      for (const change of refreshed.changes) {
+        const changedItem = requireLocation(edit, change.id).item;
+        changedItem.at = change.after.at;
+        changedItem.duration = change.after.duration;
+      }
+      return { edit, item, changes: refreshed.changes, warnings: refreshed.warnings };
+    }
+    function clearItemAnchor(edit, id) {
+      const item = requireLocation(edit, id).item;
+      delete item.anchor;
+      return item;
+    }
+    function refreshItemAnchors(edit, captions) {
+      return (0, item_anchor_1.resolveItemAnchors)(edit, captions);
+    }
+    function setKeyframe(edit, id, property, t, value) {
+      const item = requireLocation(edit, id).item;
+      const time = requireKeyframeTime(t, item.duration);
+      const points = editableKeyframes(item);
+      if (points.length === 0) {
+        const opposite = time === 0 ? item.duration : 0;
+        points.push(pointWithValue(time, property, value), pointWithValue(opposite, property, value));
+      } else {
+        const point = points.find((candidate) => candidate.t === time);
+        if (point)
+          assignKeyframeValue(point, property, value);
+        else
+          points.push(pointWithValue(time, property, value));
+      }
+      item.keyframes = normalizeKeyframes(points);
+      return item;
+    }
+    function removeKeyframe(edit, id, property, t) {
+      const item = requireLocation(edit, id).item;
+      const points = editableKeyframes(item);
+      const point = points.find((candidate) => candidate.t === t);
+      if (!point)
+        return item;
+      deleteKeyframeValue(point, property);
+      const remaining = points.filter(hasKeyframeValue);
+      if (remaining.length < 2)
+        delete item.keyframes;
+      else
+        item.keyframes = normalizeKeyframes(remaining);
+      return item;
+    }
+    function moveKeyframe(edit, id, property, fromT, toT) {
+      const item = requireLocation(edit, id).item;
+      const targetTime = requireKeyframeTime(toT, item.duration);
+      const points = editableKeyframes(item);
+      const source = points.find((point) => point.t === fromT);
+      const value = source ? keyframeValue(source, property) : void 0;
+      if (!source || value === void 0)
+        throw new Error(`\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id} ${property} t=${fromT}`);
+      const easing = source.easing;
+      deleteKeyframeValue(source, property);
+      let target = points.find((point) => point.t === targetTime);
+      if (!target) {
+        target = { t: targetTime };
+        points.push(target);
+      }
+      assignKeyframeValue(target, property, value);
+      if (easing !== void 0 && target.easing === void 0)
+        target.easing = clone(easing);
+      const remaining = points.filter(hasKeyframeValue);
+      if (remaining.length < 2)
+        throw new Error("\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u306F 2 \u70B9\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\u3002");
+      item.keyframes = normalizeKeyframes(remaining);
+      return item;
+    }
+    function setSegmentEasing(edit, id, property, toT, easing) {
+      requireSegmentEasing(easing);
+      const item = requireLocation(edit, id).item;
+      const points = editableKeyframes(item);
+      const index = points.findIndex((point2) => point2.t === toT);
+      if (index <= 0 || keyframeValue(points[index], property) === void 0) {
+        throw new Error("\u30A4\u30FC\u30B8\u30F3\u30B0\u3092\u8A2D\u5B9A\u3059\u308B\u533A\u9593\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002");
+      }
+      const point = points[index];
+      const declared = keyframeProperties(point);
+      if (declared.length <= 1) {
+        point.easing = easing;
+      } else {
+        const previous = typeof point.easing === "string" ? point.easing : "linear";
+        const perProperty = isRecord2(point.easing) ? clone(point.easing) : {};
+        for (const declaredProperty of declared) {
+          if (!(declaredProperty in perProperty))
+            perProperty[declaredProperty] = previous;
+        }
+        perProperty[property] = easing;
+        point.easing = perProperty;
+      }
+      item.keyframes = normalizeKeyframes(points);
+      return item;
+    }
+    function hydrateKeyframes(edit, id, points) {
+      if (points.length > 0 && points.length < 2)
+        throw new Error("\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u306F 2 \u70B9\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\u3002");
+      const item = requireLocation(edit, id).item;
+      item.keyframes = normalizeKeyframes(points.map((point) => clone(point)));
+      return item;
+    }
+    function moveItem(edit, id, target) {
+      if (target.track === void 0 === (target.parent === void 0)) {
+        throw new Error("move \u306E\u7F6E\u304D\u5148\u306F track \u307E\u305F\u306F parent \u306E\u3069\u3061\u3089\u304B\u4E00\u65B9\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      const source = requireLocation(edit, id);
+      const worldAt = absoluteAt(source);
+      const worldTransform = composeTransforms(worldTransformOfAncestors(source.ancestors), source.item.transform);
+      const worldOpacity = opacityOfAncestors(source.ancestors) * (source.item.opacity ?? 1);
+      let destinationItems;
+      let destinationTrack = source.track;
+      let destinationParent;
+      if (target.parent !== void 0) {
+        destinationParent = requireLocation(edit, target.parent);
+        const parent = destinationParent.item;
+        if (parent.id === id || containsItem(source.item, parent.id))
+          throw new Error("\u81EA\u5206\u81EA\u8EAB\u306E\u5B50\u3078 move \u3067\u304D\u307E\u305B\u3093\u3002");
+        if (worldAt < absoluteAt(destinationParent))
+          throw new Error("\u30AD\u30E3\u30F3\u30D0\u30B9\u3088\u308A\u524D\u306E item \u306F\u5165\u308C\u3089\u308C\u307E\u305B\u3093\u3002");
+        destinationItems = ensureChildren(parent);
+      } else {
+        destinationTrack = requireTrack(edit, target.track);
+        destinationItems = requireTrackItems(destinationTrack);
+      }
+      source.items.splice(source.index, 1);
+      if (source.parent?.source.kind === "captions" && source.item.source.kind === "caption") {
+        const excluded = source.parent.source.exclude ?? [];
+        if (!excluded.includes(source.item.source.id))
+          source.parent.source.exclude = [...excluded, source.item.source.id];
+      }
+      if (target.track !== void 0 && overlapsAny(source.item, destinationItems)) {
+        destinationTrack = createTrackAbove(edit, destinationTrack);
+        destinationItems = requireTrackItems(destinationTrack);
+      }
+      const inferredIndex = target.index === void 0 && destinationParent && !source.parent && (source.trackIndex < destinationParent.trackIndex || source.trackIndex === destinationParent.trackIndex && source.index < destinationParent.index) ? 0 : target.index;
+      const index = insertionIndex(inferredIndex, destinationItems.length);
+      const parentTransform = destinationParent ? composeTransforms(worldTransformOfAncestors(destinationParent.ancestors), destinationParent.item.transform) : void 0;
+      const parentOpacity = destinationParent ? opacityOfAncestors([...destinationParent.ancestors, destinationParent.item]) : 1;
+      source.item.at = worldAt - (destinationParent ? absoluteAt(destinationParent) : 0);
+      assignTransform(source.item, relativeTransform(parentTransform, worldTransform));
+      assignOpacity(source.item, parentOpacity === 0 ? worldOpacity : worldOpacity / parentOpacity);
+      destinationItems.splice(index, 0, source.item);
+      return source.item;
+    }
+    function createCanvas(edit, options) {
+      if (!Number.isInteger(options.at) || options.at < 0 || !Number.isInteger(options.duration) || options.duration <= 0) {
+        throw new Error("\u30AD\u30E3\u30F3\u30D0\u30B9\u306E\u4F4D\u7F6E\u3068\u5C3A\u306F\u30D5\u30EC\u30FC\u30E0\u5358\u4F4D\u306E\u6B63\u306E\u6574\u6570\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      const canvas = {
+        origin: "user",
+        durationMode: "fixed",
+        ...options.intent === void 0 ? {} : { intent: options.intent },
+        ...options.background === void 0 ? {} : { background: options.background }
+      };
+      const item = {
+        id: nextGroupId(edit),
+        name: options.name ?? "\u30AD\u30E3\u30F3\u30D0\u30B9",
+        at: options.at,
+        duration: options.duration,
+        source: { kind: "group", canvas },
+        items: []
+      };
+      const visual = tracksOf(edit).filter((track2) => track2.lane === "visual");
+      let track = options.trackIndex === void 0 ? visual[visual.length - 1] : visual[options.trackIndex];
+      if (!track)
+        track = createTrackAt(edit, "visual", tracksOf(edit).length);
+      if (overlapsAny(item, requireTrackItems(track)))
+        track = createTrackAbove(edit, track);
+      requireTrackItems(track).push(item);
+      return item;
+    }
+    function putIntoCanvas(edit, itemIds, canvasId) {
+      const canvas = requireLocation(edit, canvasId).item;
+      if (canvas.source.kind !== "group")
+        throw new Error("\u7F6E\u304D\u5148\u304C\u30AD\u30E3\u30F3\u30D0\u30B9\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002");
+      return [...new Set(itemIds)].map((id) => moveItem(edit, id, { parent: canvasId }));
+    }
+    function putPlacedCaptionIntoCanvas(edit, caption, canvasId) {
+      const canvas = requireLocation(edit, canvasId);
+      if (canvas.item.source.kind !== "group")
+        throw new Error("\u7F6E\u304D\u5148\u304C\u30AD\u30E3\u30F3\u30D0\u30B9\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002");
+      const existing = allLocations(edit).find((location2) => location2.item.source.kind === "caption" && location2.item.source.id === caption.id);
+      if (existing)
+        return moveItem(edit, existing.item.id, { parent: canvasId });
+      if (!Number.isInteger(caption.at) || !Number.isInteger(caption.duration) || caption.duration <= 0) {
+        throw new Error("\u5B57\u5E55\u306E\u6642\u523B\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      }
+      if (caption.at < absoluteAt(canvas))
+        throw new Error("\u30AD\u30E3\u30F3\u30D0\u30B9\u3088\u308A\u524D\u306E\u5B57\u5E55\u306F\u5165\u308C\u3089\u308C\u307E\u305B\u3093\u3002");
+      let bag = allLocations(edit).find((location2) => location2.item.source.kind === "captions" && location2.item.source.path === "captions.json")?.item;
+      if (!bag) {
+        const visual = tracksOf(edit).find((track) => track.lane === "visual");
+        const bagTrack = visual ? createTrackAbove(edit, visual) : createTrackAt(edit, "visual", tracksOf(edit).length);
+        let id2 = "captions-exclusions";
+        let serial2 = 1;
+        while (locate(edit, id2))
+          id2 = `captions-exclusions-${serial2++}`;
+        bag = {
+          id: id2,
+          at: 0,
+          duration: Math.max(1, caption.at + caption.duration),
+          source: { kind: "captions", path: "captions.json", exclude: [] },
+          items: []
+        };
+        requireTrackItems(bagTrack).push(bag);
+      }
+      if (bag.duration < caption.at + caption.duration)
+        bag.duration = caption.at + caption.duration;
+      const exclude = bag.source.kind === "captions" ? bag.source.exclude ?? [] : [];
+      if (bag.source.kind === "captions" && !exclude.includes(caption.id))
+        bag.source.exclude = [...exclude, caption.id];
+      let id = `cap-${caption.id}`;
+      let serial = 1;
+      while (locate(edit, id))
+        id = `cap-${caption.id}-${serial++}`;
+      const item = {
+        id,
+        at: caption.at - absoluteAt(canvas),
+        duration: caption.duration,
+        source: { kind: "caption", path: "captions.json", id: caption.id }
+      };
+      ensureChildren(canvas.item).push(item);
+      return item;
+    }
+    function takeOutOfCanvas(edit, itemIds) {
+      return [...new Set(itemIds)].map((id) => {
+        const location2 = requireLocation(edit, id);
+        if (location2.parent?.source.kind !== "group")
+          throw new Error("\u30AD\u30E3\u30F3\u30D0\u30B9\u306E\u4E2D\u8EAB\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002");
+        return detachItem(edit, id, { track: "above" });
+      });
+    }
+    function insertItem(edit, target, item, index) {
+      if (locate(edit, item.id))
+        throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${item.id}`);
+      const cloned = clone(item);
+      const track = tracksOf(edit).find((candidate) => candidate.id === target);
+      if (track) {
+        let destination = requireTrackItems(track);
+        if (overlapsAny(cloned, destination))
+          destination = requireTrackItems(createTrackAbove(edit, track));
+        destination.splice(insertionIndex(index, destination.length), 0, cloned);
+        return cloned;
+      }
+      const parent = requireLocation(edit, target).item;
+      const children = ensureChildren(parent);
+      children.splice(insertionIndex(index, children.length), 0, cloned);
+      return cloned;
+    }
+    function removeItem(edit, id) {
+      const location2 = requireLocation(edit, id);
+      location2.items.splice(location2.index, 1);
+      return location2.item;
+    }
+    function detachItem(edit, id, target, projected) {
+      const source = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
+      if (!source.parent)
+        throw new Error(`\u6BB5\u76F4\u4E0B\u306E item \u306F detach \u3067\u304D\u307E\u305B\u3093: ${id}`);
+      const worldAt = absoluteAt(source);
+      const worldTransform = composeTransforms(worldTransformOfAncestors(source.ancestors), source.item.transform);
+      const worldOpacity = opacityOfAncestors(source.ancestors) * (source.item.opacity ?? 1);
+      if (source.parent.source.kind === "html" || source.parent.source.kind === "captions") {
+        const excluded = source.parent.source.exclude ?? [];
+        const partId = partIdOf(source.item.id, source.item.source);
+        if (!excluded.includes(partId))
+          source.parent.source.exclude = [...excluded, partId];
+      }
+      source.items.splice(source.index, 1);
+      const targetGroup = target.track === "above" ? void 0 : locate(edit, target.track);
+      if (targetGroup) {
+        const parentWorldTransform = composeTransforms(worldTransformOfAncestors(targetGroup.ancestors), targetGroup.item.transform);
+        const parentOpacity = opacityOfAncestors([...targetGroup.ancestors, targetGroup.item]);
+        source.item.at = worldAt - absoluteAt(targetGroup);
+        assignTransform(source.item, relativeTransform(parentWorldTransform, worldTransform));
+        assignOpacity(source.item, parentOpacity === 0 ? worldOpacity : worldOpacity / parentOpacity);
+        ensureChildren(targetGroup.item).push(source.item);
+        return source.item;
+      }
+      source.item.at = worldAt;
+      assignTransform(source.item, worldTransform);
+      assignOpacity(source.item, worldOpacity);
+      let destination;
+      if (target.track === "above") {
+        destination = createTrackAbove(edit, source.track);
+      } else {
+        destination = requireTrack(edit, target.track);
+        if (overlapsAny(source.item, requireTrackItems(destination)))
+          destination = createTrackAbove(edit, destination);
+      }
+      requireTrackItems(destination).push(source.item);
+      return source.item;
+    }
+    function materializeProjectedPart(edit, id, projected) {
+      const separator = id.lastIndexOf("#");
+      if (separator <= 0 || separator === id.length - 1) {
+        throw new Error(`item \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
+      }
+      const bagId = id.slice(0, separator);
+      const part = id.slice(separator + 1);
+      const bag = requireLocation(edit, bagId);
+      if (bag.item.source.kind === "captions") {
+        const child2 = {
+          id: `cap-${part}`,
+          at: projected?.at ?? bag.item.at,
+          duration: projected?.duration ?? bag.item.duration,
+          source: { kind: "caption", path: "captions.json", id: part }
+        };
+        ensureChildren(bag.item).push(child2);
+        return requireLocation(edit, child2.id);
+      }
+      if (bag.item.source.kind !== "html")
+        throw new Error(`\u888B\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${bagId}`);
+      const source = { ...bag.item.source, part };
+      delete source.exclude;
+      const child = {
+        id,
+        at: 0,
+        duration: bag.item.duration,
+        source
+      };
+      ensureChildren(bag.item).push(child);
+      return requireLocation(edit, id);
+    }
+    function collectExcludedCaptionIds(edit) {
+      const result = /* @__PURE__ */ new Set();
+      const visit = (value) => {
+        if (!isRecord2(value))
+          return;
+        const source = value.source;
+        if (isRecord2(source) && source.kind === "captions" && Array.isArray(source.exclude)) {
+          for (const id of source.exclude)
+            if (typeof id === "string")
+              result.add(id);
+        }
+        for (const key of ["items", "children"]) {
+          const children = value[key];
+          if (Array.isArray(children))
+            for (const child of children)
+              visit(child);
+        }
+      };
+      if (isRecord2(edit) && Array.isArray(edit.tracks)) {
+        for (const track of edit.tracks) {
+          if (!isRecord2(track))
+            continue;
+          for (const key of ["items", "children"]) {
+            const items = track[key];
+            if (Array.isArray(items))
+              for (const item of items)
+                visit(item);
+          }
+        }
+      }
+      return result;
+    }
+    function filterCaptionRootByExcludedIds(root, excluded) {
+      const filter = (captions) => captions.filter((caption) => !isRecord2(caption) || typeof caption.id !== "string" || !excluded.has(caption.id));
+      if (Array.isArray(root))
+        return filter(root);
+      if (isRecord2(root) && Array.isArray(root.captions)) {
+        return { ...root, captions: filter(root.captions) };
+      }
+      return root;
+    }
+    function groupItems(edit, ids, options = {}) {
+      const uniqueIds = [...new Set(ids)];
+      if (uniqueIds.length < 2 || uniqueIds.length !== ids.length) {
+        throw new Error("group \u306F\u91CD\u8907\u3057\u306A\u3044 2 \u500B\u4EE5\u4E0A\u306E id \u3092\u5FC5\u8981\u3068\u3057\u307E\u3059\u3002");
+      }
+      const locations = uniqueIds.map((id) => requireLocation(edit, id));
+      const parentIds = new Set(locations.map((location2) => location2.parent?.id));
+      if (parentIds.size !== 1)
+        throw new Error("group \u306F\u540C\u3058\u5834\u6240\u306B\u3042\u308B item \u3060\u3051\u3092\u307E\u3068\u3081\u3089\u308C\u307E\u3059\u3002");
+      const inParent = locations[0].parent !== void 0;
+      if (inParent && new Set(locations.map((location2) => location2.items)).size !== 1) {
+        throw new Error("group \u306F\u540C\u3058\u30B0\u30EB\u30FC\u30D7\u5185\u306E item \u3060\u3051\u3092\u307E\u3068\u3081\u3089\u308C\u307E\u3059\u3002");
+      }
+      const ordered = [...locations].sort((left, right) => left.trackIndex - right.trackIndex || left.index - right.index);
+      const minimumAt = Math.min(...ordered.map((location2) => location2.item.at));
+      const maximumEnd = Math.max(...ordered.map((location2) => location2.item.at + location2.item.duration));
+      const group = {
+        id: nextGroupId(edit),
+        ...options.name === void 0 ? {} : { name: options.name },
+        at: minimumAt,
+        duration: maximumEnd - minimumAt,
+        source: { kind: "group", ...options.canvas ? { canvas: { origin: "user", durationMode: "fixed" } } : {} },
+        items: ordered.map((location2) => ({ ...location2.item, at: location2.item.at - minimumAt }))
+      };
+      const changedOrderIds = inParent ? [] : changedZOrderIds(edit, ordered, minimumAt, maximumEnd);
+      removeLocations(ordered);
+      if (inParent) {
+        const items = locations[0].items;
+        items.splice(Math.min(...locations.map((location2) => location2.index)), 0, group);
+      } else {
+        const target = ordered.reduce((front, location2) => location2.trackIndex > front.trackIndex ? location2 : front);
+        let targetTrack = target.track;
+        const targetItems = requireTrackItems(targetTrack);
+        if (overlapsAny(group, targetItems))
+          targetTrack = createTrackAbove(edit, targetTrack);
+        requireTrackItems(targetTrack).push(group);
+      }
+      return { group, changedOrderIds };
+    }
+    function ungroupItem(edit, id) {
+      const location2 = requireLocation(edit, id);
+      const group = location2.item;
+      if (group.source.kind === "html" || group.source.kind === "captions") {
+        throw new Error("\u888B\u30B0\u30EB\u30FC\u30D7\u306F ungroup \u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      if (group.source.kind !== "group")
+        throw new Error(`\u7D14\u30B0\u30EB\u30FC\u30D7\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${id}`);
+      if (group.keyframes !== void 0 || group.motion !== void 0 || group.animator !== void 0) {
+        throw new Error("v2.group-bake-blocked: keyframes / motion / animator \u3092\u6301\u3064\u30B0\u30EB\u30FC\u30D7\u306F ungroup \u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const children = ensureChildren(group).map((child) => {
+        const item = child;
+        item.at = group.at + child.at;
+        assignTransform(item, composeTransforms(group.transform, child.transform));
+        if (group.opacity !== void 0)
+          assignOpacity(item, group.opacity * (child.opacity ?? 1));
+        return item;
+      });
+      location2.items.splice(location2.index, 1);
+      if (location2.parent) {
+        location2.items.splice(location2.index, 0, ...children);
+        return children;
+      }
+      let lastTrack = location2.track;
+      for (const child of children) {
+        const baseItems = requireTrackItems(location2.track);
+        if (overlapsAny(child, baseItems))
+          lastTrack = createTrackAbove(edit, lastTrack);
+        else
+          lastTrack = location2.track;
+        requireTrackItems(lastTrack).push(child);
+      }
+      return children;
+    }
+    function normalizeTracks(edit) {
+      edit.tracks = edit.tracks.filter((track) => !("items" in track) || !Array.isArray(track.items) || track.items.length > 0);
+    }
+    function allLocations(edit) {
+      const result = [];
+      tracksOf(edit).forEach((track, trackIndex) => {
+        if (!Array.isArray(track.items))
+          return;
+        const visit = (items, parent, ancestors) => {
+          items.forEach((item, index) => {
+            const location2 = { item, items, index, parent, ancestors, track, trackIndex };
+            result.push(location2);
+            if (Array.isArray(item.items))
+              visit(item.items, item, [...ancestors, item]);
+          });
+        };
+        visit(track.items, void 0, []);
+      });
+      const ids = /* @__PURE__ */ new Set();
+      for (const location2 of result) {
+        if (ids.has(location2.item.id))
+          throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${location2.item.id}`);
+        ids.add(location2.item.id);
+      }
+      return result;
+    }
+    function locate(edit, id) {
+      return allLocations(edit).find((location2) => location2.item.id === id);
+    }
+    function createTrackAbove(edit, track) {
+      const current = typeof track === "string" ? requireTrack(edit, track) : track;
+      const tracks = tracksOf(edit);
+      const index = tracks.indexOf(current);
+      const created = { id: nextTrackId(edit, String(current.lane)), lane: current.lane, items: [] };
+      tracks.splice(index + 1, 0, created);
+      return created;
+    }
+    function createTrackAt(edit, lane, index) {
+      const tracks = tracksOf(edit);
+      if (!Number.isInteger(index) || index < 0 || index > tracks.length)
+        throw new Error("track index \u304C\u7BC4\u56F2\u5916\u3067\u3059\u3002");
+      const created = { id: nextTrackId(edit, lane), lane, items: [] };
+      tracks.splice(index, 0, created);
+      return created;
+    }
+    function nextTrackId(edit, lane) {
+      const ids = new Set(tracksOf(edit).map((track) => String(track.id)));
+      const prefix = lane === "audio" ? "a" : "v";
+      let serial = 1;
+      while (ids.has(`${prefix}${serial}`))
+        serial++;
+      return `${prefix}${serial}`;
+    }
+    function nextGroupId(edit) {
+      const ids = new Set(allLocations(edit).map((location2) => location2.item.id));
+      let serial = 1;
+      while (ids.has(`g-${serial}`))
+        serial++;
+      return `g-${serial}`;
+    }
+    function overlapsAny(item, items) {
+      return items.some((other) => item.at < other.at + other.duration && other.at < item.at + item.duration);
+    }
+    function changedZOrderIds(edit, members, start, end) {
+      const memberIds = new Set(members.map((location2) => location2.item.id));
+      const minTrack = Math.min(...members.map((location2) => location2.trackIndex));
+      const maxTrack = Math.max(...members.map((location2) => location2.trackIndex));
+      return allLocations(edit).filter((location2) => location2.parent === void 0 && location2.trackIndex >= minTrack && location2.trackIndex <= maxTrack && !memberIds.has(location2.item.id) && location2.item.at < end && start < location2.item.at + location2.item.duration).map((location2) => location2.item.id);
+    }
+    function absoluteAt(location2) {
+      return location2.ancestors.reduce((sum, item) => sum + item.at, 0) + location2.item.at;
+    }
+    function worldTransformOfAncestors(ancestors) {
+      return ancestors.reduce((result, item) => composeTransforms(result, item.transform), void 0);
+    }
+    function opacityOfAncestors(ancestors) {
+      return ancestors.reduce((result, item) => result * (item.opacity ?? 1), 1);
+    }
+    function composeTransforms(parent, child) {
+      if (parent === void 0)
+        return child === void 0 ? void 0 : (0, transform_1.normalizeTransform)(child);
+      if (child === void 0)
+        return { ...parent };
+      const scale = parent.scale ?? 1;
+      const radians = (parent.rotate ?? 0) * Math.PI / 180;
+      const childX = child.x ?? 0;
+      const childY = child.y ?? 0;
+      const result = {};
+      if (parent.x !== void 0 || child.x !== void 0 || child.y !== void 0) {
+        result.x = (parent.x ?? 0) + scale * (childX * Math.cos(radians) - childY * Math.sin(radians));
+      }
+      if (parent.y !== void 0 || child.x !== void 0 || child.y !== void 0) {
+        result.y = (parent.y ?? 0) + scale * (childX * Math.sin(radians) + childY * Math.cos(radians));
+      }
+      if (parent.scale !== void 0 || child.scale !== void 0)
+        result.scale = scale * (child.scale ?? 1);
+      if (child.scaleX !== void 0 || child.scaleY !== void 0) {
+        const axes = (0, transform_1.effectiveScale)(child);
+        result.scaleX = scale * axes.x;
+        result.scaleY = scale * axes.y;
+      }
+      if (parent.rotate !== void 0 || child.rotate !== void 0)
+        result.rotate = (parent.rotate ?? 0) + (child.rotate ?? 0);
+      return Object.keys(result).length === 0 ? void 0 : (0, transform_1.normalizeTransform)(result);
+    }
+    function relativeTransform(parent, world) {
+      if (parent === void 0)
+        return world === void 0 ? void 0 : (0, transform_1.normalizeTransform)(world);
+      world ??= {};
+      const scale = parent.scale ?? 1;
+      const radians = -(parent.rotate ?? 0) * Math.PI / 180;
+      const dx = (world.x ?? 0) - (parent.x ?? 0);
+      const dy = (world.y ?? 0) - (parent.y ?? 0);
+      const result = {};
+      if (world.x !== void 0 || world.y !== void 0 || parent.x !== void 0 || parent.y !== void 0) {
+        result.x = (dx * Math.cos(radians) - dy * Math.sin(radians)) / scale;
+        result.y = (dx * Math.sin(radians) + dy * Math.cos(radians)) / scale;
+      }
+      if (world.scale !== void 0 || parent.scale !== void 0)
+        result.scale = (world.scale ?? 1) / scale;
+      if (world.scaleX !== void 0 || world.scaleY !== void 0) {
+        const axes = (0, transform_1.effectiveScale)(world);
+        result.scaleX = axes.x / scale;
+        result.scaleY = axes.y / scale;
+      }
+      if (world.rotate !== void 0 || parent.rotate !== void 0)
+        result.rotate = (world.rotate ?? 0) - (parent.rotate ?? 0);
+      return Object.keys(result).length === 0 ? void 0 : (0, transform_1.normalizeTransform)(result);
+    }
+    function ensureChildren(item, create = true) {
+      if (Array.isArray(item.items))
+        return item.items;
+      if (!create)
+        return [];
+      item.items = [];
+      return item.items;
+    }
+    function clone(value) {
+      return structuredClone(value);
+    }
+    function editableKeyframes(item) {
+      if (item.keyframes === void 0)
+        return [];
+      if (!Array.isArray(item.keyframes)) {
+        throw new Error("motion \u888B\u3092 inline \u306B\u623B\u3057\u3066\u304B\u3089\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u3092\u7DE8\u96C6\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      return item.keyframes.map((point) => clone(point));
+    }
+    function requireSegmentEasing(value) {
+      const cubic = /^cubic-bezier\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\)$/u;
+      if (!SEGMENT_EASINGS.has(value) && !cubic.test(value))
+        throw new Error(`\u672A\u5BFE\u5FDC\u306E easing \u3067\u3059: ${value}`);
+    }
+    function requireKeyframeTime(t, duration) {
+      if (!Number.isInteger(t) || t < 0 || t > duration) {
+        throw new Error(`\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u6642\u523B\u306F 0\u301C${duration} \u306E\u6574\u6570\u30D5\u30EC\u30FC\u30E0\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
+      }
+      return t;
+    }
+    function normalizeKeyframes(points) {
+      const result = points.map((point) => clone(point)).sort((left, right) => left.t - right.t);
+      for (let index = 1; index < result.length; index++) {
+        if (result[index - 1].t === result[index].t)
+          throw new Error("\u540C\u3058\u6642\u523B\u306B\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u3092\u91CD\u306D\u3089\u308C\u307E\u305B\u3093\u3002");
+      }
+      return result;
+    }
+    function pointWithValue(t, property, value) {
+      const point = { t };
+      assignKeyframeValue(point, property, value);
+      return point;
+    }
+    function assignKeyframeValue(point, property, value) {
+      if (property.startsWith("transform.")) {
+        const key = property.slice("transform.".length);
+        point.transform = { ...point.transform ?? {}, [key]: clone(value) };
+      } else {
+        point[property] = clone(value);
+      }
+    }
+    function deleteKeyframeValue(point, property) {
+      if (property.startsWith("transform.")) {
+        const key = property.slice("transform.".length);
+        if (point.transform) {
+          delete point.transform[key];
+          if (Object.keys(point.transform).length === 0)
+            delete point.transform;
+        }
+      } else {
+        delete point[property];
+      }
+      if (isRecord2(point.easing)) {
+        delete point.easing[property];
+        if (Object.keys(point.easing).length === 0)
+          delete point.easing;
+      }
+    }
+    function keyframeValue(point, property) {
+      if (!property.startsWith("transform."))
+        return point[property];
+      return point.transform?.[property.slice("transform.".length)];
+    }
+    function keyframeProperties(point) {
+      const result = [];
+      for (const property of ["transform.x", "transform.y", "transform.scale", "transform.scaleX", "transform.scaleY", "transform.rotate"]) {
+        if (keyframeValue(point, property) !== void 0)
+          result.push(property);
+      }
+      for (const property of ["opacity", "crop", "perspective"]) {
+        if (keyframeValue(point, property) !== void 0)
+          result.push(property);
+      }
+      return result;
+    }
+    function hasKeyframeValue(point) {
+      return keyframeProperties(point).length > 0 || point.animator !== void 0;
+    }
+    function requireLocation(edit, id) {
+      const location2 = locate(edit, id);
+      if (!location2)
+        throw new Error(`item \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
+      return location2;
+    }
+    function tracksOf(edit) {
+      return edit.tracks;
+    }
+    function requireTrack(edit, id) {
+      const track = tracksOf(edit).find((candidate) => candidate.id === id);
+      if (!track)
+        throw new Error(`track \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
+      return track;
+    }
+    function requireTrackItems(track) {
+      if (!Array.isArray(track.items))
+        throw new Error(`item \u3092\u7F6E\u3051\u306A\u3044 track \u3067\u3059: ${String(track.id)}`);
+      return track.items;
+    }
+    function insertionIndex(value, length) {
+      const index = value ?? length;
+      if (!Number.isInteger(index) || index < 0 || index > length)
+        throw new Error("index \u304C\u7BC4\u56F2\u5916\u3067\u3059\u3002");
+      return index;
+    }
+    function removeLocations(locations) {
+      const containers = /* @__PURE__ */ new Map();
+      for (const location2 of locations) {
+        const entries = containers.get(location2.items) ?? [];
+        entries.push(location2);
+        containers.set(location2.items, entries);
+      }
+      for (const [items, entries] of containers) {
+        for (const location2 of entries.sort((left, right) => right.index - left.index))
+          items.splice(location2.index, 1);
+      }
+    }
+    function containsItem(item, id) {
+      return ensureChildren(item, false).some((child) => child.id === id || containsItem(child, id));
+    }
+    function assignTransform(item, transform) {
+      if (transform === void 0)
+        delete item.transform;
+      else
+        item.transform = transform;
+    }
+    function assignOpacity(item, opacity) {
+      if (opacity === 1)
+        delete item.opacity;
+      else
+        item.opacity = opacity;
+    }
+    function mergePatch(base, patch) {
+      const result = { ...base };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === void 0)
+          delete result[key];
+        else
+          result[key] = clone(value);
+      }
+      return result;
+    }
+    function partIdOf(itemId, source) {
+      if (source.kind === "caption")
+        return source.id;
+      if ("part" in source && typeof source.part === "string")
+        return source.part;
+      const hash = itemId.lastIndexOf("#");
+      return hash >= 0 ? itemId.slice(hash + 1) : itemId;
+    }
+    function isRecord2(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/error.js
 var require_error = __commonJS({
   "../edit-store/lib/migrate/error.js"(exports) {
@@ -9053,6 +9919,7 @@ var require_internal_model = __commonJS({
     exports.toLegacyTrack = toLegacyTrack;
     exports.derivedLegacyTracks = derivedLegacyTracks;
     var edit_v2_1 = require_edit_v2();
+    var tree_ops_1 = require_tree_ops();
     var item_anchor_1 = require_item_anchor();
     var cut_adjacency_1 = require_cut_adjacency();
     var error_1 = require_error();
@@ -9441,6 +10308,33 @@ var require_internal_model = __commonJS({
         delete built.item.children;
         Object.defineProperty(built.item, "children", { value: children, enumerable: false, writable: true });
       }
+      if (lane === "visual" && item.source.kind === "group") {
+        const groupItem = item;
+        const clipStart = built.item.atFrames;
+        const clipEnd = clipStart + built.item.durationFrames;
+        const clipCaptions = (node) => {
+          if (node.source.kind === "caption") {
+            const start = Math.max(clipStart, node.atFrames);
+            const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
+            node.atFrames = start;
+            node.durationFrames = Math.max(0, end - start);
+            node.at = start / fps;
+            node.duration = node.durationFrames / fps;
+            const transform = (0, tree_ops_1.composeTransforms)(groupItem.transform, node.declaration.transform);
+            node.declaration = {
+              ...node.declaration,
+              ...transform ? { transform } : {},
+              ...groupItem.opacity !== void 0 ? { opacity: groupItem.opacity * (typeof node.declaration.opacity === "number" ? node.declaration.opacity : 1) } : {}
+            };
+            if (node.durationFrames === 0)
+              node.declaration = { ...node.declaration, hidden: true };
+          }
+          for (const child of node.children)
+            clipCaptions(child);
+        };
+        for (const child of children)
+          clipCaptions(child);
+      }
       if (parentId !== void 0)
         built.item.parentId = parentId;
       return built;
@@ -9727,8 +10621,8 @@ var require_internal_model = __commonJS({
             at: at2,
             duration,
             children: [],
-            source: { kind: "group" },
-            declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+            source: { kind: "group", ...item.source.canvas ? { canvas: item.source.canvas } : {} },
+            declaration: { id: item.id, ...item.name ? { name: item.name } : {}, at: item.at, duration: item.duration, ...common },
             legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
           } });
         case "captions":
@@ -11610,734 +12504,6 @@ var require_audio_schedule = __commonJS({
   }
 });
 
-// ../edit-store/lib/tree-ops.js
-var require_tree_ops = __commonJS({
-  "../edit-store/lib/tree-ops.js"(exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    exports.attachEditHelpers = attachEditHelpers;
-    exports.updateItem = updateItem;
-    exports.setItemAnchor = setItemAnchor;
-    exports.clearItemAnchor = clearItemAnchor;
-    exports.refreshItemAnchors = refreshItemAnchors;
-    exports.setKeyframe = setKeyframe;
-    exports.removeKeyframe = removeKeyframe;
-    exports.moveKeyframe = moveKeyframe;
-    exports.setSegmentEasing = setSegmentEasing;
-    exports.hydrateKeyframes = hydrateKeyframes;
-    exports.moveItem = moveItem;
-    exports.insertItem = insertItem;
-    exports.removeItem = removeItem;
-    exports.detachItem = detachItem;
-    exports.materializeProjectedPart = materializeProjectedPart;
-    exports.collectExcludedCaptionIds = collectExcludedCaptionIds;
-    exports.filterCaptionRootByExcludedIds = filterCaptionRootByExcludedIds;
-    exports.groupItems = groupItems;
-    exports.ungroupItem = ungroupItem;
-    exports.normalizeTracks = normalizeTracks;
-    exports.allLocations = allLocations;
-    exports.locate = locate;
-    exports.createTrackAbove = createTrackAbove;
-    exports.createTrackAt = createTrackAt;
-    exports.nextTrackId = nextTrackId;
-    exports.nextGroupId = nextGroupId;
-    exports.overlapsAny = overlapsAny;
-    exports.changedZOrderIds = changedZOrderIds;
-    exports.absoluteAt = absoluteAt;
-    exports.worldTransformOfAncestors = worldTransformOfAncestors;
-    exports.opacityOfAncestors = opacityOfAncestors;
-    exports.composeTransforms = composeTransforms;
-    exports.relativeTransform = relativeTransform;
-    exports.ensureChildren = ensureChildren;
-    exports.clone = clone;
-    var transform_1 = require_transform();
-    var item_anchor_1 = require_item_anchor();
-    var SEGMENT_EASINGS = /* @__PURE__ */ new Set([
-      "linear",
-      "ease-in-out",
-      "in-quad",
-      "out-quad",
-      "in-out-quad",
-      "in-cubic",
-      "out-cubic",
-      "in-out-cubic",
-      "in-quart",
-      "out-quart",
-      "in-out-quart",
-      "in-expo",
-      "out-expo",
-      "in-out-expo",
-      "in-back",
-      "out-back",
-      "in-out-back",
-      "out-bounce",
-      "out-elastic",
-      "hold"
-    ]);
-    function attachEditHelpers(edit) {
-      Object.defineProperties(edit, {
-        find: { enumerable: false, value: (id) => locate(edit, id)?.item },
-        walk: { enumerable: false, value: (fn) => {
-          for (const location2 of allLocations(edit))
-            fn(location2.item, location2.parent, location2.track);
-        } },
-        parentOf: { enumerable: false, value: (id) => locate(edit, id)?.parent },
-        update: { enumerable: false, value: (id, patch) => updateItem(edit, id, patch) },
-        move: { enumerable: false, value: (id, target) => moveItem(edit, id, target) },
-        insert: { enumerable: false, value: (target, item, index) => insertItem(edit, target, item, index) },
-        remove: { enumerable: false, value: (id) => removeItem(edit, id) },
-        detach: { enumerable: false, value: (id, target) => detachItem(edit, id, target) },
-        group: { enumerable: false, value: (ids, options) => groupItems(edit, ids, options) },
-        ungroup: { enumerable: false, value: (id) => ungroupItem(edit, id) }
-      });
-    }
-    function updateItem(edit, id, patch) {
-      const location2 = requireLocation(edit, id);
-      for (const [key, value] of Object.entries(patch)) {
-        if (key === "source" && isRecord2(value) && isRecord2(location2.item.source)) {
-          location2.item.source = mergePatch(location2.item.source, value);
-        } else if (value === null || value === void 0) {
-          delete location2.item[key];
-        } else {
-          location2.item[key] = clone(value);
-        }
-      }
-      return location2.item;
-    }
-    function setItemAnchor(edit, id, anchor, captions) {
-      const item = requireLocation(edit, id).item;
-      item.anchor = clone(anchor);
-      if (item.anchor.attached_by?.caption !== anchor.caption)
-        delete item.anchor.attached_by;
-      const refreshed = (0, item_anchor_1.resolveItemAnchors)(edit, captions);
-      for (const change of refreshed.changes) {
-        const changedItem = requireLocation(edit, change.id).item;
-        changedItem.at = change.after.at;
-        changedItem.duration = change.after.duration;
-      }
-      return { edit, item, changes: refreshed.changes, warnings: refreshed.warnings };
-    }
-    function clearItemAnchor(edit, id) {
-      const item = requireLocation(edit, id).item;
-      delete item.anchor;
-      return item;
-    }
-    function refreshItemAnchors(edit, captions) {
-      return (0, item_anchor_1.resolveItemAnchors)(edit, captions);
-    }
-    function setKeyframe(edit, id, property, t, value) {
-      const item = requireLocation(edit, id).item;
-      const time = requireKeyframeTime(t, item.duration);
-      const points = editableKeyframes(item);
-      if (points.length === 0) {
-        const opposite = time === 0 ? item.duration : 0;
-        points.push(pointWithValue(time, property, value), pointWithValue(opposite, property, value));
-      } else {
-        const point = points.find((candidate) => candidate.t === time);
-        if (point)
-          assignKeyframeValue(point, property, value);
-        else
-          points.push(pointWithValue(time, property, value));
-      }
-      item.keyframes = normalizeKeyframes(points);
-      return item;
-    }
-    function removeKeyframe(edit, id, property, t) {
-      const item = requireLocation(edit, id).item;
-      const points = editableKeyframes(item);
-      const point = points.find((candidate) => candidate.t === t);
-      if (!point)
-        return item;
-      deleteKeyframeValue(point, property);
-      const remaining = points.filter(hasKeyframeValue);
-      if (remaining.length < 2)
-        delete item.keyframes;
-      else
-        item.keyframes = normalizeKeyframes(remaining);
-      return item;
-    }
-    function moveKeyframe(edit, id, property, fromT, toT) {
-      const item = requireLocation(edit, id).item;
-      const targetTime = requireKeyframeTime(toT, item.duration);
-      const points = editableKeyframes(item);
-      const source = points.find((point) => point.t === fromT);
-      const value = source ? keyframeValue(source, property) : void 0;
-      if (!source || value === void 0)
-        throw new Error(`\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id} ${property} t=${fromT}`);
-      const easing = source.easing;
-      deleteKeyframeValue(source, property);
-      let target = points.find((point) => point.t === targetTime);
-      if (!target) {
-        target = { t: targetTime };
-        points.push(target);
-      }
-      assignKeyframeValue(target, property, value);
-      if (easing !== void 0 && target.easing === void 0)
-        target.easing = clone(easing);
-      const remaining = points.filter(hasKeyframeValue);
-      if (remaining.length < 2)
-        throw new Error("\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u306F 2 \u70B9\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\u3002");
-      item.keyframes = normalizeKeyframes(remaining);
-      return item;
-    }
-    function setSegmentEasing(edit, id, property, toT, easing) {
-      requireSegmentEasing(easing);
-      const item = requireLocation(edit, id).item;
-      const points = editableKeyframes(item);
-      const index = points.findIndex((point2) => point2.t === toT);
-      if (index <= 0 || keyframeValue(points[index], property) === void 0) {
-        throw new Error("\u30A4\u30FC\u30B8\u30F3\u30B0\u3092\u8A2D\u5B9A\u3059\u308B\u533A\u9593\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002");
-      }
-      const point = points[index];
-      const declared = keyframeProperties(point);
-      if (declared.length <= 1) {
-        point.easing = easing;
-      } else {
-        const previous = typeof point.easing === "string" ? point.easing : "linear";
-        const perProperty = isRecord2(point.easing) ? clone(point.easing) : {};
-        for (const declaredProperty of declared) {
-          if (!(declaredProperty in perProperty))
-            perProperty[declaredProperty] = previous;
-        }
-        perProperty[property] = easing;
-        point.easing = perProperty;
-      }
-      item.keyframes = normalizeKeyframes(points);
-      return item;
-    }
-    function hydrateKeyframes(edit, id, points) {
-      if (points.length > 0 && points.length < 2)
-        throw new Error("\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u306F 2 \u70B9\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\u3002");
-      const item = requireLocation(edit, id).item;
-      item.keyframes = normalizeKeyframes(points.map((point) => clone(point)));
-      return item;
-    }
-    function moveItem(edit, id, target) {
-      if (target.track === void 0 === (target.parent === void 0)) {
-        throw new Error("move \u306E\u7F6E\u304D\u5148\u306F track \u307E\u305F\u306F parent \u306E\u3069\u3061\u3089\u304B\u4E00\u65B9\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      const source = requireLocation(edit, id);
-      let destinationItems;
-      let destinationTrack = source.track;
-      if (target.parent !== void 0) {
-        const parent = requireLocation(edit, target.parent).item;
-        if (parent.id === id || containsItem(source.item, parent.id))
-          throw new Error("\u81EA\u5206\u81EA\u8EAB\u306E\u5B50\u3078 move \u3067\u304D\u307E\u305B\u3093\u3002");
-        destinationItems = ensureChildren(parent);
-      } else {
-        destinationTrack = requireTrack(edit, target.track);
-        destinationItems = requireTrackItems(destinationTrack);
-      }
-      source.items.splice(source.index, 1);
-      if (target.track !== void 0 && overlapsAny(source.item, destinationItems)) {
-        destinationTrack = createTrackAbove(edit, destinationTrack);
-        destinationItems = requireTrackItems(destinationTrack);
-      }
-      const index = insertionIndex(target.index, destinationItems.length);
-      destinationItems.splice(index, 0, source.item);
-      return source.item;
-    }
-    function insertItem(edit, target, item, index) {
-      if (locate(edit, item.id))
-        throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${item.id}`);
-      const cloned = clone(item);
-      const track = tracksOf(edit).find((candidate) => candidate.id === target);
-      if (track) {
-        let destination = requireTrackItems(track);
-        if (overlapsAny(cloned, destination))
-          destination = requireTrackItems(createTrackAbove(edit, track));
-        destination.splice(insertionIndex(index, destination.length), 0, cloned);
-        return cloned;
-      }
-      const parent = requireLocation(edit, target).item;
-      const children = ensureChildren(parent);
-      children.splice(insertionIndex(index, children.length), 0, cloned);
-      return cloned;
-    }
-    function removeItem(edit, id) {
-      const location2 = requireLocation(edit, id);
-      location2.items.splice(location2.index, 1);
-      return location2.item;
-    }
-    function detachItem(edit, id, target, projected) {
-      const source = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
-      if (!source.parent)
-        throw new Error(`\u6BB5\u76F4\u4E0B\u306E item \u306F detach \u3067\u304D\u307E\u305B\u3093: ${id}`);
-      const worldAt = absoluteAt(source);
-      const worldTransform = composeTransforms(worldTransformOfAncestors(source.ancestors), source.item.transform);
-      const worldOpacity = opacityOfAncestors(source.ancestors) * (source.item.opacity ?? 1);
-      if (source.parent.source.kind === "html" || source.parent.source.kind === "captions") {
-        const excluded = source.parent.source.exclude ?? [];
-        const partId = partIdOf(source.item.id, source.item.source);
-        if (!excluded.includes(partId))
-          source.parent.source.exclude = [...excluded, partId];
-      }
-      source.items.splice(source.index, 1);
-      const targetGroup = target.track === "above" ? void 0 : locate(edit, target.track);
-      if (targetGroup) {
-        const parentWorldTransform = composeTransforms(worldTransformOfAncestors(targetGroup.ancestors), targetGroup.item.transform);
-        const parentOpacity = opacityOfAncestors([...targetGroup.ancestors, targetGroup.item]);
-        source.item.at = worldAt - absoluteAt(targetGroup);
-        assignTransform(source.item, relativeTransform(parentWorldTransform, worldTransform));
-        assignOpacity(source.item, parentOpacity === 0 ? worldOpacity : worldOpacity / parentOpacity);
-        ensureChildren(targetGroup.item).push(source.item);
-        return source.item;
-      }
-      source.item.at = worldAt;
-      assignTransform(source.item, worldTransform);
-      assignOpacity(source.item, worldOpacity);
-      let destination;
-      if (target.track === "above") {
-        destination = createTrackAbove(edit, source.track);
-      } else {
-        destination = requireTrack(edit, target.track);
-        if (overlapsAny(source.item, requireTrackItems(destination)))
-          destination = createTrackAbove(edit, destination);
-      }
-      requireTrackItems(destination).push(source.item);
-      return source.item;
-    }
-    function materializeProjectedPart(edit, id, projected) {
-      const separator = id.lastIndexOf("#");
-      if (separator <= 0 || separator === id.length - 1) {
-        throw new Error(`item \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
-      }
-      const bagId = id.slice(0, separator);
-      const part = id.slice(separator + 1);
-      const bag = requireLocation(edit, bagId);
-      if (bag.item.source.kind === "captions") {
-        const child2 = {
-          id: `cap-${part}`,
-          at: projected?.at ?? bag.item.at,
-          duration: projected?.duration ?? bag.item.duration,
-          source: { kind: "caption", path: "captions.json", id: part }
-        };
-        ensureChildren(bag.item).push(child2);
-        return requireLocation(edit, child2.id);
-      }
-      if (bag.item.source.kind !== "html")
-        throw new Error(`\u888B\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${bagId}`);
-      const source = { ...bag.item.source, part };
-      delete source.exclude;
-      const child = {
-        id,
-        at: 0,
-        duration: bag.item.duration,
-        source
-      };
-      ensureChildren(bag.item).push(child);
-      return requireLocation(edit, id);
-    }
-    function collectExcludedCaptionIds(edit) {
-      const result = /* @__PURE__ */ new Set();
-      const visit = (value) => {
-        if (!isRecord2(value))
-          return;
-        const source = value.source;
-        if (isRecord2(source) && source.kind === "captions" && Array.isArray(source.exclude)) {
-          for (const id of source.exclude)
-            if (typeof id === "string")
-              result.add(id);
-        }
-        for (const key of ["items", "children"]) {
-          const children = value[key];
-          if (Array.isArray(children))
-            for (const child of children)
-              visit(child);
-        }
-      };
-      if (isRecord2(edit) && Array.isArray(edit.tracks)) {
-        for (const track of edit.tracks) {
-          if (!isRecord2(track))
-            continue;
-          for (const key of ["items", "children"]) {
-            const items = track[key];
-            if (Array.isArray(items))
-              for (const item of items)
-                visit(item);
-          }
-        }
-      }
-      return result;
-    }
-    function filterCaptionRootByExcludedIds(root, excluded) {
-      const filter = (captions) => captions.filter((caption) => !isRecord2(caption) || typeof caption.id !== "string" || !excluded.has(caption.id));
-      if (Array.isArray(root))
-        return filter(root);
-      if (isRecord2(root) && Array.isArray(root.captions)) {
-        return { ...root, captions: filter(root.captions) };
-      }
-      return root;
-    }
-    function groupItems(edit, ids, options = {}) {
-      const uniqueIds = [...new Set(ids)];
-      if (uniqueIds.length < 2 || uniqueIds.length !== ids.length) {
-        throw new Error("group \u306F\u91CD\u8907\u3057\u306A\u3044 2 \u500B\u4EE5\u4E0A\u306E id \u3092\u5FC5\u8981\u3068\u3057\u307E\u3059\u3002");
-      }
-      const locations = uniqueIds.map((id) => requireLocation(edit, id));
-      const parentIds = new Set(locations.map((location2) => location2.parent?.id));
-      if (parentIds.size !== 1)
-        throw new Error("group \u306F\u540C\u3058\u5834\u6240\u306B\u3042\u308B item \u3060\u3051\u3092\u307E\u3068\u3081\u3089\u308C\u307E\u3059\u3002");
-      const inParent = locations[0].parent !== void 0;
-      if (inParent && new Set(locations.map((location2) => location2.items)).size !== 1) {
-        throw new Error("group \u306F\u540C\u3058\u30B0\u30EB\u30FC\u30D7\u5185\u306E item \u3060\u3051\u3092\u307E\u3068\u3081\u3089\u308C\u307E\u3059\u3002");
-      }
-      const ordered = [...locations].sort((left, right) => left.trackIndex - right.trackIndex || left.index - right.index);
-      const minimumAt = Math.min(...ordered.map((location2) => location2.item.at));
-      const maximumEnd = Math.max(...ordered.map((location2) => location2.item.at + location2.item.duration));
-      const group = {
-        id: nextGroupId(edit),
-        ...options.name === void 0 ? {} : { name: options.name },
-        at: minimumAt,
-        duration: maximumEnd - minimumAt,
-        source: { kind: "group" },
-        items: ordered.map((location2) => ({ ...location2.item, at: location2.item.at - minimumAt }))
-      };
-      const changedOrderIds = inParent ? [] : changedZOrderIds(edit, ordered, minimumAt, maximumEnd);
-      removeLocations(ordered);
-      if (inParent) {
-        const items = locations[0].items;
-        items.splice(Math.min(...locations.map((location2) => location2.index)), 0, group);
-      } else {
-        const target = ordered.reduce((front, location2) => location2.trackIndex > front.trackIndex ? location2 : front);
-        let targetTrack = target.track;
-        const targetItems = requireTrackItems(targetTrack);
-        if (overlapsAny(group, targetItems))
-          targetTrack = createTrackAbove(edit, targetTrack);
-        requireTrackItems(targetTrack).push(group);
-      }
-      return { group, changedOrderIds };
-    }
-    function ungroupItem(edit, id) {
-      const location2 = requireLocation(edit, id);
-      const group = location2.item;
-      if (group.source.kind === "html" || group.source.kind === "captions") {
-        throw new Error("\u888B\u30B0\u30EB\u30FC\u30D7\u306F ungroup \u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      if (group.source.kind !== "group")
-        throw new Error(`\u7D14\u30B0\u30EB\u30FC\u30D7\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${id}`);
-      if (group.keyframes !== void 0 || group.motion !== void 0 || group.animator !== void 0) {
-        throw new Error("v2.group-bake-blocked: keyframes / motion / animator \u3092\u6301\u3064\u30B0\u30EB\u30FC\u30D7\u306F ungroup \u3067\u304D\u307E\u305B\u3093\u3002");
-      }
-      const children = ensureChildren(group).map((child) => {
-        const item = child;
-        item.at = group.at + child.at;
-        assignTransform(item, composeTransforms(group.transform, child.transform));
-        if (group.opacity !== void 0)
-          assignOpacity(item, group.opacity * (child.opacity ?? 1));
-        return item;
-      });
-      location2.items.splice(location2.index, 1);
-      if (location2.parent) {
-        location2.items.splice(location2.index, 0, ...children);
-        return children;
-      }
-      let lastTrack = location2.track;
-      for (const child of children) {
-        const baseItems = requireTrackItems(location2.track);
-        if (overlapsAny(child, baseItems))
-          lastTrack = createTrackAbove(edit, lastTrack);
-        else
-          lastTrack = location2.track;
-        requireTrackItems(lastTrack).push(child);
-      }
-      return children;
-    }
-    function normalizeTracks(edit) {
-      edit.tracks = edit.tracks.filter((track) => !("items" in track) || !Array.isArray(track.items) || track.items.length > 0);
-    }
-    function allLocations(edit) {
-      const result = [];
-      tracksOf(edit).forEach((track, trackIndex) => {
-        if (!Array.isArray(track.items))
-          return;
-        const visit = (items, parent, ancestors) => {
-          items.forEach((item, index) => {
-            const location2 = { item, items, index, parent, ancestors, track, trackIndex };
-            result.push(location2);
-            if (Array.isArray(item.items))
-              visit(item.items, item, [...ancestors, item]);
-          });
-        };
-        visit(track.items, void 0, []);
-      });
-      const ids = /* @__PURE__ */ new Set();
-      for (const location2 of result) {
-        if (ids.has(location2.item.id))
-          throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${location2.item.id}`);
-        ids.add(location2.item.id);
-      }
-      return result;
-    }
-    function locate(edit, id) {
-      return allLocations(edit).find((location2) => location2.item.id === id);
-    }
-    function createTrackAbove(edit, track) {
-      const current = typeof track === "string" ? requireTrack(edit, track) : track;
-      const tracks = tracksOf(edit);
-      const index = tracks.indexOf(current);
-      const created = { id: nextTrackId(edit, String(current.lane)), lane: current.lane, items: [] };
-      tracks.splice(index + 1, 0, created);
-      return created;
-    }
-    function createTrackAt(edit, lane, index) {
-      const tracks = tracksOf(edit);
-      if (!Number.isInteger(index) || index < 0 || index > tracks.length)
-        throw new Error("track index \u304C\u7BC4\u56F2\u5916\u3067\u3059\u3002");
-      const created = { id: nextTrackId(edit, lane), lane, items: [] };
-      tracks.splice(index, 0, created);
-      return created;
-    }
-    function nextTrackId(edit, lane) {
-      const ids = new Set(tracksOf(edit).map((track) => String(track.id)));
-      const prefix = lane === "audio" ? "a" : "v";
-      let serial = 1;
-      while (ids.has(`${prefix}${serial}`))
-        serial++;
-      return `${prefix}${serial}`;
-    }
-    function nextGroupId(edit) {
-      const ids = new Set(allLocations(edit).map((location2) => location2.item.id));
-      let serial = 1;
-      while (ids.has(`g-${serial}`))
-        serial++;
-      return `g-${serial}`;
-    }
-    function overlapsAny(item, items) {
-      return items.some((other) => item.at < other.at + other.duration && other.at < item.at + item.duration);
-    }
-    function changedZOrderIds(edit, members, start, end) {
-      const memberIds = new Set(members.map((location2) => location2.item.id));
-      const minTrack = Math.min(...members.map((location2) => location2.trackIndex));
-      const maxTrack = Math.max(...members.map((location2) => location2.trackIndex));
-      return allLocations(edit).filter((location2) => location2.parent === void 0 && location2.trackIndex >= minTrack && location2.trackIndex <= maxTrack && !memberIds.has(location2.item.id) && location2.item.at < end && start < location2.item.at + location2.item.duration).map((location2) => location2.item.id);
-    }
-    function absoluteAt(location2) {
-      return location2.ancestors.reduce((sum, item) => sum + item.at, 0) + location2.item.at;
-    }
-    function worldTransformOfAncestors(ancestors) {
-      return ancestors.reduce((result, item) => composeTransforms(result, item.transform), void 0);
-    }
-    function opacityOfAncestors(ancestors) {
-      return ancestors.reduce((result, item) => result * (item.opacity ?? 1), 1);
-    }
-    function composeTransforms(parent, child) {
-      if (parent === void 0)
-        return child === void 0 ? void 0 : (0, transform_1.normalizeTransform)(child);
-      if (child === void 0)
-        return { ...parent };
-      const scale = parent.scale ?? 1;
-      const radians = (parent.rotate ?? 0) * Math.PI / 180;
-      const childX = child.x ?? 0;
-      const childY = child.y ?? 0;
-      const result = {};
-      if (parent.x !== void 0 || child.x !== void 0 || child.y !== void 0) {
-        result.x = (parent.x ?? 0) + scale * (childX * Math.cos(radians) - childY * Math.sin(radians));
-      }
-      if (parent.y !== void 0 || child.x !== void 0 || child.y !== void 0) {
-        result.y = (parent.y ?? 0) + scale * (childX * Math.sin(radians) + childY * Math.cos(radians));
-      }
-      if (parent.scale !== void 0 || child.scale !== void 0)
-        result.scale = scale * (child.scale ?? 1);
-      if (child.scaleX !== void 0 || child.scaleY !== void 0) {
-        const axes = (0, transform_1.effectiveScale)(child);
-        result.scaleX = scale * axes.x;
-        result.scaleY = scale * axes.y;
-      }
-      if (parent.rotate !== void 0 || child.rotate !== void 0)
-        result.rotate = (parent.rotate ?? 0) + (child.rotate ?? 0);
-      return Object.keys(result).length === 0 ? void 0 : (0, transform_1.normalizeTransform)(result);
-    }
-    function relativeTransform(parent, world) {
-      if (parent === void 0)
-        return world === void 0 ? void 0 : (0, transform_1.normalizeTransform)(world);
-      if (world === void 0)
-        return void 0;
-      const scale = parent.scale ?? 1;
-      const radians = -(parent.rotate ?? 0) * Math.PI / 180;
-      const dx = (world.x ?? 0) - (parent.x ?? 0);
-      const dy = (world.y ?? 0) - (parent.y ?? 0);
-      const result = {};
-      if (world.x !== void 0 || world.y !== void 0 || parent.x !== void 0 || parent.y !== void 0) {
-        result.x = (dx * Math.cos(radians) - dy * Math.sin(radians)) / scale;
-        result.y = (dx * Math.sin(radians) + dy * Math.cos(radians)) / scale;
-      }
-      if (world.scale !== void 0 || parent.scale !== void 0)
-        result.scale = (world.scale ?? 1) / scale;
-      if (world.scaleX !== void 0 || world.scaleY !== void 0) {
-        const axes = (0, transform_1.effectiveScale)(world);
-        result.scaleX = axes.x / scale;
-        result.scaleY = axes.y / scale;
-      }
-      if (world.rotate !== void 0 || parent.rotate !== void 0)
-        result.rotate = (world.rotate ?? 0) - (parent.rotate ?? 0);
-      return Object.keys(result).length === 0 ? void 0 : (0, transform_1.normalizeTransform)(result);
-    }
-    function ensureChildren(item, create = true) {
-      if (Array.isArray(item.items))
-        return item.items;
-      if (!create)
-        return [];
-      item.items = [];
-      return item.items;
-    }
-    function clone(value) {
-      return structuredClone(value);
-    }
-    function editableKeyframes(item) {
-      if (item.keyframes === void 0)
-        return [];
-      if (!Array.isArray(item.keyframes)) {
-        throw new Error("motion \u888B\u3092 inline \u306B\u623B\u3057\u3066\u304B\u3089\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u3092\u7DE8\u96C6\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
-      }
-      return item.keyframes.map((point) => clone(point));
-    }
-    function requireSegmentEasing(value) {
-      const cubic = /^cubic-bezier\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\)$/u;
-      if (!SEGMENT_EASINGS.has(value) && !cubic.test(value))
-        throw new Error(`\u672A\u5BFE\u5FDC\u306E easing \u3067\u3059: ${value}`);
-    }
-    function requireKeyframeTime(t, duration) {
-      if (!Number.isInteger(t) || t < 0 || t > duration) {
-        throw new Error(`\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u6642\u523B\u306F 0\u301C${duration} \u306E\u6574\u6570\u30D5\u30EC\u30FC\u30E0\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002`);
-      }
-      return t;
-    }
-    function normalizeKeyframes(points) {
-      const result = points.map((point) => clone(point)).sort((left, right) => left.t - right.t);
-      for (let index = 1; index < result.length; index++) {
-        if (result[index - 1].t === result[index].t)
-          throw new Error("\u540C\u3058\u6642\u523B\u306B\u30AD\u30FC\u30D5\u30EC\u30FC\u30E0\u3092\u91CD\u306D\u3089\u308C\u307E\u305B\u3093\u3002");
-      }
-      return result;
-    }
-    function pointWithValue(t, property, value) {
-      const point = { t };
-      assignKeyframeValue(point, property, value);
-      return point;
-    }
-    function assignKeyframeValue(point, property, value) {
-      if (property.startsWith("transform.")) {
-        const key = property.slice("transform.".length);
-        point.transform = { ...point.transform ?? {}, [key]: clone(value) };
-      } else {
-        point[property] = clone(value);
-      }
-    }
-    function deleteKeyframeValue(point, property) {
-      if (property.startsWith("transform.")) {
-        const key = property.slice("transform.".length);
-        if (point.transform) {
-          delete point.transform[key];
-          if (Object.keys(point.transform).length === 0)
-            delete point.transform;
-        }
-      } else {
-        delete point[property];
-      }
-      if (isRecord2(point.easing)) {
-        delete point.easing[property];
-        if (Object.keys(point.easing).length === 0)
-          delete point.easing;
-      }
-    }
-    function keyframeValue(point, property) {
-      if (!property.startsWith("transform."))
-        return point[property];
-      return point.transform?.[property.slice("transform.".length)];
-    }
-    function keyframeProperties(point) {
-      const result = [];
-      for (const property of ["transform.x", "transform.y", "transform.scale", "transform.scaleX", "transform.scaleY", "transform.rotate"]) {
-        if (keyframeValue(point, property) !== void 0)
-          result.push(property);
-      }
-      for (const property of ["opacity", "crop", "perspective"]) {
-        if (keyframeValue(point, property) !== void 0)
-          result.push(property);
-      }
-      return result;
-    }
-    function hasKeyframeValue(point) {
-      return keyframeProperties(point).length > 0 || point.animator !== void 0;
-    }
-    function requireLocation(edit, id) {
-      const location2 = locate(edit, id);
-      if (!location2)
-        throw new Error(`item \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
-      return location2;
-    }
-    function tracksOf(edit) {
-      return edit.tracks;
-    }
-    function requireTrack(edit, id) {
-      const track = tracksOf(edit).find((candidate) => candidate.id === id);
-      if (!track)
-        throw new Error(`track \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
-      return track;
-    }
-    function requireTrackItems(track) {
-      if (!Array.isArray(track.items))
-        throw new Error(`item \u3092\u7F6E\u3051\u306A\u3044 track \u3067\u3059: ${String(track.id)}`);
-      return track.items;
-    }
-    function insertionIndex(value, length) {
-      const index = value ?? length;
-      if (!Number.isInteger(index) || index < 0 || index > length)
-        throw new Error("index \u304C\u7BC4\u56F2\u5916\u3067\u3059\u3002");
-      return index;
-    }
-    function removeLocations(locations) {
-      const containers = /* @__PURE__ */ new Map();
-      for (const location2 of locations) {
-        const entries = containers.get(location2.items) ?? [];
-        entries.push(location2);
-        containers.set(location2.items, entries);
-      }
-      for (const [items, entries] of containers) {
-        for (const location2 of entries.sort((left, right) => right.index - left.index))
-          items.splice(location2.index, 1);
-      }
-    }
-    function containsItem(item, id) {
-      return ensureChildren(item, false).some((child) => child.id === id || containsItem(child, id));
-    }
-    function assignTransform(item, transform) {
-      if (transform === void 0)
-        delete item.transform;
-      else
-        item.transform = transform;
-    }
-    function assignOpacity(item, opacity) {
-      if (opacity === 1)
-        delete item.opacity;
-      else
-        item.opacity = opacity;
-    }
-    function mergePatch(base, patch) {
-      const result = { ...base };
-      for (const [key, value] of Object.entries(patch)) {
-        if (value === null || value === void 0)
-          delete result[key];
-        else
-          result[key] = clone(value);
-      }
-      return result;
-    }
-    function partIdOf(itemId, source) {
-      if (source.kind === "caption")
-        return source.id;
-      if ("part" in source && typeof source.part === "string")
-        return source.part;
-      const hash = itemId.lastIndexOf("#");
-      return hash >= 0 ? itemId.slice(hash + 1) : itemId;
-    }
-    function isRecord2(value) {
-      return value !== null && typeof value === "object" && !Array.isArray(value);
-    }
-  }
-});
-
 // ../edit-store/lib/cut-audio-split-ops.js
 var require_cut_audio_split_ops = __commonJS({
   "../edit-store/lib/cut-audio-split-ops.js"(exports) {
@@ -12545,7 +12711,7 @@ var require_edit_v2_keys = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
     exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
-    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
+    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
     exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -12791,7 +12957,8 @@ var require_edit_v2_keys = __commonJS({
         "filter"
       ],
       "itemSourceGroupV2": [
-        "kind"
+        "kind",
+        "canvas"
       ],
       "itemSourceCaptionsV2": [
         "kind",
@@ -13001,7 +13168,7 @@ var require_canonical = __commonJS({
         return inlineObject({ ...(0, transform_1.normalizeTransform)(value) }, ["x", "y", "scale", "scaleX", "scaleY", "rotate"]);
       }
       if (item && key === "source" && isRecord2(value))
-        return inlineObject(value, ["kind"]);
+        return inlineObject(value, ["kind", "canvas"]);
       if (item && key === "keyframes" && Array.isArray(value)) {
         return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
       }

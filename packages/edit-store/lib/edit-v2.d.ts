@@ -188,8 +188,20 @@ export interface FilterSourceV2 {
     kind: 'filter';
     filter: FilterV2;
 }
+export interface CanvasV0 {
+    origin: 'user' | 'plan';
+    durationMode: 'fixed';
+    intent?: string;
+    background?: {
+        type: 'none';
+    } | {
+        type: 'color';
+        color: string;
+    };
+}
 export interface GroupSourceV2 {
     kind: 'group';
+    canvas?: CanvasV0;
 }
 export interface CaptionsSourceV2 {
     kind: 'captions';

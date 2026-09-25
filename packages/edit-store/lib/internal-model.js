@@ -14,6 +14,7 @@ exports.projectLegacyEdit = projectLegacyEdit;
 exports.toLegacyTrack = toLegacyTrack;
 exports.derivedLegacyTracks = derivedLegacyTracks;
 const edit_v2_1 = require("./edit-v2");
+const tree_ops_1 = require("./tree-ops");
 const item_anchor_1 = require("./item-anchor");
 const cut_adjacency_1 = require("./cut-adjacency");
 const error_1 = require("./migrate/error");
@@ -567,6 +568,34 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
         delete built.item.children;
         Object.defineProperty(built.item, 'children', { value: children, enumerable: false, writable: true });
     }
+    if (lane === 'visual' && item.source.kind === 'group') {
+        // 字幕の描画窓だけを固定尺に収める。edit.json の子の時刻・尺は変更しない。
+        const groupItem = item;
+        const clipStart = built.item.atFrames;
+        const clipEnd = clipStart + built.item.durationFrames;
+        const clipCaptions = (node) => {
+            if (node.source.kind === 'caption') {
+                const start = Math.max(clipStart, node.atFrames);
+                const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
+                node.atFrames = start;
+                node.durationFrames = Math.max(0, end - start);
+                node.at = start / fps;
+                node.duration = node.durationFrames / fps;
+                const transform = (0, tree_ops_1.composeTransforms)(groupItem.transform, node.declaration.transform);
+                node.declaration = { ...node.declaration,
+                    ...(transform ? { transform } : {}),
+                    ...(groupItem.opacity !== undefined
+                        ? { opacity: groupItem.opacity * (typeof node.declaration.opacity === 'number' ? node.declaration.opacity : 1) }
+                        : {}) };
+                if (node.durationFrames === 0)
+                    node.declaration = { ...node.declaration, hidden: true };
+            }
+            for (const child of node.children)
+                clipCaptions(child);
+        };
+        for (const child of children)
+            clipCaptions(child);
+    }
     if (parentId !== undefined)
         built.item.parentId = parentId;
     return built;
@@ -851,7 +880,7 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
         case 'group':
             return finish({ item: {
                     id: item.id, atFrames, durationFrames, at, duration, children: [],
-                    source: { kind: 'group' }, declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                    source: { kind: 'group', ...(item.source.canvas ? { canvas: item.source.canvas } : {}) }, declaration: { id: item.id, ...(item.name ? { name: item.name } : {}), at: item.at, duration: item.duration, ...common },
                     legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
                 } });
         case 'captions':

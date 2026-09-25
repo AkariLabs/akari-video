@@ -2599,7 +2599,21 @@ function validateItemSource(value, path, sourceIds) {
       validateFilter(value.filter, `${path}.filter`);
       return;
     case "group":
-      requireExactKeys(value, /* @__PURE__ */ new Set(["kind"]), path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "canvas"]), path);
+      if (hasOwn(value, "canvas")) {
+        requireRecord2(value.canvas, `${path}.canvas`);
+        requireExactKeys(value.canvas, /* @__PURE__ */ new Set(["origin", "durationMode", "intent", "background"]), `${path}.canvas`);
+        if (value.canvas.origin !== "user" && value.canvas.origin !== "plan") throw invalid(`${path}.canvas.origin`, "user / plan \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+        if (value.canvas.durationMode !== "fixed") throw invalid(`${path}.canvas.durationMode`, "fixed \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+        if (hasOwn(value.canvas, "intent") && typeof value.canvas.intent !== "string") throw invalid(`${path}.canvas.intent`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        if (hasOwn(value.canvas, "background")) {
+          requireRecord2(value.canvas.background, `${path}.canvas.background`);
+          requireExactKeys(value.canvas.background, /* @__PURE__ */ new Set(["type", "color"]), `${path}.canvas.background`);
+          if (value.canvas.background.type === "color") {
+            if (typeof value.canvas.background.color !== "string" || !/^#[0-9a-fA-F]{6}$/.test(value.canvas.background.color)) throw invalid(`${path}.canvas.background.color`, "#RRGGBB \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+          } else if (value.canvas.background.type !== "none" || hasOwn(value.canvas.background, "color")) throw invalid(`${path}.canvas.background`, "none \u307E\u305F\u306F color \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044");
+        }
+      }
       return;
     case "captions":
       requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "exclude"]), path);
@@ -2931,6 +2945,47 @@ function invalid(path, message) {
 }
 function messageOf(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+// ../edit-store/src/transform.ts
+function effectiveScale(transform) {
+  return { x: transform?.scaleX ?? transform?.scale ?? 1, y: transform?.scaleY ?? transform?.scale ?? 1 };
+}
+function normalizeTransform(transform) {
+  const result = { ...transform };
+  if (result.scaleX === void 0 && result.scaleY === void 0) return result;
+  const axes = effectiveScale(result);
+  if (axes.x === axes.y) {
+    result.scale = axes.x;
+    delete result.scaleX;
+    delete result.scaleY;
+  }
+  return result;
+}
+
+// ../edit-store/src/tree-ops.ts
+function composeTransforms(parent, child) {
+  if (parent === void 0) return child === void 0 ? void 0 : normalizeTransform(child);
+  if (child === void 0) return { ...parent };
+  const scale = parent.scale ?? 1;
+  const radians = (parent.rotate ?? 0) * Math.PI / 180;
+  const childX = child.x ?? 0;
+  const childY = child.y ?? 0;
+  const result = {};
+  if (parent.x !== void 0 || child.x !== void 0 || child.y !== void 0) {
+    result.x = (parent.x ?? 0) + scale * (childX * Math.cos(radians) - childY * Math.sin(radians));
+  }
+  if (parent.y !== void 0 || child.x !== void 0 || child.y !== void 0) {
+    result.y = (parent.y ?? 0) + scale * (childX * Math.sin(radians) + childY * Math.cos(radians));
+  }
+  if (parent.scale !== void 0 || child.scale !== void 0) result.scale = scale * (child.scale ?? 1);
+  if (child.scaleX !== void 0 || child.scaleY !== void 0) {
+    const axes = effectiveScale(child);
+    result.scaleX = scale * axes.x;
+    result.scaleY = scale * axes.y;
+  }
+  if (parent.rotate !== void 0 || child.rotate !== void 0) result.rotate = (parent.rotate ?? 0) + (child.rotate ?? 0);
+  return Object.keys(result).length === 0 ? void 0 : normalizeTransform(result);
 }
 
 // ../edit-store/src/migrate/error.ts
@@ -3864,6 +3919,30 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
     delete built.item.children;
     Object.defineProperty(built.item, "children", { value: children, enumerable: false, writable: true });
   }
+  if (lane === "visual" && item.source.kind === "group") {
+    const groupItem = item;
+    const clipStart = built.item.atFrames;
+    const clipEnd = clipStart + built.item.durationFrames;
+    const clipCaptions = (node) => {
+      if (node.source.kind === "caption") {
+        const start = Math.max(clipStart, node.atFrames);
+        const end = Math.min(clipEnd, node.atFrames + node.durationFrames);
+        node.atFrames = start;
+        node.durationFrames = Math.max(0, end - start);
+        node.at = start / fps;
+        node.duration = node.durationFrames / fps;
+        const transform = composeTransforms(groupItem.transform, node.declaration.transform);
+        node.declaration = {
+          ...node.declaration,
+          ...transform ? { transform } : {},
+          ...groupItem.opacity !== void 0 ? { opacity: groupItem.opacity * (typeof node.declaration.opacity === "number" ? node.declaration.opacity : 1) } : {}
+        };
+        if (node.durationFrames === 0) node.declaration = { ...node.declaration, hidden: true };
+      }
+      for (const child of node.children) clipCaptions(child);
+    };
+    for (const child of children) clipCaptions(child);
+  }
   if (parentId !== void 0) built.item.parentId = parentId;
   return built;
 }
@@ -4148,8 +4227,8 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
         at,
         duration,
         children: [],
-        source: { kind: "group" },
-        declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+        source: { kind: "group", ...item.source.canvas ? { canvas: item.source.canvas } : {} },
+        declaration: { id: item.id, ...item.name ? { name: item.name } : {}, at: item.at, duration: item.duration, ...common },
         legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
       } });
     case "captions":
@@ -4809,6 +4888,7 @@ function normalizeCaptionLineTextStyle(value) {
     ...value.vertical === true ? { vertical: true } : {},
     ...CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] ? { text_transform: CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] } : {},
     ...finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100 ? { max_width_pct: value.max_width_pct } : {},
+    ...finiteNumber(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100 ? { wrap_width_pct: value.wrap_width_pct } : {},
     ...positiveInteger(value.max_characters) ? { max_characters: value.max_characters } : {},
     ...CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor) ? { text_anchor: value.text_anchor } : {},
     ...isRecord4(value.position) && (finiteNumber(value.position.x) || finiteNumber(value.position.y)) ? { position: {
@@ -4983,6 +5063,7 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     vars["--caption-text-transform"] = CAPTION_TEXT_TRANSFORM_MAP[style.text_transform];
   }
   if (finiteNumber(style.max_width_pct)) vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
+  if (finiteNumber(style.wrap_width_pct)) vars["--caption-wrap-width"] = `${style.wrap_width_pct}%`;
   if (style.vertical) vars["--caption-writing-mode"] = "vertical-rl";
   if (extendedBackground && isRecord4(style.background)) {
     if (style.background.fit !== "frame") {

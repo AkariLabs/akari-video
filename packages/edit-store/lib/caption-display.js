@@ -46,7 +46,7 @@ exports.CAPTION_UNIT_METRIC = 'ascii-half-other-one-v1';
 const CAPTION_STYLE_KEYS = new Set([
     'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout',
     'font_family', 'weight', 'italic', 'underline', 'letter_spacing_em', 'align',
-    'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'max_characters', 'text_anchor',
+    'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor',
     'position', 'scale', 'rotate', 'shadow', 'glow', 'animation', 'reference_height_px'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
@@ -720,6 +720,9 @@ function validateTextStyleV0(value, label) {
     failIf(has('max_width_pct')
         && (!finiteNumber(value.max_width_pct)
             || value.max_width_pct <= 0 || value.max_width_pct >= 100), 'max_width_pct must be a finite number within (0, 100)');
+    failIf(has('wrap_width_pct')
+        && (!finiteNumber(value.wrap_width_pct)
+            || value.wrap_width_pct <= 0 || value.wrap_width_pct > 100), 'wrap_width_pct must be a finite number within (0, 100]');
     failIf(has('max_characters') && !positiveInteger(value.max_characters), 'max_characters must be an integer greater than zero');
     failIf(has('text_anchor') && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor), 'text_anchor must be one of the nine anchor codes');
     if (has('position')) {
@@ -1429,6 +1432,8 @@ function normalizeCaptionLineTextStyle(value) {
             ? { text_transform: CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] } : {}),
         ...(finiteNumber(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100
             ? { max_width_pct: value.max_width_pct } : {}),
+        ...(finiteNumber(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100
+            ? { wrap_width_pct: value.wrap_width_pct } : {}),
         ...(positiveInteger(value.max_characters) ? { max_characters: value.max_characters } : {}),
         ...(CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor) ? { text_anchor: value.text_anchor } : {}),
         ...(isRecord(value.position) && (finiteNumber(value.position.x) || finiteNumber(value.position.y))
@@ -1664,6 +1669,8 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     }
     if (finiteNumber(style.max_width_pct))
         vars['--caption-line-max-width'] = `${style.max_width_pct}%`;
+    if (finiteNumber(style.wrap_width_pct))
+        vars['--caption-wrap-width'] = `${style.wrap_width_pct}%`;
     if (style.vertical)
         vars['--caption-writing-mode'] = 'vertical-rl';
     if (extendedBackground && isRecord(style.background)) {

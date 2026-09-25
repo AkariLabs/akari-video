@@ -1,4 +1,4 @@
-import type { EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
+import type { CanvasV0, EditV2, ItemV2, KeyframeV2, TrackV2, TransformV2 } from './edit-v2';
 import { type AnchorCaption, type ItemAnchorV2, type ItemAnchorChange, type ItemAnchorWarning } from './item-anchor';
 export type JsonRecord = Record<string, unknown>;
 export type ProjectItemV2 = Omit<ItemV2, 'items' | 'keyframes'> & {
@@ -22,6 +22,14 @@ export interface GroupResult {
     group: ProjectItemV2;
     changedOrderIds: string[];
 }
+export interface CreateCanvasOptions {
+    at: number;
+    duration: number;
+    trackIndex?: number;
+    name?: string;
+    intent?: string;
+    background?: CanvasV0['background'];
+}
 export interface ProjectedItemTiming {
     at: number;
     duration: number;
@@ -42,6 +50,7 @@ export type EditableEditV2 = Omit<EditV2, 'tracks'> & {
     }): ProjectItemV2;
     group(ids: string[], options?: {
         name?: string;
+        canvas?: boolean;
     }): GroupResult;
     ungroup(id: string): ProjectItemV2[];
 };
@@ -79,6 +88,17 @@ export declare function setSegmentEasing(edit: EditableEditV2, id: string, prope
 /** motion 袋を読んだ UI が参照形を inline へ戻すための純関数。 */
 export declare function hydrateKeyframes(edit: EditableEditV2, id: string, points: readonly KeyframeV2[]): ProjectItemV2;
 export declare function moveItem(edit: EditableEditV2, id: string, target: MoveTarget): ProjectItemV2;
+/** 固定尺の空のキャンバスを visual 段へ追加する。重なれば新しい段を作る。 */
+export declare function createCanvas(edit: EditableEditV2, options: CreateCanvasOptions): ProjectItemV2;
+/** 明示的な出し入れ。各 item の時刻・合成済み変形・不透明度を保つ。 */
+export declare function putIntoCanvas(edit: EditableEditV2, itemIds: readonly string[], canvasId: string): ProjectItemV2[];
+/** 置いた字幕を明示子へ写し、元の字幕袋からの投影だけを除外する。 */
+export declare function putPlacedCaptionIntoCanvas(edit: EditableEditV2, caption: {
+    id: string;
+    at: number;
+    duration: number;
+}, canvasId: string): ProjectItemV2;
+export declare function takeOutOfCanvas(edit: EditableEditV2, itemIds: readonly string[]): ProjectItemV2[];
 export declare function insertItem(edit: EditableEditV2, target: string, item: MutableItem, index?: number): ProjectItemV2;
 export declare function removeItem(edit: EditableEditV2, id: string): ProjectItemV2;
 export declare function detachItem(edit: EditableEditV2, id: string, target: {
@@ -92,6 +112,7 @@ export declare function collectExcludedCaptionIds(edit: unknown): Set<string>;
 export declare function filterCaptionRootByExcludedIds<T>(root: T, excluded: ReadonlySet<string>): T;
 export declare function groupItems(edit: EditableEditV2, ids: string[], options?: {
     name?: string;
+    canvas?: boolean;
 }): GroupResult;
 export declare function ungroupItem(edit: EditableEditV2, id: string): ProjectItemV2[];
 export declare function normalizeTracks(edit: EditableEditV2): void;

@@ -11,6 +11,10 @@ exports.moveKeyframe = moveKeyframe;
 exports.setSegmentEasing = setSegmentEasing;
 exports.hydrateKeyframes = hydrateKeyframes;
 exports.moveItem = moveItem;
+exports.createCanvas = createCanvas;
+exports.putIntoCanvas = putIntoCanvas;
+exports.putPlacedCaptionIntoCanvas = putPlacedCaptionIntoCanvas;
+exports.takeOutOfCanvas = takeOutOfCanvas;
 exports.insertItem = insertItem;
 exports.removeItem = removeItem;
 exports.detachItem = detachItem;
@@ -195,12 +199,19 @@ function moveItem(edit, id, target) {
         throw new Error('move の置き先は track または parent のどちらか一方で指定してください。');
     }
     const source = requireLocation(edit, id);
+    const worldAt = absoluteAt(source);
+    const worldTransform = composeTransforms(worldTransformOfAncestors(source.ancestors), source.item.transform);
+    const worldOpacity = opacityOfAncestors(source.ancestors) * (source.item.opacity ?? 1);
     let destinationItems;
     let destinationTrack = source.track;
+    let destinationParent;
     if (target.parent !== undefined) {
-        const parent = requireLocation(edit, target.parent).item;
+        destinationParent = requireLocation(edit, target.parent);
+        const parent = destinationParent.item;
         if (parent.id === id || containsItem(source.item, parent.id))
             throw new Error('自分自身の子へ move できません。');
+        if (worldAt < absoluteAt(destinationParent))
+            throw new Error('キャンバスより前の item は入れられません。');
         destinationItems = ensureChildren(parent);
     }
     else {
@@ -208,13 +219,106 @@ function moveItem(edit, id, target) {
         destinationItems = requireTrackItems(destinationTrack);
     }
     source.items.splice(source.index, 1);
+    if (source.parent?.source.kind === 'captions' && source.item.source.kind === 'caption') {
+        const excluded = source.parent.source.exclude ?? [];
+        if (!excluded.includes(source.item.source.id))
+            source.parent.source.exclude = [...excluded, source.item.source.id];
+    }
     if (target.track !== undefined && overlapsAny(source.item, destinationItems)) {
         destinationTrack = createTrackAbove(edit, destinationTrack);
         destinationItems = requireTrackItems(destinationTrack);
     }
-    const index = insertionIndex(target.index, destinationItems.length);
+    const inferredIndex = target.index === undefined && destinationParent
+        && !source.parent && (source.trackIndex < destinationParent.trackIndex
+        || source.trackIndex === destinationParent.trackIndex && source.index < destinationParent.index)
+        ? 0 : target.index;
+    const index = insertionIndex(inferredIndex, destinationItems.length);
+    const parentTransform = destinationParent
+        ? composeTransforms(worldTransformOfAncestors(destinationParent.ancestors), destinationParent.item.transform)
+        : undefined;
+    const parentOpacity = destinationParent
+        ? opacityOfAncestors([...destinationParent.ancestors, destinationParent.item]) : 1;
+    source.item.at = worldAt - (destinationParent ? absoluteAt(destinationParent) : 0);
+    assignTransform(source.item, relativeTransform(parentTransform, worldTransform));
+    assignOpacity(source.item, parentOpacity === 0 ? worldOpacity : worldOpacity / parentOpacity);
     destinationItems.splice(index, 0, source.item);
     return source.item;
+}
+/** 固定尺の空のキャンバスを visual 段へ追加する。重なれば新しい段を作る。 */
+function createCanvas(edit, options) {
+    if (!Number.isInteger(options.at) || options.at < 0 || !Number.isInteger(options.duration) || options.duration <= 0) {
+        throw new Error('キャンバスの位置と尺はフレーム単位の正の整数で指定してください。');
+    }
+    const canvas = { origin: 'user', durationMode: 'fixed',
+        ...(options.intent === undefined ? {} : { intent: options.intent }),
+        ...(options.background === undefined ? {} : { background: options.background }) };
+    const item = { id: nextGroupId(edit), name: options.name ?? 'キャンバス',
+        at: options.at, duration: options.duration, source: { kind: 'group', canvas }, items: [] };
+    const visual = tracksOf(edit).filter(track => track.lane === 'visual');
+    let track = options.trackIndex === undefined ? visual[visual.length - 1] : visual[options.trackIndex];
+    if (!track)
+        track = createTrackAt(edit, 'visual', tracksOf(edit).length);
+    if (overlapsAny(item, requireTrackItems(track)))
+        track = createTrackAbove(edit, track);
+    requireTrackItems(track).push(item);
+    return item;
+}
+/** 明示的な出し入れ。各 item の時刻・合成済み変形・不透明度を保つ。 */
+function putIntoCanvas(edit, itemIds, canvasId) {
+    const canvas = requireLocation(edit, canvasId).item;
+    if (canvas.source.kind !== 'group')
+        throw new Error('置き先がキャンバスではありません。');
+    return [...new Set(itemIds)].map(id => moveItem(edit, id, { parent: canvasId }));
+}
+/** 置いた字幕を明示子へ写し、元の字幕袋からの投影だけを除外する。 */
+function putPlacedCaptionIntoCanvas(edit, caption, canvasId) {
+    const canvas = requireLocation(edit, canvasId);
+    if (canvas.item.source.kind !== 'group')
+        throw new Error('置き先がキャンバスではありません。');
+    const existing = allLocations(edit).find(location => location.item.source.kind === 'caption'
+        && location.item.source.id === caption.id);
+    if (existing)
+        return moveItem(edit, existing.item.id, { parent: canvasId });
+    if (!Number.isInteger(caption.at) || !Number.isInteger(caption.duration) || caption.duration <= 0) {
+        throw new Error('字幕の時刻が不正です。');
+    }
+    if (caption.at < absoluteAt(canvas))
+        throw new Error('キャンバスより前の字幕は入れられません。');
+    let bag = allLocations(edit).find(location => location.item.source.kind === 'captions'
+        && location.item.source.path === 'captions.json')?.item;
+    if (!bag) {
+        const visual = tracksOf(edit).find(track => track.lane === 'visual');
+        const bagTrack = visual ? createTrackAbove(edit, visual)
+            : createTrackAt(edit, 'visual', tracksOf(edit).length);
+        let id = 'captions-exclusions';
+        let serial = 1;
+        while (locate(edit, id))
+            id = `captions-exclusions-${serial++}`;
+        bag = { id, at: 0, duration: Math.max(1, caption.at + caption.duration),
+            source: { kind: 'captions', path: 'captions.json', exclude: [] }, items: [] };
+        requireTrackItems(bagTrack).push(bag);
+    }
+    if (bag.duration < caption.at + caption.duration)
+        bag.duration = caption.at + caption.duration;
+    const exclude = bag.source.kind === 'captions' ? bag.source.exclude ?? [] : [];
+    if (bag.source.kind === 'captions' && !exclude.includes(caption.id))
+        bag.source.exclude = [...exclude, caption.id];
+    let id = `cap-${caption.id}`;
+    let serial = 1;
+    while (locate(edit, id))
+        id = `cap-${caption.id}-${serial++}`;
+    const item = { id, at: caption.at - absoluteAt(canvas), duration: caption.duration,
+        source: { kind: 'caption', path: 'captions.json', id: caption.id } };
+    ensureChildren(canvas.item).push(item);
+    return item;
+}
+function takeOutOfCanvas(edit, itemIds) {
+    return [...new Set(itemIds)].map(id => {
+        const location = requireLocation(edit, id);
+        if (location.parent?.source.kind !== 'group')
+            throw new Error('キャンバスの中身ではありません。');
+        return detachItem(edit, id, { track: 'above' });
+    });
 }
 function insertItem(edit, target, item, index) {
     if (locate(edit, item.id))
@@ -373,7 +477,7 @@ function groupItems(edit, ids, options = {}) {
         ...(options.name === undefined ? {} : { name: options.name }),
         at: minimumAt,
         duration: maximumEnd - minimumAt,
-        source: { kind: 'group' },
+        source: { kind: 'group', ...(options.canvas ? { canvas: { origin: 'user', durationMode: 'fixed' } } : {}) },
         items: ordered.map(location => ({ ...location.item, at: location.item.at - minimumAt }))
     };
     const changedOrderIds = inParent ? [] : changedZOrderIds(edit, ordered, minimumAt, maximumEnd);
@@ -541,8 +645,7 @@ function composeTransforms(parent, child) {
 function relativeTransform(parent, world) {
     if (parent === undefined)
         return world === undefined ? undefined : (0, transform_1.normalizeTransform)(world);
-    if (world === undefined)
-        return undefined;
+    world ??= {};
     const scale = parent.scale ?? 1;
     const radians = -(parent.rotate ?? 0) * Math.PI / 180;
     const dx = (world.x ?? 0) - (parent.x ?? 0);

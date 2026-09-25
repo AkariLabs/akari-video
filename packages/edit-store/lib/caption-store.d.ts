@@ -65,6 +65,7 @@ export interface CaptionTextStyle {
     vertical?: boolean;
     textTransform?: CaptionTextTransform;
     maxWidthPct?: number;
+    wrapWidthPct?: number;
     maxCharacters?: number;
     textAnchor?: CaptionTextAnchor;
     position?: CaptionPosition;

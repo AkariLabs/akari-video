@@ -1,5 +1,5 @@
 export declare const ITEM_V2_KEYS: readonly ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
-export declare const ITEM_SOURCE_V2_KEYS: readonly ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "id"];
+export declare const ITEM_SOURCE_V2_KEYS: readonly ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
 export declare const KEYFRAME_V2_KEYS: readonly ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
 export declare const MOTION_V0_KEYS: readonly ["in", "out", "loop"];
 export declare const ANIMATOR_V0_KEYS: readonly ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -23,7 +23,7 @@ export declare const ITEM_SOURCE_V2_KEYS_BY_DEFINITION: {
     readonly itemSourceShapeV2: readonly ["kind", "shape", "params"];
     readonly itemSourceTelopV2: readonly ["kind", "preset", "params", "baked", "from"];
     readonly itemSourceFilterV2: readonly ["kind", "filter"];
-    readonly itemSourceGroupV2: readonly ["kind"];
+    readonly itemSourceGroupV2: readonly ["kind", "canvas"];
     readonly itemSourceCaptionsV2: readonly ["kind", "path", "exclude"];
     readonly itemSourceCaptionV2: readonly ["kind", "path", "id"];
 };

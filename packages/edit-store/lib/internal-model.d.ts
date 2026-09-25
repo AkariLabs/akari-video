@@ -3,7 +3,7 @@
  * トラック配列順が下→上の合成順で、時刻は整数フレーム宣言を正本とする。
  */
 import { EditAudioBgm, EditAudioNarration, EditAudioSfx, EditBeat, EditCut, EditLayer, EditOverlay, EditSource, EditTimelineTrack, TimelineTrackKind } from './edit-store';
-import { KeyframesReferenceV2 } from './edit-v2';
+import { GroupSourceV2, KeyframesReferenceV2 } from './edit-v2';
 import { AnchorCaption } from './item-anchor';
 export type InternalLane = 'visual' | 'audio';
 /** 素材の出どころ。1 アイテム = 1 種別で、種別ごとの分岐はここ 1 軸に集約する。 */
@@ -48,6 +48,7 @@ export interface InternalFilterSource {
 }
 export interface InternalGroupSource {
     kind: 'group';
+    canvas?: GroupSourceV2['canvas'];
 }
 export interface InternalCaptionsSource {
     kind: 'captions';

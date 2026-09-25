@@ -164,7 +164,7 @@ function inlineField(key, value, item) {
         return inlineObject({ ...(0, transform_1.normalizeTransform)(value) }, ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate']);
     }
     if (item && key === 'source' && isRecord(value))
-        return inlineObject(value, ['kind']);
+        return inlineObject(value, ['kind', 'canvas']);
     if (item && key === 'keyframes' && Array.isArray(value)) {
         return `[${value.map(point => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(', ')}]`;
     }
