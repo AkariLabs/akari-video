@@ -7248,6 +7248,11 @@ export class AkariInspectorWidget extends BaseWidget {
                 return { ok: false, message: typeof paint === 'string'
                     ? 'この色はこの項目に保存できません。' : 'この項目には、まだグラデーションを保存できません。' };
             }
+            // タイムラインが開いていれば、ほかの欄と同じ書き込み口へ（取り消しの 1 手になり、選択とインスペクターの値も保つ）
+            if (this.model.requestWrite && path.startsWith('source.params.')) {
+                return await this.model.requestWrite({ kind: 'item-field', id: itemId, path: path as `source.params.${string}`,
+                    value: paint as string | Record<string, unknown> });
+            }
             // 書き込みは成功すれば戻る（lint は後から届く。committed は常に false なので見ない）。
             await this.layerAudioService.writeEditSnapshot({
                 editUri: uri.toString(), projectRootUri: root.toString(), editSource

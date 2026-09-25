@@ -1,0 +1,292 @@
+{
+  "label": "before",
+  "port": 9563,
+  "project": "b1",
+  "theme": "dark",
+  "pid": 4050,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 3,
+  "results": {
+    "shape": {
+      "shot": "before-01-select-shape.png",
+      "chrome": {
+        "bar": null,
+        "menu": null,
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "shape-a00:00.0 – 00:10.0 · 素材映像色音声AI情報時間出力位置00:00:00.000尺10.00 秒変形XpxYpx拡縮%幅%高さ%回転°クロップ左%上%幅%高さ%パース（4 隅）左上 X%左上 Y%右上 X%右上 Y%左下 X%左下 Y%右下 X%右下 Y%解除解除動き入りなしフェードスライド（上へ）スライド（下へ）スライド（左へ）スライド（右へ）拡縮ワイプ入りの尺f入りのイージングlinearease-in-outin-quadout-quadin-out-quadin-cubicout-cubicin-out-cubicin-quartout-quartin-out-quartin-expoout-expoin-out-expoin-backout-backin-out-backout-bounceout-elastichold入りの量抜きなしフェードスラ"
+      },
+      "handles": {
+        "frame": {
+          "cls": "akari-interaction-selection-frame"
+        },
+        "handles": [
+          "is-nw",
+          "is-ne",
+          "is-se",
+          "is-sw",
+          "is-edge is-n",
+          "is-edge is-e",
+          "is-edge is-s",
+          "is-edge is-w",
+          "akari-interaction-action is-rotate",
+          "akari-interaction-action is-move"
+        ]
+      }
+    },
+    "line": {
+      "shot": "before-02-select-line.png",
+      "chrome": {
+        "bar": null,
+        "menu": null,
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "line00:00.0 – 00:10.0 · 素材映像色音声AI情報時間出力位置00:00:00.000尺10.00 秒変形XpxYpx拡縮%幅%高さ%回転°クロップ左%上%幅%高さ%パース（4 隅）左上 X%左上 Y%右上 X%右上 Y%左下 X%左下 Y%右下 X%右下 Y%解除解除動き入りなしフェードスライド（上へ）スライド（下へ）スライド（左へ）スライド（右へ）拡縮ワイプ入りの尺f入りのイージングlinearease-in-outin-quadout-quadin-out-quadin-cubicout-cubicin-out-cubicin-quartout-quartin-out-quartin-expoout-expoin-out-expoin-backout-backin-out-backout-bounceout-elastichold入りの量抜きなしフェードスライド（"
+      },
+      "handles": {
+        "frame": {
+          "cls": "akari-interaction-selection-frame is-line"
+        },
+        "handles": [
+          "is-line-start",
+          "is-line-end",
+          "akari-interaction-action is-rotate",
+          "akari-interaction-action is-move"
+        ]
+      }
+    },
+    "photo": {
+      "shot": "before-03-select-photo.png",
+      "chrome": {
+        "bar": null,
+        "menu": null,
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "タイムラインで項目を選択してください。 .akari-inspector-ai-list { display: grid; gap: 16px; padding: 8px 2px; min-width: 0; } .akari-inspector-ai-group { min-width: 0; } .akari-inspector-ai-heading { margin: 0 0 9px; font-size: 13px; font-weight: 700; } .akari-inspector-ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .akari-inspector-widget button.akari-inspector-ai-tile { pos"
+      }
+    },
+    "copy": {
+      "clipboardHead": "{\"kind\":\"akari-video/timeline-fragment\",\"version\":1,\"anchor\":0,\"items\":[{\"kind\":\"overlay\",\"trackId\":\"v-shape-a\",\"trackIndex\":2,\"t\":0,\"duration\":10,\"payload\":{\"id\":\"shape-a\",\"at\":0,\"duration\":300,\"transform\":{\"x\":200,\"y\":140},\"source\":{\"kind\":\"shape\",\"shape\":\"path\",\"params\":{\"fill\":\"#3b82f6\",\"stroke\":\"none\",\"strokeWidth\":0,\"preset\":\"basic-square\",\"path\":{\"d\":\"M3 3L97 3L97 97L3 97Z\",\"vb\":[100,100]},",
+      "kind": "akari-video/timeline-fragment",
+      "isEditItem": false
+    },
+    "lockField": {
+      "lockedInEdit": null
+    }
+  },
+  "windowShot": "before-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "main",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1180,
+              "y": 560,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 140
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#3b82f6",
+                "stroke": "none",
+                "strokeWidth": 0,
+                "preset": "basic-square",
+                "path": {
+                  "d": "M3 3L97 3L97 97L3 97Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 360,
+                "height": 240
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-b",
+        "lane": "visual",
+        "name": "shape-b",
+        "items": [
+          {
+            "id": "shape-b",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 700,
+              "y": 140
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#a6a6a6",
+                "stroke": "none",
+                "strokeWidth": 0,
+                "preset": "basic-circle",
+                "path": {
+                  "d": "M97 50C97 75.96 75.96 97 50 97C24.04 97 3 75.96 3 50C3 24.04 24.04 3 50 3C75.96 3 97 24.04 97 50Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 260,
+                "height": 260
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-line",
+        "lane": "visual",
+        "name": "line",
+        "items": [
+          {
+            "id": "line",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 620
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "line",
+              "params": {
+                "fill": "none",
+                "stroke": "#000000",
+                "strokeWidth": 4,
+                "dash": "solid",
+                "startCap": "none",
+                "endCap": "triangle",
+                "lineCap": "butt",
+                "startCapFilled": true,
+                "endCapFilled": true,
+                "preset": "line-solid-none-tri",
+                "width": 520,
+                "height": 40
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Eyc (<file>)\n    at async WMn.reloadResolvedCaptionDisplay (<file>)\n    at async kyc (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

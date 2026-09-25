@@ -1,0 +1,225 @@
+{
+  "label": "after-copy",
+  "port": 9563,
+  "project": "b1",
+  "theme": "dark",
+  "pid": 62756,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 3,
+  "results": {
+    "copyForOther": {
+      "kind": "akari-video/edit-item",
+      "itemId": "photo-1",
+      "sources": [
+        {
+          "id": "photo",
+          "path": "assets/photo.png"
+        }
+      ]
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "after-copy-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "main",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1180,
+              "y": 560,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 140
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#3b82f6",
+                "stroke": "none",
+                "strokeWidth": 0,
+                "preset": "basic-square",
+                "path": {
+                  "d": "M3 3L97 3L97 97L3 97Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 360,
+                "height": 240
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-b",
+        "lane": "visual",
+        "name": "shape-b",
+        "items": [
+          {
+            "id": "shape-b",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 700,
+              "y": 140
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#a6a6a6",
+                "stroke": "none",
+                "strokeWidth": 0,
+                "preset": "basic-circle",
+                "path": {
+                  "d": "M97 50C97 75.96 75.96 97 50 97C24.04 97 3 75.96 3 50C3 24.04 24.04 3 50 3C75.96 3 97 24.04 97 50Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 260,
+                "height": 260
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-line",
+        "lane": "visual",
+        "name": "line",
+        "items": [
+          {
+            "id": "line",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 620
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "line",
+              "params": {
+                "fill": "none",
+                "stroke": "#000000",
+                "strokeWidth": 4,
+                "dash": "solid",
+                "startCap": "none",
+                "endCap": "triangle",
+                "lineCap": "butt",
+                "startCapFilled": true,
+                "endCapFilled": true,
+                "preset": "line-solid-none-tri",
+                "width": 520,
+                "height": 40
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at O0c (<file>)\n    at async aLn.reloadResolvedCaptionDisplay (<file>)\n    at async M0c (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}
