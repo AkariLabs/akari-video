@@ -1,7 +1,7 @@
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { hostToOutput, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
-import { previewOverlayKind } from '../common/preview-overlay-drop';
+import { claimScene3dDrop, previewOverlayKind } from '../common/preview-overlay-drop';
 
 const MIME = 'application/x-akari-library-item';
 const START = 'akari.library.dragStart';
@@ -27,6 +27,7 @@ export class PreviewLibraryDrop {
     private layer?: HTMLDivElement;
     private ghost?: HTMLDivElement;
     private active?: Payload;
+    private dragSession?: Payload;
     private geometry?: Geometry;
     private readonly pendingGeometryRequests = new Set<{ dispose(): void }>();
     private lastGeometryRequestAt = 0;
@@ -43,6 +44,7 @@ export class PreviewLibraryDrop {
         const start = (event: Event): void => {
             this.clear();
             this.active = readPayload((event as CustomEvent<unknown>).detail);
+            this.dragSession = this.active;
             if (!this.active || !this.canShow()) return;
             this.show();
             void this.queryGeometry();
@@ -193,6 +195,7 @@ export class PreviewLibraryDrop {
         event.preventDefault();
         event.stopPropagation();
         const payload = readPayload(event.dataTransfer?.getData(MIME)) ?? this.active;
+        const dragSession = this.active ?? this.dragSession;
         const position = { x: event.clientX, y: event.clientY };
         const latest = this.geometry;
         this.clear();
@@ -214,6 +217,7 @@ export class PreviewLibraryDrop {
         if (!editUri) return;
         const overlayKind = previewOverlayKind(payload);
         if (overlayKind === 'scene3d') {
+            if (!claimScene3dDrop(dragSession)) return;
             this.messages.info('3D は近日対応します。');
             return;
         }

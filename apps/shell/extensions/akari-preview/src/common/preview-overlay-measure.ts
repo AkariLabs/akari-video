@@ -42,7 +42,7 @@ export function installOverlayBoxRequestListener(
     });
 }
 
-/** Runs inside the output webview, with the same stage and fragmentBounds used by selection. */
+/** Runs inside the output webview; measure visible paint and fall back to fragmentBounds. */
 export async function measureOverlayBoxInStage(stage: HTMLElement, html: string,
     vars: Record<string, string | number | boolean>, output: { width: number; height: number }):
     Promise<MeasuredOverlayBox | undefined> {
@@ -74,7 +74,98 @@ export async function measureOverlayBoxInStage(stage: HTMLElement, html: string,
             timeout = window.setTimeout(resolve, 2000);
         })]);
         if (timeout !== undefined) window.clearTimeout(timeout);
-        const bounds = akari.interaction.fragmentBounds(probe);
+        probe.getBoundingClientRect?.();
+        let animations: Animation[] = [];
+        try {
+            if (typeof probe.getAnimations === 'function') animations = probe.getAnimations({ subtree: true });
+        } catch { /* 古い webview では document 側から探す。 */ }
+        if (!animations.length && typeof document.getAnimations === 'function') {
+            animations = document.getAnimations().filter(animation => {
+                const target = (animation.effect as KeyframeEffect | null)?.target;
+                return target instanceof Node && probe.contains(target);
+            });
+        }
+        for (const animation of animations) {
+            try {
+                animation.pause();
+                const timing = animation.effect?.getComputedTiming();
+                let end = Number(timing?.endTime);
+                if (!Number.isFinite(end)) {
+                    const delay = Number(timing?.delay);
+                    const duration = Number(timing?.duration);
+                    end = (Number.isFinite(delay) ? delay : 0) + (Number.isFinite(duration) ? duration : 0);
+                }
+                if (Number.isFinite(end)) animation.currentTime = end;
+            } catch { /* 測定できる他の要素は続ける。 */ }
+        }
+        const visibleColor = (value: string): boolean => {
+            const color = String(value ?? '').replace(/\s+/g, '').toLowerCase();
+            return !!color && color !== 'transparent' && !/^#[0-9a-f]{3}0$|^#[0-9a-f]{6}00$/u.test(color)
+                && !/(?:,|\/)0(?:\.0+)?\)$/u.test(color);
+        };
+        const visibleRect = (rect: DOMRect, element: Element): { left: number; top: number; right: number; bottom: number } | undefined => {
+            let left = rect.left, top = rect.top, right = rect.right, bottom = rect.bottom;
+            if (![left, top, right, bottom].every(Number.isFinite)) return undefined;
+            for (let ancestor = element.parentElement; ancestor && ancestor !== stage; ancestor = ancestor.parentElement) {
+                const style = getComputedStyle(ancestor);
+                const paintContain = /\b(?:paint|content|strict)\b/u.test(style.contain ?? '');
+                const overflowX = style.overflowX || style.overflow;
+                const overflowY = style.overflowY || style.overflow;
+                if (!paintContain && !['hidden', 'clip', 'auto', 'scroll'].includes(overflowX)
+                    && !['hidden', 'clip', 'auto', 'scroll'].includes(overflowY)) continue;
+                const clip = ancestor.getBoundingClientRect();
+                if (paintContain || ['hidden', 'clip', 'auto', 'scroll'].includes(overflowX)) {
+                    left = Math.max(left, clip.left); right = Math.min(right, clip.right);
+                }
+                if (paintContain || ['hidden', 'clip', 'auto', 'scroll'].includes(overflowY)) {
+                    top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom);
+                }
+                if (right <= left || bottom <= top) return undefined;
+            }
+            return right > left && bottom > top ? { left, top, right, bottom } : undefined;
+        };
+        const painted = (element: Element): boolean => {
+            for (let ancestor: Element | null = element; ancestor && ancestor !== stage; ancestor = ancestor.parentElement) {
+                const style = getComputedStyle(ancestor);
+                if (style.display === 'none' || ['hidden', 'collapse'].includes(style.visibility)
+                    || Number(style.opacity) === 0) return false;
+            }
+            return true;
+        };
+        let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+        const add = (rect: DOMRect, element: Element): void => {
+            const clipped = visibleRect(rect, element);
+            if (!clipped) return;
+            left = Math.min(left, clipped.left); top = Math.min(top, clipped.top);
+            right = Math.max(right, clipped.right); bottom = Math.max(bottom, clipped.bottom);
+        };
+        const ignored = new Set(['HEAD', 'LINK', 'META', 'NOSCRIPT', 'SCRIPT', 'STYLE', 'TEMPLATE', 'TITLE']);
+        const replaced = new Set(['IMG', 'VIDEO', 'CANVAS', 'SVG', 'PICTURE', 'IFRAME']);
+        for (const element of Array.from(probe.querySelectorAll('*'))) {
+            const tag = element.tagName.toUpperCase();
+            if (ignored.has(tag) || !painted(element)) continue;
+            const style = getComputedStyle(element);
+            const border = ['Top', 'Right', 'Bottom', 'Left'].some(side =>
+                Number.parseFloat(style[`border${side}Width` as keyof CSSStyleDeclaration] as string) > 0
+                && style[`border${side}Style` as keyof CSSStyleDeclaration] !== 'none'
+                && visibleColor(style[`border${side}Color` as keyof CSSStyleDeclaration] as string));
+            let topSvg = tag === 'SVG';
+            if (topSvg) for (let ancestor = element.parentElement; ancestor && ancestor !== probe; ancestor = ancestor.parentElement) {
+                if (ancestor.tagName.toUpperCase() === 'SVG') { topSvg = false; break; }
+            }
+            const draws = visibleColor(style.backgroundColor) || (!!style.backgroundImage && style.backgroundImage !== 'none')
+                || border || (replaced.has(tag) && (tag !== 'SVG' || topSvg));
+            if (draws) add(element.getBoundingClientRect(), element);
+            if (typeof document.createRange === 'function') for (const node of Array.from(element.childNodes)) {
+                if (node.nodeType !== 3 || !node.textContent?.trim()) continue;
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                add(range.getBoundingClientRect(), element);
+            }
+        }
+        const bounds = [left, top, right, bottom].every(Number.isFinite) && right > left && bottom > top
+            ? { left, top, right, bottom, width: right - left, height: bottom - top }
+            : akari.interaction.fragmentBounds(probe);
         const stageRect = stage.getBoundingClientRect();
         if (!bounds || !(stageRect.width > 0) || !(stageRect.height > 0)) return undefined;
         const box = { x: (bounds.left - stageRect.left) * output.width / stageRect.width,

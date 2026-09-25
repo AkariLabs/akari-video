@@ -31,7 +31,9 @@ test('同梱オーバーレイのツマミは実際の fragment の既定値を�
 
 for (const output of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
     for (const [name, box] of [
-        ['chalkboard-jp', { x: -70, y: -37, width: 1660, height: 900 }],
+        ['chalkboard-jp', output.width === 1280
+            ? { x: 0, y: 0, width: 1520, height: 860 }
+            : { x: 200, y: 110, width: 1520, height: 860 }],
         ['lower-third-clean', { x: 0, y: 0, width: 620, height: 112 }]
     ]) test(`${name} 相当の選択枠は ${output.width}×${output.height} で落とした点が中心・幅 4/10`, () => {
         const center = { x: output.width * 0.75, y: output.height * 0.25 };
