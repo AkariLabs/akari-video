@@ -28,11 +28,11 @@ test('★ の文言は状態で入れ替わる', () => {
     assert.equal(on.icon, 'star-full');
 });
 
-test('置けない種類（オーバーレイ・3D）: 取り込む / ★ / 情報を見る', () => {
+test('オーバーレイは置ける、3D は取り込みのみ', () => {
     for (const category of ['overlay', 'scene3d']) {
         const entries = libraryCardMenuEntries({ kind: 'asset', item: asset({ category, key: `${category}/x`, sourceKind: 'lab', state: 'available' }) }, false);
-        assert.deepEqual(ids(entries), ['import', 'favorite', 'info']);
-        assert.equal(entries[0].label, '取り込む');
+        assert.deepEqual(ids(entries), category === 'overlay'
+            ? ['place', 'import', 'favorite', 'info'] : ['import', 'favorite', 'info']);
     }
 });
 
@@ -48,7 +48,7 @@ test('プレミアム未購入: Lab で見る（¥価格）/ プレイヘッド�
     assert.deepEqual(ids(entries), ['lab', 'place', 'favorite', 'info']);
     assert.equal(entries[0].label, 'Lab で見る（¥2,980）');
     // 置けない種類のプレミアムには「置く」を出さない。
-    assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'asset', item: { ...premium, category: 'overlay' } }, false)), ['lab', 'favorite', 'info']);
+    assert.deepEqual(ids(libraryCardMenuEntries({ kind: 'asset', item: { ...premium, category: 'overlay' } }, false)), ['lab', 'place', 'favorite', 'info']);
 });
 
 test('ローカル索引の素材: 取り込む（未取得のみ）/ 頼む / ★ / 情報を見る', () => {

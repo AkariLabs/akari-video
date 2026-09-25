@@ -5,7 +5,7 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
 const start = source.indexOf("commands.registerCommand({ id: 'akari.timeline.applyLibraryItem' }");
-const end = source.indexOf('        const onPlaybackTick', start);
+const end = source.indexOf("commands.registerCommand({ id: 'akari.timeline.addOverlayAtOutputPoint' }", start);
 assert.ok(start > 0 && end > start);
 const compiled = ts.transpileModule(`function setup(commands) { ${source.slice(start, end)} }`,
     { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;

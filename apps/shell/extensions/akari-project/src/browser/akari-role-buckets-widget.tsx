@@ -93,7 +93,7 @@ import {
     LibraryLicenseDialog, LibraryPremiumSheet, LibrarySimpleCard
 } from './library-card-view';
 import { AssetBinChildNode, isAssetBinGroupDirectory } from '../common/asset-bin-grouping';
-import { canPlaceLibraryAsset, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
+import { canPlaceLibraryAsset, canPlaceOverlay, libraryDragKind, localLibraryAssetPlacementSource, resolveLibraryAssetMedia, RESOLVE_LIBRARY_MATERIAL_COMMAND_ID } from '../common/library-asset-placement';
 import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../common/asset-group-media';
 import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
@@ -2431,6 +2431,62 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         void this.loadMaterials();
     }
 
+    async resolveCatalogOverlay(key: string): Promise<{ relativePath: string; meta: unknown; fragment: string } | undefined> {
+        if (this.showPremiumPrompt(key)) return undefined;
+        const root = this.workflow.workspaceRoot;
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!root || !item || !canPlaceOverlay(item)) {
+            this.messages.warn('このオーバーレイは置けません。');
+            return undefined;
+        }
+        if (this.resolvingAssetKeys.has(key)) return undefined;
+        this.resolvingAssetKeys.add(key);
+        this.update();
+        try {
+            const localSource = localLibraryAssetPlacementSource(item);
+            const outcome = localSource
+                ? await this.projectService.placeLibraryAsset(localSource, root.toString())
+                : await this.projectService.resolveAsset(item.id, root.toString());
+            if (outcome.success === false) throw new Error(outcome.error);
+            const directory = URI.fromFilePath(outcome.reference && outcome.libraryDir
+                ? outcome.libraryDir : outcome.projectAssetPath);
+            const listing = await this.files.resolve(directory);
+            const names = (listing.children ?? []).filter(child => !child.isDirectory)
+                .map(child => child.resource.path.base);
+            const file = item.mediaFile && names.includes(item.mediaFile) && /\.html?$/i.test(item.mediaFile)
+                ? item.mediaFile : names.includes('fragment.html') ? 'fragment.html'
+                    : names.filter(name => /\.html?$/i.test(name)).sort()[0];
+            if (!file || !names.includes('meta.json')) throw new Error('HTML または meta.json が見つかりません');
+            const [metaSource, fragment] = await Promise.all([
+                this.files.readFile(directory.resolve('meta.json')),
+                this.files.readFile(directory.resolve(file))
+            ]);
+            if (this.workflow.workspaceRoot?.toString() !== root.toString()) return undefined;
+            if (outcome.reference && outcome.libraryDir) {
+                this.assetCatalogItems = this.assetCatalogItems.map(entry => entry.key === key
+                    ? { ...entry, libraryDir: outcome.libraryDir } : entry);
+            }
+            this.refreshAfterAssetCatalogImport(key);
+            return { relativePath: `assets/overlay/${item.id}/${file}`,
+                meta: JSON.parse(metaSource.value.toString()), fragment: fragment.value.toString() };
+        } catch (error) {
+            this.messages.warn(`オーバーレイを使えませんでした: ${error instanceof Error ? error.message : String(error)}`);
+            return undefined;
+        } finally {
+            this.resolvingAssetKeys.delete(key);
+            this.update();
+        }
+    }
+
+    async readCatalogOverlayMeta(key: string): Promise<unknown | undefined> {
+        const item = this.assetCatalogItems.find(entry => entry.key === key);
+        if (!item || item.category !== 'overlay' || !item.libraryDir) return undefined;
+        try {
+            const file = await this.files.readFile(URI.fromFilePath(item.libraryDir).resolve('meta.json'));
+            return JSON.parse(file.value.toString());
+        } catch { return undefined; }
+    }
+
     /** カタログ key を既存 resolver で取り込み、配置可能な主メディアだけ返す。 */
     async resolveCatalogMaterial(key: string, options?: { preferExisting?: boolean }): Promise<{ relativePath: string; kind: MaterialKind; cached?: boolean } | undefined> {
         // 未購入のプレミアム: 置かずに促しのシート（Lab で見る）を出す。
@@ -2522,7 +2578,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     /** 未購入のプレミアムもドラッグできる（payload に locked を載せ、受け口が促しのシートへ分岐する）。 */
     protected canDragCatalogAsset(item: AssetCatalogViewItem): boolean {
-        return this.libraryCategory !== 'pack' && (canPlaceLibraryAsset(item) || (isPremiumLocked(item) && isPlaceableLibraryCategory(item)));
+        return this.libraryCategory !== 'pack' && (canPlaceLibraryAsset(item) || canPlaceOverlay(item)
+            || (item.origin === 'resolver' && item.category === 'scene3d')
+            || (isPremiumLocked(item) && isPlaceableLibraryCategory(item)));
     }
 
     protected handleCatalogAssetDragStart(event: React.DragEvent<HTMLElement>, item: AssetCatalogViewItem): void {
@@ -2540,7 +2598,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return;
         }
         const size = item as AssetCatalogViewItem & { width?: number; height?: number; durationSeconds?: number; locked?: boolean };
-        const payload = { kind: 'asset', key, id, category, title,
+        const payload = { kind: libraryDragKind(item), key, id, category, title,
             ...(typeof size.width === 'number' ? { width: size.width } : {}),
             ...(typeof size.height === 'number' ? { height: size.height } : {}),
             ...(item.previewUrl ? { thumb: item.previewUrl } : {}),
@@ -2554,6 +2612,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected async addCatalogAssetAtPlayhead(item: AssetCatalogViewItem): Promise<void> {
         try {
+            if (item.category === 'scene3d') { this.messages.info('3D は近日対応します。'); return; }
+            if (item.category === 'overlay') {
+                await this.commandService.executeCommand('akari.timeline.addOverlayAtOutputPoint', { key: item.key });
+                return;
+            }
             const material = await this.commandService.executeCommand<{ relativePath: string; kind: MaterialKind } | undefined>(
                 RESOLVE_LIBRARY_MATERIAL_COMMAND_ID, item.key
             );

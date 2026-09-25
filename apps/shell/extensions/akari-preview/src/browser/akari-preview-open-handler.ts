@@ -13,6 +13,7 @@ import { requestReadyPreviewSeek, createReadySeekResponder } from '../common/pre
 import { isMaterialPreviewWidgetId } from '../common/material-preview-slot';
 import { MaterialPreviewSlot } from './material-preview-slot';
 import { PreviewLibraryDrop } from './preview-library-drop';
+import { installOverlayBoxRequestListener, measureOverlayBoxInStage } from '../common/preview-overlay-measure';
 import URI from '@theia/core/lib/common/uri';
 import { partitionPreviewMediaPlanes } from '../common/preview-media-planes';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
@@ -2581,6 +2582,59 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected registerOutputSeekCommand(): void {
         this.commandRegistry.registerCommand(SEEK_OUTPUT_PREVIEW_COMMAND, {
             execute: (request?: SeekOutputRequest) => this.seekOutputPreview(request)
+        });
+        this.commandRegistry.registerCommand({ id: 'akari.preview.measureOverlayBox' }, {
+            execute: (request: { editUri?: string; fragment?: string;
+                relativePath?: string; vars?: Record<string, string | number | boolean> }) => this.measureOverlayBox(request)
+        });
+    }
+
+    protected async measureOverlayBox(request: { editUri?: string; fragment?: string;
+        relativePath?: string;
+        vars?: Record<string, string | number | boolean> } | undefined): Promise<{
+            x: number; y: number; width: number; height: number
+        } | undefined> {
+        if (!request?.editUri || !request.fragment) return undefined;
+        const editUri = new URI(request.editUri).normalizePath();
+        let widget = this.openOutputPreviews.get(editUri.toString());
+        if (!widget || widget.isDisposed || !widget.isAttached) {
+            try {
+                widget = await this.getOrOpenPreview(editUri,
+                    { area: 'main' }, 'output') as PreviewWidgetMarker;
+                if (!widget.isAttached) this.shell.addWidget(widget, { area: 'main' });
+                this.shell.revealWidget(widget.id);
+                await widget.akariPreviewRefresh;
+            } catch { return undefined; }
+        }
+        const html = request.relativePath
+            ? (await this.previewService.rewriteFragmentAssets({ projectRootUri: editUri.parent.toString(),
+                html: request.fragment, htmlPath: request.relativePath, overlayId: 'measure-overlay',
+                workspaceRoots: await this.currentWorkspaceRoots() })).html
+            : request.fragment;
+        const requestId = `overlay-box-${Date.now()}-${Math.random()}`;
+        return new Promise(resolve => {
+            let finished = false;
+            const finish = (box?: { x: number; y: number; width: number; height: number }): void => {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timer);
+                clearInterval(retry);
+                listener.dispose();
+                resolve(box);
+            };
+            const listener = widget.onMessage(message => {
+                if (message?.type === 'akari-preview-overlay-box' && message.requestId === requestId) finish(message.box);
+            });
+            const send = (): void => {
+                if (widget.isDisposed) { finish(); return; }
+                try {
+                    Promise.resolve(widget.sendMessage({ type: 'akari-preview-overlay-box-request', requestId,
+                        fragment: html, vars: request.vars ?? {} })).catch(() => finish());
+                } catch { finish(); }
+            };
+            const timer = setTimeout(() => finish(), 15000);
+            const retry = setInterval(send, 1000);
+            send();
         });
     }
 
@@ -9453,6 +9507,9 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportLibraryApplyHit = detail => {
                 vscode.postMessage({ type: 'akari-preview-hit-test-response', ...detail });
             };
+            window.akari.reportOverlayBox = detail => {
+                vscode.postMessage({ type: 'akari-preview-overlay-box', ...detail });
+            };
             window.akari.requestMyStyleSave = captionId => {
                 vscode.postMessage({ type: 'akari-preview-my-style-save', captionId });
             };
@@ -11627,6 +11684,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.reportLibraryApplyHit({ requestId: request.requestId,
                     hit: accepted ? { kind: hit.kind, id: hit.id } : null });
             });
+            const measureOverlayBoxFn = (${measureOverlayBoxInStage.toString()});
+            const installOverlayBoxRequestListenerFn = (${installOverlayBoxRequestListener.toString()});
+            installOverlayBoxRequestListenerFn(window, document, measureOverlayBoxFn,
+                message => window.akari.reportOverlayBox(message));
             let loopRange = null;
             let isPlaying = false;
             let playToggleRenderedIsPlaying = null;

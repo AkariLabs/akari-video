@@ -120,6 +120,8 @@ export interface AssetCatalogViewItem {
     addedAt?: string;
     libraryDir?: string;
     mediaFile?: string | null;
+    width?: number;
+    height?: number;
     usageCount?: number;
     lastUsedAt?: string;
     favorite?: boolean;

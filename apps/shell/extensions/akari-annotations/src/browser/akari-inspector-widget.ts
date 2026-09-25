@@ -2164,7 +2164,8 @@ function OVERLAY_SECTIONS(
                 name: `var-${name.replace(/[^a-z0-9_-]+/giu, '-')}`,
                 label: knob?.label ?? `vars.${name}`,
                 getValue: () => formatPayloadValue(value),
-                getEditValue: () => String(value ?? ''),
+                getEditValue: () => knob?.type === 'slider' && typeof value === 'string'
+                    ? String(Number.parseFloat(value)) : String(value ?? ''),
                 inputKind: kind === 'readonly' ? 'media'
                     : kind === 'slider' ? 'scrub-number' : kind as InspectorFieldDef['inputKind'],
                 ...(knob?.options ? { options: knob.options } : {}),
@@ -2176,7 +2177,8 @@ function OVERLAY_SECTIONS(
                     write: async (_snapshot: TimelineOverlaySelection, nextValue: string) => {
                         if (!knob) return requestWrite({ kind: 'overlay-var', id: snapshot.id, name, value: nextValue });
                         const typedValue: number | string | boolean = knob.type === 'slider'
-                            ? Number(nextValue) : knob.type === 'checkbox' ? String(nextValue === 'true') : nextValue;
+                            ? knob.unit ? `${Number(nextValue)}${knob.unit}` : Number(nextValue)
+                            : knob.type === 'checkbox' ? String(nextValue === 'true') : nextValue;
                         return requestWrite({
                             kind: 'item-field', id: snapshot.id,
                             path: `source.vars.${name}`, value: typedValue
@@ -5015,7 +5017,10 @@ export class AkariInspectorWidget extends BaseWidget {
             const source = (await this.fileService.readFile(uri)).value.toString();
             this.knobCache.set(metaPath, parseInspectorKnobs(JSON.parse(source)));
         } catch {
-            this.knobCache.set(metaPath, []);
+            const match = /^assets\/(overlay\/[^/]+)\/meta\.json$/u.exec(metaPath);
+            const meta = match ? await this.commandRegistry.executeCommand<unknown>(
+                'akari.catalog.readOverlayMeta', match[1]).catch(() => undefined) : undefined;
+            this.knobCache.set(metaPath, parseInspectorKnobs(meta));
         }
         const current = this.model.snapshot;
         if (current?.kind === 'overlay' && current.id === overlayId) this.render();
