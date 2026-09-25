@@ -100,7 +100,7 @@ test('widget: 素材を選ぶと編集を表示し、タイムライン選択変
   // init 全体は Theia の BaseWidget/DOM と CSS 登録を含むため、登録する callback の本体だけ抽出する。
   const code = ts.transpileModule(`class Harness {
     ${method('selectMaterial')}
-    ${method('render')}
+    ${method('renderContent').replace('renderContent', 'render')}
     wireSelection() { this.model.onChanged(${onChanged}); }
   }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
   const Harness = new Function('CAPTION_ZONE_HOVER_EVENT', 'appendAiMaterialView', 'createSelectionHeader',
@@ -141,7 +141,7 @@ test('インスペクターは素材イベントで開き、タイムライン�
   assert.match(source, /'akari\.inspector\.open', \{ tabId: 'generation' \}/u);
   assert.match(source, /if \(!widget\) \{[\s\S]*getOrCreateWidget/u);
   assert.match(method('init'), /this\.model\.onChanged\(\(\) => \{\s*this\.clearSoloForSelectionChange\(\);\s*if \(this\.materialSelection\) \{\s*this\.materialSelection = undefined;/u);
-  assert.match(method('render'), /if \(this\.materialSelection\) \{[\s\S]*appendAiMaterialView/u);
+  assert.match(method('renderContent'), /if \(this\.materialSelection\) \{[\s\S]*appendAiMaterialView/u);
 });
 
 test('タイムラインが無いときも素材イベントからインスペクターを表示する', async () => {

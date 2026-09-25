@@ -888,6 +888,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly inspectorRequestLivePreview = (request: LivePreviewRequest): void => {
         this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
             target: request.target, field: request.field, value: request.value,
+            values: { [request.field]: request.value },
+            ...(request.clear ? { clear: true } : {}),
             ...(request.easing === undefined ? {} : { easing: request.easing })
         });
     };

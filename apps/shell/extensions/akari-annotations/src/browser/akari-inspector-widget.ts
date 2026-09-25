@@ -34,6 +34,7 @@ import {
     TimelineGapSelection
 } from './timeline-selection-model';
 import { createSelectionHeader } from './inspector/selection-header';
+import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
@@ -2627,6 +2628,7 @@ function ADJUST_SECTIONS(
         displayScale: field.displayScale,
         displayOffset: field.displayOffset,
         displayPrecision: field.displayPrecision,
+        ...(field.key === 'exposure' ? { liveField: 'adjust.basic.exposure' as const } : {}),
         keyframeDisabled: true,
         disabled: !basicEnabled,
         title: basicEnabled ? undefined : disabledTitle,
@@ -2914,6 +2916,28 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly tabState = new InspectorTabState(window.localStorage);
     protected editAdjustScope: '画像全体' | '選択エリア' = '画像全体';
     protected tabSelectionKey?: string;
+    protected renderedSelectionKey?: string;
+    protected lastRealSelectionKey?: string;
+    protected pendingEmptyRender?: ReturnType<typeof setTimeout>;
+    protected forceEmptyRender = false;
+    protected rememberedView: InspectorViewState = { scrollTop: 0 };
+    protected restoringView = false;
+    protected viewRestoreRevision = 0;
+    protected pendingTabFocus = false;
+    protected suppressFocusRestore = false;
+    protected ignoreScrollUntil = 0;
+    protected lastScrollIntentAt = 0;
+    protected latestRenderAt = 0;
+    protected bodyMinHeightBeforeRestore?: string;
+    protected bodyHeldHeight = 0;
+    protected liveValues?: LiveValues;
+    protected liveFrame?: number;
+    protected liveSelectionId(): string | undefined {
+        const snapshot = this.model.snapshot;
+        return snapshot?.kind === 'cut' ? `cut:${snapshot.index}`
+            : snapshot?.kind === 'item' || snapshot?.kind === 'overlay' || snapshot?.kind === 'layer'
+                ? snapshot.id : undefined;
+    }
     protected currentTab?: string;
     protected explicitTabId?: string;
     protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
@@ -3038,6 +3062,78 @@ export class AkariInspectorWidget extends BaseWidget {
             alignContent: 'start'
         });
         this.node.appendChild(this.body);
+        const markScrollIntent = (): void => { this.lastScrollIntentAt = Date.now(); };
+        this.node.addEventListener('wheel', markScrollIntent, { passive: true });
+        this.node.addEventListener('pointerdown', event => {
+            if (event.target === this.node) markScrollIntent();
+        }, true);
+        this.node.addEventListener('scroll', () => {
+            if (this.renderedSelectionKey !== this.viewSelectionKey()
+                || !shouldRememberInspectorScroll(this.restoringView, Date.now(), this.ignoreScrollUntil,
+                    this.lastScrollIntentAt, this.latestRenderAt)) return;
+            this.rememberedView = { ...this.rememberedView, scrollTop: this.node.scrollTop };
+        });
+        this.node.addEventListener('focusin', event => {
+            if (!(event.target instanceof Element)) return;
+            this.suppressFocusRestore = false;
+            if (event.target.closest('[data-akari-ui^="field:inspector-"], [data-akari-field]')) {
+                this.rememberFocus(event.target);
+            } else this.rememberedView = { ...this.rememberedView, focusField: undefined, focusPart: undefined };
+        });
+        this.node.addEventListener('focusout', event => {
+            if (!this.restoringView && !(event.relatedTarget instanceof Node && this.node.contains(event.relatedTarget))) {
+                this.rememberedView = withoutInspectorFocus(this.rememberedView);
+            }
+        });
+        this.node.addEventListener('input', event => {
+            if ((typeof HTMLInputElement !== 'undefined' && event.target instanceof HTMLInputElement)
+                || (typeof HTMLTextAreaElement !== 'undefined' && event.target instanceof HTMLTextAreaElement)) {
+                event.target.dataset.akariInspectorDirty = 'true';
+            }
+        });
+        this.node.addEventListener('keydown', event => {
+            if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)
+                && !(event.target instanceof Element && event.target.closest('input, textarea'))) markScrollIntent();
+            if ((event.key === 'Enter' || event.key === 'Escape')
+                && event.target instanceof Element
+                && event.target.closest('input, textarea, [contenteditable="true"]')) {
+                this.suppressFocusRestore = true;
+                this.pendingTabFocus = false;
+                this.rememberedView = withoutInspectorFocus(this.rememberedView);
+                return;
+            }
+            if (event.key !== 'Tab' || !(event.target instanceof Element)) return;
+            this.suppressFocusRestore = false;
+            if (typeof HTMLInputElement !== 'undefined' && event.target instanceof HTMLInputElement
+                && event.target.classList.contains('akari-inspector-number-input')) {
+                const inputs = Array.from(this.body.querySelectorAll<HTMLInputElement>(
+                    '.akari-inspector-number-input:not(:disabled)'
+                )).filter(element => element.getClientRects().length > 0);
+                const index = inputs.indexOf(event.target);
+                const nextInput = inputs[index + (event.shiftKey ? -1 : 1)];
+                if (nextInput) {
+                    event.preventDefault();
+                    this.rememberFocus(nextInput);
+                    this.pendingTabFocus = true;
+                    event.target.blur();
+                    nextInput.focus({ preventScroll: true });
+                    return;
+                }
+            }
+            const controls = Array.from(this.node.querySelectorAll<HTMLElement>(
+                'input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)'
+            )).filter(element => element.getClientRects().length > 0);
+            const index = controls.indexOf(event.target as HTMLElement);
+            const next = controls[index + (event.shiftKey ? -1 : 1)];
+            if (next) { this.rememberFocus(next); this.pendingTabFocus = true; }
+            else {
+                this.pendingTabFocus = false;
+                this.rememberedView = { ...this.rememberedView, focusField: undefined, focusPart: undefined };
+            }
+        }, true);
+        this.toDispose.push({ dispose: () => {
+            if (this.pendingEmptyRender !== undefined) clearTimeout(this.pendingEmptyRender);
+        } });
         Object.assign(this.fieldNotice.style, {
             display: 'none',
             padding: '6px 10px',
@@ -4004,10 +4100,33 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.materialSelection = undefined;
                 this.aiView = undefined;
             }
+            this.liveValues = undefined;
             this.lutGeneration++;
             this.projectLutRefs = [];
             this.render();
         }));
+        const onLiveValues = (event: Event): void => {
+            const detail = (event as CustomEvent<{ id?: string; editUri?: string;
+                values?: Record<string, number>; clear?: boolean }>).detail;
+            const editUri = this.workspaceService.tryGetRoots()[0]?.resource.resolve('edit.json').normalizePath().toString();
+            if (!editUri || detail?.editUri !== editUri) return;
+            if (!detail?.id || this.liveSelectionId() !== detail.id) return;
+            if (detail.clear) {
+                this.liveValues = undefined;
+                this.render();
+                return;
+            }
+            else if (detail.values) this.liveValues = mergeLiveValues(this.liveValues, { id: detail.id, values: detail.values });
+            if (this.liveFrame === undefined) this.liveFrame = requestAnimationFrame(() => {
+                this.liveFrame = undefined;
+                this.paintLiveValues();
+            });
+        };
+        window.addEventListener('akari.preview.liveValues', onLiveValues);
+        this.toDispose.push({ dispose: () => {
+            window.removeEventListener('akari.preview.liveValues', onLiveValues);
+            if (this.liveFrame !== undefined) cancelAnimationFrame(this.liveFrame);
+        } });
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (!root || !event.changes.some(change => change.resource.toString() === root.resolve('edit.json').toString())) return;
@@ -4334,7 +4453,124 @@ export class AkariInspectorWidget extends BaseWidget {
         }).catch(() => undefined);
     }
 
+    protected viewSelectionKey(): string | undefined {
+        const workspace = this.workspaceService.tryGetRoots()[0]?.resource.toString() ?? '';
+        const id = this.liveSelectionId();
+        return id ? `${workspace}:${id}` : this.currentSelectionKey()?.replace(/:keyframe:.*$/u, '');
+    }
+
+    protected rememberFocus(active: Element): void {
+        const field = active.closest('[data-akari-ui^="field:inspector-"], [data-akari-field]');
+        const fieldName = field?.getAttribute('data-akari-ui') ?? field?.getAttribute('data-akari-field');
+        if (!fieldName) return;
+        const controls = Array.from(field.querySelectorAll('input, textarea, select, button'));
+        const focusPart = controls.indexOf(active);
+        if (focusPart < 0) return;
+        const input = (typeof HTMLInputElement !== 'undefined' && active instanceof HTMLInputElement)
+            || (typeof HTMLTextAreaElement !== 'undefined' && active instanceof HTMLTextAreaElement) ? active : undefined;
+        this.rememberedView = { ...this.rememberedView, focusField: fieldName, focusPart,
+            selectionStart: undefined, selectionEnd: undefined, inputValue: undefined,
+            ...(input && input.selectionStart !== null ? { selectionStart: input.selectionStart,
+                selectionEnd: input.selectionEnd ?? input.selectionStart } : {}),
+            ...(input?.dataset.akariInspectorDirty === 'true' ? { inputValue: input.value } : {}) };
+    }
+
     protected render(): void {
+        const forceEmpty = this.forceEmptyRender;
+        this.forceEmptyRender = false;
+        const selectionKey = this.viewSelectionKey();
+        if (shouldDeferInspectorEmpty(selectionKey, this.renderedSelectionKey, !!this.materialSelection, forceEmpty)) {
+            if (this.pendingEmptyRender === undefined) this.pendingEmptyRender = setTimeout(() => {
+                this.pendingEmptyRender = undefined;
+                if (!this.viewSelectionKey()) { this.forceEmptyRender = true; this.render(); }
+            }, 80);
+            return;
+        }
+        if (selectionKey && this.pendingEmptyRender !== undefined) {
+            clearTimeout(this.pendingEmptyRender);
+            this.pendingEmptyRender = undefined;
+        }
+        const isTextInput = (element: Element | null | undefined): element is HTMLInputElement | HTMLTextAreaElement =>
+            typeof HTMLInputElement !== 'undefined' && element instanceof HTMLInputElement
+            || typeof HTMLTextAreaElement !== 'undefined' && element instanceof HTMLTextAreaElement;
+        const active = this.node.contains?.(document.activeElement) ? document.activeElement : null;
+        this.rememberedView = focusForInspectorRender(this.rememberedView, !!active,
+            this.pendingTabFocus, this.restoringView);
+        if (active && !this.pendingTabFocus && !this.suppressFocusRestore) this.rememberFocus(active);
+        const sameSelection = selectionKey !== undefined && this.lastRealSelectionKey === selectionKey;
+        const view = selectionKey
+            ? viewForInspectorSelection(this.rememberedView, selectionKey, this.lastRealSelectionKey)
+            : this.rememberedView;
+        view.scrollTop = rememberedInspectorScroll(view.scrollTop, this.node.scrollTop,
+            sameSelection, this.restoringView, this.lastScrollIntentAt > this.latestRenderAt);
+        if (sameSelection) view.tabId = this.activeTabId() ?? view.tabId;
+        this.rememberedView = view;
+        this.renderedSelectionKey = selectionKey;
+        if (selectionKey) this.lastRealSelectionKey = selectionKey;
+        if (view.tabId && !this.explicitTabId) this.currentTab = view.tabId;
+        if (this.bodyHeldHeight === 0) this.bodyMinHeightBeforeRestore = this.body.style.minHeight;
+        this.bodyHeldHeight = inspectorHeldHeight(this.bodyHeldHeight, this.node.scrollHeight || 0,
+            this.body.getBoundingClientRect?.().height ?? 0, this.node.clientHeight || 0, view.scrollTop);
+        this.body.style.minHeight = `${this.bodyHeldHeight}px`;
+        this.restoringView = true;
+        this.latestRenderAt = Date.now();
+        this.ignoreScrollUntil = this.latestRenderAt + 300;
+        this.renderContent();
+        const revision = ++this.viewRestoreRevision;
+        const restore = (focus = true): void => {
+            if (revision !== this.viewRestoreRevision || this.viewSelectionKey() !== selectionKey) return;
+            this.node.scrollTop = this.rememberedView.scrollTop;
+            const focusView = this.rememberedView;
+            if (focus && !this.suppressFocusRestore && focusView.focusField && focusView.focusPart !== undefined) {
+                const restored = Array.from(this.body.querySelectorAll('[data-akari-ui^="field:inspector-"], [data-akari-field]'))
+                    .find(element => (element.getAttribute('data-akari-ui') ?? element.getAttribute('data-akari-field')) === focusView.focusField);
+                const control = restored?.querySelectorAll<HTMLElement>('input, textarea, select, button')[focusView.focusPart];
+                if (isTextInput(control) && focusView.inputValue !== undefined) {
+                    control.value = focusView.inputValue;
+                    control.dataset.akariInspectorDirty = 'true';
+                }
+                control?.focus({ preventScroll: true });
+                if (isTextInput(control) && focusView.selectionStart !== undefined) {
+                    control.setSelectionRange(focusView.selectionStart, focusView.selectionEnd ?? focusView.selectionStart);
+                }
+                if (control instanceof Element) this.rememberFocus(control);
+            }
+        };
+        restore(!this.pendingTabFocus);
+        const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (callback: FrameRequestCallback) =>
+            setTimeout(() => callback(0), 0);
+        schedule(() => schedule(() => {
+            restore();
+            if (revision === this.viewRestoreRevision) {
+                this.restoringView = false;
+                this.pendingTabFocus = false;
+                setTimeout(() => {
+                    if (revision !== this.viewRestoreRevision) return;
+                    this.body.style.minHeight = this.bodyMinHeightBeforeRestore ?? '';
+                    this.bodyHeldHeight = 0;
+                    this.ignoreScrollUntil = Date.now() + 100;
+                    restore(false);
+                }, 250);
+            }
+        }));
+        this.paintLiveValues();
+    }
+
+    protected paintLiveValues(): void {
+        if (!this.liveValues || this.liveSelectionId() !== this.liveValues.id) return;
+        const values = { ...this.liveValues.values };
+        if (this.model.snapshot?.kind === 'item' && Number.isFinite(values.scaleX) && Number.isFinite(values.scaleY)) {
+            values.scale = Math.sqrt(values.scaleX * values.scaleY);
+        }
+        for (const [name, raw] of Object.entries(values)) {
+            const field = this.body.querySelector(`[data-akari-field="transform-${name}"]`);
+            const input = field?.querySelector<HTMLInputElement>('.akari-inspector-number-input');
+            if (!input || document.activeElement === input) continue;
+            input.value = String(name.startsWith('scale') ? Math.round(raw * 1000) / 10 : Math.round(raw * 100) / 100);
+        }
+    }
+
+    protected renderContent(): void {
         if (this.transcribeTimer) clearInterval(this.transcribeTimer);
         this.transcribeTimer = undefined;
         this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, null);
@@ -7060,9 +7296,14 @@ export class AkariInspectorWidget extends BaseWidget {
                     range.value = editValue === '—' ? range.min : editValue;
                 });
             };
+            const captionLive = snapshot.kind === 'caption' && fieldName === 'caption-size'
+                ? (raw: number, clear = false): void => this.model.requestLivePreview?.({
+                    target: { kind: 'caption', id: snapshot.id }, field: 'caption.size', value: raw, clear
+                }) : undefined;
             range.addEventListener('input', () => {
                 number.value = String(Number(range.value) * scale);
                 defaultNote.textContent = '';
+                captionLive?.(Number(range.value));
             });
             range.addEventListener('change', () => commit(Number(range.value)));
             number.addEventListener('change', () => {
@@ -7071,6 +7312,17 @@ export class AkariInspectorWidget extends BaseWidget {
                 range.value = String(Math.min(Number(range.max), Math.max(Number(range.min), raw)));
                 defaultNote.textContent = '';
                 commit(raw);
+            });
+            number.addEventListener('input', () => {
+                const raw = Number(number.value) / scale;
+                if (number.value.trim() && Number.isFinite(raw)) captionLive?.(raw);
+            });
+            for (const control of [range, number]) control.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || !captionLive) return;
+                event.preventDefault();
+                range.value = editValue === '—' ? range.min : editValue;
+                number.value = editValue === '—' ? '' : String(Number(editValue) * scale);
+                captionLive(Number(editValue), true);
             });
             control.append(range, valueGroup);
             row.appendChild(control);
@@ -7140,6 +7392,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (field.inputKind === 'scrub-number') {
             let sendLive: ((value: number) => void) | undefined;
+            let clearLive: (() => void) | undefined;
             if (field.liveField) {
                 const liveField = field.liveField;
                 const target: LivePreviewTarget | undefined = snapshot.kind === 'cut'
@@ -7154,6 +7407,11 @@ export class AkariInspectorWidget extends BaseWidget {
                         value: /^transform-scale(?:X|Y)?$/u.test(fieldName) && field.unit === '%'
                             ? value / 100 : value
                     });
+                    clearLive = () => this.model.requestLivePreview?.({
+                        target, field: liveField,
+                        value: /^transform-scale(?:X|Y)?$/u.test(fieldName) && field.unit === '%'
+                            ? Number(editValue) / 100 : Number(editValue), clear: true
+                    });
                 }
             }
             const numericValue = Number(editValue);
@@ -7166,7 +7424,9 @@ export class AkariInspectorWidget extends BaseWidget {
                     displayOffset: field.displayOffset,
                     displayPrecision: field.displayPrecision,
                     onPreview: sendLive,
+                    onCancel: clearLive,
                     onCommit: async value => {
+                        if (value === numericValue) return true;
                         if (keyframe?.hasKeyframes && /^(crop-|perspective-|transform-)/u.test(fieldName)
                             && this.model.requestKeyframe) {
                             const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;

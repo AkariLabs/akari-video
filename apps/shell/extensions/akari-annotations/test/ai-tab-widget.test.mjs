@@ -31,7 +31,8 @@ const dependencies = {
   ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }]
 };
 const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\nclass Harness {
-${['render', 'tabSourceHint', 'generationIdentity', 'appendTabStrip', 'loadAiCatalog'].map(method).join('\n')}
+${method('renderContent').replace('renderContent', 'render')}
+${['tabSourceHint', 'generationIdentity', 'appendTabStrip', 'loadAiCatalog'].map(method).join('\n')}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Harness = new Function(...Object.keys(dependencies), `${code}; return Harness;`)(...Object.values(dependencies));
 

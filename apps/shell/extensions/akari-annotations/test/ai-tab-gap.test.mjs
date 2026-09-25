@@ -24,7 +24,8 @@ test('gap button CSS excludes AI tiles from every matching rule', () => {
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widget.members.find(node => node.name?.getText(ast) === name).getText(ast);
-const code = ts.transpileModule(`class Harness { ${['renderGapSelection', 'matchesGapAiFrame', 'render'].map(method).join('\n')} }`, {
+const code = ts.transpileModule(`class Harness { ${['renderGapSelection', 'matchesGapAiFrame'].map(method).join('\n')}
+${method('renderContent').replace('renderContent', 'render')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
 const deps = { appendAiTiles, appendAiBack, describeAiTiles, aiActionCatalog, aiTabAvailabilityFor, aiTabViewFor,

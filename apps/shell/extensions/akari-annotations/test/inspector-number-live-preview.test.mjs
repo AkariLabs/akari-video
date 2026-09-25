@@ -161,7 +161,7 @@ for (const action of ['blur', 'Enter', 'Escape', 'ArrowUp', 'ArrowDown', '▲', 
         f.input.emit('keydown', { key: action });
       }
     }
-    assert.deepEqual(f.commits, [expected]);
+    assert.deepEqual(f.commits, action === 'Escape' ? [] : [expected]);
     assert.equal(f.previews.at(-1), expected);
     assert.equal(Number(f.input.value), expected);
     const before = [...f.previews];
@@ -169,6 +169,26 @@ for (const action of ['blur', 'Enter', 'Escape', 'ArrowUp', 'ArrowDown', '▲', 
     assert.deepEqual(f.previews, before);
   });
 }
+
+test('Enter commits once even when the old input blurs again', t => {
+  const f = setup(t, { value: 300 });
+  f.type('900');
+  f.input.emit('keydown', { key: 'Enter' });
+  f.input.emit('blur');
+  assert.deepEqual(f.commits, [900]);
+});
+
+test('rounded display text does not write on untouched blur', t => {
+  const f = setup(t, { value: 339.9999705854668, step: 1 });
+  assert.equal(f.input.value, '340');
+  f.input.emit('focus');
+  f.input.emit('blur');
+  assert.deepEqual(f.commits, []);
+  f.input.emit('focus');
+  f.type('345');
+  f.input.emit('blur');
+  assert.deepEqual(f.commits, [345]);
+});
 
 for (const modifier of ['altKey', 'metaKey', 'ctrlKey']) {
   for (const [key, shiftKey, expected] of [

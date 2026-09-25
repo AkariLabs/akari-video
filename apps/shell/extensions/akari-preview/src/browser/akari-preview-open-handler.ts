@@ -2,6 +2,9 @@ import { previewSelectionHandlesStyle } from './preview-selection-handles-style'
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewShapeRoles } from '../common/preview-shape-roles';
+import { previewLiveValues } from '../common/preview-live-values';
+import { nextPreviewLiveOverride } from '../common/preview-live-override';
+import { createPreviewLiveDomController } from '../common/preview-live-dom';
 import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
 import { captionControlScale } from '../common/caption-control-scale';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
@@ -1919,14 +1922,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const detail = (event as CustomEvent<{
                 editUri?: string;
                 target?: { kind: 'cut'; index: number }
-                    | { kind: 'layer' | 'item'; id: string };
+                    | { kind: 'layer' | 'item' | 'caption'; id: string };
                 field?: string;
                 value?: number;
+                clear?: boolean;
             }>).detail;
             if (!detail?.editUri || !detail.target
                 || (detail.target.kind !== 'cut'
                     && detail.target.kind !== 'layer'
-                    && detail.target.kind !== 'item')
+                    && detail.target.kind !== 'item'
+                    && detail.target.kind !== 'caption')
                 || typeof detail.field !== 'string' || typeof detail.value !== 'number'
                 || !Number.isFinite(detail.value)) {
                 return;
@@ -1943,7 +1948,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     type: 'akari-preview-live-transform',
                     target: detail.target,
                     field: detail.field,
-                    value: detail.value
+                    value: detail.value,
+                    values: { [detail.field]: detail.value },
+                    ...(detail.clear ? { clear: true } : {})
                 });
             }
         };
@@ -3606,6 +3613,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     this.queueRefresh(widget, identityUri, kind,
                         result.refresh.seekTimeOverride, result.refresh.forceRebuild, result.refresh.editSource);
                 }
+                return;
+            }
+            if (message?.type === 'akari-preview-live-values') {
+                const values = previewLiveValues(message);
+                if (!values) return;
+                window.dispatchEvent(new CustomEvent('akari.preview.liveValues', {
+                    detail: { ...values, editUri: widget.akariPreviewEditUri?.normalizePath().toString() }
+                }));
                 return;
             }
             const selectionKey = widget.akariPreviewEditUri?.normalizePath().toString();
@@ -9685,6 +9700,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
+            let pendingLiveValues = null;
+            let pendingLiveValuesFrame = null;
+            window.akari.reportLiveValues = detail => {
+                pendingLiveValues = detail;
+                if (pendingLiveValuesFrame !== null) return;
+                pendingLiveValuesFrame = requestAnimationFrame(() => {
+                    pendingLiveValuesFrame = null;
+                    if (pendingLiveValues) vscode.postMessage({ type: 'akari-preview-live-values', ...pendingLiveValues });
+                    pendingLiveValues = null;
+                });
+            };
             let bagExpansionRequest = 0;
             window.akari.requestBagExpansion = bagId => {
                 vscode.postMessage({ type: 'akari-preview-expand-bag', bagId, requestId: ++bagExpansionRequest });
@@ -11435,6 +11461,28 @@ body { display: grid; place-items: center; padding: 32px; }
                                 ? { ...node, transform: transformed } : node) };
                         }
                     }
+                    if (target.kind === 'item' && Array.isArray(current.overlays)) {
+                        const index = current.overlays.findIndex(entry => String(entry?.id) === String(target.id));
+                        if (index >= 0 && (['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate', 'opacity'].includes(message.field))) {
+                            const overlays = [...current.overlays];
+                            const entry = { ...overlays[index] };
+                            if (message.field === 'opacity') entry.opacity = message.value;
+                            else entry.transform = applyTransformField(entry.transform);
+                            if (Array.isArray(entry.keyframes) && entry.keyframes.length > 0
+                                && message.field !== 'opacity') {
+                                const frame = Math.max(0, Math.round((outputTime - (Number(entry.start) || 0))
+                                    * (Number(current.output?.fps) || 30)));
+                                const points = entry.keyframes.map(point => ({ ...point }));
+                                let point = points.find(value => Number(value.t) === frame);
+                                if (!point) { point = { t: frame }; points.push(point); }
+                                point.transform = { ...(point.transform || {}), [message.field]: message.value };
+                                points.sort((a, b) => Number(a.t) - Number(b.t));
+                                entry.keyframes = points;
+                            }
+                            overlays[index] = entry;
+                            return { ...current, overlays };
+                        }
+                    }
                     const collection = target.kind === 'cut' ? 'cuts'
                         : target.kind === 'item'
                             ? (Array.isArray(current.cuts) && current.cuts.some(entry =>
@@ -11465,6 +11513,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         entry.perspective = { corners };
                     } else if (message.field === 'opacity') {
                         entry.opacity = message.value;
+                    } else if (message.field === 'adjust.basic.exposure') {
+                        entry.adjust = { ...(entry.adjust || {}), basic: {
+                            ...(entry.adjust?.basic || {}), exposure: message.value
+                        } };
                     } else if (['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
                         entry.transform = applyTransformField(entry.transform);
                     } else {
@@ -13228,6 +13280,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 entry.video.dataset.akariTransformScaleX = String(transform.scaleX ?? transform.scale);
                 entry.video.dataset.akariTransformScaleY = String(transform.scaleY ?? transform.scale);
                 entry.video.dataset.akariTransformRotate = String(transform.rotate);
+                window.akari.reportLiveValues?.({ id: String(entry.spec.id), values: transform });
                 layerTransformVisualThrottle.call();
             };
             // ㉔ layers[].crop（0..1 正規化・ソースフレーム相対・静的）。CROP_MIN は空クロップ化を防ぐ
@@ -15124,6 +15177,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 cutSelectionVideo().dataset.akariTransformY = String(transform.y);
                 cutSelectionVideo().dataset.akariTransformScale = String(transform.scale);
                 cutSelectionVideo().dataset.akariTransformRotate = String(transform.rotate);
+                const cutIndex = Number(cutSelectionVideo().dataset.akariCutIndex);
+                if (cutSelectionVideo().dataset.akariCutIndex !== '' && Number.isInteger(cutIndex)) {
+                    window.akari.reportLiveValues?.({ id: 'cut:' + cutIndex, values: transform });
+                }
                 cutTransformVisualThrottle.call();
             };
             const mediaNaturalSizeOf = media => ({
@@ -19052,6 +19109,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     hideStillImage();
                 }
             };
+            const liveDom = (${createPreviewLiveDomController.toString()})({
+                stage, layersStage, captionRows, layerEntries, video,
+                computeAdjustCssVisual: computeAdjustCssVisualFn,
+                next: (${nextPreviewLiveOverride.toString()})
+            });
+            const clearLiveOverride = () => liveDom.clear();
+            const paintLiveOverride = () => liveDom.paint();
             const tick = (immediatePlaybackTick = false) => {
                 const frameEngineClock = window.akari && window.akari.frameEngineClock;
                 if (frameEngineClock) {
@@ -19066,6 +19130,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
                     window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                     renderCaption();
+                    if (typeof paintLiveOverride === 'function') paintLiveOverride();
                     updateTransport();
                     updateGenerationOverlay(outputTime);
                     return;
@@ -19169,6 +19234,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
                 window.akari.audioMeterTick(outputTime, isPlaying, immediatePlaybackTick);
                 renderCaption();
+                if (typeof paintLiveOverride === 'function') paintLiveOverride();
                 updateTransport();
                 applyCutsMuteState();
                 renderVideoFx(outputTime);
@@ -20338,6 +20404,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
+                    clearLiveOverride();
                     captions = Array.isArray(message.captions) ? message.captions : [];
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();
@@ -20368,6 +20435,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {
+                    clearLiveOverride();
                     applyIncrementalModel(message.summary);
                     return;
                 }
@@ -20554,8 +20622,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-live-transform' && message.target
                     && (message.target.kind === 'cut'
                         || message.target.kind === 'layer'
-                        || message.target.kind === 'item')
+                        || message.target.kind === 'item'
+                        || message.target.kind === 'caption')
                     && typeof message.field === 'string' && Number.isFinite(message.value)) {
+                    const targetKey = message.target.kind === 'cut'
+                        ? 'cut:' + message.target.index : message.target.kind === 'caption'
+                            ? 'caption:' + message.target.id : 'item:' + message.target.id;
+                    if (message.clear) {
+                        void window.akari.frameEngineClock?.applyLivePreview?.(message);
+                        clearLiveOverride();
+                        tick(true);
+                        return;
+                    }
+                    liveDom.update(targetKey, message.field, message.value);
+                    if (message.target.kind === 'caption') {
+                        paintLiveOverride();
+                        updateCaptionSelectBox();
+                        return;
+                    }
                     // ドラッグ中の ephemeral 反映: summary/segments は一切書き換えず、applyCutVisual/
                     // layerEntries が読む dataset を直接上書きして updateLayerLayout() で再計算させるだけ。
                     // 確定書き込み(pointerup)後は edit.json 変更検知 → queueRefresh() の通常経路で
@@ -20574,9 +20658,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         else if (message.field === 'crop.w') element.dataset.akariCropW = String(message.value);
                         else if (message.field === 'crop.h') element.dataset.akariCropH = String(message.value);
                     };
-                    if (window.akari.frameEngineClock?.applyLivePreview) {
-                        void window.akari.frameEngineClock.applyLivePreview(message);
-                    }
+                    const enginePreview = window.akari.frameEngineClock?.applyLivePreview?.(message);
                     if (message.target.kind === 'cut') {
                         if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
                         applyLiveField(video);
@@ -20658,7 +20740,15 @@ body { display: grid; place-items: center; padding: 32px; }
                                 }
                                 overlay.style.setProperty('--rotate', String(next.rotate) + 'deg');
                             }
+                            if (!selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
+                                const name = message.field === 'scaleX' ? '--scale-x'
+                                    : message.field === 'scaleY' ? '--scale-y' : '--' + message.field;
+                                overlay.style.setProperty(name, String(message.value)
+                                    + (message.field === 'x' || message.field === 'y' ? 'px'
+                                        : message.field === 'rotate' ? 'deg' : ''));
+                            }
                             if (message.field === 'opacity') overlay.style.opacity = String(message.value);
+                            liveDom.captureOverlayCss(overlay);
                         }
                         if (message.target.kind === 'item' && video.dataset.akariCutId === message.target.id) {
                             if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
@@ -20673,6 +20763,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                     updateLayerSelectBox();
+                    paintLiveOverride();
+                    if (enginePreview) void Promise.resolve(enginePreview).then(() => {
+                        if (liveDom.key() === targetKey) {
+                            paintLiveOverride();
+                            window.akari.updateLayerLayout?.();
+                        }
+                    });
                     return;
                 }
             });
