@@ -383,7 +383,7 @@ async function selectItem(id, at) {
     return { hitTag: h?.tagName, hitId: h?.id, hitCls: String(h?.className).slice(0,80), hitChain: (() => { const a = []; let n = h; while (n && a.length < 6) { a.push((n.id || "") + "." + String(n.className).slice(0, 40)); n = n.parentElement; } return a; })(), hitOverlay: h?.closest('[data-overlay-id]')?.getAttribute('data-overlay-id') ?? null,
       treeLen: (window.akari.state?.summary?.tree ?? []).length, tree: (window.akari.state?.summary?.tree ?? []).slice(0, 12).map(n => n.id + ':' + n.kind),
       frame: f ? { display: getComputedStyle(f).display, hidden: f.hidden, rect: f.getBoundingClientRect().toJSON(), parent: f.parentElement?.id || f.parentElement?.tagName } : null,
-      selected: window.akari.interaction?.selectedId?.() ?? window.akari.interaction?.getSelection?.() ?? null,
+      selected: (() => { const v = window.akari.interaction?.selectedId; return typeof v === 'function' ? v() : v ?? null; })(),
       api: Object.keys(window.akari.interaction ?? {}).slice(0, 40) }; })()`, view.contextId, view.sessionId);
   observed.clickPoint = point;
   return observed;
@@ -391,232 +391,244 @@ async function selectItem(id, at) {
 const firstNamed = (o, key) => o.named[key]?.[0];
 
 async function runScenarios() {
-  const ids = ['box-a', 'box-rot', 'back', 'front', 'line', 'box-b', 'captions'];
-  // 押した点が webview に届いているかの確かめ（pointerdown の数と当たった要素）
-  await evaluate(browser, `(() => { window.__h1Probe = []; document.addEventListener('pointerdown', e => window.__h1Probe.push({ x: e.clientX, y: e.clientY, t: String(e.target?.className?.baseVal ?? e.target?.className).slice(0, 60) }), true); return true; })()`, view.contextId, view.sessionId);
-  results.outer = outer;
-  results.frames = await evaluate(main, `[...document.querySelectorAll('iframe')].map(f => { const b = f.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height, src: String(f.src).slice(0, 60) }; })`);
-  const initial = await observe(ids);
-  results.initial = initial;
-  await stageShot('00-initial', initial.stage);
+  const ids = ['box-a', 'box-rot', 'back', 'front', 'line', 'box-b', 'box-r', 'box-g', 'box-m', 'box-alt'];
+  results.initial = await observe(ids);
+  const k = results.initial.stage.width / 1920;
+  results.k = k;
+  await stageShot('00-initial', results.initial.stage);
+  const pt = h => h ? { x: +h.cx.toFixed(2), y: +h.cy.toFixed(2) } : null;
+  const delta = (a, b) => a && b ? { x: +(b.x - a.x).toFixed(2), y: +(b.y - a.y).toFixed(2) } : null;
+  const toOut = d => d ? { x: +(d.x / k).toFixed(2), y: +(d.y / k).toFixed(2) } : null;
 
-  // 1. 図形の右下の角 → 左上の角が動かないか
+  // 1. 図形の右下の角 → 左上の角（nw のつまみの中心）が動かないか
   await scenario('corner', async () => {
     const o = await selectItem('box-a');
     await stageShot('01-select-shape', o.stage);
-    const handle = firstNamed(o, 'se');
-    if (!handle) return { note: 'se handle not found', handles: o.handles, probe: o.probe, clickPoint: o.clickPoint, frames: results.frames, state: o.state };
-    const before = poseOf(findItem(await readEdit(), 'box-a'));
+    const se = firstNamed(o, 'se'); const nw = firstNamed(o, 'nw');
+    if (!se) return { note: 'se handle not found', handles: o.handles };
     const text = await readFile(editPath, 'utf8');
-    const mid = await drag({ x: handle.cx, y: handle.cy }, { x: handle.cx + 60, y: handle.cy + 30 }, { midObserve: true, ids: ['box-a'], shotName: '02-corner-drag' });
+    const mid = await drag({ x: se.cx, y: se.cy }, { x: se.cx + 60, y: se.cy + 30 }, { midObserve: true, ids: ['box-a'], shotName: '02-corner-drag' });
     const written = await waitEditChange(text);
-    const after = poseOf(findItem(await readEdit(), 'box-a'));
-    const domAfter = await observe(['box-a']);
-    return { probe: o.probe, clickPoint: o.clickPoint, handles: o.handles, before, after, written, mid: { named: mid.named, items: mid.items },
-      nwDelta: { x: +(after.nw.x - before.nw.x).toFixed(2), y: +(after.nw.y - before.nw.y).toFixed(2) },
-      domBefore: o.items['box-a'], domAfter: domAfter.items['box-a'] };
+    const after = await observe(['box-a']);
+    return { handles: o.handles, written, hintDuring: mid.named.hint, domBefore: o.items['box-a'], domAfter: after.items['box-a'],
+      nwMoveScreenPx: delta(pt(nw), pt(firstNamed(after, 'nw'))),
+      aspectBefore: +(o.items['box-a'].width / o.items['box-a'].height).toFixed(4), aspectAfter: +(after.items['box-a'].width / after.items['box-a'].height).toFixed(4),
+      transformAfter: findItem(await readEdit(), 'box-a').transform };
   });
 
-  // 1b. 下の動画（カット）の右下の角 → 左上の角の位置（DOM のつまみの中心で比べる）
+  // 1b. 下の動画（カット）の右下の角 → 左上の角
   await scenario('cutCorner', async () => {
     const o0 = await observe([]);
-    // 図形の無い所（段の右下寄り）を押す
-    await click(o0.stage.x + o0.stage.width * 0.9, o0.stage.y + o0.stage.height * 0.9);
+    await click(o0.stage.x + o0.stage.width * 0.93, o0.stage.y + o0.stage.height * 0.55);
     const o = await observe([]);
-    await stageShot('01b-select-cut', o.stage);
-    const se = firstNamed(o, 'cutSe');
-    const nw = firstNamed(o, 'cutNw');
+    await stageShot('03-select-cut', o.stage);
+    const se = firstNamed(o, 'cutSe'); const nw = firstNamed(o, 'cutNw');
     if (!se || !nw) return { note: 'cut handles not found', handles: o.handles };
-    const before = findItem(await readEdit(), 'cut-1').transform ?? null;
     const text = await readFile(editPath, 'utf8');
-    const mid = await drag({ x: se.cx, y: se.cy }, { x: se.cx - 40, y: se.cy - 22 }, { midObserve: true, shotName: '02b-cut-corner-drag' });
+    await drag({ x: se.cx, y: se.cy }, { x: se.cx - 40, y: se.cy - 22 });
     const written = await waitEditChange(text);
     const o2 = await observe([]);
-    const nw2 = firstNamed(o2, 'cutNw');
-    const se2 = firstNamed(o2, 'cutSe');
-    return { handles: o.handles, before, after: findItem(await readEdit(), 'cut-1').transform ?? null, written,
-      nwBefore: nw, nwAfter: nw2, seBefore: se, seAfter: se2, midGuides: mid.named.guides,
-      nwDeltaScreenPx: nw2 ? { x: +(nw2.cx - nw.cx).toFixed(2), y: +(nw2.cy - nw.cy).toFixed(2) } : null,
-      rotateHandle: firstNamed(o, 'cutRotate') };
+    return { handles: o.handles, written, nwMoveScreenPx: delta(pt(nw), pt(firstNamed(o2, 'cutNw'))),
+      seMoveScreenPx: delta(pt(se), pt(firstNamed(o2, 'cutSe'))), after: findItem(await readEdit(), 'cut-1').transform ?? null };
   });
 
-  // 2. 30° 回した図形の右の辺 → 左の辺が動かないか
+  // 2. 30° 回した図形の右の辺 → 左の辺（w のつまみの中心）が動かないか
   await scenario('rotatedEdge', async () => {
     const o = await selectItem('box-rot');
-    await stageShot('03-select-rotated', o.stage);
-    const handle = firstNamed(o, 'e');
-    if (!handle) return { note: 'e handle not found', handles: o.handles };
-    const before = poseOf(findItem(await readEdit(), 'box-rot'));
+    await stageShot('04-select-rotated', o.stage);
+    const e = firstNamed(o, 'e'); const w = firstNamed(o, 'w');
+    if (!e || !w) return { note: 'edge handle not found', handles: o.handles };
     const text = await readFile(editPath, 'utf8');
-    const a = 30 * Math.PI / 180;
-    const d = 50;
-    const mid = await drag({ x: handle.cx, y: handle.cy }, { x: handle.cx + d * Math.cos(a), y: handle.cy + d * Math.sin(a) }, { midObserve: true, ids: ['box-rot'], shotName: '04-rotated-edge-drag' });
+    const ux = (e.cx - w.cx) / Math.hypot(e.cx - w.cx, e.cy - w.cy), uy = (e.cy - w.cy) / Math.hypot(e.cx - w.cx, e.cy - w.cy);
+    const mid = await drag({ x: e.cx, y: e.cy }, { x: e.cx + 30 * ux, y: e.cy + 30 * uy }, { midObserve: true, ids: ['box-rot'], shotName: '05-rotated-edge-drag' });
     const written = await waitEditChange(text);
-    const after = poseOf(findItem(await readEdit(), 'box-rot'));
-    return { handles: o.handles, before, after, written, midNamed: mid.named,
-      wMidDelta: { x: +(after.wMid.x - before.wMid.x).toFixed(2), y: +(after.wMid.y - before.wMid.y).toFixed(2) } };
+    const o2 = await observe(['box-rot']);
+    const n2 = firstNamed(o2, 'n'); const s2 = firstNamed(o2, 's');
+    const n = firstNamed(o, 'n'); const s = firstNamed(o, 's');
+    return { handles: o.handles, written, hintDuring: mid.named.hint, edgeAngleDeg: +(Math.atan2(uy, ux) * 180 / Math.PI).toFixed(2),
+      wMoveScreenPx: delta(pt(w), pt(firstNamed(o2, 'w'))), eMoveScreenPx: delta(pt(e), pt(firstNamed(o2, 'e'))),
+      heightBefore: n && s ? +Math.hypot(n.cx - s.cx, n.cy - s.cy).toFixed(2) : null, heightAfter: n2 && s2 ? +Math.hypot(n2.cx - s2.cx, n2.cy - s2.cy).toFixed(2) : null,
+      transformAfter: findItem(await readEdit(), 'box-rot').transform };
   });
 
-  // 3. 文字: つまみの一覧と右の辺
+  // 3. 文字: つまみ（上下の辺が無い）と右の辺 = 折り返し幅
   await scenario('text', async () => {
-    const o0 = await observe(['captions']);
-    const textNode = await evaluate(browser, `(() => { ${rectOf}
-      const n = [...document.querySelectorAll('[data-overlay-id], [data-caption-id], .caption, [class*="caption"]')].filter(x => x.getBoundingClientRect().width > 0 && (x.textContent ?? '').includes('つまみの確かめ'));
-      const last = n.sort((p, q) => p.getBoundingClientRect().width * p.getBoundingClientRect().height - q.getBoundingClientRect().width * q.getBoundingClientRect().height)[0];
-      return last ? { ...r(last), cls: String(last.className), id: last.getAttribute('data-overlay-id') ?? last.getAttribute('data-caption-id') } : null; })()`, view.contextId, view.sessionId);
-    if (!textNode) return { note: 'caption node not found', stage: o0.stage };
-    await click(textNode.cx, textNode.cy);
-    const o = await observe(['captions']);
-    await stageShot('05-select-text', o.stage);
-    const handle = firstNamed(o, 'e');
-    const res = { textNode, handles: o.handles, hasN: Boolean(firstNamed(o, 'n')), hasS: Boolean(firstNamed(o, 's')), hasE: Boolean(handle) };
-    if (!handle) return res;
+    const line = await evaluate(browser, `(() => { ${rectOf}
+      const n = [...document.querySelectorAll('.akari-caption__line')].filter(x => (x.textContent ?? '').includes('つまみ'));
+      return n[0] ? r(n[0]) : null; })()`, view.contextId, view.sessionId);
+    if (!line) return { note: 'caption line not found' };
+    await click(line.cx, line.cy);
+    const o = await observe([]);
+    await stageShot('06-select-text', o.stage);
+    const e = firstNamed(o, 'textE'); const w = firstNamed(o, 'textW');
+    const res = { captionHandles: Object.fromEntries(['textNw', 'textSe', 'textE', 'textW', 'textN', 'textS', 'textRot', 'textMove'].map(key => [key, firstNamed(o, key) ? { w: firstNamed(o, key).width, h: firstNamed(o, key).height } : null])) };
+    if (!e) return res;
     const capBefore = await readCaptions();
-    const editText = await readFile(editPath, 'utf8');
-    const mid = await drag({ x: handle.cx, y: handle.cy }, { x: handle.cx - 90, y: handle.cy }, { midObserve: true, ids: ['captions'], shotName: '06-text-edge-drag' });
-    await sleep(1500);
+    const plateLines = async () => evaluate(browser, `(() => { const ls = [...document.querySelectorAll('.akari-caption__line')].filter(x => x.getBoundingClientRect().width > 0);
+      return { lines: ls.length, texts: ls.map(l => l.textContent), fontSize: ls[0] ? getComputedStyle(ls[0]).fontSize : null }; })()`, view.contextId, view.sessionId);
+    const before = await plateLines();
+    const mid = await drag({ x: e.cx, y: e.cy }, { x: e.cx - 45, y: e.cy }, { midObserve: true, shotName: '07-text-edge-drag' });
+    await sleep(2500);
+    // 書き込みの後に webview の実行文脈が作り直されることがあるので取り直す
+    try { await evaluate(browser, '1', view.contextId, view.sessionId); } catch { view = await findPreviewView(browser, 20000); outer = await frameOffset(main); }
     const capAfter = await readCaptions();
-    const editAfter = await readFile(editPath, 'utf8');
-    const textAfter = await evaluate(browser, `(() => { ${rectOf}
-      const n = [...document.querySelectorAll('[data-overlay-id], [data-caption-id], .caption, [class*="caption"]')].filter(x => x.getBoundingClientRect().width > 0 && (x.textContent ?? '').includes('つまみの確かめ'));
-      const last = n.sort((p, q) => p.getBoundingClientRect().width * p.getBoundingClientRect().height - q.getBoundingClientRect().width * q.getBoundingClientRect().height)[0];
-      return last ? { ...r(last), fontSize: getComputedStyle(last).fontSize, lines: Math.round(last.getBoundingClientRect().height / parseFloat(getComputedStyle(last).lineHeight || '1')) } : null; })()`, view.contextId, view.sessionId);
-    const o2 = await observe(['captions']);
-    await stageShot('07-text-after', o2.stage);
-    return { ...res, midNamed: mid.named, textStyleBefore: capBefore.captions[0].text_style ?? null,
-      textStyleAfter: capAfter.captions[0].text_style ?? null, editChanged: editAfter !== editText,
-      editCaptionItemAfter: findItem(JSON.parse(editAfter), 'captions'), textAfter };
+    const after = await plateLines();
+    const o2 = await observe([]);
+    await stageShot('08-text-after', o2.stage);
+    return { ...res, hintDuring: mid.named.hint, wMoveScreenPx: delta(pt(w), pt(firstNamed(o2, 'textW'))),
+      textStyleBefore: capBefore.captions[0].text_style ?? null, textStyleAfter: capAfter.captions[0].text_style ?? null,
+      before, after };
   });
 
-  // 4. ラインの端点
+  // 4. ラインの端点: 42° へ → 45° に吸い付く / box-b の中心の近く（画面 3px）へ → 中心に点で吸い付く
   await scenario('line', async () => {
     const o = await selectItem('line');
-    await stageShot('08-select-line', o.stage);
-    const end = firstNamed(o, 'lineEnd');
-    const res = { handles: o.handles, hasFrame: Boolean(firstNamed(o, 'frame')), end };
-    if (!end) return res;
-    const text = await readFile(editPath, 'utf8');
-    // 45° 近く（4° 以内）へ: 右端を少し下げる。k = 画面 px / 出力 px
-    const k = o.stage.width / 1920;
-    const start = firstNamed(o, 'lineStart');
+    await stageShot('09-select-line', o.stage);
+    const start = firstNamed(o, 'lineStart'); const end = firstNamed(o, 'lineEnd');
+    const res = { handles: o.handles, frame: firstNamed(o, 'frame') };
+    if (!start || !end) return res;
     const len = Math.hypot(end.cx - start.cx, end.cy - start.cy);
-    const angle = 42 * Math.PI / 180;
-    const target = { x: start.cx + len * Math.cos(angle), y: start.cy + len * Math.sin(angle) };
-    const mid = await drag({ x: end.cx, y: end.cy }, target, { midObserve: true, ids: ['line'], shotName: '09-line-45' });
+    const a = 42 * Math.PI / 180;
+    let text = await readFile(editPath, 'utf8');
+    const mid = await drag({ x: end.cx, y: end.cy }, { x: start.cx + len * Math.cos(a), y: start.cy + len * Math.sin(a) }, { midObserve: true, ids: ['line'], shotName: '10-line-45' });
     await waitEditChange(text);
-    const afterAngle = findItem(await readEdit(), 'line');
-    // 別の要素（box-b）の中心へ点で吸い付く
     const o2 = await observe(['line', 'box-b']);
-    const end2 = firstNamed(o2, 'lineEnd');
+    const s2 = firstNamed(o2, 'lineStart'); const e2 = firstNamed(o2, 'lineEnd');
+    const angle45 = { startMove: delta(pt(start), pt(s2)), angleDeg: +(Math.atan2(e2.cy - s2.cy, e2.cx - s2.cx) * 180 / Math.PI).toFixed(2),
+      rotate: findItem(await readEdit(), 'line').transform?.rotate, hintDuring: mid.named.hint, guidesDuring: mid.named.guides };
     const bb = o2.items['box-b'];
-    const text2 = await readFile(editPath, 'utf8');
-    const mid2 = end2 ? await drag({ x: end2.cx, y: end2.cy }, { x: bb.cx + 3 * 1, y: bb.cy + 2 }, { midObserve: true, ids: ['line', 'box-b'], shotName: '10-line-point-snap' }) : null;
-    await waitEditChange(text2);
+    if (!bb) return { ...res, angle45 };
+    text = await readFile(editPath, 'utf8');
+    const mid2 = await drag({ x: e2.cx, y: e2.cy }, { x: bb.cx - 2, y: bb.cy - 2 }, { midObserve: true, ids: ['line', 'box-b'], shotName: '11-line-point-snap' });
+    await waitEditChange(text);
     const o3 = await observe(['line', 'box-b']);
-    return { ...res, k, target, midNamed: mid.named, lineAfterAngle: afterAngle, mid2Named: mid2?.named,
-      lineAfterPoint: findItem(await readEdit(), 'line'), endAfterPoint: firstNamed(o3, 'lineEnd'), boxB: o3.items['box-b'] };
+    const e3 = firstNamed(o3, 'lineEnd');
+    return { ...res, angle45, pointSnap: { endToBoxCenterScreenPx: delta({ x: o3.items['box-b'].cx, y: o3.items['box-b'].cy }, pt(e3)), guidesDuring: mid2.named.guides } };
   });
 
-  // 5. 回転ボタン
+  // 5. 下の回転ボタン: 図形の中心の周りに 43° → 45° に吸い付く・角度の数値・図形の中心が動かない
   await scenario('rotate', async () => {
-    const o = await selectItem('box-b');
+    const o = await selectItem('box-r');
     const button = firstNamed(o, 'rotate');
-    const res = { handles: o.handles, rotate: button };
+    const res = { rotate: button, move: firstNamed(o, 'move') };
     if (!button) return res;
+    const box = o.items['box-r'];
     const text = await readFile(editPath, 'utf8');
-    const box = o.items['box-b'];
-    // 中心の周りで 43° ほど回す
     const radius = Math.hypot(button.cx - box.cx, button.cy - box.cy);
-    const startAngle = Math.atan2(button.cy - box.cy, button.cx - box.cx);
-    const endAngle = startAngle + 43 * Math.PI / 180;
-    const target = { x: box.cx + radius * Math.cos(endAngle), y: box.cy + radius * Math.sin(endAngle) };
-    const mid = await drag({ x: button.cx, y: button.cy }, target, { midObserve: true, ids: ['box-b'], shotName: '11-rotate-drag', steps: 24 });
+    const a0 = Math.atan2(button.cy - box.cy, button.cx - box.cx);
+    const a1 = a0 + 43 * Math.PI / 180;
+    const mid = await drag({ x: button.cx, y: button.cy }, { x: box.cx + radius * Math.cos(a1), y: box.cy + radius * Math.sin(a1) }, { midObserve: true, ids: ['box-r'], shotName: '12-rotate-drag', steps: 24 });
     await waitEditChange(text);
-    const cursor = mid ? mid.handles.map(h => h.cursor).filter(Boolean) : [];
-    return { ...res, midNamed: mid.named, midHandles: mid.handles, cursor: [...new Set(cursor)], after: findItem(await readEdit(), 'box-b').transform };
+    const o2 = await observe(['box-r']);
+    const cursors = [...new Set((mid?.handles ?? []).map(h => h.cursor).filter(c => c && c.includes('svg')))].length;
+    const visibleDuring = Object.fromEntries(['se', 'e', 'rotate', 'move'].map(key => [key, (mid.named[key] ?? []).length]));
+    return { ...res, angleDuring: mid.named.angle, visibleDuring, rotatedCursor: cursors > 0, rotateAfter: findItem(await readEdit(), 'box-r').transform?.rotate,
+      centerMoveScreenPx: delta({ x: box.cx, y: box.cy }, { x: o2.items['box-r'].cx, y: o2.items['box-r'].cy }) };
   });
 
-  // 6. 揃える: box-b の左を box-a の左へ（点線）→ 画面の中央（実線）
+  // 6. 揃える: box-g の左を box-a の左の画面 4px 右へ（点線）→ 画面の中央の 3px 右へ（実線）
   await scenario('guides', async () => {
-    const o = await selectItem('box-b');
-    const edit = await readEdit();
-    const bt = findItem(edit, 'box-b').transform;
-    const k = o.stage.width / 1920;
-    const box = o.items['box-b'];
-    // 左端 x を 200 + 4（出力 px）へ
-    const dx1 = (204 - bt.x) * k;
+    const o = await selectItem('box-g', undefined);
+    const a = o.items['box-g'];
+    const boxA = (await observe(['box-a'])).items['box-a'];
     const text = await readFile(editPath, 'utf8');
-    const mid = await drag({ x: box.cx, y: box.cy }, { x: box.cx + dx1, y: box.cy }, { midObserve: true, ids: ['box-b', 'box-a'], shotName: '12-guide-items' });
+    const mid = await drag({ x: a.cx, y: a.cy }, { x: a.cx + (boxA.left + 4 - a.left), y: a.cy }, { midObserve: true, ids: ['box-g', 'box-a'], shotName: '13-guide-items' });
     await waitEditChange(text);
-    const afterItems = findItem(await readEdit(), 'box-b').transform;
-    // 中心 x を 960 + 3 へ
-    const o2 = await observe(['box-b']);
-    const box2 = o2.items['box-b'];
-    const w = findItem(await readEdit(), 'box-b').source.params.width;
-    const dx2 = (963 - (afterItems.x + w / 2)) * k;
+    const o2 = await observe(['box-g', 'box-a']);
+    const b = o2.items['box-g'];
+    const styles = async () => evaluate(browser, `(() => [...document.querySelectorAll('.akari-interaction-snap-guide')].filter(g => !g.hidden).map(g => { const cs = getComputedStyle(g);
+      return { cls: String(g.className), w: g.getBoundingClientRect().width, h: g.getBoundingClientRect().height, bg: cs.backgroundColor, bgImage: cs.backgroundImage.slice(0, 120), border: cs.borderLeftStyle + ' ' + cs.borderLeftWidth + ' ' + cs.borderTopStyle + ' ' + cs.borderTopWidth }; }))()`, view.contextId, view.sessionId);
     const text2 = await readFile(editPath, 'utf8');
-    const mid2 = await drag({ x: box2.cx, y: box2.cy }, { x: box2.cx + dx2, y: box2.cy }, { midObserve: true, ids: ['box-b'], shotName: '13-guide-center' });
+    const stageCx = o2.stage.x + o2.stage.width / 2;
+    // 途中で止めて見た目を測る
+    await keys('keyDown', []);
+    await mouse('mouseMoved', b.cx, b.cy); await mouse('mousePressed', b.cx, b.cy); await sleep(80);
+    for (let i = 1; i <= 16; i += 1) { await mouse('mouseMoved', b.cx + (stageCx + 3 - b.cx) * i / 16, b.cy, [], 1); await sleep(25); }
+    await sleep(250);
+    const mid2 = await observe(['box-g']);
+    const guideStyles = await styles();
+    await stageShot('14-guide-center', mid2.stage);
+    await mouse('mouseReleased', stageCx + 3, b.cy); await sleep(1200);
     await waitEditChange(text2);
-    const afterCenter = findItem(await readEdit(), 'box-b').transform;
-    return { k, midGuides: mid.named.guides, afterItems, mid2Guides: mid2.named.guides, afterCenter,
-      guideStyles: await evaluate(browser, `(() => [...document.querySelectorAll(${JSON.stringify(selectors.guides)})].map(g => ({ cls: String(g.className), hidden: g.hidden, style: g.getAttribute('style'), border: getComputedStyle(g).borderTopStyle + ' ' + getComputedStyle(g).borderTopWidth + ' / ' + getComputedStyle(g).borderLeftStyle + ' ' + getComputedStyle(g).borderLeftWidth, bgImage: getComputedStyle(g).backgroundImage.slice(0, 80) })))()`, view.contextId, view.sessionId) };
+    const o3 = await observe(['box-g']);
+    return { itemGuides: mid.named.guides, leftGapToBoxAScreenPx: +(b.left - boxA.left).toFixed(2),
+      centerGuides: mid2.named.guides, guideStyles, centerGapScreenPx: +(o3.items['box-g'].cx - stageCx).toFixed(2) };
   });
 
   // 7. 修飾キー
   await scenario('modifiers', async () => {
     const out = {};
-    const k = (await observe([])).stage.width / 1920;
-    // Shift: 斜めに動かす → 大きい向きだけ
-    let o = await selectItem('box-a');
-    let t0 = findItem(await readEdit(), 'box-a').transform;
+    // Shift: 右へ 40・下へ 13（画面 px）→ 横だけ
+    let o = await selectItem('box-m');
+    let m = o.items['box-m'];
     let text = await readFile(editPath, 'utf8');
-    let box = o.items['box-a'];
-    await drag({ x: box.cx, y: box.cy }, { x: box.cx + 80 * k * 3, y: box.cy + 25 * k * 3 }, { modifiers: ['shift'] });
+    await drag({ x: m.cx, y: m.cy }, { x: m.cx + 40, y: m.cy + 13 }, { modifiers: ['shift'] });
     await waitEditChange(text);
-    out.shift = { before: t0, after: findItem(await readEdit(), 'box-a').transform };
-    // ⌘: box-a の左を box-b の左の 3px 手前へ（吸い付かないこと）
-    o = await observe(['box-a']);
-    box = o.items['box-a'];
-    t0 = findItem(await readEdit(), 'box-a').transform;
-    const bx = findItem(await readEdit(), 'box-b').transform.x;
+    let m2 = (await observe(['box-m'])).items['box-m'];
+    out.shift = { moveScreenPx: delta({ x: m.left, y: m.top }, { x: m2.left, y: m2.top }) };
+    // ⌘: box-m の左を box-b の左の 3px 右へ → 吸い付かない
+    const boxB = (await observe(['box-b'])).items['box-b'];
     text = await readFile(editPath, 'utf8');
-    const midMeta = await drag({ x: box.cx, y: box.cy }, { x: box.cx + (bx + 3 - t0.x) * k, y: box.cy + 200 * k }, { modifiers: ['meta'], midObserve: true, ids: ['box-a'], shotName: '14-meta-no-snap' });
+    const midMeta = await drag({ x: m2.cx, y: m2.cy }, { x: m2.cx + (boxB.left + 3 - m2.left), y: m2.cy + 30 }, { modifiers: ['meta'], midObserve: true, ids: ['box-m'], shotName: '15-meta-no-snap' });
     await waitEditChange(text);
-    out.meta = { before: t0, target: bx + 3, after: findItem(await readEdit(), 'box-a').transform, midGuides: midMeta.named.guides };
+    const m3 = (await observe(['box-m'])).items['box-m'];
+    out.meta = { leftGapToBoxBScreenPx: +(m3.left - boxB.left).toFixed(2), guidesDuring: midMeta.named.guides };
+    // ⌘ なしの同じ動き → 吸い付く（比較）
+    text = await readFile(editPath, 'utf8');
+    await drag({ x: m3.cx, y: m3.cy }, { x: m3.cx + 1, y: m3.cy + 30 });
+    await waitEditChange(text);
+    const m4 = (await observe(['box-m'])).items['box-m'];
+    out.noMeta = { leftGapToBoxBScreenPx: +(m4.left - boxB.left).toFixed(2) };
     // ⌥: 複製して複製を動かす
-    o = await observe(['box-a']);
-    box = o.items['box-a'];
+    o = await selectItem('box-alt');
+    const alt = o.items['box-alt'];
     const beforeEdit = await readEdit();
-    text = JSON.stringify(beforeEdit);
-    const rawText = await readFile(editPath, 'utf8');
-    await drag({ x: box.cx, y: box.cy }, { x: box.cx + 150 * k, y: box.cy - 120 * k }, { modifiers: ['alt'] });
-    await waitEditChange(rawText);
+    const raw = await readFile(editPath, 'utf8');
+    await drag({ x: alt.cx, y: alt.cy }, { x: alt.cx - 60, y: alt.cy - 25 }, { modifiers: ['alt'] });
+    await waitEditChange(raw);
     await sleep(800);
     const afterEdit = await readEdit();
     const newIds = allItemIds(afterEdit).filter(id => !allItemIds(beforeEdit).includes(id));
+    const o2 = await observe(['box-alt', ...newIds]);
+    await stageShot('16-alt-duplicate', o2.stage);
     out.alt = { itemsBefore: allItemIds(beforeEdit).length, itemsAfter: allItemIds(afterEdit).length, newIds,
-      original: { before: findItem(beforeEdit, 'box-a').transform, after: findItem(afterEdit, 'box-a').transform },
-      copy: newIds.map(id => ({ id, transform: findItem(afterEdit, id).transform })) };
-    const o2 = await observe(['box-a']);
-    await stageShot('15-alt-duplicate', o2.stage);
+      originalMoveScreenPx: delta({ x: alt.left, y: alt.top }, { x: o2.items['box-alt'].left, y: o2.items['box-alt'].top }),
+      copies: newIds.map(id => ({ id, moveFromOriginalScreenPx: o2.items[id] ? delta({ x: alt.left, y: alt.top }, { x: o2.items[id].left, y: o2.items[id].top }) : null })) };
+    // undo 1 回で複製が消えるか
+    if (newIds.length) {
+      await main.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, modifiers: MOD.meta, commands: ['undo'] });
+      await main.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, modifiers: MOD.meta });
+      await sleep(2000);
+      out.alt.itemsAfterUndo = allItemIds(await readEdit()).length;
+    }
     return out;
   });
 
-  // 8. 後ろの要素を選ぶ → つまみが前の要素に隠れない
+  // 8. 後ろの要素を選ぶ → つまみが前の要素に隠れない / 枠の中の重なりを押すと前が選ばれる
   await scenario('backSelect', async () => {
     const o = await observe(['back', 'front']);
-    const back = o.items.back;
-    // back の左上寄り（front に重ならない所）を押す
-    await click(back.left + 20, back.top + 20);
+    await click(o.items.back.left + 8, o.items.back.top + 8);
     const s = await observe(['back', 'front']);
-    await stageShot('16-back-selected', s.stage);
+    await stageShot('17-back-selected', s.stage);
     const se = firstNamed(s, 'se');
-    const hit = se ? await evaluate(browser, `(() => { const h = document.elementFromPoint(${se.cx}, ${se.cy}); return h ? { cls: String(h.className?.baseVal ?? h.className), overlay: h.closest('[data-overlay-id]')?.getAttribute('data-overlay-id') ?? null } : null; })()`, view.contextId, view.sessionId) : null;
-    // 枠の中（front と重なる所）を押す → front が選ばれるか
-    const insideFront = { x: s.items.front.left + 40, y: s.items.front.top + 40 };
-    await click(insideFront.x, insideFront.y);
+    const hit = se ? await evaluate(browser, `(() => { const h = document.elementFromPoint(${se.cx}, ${se.cy}); return h ? String(h.className?.baseVal ?? h.className) : null; })()`, view.contextId, view.sessionId) : null;
+    const f = s.items.front, b = s.items.back;
+    const inside = { x: (Math.max(f.left, b.left) + Math.min(f.left + f.width, b.left + b.width)) / 2, y: (Math.max(f.top, b.top) + Math.min(f.top + f.height, b.top + b.height)) / 2 };
+    await click(inside.x, inside.y);
     const after = await observe(['back', 'front']);
-    return { se, hitAtSe: hit, frameAfterClickInside: firstNamed(after, 'frame'), frontRect: after.items.front, backRect: after.items.back };
+    const frame = firstNamed(after, 'frame');
+    return { seInsideFront: se ? se.cx > f.left && se.cy > f.top : null, hitAtSe: hit, frameBefore: firstNamed(s, 'frame'),
+      frameAfterInsideClick: frame, frontRect: f, selectedFrontAfter: frame ? Math.abs(frame.left - f.left) < 1.5 && Math.abs(frame.top - f.top) < 1.5 : null };
+  });
+
+  // 9. 選択の外（段の外の余白）を押す → 解除
+  await scenario('deselect', async () => {
+    await selectItem('box-a');
+    const o = await observe([]);
+    const before = Boolean(firstNamed(o, 'frame'));
+    await click(o.stage.x + o.stage.width / 2, o.stage.y + o.stage.height + 30);
+    const after = await observe([]);
+    return { selectedBefore: before, selectedAfter: Boolean(firstNamed(after, 'frame')) };
   });
 }
 
@@ -653,6 +665,12 @@ try {
   } catch { /* best-effort */ }
 
   await sleep(10000);
+  // --timeline: 実際の使い方どおりタイムライン（履歴つきの書き込み口）も開いておく
+  if (process.argv.includes('--timeline')) {
+    await evaluate(main, `(() => { const b=[...document.querySelectorAll('button')].find(x=>x.textContent?.trim()==='開くだけ'); if(b)b.click(); return true; })()`);
+    report.timelineOpen = await executeCommand(main, 'akari.annotations.open');
+    await sleep(5000);
+  }
   const deadline = Date.now() + 120000;
   while (!view && Date.now() < deadline) {
     await evaluate(main, `(() => { const b=[...document.querySelectorAll('button')]

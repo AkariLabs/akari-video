@@ -52,10 +52,10 @@ async function selectThree(page) { await click(page, 'a'); await click(page, 'b'
 async function drag(page, id, { shift = false, cancel = false } = {}) {
   const p = await point(page, id);
   if (shift) await page.keyboard.down('Shift');
-  await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.keyboard.down('Alt');
+  await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.keyboard.down('Meta');
   await page.mouse.move(p.x + 23, p.y + 17, { steps: 5 });
   if (cancel) await page.keyboard.press('Escape');
-  await page.mouse.up(); await page.keyboard.up('Alt');
+  await page.mouse.up(); await page.keyboard.up('Meta');
   if (shift) await page.keyboard.up('Shift');
   await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 40)));
 }

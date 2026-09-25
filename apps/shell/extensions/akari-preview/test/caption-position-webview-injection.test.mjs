@@ -9,6 +9,7 @@ import {
     captionPositionFromVisualRect,
     placedCaptionPositionFromRects
 } from '../lib/common/caption-zone-write.js';
+import { captionWrapWidthDrag, captionCornerTransform } from '../lib/common/caption-plate-handles.js';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const { minify } = require('terser');
@@ -20,7 +21,9 @@ const end = source.indexOf('const updateCaptionSelectBox =', start);
 assert.ok(start >= 0 && end > start);
 const definitions = source.slice(start, end)
     .replace('${captionPositionFromVisualRect.toString()}', captionPositionFromVisualRect.toString())
-    .replace('${placedCaptionPositionFromRects.toString()}', placedCaptionPositionFromRects.toString());
+    .replace('${placedCaptionPositionFromRects.toString()}', placedCaptionPositionFromRects.toString())
+    .replace('${captionWrapWidthDrag.toString()}', captionWrapWidthDrag.toString())
+    .replace('${captionCornerTransform.toString()}', captionCornerTransform.toString());
 
 function webviewFunctions() {
     return webviewContext().captionGeometry;
@@ -145,6 +148,7 @@ test('injected listener saves single, multi and group drags for plain and transf
                         top: base.top + dy, bottom: base.bottom + dy };
                 };
                 Object.assign(context, {
+                    document: { body: { classList: { add() {}, remove() {} } } },
                     captionLayer: { addEventListener: (_name, listener) => { pointerdown = listener; } },
                     activeCaptionEdit: null, captionForEvent: () => a,
                     beginCaptionHandleDrag: () => false, selectCaption() {}, setCaptionGroupMode() {},

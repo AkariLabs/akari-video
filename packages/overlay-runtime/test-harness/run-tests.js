@@ -286,15 +286,14 @@
       { x: null, y: null }
     );
     assert(
-      safeMarginSnap.x?.target === outputSizeNow.width * 0.05 &&
-        safeMarginSnap.y?.target === outputSizeNow.height * 0.05,
-      "computeSnapCorrection(): 既存の 5% セーフマージン吸着を維持する"
+      safeMarginSnap.x === null && safeMarginSnap.y === null,
+      "computeSnapCorrection(): 画面の端と中央以外には吸い付かない"
     );
 
     // centered cut の bounds は center↔center の correction=0 が常に最短になる。
     // この縮退を再現した上で、cut resize が使う anchor 方式なら四隅が
     // 外周へ解けることを固定する。
-    const centeredRawScale = 0.98;
+    const centeredRawScale = 0.985;
     const centeredBounds = {
       left: outputSizeNow.width * (1 - centeredRawScale) / 2,
       top: outputSizeNow.height * (1 - centeredRawScale) / 2,
@@ -355,15 +354,19 @@
       { target: 0 },
       { target: outputSizeNow.height }
     );
-    const verticalGuide = stage.querySelector(
+    const verticalGuide = document.querySelector(
       '[data-akari-interaction="snap-guide-vertical"]'
     );
-    const horizontalGuide = stage.querySelector(
+    const horizontalGuide = document.querySelector(
       '[data-akari-interaction="snap-guide-horizontal"]'
     );
+    const guideStage = stage.getBoundingClientRect();
+    const guideScaleX = guideStage.width / outputSizeNow.width;
+    const guideScaleY = guideStage.height / outputSizeNow.height;
+    const at = (actual, expected) => Math.abs(Number.parseFloat(actual) - expected) < 0.01;
     assert(
-      verticalGuide.style.left === "0.5px" &&
-        horizontalGuide.style.top === `${outputSizeNow.height - 0.5}px`,
+      at(verticalGuide.style.left, guideStage.left + 0.5 * guideScaleX) &&
+        at(horizontalGuide.style.top, guideStage.top + (outputSizeNow.height - 0.5) * guideScaleY),
       "左・下外周のスナップガイドがステージ内側にクランプされる"
     );
     window.akari.interaction.showSnapGuides(
@@ -371,8 +374,8 @@
       { target: 0 }
     );
     assert(
-      verticalGuide.style.left === `${outputSizeNow.width - 0.5}px` &&
-        horizontalGuide.style.top === "0.5px",
+      at(verticalGuide.style.left, guideStage.left + (outputSizeNow.width - 0.5) * guideScaleX) &&
+        at(horizontalGuide.style.top, guideStage.top + 0.5 * guideScaleY),
       "右・上外周のスナップガイドがステージ内側にクランプされる"
     );
     window.akari.interaction.hideSnapGuides();
@@ -493,7 +496,7 @@
         pointerType: "mouse",
         isPrimary: true,
         button: 0,
-        altKey: true, // 可逆性の検証では resize snap を明示的に無効化
+        metaKey: true, // 可逆性の検証では resize snap を明示的に無効化
       };
       const dispatch = (type, point, buttons) =>
         handle.dispatchEvent(
@@ -579,7 +582,7 @@
             pointerType: "mouse",
             isPrimary: true,
             button: 0,
-            altKey: true,
+            metaKey: true,
           };
           visibleElement.dispatchEvent(new PointerEvent("pointerdown", {
             ...common, buttons: 1, clientX: startX, clientY: startY,
@@ -663,7 +666,7 @@
       pointerType: "mouse",
       isPrimary: true,
       button: 0,
-      altKey: true,
+      metaKey: true,
     };
     const dispatchRepeated = (type, point, buttons) =>
       repeatedHandle.dispatchEvent(
@@ -764,7 +767,7 @@
       pointerType: "mouse",
       isPrimary: true,
       button: 0,
-      altKey: true,
+      metaKey: true,
     };
     const dispatchDisturbed = (type, point, buttons) =>
       disturbedHandle.dispatchEvent(
@@ -851,7 +854,7 @@
       pointerType: "mouse",
       isPrimary: true,
       button: 0,
-      altKey: true,
+      metaKey: true,
     };
     zoomHandle.dispatchEvent(
       new PointerEvent("pointerdown", {

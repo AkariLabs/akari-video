@@ -65,8 +65,8 @@
           "at": 0,
           "duration": 300,
           "transform": {
-            "x": 760,
-            "y": 160,
+            "x": 810,
+            "y": 440,
             "rotate": 30
           },
           "source": {
@@ -178,6 +178,106 @@
               "width": 240,
               "height": 160,
               "fill": "#ef4444"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-r",
+      "lane": "visual",
+      "name": "box-r",
+      "items": [
+        {
+          "id": "box-r",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 1400,
+            "y": 640
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 240,
+              "height": 160,
+              "fill": "#0ea5e9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-g",
+      "lane": "visual",
+      "name": "box-g",
+      "items": [
+        {
+          "id": "box-g",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 560,
+            "y": 700
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 200,
+              "height": 100,
+              "fill": "#a3a3a3"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-m",
+      "lane": "visual",
+      "name": "box-m",
+      "items": [
+        {
+          "id": "box-m",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 620,
+            "y": 300
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 160,
+              "height": 100,
+              "fill": "#84cc16"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-box-alt",
+      "lane": "visual",
+      "name": "box-alt",
+      "items": [
+        {
+          "id": "box-alt",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 1500,
+            "y": 860
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 160,
+              "height": 100,
+              "fill": "#ec4899"
             }
           }
         }

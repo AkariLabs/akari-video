@@ -1,4 +1,7 @@
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
+import { previewShapeRoles } from '../common/preview-shape-roles';
+import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
+import { captionControlScale } from '../common/caption-control-scale';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
 import { installPreviewFrameCapture } from '../common/preview-frame-controller';
@@ -5307,18 +5310,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!tree.some(node => node.kind !== 'leaf')) tree.length = 0;
             }
             // END preview selection tree
-            const shapeRoles = new Map<string, string>();
-            const markShape = (item: any): void => {
-                if (item?.source?.kind === 'shape') {
-                    shapeRoles.set(String(item.id), ['line', 'arrow'].includes(String(item.source.shape))
-                        ? 'shape-line' : 'shape');
-                }
-                if (Array.isArray(item?.items)) item.items.forEach(markShape);
-            };
-            if (rawVersion === 2) {
-                const rawTracks = (rawEdit as { tracks?: Array<{ items?: unknown[] }> }).tracks;
-                rawTracks?.forEach(track => track.items?.forEach(markShape));
-            }
+            const shapeRoles = previewShapeRoles(rawEdit);
             // 断片ごとの 3D 資産解決（モデル・環境マップ・フォントのストリーム化 + GLB ヘッダ検査）は
             // 互いに独立なので並列に走らせ、overlays には宣言順で積む。
             const resolvedOverlayHtml = await Promise.all(projectedOverlays.map(value => {
@@ -6846,6 +6838,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const committed = await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
                     editUri.toString(), { kind: 'caption-duplicate', captionId: request.captionId,
                         position: request.patch.duplicate });
+                if (committed === true) this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
                 respond(committed === true, committed === true ? undefined : '文字を複製できません');
             } catch (error) {
                 respond(false, error instanceof Error ? error.message : String(error));
@@ -6867,6 +6860,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     editUri.toString(), { kind: 'caption-wrap', captionId: request.captionId,
                         wrapWidthPct: patch.wrapWidthPct, anchor: position.anchor,
                         position: position.position });
+                if (committed === true) this.refreshCaptionsAfterHistoryWrite(captionsUri.toString());
                 respond(committed === true, committed === true ? undefined : '文字の幅を書き込めません');
             } catch (error) {
                 respond(false, error instanceof Error ? error.message : String(error));
@@ -13137,6 +13131,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 centerX,
                 centerY
             });
+            const cutResizeCornersFn = (${cutResizeCorners.toString()});
+            const cutResizeScaleFn = (${cutResizeScale.toString()});
             const layerOutputBoundsForTransform = (entry, transform) => {
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
                 const outputHeight = Number(summary.output && summary.output.height) || 720;
@@ -13167,8 +13163,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     || captureTarget?.getAttribute?.('data-akari-crop-edge');
                 const duplicating = startEvent.altKey && (!handleKind || handleKind === 'move');
                 const rotating = handleKind === 'rotate';
+                const movingControls = rotating || handleKind === 'move' || !handleKind;
                 const gestureLabel = document.createElement('div');
-                gestureLabel.className = 'akari-interaction-hint';
+                gestureLabel.className = rotating ? 'akari-interaction-angle' : 'akari-interaction-hint';
+                gestureLabel.setAttribute('data-akari-interaction', rotating ? 'rotation-angle' : 'handle-hint');
                 gestureLabel.textContent = rotating ? '回転'
                     : ['n', 'e', 's', 'w'].includes(handleKind) ? '形を伸ばす'
                     : ['nw', 'ne', 'sw', 'se'].includes(handleKind) ? '大きさ' : '移動';
@@ -13176,6 +13174,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 gestureLabel.style.top = startEvent.clientY + 12 + 'px';
                 document.body.appendChild(gestureLabel);
                 document.body.classList.add('akari-media-transforming');
+                if (movingControls) document.body.classList.add('akari-media-moving');
                 let moved = false;
                 let cancelled = false;
                 let finished = false;
@@ -13183,6 +13182,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const cleanup = () => {
                     selectionDragActive = false;
                     document.body.classList.remove('akari-media-transforming');
+                    document.body.classList.remove('akari-media-moving');
                     gestureLabel.remove();
                     document.body.style.cursor = '';
                     window.removeEventListener('pointermove', onMove);
@@ -13775,6 +13775,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const cutHandleElements = Array.from(cutSelectBox.querySelectorAll('[data-akari-handle]'));
             window.addEventListener('pointerdown', event => {
                 if (event.button !== 0 || !cutSelected) return;
+                if (event.target instanceof Element
+                    && event.target.closest('[data-overlay-id], [data-akari-interaction], .caption-row-plate')) return;
                 const onCutHandle = event.target instanceof Element && Boolean(event.target.closest('#cut-select-box'));
                 const hit = findVisualMediaHitAt(event);
                 if (!onCutHandle && hit !== video && hit !== stillImage) return;
@@ -14141,31 +14143,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     // 裁定 7: crop を持つ cut は「ソース実寸 × crop × scale」の箱で描かれる。
                     // 角ドラッグの基準 box も選択枠と同じ cutSelectBoxGeometry から取る。
                     const startBox = cutSelectBoxGeometry();
-                    const signX = corner.includes('w') ? -1 : 1;
-                    const signY = corner.includes('n') ? -1 : 1;
-                    const radians = startBox.rotate * Math.PI / 180;
-                    const cosine = Math.cos(radians), sine = Math.sin(radians);
-                    const rotatedPoint = (x, y) => ({
-                        x: startBox.centerX + cosine * x - sine * y,
-                        y: startBox.centerY + sine * x + cosine * y
-                    });
-                    const anchor = rotatedPoint(-signX * startBox.width / 2,
-                        -signY * startBox.height / 2);
-                    const dragged = {
-                        ...rotatedPoint(signX * startBox.width / 2, signY * startBox.height / 2)
-                    };
+                    const { anchor, dragged } = cutResizeCornersFn(startBox, corner);
                     const pointerStart = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
                     if (!pointerStart) return;
-                    const offset = { x: dragged.x - pointerStart.x, y: dragged.y - pointerStart.y };
-                    const startDistance = Math.max(1, Math.hypot(dragged.x - anchor.x, dragged.y - anchor.y));
                     let dragSnap = { x: null, y: null };
                     beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
                         const pointer = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
                         if (!pointer) return original;
-                        const distance = Math.hypot(pointer.x + offset.x - anchor.x,
-                            pointer.y + offset.y - anchor.y);
-                        const factor = distance / startDistance;
-                        let nextScale = Math.max(0.01, original.scale * factor);
+                        let nextScale = cutResizeScaleFn(original.scale, anchor, dragged, pointerStart, pointer);
                         if (moveEvent.metaKey || moveEvent.ctrlKey || !window.akari.interaction?.computeAnchorResizeSnap) {
                             dragSnap = { x: null, y: null };
                             window.akari.interaction?.hideSnapGuides?.();
@@ -14519,9 +14504,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     rotate: Number.isFinite(rotate) ? rotate : 0
                 };
             };
+            const captionControlScaleFn = (${captionControlScale.toString()});
             const syncCaptionHandleBox = (captionPlate = selectedCaptionPlate()) => {
                 const box = captionPlate.querySelector('.akari-caption-handle-box');
                 if (!box) return;
+                const surface = typeof stage !== 'undefined' && stage?.getBoundingClientRect ? stage : captionPlate;
+                const display = surface.getBoundingClientRect?.();
+                const vars = captionControlScaleFn(surface.clientWidth || surface.offsetWidth || 0,
+                    display?.width || 0, surface.clientHeight || surface.offsetHeight || 0,
+                    display?.height || 0);
+                for (const [name, value] of Object.entries(vars)) box.style.setProperty?.(name, value);
                 if (!captionPlate.classList.contains('akari-caption-host--styled')) {
                     // 非 styled の #caption-plate 自身が文字の箱（shrink-to-fit）。
                     box.style.inset = '0';
@@ -15130,7 +15122,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (['e', 'w'].includes(kind) && caption.timeDomain !== 'output') return false;
                 event.preventDefault();
                 event.stopPropagation();
-                selectCaption(cueId);
+                if (selectedCaptionId !== cueId) selectCaption(cueId);
                 const altAll = event.altKey || captionAltAll;
                 setCaptionGroupMode(altAll);
                 const targets = captionHandleTargets(
@@ -15157,8 +15149,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 let moved = false;
                 selectionDragActive = true;
                 document.body.classList.add('akari-caption-transforming');
+                if (kind === 'rot') document.body.classList.add('akari-caption-rotating');
                 const gestureLabel = document.createElement('div');
-                gestureLabel.className = 'akari-interaction-hint';
+                gestureLabel.className = kind === 'rot' ? 'akari-interaction-angle' : 'akari-interaction-hint';
+                gestureLabel.setAttribute('data-akari-interaction', kind === 'rot' ? 'rotation-angle' : 'handle-hint');
                 gestureLabel.textContent = kind === 'e' || kind === 'w' ? '折り返し幅'
                     : kind === 'rot' ? '回転' : '大きさ';
                 gestureLabel.style.left = event.clientX + 12 + 'px';
@@ -15183,6 +15177,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const cleanup = () => {
                     selectionDragActive = false;
                     document.body.classList.remove('akari-caption-transforming');
+                    document.body.classList.remove('akari-caption-rotating');
                     gestureLabel.remove();
                     document.body.style.cursor = '';
                     window.removeEventListener('pointermove', onMove);
@@ -15370,11 +15365,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 let moved = false;
                 let lastOutputDelta = { x: 0, y: 0 };
                 selectionDragActive = true;
+                document.body.classList.add('akari-caption-moving');
                 try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const outputFrame = captionOutputFrame();
                 let dragSnap = { x: null, y: null };
                 const cleanup = () => {
                     selectionDragActive = false;
+                    document.body.classList.remove('akari-caption-moving');
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
                     window.removeEventListener('pointercancel', onCancel);
@@ -18257,10 +18254,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 奪っていたため、audio-notice の × 等インタラクティブ操作系の上で押しても
                 // preventDefault() が click 合成を止めてしまい押せなくなっていた（実測: Chromium は
                 // pointerdown.preventDefault() を呼ぶと後続の click を合成しない）。ボタンに加え、
-                // 選択済みレイヤー/カット・オーバーレイの直接操作面も素通しする。Alt+drag は
-                // 操作面の上からでも明示的にパンできる。
+                // 選択済みレイヤー/カット・オーバーレイの直接操作面も素通しする。
+                // Alt+drag は要素の複製として届ける。
                 if (event.target.closest && event.target.closest('button, [role="button"], input, textarea, select, a[href]')) return;
-                if (!event.altKey && isDirectManipulationTarget(event.target, event)) return;
+                if (isDirectManipulationTarget(event.target, event)) return;
                 event.preventDefault();
                 event.stopPropagation();
                 previewPane.setPointerCapture(event.pointerId);

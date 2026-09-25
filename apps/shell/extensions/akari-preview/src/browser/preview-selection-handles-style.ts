@@ -11,6 +11,7 @@ export const previewSelectionHandlesStyle = `
 .akari-interaction-action.is-rotate { left: calc(50% - 27px); cursor: grab; }
 .akari-interaction-action.is-move { left: calc(50% + 2px); cursor: move; }
 .akari-interaction-selection-frame.is-busy .akari-interaction-action { display: none; }
+.akari-interaction-selection-frame.is-moving .akari-interaction-handle:not(.akari-interaction-action) { display: none; }
 .akari-interaction-selection-frame.is-text .akari-interaction-handle.is-n, .akari-interaction-selection-frame.is-text .akari-interaction-handle.is-s { display: none; }
 .akari-interaction-selection-frame.is-line[data-akari-interaction] { border-color: transparent; }
 .akari-interaction-selection-frame:not(.is-line) .akari-interaction-handle.is-line-start,
@@ -44,7 +45,21 @@ export const previewSelectionHandlesStyle = `
 #layer-select-box .akari-crop-edge::after, #cut-select-box .akari-crop-edge::after { content: ''; position: absolute; left: 3px; top: 3px; width: 14px; height: 5px; border-radius: 3px; background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,.35); }
 #layer-select-box .akari-crop-edge-e::after, #layer-select-box .akari-crop-edge-w::after, #cut-select-box .akari-crop-edge-e::after, #cut-select-box .akari-crop-edge-w::after { width: 5px; height: 14px; }
 body.akari-media-transforming :is(#layer-crop-toggle, #layer-perspective-toggle, #layer-perspective-panel, .akari-layer-handle-rotate, .akari-layer-handle-move, .akari-cut-handle-rotate, .akari-cut-handle-move) { display: none !important; }
+body.akari-media-moving :is(#layer-select-box .akari-layer-handle, #cut-select-box .akari-cut-handle, #layer-select-box .akari-crop-edge, #cut-select-box .akari-crop-edge) { display: none !important; }
+body.akari-caption-rotating .akari-caption-handle, body.akari-caption-moving .akari-caption-handle { display: none !important; }
+body.akari-caption-moving #caption-select-box [data-caption-tool] { visibility: hidden !important; }
 .caption-row-plate[data-output-caption][style*="--caption-wrap-width"] .akari-caption__plate { width: var(--caption-wrap-width); }
 .caption-row-plate[data-output-caption][style*="--caption-wrap-width"] .akari-caption__line,
 .caption-row-plate[data-output-caption][style*="--caption-wrap-width"] .akari-caption__block { width: 100%; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; box-sizing: border-box; }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle { transform-origin: center; }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="nw"] { left: 0; top: 0; transform: translate(-50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="ne"] { right: 0; top: 0; transform: translate(50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="sw"] { left: 0; bottom: 0; transform: translate(-50%,50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="se"] { right: 0; bottom: 0; transform: translate(50%,50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="e"] { right: 0; top: 50%; transform: translate(50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="w"] { left: 0; top: 50%; transform: translate(-50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="rot"],
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="move"] { top: calc(100% + var(--akari-caption-control-below,24px)); transform: translate(-50%,-50%) scale(var(--akari-caption-control-inverse-x,1),var(--akari-caption-control-inverse-y,1)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="rot"] { left: calc(50% - var(--akari-caption-control-pair,14px)); }
+.caption-row-plate .akari-caption-handle-box .akari-caption-handle[data-h="move"] { left: calc(50% + var(--akari-caption-control-pair,14px)); }
 `;

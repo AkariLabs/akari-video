@@ -33,8 +33,9 @@ test('capture hides selection/resize/crop handles and boxes, interaction guides,
         '[data-akari-interaction]', '[id^="akari-gen-"]',
         '#preview-stage > :not(#preview-layers):not(#frame-engine-preview)'
     ]) assert.match(ruleFor(selector), /visibility:\s*hidden\s*!important/);
-    // Caption handles include their rotation stem pseudo-element; the entire handle is hidden.
-    assert.match(source, /\.akari-caption-handle\[data-h="rot"\]::before/);
+    // The rotation control is below the text and has no upper stem.
+    assert.doesNotMatch(source, /\.akari-caption-handle\[data-h="rot"\]::before/);
+    assert.match(source, /\.akari-caption-handle\[data-h="rot"\][^\n]*top:calc\(100% \+ 13px\)/);
     assert.match(source, /<canvas id="pen-layer"/);
 });
 

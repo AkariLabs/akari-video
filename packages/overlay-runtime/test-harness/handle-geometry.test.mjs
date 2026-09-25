@@ -44,6 +44,12 @@ test('six pixel magnet prefers canvas on a tie and returns guide extents', () =>
   const item = g.snapBounds({ ...moving, left: 300, right: 400 }, [
     { left: 405, right: 450, top: 100, bottom: 150 }], { width: 1000, height: 600 }).x;
   assert.equal(item.kind, 'item'); assert.deepEqual(item.guide, { start: 20, end: 150 });
+  const nearTie = g.snapBounds({ left: 400.25, right: 600.25, top: 20, bottom: 70 },
+    [{ left: 560, right: 600.25, top: 90, bottom: 140 }],
+    { width: 1000, height: 600 }).x;
+  assert.equal(nearTie.kind, 'canvas');
+  near(nearTie.correction, -.25);
+  assert.deepEqual(nearTie.guide, { start: 0, end: 600 });
 });
 
 test('angles, axis lock, and endpoint point priority', () => {
@@ -62,6 +68,22 @@ test('angles, axis lock, and endpoint point priority', () => {
   near(angleOnly.point.x, angleOnly.point.y);
 });
 
+test('rotation translation holds the visible center while rotating around a distant stage pivot', () => {
+  const pose = { x: 200, y: 160 };
+  const pivot = { x: 1160, y: 700 };
+  const fixed = { x: 350, y: 260 };
+  const delta = 43;
+  const next = g.rotationAroundPoint(pose, pivot, fixed, delta);
+  const radians = delta * Math.PI / 180;
+  const c = Math.cos(radians), s = Math.sin(radians);
+  const dx = fixed.x - pivot.x, dy = fixed.y - pivot.y;
+  const after = { x: pivot.x + next.x - pose.x + c * dx - s * dy,
+    y: pivot.y + next.y - pose.y + s * dx + c * dy };
+  near(after.x, fixed.x);
+  near(after.y, fixed.y);
+  assert.ok(Math.hypot(next.x - pose.x, next.y - pose.y) > 100);
+});
+
 test('line endpoint transform keeps the other endpoint fixed', () => {
   const fixed = { x: 30, y: 40 };
   const oldMoving = { x: 130, y: 40 };
@@ -75,4 +97,18 @@ test('line endpoint transform keeps the other endpoint fixed', () => {
   const a = pose.rotate * Math.PI / 180;
   near(pose.x + Math.cos(a) * pose.scaleX * oldLocalFixed.x, fixed.x);
   near(pose.y + Math.sin(a) * pose.scaleX * oldLocalFixed.x, fixed.y);
+});
+
+test('line angle uses the cursor direction for the four-degree snap window', () => {
+  const fixed = { x: 120, y: 130 };
+  const at = angle => ({ x: fixed.x + 100 * Math.cos(angle * Math.PI / 180),
+    y: fixed.y + 100 * Math.sin(angle * Math.PI / 180) });
+  const shiftedEndpoint = at(40.88);
+  const cursor = at(42);
+  const snapped = g.solveLineEndpoint(fixed, shiftedEndpoint, [],
+    { width: 1000, height: 1000 }, 1, false, cursor);
+  near(Math.atan2(snapped.point.y - fixed.y, snapped.point.x - fixed.x) * 180 / Math.PI, 45);
+  const free = g.solveLineEndpoint(fixed, shiftedEndpoint, [],
+    { width: 1000, height: 1000 }, 1, true, cursor);
+  near(Math.atan2(free.point.y - fixed.y, free.point.x - fixed.x) * 180 / Math.PI, 40.88);
 });

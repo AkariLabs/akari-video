@@ -1,0 +1,575 @@
+{
+  "label": "r3-backSelect",
+  "port": 9554,
+  "pid": 43040,
+  "previewBuilt": true,
+  "maximized": true,
+  "results": {
+    "initial": {
+      "stage": {
+        "x": 36,
+        "y": 179.125,
+        "width": 332,
+        "height": 186.75
+      },
+      "items": {
+        "box-a": {
+          "left": 70.58332824707031,
+          "top": 206.7916717529297,
+          "width": 51.87500762939453,
+          "height": 34.58332824707031,
+          "cx": 96.52083206176758,
+          "cy": 224.08333587646484,
+          "container": {
+            "left": 70.58332824707031,
+            "top": 206.7916717529297,
+            "width": 332,
+            "height": 186.75001525878906,
+            "cx": 236.5833282470703,
+            "cy": 300.1666793823242
+          }
+        },
+        "box-rot": {
+          "left": 227.6981201171875,
+          "top": 184.7182159423828,
+          "width": 62.21673583984375,
+          "height": 55.887542724609375,
+          "cx": 258.8064880371094,
+          "cy": 212.6619873046875,
+          "container": {
+            "left": 151.61477661132812,
+            "top": 184.7182159423828,
+            "width": 380.8954162597656,
+            "height": 327.73028564453125,
+            "cx": 342.06248474121094,
+            "cy": 348.58335876464844
+          }
+        },
+        "back": {
+          "left": 260.79168701171875,
+          "top": 203.3333282470703,
+          "width": 62.249969482421875,
+          "height": 51.87501525878906,
+          "cx": 291.9166717529297,
+          "cy": 229.27083587646484,
+          "container": {
+            "left": 260.79168701171875,
+            "top": 203.3333282470703,
+            "width": 332,
+            "height": 186.74998474121094,
+            "cx": 426.79168701171875,
+            "cy": 296.7083206176758
+          }
+        },
+        "front": {
+          "left": 281.54168701171875,
+          "top": 217.1666717529297,
+          "width": 62.249969482421875,
+          "height": 51.87498474121094,
+          "cx": 312.6666717529297,
+          "cy": 243.10416412353516,
+          "container": {
+            "left": 281.54168701171875,
+            "top": 217.1666717529297,
+            "width": 332,
+            "height": 186.75001525878906,
+            "cx": 447.54168701171875,
+            "cy": 310.5416793823242
+          }
+        },
+        "line": {
+          "left": 70.58332824707031,
+          "top": 289.7916564941406,
+          "width": 69.16667175292969,
+          "height": 6.91668701171875,
+          "cx": 105.16666412353516,
+          "cy": 293.25,
+          "container": {
+            "left": 70.58332824707031,
+            "top": 289.7916564941406,
+            "width": 332,
+            "height": 186.75,
+            "cx": 236.5833282470703,
+            "cy": 383.1666564941406
+          }
+        },
+        "box-b": {
+          "left": 177.7916717529297,
+          "top": 286.3333435058594,
+          "width": 41.5,
+          "height": 27.666656494140625,
+          "cx": 198.5416717529297,
+          "cy": 300.1666717529297,
+          "container": {
+            "left": 177.7916717529297,
+            "top": 286.3333435058594,
+            "width": 332,
+            "height": 186.75,
+            "cx": 343.7916717529297,
+            "cy": 379.7083435058594
+          }
+        },
+        "box-r": {
+          "left": 278.08331298828125,
+          "top": 289.7916564941406,
+          "width": 41.500030517578125,
+          "height": 27.666656494140625,
+          "cx": 298.8333282470703,
+          "cy": 303.62498474121094,
+          "container": {
+            "left": 278.08331298828125,
+            "top": 289.7916564941406,
+            "width": 332,
+            "height": 186.75,
+            "cx": 444.08331298828125,
+            "cy": 383.1666564941406
+          }
+        },
+        "box-g": {
+          "left": 132.83334350585938,
+          "top": 300.1666564941406,
+          "width": 34.58332824707031,
+          "height": 17.291656494140625,
+          "cx": 150.12500762939453,
+          "cy": 308.81248474121094,
+          "container": {
+            "left": 132.83334350585938,
+            "top": 300.1666564941406,
+            "width": 332,
+            "height": 186.75,
+            "cx": 298.8333435058594,
+            "cy": 393.5416564941406
+          }
+        },
+        "box-m": {
+          "left": 143.20834350585938,
+          "top": 231,
+          "width": 27.666656494140625,
+          "height": 17.291656494140625,
+          "cx": 157.0416717529297,
+          "cy": 239.6458282470703,
+          "container": {
+            "left": 143.20834350585938,
+            "top": 231,
+            "width": 332,
+            "height": 186.75,
+            "cx": 309.2083435058594,
+            "cy": 324.375
+          }
+        },
+        "box-alt": {
+          "left": 295.375,
+          "top": 327.83331298828125,
+          "width": 27.666656494140625,
+          "height": 17.29168701171875,
+          "cx": 309.2083282470703,
+          "cy": 336.4791564941406,
+          "container": {
+            "left": 295.375,
+            "top": 327.83331298828125,
+            "width": 332,
+            "height": 186.75006103515625,
+            "cx": 461.375,
+            "cy": 421.2083435058594
+          }
+        }
+      },
+      "handles": [],
+      "named": {
+        "se": [],
+        "nw": [],
+        "e": [],
+        "w": [],
+        "n": [],
+        "s": [],
+        "rotate": [],
+        "move": [],
+        "lineStart": [],
+        "lineEnd": [],
+        "frame": [],
+        "cutSe": [],
+        "cutNw": [],
+        "cutRotate": [],
+        "guides": [],
+        "hint": [],
+        "angle": [],
+        "textE": [],
+        "textW": [],
+        "textSe": [],
+        "textNw": [],
+        "textN": [],
+        "textS": [],
+        "textRot": [],
+        "textMove": [],
+        "captionHint": []
+      }
+    },
+    "k": 0.17291666666666666,
+    "backSelect": {
+      "seInsideFront": true,
+      "hitAtSe": "akari-interaction-handle is-se",
+      "frameBefore": {
+        "left": 260.7890625,
+        "top": 203.328125,
+        "width": 62.2421875,
+        "height": 51.875,
+        "cx": 291.91015625,
+        "cy": 229.265625,
+        "text": "",
+        "style": "left: 260.792px; top: 203.333px; width: 62.25px; height: 51.875px; transform-origin: 166px 93.375px;",
+        "cls": "akari-interaction-selection-frame"
+      },
+      "frameAfterInsideClick": {
+        "left": 281.5390625,
+        "top": 217.1640625,
+        "width": 62.2421875,
+        "height": 51.8671875,
+        "cx": 312.66015625,
+        "cy": 243.09765625,
+        "text": "",
+        "style": "left: 281.542px; top: 217.167px; width: 62.25px; height: 51.875px; transform-origin: 166px 93.375px;",
+        "cls": "akari-interaction-selection-frame"
+      },
+      "frontRect": {
+        "left": 281.54168701171875,
+        "top": 217.1666717529297,
+        "width": 62.249969482421875,
+        "height": 51.87498474121094,
+        "cx": 312.6666717529297,
+        "cy": 243.10416412353516,
+        "container": {
+          "left": 281.54168701171875,
+          "top": 217.1666717529297,
+          "width": 332,
+          "height": 186.75001525878906,
+          "cx": 447.54168701171875,
+          "cy": 310.5416793823242
+        }
+      },
+      "selectedFrontAfter": true
+    }
+  },
+  "windowShot": "r3-backSelect-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 270,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 9
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-a",
+        "lane": "visual",
+        "name": "box-a",
+        "items": [
+          {
+            "id": "box-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 160
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-rot",
+        "lane": "visual",
+        "name": "box-rot",
+        "items": [
+          {
+            "id": "box-rot",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 810,
+              "y": 440,
+              "rotate": 30
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#10b981"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-back",
+        "lane": "visual",
+        "name": "back",
+        "items": [
+          {
+            "id": "back",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1300,
+              "y": 140
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 360,
+                "height": 300,
+                "fill": "#f59e0b"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-front",
+        "lane": "visual",
+        "name": "front",
+        "items": [
+          {
+            "id": "front",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1420,
+              "y": 220
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 360,
+                "height": 300,
+                "fill": "#8b5cf6"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-line",
+        "lane": "visual",
+        "name": "line",
+        "items": [
+          {
+            "id": "line",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 640
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "line",
+              "params": {
+                "fill": "none",
+                "stroke": "#111111",
+                "strokeWidth": 8,
+                "width": 400,
+                "height": 40
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-b",
+        "lane": "visual",
+        "name": "box-b",
+        "items": [
+          {
+            "id": "box-b",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 820,
+              "y": 620
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 240,
+                "height": 160,
+                "fill": "#ef4444"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-r",
+        "lane": "visual",
+        "name": "box-r",
+        "items": [
+          {
+            "id": "box-r",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1400,
+              "y": 640
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 240,
+                "height": 160,
+                "fill": "#0ea5e9"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-g",
+        "lane": "visual",
+        "name": "box-g",
+        "items": [
+          {
+            "id": "box-g",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 560,
+              "y": 700
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 200,
+                "height": 100,
+                "fill": "#a3a3a3"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-m",
+        "lane": "visual",
+        "name": "box-m",
+        "items": [
+          {
+            "id": "box-m",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 620,
+              "y": 300
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 160,
+                "height": 100,
+                "fill": "#84cc16"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box-alt",
+        "lane": "visual",
+        "name": "box-alt",
+        "items": [
+          {
+            "id": "box-alt",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1500,
+              "y": 860
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 160,
+                "height": 100,
+                "fill": "#ec4899"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "finalCaptions": {
+    "captions": [
+      {
+        "id": "c-0001",
+        "start": 0,
+        "end": 10,
+        "time_domain": "output",
+        "text": "つまみの確かめ用の長めの文字です。折り返しを見ます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": true
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

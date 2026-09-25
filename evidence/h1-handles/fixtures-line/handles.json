@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "base",
+      "path": "assets/base.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 270,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 0,
+            "out": 9
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-line",
+      "lane": "visual",
+      "name": "line",
+      "items": [
+        {
+          "id": "line",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 200,
+            "y": 640
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "line",
+            "params": {
+              "fill": "none",
+              "stroke": "#111111",
+              "strokeWidth": 8,
+              "width": 400,
+              "height": 40
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-text",
+      "lane": "visual",
+      "name": "text",
+      "items": [
+        {
+          "id": "captions",
+          "name": "字幕",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "captions",
+            "path": "captions.json"
+          },
+          "items": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 10,
+      "time_domain": "output",
+      "text": "つまみの確かめ用の長めの文字です。折り返しを見ます",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true
+    }
+  ]
+}

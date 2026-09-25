@@ -15,27 +15,25 @@ const compute = (displayDx, prior = null) => {
     const centerX = 640 + displayDx / scale;
     const bounds = { left: centerX - 168, centerX, right: centerX + 168,
         top: 260, centerY: 290, bottom: 320 };
-    const context = { SNAP_DISTANCE: 8, SNAP_RELEASE_DISTANCE: 12, SAFE_MARGIN_RATIO: 0.05,
+    const context = { SNAP_DISTANCE: 6, SNAP_RELEASE_DISTANCE: 6,
         outputSize: () => ({ width: 1280, height: 720 }), currentDisplayScale: () => scale };
     vm.createContext(context);
     vm.runInContext(snapFunctions, context);
     return vm.runInContext('computeSnapCorrection', context)(bounds, prior);
 };
 
-test('caption shares overlay snap hysteresis at 8px acquisition and 12px release', () => {
-    const near = compute(6);
+test('caption shares the six pixel overlay snap range', () => {
+    const near = compute(5);
     assert.ok(near.x);
-    assert.ok(Math.abs(near.x.correction * 676 / 1280 + 6) < 0.001);
-    assert.equal(compute(20).x, null);
-    const held = compute(10, near);
-    assert.ok(held.x);
-    assert.equal(compute(14, held).x, null);
+    assert.ok(Math.abs(near.x.correction * 676 / 1280 + 5) < 0.001);
+    assert.equal(compute(7).x, null);
+    assert.equal(compute(7, near).x, null);
 });
 
-test('caption drag bypasses snapping with the current Alt modifier', () => {
+test('caption drag bypasses snapping with the current Command modifier', () => {
     const drag = preview.slice(preview.indexOf("captionLayer.addEventListener('pointerdown', event =>"),
         preview.indexOf('new ResizeObserver(() => updateCaptionSelectBox())'));
-    assert.match(drag, /!captionSnapEnabled \|\| moveEvent\.altKey \|\| !window\.akari\.interaction\?\.computeSnapCorrection/);
+    assert.match(drag, /!captionSnapEnabled \|\| moveEvent\.metaKey \|\| moveEvent\.ctrlKey[\s\S]*?\|\| !window\.akari\.interaction\?\.computeSnapCorrection/);
     assert.match(drag, /dragSnap = \{ x: null, y: null \};\s*window\.akari\.interaction\?\.hideSnapGuides/);
 });
 

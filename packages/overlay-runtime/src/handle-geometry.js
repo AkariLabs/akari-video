@@ -10,6 +10,13 @@ globalThis.akariHandleGeometry = (() => {
     if (!enabled) return { x: dx, y: dy };
     return Math.abs(dx) >= Math.abs(dy) ? { x: dx, y: 0 } : { x: 0, y: dy };
   }
+  function rotationAroundPoint(pose, pivot, fixed, deltaDegrees) {
+    const radians = deltaDegrees * Math.PI / 180;
+    const c = Math.cos(radians), s = Math.sin(radians);
+    const dx = fixed.x - pivot.x, dy = fixed.y - pivot.y;
+    return { x: pose.x + dx - (c * dx - s * dy),
+      y: pose.y + dy - (s * dx + c * dy) };
+  }
   function anchoredScales({ anchor, dragged, pointer, rotation = 0, scaleX = 1, scaleY = 1, edge = null, min = .2, max = 4 }) {
     const radians = rotation * Math.PI / 180;
     const c = Math.cos(radians), s = Math.sin(radians);
@@ -48,8 +55,9 @@ globalThis.akariHandleGeometry = (() => {
         const correction = target.value - source;
         const distance = Math.abs(correction) * displayScale;
         if (distance > tolerance) return;
-        if (!best || distance < best.distance - 1e-7 ||
-          (Math.abs(distance - best.distance) < 1e-7 && target.kind === 'canvas' && best.kind !== 'canvas')) {
+        const visiblyEqual = best && Math.abs(distance - best.distance) <= .5;
+        if (!best || distance < best.distance - .5 ||
+          (visiblyEqual && target.kind === 'canvas' && best.kind !== 'canvas')) {
           best = { correction, target: target.value, sourceIndex, kind: target.kind,
             bounds: target.bounds, distance };
         }
@@ -69,17 +77,23 @@ globalThis.akariHandleGeometry = (() => {
     return snapBounds({ left: point.x, right: point.x, top: point.y, bottom: point.y },
       others, canvas, displayScale, tolerance);
   }
-  function solveLineEndpoint(fixed, pointer, others, canvas, displayScale = 1, disabled = false) {
+  function solveLineEndpoint(fixed, pointer, others, canvas, displayScale = 1, disabled = false,
+    anglePointer = pointer) {
     if (!disabled) {
       const snap = snapEndpoint(pointer, others, canvas, displayScale);
       if (snap.x || snap.y) return { point: { x: pointer.x + (snap.x?.correction ?? 0),
         y: pointer.y + (snap.y?.correction ?? 0) }, snap };
     }
     const dx = pointer.x - fixed.x, dy = pointer.y - fixed.y;
-    const angle = snapAngle(Math.atan2(dy, dx) * 180 / Math.PI, disabled);
+    const pointerAngle = normalizeAngle(Math.atan2(anglePointer.y - fixed.y,
+      anglePointer.x - fixed.x) * 180 / Math.PI);
+    const target = normalizeAngle(Math.round(pointerAngle / 45) * 45);
+    if (disabled || Math.abs(normalizeAngle(pointerAngle - target)) > 4) {
+      return { point: pointer, snap: { x: null, y: null } };
+    }
     const length = Math.hypot(dx, dy);
-    return { point: { x: fixed.x + length * Math.cos(angle * Math.PI / 180),
-      y: fixed.y + length * Math.sin(angle * Math.PI / 180) }, snap: { x: null, y: null } };
+    return { point: { x: fixed.x + length * Math.cos(target * Math.PI / 180),
+      y: fixed.y + length * Math.sin(target * Math.PI / 180) }, snap: { x: null, y: null } };
   }
   function lineTransform({ fixed, originalMoving, moving, movingEndpoint, stageCenter, pose }) {
     const oldLength = Math.hypot(originalMoving.x - fixed.x, originalMoving.y - fixed.y);
@@ -102,6 +116,7 @@ globalThis.akariHandleGeometry = (() => {
       scaleX: newScaleX, scaleY: oldScaleY, rotate: normalizeAngle(newAngle * 180 / Math.PI)
     };
   }
-  return { normalizeAngle, snapAngle, axisLock, anchoredScales, anchorPreservingPosition,
+  return { normalizeAngle, snapAngle, axisLock, rotationAroundPoint,
+    anchoredScales, anchorPreservingPosition,
     snapBounds, snapEndpoint, solveLineEndpoint, lineTransform };
 })();

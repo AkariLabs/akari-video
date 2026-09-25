@@ -629,7 +629,8 @@ function marqueeHits(candidates, rect) {
       ) {
         pointerEvents = "auto";
       }
-      if (container.dataset.role === 'shape-line' && isVisible && directive !== 'pass') {
+      if ((container.dataset.role === 'shape-line' || container.dataset.role === 'shape')
+        && isVisible && !directive) {
         pointerEvents = ['line', 'path', 'polyline', 'polygon', 'circle', 'rect']
           .includes(element.tagName.toLowerCase()) ? 'visiblePainted' : 'none';
       }
@@ -872,6 +873,7 @@ function marqueeHits(candidates, rect) {
       const handle = document.createElement('span');
       handle.className = `akari-interaction-handle is-line-${endpoint}`;
       handle.hidden = true;
+      handle.style.display = 'none';
       handle.setAttribute('data-akari-interaction', 'selection-handle');
       handle.setAttribute('aria-label', endpoint === 'start' ? '線の始点' : '線の終点');
       frame.appendChild(handle);
@@ -887,6 +889,7 @@ function marqueeHits(candidates, rect) {
       button.setAttribute('data-akari-interaction', 'selection-handle');
       button.setAttribute('aria-label', label);
       button.title = label;
+      button.style.cssText = `top:auto;bottom:-38px;left:${kind === 'rotate' ? 'calc(50% - 27px)' : 'calc(50% + 2px)'};width:25px;height:25px;transform:none;`;
       button.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
       frame.appendChild(button);
     }
@@ -930,10 +933,12 @@ function marqueeHits(candidates, rect) {
     // 選択自体は許すが移動系操作だけを塞ぐという役割分担を CSS 側にも一致させるため。
     selectionFrame.classList.toggle("is-locked", isBackgroundRole(selectedOverlay));
     selectionFrame.classList.toggle('is-busy', Boolean(activeDrag || activeResize || activeRotate || activeLine));
+    selectionFrame.classList.toggle('is-moving', Boolean(activeDrag || activeRotate));
     selectionFrame.classList.toggle('is-text', selectedOverlay.dataset.role === 'text');
     selectionFrame.classList.toggle('is-line', selectedOverlay.dataset.role === 'shape-line');
     for (const endpoint of selectionFrame.querySelectorAll('.is-line-start, .is-line-end')) {
       endpoint.hidden = selectedOverlay.dataset.role !== 'shape-line';
+      endpoint.style.display = selectedOverlay.dataset.role === 'shape-line' ? '' : 'none';
     }
     selectionFrame.dataset.akariSelectionKind = 'leaf';
 
@@ -1088,6 +1093,8 @@ function marqueeHits(candidates, rect) {
     }
     selectionFrame.dataset.akariSelectionKind = selectionKind();
     selectionFrame.classList.toggle('is-locked', selectionMembers().some(member => !isMovable(member)));
+    selectionFrame.classList.toggle('is-busy', Boolean(activeDrag || activeResize || activeRotate));
+    selectionFrame.classList.toggle('is-moving', Boolean(activeDrag || activeRotate));
     selectionFrame.style.transformOrigin = 'center';
     selectionFrame.style.transform = activeRotate?.group && activeRotate.overlayId === selectedId
       ? `rotate(${activeRotate.angle}deg)` : '';
@@ -1393,7 +1400,7 @@ function marqueeHits(candidates, rect) {
     lastTransformWrite = record;
     return record;
   }
-  function moveGroupDrag(drag, dx, dy, disabled) {
+  function moveGroupDrag(drag, dx, dy, disabled, lockedAxis = null) {
     moveGroupMembers(drag, dx, dy);
     const rect = unionBounds(drag.members.map(member => member.element).filter(isSelectable));
     const tl = rect && stageLocalPoint(rect.left, rect.top), br = rect && stageLocalPoint(rect.right, rect.bottom);
@@ -1401,6 +1408,8 @@ function marqueeHits(candidates, rect) {
     const bounds = { left: tl.x, top: tl.y, right: br.x, bottom: br.y,
       centerX: (tl.x + br.x) / 2, centerY: (tl.y + br.y) / 2 };
     const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY });
+    if (lockedAxis === 'x') snap.y = null;
+    if (lockedAxis === 'y') snap.x = null;
     drag.snapX = snap.x; drag.snapY = snap.y;
     moveGroupMembers(drag, dx + (snap.x?.correction ?? 0), dy + (snap.y?.correction ?? 0));
     showSnapGuides(snap.x, snap.y);
@@ -1808,7 +1817,7 @@ function marqueeHits(candidates, rect) {
     return globalThis.akariHandleGeometry.snapBounds(bounds, others, outputSize(), currentDisplayScale());
   }
 
-  function applyDragSnapping(drag, rawX, rawY, disabled) {
+  function applyDragSnapping(drag, rawX, rawY, disabled, lockedAxis = null) {
     drag.container.style.setProperty("--x", `${rawX}px`);
     drag.container.style.setProperty("--y", `${rawY}px`);
 
@@ -1828,6 +1837,8 @@ function marqueeHits(candidates, rect) {
     }
 
     const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY });
+    if (lockedAxis === 'x') snap.y = null;
+    if (lockedAxis === 'y') snap.x = null;
     drag.snapX = snap.x;
     drag.snapY = snap.y;
 
@@ -2002,6 +2013,14 @@ function marqueeHits(candidates, rect) {
       pointerOffset: { x: (movingEndpoint === 'start' ? a : b).x - pointer.x,
         y: (movingEndpoint === 'start' ? a : b).y - pointer.y },
       moved: false, writeContext: captureWriteContext() };
+    handleHint?.remove();
+    handleHint = document.createElement('div');
+    handleHint.className = 'akari-interaction-hint';
+    handleHint.setAttribute('data-akari-interaction', 'handle-hint');
+    handleHint.textContent = '線の長さと向き';
+    handleHint.style.left = `${event.clientX + 12}px`;
+    handleHint.style.top = `${event.clientY + 12}px`;
+    document.body.appendChild(handleHint);
     try { handleEl.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
     if (event.cancelable) event.preventDefault();
   }
@@ -2016,7 +2035,7 @@ function marqueeHits(candidates, rect) {
       .map(fragmentVideoBounds).filter(Boolean) : [];
     const solved = globalThis.akariHandleGeometry.solveLineEndpoint(line.fixed,
       { x: point.x + line.pointerOffset.x, y: point.y + line.pointerOffset.y },
-      others, outputSize(), currentDisplayScale(), event.metaKey || event.ctrlKey);
+      others, outputSize(), currentDisplayScale(), event.metaKey || event.ctrlKey, point);
     const pose = globalThis.akariHandleGeometry.lineTransform({ fixed: line.fixed,
       originalMoving: line.originalMoving, moving: solved.point,
       movingEndpoint: line.movingEndpoint,
@@ -2036,6 +2055,7 @@ function marqueeHits(candidates, rect) {
     const line = activeLine;
     if (!line) return null;
     activeLine = null;
+    handleHint?.remove(); handleHint = null;
     releaseResizePointer(line);
     hideSnapGuides();
     if (cancelled || !line.moved) {
@@ -2145,6 +2165,14 @@ function marqueeHits(candidates, rect) {
       startDistance: Math.hypot(pointer.x - anchor.x, pointer.y - anchor.y) || 1,
       startScale: oldPose.scale, snapX: null, snapY: null, moved: false,
       writeContext: captureWriteContext() };
+    handleHint?.remove();
+    handleHint = document.createElement('div');
+    handleHint.className = 'akari-interaction-hint';
+    handleHint.setAttribute('data-akari-interaction', 'handle-hint');
+    handleHint.textContent = '大きさ';
+    handleHint.style.left = `${event.clientX + 12}px`;
+    handleHint.style.top = `${event.clientY + 12}px`;
+    document.body.appendChild(handleHint);
     try { handleEl.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
     if (event.cancelable) event.preventDefault();
   }
@@ -2164,7 +2192,8 @@ function marqueeHits(candidates, rect) {
       rotate: current.rotate ?? 0 };
     activeRotate = { group, overlayId: selectedId, container: selectedOverlay, members,
       handleEl, pointerId: event.pointerId, oldPose, pose: oldPose, startRect: rect,
-      center, startAngle: Math.atan2(pointer.y - center.y, pointer.x - center.x),
+      center, pivot: { x: stage.clientWidth / 2 + oldPose.x, y: stage.clientHeight / 2 + oldPose.y },
+      startAngle: Math.atan2(pointer.y - center.y, pointer.x - center.x),
       angle: 0, moved: false, writeContext: captureWriteContext() };
     rotationBadge = document.createElement('div');
     rotationBadge.className = 'akari-interaction-angle';
@@ -2181,10 +2210,12 @@ function marqueeHits(candidates, rect) {
     if (!pointer) return;
     let angle = (Math.atan2(pointer.y - rotation.center.y, pointer.x - rotation.center.x)
       - rotation.startAngle) * 180 / Math.PI;
-    if (globalThis.akariHandleGeometry) {
-      angle = globalThis.akariHandleGeometry.snapAngle(rotation.oldPose.rotate + angle,
-        event.metaKey || event.ctrlKey) - rotation.oldPose.rotate;
-    } else if (event.shiftKey) angle = Math.round(angle / 15) * 15;
+    const absolute = rotation.oldPose.rotate + angle;
+    const normalized = ((absolute + 180) % 360 + 360) % 360 - 180;
+    const target = Math.round(normalized / 45) * 45;
+    const snapped = globalThis.akariHandleGeometry?.snapAngle(absolute, event.metaKey || event.ctrlKey)
+      ?? (!(event.metaKey || event.ctrlKey) && Math.abs(normalized - target) <= 4 ? target : normalized);
+    angle = ((snapped - rotation.oldPose.rotate + 180) % 360 + 360) % 360 - 180;
     rotation.angle = angle;
     if (rotationBadge) {
       rotationBadge.textContent = `${Math.round(globalThis.akariHandleGeometry?.normalizeAngle(rotation.oldPose.rotate + angle)
@@ -2206,6 +2237,16 @@ function marqueeHits(candidates, rect) {
       selectionFrame.style.transform = `rotate(${angle}deg)`;
     } else {
       rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate + angle}deg`);
+      const radians = angle * Math.PI / 180;
+      const dx = rotation.center.x - rotation.pivot.x;
+      const dy = rotation.center.y - rotation.pivot.y;
+      const next = globalThis.akariHandleGeometry?.rotationAroundPoint(rotation.oldPose,
+        rotation.pivot, rotation.center, angle) ?? {
+          x: rotation.oldPose.x + dx - (Math.cos(radians) * dx - Math.sin(radians) * dy),
+          y: rotation.oldPose.y + dy - (Math.sin(radians) * dx + Math.cos(radians) * dy),
+        };
+      rotation.container.style.setProperty('--x', `${next.x}px`);
+      rotation.container.style.setProperty('--y', `${next.y}px`);
     }
     rotation.moved = Math.abs(angle) > .01;
     if (event.cancelable) event.preventDefault();
@@ -2221,6 +2262,8 @@ function marqueeHits(candidates, rect) {
     if (rotation.group) restoreGroupPose(rotation);
     else {
       rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate}deg`);
+      rotation.container.style.setProperty('--x', `${rotation.oldPose.x}px`);
+      rotation.container.style.setProperty('--y', `${rotation.oldPose.y}px`);
       refreshSelectionFrame();
     }
   }
@@ -2238,11 +2281,15 @@ function marqueeHits(candidates, rect) {
       return rotation.moved ? finishGroupTransform(rotation) : null;
     }
     if (!rotation.moved) return null;
+    const current = readTransform(rotation.container);
+    const transform = { x: current.x, y: current.y, rotate: current.rotate };
     const record = enqueueWrite(rotation.writeContext, rotation.overlayId,
-      { transform: { rotate: rotation.oldPose.rotate + rotation.angle } }, 'transform');
+      { transform }, 'transform');
     syncLeafTransformOnSuccess(record, rotation.overlayId, readTransform(rotation.container));
     record.promise.catch(error => {
       rotation.container.style.setProperty('--rotate', `${rotation.oldPose.rotate}deg`);
+      rotation.container.style.setProperty('--x', `${rotation.oldPose.x}px`);
+      rotation.container.style.setProperty('--y', `${rotation.oldPose.y}px`);
       refreshSelectionFrame();
       reportWriteError('transform', rotation.overlayId, error);
     });
@@ -2825,20 +2872,27 @@ function marqueeHits(candidates, rect) {
       drag.startStagePoint && currentStagePoint
         ? currentStagePoint.y - drag.startStagePoint.y
         : deltaY / scale;
+    const lockedAxis = event.shiftKey
+      ? Math.abs(videoDeltaX) >= Math.abs(videoDeltaY) ? 'x' : 'y' : null;
     if (drag.group) {
       const locked = globalThis.akariHandleGeometry?.axisLock(videoDeltaX, videoDeltaY, event.shiftKey)
-        ?? { x: videoDeltaX, y: videoDeltaY };
-      moveGroupDrag(drag, locked.x, locked.y, event.metaKey || event.ctrlKey);
+        ?? (event.shiftKey && Math.abs(videoDeltaX) >= Math.abs(videoDeltaY)
+          ? { x: videoDeltaX, y: 0 }
+          : event.shiftKey ? { x: 0, y: videoDeltaY } : { x: videoDeltaX, y: videoDeltaY });
+      moveGroupDrag(drag, locked.x, locked.y, event.metaKey || event.ctrlKey, lockedAxis);
       if (event.cancelable) event.preventDefault();
       return;
     }
     const locked = globalThis.akariHandleGeometry?.axisLock(videoDeltaX, videoDeltaY, event.shiftKey)
-      ?? { x: videoDeltaX, y: videoDeltaY };
+      ?? (event.shiftKey && Math.abs(videoDeltaX) >= Math.abs(videoDeltaY)
+        ? { x: videoDeltaX, y: 0 }
+        : event.shiftKey ? { x: 0, y: videoDeltaY } : { x: videoDeltaX, y: videoDeltaY });
     applyDragSnapping(
       drag,
       drag.startX + locked.x,
       drag.startY + locked.y,
-      event.metaKey || event.ctrlKey
+      event.metaKey || event.ctrlKey,
+      lockedAxis
     );
 
     if (event.cancelable) event.preventDefault();
@@ -3439,7 +3493,6 @@ function marqueeHits(candidates, rect) {
         pointerType: "mouse",
         isPrimary: true,
         button: 0,
-        altKey: true,
       };
 
       selftestOverlayOverride = container;
@@ -3468,6 +3521,7 @@ function marqueeHits(candidates, rect) {
         container.dispatchEvent(
           new PointerEvent("pointermove", {
             ...common,
+            metaKey: true,
             buttons: 1,
             clientX: startClientX + 60,
             clientY: startClientY,
@@ -3564,6 +3618,7 @@ function marqueeHits(candidates, rect) {
         resizeHandle.dispatchEvent(
           new PointerEvent("pointermove", {
             ...resizeCommon,
+            metaKey: true,
             buttons: 1,
             clientX: resizeStartClientX + 40,
             clientY: resizeStartClientY + 40,
