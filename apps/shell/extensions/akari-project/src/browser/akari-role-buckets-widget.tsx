@@ -2519,9 +2519,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return;
         }
         const { key, id, category, title } = item;
-        const payload = { kind: 'asset', key, id, category, title };
-        if (isPremiumLocked(item)) Object.assign(payload, { locked: true });
-        if (isPremiumLocked(item) && item.price) Object.assign(payload, { price: item.price });
+        const size = item as AssetCatalogViewItem & { width?: number; height?: number; durationSeconds?: number; locked?: boolean };
+        const payload = { kind: 'asset', key, id, category, title,
+            ...(typeof size.width === 'number' ? { width: size.width } : {}),
+            ...(typeof size.height === 'number' ? { height: size.height } : {}),
+            ...(item.previewUrl ? { thumb: item.previewUrl } : {}),
+            ...(typeof size.durationSeconds === 'number' ? { durationSeconds: size.durationSeconds } : {}),
+            ...(isPremiumLocked(item) || size.locked || item.state === 'locked' ? { locked: true } : {}),
+            ...(isPremiumLocked(item) && item.price ? { price: item.price } : {}) };
         event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));

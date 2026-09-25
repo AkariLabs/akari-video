@@ -1,0 +1,112 @@
+{
+ "cardSpec": "asset:still/bg-aurora-mesh",
+ "dropSpec": "stage:0.75,0.25",
+ "at": "2026-09-24T17:03:16.122Z",
+ "card": {
+  "x": 169,
+  "y": 236,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 221.9140625,
+   "y": 39,
+   "w": 1161.078125,
+   "h": 501.890625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 1161,
+   "h": 502
+  },
+  "inner": {
+   "x": 214.28125,
+   "y": 16.00390625,
+   "w": 732.4375,
+   "h": 411.9921875,
+   "offsetW": 732,
+   "offsetH": 412,
+   "transform": "matrix(1, 0, 0, 1, -366.219, -205.996)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 436.1953125,
+   "y": 55.00390625,
+   "w": 732.4375,
+   "h": 411.9921875
+  }
+ },
+ "drop": {
+  "x": 986,
+  "y": 158,
+  "outputPx": {
+   "x": 960.8328355661746,
+   "y": 179.9965867071205
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/bg-aurora-mesh",
+  "id": "bg-aurora-mesh",
+  "category": "still",
+  "title": "オーロラメッシュ背景"
+ },
+ "duringDrag": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 20644,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": false,
+ "newItems": [],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "newSources": [],
+ "notices": []
+}

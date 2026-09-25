@@ -1,0 +1,183 @@
+{
+ "cardSpec": "asset:audio/bgm-jazzhop-piano-086",
+ "dropSpec": "stage:0.5,0.5",
+ "at": "2026-09-24T19:57:18.693Z",
+ "card": {
+  "x": 220,
+  "y": 400,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283,
+   "y": 39,
+   "w": 1100,
+   "h": 584
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 1100,
+   "h": 584
+  },
+  "inner": {
+   "x": 110.890625,
+   "y": 16.00390625,
+   "w": 878.21875,
+   "h": 493.9921875,
+   "offsetW": 878,
+   "offsetH": 494,
+   "transform": "matrix(1, 0, 0, 1, -439.109, -246.996)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 393.890625,
+   "y": 55.00390625,
+   "w": 878.21875,
+   "h": 493.9921875
+  }
+ },
+ "drop": {
+  "x": 833,
+  "y": 302,
+  "outputPx": {
+   "x": 640,
+   "y": 360
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1100,
+     "h": 584
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "audio/bgm-jazzhop-piano-086",
+  "id": "bgm-jazzhop-piano-086",
+  "category": "audio",
+  "title": "After the Rain",
+  "thumb": "https://raw.githubusercontent.com/AkariLabs/akari-sounds/v0/previews/bgm-jazzhop-piano-086.jpeg"
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1100,
+     "h": 584
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [
+   {
+    "text": "0:02.0 → 実尺",
+    "rect": {
+     "x": 784.1,
+     "y": 323,
+     "w": 97.8,
+     "h": 25.5
+    }
+   }
+  ],
+  "svgs": [
+   {
+    "rect": {
+     "x": 789.7,
+     "y": 289,
+     "w": 18,
+     "h": 18
+    }
+   }
+  ],
+  "timelineGhost": []
+ },
+ "waitMs": 6661,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": true,
+ "newItems": [],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 3,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioAfter": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/audio/bgm-jazzhop-piano-086/bgm-jazzhop-piano-086.mp3",
+    "t": 2,
+    "track": 0,
+    "gain_db": -7.1,
+    "fade_in": 0.2,
+    "fade_out": 1
+   }
+  ]
+ },
+ "newSources": [],
+ "notices": []
+}

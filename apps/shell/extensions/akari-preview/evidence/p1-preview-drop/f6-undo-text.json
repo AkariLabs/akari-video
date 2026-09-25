@@ -1,0 +1,13 @@
+{
+ "at": "2026-09-24T19:58:13.780Z",
+ "keys": "Cmd+Z ×1",
+ "before": {
+  "captionsEqualHead": false,
+  "editEqualHead": false
+ },
+ "after": {
+  "captionsEqualHead": true,
+  "editEqualHead": false
+ },
+ "gitStatusPorcelain": " M edit.json\n"
+}

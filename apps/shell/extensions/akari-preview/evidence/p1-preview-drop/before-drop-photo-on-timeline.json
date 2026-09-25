@@ -1,0 +1,77 @@
+{
+ "key": "still/bg-aurora-mesh",
+ "dropSpec": "t=2@Base",
+ "at": "2026-09-24T17:04:04.331Z",
+ "card": {
+  "x": 169,
+  "y": 236,
+  "draggable": "true"
+ },
+ "drop": {
+  "x": 517,
+  "y": 729,
+  "targetTime": 2,
+  "row": "Base"
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/bg-aurora-mesh",
+  "id": "bg-aurora-mesh",
+  "category": "still",
+  "title": "オーロラメッシュ背景"
+ },
+ "duringDrag": {
+  "marked": [
+   {
+    "tag": "DIV",
+    "attrs": [
+     "data-akari-insertion-preview=true"
+    ],
+    "rect": {
+     "x": 517,
+     "y": 704,
+     "w": 381,
+     "h": 48
+    },
+    "outline": "none rgb(204, 204, 204)",
+    "bg": "rgba(77, 208, 200, 0.22)"
+   }
+  ],
+  "outlined": [],
+  "timelineScroll": {
+   "x": 364,
+   "y": 631,
+   "w": 1013,
+   "h": 199,
+   "scrollTop": 0
+  },
+  "footer": []
+ },
+ "waitMs": 11417,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v1",
+   "id": "image-1",
+   "at": 60,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 5
+   }
+  }
+ ],
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/still/bg-aurora-mesh/bg.png"
+  }
+ ],
+ "notices": []
+}

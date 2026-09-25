@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
+import { centeredPreviewTextPlacement } from '../lib/common/preview-text-placement.js';
 import { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
     supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
@@ -15,8 +16,8 @@ import { parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeco
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const declaration = source.statements.find(item => ts.isClassDeclaration(item) && item.name.text === 'AkariAnnotationsWidget');
 const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Widget = new Function('placeTextCaption', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'supportedMyStyleAttachPart', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
-    placeTextCaption, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
+const Widget = new Function('placeTextCaption', 'centeredPreviewTextPlacement', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'supportedMyStyleAttachPart', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
+    placeTextCaption, centeredPreviewTextPlacement, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
     placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
     supportedMyStyleAttachPart,
     { fromString: value => value },
@@ -99,6 +100,18 @@ test('missing captions.json: one insertion includes preset, selects/seeks, one u
     await assert.rejects(readFile(f.captionsPath), { code: 'ENOENT' });
     await f.history[0].redo();
     assert.equal(await readFile(f.captionsPath, 'utf8'), after);
+});
+
+test('プレビュー中心指定は保存時に左端 x と mc アンカーへ変換する', async t => {
+    const f = await fixture(t);
+    await writeFile(f.editPath, JSON.stringify({ ...edit, output: { width: 1280, height: 720, fps: 30 } }));
+    const id = await f.widget.placeText({ start: 3, center: { x: .5, y: .4 }, stylePreset: 'subtitle-news' });
+    assert.equal(id, 'c-0001', f.warnings.join(' / '));
+    const caption = JSON.parse(await readFile(f.captionsPath, 'utf8')).captions[0];
+    assert.equal(caption.text_style.text_anchor, 'mc');
+    assert.deepEqual(caption.text_style.position, { x: (640 - (7 * 56 + 32) / 2) / 1280, y: .4 });
+    assert.equal(caption.style_preset, 'subtitle-news');
+    assert.equal(f.history.length, 1);
 });
 
 test('マイスタイルの＋とドラッグは見た目を挿入時に書き、undo 1 回で元へ戻る', async t => {

@@ -100,3 +100,22 @@ test('受理不可のトラックは解決コマンドを呼ばず理由を出�
     assert.deepEqual(commands, []);
     assert.deepEqual(messages, ['音は音の段へ']);
 });
+
+test('購入前の素材はタイムラインでも配置せず案内コマンドへ渡す', async () => {
+    const { handler, commands, placed } = fixture();
+    handler.materialPanelDropPoint = () => ({ x: 120, y: 60, zone: 'strip' });
+    handler.stopMaterialDragAutoScroll = handler.hideMaterialGhost = () => {};
+    const locked = { ...asset, locked: true };
+    const transfer = { types: ['application/x-akari-library-item'], getData: () => JSON.stringify(locked) };
+    assert.equal(handler.isMaterialDragTransfer(transfer), true);
+    handler.handleMaterialDrop({ dataTransfer: transfer, preventDefault() {}, stopPropagation() {} });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(commands, [['akari.library.showPremiumPrompt', { key: asset.key }]]);
+    assert.deepEqual(placed, []);
+});
+
+test('ドラッグ中に MIME 本文が読めなくても購入前の素材を受ける', () => {
+    const { handler } = fixture();
+    handler.libraryLockedDragKey = asset.key;
+    assert.equal(handler.isMaterialDragTransfer({ types: ['application/x-akari-library-item'], getData: () => '' }), true);
+});

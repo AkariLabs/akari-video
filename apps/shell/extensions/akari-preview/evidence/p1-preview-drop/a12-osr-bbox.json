@@ -1,0 +1,67 @@
+{
+ "build": "r4（codex 4 往復目）",
+ "engine": "render-cut --engine osr",
+ "project": "<work>/ws-a（写真 2 枚: image-1 at 90・image-2 at 240。transform は最終ビルドの ws-f と byte 一致）",
+ "frames": {
+  "4.5s": {
+   "image": {
+    "w": 1280,
+    "h": 720
+   },
+   "output": {
+    "w": 1280,
+    "h": 720
+   },
+   "base": [
+    39,
+    48,
+    64
+   ],
+   "pixels": 57793,
+   "bboxOutputPx": {
+    "x": 800,
+    "y": 90,
+    "w": 322,
+    "h": 180
+   },
+   "centerOutputPx": {
+    "x": 961,
+    "y": 180
+   },
+   "previewCenter": {
+    "x": 960.5,
+    "y": 180.75
+   }
+  },
+  "9.5s": {
+   "image": {
+    "w": 1280,
+    "h": 720
+   },
+   "output": {
+    "w": 1280,
+    "h": 720
+   },
+   "base": [
+    39,
+    48,
+    64
+   ],
+   "pixels": 35898,
+   "bboxOutputPx": {
+    "x": 160,
+    "y": 414,
+    "w": 320,
+    "h": 180
+   },
+   "centerOutputPx": {
+    "x": 320,
+    "y": 504
+   },
+   "previewCenter": {
+    "x": 320,
+    "y": 505
+   }
+  }
+ }
+}

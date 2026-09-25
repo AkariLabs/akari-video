@@ -1,0 +1,128 @@
+{
+ "cardSpec": "asset:still/bg-aurora-mesh",
+ "dropSpec": "stage:0.75,0.25",
+ "at": "2026-09-24T18:40:37.724Z",
+ "card": {
+  "x": 220,
+  "y": 227,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283.0390625,
+   "y": 39,
+   "w": 779.953125,
+   "h": 358.515625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 780,
+   "h": 359
+  },
+  "inner": {
+   "x": 150.890625,
+   "y": 16.00390625,
+   "w": 478.21875,
+   "h": 268.9921875,
+   "offsetW": 478,
+   "offsetH": 269,
+   "transform": "matrix(1, 0, 0, 1, -239.109, -134.496)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 433.9296875,
+   "y": 55.00390625,
+   "w": 478.21875,
+   "h": 268.9921875
+  }
+ },
+ "drop": {
+  "x": 793,
+  "y": 122,
+  "outputPx": {
+   "x": 961.0873684898386,
+   "y": 179.32560773721355
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/bg-aurora-mesh",
+  "id": "bg-aurora-mesh",
+  "category": "still",
+  "title": "オーロラメッシュ背景",
+  "thumb": "https://akari.video/assets/still/bg-aurora-mesh/v1/preview.png"
+ },
+ "duringDrag": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 20169,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": false,
+ "newItems": [],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "newSources": [],
+ "notices": []
+}

@@ -7,11 +7,13 @@ import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.
 import { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
 import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
 import { libraryAssetGhostPayload } from '../lib/browser/library-drop-model.js';
+import { topVisualTarget } from '../lib/browser/preview-material-placement.js';
+import { probePreviewMediaDimensions } from '../lib/browser/preview-media-dimensions.js';
 
 // 既存 library-asset-placement と同じく実メソッドを実行し、DOM と I/O だけを差し替える。
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
-const names = ['addMaterialAt', 'addMaterialAtPlayhead', 'addMaterialAtPoint', 'placeMaterialAtTarget',
+const names = ['addMaterialAt', 'addMaterialAtPlayhead', 'addMaterialAtPoint', 'addMaterialAtOutputPoint', 'placeMaterialAtTarget',
     'resolveMaterialDropTarget', 'timelineTrackDropLayouts', 'materialDropTargetWithoutOverlap',
     'materialGhostDurationSeconds', 'updateMaterialGhost', 'hideMaterialGhost', 'handleMaterialDragOver',
     'positionInsertionGhost', 'showTrackInsertIndicatorAt', 'hideTrackInsertIndicator', 'handleMaterialDrop', 'setGhostRejected'];
@@ -22,11 +24,13 @@ const bindings = {
     indexEditV2Items: mutations.indexEditV2Items, stringifyEditV2: mutations.stringifyEditV2,
     insertAudioSfxPreferV2: mutations.insertAudioSfxPreferV2,
     insertV2Track: mutations.insertTrack, insertV2Item: mutations.insertItem,
-    updateV2Item: mutations.updateItem, materialOverlapInsertIndex, computeMaterialGhostRange,
+    updateV2Item: mutations.updateItem, materialOverlapInsertIndex, topVisualTarget,
+    probePreviewMediaDimensions: options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }),
+    computeMaterialGhostRange,
     materialGhostVisibility, materialGhostRejectLabel, hitTestTimelineTrackDrop, libraryAssetGhostPayload,
     lockedTrackMessage: id => `locked: ${id}`,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS: 5, MATERIAL_INSERT_FALLBACK_DURATION_SECONDS: 3,
-    SUBROW_STRIDE: 32, LANE_GAP: 4
+    SUBROW_STRIDE: 32, LANE_GAP: 4, LIBRARY_DRAG_MIME: 'application/x-akari-library-item'
 };
 const Handler = new Function(...Object.keys(bindings), `${code}\nreturn Handler;`)(...Object.values(bindings));
 
@@ -40,7 +44,7 @@ function fixture(tracks = [track('v1', 'visual', [item('base-clip')]), track('v2
     const history = [], errors = [], writes = [];
     const uri = { toString: () => 'file:///project/edit.json', path: { fsPath: () => '/project' } };
     const handler = Object.assign(new Handler(), {
-        location: { root: uri, editUri: uri }, fps: 30, playheadT: 3,
+        location: { root: { resolve: () => uri, toString: () => 'file:///project', path: uri.path }, editUri: uri }, fps: 30, playheadT: 3,
         refreshReferenceMediaUris: async () => {},
         frameAt: t => Math.round(t * 30), resolveEditMediaUri: () => uri,
         fileService: { readFile: async () => ({ value: { toString: () => text } }) },
@@ -49,11 +53,13 @@ function fixture(tracks = [track('v1', 'visual', [item('base-clip')]), track('v2
         pushHistory: entry => history.push(entry),
         annotationsService: {
             getAudioDuration: async () => { probes++; return { status: 'ready', durationSeconds: 10 }; },
+            probeSourceDimensions: async () => ({ width: 4000, height: 3000 }),
             measureAudioForLevel: async () => ({ ok: true, gain_db: -3, fade_in: 0, fade_out: 0, basis: 'test', role: 'sfx' })
         },
         messages: { warn: m => errors.push(m), error: m => errors.push(m) },
         errorMessage: error => error.message, showNotice: m => errors.push(m), hideNotice() {},
         revealOutputPreview() {}, beyondCutsEndNote: () => '', footer: { textContent: '' },
+        applySelection: selection => { handler.selection = selection; },
         notice: { hasMessage: () => false, node: { textContent: '' } },
         materialDurationCache: new Map(), editDocument: JSON.parse(text),
         isTrackLocked: id => id !== undefined && handler.lockedId === id,
@@ -173,6 +179,50 @@ test('プレイヘッド音声追加は audio.sfx[] のままで音トラック�
     await f.handler.addMaterialAtPlayhead('assets/new.mp3', 'audio');
     assert.deepEqual(f.doc().tracks, JSON.parse(f.before).tracks);
     assert.equal(f.doc().audio.sfx[0].t, 3);
+    await assertOneUndo(f);
+});
+
+test('プレビュー着地は 1/4 幅・出力中心からの位置・最上段・履歴1手', async () => {
+    const f = fixture([track('lower', 'visual'), track('upper', 'visual', [item('existing')])]);
+    await f.handler.addMaterialAtOutputPoint('assets/new.png', 'image', 3, { x: 430, y: -220 });
+    const doc = f.doc();
+    assert.equal(doc.tracks.length, 3);
+    const placed = doc.tracks[2].items[0];
+    assert.equal(placed.at, 90);
+    assert.equal(placed.duration, 150);
+    assert.deepEqual(placed.transform, { x: 430, y: -220, scale: 0.12 });
+    assert.deepEqual(f.handler.selection, { kind: 'layer', id: placed.id });
+    await assertOneUndo(f);
+});
+
+test('プレビュー着地は最上段が空いていれば同じ段を使う', async () => {
+    const f = fixture([track('lower', 'visual', [item('existing')]), track('upper', 'visual')]);
+    await f.handler.addMaterialAtOutputPoint('assets/new.png', 'image', 3, { x: 0, y: 0 });
+    assert.equal(f.doc().tracks.length, 2);
+    assert.equal(f.doc().tracks[1].items.length, 1);
+    await assertOneUndo(f);
+});
+
+test('字幕トラックが最上段でも画像はその下の映像段へ置く', async () => {
+    const captions = track('v-captions', 'visual', [
+        { id: 'captions', at: 0, duration: 180, source: { kind: 'captions', path: 'captions.json' } }
+    ]);
+    const f = fixture([track('v-base', 'visual', [item('base-clip')]), captions]);
+    await f.handler.addMaterialAtOutputPoint('assets/new.png', 'image', 3, { x: 100, y: 50 });
+    assert.deepEqual(f.doc().tracks.map(row => row.id), ['v-base', f.doc().tracks[1].id, 'v-captions']);
+    assert.equal(f.doc().tracks[1].items[0].transform.scale, 0.12);
+    assert.deepEqual(f.doc().tracks[2], JSON.parse(f.before).tracks[1]);
+    await assertOneUndo(f);
+});
+
+test('プレビューの音は位置を持たず指定時刻へ置く', async () => {
+    const f = fixture([track('a1', 'audio')]);
+    f.handler.annotationsService.measureAudioForLevel = async () => ({ ok: false, reason: 'test' });
+    await f.handler.addMaterialAtOutputPoint('assets/new.mp3', 'audio', 4);
+    assert.deepEqual(f.errors, []);
+    const saved = f.doc().audio?.sfx?.[0] ?? f.doc().tracks[0].items[0];
+    assert.equal(saved.t ?? saved.at / 30, 4);
+    assert.equal('transform' in saved, false);
     await assertOneUndo(f);
 });
 

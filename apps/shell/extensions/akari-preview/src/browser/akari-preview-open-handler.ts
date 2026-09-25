@@ -8,6 +8,7 @@ import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/sw
 import { requestReadyPreviewSeek, createReadySeekResponder } from '../common/preview-ready-seek';
 import { isMaterialPreviewWidgetId } from '../common/material-preview-slot';
 import { MaterialPreviewSlot } from './material-preview-slot';
+import { PreviewLibraryDrop } from './preview-library-drop';
 import URI from '@theia/core/lib/common/uri';
 import { partitionPreviewMediaPlanes } from '../common/preview-media-planes';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
@@ -942,6 +943,7 @@ interface ReviewAnnotationStrokeRequest {
 }
 
 interface PreviewWidgetMarker extends WebviewWidget {
+    akariLibraryDrop?: PreviewLibraryDrop;
     akariPreviewFrameCaptureRequest?: string;
     akariPreviewAudioKeepKeys?: Set<string>;
     akariPreviewAudioKeepProbes?: Set<string>;
@@ -3176,6 +3178,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         initialSeekTime?: number
     ): Promise<void> {
         const marker = widget as PreviewWidgetMarker;
+        if (kind === 'output' && !marker.akariLibraryDrop) {
+            marker.akariLibraryDrop = new PreviewLibraryDrop(widget, this.commandService, this.messages,
+                () => marker.akariPreviewEditUri?.toString(),
+                () => marker.akariPreviewSummary?.output,
+                () => this.fullscreenPreviewWidget === widget);
+        }
         if (marker.akariPreviewConfiguration) {
             return marker.akariPreviewConfiguration;
         }
@@ -9288,6 +9296,9 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.requestCaptionInspector = field => {
                 vscode.postMessage({ type: 'akari-preview-caption-inspector', field });
             };
+            window.akari.reportLibraryDropGeometry = detail => {
+                vscode.postMessage({ type: 'akari-preview-library-drop-geometry', ...detail });
+            };
             window.akari.requestMyStyleSave = captionId => {
                 vscode.postMessage({ type: 'akari-preview-my-style-save', captionId });
             };
@@ -11410,6 +11421,19 @@ body { display: grid; place-items: center; padding: 32px; }
             let gapWallClockOriginMs = 0;
             let gapOutputOrigin = 0;
             let outputTime = 0;
+            window.addEventListener('message', event => {
+                const request = event.data;
+                if (request?.type !== 'akari-preview-library-drop-geometry-request') return;
+                const rect = previewStage.getBoundingClientRect();
+                let contentFrame;
+                try {
+                    const frame = window.frameElement?.getBoundingClientRect();
+                    if (frame) contentFrame = { x: frame.x, y: frame.y, width: frame.width, height: frame.height };
+                } catch (_error) { /* 内側の枠が読めない場合は外側と同じ原点を使う。 */ }
+                window.akari.reportLibraryDropGeometry({ requestId: request.requestId,
+                    rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                    viewport: { width: window.innerWidth, height: window.innerHeight }, contentFrame, time: outputTime });
+            });
             let loopRange = null;
             let isPlaying = false;
             let playToggleRenderedIsPlaying = null;
