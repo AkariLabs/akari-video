@@ -1,0 +1,1328 @@
+{
+  "label": "extra",
+  "port": 9571,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "results": {
+    "A": {
+      "seat": {
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "after": {
+          "pressed": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "writes": 1,
+        "points": [
+          {
+            "t": 120,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        ]
+      },
+      "firstDrag": {
+        "name": "a-drag-20",
+        "frame": 20,
+        "writes": 1,
+        "beforeVisible": {
+          "output": {
+            "x": -468,
+            "y": -216
+          },
+          "size": {
+            "w": 216,
+            "h": 216
+          },
+          "opacity": 1,
+          "page": {
+            "x": 342.98906326293945,
+            "y": 152.14999771118164
+          }
+        },
+        "afterVisible": {
+          "output": {
+            "x": -168,
+            "y": -108
+          },
+          "size": {
+            "w": 216,
+            "h": 216
+          },
+          "opacity": 1,
+          "page": {
+            "x": 394.8640594482422,
+            "y": 170.82500076293945
+          }
+        },
+        "reseekVisible": {
+          "output": {
+            "x": -168,
+            "y": -108
+          },
+          "size": {
+            "w": 216,
+            "h": 216
+          },
+          "opacity": 1,
+          "page": {
+            "x": 394.8640594482422,
+            "y": 170.82500076293945
+          }
+        },
+        "noRevert": true,
+        "pointAtFrame": {
+          "t": 20,
+          "transform": {
+            "x": 300,
+            "y": 108.0000176487199
+          }
+        },
+        "pointTimes": [
+          20,
+          120
+        ],
+        "staticBefore": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        },
+        "staticAfter": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        },
+        "evaluatedAtFrame": {
+          "x": 300,
+          "y": 108.0000176487199,
+          "scale": 0.6,
+          "scaleX": 0.6,
+          "scaleY": 0.6,
+          "rotate": 0
+        },
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "ops": [
+        {
+          "name": "a-resize-60",
+          "frame": 60,
+          "detail": {
+            "handle": "is-se"
+          },
+          "writes": 1,
+          "beforeVisible": {
+            "output": {
+              "x": -288,
+              "y": -151.2
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 374.1140594482422,
+              "y": 163.35499572753906
+            }
+          },
+          "afterVisible": {
+            "output": {
+              "x": -245.91,
+              "y": -109.11
+            },
+            "size": {
+              "w": 300.18,
+              "h": 300.18
+            },
+            "opacity": 1,
+            "page": {
+              "x": 381.39173889160156,
+              "y": 170.6326675415039
+            }
+          },
+          "reseekVisible": {
+            "output": {
+              "x": -245.91,
+              "y": -109.11
+            },
+            "size": {
+              "w": 300.18,
+              "h": 300.18
+            },
+            "opacity": 1,
+            "page": {
+              "x": 381.39173889160156,
+              "y": 170.6326675415039
+            }
+          },
+          "noRevert": true,
+          "pointAtFrame": {
+            "t": 60,
+            "transform": {
+              "x": 404.4674563664569,
+              "y": 191.0629676910769
+            }
+          },
+          "pointTimes": [
+            20,
+            60,
+            120
+          ],
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 404.4674563664569,
+            "y": 191.0629676910769,
+            "scale": 0.8338202527198226,
+            "scaleX": 0.8338202527198226,
+            "scaleY": 0.8338202527198226,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        {
+          "name": "a-rotate-90",
+          "frame": 90,
+          "detail": {
+            "handle": "is-rotate",
+            "degrees": -30
+          },
+          "writes": 1,
+          "beforeVisible": {
+            "output": {
+              "x": -448.15,
+              "y": -204.64
+            },
+            "size": {
+              "w": 300.18,
+              "h": 300.18
+            },
+            "opacity": 1,
+            "page": {
+              "x": 346.42215728759766,
+              "y": 154.11368560791016
+            }
+          },
+          "afterVisible": {
+            "output": {
+              "x": -448.15,
+              "y": -204.64
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 346.42214584350586,
+              "y": 154.1136817932129
+            }
+          },
+          "reseekVisible": {
+            "output": {
+              "x": -448.15,
+              "y": -204.64
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 346.42214584350586,
+              "y": 154.1136817932129
+            }
+          },
+          "noRevert": true,
+          "pointAtFrame": {
+            "t": 90,
+            "transform": {
+              "x": 265.1952865667545,
+              "y": -269.783392488199
+            }
+          },
+          "pointTimes": [
+            20,
+            60,
+            90,
+            120
+          ],
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "evaluatedAtFrame": {
+            "x": 265.1952865667545,
+            "y": -269.783392488199,
+            "scale": 0.8338202527198226,
+            "scaleX": 0.8338202527198226,
+            "scaleY": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        {
+          "name": "a-nudge-45",
+          "frame": 45,
+          "detail": {
+            "keys": "ArrowRight×3 ArrowDown×2",
+            "expectedDelta": {
+              "x": 3,
+              "y": 2
+            }
+          },
+          "writes": 1,
+          "beforeVisible": {
+            "output": {
+              "x": -348.05,
+              "y": 225.05
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 363.73056411743164,
+              "y": 228.41558837890625
+            }
+          },
+          "afterVisible": {
+            "output": {
+              "x": -345.05,
+              "y": 227.05
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 364.24931716918945,
+              "y": 228.76142120361328
+            }
+          },
+          "reseekVisible": {
+            "output": {
+              "x": -345.05,
+              "y": 227.05
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 364.24931716918945,
+              "y": 228.76142120361328
+            }
+          },
+          "noRevert": true,
+          "pointAtFrame": {
+            "t": 45,
+            "transform": {
+              "x": 368.2921602290355,
+              "y": 161.91436142519302
+            }
+          },
+          "pointTimes": [
+            20,
+            45,
+            60,
+            90,
+            120
+          ],
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "evaluatedAtFrame": {
+            "x": 368.2921602290355,
+            "y": 161.91436142519302,
+            "scale": 0.8338202527198226,
+            "scaleX": 0.8338202527198226,
+            "scaleY": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        {
+          "name": "a-bar-align-100",
+          "frame": 100,
+          "detail": {
+            "request": {
+              "action": "nudge",
+              "dx": 40,
+              "dy": -30
+            },
+            "result": {
+              "ok": true,
+              "value": {
+                "ok": true
+              }
+            }
+          },
+          "writes": 1,
+          "beforeVisible": {
+            "output": {
+              "x": -536.54,
+              "y": -114.72
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 331.13658142089844,
+              "y": 169.6636962890625
+            }
+          },
+          "afterVisible": {
+            "output": {
+              "x": -496.54,
+              "y": -144.72
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 338.0537986755371,
+              "y": 164.47543716430664
+            }
+          },
+          "reseekVisible": {
+            "output": {
+              "x": -496.54,
+              "y": -144.72
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 338.0537986755371,
+              "y": 164.47543716430664
+            }
+          },
+          "noRevert": true,
+          "pointAtFrame": {
+            "t": 100,
+            "transform": {
+              "x": 216.8,
+              "y": -209.86
+            }
+          },
+          "pointTimes": [
+            20,
+            45,
+            60,
+            90,
+            100,
+            120
+          ],
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "evaluatedAtFrame": {
+            "x": 216.8,
+            "y": -209.86,
+            "scale": 0.8338202527198226,
+            "scaleX": 0.8338202527198226,
+            "scaleY": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        {
+          "name": "a-bar-x-110",
+          "frame": 110,
+          "detail": {
+            "request": {
+              "action": "write",
+              "path": "transform.x",
+              "value": -150
+            },
+            "result": {
+              "ok": true,
+              "value": {
+                "ok": true
+              }
+            }
+          },
+          "writes": 1,
+          "beforeVisible": {
+            "output": {
+              "x": -604.94,
+              "y": -39.79
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 319.309627532959,
+              "y": 182.61959075927734
+            }
+          },
+          "afterVisible": {
+            "output": {
+              "x": -863.34,
+              "y": -39.79
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 274.6279582977295,
+              "y": 182.61959075927734
+            }
+          },
+          "reseekVisible": {
+            "output": {
+              "x": -863.34,
+              "y": -39.79
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 274.6279582977295,
+              "y": 182.61959075927734
+            }
+          },
+          "noRevert": true,
+          "pointAtFrame": {
+            "t": 110,
+            "transform": {
+              "x": -150,
+              "y": -104.93
+            }
+          },
+          "pointTimes": [
+            20,
+            45,
+            60,
+            90,
+            100,
+            110,
+            120
+          ],
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "evaluatedAtFrame": {
+            "x": -150,
+            "y": -104.93,
+            "scale": 0.8338202527198226,
+            "scaleX": 0.8338202527198226,
+            "scaleY": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        {
+          "name": "a-bar-resize-130",
+          "frame": 130,
+          "detail": {
+            "request": {
+              "action": "resize",
+              "width": 300,
+              "keepRatio": true
+            },
+            "result": {
+              "ok": true,
+              "value": {
+                "ok": true
+              }
+            }
+          },
+          "writes": 1,
+          "beforeVisible": {
+            "output": {
+              "x": -713.34,
+              "y": 65.14
+            },
+            "size": {
+              "w": 410.03,
+              "h": 410.03
+            },
+            "opacity": 1,
+            "page": {
+              "x": 300.56545639038086,
+              "y": 200.76372909545898
+            }
+          },
+          "afterVisible": {
+            "output": {
+              "x": -713.37,
+              "y": 64.84
+            },
+            "size": {
+              "w": 409.78,
+              "h": 409.78
+            },
+            "opacity": 1,
+            "page": {
+              "x": 300.56114959716797,
+              "y": 200.71174240112305
+            }
+          },
+          "reseekVisible": {
+            "output": {
+              "x": -713.37,
+              "y": 64.84
+            },
+            "size": {
+              "w": 409.78,
+              "h": 409.78
+            },
+            "opacity": 1,
+            "page": {
+              "x": 300.56114959716797,
+              "y": 200.71174240112305
+            }
+          },
+          "noRevert": true,
+          "pointAtFrame": {
+            "t": 130,
+            "transform": {
+              "x": -0.47,
+              "y": -0.26
+            }
+          },
+          "pointTimes": [
+            20,
+            45,
+            60,
+            90,
+            100,
+            110,
+            120,
+            130
+          ],
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8338202527198226,
+            "rotate": -29.992705117180833
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8333,
+            "rotate": -29.992705117180833
+          },
+          "evaluatedAtFrame": {
+            "x": -0.47,
+            "y": -0.26,
+            "scale": 0.8333,
+            "scaleX": 0.8333,
+            "scaleY": 0.8333,
+            "rotate": -29.992705117180833
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        }
+      ],
+      "finalPoints": [
+        {
+          "t": 20,
+          "transform": {
+            "x": 300,
+            "y": 108.0000176487199
+          }
+        },
+        {
+          "t": 45,
+          "transform": {
+            "x": 368.2921602290355,
+            "y": 161.91436142519302
+          }
+        },
+        {
+          "t": 60,
+          "transform": {
+            "x": 404.4674563664569,
+            "y": 191.0629676910769
+          }
+        },
+        {
+          "t": 90,
+          "transform": {
+            "x": 265.1952865667545,
+            "y": -269.783392488199
+          }
+        },
+        {
+          "t": 100,
+          "transform": {
+            "x": 216.8,
+            "y": -209.86
+          }
+        },
+        {
+          "t": 110,
+          "transform": {
+            "x": -150,
+            "y": -104.93
+          }
+        },
+        {
+          "t": 120,
+          "transform": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "t": 130,
+          "transform": {
+            "x": -0.47,
+            "y": -0.26
+          }
+        }
+      ],
+      "finalStatic": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.8333,
+        "rotate": -29.992705117180833
+      },
+      "everyPointHasXY": true
+    },
+    "B": {
+      "sizeSeat": {
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "after": {
+          "pressed": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "writes": 1,
+        "points": [
+          {
+            "t": 10,
+            "transform": {
+              "scale": 0.6
+            }
+          }
+        ],
+        "static": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "opacitySeat": {
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "after": {
+          "pressed": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "writes": 1,
+        "points": [
+          {
+            "t": 10,
+            "transform": {
+              "scale": 0.6
+            },
+            "opacity": 1
+          }
+        ],
+        "static": 1
+      },
+      "scale": {
+        "changed": {
+          "found": true,
+          "type": "text"
+        },
+        "writes": 1,
+        "points": [
+          {
+            "t": 10,
+            "transform": {
+              "scale": 0.6
+            },
+            "opacity": 1
+          },
+          {
+            "t": 100,
+            "transform": {
+              "scale": 1.5
+            }
+          }
+        ]
+      },
+      "opacity": {
+        "changed": {
+          "found": true,
+          "type": "text"
+        },
+        "writes": 1,
+        "points": [
+          {
+            "t": 10,
+            "transform": {
+              "scale": 0.6
+            },
+            "opacity": 1
+          },
+          {
+            "t": 100,
+            "transform": {
+              "scale": 1.5
+            },
+            "opacity": 0.3
+          }
+        ]
+      },
+      "samples": [
+        {
+          "frame": 0,
+          "visible": {
+            "output": {
+              "x": -468,
+              "y": -216
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 342.98906326293945,
+              "y": 152.14999771118164
+            }
+          },
+          "evaluated": {
+            "scale": 0.6,
+            "opacity": 1
+          }
+        },
+        {
+          "frame": 10,
+          "visible": {
+            "output": {
+              "x": -468,
+              "y": -216
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 342.98906326293945,
+              "y": 152.14999771118164
+            }
+          },
+          "evaluated": {
+            "scale": 0.6,
+            "opacity": 1
+          }
+        },
+        {
+          "frame": 55,
+          "visible": {
+            "output": {
+              "x": -819,
+              "y": -378
+            },
+            "size": {
+              "w": 378,
+              "h": 378
+            },
+            "opacity": 0.65,
+            "page": {
+              "x": 282.295316696167,
+              "y": 124.13749313354492
+            }
+          },
+          "evaluated": {
+            "scale": 1.05,
+            "opacity": 0.65
+          }
+        },
+        {
+          "frame": 100,
+          "visible": {
+            "output": {
+              "x": -1170,
+              "y": -540
+            },
+            "size": {
+              "w": 540,
+              "h": 540
+            },
+            "opacity": 0.3,
+            "page": {
+              "x": 221.6015625,
+              "y": 96.125
+            }
+          },
+          "evaluated": {
+            "scale": 1.5,
+            "opacity": 0.3
+          }
+        },
+        {
+          "frame": 140,
+          "visible": {
+            "output": {
+              "x": -1170,
+              "y": -540
+            },
+            "size": {
+              "w": 540,
+              "h": 540
+            },
+            "opacity": 0.3,
+            "page": {
+              "x": 221.6015625,
+              "y": 96.125
+            }
+          },
+          "evaluated": {
+            "scale": 1.5,
+            "opacity": 0.3
+          }
+        }
+      ],
+      "timelineDelete": {
+        "reveal": {
+          "more": true,
+          "jump": true
+        },
+        "diamonds": [
+          {
+            "t": "10",
+            "property": "transform.scale",
+            "endpoint": "true"
+          },
+          {
+            "t": "100",
+            "property": "transform.scale",
+            "endpoint": "true"
+          },
+          {
+            "t": "10",
+            "property": "opacity",
+            "endpoint": "true"
+          },
+          {
+            "t": "100",
+            "property": "opacity",
+            "endpoint": "true"
+          }
+        ],
+        "clicked": {
+          "x": 528.9140625,
+          "y": 574.515625,
+          "property": "transform.scale"
+        },
+        "writes": 1,
+        "pointsBefore": [
+          {
+            "t": 10,
+            "transform": {
+              "scale": 0.6
+            },
+            "opacity": 1
+          },
+          {
+            "t": 100,
+            "transform": {
+              "scale": 1.5
+            },
+            "opacity": 0.3
+          }
+        ],
+        "pointsAfter": [
+          {
+            "t": 10,
+            "transform": {
+              "scale": 0.6
+            },
+            "opacity": 1
+          }
+        ],
+        "keyframesAfter": [
+          {
+            "t": 10,
+            "transform": {
+              "scale": 0.6
+            },
+            "opacity": 1
+          },
+          {
+            "t": 11
+          }
+        ],
+        "staticAfter": {
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "opacity": 1
+        },
+        "visibleAfterDelete": {
+          "output": {
+            "x": -468,
+            "y": -216
+          },
+          "size": {
+            "w": 216,
+            "h": 216
+          },
+          "opacity": 1,
+          "page": {
+            "x": 342.98906326293945,
+            "y": 152.14999771118164
+          }
+        }
+      }
+    },
+    "C": {
+      "seat": {
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "after": {
+          "pressed": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "writes": 1,
+        "keyframes": [
+          {
+            "t": 50,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 51
+          }
+        ]
+      },
+      "moved": {
+        "name": "c-drag-50",
+        "frame": 50,
+        "writes": 1,
+        "beforeVisible": {
+          "output": {
+            "x": -468,
+            "y": -216
+          },
+          "size": {
+            "w": 216,
+            "h": 216
+          },
+          "opacity": 1,
+          "page": {
+            "x": 342.98906326293945,
+            "y": 152.14999771118164
+          }
+        },
+        "afterVisible": {
+          "output": {
+            "x": -208.03,
+            "y": -356.02
+          },
+          "size": {
+            "w": 216,
+            "h": 216
+          },
+          "opacity": 1,
+          "page": {
+            "x": 387.9421844482422,
+            "y": 127.93906021118164
+          }
+        },
+        "reseekVisible": {
+          "output": {
+            "x": -208.03,
+            "y": -356.02
+          },
+          "size": {
+            "w": 216,
+            "h": 216
+          },
+          "opacity": 1,
+          "page": {
+            "x": 387.9421844482422,
+            "y": 127.93906021118164
+          }
+        },
+        "noRevert": true,
+        "pointAtFrame": {
+          "t": 50,
+          "transform": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392
+          }
+        },
+        "pointTimes": [
+          50
+        ],
+        "staticBefore": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        },
+        "staticAfter": {
+          "x": 259.9698795180723,
+          "y": -140.01506024096392,
+          "scale": 0.6,
+          "rotate": 0
+        },
+        "evaluatedAtFrame": {
+          "x": 259.9698795180723,
+          "y": -140.01506024096392,
+          "scale": 0.6,
+          "scaleX": 0.6,
+          "scaleY": 0.6,
+          "rotate": 0
+        },
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "keyframes": [
+        {
+          "t": 50,
+          "transform": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392
+          }
+        },
+        {
+          "t": 51
+        }
+      ],
+      "static": {
+        "x": 259.9698795180723,
+        "y": -140.01506024096392,
+        "scale": 0.6,
+        "rotate": 0
+      },
+      "frames": [
+        {
+          "frame": 0,
+          "visible": {
+            "output": {
+              "x": -208.03,
+              "y": -356.02
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 387.9421844482422,
+              "y": 127.93906021118164
+            }
+          },
+          "evaluated": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392,
+            "scale": 0.6,
+            "scaleX": 0.6,
+            "scaleY": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "frame": 20,
+          "visible": {
+            "output": {
+              "x": -208.03,
+              "y": -356.02
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 387.9421844482422,
+              "y": 127.93906021118164
+            }
+          },
+          "evaluated": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392,
+            "scale": 0.6,
+            "scaleX": 0.6,
+            "scaleY": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "frame": 50,
+          "visible": {
+            "output": {
+              "x": -208.03,
+              "y": -356.02
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 387.9421844482422,
+              "y": 127.93906021118164
+            }
+          },
+          "evaluated": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392,
+            "scale": 0.6,
+            "scaleX": 0.6,
+            "scaleY": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "frame": 80,
+          "visible": {
+            "output": {
+              "x": -208.03,
+              "y": -356.02
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 387.9421844482422,
+              "y": 127.93906021118164
+            }
+          },
+          "evaluated": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392,
+            "scale": 0.6,
+            "scaleX": 0.6,
+            "scaleY": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "frame": 149,
+          "visible": {
+            "output": {
+              "x": -208.03,
+              "y": -356.02
+            },
+            "size": {
+              "w": 216,
+              "h": 216
+            },
+            "opacity": 1,
+            "page": {
+              "x": 387.9421844482422,
+              "y": 127.93906021118164
+            }
+          },
+          "evaluated": {
+            "x": 259.9698795180723,
+            "y": -140.01506024096392,
+            "scale": 0.6,
+            "scaleX": 0.6,
+            "scaleY": 0.6,
+            "rotate": 0
+          }
+        }
+      ]
+    }
+  },
+  "consoleErrors": []
+}

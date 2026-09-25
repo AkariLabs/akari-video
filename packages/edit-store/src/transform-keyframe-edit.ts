@@ -2,7 +2,6 @@ import type { ItemV2, KeyframeV2, TransformV2 } from './edit-v2';
 
 export type TransformField = 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate';
 const FIELDS: readonly TransformField[] = ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'];
-const DEFAULTS: Required<TransformV2> = { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 };
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const isMedia = (item: Pick<ItemV2, 'source'>): boolean => item.source.kind === 'media';
 const pointsOf = (item: Pick<ItemV2, 'keyframes'>): KeyframeV2[] =>
@@ -10,7 +9,7 @@ const pointsOf = (item: Pick<ItemV2, 'keyframes'>): KeyframeV2[] =>
 const frameOf = (item: Pick<ItemV2, 'duration'>, frame: number): number =>
     Math.min(item.duration, Math.max(0, Math.round(frame)));
 
-function eased(point: KeyframeV2, field: TransformField, u: number, media: boolean): number {
+function eased(point: KeyframeV2, field: TransformField | 'opacity', u: number, media: boolean): number {
     const raw = point.easing;
     const name = typeof raw === 'string' ? raw : raw?.[`transform.${field}`] ?? raw?.transform ?? 'linear';
     if (media) return name === 'ease-in-out'
@@ -71,7 +70,6 @@ function valueAt(points: KeyframeV2[], frame: number, field: TransformField,
         if (!finite(value) && (field === 'scaleX' || field === 'scaleY')) {
             value = transform.scale ?? (media ? statics[field] ?? statics.scale ?? 1 : fallback);
         }
-        if (!finite(value) && media) value = DEFAULTS[field];
         return finite(value) ? [{ point, value }] : [];
     });
     if (!declared.length) return fallback;
@@ -98,15 +96,60 @@ export function evaluatedItemTransform(item: Pick<ItemV2, 'source' | 'transform'
         scaleY: staticValue.scaleY ?? staticValue.scale ?? 1, rotate: staticValue.rotate ?? 0
     };
     const points = pointsOf(item), media = isMedia(item);
-    if (points.length < 2 || !points.some(point => point.transform)) return base;
+    if (!points.some(point => point.transform)) return base;
     const at = frameOf(item, frame);
     return Object.fromEntries(FIELDS.map(field => [field,
-        valueAt(points, at, field, media && field !== 'scaleX' && field !== 'scaleY'
-            ? DEFAULTS[field] : base[field], media, staticValue)])) as unknown as Required<TransformV2>;
+        valueAt(points, at, field, base[field], media, staticValue)])) as unknown as Required<TransformV2>;
+}
+
+export type ItemKeyframeGroup = 'position' | 'size' | 'rotation' | 'opacity';
+const GROUP_FIELDS: Record<Exclude<ItemKeyframeGroup, 'opacity'>, readonly TransformField[]> = {
+    position: ['x', 'y'], size: ['scale', 'scaleX', 'scaleY'], rotation: ['rotate']
+};
+const groupOf = (field: TransformField): Exclude<ItemKeyframeGroup, 'opacity'> =>
+    field === 'x' || field === 'y' ? 'position'
+        : field === 'rotate' ? 'rotation' : 'size';
+const declares = (point: KeyframeV2, group: ItemKeyframeGroup): boolean => group === 'opacity'
+    ? finite(point.opacity) : GROUP_FIELDS[group].some(field => finite(point.transform?.[field]));
+const groupPoints = (item: Pick<ItemV2, 'keyframes'>, group: ItemKeyframeGroup): KeyframeV2[] =>
+    pointsOf(item).filter(point => declares(point, group));
+const hasPointValue = (point: KeyframeV2): boolean => Object.entries(point)
+    .some(([key, value]) => key !== 't' && key !== 'easing' && value !== undefined);
+function legalPointArray(item: ItemV2, points: KeyframeV2[]): KeyframeV2[] | undefined {
+    const meaningful = points.filter(hasPointValue).sort((a, b) => a.t - b.t);
+    if (!meaningful.length) return undefined;
+    if (meaningful.length > 1) return meaningful;
+    // The existing file schema requires two array entries. This empty entry has no animated
+    // property; every evaluator and diamond list ignores it.
+    const t = meaningful[0].t < item.duration ? meaningful[0].t + 1 : meaningful[0].t - 1;
+    return [...meaningful, { t }].sort((a, b) => a.t - b.t);
+}
+
+export function hasItemKeyframeGroup(item: Pick<ItemV2, 'keyframes'>, group: ItemKeyframeGroup): boolean {
+    return groupPoints(item, group).length > 0;
 }
 
 export function hasTransformKeyframe(item: Pick<ItemV2, 'keyframes'>, field: TransformField): boolean {
-    return pointsOf(item).some(point => finite(point.transform?.[field]));
+    return hasItemKeyframeGroup(item, groupOf(field));
+}
+
+/** The same declared-point/hold/interpolation rule as the transform evaluator. */
+export function evaluatedItemOpacity(item: Pick<ItemV2, 'opacity' | 'keyframes' | 'duration'>,
+    frame: number): number {
+    const points = groupPoints(item, 'opacity');
+    const fallback = item.opacity ?? 1;
+    if (!points.length) return fallback;
+    const at = frameOf(item, frame);
+    if (at <= points[0].t) return points[0].opacity!;
+    const last = points[points.length - 1];
+    if (at >= last.t) return last.opacity!;
+    for (let index = 1; index < points.length; index++) {
+        const right = points[index], left = points[index - 1];
+        if (at > right.t) continue;
+        const u = eased(right, 'opacity', (at - left.t) / (right.t - left.t || 1), false);
+        return left.opacity! + (right.opacity! - left.opacity!) * u;
+    }
+    return fallback;
 }
 
 function validPatch(patch: TransformV2): void {
@@ -125,62 +168,156 @@ function normalizedAxisPatch(current: Required<TransformV2>, patch: TransformV2)
     return { ...patch, scaleX: current.scaleX * ratio, scaleY: current.scaleY * ratio };
 }
 
+function valuesAt(item: ItemV2, frame: number, group: ItemKeyframeGroup): TransformV2 | number {
+    if (group === 'opacity') return evaluatedItemOpacity(item, frame);
+    const pose = evaluatedItemTransform(item, frame);
+    if (group === 'position') return { x: pose.x, y: pose.y };
+    if (group === 'rotation') return { rotate: pose.rotate };
+    return { scale: pose.scale, scaleX: pose.scaleX, scaleY: pose.scaleY };
+}
+
+function withStaticGroup(item: ItemV2, group: ItemKeyframeGroup, value: TransformV2 | number): ItemV2 {
+    if (group === 'opacity') return { ...item, opacity: value as number };
+    return { ...item, transform: { ...item.transform, ...(value as TransformV2) } };
+}
+
+/** Backfill old sparse points only when this group is written. Values are read before mutation. */
+export function normalizeItemKeyframeGroup(item: ItemV2, group: ItemKeyframeGroup): ItemV2 {
+    const keyframes = pointsOf(item).map(point => {
+        const copy = structuredClone(point);
+        if (!declares(point, group)) return copy;
+        const value = valuesAt(item, point.t, group);
+        if (group === 'opacity') copy.opacity = value as number;
+        else copy.transform = { ...copy.transform, ...(value as TransformV2) };
+        return copy;
+    });
+    return keyframes.length ? { ...item, keyframes } : item;
+}
+
 function fullMediaPoint(item: ItemV2, point: KeyframeV2): KeyframeV2 {
     if (!point.transform) return { ...point };
     return { ...point, transform: evaluatedItemTransform(item, point.t) };
 }
 
-/** Toggle-on: seed the currently visible pose; media points are complete because the cut evaluator replaces a whole transform. */
-export function activateItemTransformKeyframe(item: ItemV2, frame: number, field: TransformField): ItemV2 {
-    const at = frameOf(item, frame), before = evaluatedItemTransform(item, at);
-    const points = pointsOf(item);
-    if (hasTransformKeyframe(item, field) && points.some(point => point.t === at && finite(point.transform?.[field]))) return item;
-    const next = points.map(point => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
-    const value: TransformV2 = isMedia(item) ? { ...before } : field === 'scale'
-        ? { scale: Math.sqrt(before.scaleX * before.scaleY), scaleX: before.scaleX, scaleY: before.scaleY }
-        : { [field]: before[field] };
-    const seat = next.find(point => point.t === at);
-    if (seat) seat.transform = { ...seat.transform, ...value };
-    else next.push({ t: at, transform: value });
-    if (next.length === 1) {
-        next.push({ t: at === 0 ? item.duration : 0, transform: { ...value } });
+function addGroupPoint(item: ItemV2, frame: number, group: ItemKeyframeGroup,
+    value: TransformV2 | number): ItemV2 {
+    const at = frameOf(item, frame);
+    const normalized = normalizeItemKeyframeGroup(item, group);
+    const keyframes = pointsOf(normalized).map(point => isMedia(item) ? fullMediaPoint(normalized, point) : structuredClone(point));
+    let seat = keyframes.find(point => point.t === at);
+    if (!seat) { seat = { t: at }; keyframes.push(seat); }
+    if (group === 'opacity') {
+        seat.opacity = value as number;
+        if (isMedia(item)) seat.transform = evaluatedItemTransform(item, at);
     }
-    return { ...item, keyframes: next.sort((a, b) => a.t - b.t) };
+    else seat.transform = { ...(isMedia(item) ? evaluatedItemTransform(item, at) : seat.transform),
+        ...(value as TransformV2) };
+    return { ...normalized, keyframes: legalPointArray(item, keyframes) };
 }
 
-/** One gesture produces one updated item; only animated coordinates receive a point at the playhead. */
+/** Add one visible-pose point. A lone group point also becomes its static value. */
+export function activateItemKeyframeGroup(item: ItemV2, frame: number, group: ItemKeyframeGroup): ItemV2 {
+    const at = frameOf(item, frame);
+    const hadGroup = hasItemKeyframeGroup(item, group);
+    const value = valuesAt(item, at, group);
+    if (groupPoints(item, group).some(point => point.t === at)) return normalizeItemKeyframeGroup(item, group);
+    const updated = addGroupPoint(item, at, group, value);
+    return hadGroup ? updated : withStaticGroup(updated, group, value);
+}
+
+/** Item-wide diamond: all four groups share one playhead point and one item result. */
+export function activateItemKeyframe(item: ItemV2, frame: number): ItemV2 {
+    return (['position', 'size', 'rotation', 'opacity'] as const)
+        .reduce((current, group) => activateItemKeyframeGroup(current, frame, group), item);
+}
+
+export function activateItemTransformKeyframe(item: ItemV2, frame: number, field: TransformField): ItemV2 {
+    return activateItemKeyframeGroup(item, frame, groupOf(field));
+}
+
+function patchedGroupValue(item: ItemV2, frame: number, group: Exclude<ItemKeyframeGroup, 'opacity'>,
+    patch: TransformV2): TransformV2 {
+    const current = evaluatedItemTransform(item, frame);
+    if (group === 'position') return { x: patch.x ?? current.x, y: patch.y ?? current.y };
+    if (group === 'rotation') return { rotate: patch.rotate ?? current.rotate };
+    const adjusted = normalizedAxisPatch(current, patch);
+    const scaleX = adjusted.scaleX ?? current.scaleX, scaleY = adjusted.scaleY ?? current.scaleY;
+    return { scale: Math.sqrt(scaleX * scaleY), scaleX, scaleY };
+}
+
+function writeGroup(item: ItemV2, frame: number, group: Exclude<ItemKeyframeGroup, 'opacity'>,
+    patch: TransformV2): ItemV2 {
+    const value = patchedGroupValue(item, frame, group, patch);
+    if (!hasItemKeyframeGroup(item, group)) return withStaticGroup(item, group, value);
+    const initialPoint = groupPoints(item, group)[0];
+    const updated = addGroupPoint(item, frame, group, value);
+    return groupPoints(item, group).length === 1
+        ? withStaticGroup(updated, group, valuesAt(updated, initialPoint.t, group)) : updated;
+}
+
+/** A gesture returns one updated item; every animated group auto-keys at the playhead. */
 export function writeItemTransformAt(item: ItemV2, frame: number, input: TransformV2): ItemV2 {
     validPatch(input);
-    const at = frameOf(item, frame), current = evaluatedItemTransform(item, at);
-    const patch = normalizedAxisPatch(current, input);
-    const animated = new Set(FIELDS.filter(field => hasTransformKeyframe(item, field)));
-    if (patch.scale !== undefined && (animated.has('scaleX') || animated.has('scaleY'))) animated.add('scale');
-    if (animated.has('scale')) { animated.add('scaleX'); animated.add('scaleY'); }
-    const base: TransformV2 = { ...item.transform };
-    const pointPatch: TransformV2 = {};
-    for (const field of FIELDS) {
-        const value = patch[field];
-        if (value === undefined) continue;
-        if (animated.has(field)) pointPatch[field] = value;
-        else base[field] = value;
-    }
-    if (patch.scaleX !== undefined || patch.scaleY !== undefined) {
-        if (animated.has('scale')) {
-            pointPatch.scaleX ??= current.scaleX;
-            pointPatch.scaleY ??= current.scaleY;
+    return [...new Set(Object.keys(input).map(field => groupOf(field as TransformField)))].reduce(
+        (current, group) => writeGroup(current, frame, group, input), item);
+}
+
+export function writeItemOpacityAt(item: ItemV2, frame: number, opacity: number): ItemV2 {
+    if (!finite(opacity) || opacity < 0 || opacity > 1) throw new Error('Invalid opacity');
+    if (!hasItemKeyframeGroup(item, 'opacity')) return withStaticGroup(item, 'opacity', opacity);
+    const initialPoint = groupPoints(item, 'opacity')[0];
+    const updated = addGroupPoint(item, frame, 'opacity', opacity);
+    return groupPoints(item, 'opacity').length === 1
+        ? withStaticGroup(updated, 'opacity', valuesAt(updated, initialPoint.t, 'opacity')) : updated;
+}
+
+/** Removing the last group point freezes the pose visible immediately before deletion. */
+export function removeItemKeyframeGroup(item: ItemV2, frame: number, group: ItemKeyframeGroup): ItemV2 {
+    const at = frameOf(item, frame);
+    if (!groupPoints(item, group).some(point => point.t === at)) return item;
+    const before = valuesAt(item, at, group);
+    const normalized = normalizeItemKeyframeGroup(item, group);
+    const keyframes = pointsOf(normalized).map(point => {
+        const copy = structuredClone(point);
+        if (copy.t !== at) return copy;
+        if (group === 'opacity') delete copy.opacity;
+        else if (copy.transform) {
+            for (const field of GROUP_FIELDS[group]) delete copy.transform[field];
+            if (!Object.keys(copy.transform).length) delete copy.transform;
         }
-        const x = pointPatch.scaleX ?? base.scaleX ?? base.scale ?? current.scaleX;
-        const y = pointPatch.scaleY ?? base.scaleY ?? base.scale ?? current.scaleY;
-        if (animated.has('scale')) pointPatch.scale = Math.sqrt(x * y);
-        else if (base.scaleX !== undefined || base.scaleY !== undefined) base.scale = Math.sqrt(x * y);
+        return copy;
+    }).filter(point => point.transform || point.opacity !== undefined || point.crop || point.perspective
+        || point.animator || point.gain_db !== undefined);
+    let updated: ItemV2 = { ...normalized, keyframes: legalPointArray(item, keyframes) };
+    const remaining = groupPoints(updated, group);
+    if (!remaining.length) updated = withStaticGroup(updated, group, before);
+    else if (remaining.length === 1) updated = withStaticGroup(updated, group,
+        valuesAt(normalized, remaining[0].t, group));
+    return updated;
+}
+
+/** Timeline point deletion is deliberately whole-point, independent of the selected row. */
+export function removeItemKeyframePoint(item: ItemV2, frame: number): ItemV2 {
+    const at = frameOf(item, frame);
+    const point = pointsOf(item).find(entry => entry.t === at);
+    if (!point) return item;
+    const values = (['position', 'size', 'rotation', 'opacity'] as const)
+        .filter(group => declares(point, group)).map(group => [group, valuesAt(item, at, group)] as const);
+    const keyframes = pointsOf(item).filter(entry => entry.t !== at).map(entry => structuredClone(entry));
+    let updated: ItemV2 = { ...item, keyframes: legalPointArray(item, keyframes) };
+    for (const [group, value] of values) if (!hasItemKeyframeGroup(updated, group)) {
+        updated = withStaticGroup(updated, group, value);
     }
-    let keyframes = pointsOf(item);
-    if (Object.keys(pointPatch).length) {
-        keyframes = keyframes.map(point => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
-        let seat = keyframes.find(point => point.t === at);
-        if (!seat) { seat = { t: at }; keyframes.push(seat); }
-        seat.transform = { ...(isMedia(item) ? current : seat.transform), ...pointPatch };
-        keyframes.sort((a, b) => a.t - b.t);
-    }
-    return { ...item, transform: base, ...(keyframes.length ? { keyframes } : {}) };
+    return updated;
+}
+
+export function moveItemKeyframeGroup(item: ItemV2, fromFrame: number, toFrame: number,
+    group: ItemKeyframeGroup): ItemV2 {
+    const from = frameOf(item, fromFrame), to = frameOf(item, toFrame);
+    if (from === to) return item;
+    const point = groupPoints(item, group).find(entry => entry.t === from);
+    if (!point) return item;
+    const value = valuesAt(item, from, group);
+    const removed = removeItemKeyframeGroup(item, from, group);
+    return addGroupPoint(removed, to, group, value);
 }

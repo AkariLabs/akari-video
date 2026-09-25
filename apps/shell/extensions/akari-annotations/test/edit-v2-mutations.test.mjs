@@ -503,17 +503,18 @@ test('reorderTracks は narration と BGM の audio track を中身ごと入れ�
   assert.equal(result.tracks[2].items[0].id, 'n-0001');
 });
 
-test('shell キーフレーム委譲器は 1 点目を両端 2 点へする', () => {
+test('shell キーフレーム委譲器は値を持つ点を現在時刻に 1 つだけ作る', () => {
   const source = structuredClone(fixture);
   const item = source.tracks.find(track => track.id === 'v-main').items[0];
   delete item.keyframes;
   const result = setV2Keyframe(source, {
     itemId: item.id, property: 'transform.x', t: 0, value: 12
   });
-  assert.deepEqual(result.tracks.find(track => track.id === 'v-main').items[0].keyframes, [
-    { t: 0, transform: { x: 12 } },
-    { t: item.duration, transform: { x: 12 } }
-  ]);
+  const points = result.tracks.find(track => track.id === 'v-main').items[0].keyframes;
+  assert.equal(points.filter(point => point.transform).length, 1);
+  assert.equal(points[0].t, 0);
+  assert.equal(points[0].transform.x, 12);
+  assert.deepEqual(points[1], { t: 1 });
 });
 
 test('shell 分配計画は visual item の 10 点を最寄り親の motion 袋へ出す', () => {

@@ -46,6 +46,7 @@ export interface LayerKeyframePoint {
     crop?: LayerKeyframeCrop;
     perspective?: LayerKeyframePerspective;
     easing?: unknown;
+    opacity?: number;
 }
 
 export interface ResolvedLayerKeyframeState {
@@ -55,6 +56,7 @@ export interface ResolvedLayerKeyframeState {
     crop: LayerKeyframeCrop | null;
     /** null when no keyframe point declares a usable `perspective` -- caller keeps the layer's own static perspective (or none). */
     perspective: LayerKeyframePerspective | null;
+    opacity: number | null;
 }
 
 /**
@@ -76,7 +78,8 @@ export function computeLayerKeyframesVisual(
     const isPlainObject = (value: unknown): value is Record<string, unknown> =>
         Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
-    type Point = { t: number; transform?: LayerKeyframeTransform; crop?: LayerKeyframeCrop; perspective?: LayerKeyframePerspective; easing?: unknown };
+    type Point = { t: number; transform?: LayerKeyframeTransform; crop?: LayerKeyframeCrop;
+        perspective?: LayerKeyframePerspective; easing?: unknown; opacity?: number };
 
     if (!Array.isArray(keyframes)) return null;
     const points: Point[] = (keyframes as unknown[])
@@ -178,5 +181,7 @@ export function computeLayerKeyframesVisual(
         perspective = { corners };
     }
 
-    return { transform, crop, perspective };
+    const opacityPoints = points.filter(point => isFiniteNumber(point.opacity));
+    const opacity = opacityPoints.length ? piecewiseValueAt(opacityPoints, point => point.opacity!, t) : null;
+    return { transform, crop, perspective, opacity };
 }

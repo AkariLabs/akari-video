@@ -33,7 +33,7 @@ test('HTML overall scale preserves axis ratio; width edits one axis in unitless 
   assert.ok(Math.abs(Math.sqrt(at30.scaleX * at30.scaleY) - 1.26) < 1e-9);
   value = writeItemTransformAt(value, 60, { scaleX: 1.41 });
   assert.equal(value.keyframes.find(point => point.t === 60).transform.scaleX, 1.41);
-  assert.equal(value.transform.scaleX, 1.305);
+  assert.equal(value.transform.scaleX, at30.scaleX);
   assert.equal(pose(value, 60).scaleY, at30.scaleY);
 });
 

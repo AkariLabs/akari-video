@@ -33,7 +33,7 @@ test('numeric writes update one playhead point across on/interior/outside, then 
     const before = structuredClone(edit);
     edit = writeV2ItemTransformAt(edit, { itemId: 'subject', t, patch: { x } });
     assert.equal(item(edit).keyframes.find(point => point.t === t).transform.x, x);
-    assert.equal(item(edit).transform.x, 32);
+    assert.equal(item(edit).transform.x, 45);
     assert.equal(evaluatedItemTransform(item(edit), t).x, x);
     const after = structuredClone(edit);
     const history = new AkariEditHistoryService();
@@ -81,7 +81,7 @@ test('paused playback updates inspector values without republishing preview sele
   assert.doesNotMatch(handler, /pushSelectionSnapshot\(/u);
 });
 
-test('removing one axis point preserves scale and the other keyed fields', () => {
+test('removing a size point clears its three axes and preserves position', () => {
   let edit = document('html');
   edit = activateV2ItemTransformKeyframe(edit, { itemId: 'subject', t: 0, field: 'x' });
   edit = activateV2ItemTransformKeyframe(edit, { itemId: 'subject', t: 0, field: 'scale' });
@@ -91,7 +91,8 @@ test('removing one axis point preserves scale and the other keyed fields', () =>
   edit = removeV2Keyframe(edit, { itemId: 'subject', property: 'transform.scaleX', t: 0 });
   const after = item(edit).keyframes.find(point => point.t === 0).transform;
   assert.equal(after.scaleX, undefined);
-  assert.equal(after.scaleY, before.scaleY);
-  assert.equal(after.scale, before.scale);
+  assert.equal(after.scaleY, undefined);
+  assert.equal(after.scale, undefined);
   assert.equal(after.x, before.x);
+  assert.equal(after.y, before.y);
 });

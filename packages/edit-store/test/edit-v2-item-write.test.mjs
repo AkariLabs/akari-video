@@ -84,7 +84,7 @@ test('dragged visible position removes entrance offset before saving the base va
   assert.equal(saved.y, 5);
 });
 
-test('dragged keyframed overlay writes only X/Y at the playhead', () => {
+test('dragged keyframed overlay writes complete position points at the playhead', () => {
   const value = v2();
   const title = value.tracks[1].items[0];
   title.transform = { x: 0, y: 0, scale: .5, rotate: 12 };
@@ -97,11 +97,11 @@ test('dragged keyframed overlay writes only X/Y at the playhead', () => {
   const saved = JSON.parse(result.candidateText).tracks[1].items[0];
   assert.deepEqual(saved.transform, title.transform);
   assert.deepEqual(saved.keyframes[1], { t: 30, transform: { x: 70, y: 0 } });
-  assert.deepEqual(saved.keyframes[0], title.keyframes[0]);
-  assert.deepEqual(saved.keyframes[2], title.keyframes[1]);
+  assert.deepEqual(saved.keyframes[0], { t: 0, transform: { x: 0, y: 0, scale: .5 } });
+  assert.deepEqual(saved.keyframes[2], { t: 60, transform: { x: 100, y: 0, scale: .75 } });
 });
 
-test('media move writes only position at the playhead and keeps scale and rotation', () => {
+test('media move writes a complete transform point and keeps scale and rotation', () => {
   const value = v2();
   const item = value.tracks[0].items[0];
   item.transform = { x: -200, y: 0, scale: .25, rotate: 8 };
@@ -110,10 +110,14 @@ test('media move writes only position at the playhead and keeps scale and rotati
     playheadSeconds: .5, patch: { transform: { x: -70, y: 0 } } });
   const saved = JSON.parse(result.candidateText).tracks[0].items[0];
   assert.deepEqual(saved.transform, item.transform);
-  assert.deepEqual(saved.keyframes.find(point => point.t === 15),
-    { t: 15, transform: { x: -70, y: 0 } });
-  assert.deepEqual(saved.keyframes[0], item.keyframes[0]);
-  assert.deepEqual(saved.keyframes[2], item.keyframes[1]);
+  assert.deepEqual(saved.keyframes.find(point => point.t === 15)?.transform,
+    { x: -70, y: 0, scale: .25, scaleX: .25, scaleY: .25, rotate: 8 });
+  for (const [index, x] of [[0, -200], [2, 100]]) {
+    assert.equal(saved.keyframes[index].transform.x, x);
+    assert.equal(saved.keyframes[index].transform.y, 0);
+    assert.equal(saved.keyframes[index].transform.scale, .25);
+    assert.equal(saved.keyframes[index].transform.rotate, 8);
+  }
 });
 
 test('one path write replaces only X/Y inside its span', () => {

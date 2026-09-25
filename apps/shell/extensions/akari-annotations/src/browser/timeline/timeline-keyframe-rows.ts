@@ -1,7 +1,10 @@
 export const DEFAULT_KEYFRAME_PROPERTIES = [
-    'transform.x', 'transform.y', 'transform.scale', 'transform.scaleX', 'transform.scaleY', 'transform.rotate', 'opacity'
+    'transform.x', 'transform.scale', 'transform.rotate', 'opacity'
 ] as const;
-export const EDITABLE_KEYFRAME_PROPERTIES = [...DEFAULT_KEYFRAME_PROPERTIES, 'crop', 'perspective'] as const;
+export const EDITABLE_KEYFRAME_PROPERTIES = [
+    'transform.x', 'transform.y', 'transform.scale', 'transform.scaleX', 'transform.scaleY',
+    'transform.rotate', 'opacity', 'crop', 'perspective'
+] as const;
 
 export type EditableKeyframeProperty = typeof EDITABLE_KEYFRAME_PROPERTIES[number];
 export type KeyframeProperty = EditableKeyframeProperty;
@@ -43,9 +46,9 @@ export interface KeyframeItemLike {
 }
 
 const LABELS: Record<KeyframeProperty, string> = {
-    'transform.x': 'X',
+    'transform.x': '位置',
     'transform.y': 'Y',
-    'transform.scale': '拡縮',
+    'transform.scale': '大きさ',
     'transform.scaleX': '幅',
     'transform.scaleY': '高さ',
     'transform.rotate': '回転',
@@ -87,6 +90,7 @@ export function aggregateKeyframeDiamonds(items: readonly KeyframeItemLike[]): A
     const atTime = new Map<number, Set<string>>();
     for (const item of items) {
         for (const point of inlinePoints(item.keyframes)) {
+            if (!Object.entries(point).some(([key, value]) => key !== 't' && key !== 'easing' && value !== undefined)) continue;
             const ids = atTime.get(point.t) ?? new Set<string>();
             ids.add(item.id);
             atTime.set(point.t, ids);
@@ -113,7 +117,12 @@ function propertiesAt(point: Record<string, unknown>): KeyframeProperty[] {
     const transform = isRecord(point.transform) ? point.transform : {};
     for (const property of EDITABLE_KEYFRAME_PROPERTIES) {
         const key = property.startsWith('transform.') ? property.slice('transform.'.length) : property;
-        if (property.startsWith('transform.') ? key in transform : key in point) result.push(property);
+        if (property.startsWith('transform.') ? key in transform : key in point) {
+            const grouped = property === 'transform.y' ? 'transform.x'
+                : property === 'transform.scaleX' || property === 'transform.scaleY' ? 'transform.scale'
+                    : property;
+            if (!result.includes(grouped)) result.push(grouped);
+        }
     }
     return result;
 }
@@ -121,7 +130,12 @@ function propertiesAt(point: Record<string, unknown>): KeyframeProperty[] {
 function valueAt(point: Record<string, unknown>, property: KeyframeProperty): unknown {
     if (!property.startsWith('transform.')) return point[property];
     const transform = point.transform;
-    return isRecord(transform) ? transform[property.slice('transform.'.length)] : undefined;
+    if (!isRecord(transform)) return undefined;
+    if (property === 'transform.x' || property === 'transform.y') return transform.x ?? transform.y;
+    if (property === 'transform.scale' || property === 'transform.scaleX' || property === 'transform.scaleY') {
+        return transform.scale ?? transform.scaleX ?? transform.scaleY;
+    }
+    return transform[property.slice('transform.'.length)];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

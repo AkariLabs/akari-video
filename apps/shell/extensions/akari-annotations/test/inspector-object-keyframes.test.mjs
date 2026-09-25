@@ -50,7 +50,11 @@ test('v2 mutations store whole objects and remove only the selected property, th
     assert.deepEqual(item(document).keyframes.find(point => point.t === 0), { t: 0, perspective });
     document = removeV2Keyframe(document, { itemId: 'visual-1', property: 'perspective', t: 0 });
     assert.equal(item(document).keyframes.some(point => point.t === 0), false);
-    assert.deepEqual(item(document).keyframes, [{ t: 50, opacity: 0.5 }, { t: 100, crop }]);
+    assert.equal(item(document).keyframes[0].t, 50);
+    assert.equal(item(document).keyframes[0].opacity, 0.5);
+    assert.deepEqual(item(document).keyframes[0].transform,
+        { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 });
+    assert.deepEqual(item(document).keyframes[1], { t: 100, crop });
 });
 
 const handleControl = timelineMethod('handleKeyframeControl', {
@@ -130,7 +134,7 @@ test('leaf navigation and reveal select and scroll the single object row', async
     }
 });
 
-test('width toggle removes its existing point even when another row is selected', async () => {
+test('width toggle removes the whole size group even when another row is selected', async () => {
     const widget = context();
     item(widget.document).keyframes = [
         { t: 20, transform: { x: -58, scale: 1.12, scaleX: 1.18, scaleY: 1.08 } },
@@ -142,9 +146,10 @@ test('width toggle removes its existing point even when another row is selected'
     }), { ok: true });
     const point = item(widget.document).keyframes.find(value => value.t === 20).transform;
     assert.equal(point.scaleX, undefined);
-    assert.equal(point.scale, 1.12);
-    assert.equal(point.scaleY, 1.08);
+    assert.equal(point.scale, undefined);
+    assert.equal(point.scaleY, undefined);
     assert.equal(point.x, -58);
+    assert.equal(item(widget.document).transform.scaleX, 1.18);
 });
 
 function inspectorMethod(name) {

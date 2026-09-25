@@ -40,7 +40,20 @@ import {
     type KeyframeProperty,
 } from '@akari-video/edit-store';
 import { normalizeAudioKeyframes, type AudioEnvelopeKeyframe } from './audio-envelope-store';
-import { activateItemTransformKeyframe, writeItemTransformAt, type TransformField } from '@akari-video/edit-store';
+import {
+    activateItemKeyframeGroup, activateItemTransformKeyframe, moveItemKeyframeGroup,
+    normalizeItemKeyframeGroup,
+    removeItemKeyframeGroup, removeItemKeyframePoint, writeItemOpacityAt,
+    writeItemTransformAt, type ItemKeyframeGroup, type TransformField
+} from '@akari-video/edit-store';
+
+const groupOfProperty = (property: string): ItemKeyframeGroup | undefined => property === 'opacity'
+    ? 'opacity' : property === 'transform.x' || property === 'transform.y' ? 'position'
+        : ['transform.scale', 'transform.scaleX', 'transform.scaleY'].includes(property) ? 'size'
+            : property === 'transform.rotate' ? 'rotation' : undefined;
+const itemPatch = (item: { transform?: unknown; opacity?: unknown; keyframes?: unknown }): Record<string, unknown> => ({
+    transform: item.transform, opacity: item.opacity, keyframes: item.keyframes
+});
 
 export type EditV2Document = Record<string, unknown>;
 export type EditV2Lane = 'visual' | 'audio';
@@ -294,6 +307,21 @@ export function setV2Keyframe(
     options: KeyframeMutationOptions & { t: number; value: unknown }
 ): EditV2Document {
     const edit = editForKeyframes(doc, options);
+    const group = groupOfProperty(options.property);
+    if (group) {
+        const item = edit.find(options.itemId);
+        if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+        const activated = activateItemKeyframeGroup(item as never, options.t, group);
+        const field = options.property.startsWith('transform.')
+            ? options.property.slice('transform.'.length) as TransformField : undefined;
+        if (typeof options.value !== 'number' || !Number.isFinite(options.value)) {
+            throw new Error('キーフレームの数値が不正です。');
+        }
+        const updated = field ? writeItemTransformAt(activated, options.t, { [field]: options.value })
+            : writeItemOpacityAt(activated, options.t, options.value);
+        updateTreeItem(edit, options.itemId, itemPatch(updated));
+        return finishKeyframeMutation(edit);
+    }
     setTreeKeyframe(edit, options.itemId, options.property, options.t, options.value);
     return finishKeyframeMutation(edit);
 }
@@ -307,7 +335,7 @@ export function activateV2ItemTransformKeyframe(
     const item = edit.find(options.itemId);
     if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
     const updated = activateItemTransformKeyframe(item as never, options.t, options.field);
-    updateTreeItem(edit, options.itemId, { keyframes: updated.keyframes });
+    updateTreeItem(edit, options.itemId, itemPatch(updated));
     return finishKeyframeMutation(edit);
 }
 
@@ -324,12 +352,38 @@ export function writeV2ItemTransformAt(
     return finishKeyframeMutation(edit);
 }
 
+export function writeV2ItemOpacityAt(
+    doc: EditV2Document,
+    options: { itemId: string; t: number; opacity: number; hydratedPoints?: readonly Record<string, unknown>[] }
+): EditV2Document {
+    const edit = editForKeyframes(doc, { itemId: options.itemId, property: 'opacity',
+        ...(options.hydratedPoints ? { hydratedPoints: options.hydratedPoints } : {}) });
+    const item = edit.find(options.itemId);
+    if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+    updateTreeItem(edit, options.itemId, itemPatch(writeItemOpacityAt(item as never, options.t, options.opacity)));
+    return finishKeyframeMutation(edit);
+}
+
 export function removeV2Keyframe(
     doc: EditV2Document,
     options: KeyframeMutationOptions & { t: number }
 ): EditV2Document {
     const edit = editForKeyframes(doc, options);
-    removeTreeKeyframe(edit, options.itemId, options.property, options.t);
+    const group = groupOfProperty(options.property);
+    if (group) {
+        const item = edit.find(options.itemId);
+        if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+        updateTreeItem(edit, options.itemId, itemPatch(removeItemKeyframeGroup(item as never, options.t, group)));
+    } else removeTreeKeyframe(edit, options.itemId, options.property, options.t);
+    return finishKeyframeMutation(edit);
+}
+
+export function removeV2KeyframePoint(doc: EditV2Document,
+    options: { itemId: string; t: number; hydratedPoints?: readonly Record<string, unknown>[] }): EditV2Document {
+    const edit = editForKeyframes(doc, { ...options, property: 'transform.x' });
+    const item = edit.find(options.itemId);
+    if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+    updateTreeItem(edit, options.itemId, itemPatch(removeItemKeyframePoint(item as never, options.t)));
     return finishKeyframeMutation(edit);
 }
 
@@ -338,7 +392,13 @@ export function moveV2Keyframe(
     options: KeyframeMutationOptions & { fromT: number; toT: number }
 ): EditV2Document {
     const edit = editForKeyframes(doc, options);
-    moveTreeKeyframe(edit, options.itemId, options.property, options.fromT, options.toT);
+    const group = groupOfProperty(options.property);
+    if (group) {
+        const item = edit.find(options.itemId);
+        if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+        updateTreeItem(edit, options.itemId, itemPatch(moveItemKeyframeGroup(item as never,
+            options.fromT, options.toT, group)));
+    } else moveTreeKeyframe(edit, options.itemId, options.property, options.fromT, options.toT);
     return finishKeyframeMutation(edit);
 }
 
@@ -347,7 +407,20 @@ export function setV2SegmentEasing(
     options: KeyframeMutationOptions & { toT: number; easing: string }
 ): EditV2Document {
     const edit = editForKeyframes(doc, options);
-    setTreeSegmentEasing(edit, options.itemId, options.property, options.toT, options.easing);
+    const group = groupOfProperty(options.property);
+    if (group && group !== 'opacity') {
+        const raw = edit.find(options.itemId);
+        if (!raw) throw new Error(`item が見つかりません: ${options.itemId}`);
+        updateTreeItem(edit, options.itemId, itemPatch(normalizeItemKeyframeGroup(raw as never, group)));
+        const properties = group === 'position' ? ['transform.x', 'transform.y']
+            : group === 'size' ? ['transform.scale', 'transform.scaleX', 'transform.scaleY']
+                : ['transform.rotate'];
+        const points = edit.find(options.itemId)?.keyframes;
+        const point = Array.isArray(points) ? points.find(entry => entry.t === options.toT) : undefined;
+        for (const property of properties) if (point?.transform?.[property.slice('transform.'.length) as TransformField] !== undefined) {
+            setTreeSegmentEasing(edit, options.itemId, property as KeyframeProperty, options.toT, options.easing);
+        }
+    } else setTreeSegmentEasing(edit, options.itemId, options.property, options.toT, options.easing);
     return finishKeyframeMutation(edit);
 }
 

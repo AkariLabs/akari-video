@@ -230,3 +230,36 @@ test('ロック中の id の一覧: キャンバスの子も拾う（プレビ�
     value = setItemLocked(value, 'shape-a', false);
     assert.deepEqual(lockedItemIds(value), ['kid-2']);
 });
+
+test('動きを持つ item の揃え・画面に合わせる・幅と高さは再生位置に点を打つ（静的値へ書いて戻らない・KF-1）', () => {
+    const animated = () => {
+        const d = doc();
+        const shape = findItemPlace(d, 'shape-a').item;
+        // shape-a は at = 30。item の中の 0 と 120 に位置の点（まとまりが揃った点）
+        shape.keyframes = [{ t: 0, transform: { x: 0, y: 0 } }, { t: 120, transform: { x: 120, y: 240 } }];
+        return d;
+    };
+    // 出力の 90 フレーム = item の中の 60 フレーム（見えている位置 = 60, 120）
+    const nudged = findItemPlace(nudgeItem(animated(), 'shape-a', 10, -20, 90), 'shape-a').item;
+    assert.deepEqual(nudged.transform, { x: 200, y: 140 }, '静的値は触らない');
+    assert.deepEqual(nudged.keyframes.map(p => p.t), [0, 60, 120]);
+    assert.deepEqual(nudged.keyframes[1].transform, { x: 70, y: 100 });
+    // 静的な item は従来どおり静的値（atFrame があっても）
+    assert.deepEqual(findItemPlace(nudgeItem(doc(), 'shape-a', -200, 10.5, 90), 'shape-a').item.transform, { x: 0, y: 150.5 });
+    assert.equal(findItemPlace(nudgeItem(doc(), 'shape-a', -200, 10.5, 90), 'shape-a').item.keyframes, undefined);
+
+    const resized = findItemPlace(resizeShapeTo(animated(), 'shape-a', { width: 720, keepRatio: true }, 90), 'shape-a').item;
+    const point = resized.keyframes.find(p => p.t === 60).transform;
+    assert.equal(point.x + 960 * (1 - 2), 60, '見えている左上の x はそのまま');
+    assert.equal(point.y + 540 * (1 - 2), 120);
+    // 大きさのまとまりは動きを持たないので静的値へ
+    assert.equal(resized.transform.scaleX, 2);
+    assert.equal(resized.transform.scaleY, 2);
+    assert.deepEqual(Object.keys(point).sort(), ['x', 'y']);
+
+    const fit = findItemPlace(fitItemToScreen(animated(), 'shape-a', 90), 'shape-a').item;
+    const fitPoint = fit.keyframes.find(p => p.t === 60).transform;
+    assert.equal(fitPoint.x + 960 * (1 - fit.transform.scaleX), 0);
+    assert.equal(fitPoint.y + 540 * (1 - fit.transform.scaleY), 0);
+    assert.equal(fit.keyframes.length, 3);
+});

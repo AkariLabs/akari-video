@@ -1,9 +1,8 @@
 import { EditV2, HtmlSourceV2, ItemV2, readEditV2 } from './edit-v2';
 import { effectiveScale, normalizeTransform } from './transform';
-import { writeItemTransformAt } from './transform-keyframe-edit';
+import { normalizeItemKeyframeGroup, writeItemTransformAt } from './transform-keyframe-edit';
 import { invertItemMotionPosition } from '../../overlay-runtime/src/item-motion.js';
 import { replaceXYKeyframes } from './motion-keyframe-replace';
-import { writeItemPositionAt } from './motion-position-write';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -199,19 +198,10 @@ function resolveV2Write(
         const seconds = command.playheadSeconds;
         const positionOnly = Object.keys(patch).length > 0
             && Object.keys(patch).every(key => key === 'x' || key === 'y');
-        if (positionOnly) {
+        if (positionOnly || Number.isFinite(seconds)) {
             const start = [...target!.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
             const frame = Number.isFinite(seconds)
                 ? Math.max(0, Math.min(item.duration, Math.round((seconds as number) * edit.output.fps) - start)) : 0;
-            const updated = writeItemPositionAt(item, frame, patch);
-            item.transform = updated.transform;
-            item.keyframes = updated.keyframes;
-            return;
-        }
-        if (Number.isFinite(seconds) && Array.isArray(item.keyframes)
-            && item.keyframes.some(point => point.transform)) {
-            const start = [...target!.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
-            const frame = Math.round((seconds as number) * edit.output.fps) - start;
             const updated = writeItemTransformAt(item, frame, patch);
             item.transform = updated.transform;
             item.keyframes = updated.keyframes;
@@ -283,8 +273,8 @@ function resolveV2Write(
             if (command.patch.html !== undefined || command.patch.vars !== undefined || command.patch.params !== undefined) {
                 throw new Error(`グループアイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
             }
-            if (command.patch.xyKeyframes) item.keyframes = replaceXYKeyframes(item.keyframes,
-                command.patch.xyKeyframes, item.duration);
+            if (command.patch.xyKeyframes) item.keyframes = normalizeItemKeyframeGroup({ ...item,
+                keyframes: replaceXYKeyframes(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             if (command.patch.transform) writeTransform(command.patch.transform);
             if (!command.patch.transform && !command.patch.xyKeyframes) return {};
             return { candidateText: stringifyEdit(edit) };
@@ -327,12 +317,14 @@ function resolveV2Write(
             editChanged = true;
         }
         if (command.patch.xyKeyframes) {
-            item.keyframes = replaceXYKeyframes(item.keyframes, command.patch.xyKeyframes, item.duration);
+            item.keyframes = normalizeItemKeyframeGroup({ ...item,
+                keyframes: replaceXYKeyframes(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             editChanged = true;
         }
     } else if (command.kind === 'layer') {
         if (command.patch.xyKeyframes) {
-            item.keyframes = replaceXYKeyframes(item.keyframes, command.patch.xyKeyframes, item.duration);
+            item.keyframes = normalizeItemKeyframeGroup({ ...item,
+                keyframes: replaceXYKeyframes(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             editChanged = true;
         }
         if (command.patch.transform) {
@@ -358,7 +350,8 @@ function resolveV2Write(
             throw new Error(`映像アイテムではありません: ${itemId}`);
         }
         if (command.patch.xyKeyframes) {
-            item.keyframes = replaceXYKeyframes(item.keyframes, command.patch.xyKeyframes, item.duration);
+            item.keyframes = normalizeItemKeyframeGroup({ ...item,
+                keyframes: replaceXYKeyframes(item.keyframes, command.patch.xyKeyframes, item.duration) }, 'position').keyframes;
             editChanged = true;
         }
         if (command.patch.transform) {

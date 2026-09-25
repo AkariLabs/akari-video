@@ -1,3 +1,4 @@
+import { evaluatedItemTransform, hasItemKeyframeGroup, writeItemTransformAt, type TransformV2 } from '@akari-video/edit-store';
 import { EditV2Document, moveTreeV2Item } from './edit-v2-mutations';
 
 /**
@@ -420,34 +421,69 @@ export function setCornerRadius(doc: EditV2Document, id: string, percent: number
 }
 
 /**
+ * 変形のまとまり（位置・大きさ・回転）のどれかが動き（キーフレーム）を持つとき、再生位置の item の中のフレームを返す。
+ * そのときは静的値へ書かず、キーフレームの書き込み層（edit-store の writeItemTransformAt）で再生位置へ点を打つ
+ * （静的値へ書くと点に負けて「戻る」）。`atFrame` は出力のフレーム。
+ */
+function animatedFrame(place: ItemPlace, atFrame: number | undefined): number | undefined {
+    if (atFrame === undefined || !Number.isFinite(atFrame)) return undefined;
+    const item = place.item as never;
+    if (!(['position', 'size', 'rotation'] as const).some(group => hasItemKeyframeGroup(item, group))) return undefined;
+    const duration = Number.isFinite(place.item.duration) ? place.item.duration as number : 0;
+    return Math.max(0, Math.min(duration, Math.round(atFrame) - place.absoluteAt));
+}
+
+function writeAnimatedTransform(item: JsonRecord, frame: number, patch: TransformV2): void {
+    const updated = writeItemTransformAt(item as never, frame, patch);
+    item.transform = updated.transform;
+    if (updated.keyframes) item.keyframes = updated.keyframes; else delete item.keyframes;
+}
+
+/**
  * 画面に合わせる。図形・ライン = 画面いっぱいへ伸ばす（拡縮の中心は画面の中心なので x / y で左上を 0 に合わせる）/
  * 写真・動画ほか = 変形を外して画面に収める（既定の置き方）。
+ * 動きを持つ item は再生位置へ点を打つ（`atFrame` = 出力のフレーム。省略時は静的値）。
  */
-export function fitItemToScreen(doc: EditV2Document, id: string): EditV2Document {
+export function fitItemToScreen(doc: EditV2Document, id: string, atFrame?: number): EditV2Document {
     const value = clone(doc) as JsonRecord;
-    const item = findItemPlace(value, id)?.item;
-    if (!item) throw new Error(`要素が見つかりません: ${id}`);
+    const place = findItemPlace(value, id);
+    const item = place?.item;
+    if (!place || !item) throw new Error(`要素が見つかりません: ${id}`);
     const output = isRecord(value.output) ? value.output : {};
     const W = Number(output.width) || 1920;
     const H = Number(output.height) || 1080;
+    const frame = animatedFrame(place, atFrame);
     if (item.source?.kind === 'shape') {
         const width = Number(item.source.params?.width) || 600;
         const height = Number(item.source.params?.height) || (item.source.shape === 'line' ? 80 : 340);
         const sx = W / width;
         const sy = H / height;
+        if (frame !== undefined) {
+            writeAnimatedTransform(item, frame, { x: (W / 2) * (sx - 1), y: (H / 2) * (sy - 1), scaleX: sx, scaleY: sy, rotate: 0 });
+            return value;
+        }
         item.transform = { x: (W / 2) * (sx - 1), y: (H / 2) * (sy - 1), scaleX: sx, scaleY: sy };
         if (Math.abs(sx - sy) < 1e-9) item.transform = { x: item.transform.x, y: item.transform.y, scale: sx };
+    } else if (frame !== undefined) {
+        writeAnimatedTransform(item, frame, { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 });
     } else {
         item.transform = { x: 0, y: 0, scale: 1 };
     }
     return value;
 }
 
-/** 位置をずらす（揃え: プレビューで測った見えている箱の差を出力の px で足す）。 */
-export function nudgeItem(doc: EditV2Document, id: string, dx: number, dy: number): EditV2Document {
+/** 位置をずらす（揃え: プレビューで測った見えている箱の差を出力の px で足す）。動きを持つ item は再生位置の見えている位置から。 */
+export function nudgeItem(doc: EditV2Document, id: string, dx: number, dy: number, atFrame?: number): EditV2Document {
     const value = clone(doc) as JsonRecord;
-    const item = findItemPlace(value, id)?.item;
-    if (!item) throw new Error(`要素が見つかりません: ${id}`);
+    const place = findItemPlace(value, id);
+    const item = place?.item;
+    if (!place || !item) throw new Error(`要素が見つかりません: ${id}`);
+    const frame = animatedFrame(place, atFrame);
+    if (frame !== undefined) {
+        const pose = evaluatedItemTransform(item as never, frame);
+        writeAnimatedTransform(item, frame, { x: Math.round((pose.x + dx) * 100) / 100, y: Math.round((pose.y + dy) * 100) / 100 });
+        return value;
+    }
     const transform = isRecord(item.transform) ? item.transform : {};
     item.transform = { ...transform,
         x: Math.round(((Number.isFinite(transform.x) ? transform.x : 0) + dx) * 100) / 100,
@@ -457,18 +493,22 @@ export function nudgeItem(doc: EditV2Document, id: string, dx: number, dy: numbe
 
 /**
  * 図形の大きさを px で指定する（配置の窓の 幅 / 高さ）。見えている左上を動かさない
- * （拡縮の中心 = 画面の中心なので、x / y を補正する）。
+ * （拡縮の中心 = 画面の中心なので、x / y を補正する）。動きを持つ図形は再生位置の見えている値から、その時刻の点として書く。
  */
-export function resizeShapeTo(doc: EditV2Document, id: string, size: { width?: number; height?: number; keepRatio?: boolean }): EditV2Document {
+export function resizeShapeTo(doc: EditV2Document, id: string,
+    size: { width?: number; height?: number; keepRatio?: boolean }, atFrame?: number): EditV2Document {
     const value = clone(doc) as JsonRecord;
-    const item = findItemPlace(value, id)?.item;
-    if (!item || item.source?.kind !== 'shape') throw new Error('図形を選んでください。');
+    const place = findItemPlace(value, id);
+    const item = place?.item;
+    if (!place || !item || item.source?.kind !== 'shape') throw new Error('図形を選んでください。');
     const output = isRecord(value.output) ? value.output : {};
     const cx = (Number(output.width) || 1920) / 2;
     const cy = (Number(output.height) || 1080) / 2;
     const baseW = Number(item.source.params?.width) || 600;
     const baseH = Number(item.source.params?.height) || (item.source.shape === 'line' ? 80 : 340);
-    const t = isRecord(item.transform) ? item.transform : {};
+    const frame = animatedFrame(place, atFrame);
+    const t: JsonRecord = frame !== undefined ? evaluatedItemTransform(item as never, frame)
+        : isRecord(item.transform) ? item.transform : {};
     const scale = Number.isFinite(t.scale) ? t.scale : 1;
     const sx0 = Number.isFinite(t.scaleX) ? t.scaleX : scale;
     const sy0 = Number.isFinite(t.scaleY) ? t.scaleY : scale;
@@ -482,6 +522,11 @@ export function resizeShapeTo(doc: EditV2Document, id: string, size: { width?: n
     const y0 = Number.isFinite(t.y) ? t.y : 0;
     const left = x0 + cx * (1 - sx0);
     const top = y0 + cy * (1 - sy0);
+    if (frame !== undefined) {
+        writeAnimatedTransform(item, frame, { x: round2(left - cx * (1 - sx)), y: round2(top - cy * (1 - sy)),
+            scaleX: round4(sx), scaleY: round4(sy) });
+        return value;
+    }
     const next: JsonRecord = { ...t, x: round2(left - cx * (1 - sx)), y: round2(top - cy * (1 - sy)) };
     delete next.scale; delete next.scaleX; delete next.scaleY;
     if (Math.abs(sx - sy) < 1e-9) next.scale = round4(sx); else { next.scaleX = round4(sx); next.scaleY = round4(sy); }
