@@ -8,7 +8,7 @@ const BLEND_MODES = new Set([
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
-    'motion', 'animator', 'keyframes', 'items', 'mask', 'erase', 'flip', 'source', 'audio', 'anchor'
+    'motion', 'animator', 'keyframes', 'items', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'source', 'audio', 'anchor'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
@@ -81,6 +81,7 @@ function cloneItem(item) {
         ...item,
         ...('erase' in item && item.erase ? { erase: structuredClone(item.erase) } : {}),
         ...('flip' in item && item.flip ? { flip: { ...item.flip } } : {}),
+        ...('frame' in item && item.frame ? { frame: structuredClone(item.frame) } : {}),
         source: { ...item.source },
         ...('items' in item && Array.isArray(item.items)
             ? { items: item.items.map(child => cloneItem(child)) } : {})
@@ -280,6 +281,8 @@ function validateItem(value, path, ids, sourceIds) {
     }
     if (hasOwn(value, 'crop'))
         validateCrop(value.crop, `${path}.crop`);
+    if (hasOwn(value, 'frame'))
+        validatePhotoFrame(value.frame, `${path}.frame`, value.source);
     if (hasOwn(value, 'adjust'))
         validateAdjust(value.adjust, `${path}.adjust`);
     if (hasOwn(value, 'perspective'))
@@ -311,6 +314,53 @@ function validateItem(value, path, ids, sourceIds) {
         requireText(value.mask, `${path}.mask`);
         if (!sourceIds.has(value.mask))
             throw invalid(`${path}.mask`, `sources[].id に存在しません: ${value.mask}`);
+    }
+    if (hasOwn(value, 'maskFeather')) {
+        if (value.source.kind !== 'media')
+            throw invalid(`${path}.maskFeather`, 'media item だけが指定できます');
+        requireRange(value.maskFeather, 0, 100, `${path}.maskFeather`);
+    }
+    if (hasOwn(value, 'regions')) {
+        if (value.source.kind !== 'media' || !Array.isArray(value.regions) || value.regions.length > 32)
+            throw invalid(`${path}.regions`, 'media item の 32 個以下の配列である必要があります');
+        const regionIds = new Set();
+        value.regions.forEach((region, index) => {
+            const at = `${path}.regions[${index}]`;
+            requireRecord(region, at);
+            requireExactKeys(region, new Set(['id', 'name', 'maskRef', 'invert', 'enabled', 'adjust', 'filter', 'blur']), at);
+            requireText(region.id, `${at}.id`);
+            if (hasOwn(region, 'name'))
+                requireText(region.name, `${at}.name`);
+            if (regionIds.has(region.id))
+                throw invalid(`${at}.id`, '重複しています');
+            regionIds.add(region.id);
+            requireText(region.maskRef, `${at}.maskRef`);
+            if (!sourceIds.has(region.maskRef))
+                throw invalid(`${at}.maskRef`, `sources[].id に存在しません: ${region.maskRef}`);
+            for (const key of ['invert', 'enabled'])
+                if (hasOwn(region, key) && typeof region[key] !== 'boolean')
+                    throw invalid(`${at}.${key}`, 'boolean である必要があります');
+            if (hasOwn(region, 'adjust')) {
+                requireRecord(region.adjust, `${at}.adjust`);
+                requireExactKeys(region.adjust, new Set(['basic']), `${at}.adjust`);
+                if (hasOwn(region.adjust, 'basic')) {
+                    requireRecord(region.adjust.basic, `${at}.adjust.basic`);
+                    requireExactKeys(region.adjust.basic, new Set(['exposure', 'contrast', 'saturation', 'temperature']), `${at}.adjust.basic`);
+                    for (const key of ['exposure', 'contrast', 'saturation', 'temperature'])
+                        if (hasOwn(region.adjust.basic, key))
+                            requireRange(region.adjust.basic[key], key === 'exposure' ? -3 : -1, key === 'exposure' ? 3 : 1, `${at}.adjust.basic.${key}`);
+                }
+            }
+            if (hasOwn(region, 'filter')) {
+                requireRecord(region.filter, `${at}.filter`);
+                requireExactKeys(region.filter, new Set(['lut', 'intensity']), `${at}.filter`);
+                requireText(region.filter.lut, `${at}.filter.lut`);
+                if (hasOwn(region.filter, 'intensity'))
+                    requireRange(region.filter.intensity, 0, 1, `${at}.filter.intensity`);
+            }
+            if (hasOwn(region, 'blur'))
+                requireRange(region.blur, 0, 50, `${at}.blur`);
+        });
     }
     if (hasOwn(value, 'erase')) {
         if (value.source.kind !== 'media' || !Array.isArray(value.erase))
@@ -549,6 +599,25 @@ function validateCrop(value, path) {
         requireRange(value[key], 0, 1, `${path}.${key}`);
         if (value[key] === 0)
             throw invalid(`${path}.${key}`, '0 より大きい必要があります');
+    }
+    if (hasOwn(value, 'rotate'))
+        requireRange(value.rotate, -45, 45, `${path}.rotate`);
+}
+function validatePhotoFrame(value, path, source) {
+    if (!source || typeof source !== 'object' || source.kind !== 'media') {
+        throw invalid(path, 'media item だけが指定できます');
+    }
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['stroke', 'cornerRadius']), path);
+    if (hasOwn(value, 'cornerRadius'))
+        requireRange(value.cornerRadius, 0, 100, `${path}.cornerRadius`);
+    if (hasOwn(value, 'stroke')) {
+        requireRecord(value.stroke, `${path}.stroke`);
+        requireExactKeys(value.stroke, new Set(['color', 'width']), `${path}.stroke`);
+        if (typeof value.stroke.color !== 'string' || !/^#[0-9a-fA-F]{6}$/u.test(value.stroke.color)) {
+            throw invalid(`${path}.stroke.color`, '#RRGGBB である必要があります');
+        }
+        requireRange(value.stroke.width, 0, 100, `${path}.stroke.width`);
     }
 }
 function validateAdjust(value, path) {

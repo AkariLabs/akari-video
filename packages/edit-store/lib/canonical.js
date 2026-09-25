@@ -7,11 +7,12 @@ const transform_1 = require("./transform");
 const edit_v2_keys_1 = require("./generated/edit-v2-keys");
 const ITEM_KEY_ORDER = [
     'id', 'name', 'at', 'duration', 'hidden', 'locked', 'transform', 'opacity',
-    'blend', 'crop', 'flip', 'mask', 'erase', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
+    'blend', 'crop', 'flip', 'mask', 'maskFeather', 'erase', 'regions', 'frame', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
     'role', 'link', 'mute'
 ];
 const EDIT_KEY_ORDER = ['version', 'output', 'sources', 'audio', 'tracks'];
 const TRACK_KEY_ORDER = ['id', 'lane', 'name', 'muted', 'items', 'content'];
+const PHOTO_REGION_KEY_ORDER = ['id', 'name', 'maskRef', 'invert', 'enabled', 'adjust', 'filter', 'blur'];
 const CAPTION_KEY_ORDER = [
     'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'time_domain', 'text_style'
 ];
@@ -167,6 +168,9 @@ function inlineField(key, value, item) {
         return inlineObject(value, ['kind', 'canvas']);
     if (item && key === 'keyframes' && Array.isArray(value)) {
         return `[${value.map(point => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(', ')}]`;
+    }
+    if (item && key === 'regions' && Array.isArray(value)) {
+        return `[${value.map(region => inlineOrdered(region, PHOTO_REGION_KEY_ORDER)).join(', ')}]`;
     }
     return inline(value);
 }

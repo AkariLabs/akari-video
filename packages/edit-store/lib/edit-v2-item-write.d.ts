@@ -12,6 +12,7 @@ export interface PreviewItemCropPatch {
     y: number;
     w: number;
     h: number;
+    rotate?: number;
 }
 export interface PreviewItemPerspectivePatch {
     corners: [number, number][];

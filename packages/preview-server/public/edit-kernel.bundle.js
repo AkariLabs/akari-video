@@ -2229,8 +2229,11 @@ var ITEM_KEYS = /* @__PURE__ */ new Set([
   "keyframes",
   "items",
   "mask",
+  "maskFeather",
+  "regions",
   "erase",
   "flip",
+  "frame",
   "source",
   "audio",
   "anchor"
@@ -2321,6 +2324,7 @@ function cloneItem(item) {
     ...item,
     ..."erase" in item && item.erase ? { erase: structuredClone(item.erase) } : {},
     ..."flip" in item && item.flip ? { flip: { ...item.flip } } : {},
+    ..."frame" in item && item.frame ? { frame: structuredClone(item.frame) } : {},
     source: { ...item.source },
     ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
   };
@@ -2486,6 +2490,7 @@ function validateItem(value, path, ids, sourceIds) {
     throw invalid(`${path}.blend`, "\u672A\u5BFE\u5FDC\u306E blend mode \u3067\u3059");
   }
   if (hasOwn(value, "crop")) validateCrop(value.crop, `${path}.crop`);
+  if (hasOwn(value, "frame")) validatePhotoFrame(value.frame, `${path}.frame`, value.source);
   if (hasOwn(value, "adjust")) validateAdjust(value.adjust, `${path}.adjust`);
   if (hasOwn(value, "perspective")) requireRecord2(value.perspective, `${path}.perspective`);
   if (hasOwn(value, "motion")) validateMotion(value.motion, `${path}.motion`);
@@ -2508,6 +2513,49 @@ function validateItem(value, path, ids, sourceIds) {
     if (value.source.kind !== "media") throw invalid(`${path}.mask`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
     requireText(value.mask, `${path}.mask`);
     if (!sourceIds.has(value.mask)) throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+  }
+  if (hasOwn(value, "maskFeather")) {
+    if (value.source.kind !== "media") throw invalid(`${path}.maskFeather`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+    requireRange(value.maskFeather, 0, 100, `${path}.maskFeather`);
+  }
+  if (hasOwn(value, "regions")) {
+    if (value.source.kind !== "media" || !Array.isArray(value.regions) || value.regions.length > 32)
+      throw invalid(`${path}.regions`, "media item \u306E 32 \u500B\u4EE5\u4E0B\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    const regionIds = /* @__PURE__ */ new Set();
+    value.regions.forEach((region, index) => {
+      const at = `${path}.regions[${index}]`;
+      requireRecord2(region, at);
+      requireExactKeys(region, /* @__PURE__ */ new Set(["id", "name", "maskRef", "invert", "enabled", "adjust", "filter", "blur"]), at);
+      requireText(region.id, `${at}.id`);
+      if (hasOwn(region, "name")) requireText(region.name, `${at}.name`);
+      if (regionIds.has(region.id)) throw invalid(`${at}.id`, "\u91CD\u8907\u3057\u3066\u3044\u307E\u3059");
+      regionIds.add(region.id);
+      requireText(region.maskRef, `${at}.maskRef`);
+      if (!sourceIds.has(region.maskRef)) throw invalid(`${at}.maskRef`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${region.maskRef}`);
+      for (const key of ["invert", "enabled"]) if (hasOwn(region, key) && typeof region[key] !== "boolean") throw invalid(`${at}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      if (hasOwn(region, "adjust")) {
+        requireRecord2(region.adjust, `${at}.adjust`);
+        requireExactKeys(region.adjust, /* @__PURE__ */ new Set(["basic"]), `${at}.adjust`);
+        if (hasOwn(region.adjust, "basic")) {
+          requireRecord2(region.adjust.basic, `${at}.adjust.basic`);
+          requireExactKeys(region.adjust.basic, /* @__PURE__ */ new Set(["exposure", "contrast", "saturation", "temperature"]), `${at}.adjust.basic`);
+          for (const key of ["exposure", "contrast", "saturation", "temperature"]) if (hasOwn(region.adjust.basic, key))
+            requireRange(
+              region.adjust.basic[key],
+              key === "exposure" ? -3 : -1,
+              key === "exposure" ? 3 : 1,
+              `${at}.adjust.basic.${key}`
+            );
+        }
+      }
+      if (hasOwn(region, "filter")) {
+        requireRecord2(region.filter, `${at}.filter`);
+        requireExactKeys(region.filter, /* @__PURE__ */ new Set(["lut", "intensity"]), `${at}.filter`);
+        requireText(region.filter.lut, `${at}.filter.lut`);
+        if (hasOwn(region.filter, "intensity")) requireRange(region.filter.intensity, 0, 1, `${at}.filter.intensity`);
+      }
+      if (hasOwn(region, "blur")) requireRange(region.blur, 0, 50, `${at}.blur`);
+    });
   }
   if (hasOwn(value, "erase")) {
     if (value.source.kind !== "media" || !Array.isArray(value.erase)) throw invalid(`${path}.erase`, "media item \u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
@@ -2706,6 +2754,23 @@ function validateCrop(value, path) {
   for (const key of ["w", "h"]) {
     requireRange(value[key], 0, 1, `${path}.${key}`);
     if (value[key] === 0) throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  if (hasOwn(value, "rotate")) requireRange(value.rotate, -45, 45, `${path}.rotate`);
+}
+function validatePhotoFrame(value, path, source) {
+  if (!source || typeof source !== "object" || source.kind !== "media") {
+    throw invalid(path, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+  }
+  requireRecord2(value, path);
+  requireExactKeys(value, /* @__PURE__ */ new Set(["stroke", "cornerRadius"]), path);
+  if (hasOwn(value, "cornerRadius")) requireRange(value.cornerRadius, 0, 100, `${path}.cornerRadius`);
+  if (hasOwn(value, "stroke")) {
+    requireRecord2(value.stroke, `${path}.stroke`);
+    requireExactKeys(value.stroke, /* @__PURE__ */ new Set(["color", "width"]), `${path}.stroke`);
+    if (typeof value.stroke.color !== "string" || !/^#[0-9a-fA-F]{6}$/u.test(value.stroke.color)) {
+      throw invalid(`${path}.stroke.color`, "#RRGGBB \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+    }
+    requireRange(value.stroke.width, 0, 100, `${path}.stroke.width`);
   }
 }
 function validateAdjust(value, path) {
@@ -3918,6 +3983,8 @@ function legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds) {
 function needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling = false) {
   if (item.source.kind !== "media") return false;
   if ("mask" in item && item.mask !== void 0) return true;
+  if ("regions" in item && Boolean(item.regions?.length)) return true;
+  if ("frame" in item && item.frame !== void 0 || (item.crop?.rotate ?? 0) !== 0 || "erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) return true;
   if (item.blend !== void 0 && item.blend !== "normal") return true;
   if (Array.isArray(item.keyframes) && item.keyframes.some(
     (point2) => point2 && typeof point2 === "object" && "perspective" in point2 && point2.perspective !== void 0
@@ -3980,7 +4047,7 @@ function isAlphaCapableMediaSourcePath(path) {
 }
 function needsCrossTrackLayers(item, pathOf) {
   const transform = item.transform;
-  return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && isStillImageSourcePath(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+  return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.source.kind === "media" && "frame" in item && item.frame !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && "regions" in item && Boolean(item.regions?.length) || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && isStillImageSourcePath(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
 }
 function nextRef(counters, kind) {
   const ref = counters.get(kind) ?? 0;
@@ -4069,7 +4136,10 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
     ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
     ...item.blend !== void 0 ? { blend: item.blend } : {},
     ...item.crop !== void 0 ? { crop: item.crop } : {},
+    ...item.source.kind === "media" && "frame" in item && item.frame !== void 0 ? { frame: structuredClone(item.frame) } : {},
     ...item.source.kind === "media" && "erase" in item && item.erase !== void 0 ? { erase: structuredClone(item.erase) } : {},
+    ...item.source.kind === "media" && "maskFeather" in item && item.maskFeather !== void 0 ? { maskFeather: item.maskFeather } : {},
+    ...item.source.kind === "media" && "regions" in item && item.regions !== void 0 ? { regions: item.regions.map((region) => ({ ...structuredClone(region), maskRef: pathOf(region.maskRef) ?? region.maskRef })) } : {},
     ...item.source.kind === "media" && "flip" in item && item.flip !== void 0 ? { flip: { ...item.flip } } : {},
     ...item.adjust !== void 0 ? { adjust: structuredClone(item.adjust) } : {},
     ...item.perspective !== void 0 ? { perspective: item.perspective } : {},

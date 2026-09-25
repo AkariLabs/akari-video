@@ -6834,8 +6834,11 @@ var require_edit_v2 = __commonJS({
       "keyframes",
       "items",
       "mask",
+      "maskFeather",
+      "regions",
       "erase",
       "flip",
+      "frame",
       "source",
       "audio",
       "anchor"
@@ -6929,6 +6932,7 @@ var require_edit_v2 = __commonJS({
         ...item,
         ..."erase" in item && item.erase ? { erase: structuredClone(item.erase) } : {},
         ..."flip" in item && item.flip ? { flip: { ...item.flip } } : {},
+        ..."frame" in item && item.frame ? { frame: structuredClone(item.frame) } : {},
         source: { ...item.source },
         ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
       };
@@ -7125,6 +7129,8 @@ var require_edit_v2 = __commonJS({
       }
       if (hasOwn(value, "crop"))
         validateCrop(value.crop, `${path}.crop`);
+      if (hasOwn(value, "frame"))
+        validatePhotoFrame(value.frame, `${path}.frame`, value.source);
       if (hasOwn(value, "adjust"))
         validateAdjust(value.adjust, `${path}.adjust`);
       if (hasOwn(value, "perspective"))
@@ -7156,6 +7162,53 @@ var require_edit_v2 = __commonJS({
         requireText(value.mask, `${path}.mask`);
         if (!sourceIds.has(value.mask))
           throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+      }
+      if (hasOwn(value, "maskFeather")) {
+        if (value.source.kind !== "media")
+          throw invalid(`${path}.maskFeather`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+        requireRange(value.maskFeather, 0, 100, `${path}.maskFeather`);
+      }
+      if (hasOwn(value, "regions")) {
+        if (value.source.kind !== "media" || !Array.isArray(value.regions) || value.regions.length > 32)
+          throw invalid(`${path}.regions`, "media item \u306E 32 \u500B\u4EE5\u4E0B\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        const regionIds = /* @__PURE__ */ new Set();
+        value.regions.forEach((region, index) => {
+          const at2 = `${path}.regions[${index}]`;
+          requireRecord(region, at2);
+          requireExactKeys(region, /* @__PURE__ */ new Set(["id", "name", "maskRef", "invert", "enabled", "adjust", "filter", "blur"]), at2);
+          requireText(region.id, `${at2}.id`);
+          if (hasOwn(region, "name"))
+            requireText(region.name, `${at2}.name`);
+          if (regionIds.has(region.id))
+            throw invalid(`${at2}.id`, "\u91CD\u8907\u3057\u3066\u3044\u307E\u3059");
+          regionIds.add(region.id);
+          requireText(region.maskRef, `${at2}.maskRef`);
+          if (!sourceIds.has(region.maskRef))
+            throw invalid(`${at2}.maskRef`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${region.maskRef}`);
+          for (const key of ["invert", "enabled"])
+            if (hasOwn(region, key) && typeof region[key] !== "boolean")
+              throw invalid(`${at2}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          if (hasOwn(region, "adjust")) {
+            requireRecord(region.adjust, `${at2}.adjust`);
+            requireExactKeys(region.adjust, /* @__PURE__ */ new Set(["basic"]), `${at2}.adjust`);
+            if (hasOwn(region.adjust, "basic")) {
+              requireRecord(region.adjust.basic, `${at2}.adjust.basic`);
+              requireExactKeys(region.adjust.basic, /* @__PURE__ */ new Set(["exposure", "contrast", "saturation", "temperature"]), `${at2}.adjust.basic`);
+              for (const key of ["exposure", "contrast", "saturation", "temperature"])
+                if (hasOwn(region.adjust.basic, key))
+                  requireRange(region.adjust.basic[key], key === "exposure" ? -3 : -1, key === "exposure" ? 3 : 1, `${at2}.adjust.basic.${key}`);
+            }
+          }
+          if (hasOwn(region, "filter")) {
+            requireRecord(region.filter, `${at2}.filter`);
+            requireExactKeys(region.filter, /* @__PURE__ */ new Set(["lut", "intensity"]), `${at2}.filter`);
+            requireText(region.filter.lut, `${at2}.filter.lut`);
+            if (hasOwn(region.filter, "intensity"))
+              requireRange(region.filter.intensity, 0, 1, `${at2}.filter.intensity`);
+          }
+          if (hasOwn(region, "blur"))
+            requireRange(region.blur, 0, 50, `${at2}.blur`);
+        });
       }
       if (hasOwn(value, "erase")) {
         if (value.source.kind !== "media" || !Array.isArray(value.erase))
@@ -7404,6 +7457,25 @@ var require_edit_v2 = __commonJS({
         requireRange(value[key], 0, 1, `${path}.${key}`);
         if (value[key] === 0)
           throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+      if (hasOwn(value, "rotate"))
+        requireRange(value.rotate, -45, 45, `${path}.rotate`);
+    }
+    function validatePhotoFrame(value, path, source) {
+      if (!source || typeof source !== "object" || source.kind !== "media") {
+        throw invalid(path, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+      }
+      requireRecord(value, path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["stroke", "cornerRadius"]), path);
+      if (hasOwn(value, "cornerRadius"))
+        requireRange(value.cornerRadius, 0, 100, `${path}.cornerRadius`);
+      if (hasOwn(value, "stroke")) {
+        requireRecord(value.stroke, `${path}.stroke`);
+        requireExactKeys(value.stroke, /* @__PURE__ */ new Set(["color", "width"]), `${path}.stroke`);
+        if (typeof value.stroke.color !== "string" || !/^#[0-9a-fA-F]{6}$/u.test(value.stroke.color)) {
+          throw invalid(`${path}.stroke.color`, "#RRGGBB \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+        requireRange(value.stroke.width, 0, 100, `${path}.stroke.width`);
       }
     }
     function validateAdjust(value, path) {
@@ -10346,6 +10418,10 @@ var require_internal_model = __commonJS({
         return false;
       if ("mask" in item && item.mask !== void 0)
         return true;
+      if ("regions" in item && Boolean(item.regions?.length))
+        return true;
+      if ("frame" in item && item.frame !== void 0 || (item.crop?.rotate ?? 0) !== 0 || "erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0)
+        return true;
       if (item.blend !== void 0 && item.blend !== "normal")
         return true;
       if (Array.isArray(item.keyframes) && item.keyframes.some((point) => point && typeof point === "object" && "perspective" in point && point.perspective !== void 0))
@@ -10418,7 +10494,7 @@ var require_internal_model = __commonJS({
     }
     function needsCrossTrackLayers(item, pathOf) {
       const transform = item.transform;
-      return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+      return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.source.kind === "media" && "frame" in item && item.frame !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && "regions" in item && Boolean(item.regions?.length) || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
     }
     function nextRef(counters, kind) {
       const ref = counters.get(kind) ?? 0;
@@ -10488,7 +10564,10 @@ var require_internal_model = __commonJS({
         ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
         ...item.blend !== void 0 ? { blend: item.blend } : {},
         ...item.crop !== void 0 ? { crop: item.crop } : {},
+        ...item.source.kind === "media" && "frame" in item && item.frame !== void 0 ? { frame: structuredClone(item.frame) } : {},
         ...item.source.kind === "media" && "erase" in item && item.erase !== void 0 ? { erase: structuredClone(item.erase) } : {},
+        ...item.source.kind === "media" && "maskFeather" in item && item.maskFeather !== void 0 ? { maskFeather: item.maskFeather } : {},
+        ...item.source.kind === "media" && "regions" in item && item.regions !== void 0 ? { regions: item.regions.map((region) => ({ ...structuredClone(region), maskRef: pathOf(region.maskRef) ?? region.maskRef })) } : {},
         ...item.source.kind === "media" && "flip" in item && item.flip !== void 0 ? { flip: { ...item.flip } } : {},
         ...item.adjust !== void 0 ? { adjust: structuredClone(item.adjust) } : {},
         ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
@@ -12860,7 +12939,7 @@ var require_edit_v2_keys = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "erase", "flip", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "maskFeather", "regions", "erase", "flip", "frame", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
     exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -12887,8 +12966,11 @@ var require_edit_v2_keys = __commonJS({
         "keyframes",
         "items",
         "mask",
+        "maskFeather",
+        "regions",
         "erase",
         "flip",
+        "frame",
         "source",
         "audio"
       ],
@@ -13149,7 +13231,10 @@ var require_canonical = __commonJS({
       "crop",
       "flip",
       "mask",
+      "maskFeather",
       "erase",
+      "regions",
+      "frame",
       "perspective",
       "motion",
       "animator",
@@ -13163,6 +13248,7 @@ var require_canonical = __commonJS({
     ];
     var EDIT_KEY_ORDER = ["version", "output", "sources", "audio", "tracks"];
     var TRACK_KEY_ORDER = ["id", "lane", "name", "muted", "items", "content"];
+    var PHOTO_REGION_KEY_ORDER = ["id", "name", "maskRef", "invert", "enabled", "adjust", "filter", "blur"];
     var CAPTION_KEY_ORDER = [
       "id",
       "start",
@@ -13326,6 +13412,9 @@ var require_canonical = __commonJS({
         return inlineObject(value, ["kind", "canvas"]);
       if (item && key === "keyframes" && Array.isArray(value)) {
         return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
+      }
+      if (item && key === "regions" && Array.isArray(value)) {
+        return `[${value.map((region) => inlineOrdered(region, PHOTO_REGION_KEY_ORDER)).join(", ")}]`;
       }
       return inline(value);
     }
@@ -16799,14 +16888,14 @@ var require_mp4box_all = __commonJS({
       }
     });
     BoxParser.createFullBoxCtor("iloc", function(stream) {
-      var byte;
-      byte = stream.readUint8();
-      this.offset_size = byte >> 4 & 15;
-      this.length_size = byte & 15;
-      byte = stream.readUint8();
-      this.base_offset_size = byte >> 4 & 15;
+      var byte2;
+      byte2 = stream.readUint8();
+      this.offset_size = byte2 >> 4 & 15;
+      this.length_size = byte2 & 15;
+      byte2 = stream.readUint8();
+      this.base_offset_size = byte2 >> 4 & 15;
       if (this.version === 1 || this.version === 2) {
-        this.index_size = byte & 15;
+        this.index_size = byte2 & 15;
       } else {
         this.index_size = 0;
       }
@@ -18520,17 +18609,17 @@ var require_mp4box_all = __commonJS({
         var constraint_string = "";
         if (this.vvcC.general_constraint_info) {
           var bytes = [];
-          var byte = 0;
-          byte |= this.vvcC.ptl_frame_only_constraint << 7;
-          byte |= this.vvcC.ptl_multilayer_enabled << 6;
+          var byte2 = 0;
+          byte2 |= this.vvcC.ptl_frame_only_constraint << 7;
+          byte2 |= this.vvcC.ptl_multilayer_enabled << 6;
           var last_nonzero;
           for (i2 = 0; i2 < this.vvcC.general_constraint_info.length; ++i2) {
-            byte |= this.vvcC.general_constraint_info[i2] >> 2 & 63;
-            bytes.push(byte);
-            if (byte) {
+            byte2 |= this.vvcC.general_constraint_info[i2] >> 2 & 63;
+            bytes.push(byte2);
+            if (byte2) {
               last_nonzero = i2;
             }
-            byte = this.vvcC.general_constraint_info[i2] >> 2 & 3;
+            byte2 = this.vvcC.general_constraint_info[i2] >> 2 & 3;
           }
           if (last_nonzero === void 0) {
             constraint_string = ".CA";
@@ -21692,6 +21781,16 @@ function dissolveNoiseField(width, height) {
   return field;
 }
 
+// ../frame-engine/src/compositor/photo-frame.ts
+function photoFrameUniforms(frame, width, height, outputWidth) {
+  const short = Math.max(0, Math.min(width, height));
+  const radius = short * Math.max(0, Math.min(100, frame?.cornerRadius ?? 0)) / 200;
+  const strokeWidth = Math.min(short / 2, Math.max(0, Math.min(100, frame?.stroke?.width ?? 0)) * outputWidth / 1920);
+  const hex = frame?.stroke?.color;
+  const color = typeof hex === "string" && /^#[0-9a-fA-F]{6}$/.test(hex) ? [1, 3, 5].map((at2) => parseInt(hex.slice(at2, at2 + 2), 16) / 255) : [0, 0, 0];
+  return { radius, strokeWidth, color };
+}
+
 // ../frame-engine/src/compositor/webgl2.ts
 var TRANSITION_BLUR_MAX_TAPS = 65;
 var TRANSITION_CODES = Object.freeze(Object.fromEntries([
@@ -21965,6 +22064,8 @@ uniform int layerStyle0;
 uniform int layerStyle1;
 uniform vec4 crop0;
 uniform vec4 crop1;
+uniform float cropRotation0;
+uniform float cropRotation1;
 uniform vec2 box0;
 uniform vec2 box1;
 uniform sampler3D adjustLut0;
@@ -22030,6 +22131,14 @@ vec4 sample0(vec2 p) {
     vec2 local = inverseBox(p, transform0, box0);
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop0.xy + local * crop0.zw;
+    if (cropRotation0 != 0.0) {
+      vec2 center = crop0.xy + crop0.zw * 0.5;
+      vec2 delta = (q - center) * sourceSize0;
+      float a = radians(cropRotation0);
+      q = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                         -sin(a) * delta.x + cos(a) * delta.y) / sourceSize0;
+      if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0)))) return vec4(0.0);
+    }
   } else {
     vec2 canvasPoint = inverseVisual(p, transform0, framing0, scaleAxes0);
     if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
@@ -22052,6 +22161,14 @@ vec4 sample1(vec2 p) {
     vec2 local = inverseBox(p, transform1, box1);
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop1.xy + local * crop1.zw;
+    if (cropRotation1 != 0.0) {
+      vec2 center = crop1.xy + crop1.zw * 0.5;
+      vec2 delta = (q - center) * sourceSize1;
+      float a = radians(cropRotation1);
+      q = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                         -sin(a) * delta.x + cos(a) * delta.y) / sourceSize1;
+      if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0)))) return vec4(0.0);
+    }
   } else {
     vec2 canvasPoint = inverseVisual(p, transform1, framing1, scaleAxes1);
     if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
@@ -22255,6 +22372,12 @@ uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
 uniform ivec2 flipAxes;
+uniform float cropRotation;
+uniform vec2 sourcePixelSize;
+uniform vec2 framePixelSize;
+uniform float frameRadius;
+uniform float frameStrokeWidth;
+uniform vec3 frameStrokeColor;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -22316,6 +22439,17 @@ void main() {
   vec2 sampledLocal = vec2(flipAxes.x == 1 ? 1.0 - local.x : local.x,
                            flipAxes.y == 1 ? 1.0 - local.y : local.y);
   vec2 sourceUv = cropRect.xy + sampledLocal * cropRect.zw;
+  if (cropRotation != 0.0) {
+    vec2 center = cropRect.xy + cropRect.zw * 0.5;
+    vec2 delta = (sourceUv - center) * sourcePixelSize;
+    float a = radians(cropRotation);
+    sourceUv = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                             -sin(a) * delta.x + cos(a) * delta.y) / sourcePixelSize;
+    if (any(lessThan(sourceUv, vec2(0.0))) || any(greaterThan(sourceUv, vec2(1.0)))) {
+      color = dst;
+      return;
+    }
+  }
   vec2 colorUv = unrotate(sourceUv, layerRotation);
   vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
@@ -22334,10 +22468,24 @@ void main() {
     }
     src.rgb = applyAdjust(src.rgb);
   }
+  if (hasFx == 1 && (cropRotation != 0.0 || flipAxes.x == 1 || flipAxes.y == 1)) {
+    src = sampleFx((sourceUv - fxCrop.xy) / fxCrop.zw);
+  }
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
-  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
+  float edgeDistance = -100000.0;
+  if (frameRadius > 0.0 || frameStrokeWidth > 0.0) {
+    vec2 halfSize = framePixelSize * 0.5;
+    vec2 q = abs(local * framePixelSize - halfSize) - halfSize + frameRadius;
+    edgeDistance = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - frameRadius;
+  }
+  float cornerCoverage = frameRadius > 0.0 ? clamp(0.5 - edgeDistance, 0.0, 1.0) : 1.0;
+  if (frameStrokeWidth > 0.0) {
+    float strokeCoverage = clamp(edgeDistance + frameStrokeWidth + 0.5, 0.0, 1.0);
+    src.rgb = mix(src.rgb, frameStrokeColor, strokeCoverage);
+  }
+  float alpha = clamp(src.a * maskA * opacity * cornerCoverage, 0.0, 1.0);
   ${transparent ? `float outAlpha = alpha + dst.a * (1.0 - alpha);
   vec3 mixed = (src.rgb * alpha * (1.0 - dst.a)
     + blend(dst.rgb, src.rgb) * alpha * dst.a + dst.rgb * dst.a * (1.0 - alpha));
@@ -22497,7 +22645,12 @@ function forwardInverse(visual, srcW, srcH, outW, outH) {
 }
 function compositeCutGeometry(cut, srcW, srcH, outW, outH) {
   if (cut.layerStyle) return {
-    visual: { crop: cut.layerStyle.crop, perspective: null, transform: cut.transform },
+    visual: {
+      crop: cut.layerStyle.crop,
+      ...cut.layerStyle.cropRotate ? { cropRotate: cut.layerStyle.cropRotate } : {},
+      perspective: null,
+      transform: cut.transform
+    },
     width: srcW,
     height: srcH
   };
@@ -22722,6 +22875,7 @@ var WebGL2Compositor = class {
       rotation: gl.getUniformLocation(program, `rotation${index}`),
       layerStyle: gl.getUniformLocation(program, `layerStyle${index}`),
       crop: gl.getUniformLocation(program, `crop${index}`),
+      cropRotation: gl.getUniformLocation(program, `cropRotation${index}`),
       box: gl.getUniformLocation(program, `box${index}`),
       adjustLut: gl.getUniformLocation(program, `adjustLut${index}`),
       hasAdjustLut: gl.getUniformLocation(program, `hasAdjustLut${index}`),
@@ -22955,6 +23109,7 @@ var WebGL2Compositor = class {
     if (v2.layerStyle) {
       const box2 = cutLayerStyleBox(v2, sourceLogical.width, sourceLogical.height);
       this.gl.uniform1i(u2.layerStyle, 1);
+      this.gl.uniform1f(u2.cropRotation, v2.layerStyle.cropRotate ?? 0);
       this.gl.uniform4f(
         u2.crop,
         v2.layerStyle.crop.x,
@@ -22965,6 +23120,7 @@ var WebGL2Compositor = class {
       this.gl.uniform2f(u2.box, Math.max(box2.width, 1e-6), Math.max(box2.height, 1e-6));
     } else {
       this.gl.uniform1i(u2.layerStyle, 0);
+      this.gl.uniform1f(u2.cropRotation, 0);
       this.gl.uniform4f(u2.crop, 0, 0, 1, 1);
       this.gl.uniform2f(u2.box, 1, 1);
     }
@@ -23416,7 +23572,7 @@ var WebGL2Compositor = class {
       };
       const result = this.snapshotBaseFx(index, this.runFxPasses(passes, {
         size,
-        crop,
+        crop: visual.layerStyle?.cropRotate ? FULL_CROP : crop,
         displayed,
         format: still || video ? 2 : frame.format === "NV12" ? 1 : 0,
         rotation,
@@ -23522,6 +23678,12 @@ var WebGL2Compositor = class {
     const layerRotationLoc = uniform(gl, this.layerProgram, "layerRotation");
     const maskRotationLoc = uniform(gl, this.layerProgram, "maskRotation");
     const flipAxesLoc = uniform(gl, this.layerProgram, "flipAxes");
+    const cropRotationLoc = uniform(gl, this.layerProgram, "cropRotation");
+    const sourcePixelSizeLoc = uniform(gl, this.layerProgram, "sourcePixelSize");
+    const framePixelSizeLoc = uniform(gl, this.layerProgram, "framePixelSize");
+    const frameRadiusLoc = uniform(gl, this.layerProgram, "frameRadius");
+    const frameStrokeWidthLoc = uniform(gl, this.layerProgram, "frameStrokeWidth");
+    const frameStrokeColorLoc = uniform(gl, this.layerProgram, "frameStrokeColor");
     const blendLoc = uniform(gl, this.layerProgram, "blendMode");
     const layerAdjustUniforms = {
       hasAdjustLut: uniform(gl, this.layerProgram, "hasAdjustLut"),
@@ -23631,6 +23793,15 @@ var WebGL2Compositor = class {
         output.height
       ) : { visual: layer.visual, width: sourceLogical.width, height: sourceLogical.height };
       const visual = geometry.visual;
+      const frameWidth = visual.crop.width * geometry.width * (visual.transform.scaleX ?? visual.transform.scale);
+      const frameHeight = visual.crop.height * geometry.height * (visual.transform.scaleY ?? visual.transform.scale);
+      const frameStyle = photoFrameUniforms(layer.frame, frameWidth, frameHeight, output.width);
+      gl.uniform1f(cropRotationLoc, visual.cropRotate ?? 0);
+      gl.uniform2f(sourcePixelSizeLoc, sourceLogical.width, sourceLogical.height);
+      gl.uniform2f(framePixelSizeLoc, frameWidth, frameHeight);
+      gl.uniform1f(frameRadiusLoc, frameStyle.radius);
+      gl.uniform1f(frameStrokeWidthLoc, frameStyle.strokeWidth);
+      gl.uniform3f(frameStrokeColorLoc, ...frameStyle.color);
       gl.uniform2i(flipAxesLoc, layer.flip?.h ? 1 : 0, layer.flip?.v ? 1 : 0);
       gl.uniform2f(outLoc, output.width, output.height);
       gl.uniformMatrix3fv(
@@ -23657,7 +23828,7 @@ var WebGL2Compositor = class {
       const passes = planFxPasses(layer.adjustFx);
       let fxResult = null;
       if (passes.length) {
-        const crop = visual.crop;
+        const crop = (visual.cropRotate ?? 0) !== 0 ? FULL_CROP : visual.crop;
         const inverse = forwardInverse(visual, geometry.width, geometry.height, output.width, output.height);
         fxResult = this.runFxPasses(passes, {
           size: { width, height },
@@ -23798,7 +23969,7 @@ var WebGL2Compositor = class {
 };
 
 // ../frame-engine/src/mask/compose-still-mask.ts
-function composeStillMask(basePixels, width, height, strokes, originalAlpha) {
+function composeStillMask(basePixels, width, height, strokes, originalAlpha, feather = 0) {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width > 65536 || height > 65536 || width * height > 268435456) {
     throw new RangeError("invalid mask dimensions");
   }
@@ -23806,6 +23977,27 @@ function composeStillMask(basePixels, width, height, strokes, originalAlpha) {
   if (basePixels && basePixels.length !== length) throw new RangeError("base mask size mismatch");
   if (originalAlpha && originalAlpha.length !== length) throw new RangeError("original alpha size mismatch");
   const output = basePixels ? new Uint8Array(basePixels) : new Uint8Array(length).fill(255);
+  if (!Number.isFinite(feather) || feather < 0 || feather > 100) throw new RangeError("invalid mask feather");
+  const radius = Math.round(feather);
+  if (radius > 0 && basePixels) {
+    const horizontal = new Uint8Array(length);
+    for (let y2 = 0; y2 < height; y2 += 1) {
+      let sum = 0;
+      for (let x3 = -radius; x3 <= radius; x3 += 1) sum += basePixels[y2 * width + Math.max(0, Math.min(width - 1, x3))];
+      for (let x3 = 0; x3 < width; x3 += 1) {
+        horizontal[y2 * width + x3] = Math.floor((sum + radius) / (2 * radius + 1));
+        sum += basePixels[y2 * width + Math.min(width - 1, x3 + radius + 1)] - basePixels[y2 * width + Math.max(0, x3 - radius)];
+      }
+    }
+    for (let x3 = 0; x3 < width; x3 += 1) {
+      let sum = 0;
+      for (let y2 = -radius; y2 <= radius; y2 += 1) sum += horizontal[Math.max(0, Math.min(height - 1, y2)) * width + x3];
+      for (let y2 = 0; y2 < height; y2 += 1) {
+        output[y2 * width + x3] = Math.floor((sum + radius) / (2 * radius + 1));
+        sum += horizontal[Math.min(height - 1, y2 + radius + 1) * width + x3] - horizontal[Math.max(0, y2 - radius) * width + x3];
+      }
+    }
+  }
   const unit2 = 64;
   for (const stroke of strokes) {
     if (stroke.mode !== "erase" && stroke.mode !== "restore" || !Number.isFinite(stroke.size) || stroke.size <= 0 || stroke.size > 1 || !Number.isFinite(stroke.hardness) || stroke.hardness < 0 || stroke.hardness > 1 || stroke.points.length === 0) {
@@ -23815,18 +24007,18 @@ function composeStillMask(basePixels, width, height, strokes, originalAlpha) {
       if (!Number.isFinite(x3) || !Number.isFinite(y2) || x3 < 0 || x3 > 1 || y2 < 0 || y2 > 1) throw new RangeError("invalid mask point");
       return [Math.round(x3 * width * unit2), Math.round(y2 * height * unit2)];
     });
-    const radius = Math.max(1, Math.round(stroke.size * Math.min(width, height) * unit2 / 2));
-    const inner = Math.round(radius * stroke.hardness);
-    const outerSq = radius * radius;
+    const radius2 = Math.max(1, Math.round(stroke.size * Math.min(width, height) * unit2 / 2));
+    const inner = Math.round(radius2 * stroke.hardness);
+    const outerSq = radius2 * radius2;
     const innerSq = inner * inner;
     const coveragePixels = new Uint8Array(length);
     for (let segment = 0; segment < points.length; segment += 1) {
       const a = points[Math.max(0, segment - 1)];
       const b = points[segment];
-      const lowX = Math.max(0, Math.floor((Math.min(a[0], b[0]) - radius) / unit2));
-      const highX = Math.min(width - 1, Math.ceil((Math.max(a[0], b[0]) + radius) / unit2));
-      const lowY = Math.max(0, Math.floor((Math.min(a[1], b[1]) - radius) / unit2));
-      const highY = Math.min(height - 1, Math.ceil((Math.max(a[1], b[1]) + radius) / unit2));
+      const lowX = Math.max(0, Math.floor((Math.min(a[0], b[0]) - radius2) / unit2));
+      const highX = Math.min(width - 1, Math.ceil((Math.max(a[0], b[0]) + radius2) / unit2));
+      const lowY = Math.max(0, Math.floor((Math.min(a[1], b[1]) - radius2) / unit2));
+      const highY = Math.min(height - 1, Math.ceil((Math.max(a[1], b[1]) + radius2) / unit2));
       const dx = b[0] - a[0];
       const dy = b[1] - a[1];
       const segmentSq = dx * dx + dy * dy;
@@ -23856,6 +24048,188 @@ function composeStillMask(basePixels, width, height, strokes, originalAlpha) {
   return output;
 }
 
+// ../frame-engine/src/look/cube.ts
+function finite2(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+function clamp(value, low = 0, high = 1) {
+  return Math.min(high, Math.max(low, value));
+}
+function parseCube(text) {
+  if (typeof text !== "string" || !text.trim()) throw new TypeError(".cube text is required");
+  let size = 0;
+  let domainMin = [0, 0, 0];
+  let domainMax = [1, 1, 1];
+  const values = [];
+  const lines = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
+  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+    const line = lines[lineNumber].replace(/#.*$/u, "").trim();
+    if (!line) continue;
+    const parts = line.split(/\s+/u);
+    const keyword = parts[0].toUpperCase();
+    if (keyword === "TITLE") continue;
+    if (keyword === "LUT_1D_SIZE") throw new TypeError("1D LUT is not supported");
+    if (keyword === "LUT_3D_SIZE") {
+      size = Number(parts[1]);
+      if (!Number.isInteger(size) || size < 2 || size > 256) {
+        throw new RangeError(`invalid LUT_3D_SIZE at line ${lineNumber + 1}`);
+      }
+      continue;
+    }
+    if (keyword === "DOMAIN_MIN" || keyword === "DOMAIN_MAX") {
+      const parsed = parts.slice(1, 4).map(Number);
+      if (parsed.length !== 3 || parsed.some((value) => !Number.isFinite(value))) {
+        throw new TypeError(`invalid ${keyword} at line ${lineNumber + 1}`);
+      }
+      const tuple = parsed;
+      if (keyword === "DOMAIN_MIN") domainMin = tuple;
+      else domainMax = tuple;
+      continue;
+    }
+    const row = parts.slice(0, 3).map(Number);
+    if (row.length !== 3 || row.some((value) => !Number.isFinite(value))) {
+      throw new TypeError(`invalid LUT row at line ${lineNumber + 1}`);
+    }
+    values.push(...row);
+  }
+  if (!size) throw new TypeError("LUT_3D_SIZE is missing");
+  if (domainMax.some((value, index) => !(value > domainMin[index]))) {
+    throw new RangeError("DOMAIN_MAX must be greater than DOMAIN_MIN");
+  }
+  const expected = size * size * size * 3;
+  if (values.length !== expected) {
+    throw new RangeError(`LUT_3D_SIZE ${size} requires ${expected / 3} rows; got ${values.length / 3}`);
+  }
+  return Object.freeze({
+    size,
+    domainMin: Object.freeze([...domainMin]),
+    domainMax: Object.freeze([...domainMax]),
+    data: new Float32Array(values)
+  });
+}
+function lutValue(lut, r, g2, b, channel) {
+  return lut.data[(b * lut.size * lut.size + g2 * lut.size + r) * 3 + channel];
+}
+function sampleLutTrilinear(lut, rgb) {
+  if (!lut || !Number.isInteger(lut.size) || !(lut.data instanceof Float32Array)) {
+    throw new TypeError("a parsed 3D LUT is required");
+  }
+  if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
+  const p2 = [0, 1, 2].map((index) => {
+    const unit2 = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
+    return clamp(unit2) * (lut.size - 1);
+  });
+  const lo = p2.map(Math.floor);
+  const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
+  const f2 = p2.map((value, index) => value - lo[index]);
+  const out = [0, 0, 0];
+  for (let channel = 0; channel < 3; channel += 1) {
+    const c000 = lutValue(lut, lo[0], lo[1], lo[2], channel);
+    const c100 = lutValue(lut, hi[0], lo[1], lo[2], channel);
+    const c010 = lutValue(lut, lo[0], hi[1], lo[2], channel);
+    const c110 = lutValue(lut, hi[0], hi[1], lo[2], channel);
+    const c001 = lutValue(lut, lo[0], lo[1], hi[2], channel);
+    const c101 = lutValue(lut, hi[0], lo[1], hi[2], channel);
+    const c011 = lutValue(lut, lo[0], hi[1], hi[2], channel);
+    const c111 = lutValue(lut, hi[0], hi[1], hi[2], channel);
+    const x00 = c000 + (c100 - c000) * f2[0];
+    const x10 = c010 + (c110 - c010) * f2[0];
+    const x01 = c001 + (c101 - c001) * f2[0];
+    const x11 = c011 + (c111 - c011) * f2[0];
+    const y0 = x00 + (x10 - x00) * f2[1];
+    const y1 = x01 + (x11 - x01) * f2[1];
+    out[channel] = y0 + (y1 - y0) * f2[2];
+  }
+  return out;
+}
+
+// ../frame-engine/src/adjust/photo-regions.ts
+var byte = (value) => Math.max(0, Math.min(255, Math.round(value)));
+function blurred(source, width, height, radius) {
+  if (radius < 1) return source;
+  const output = new Uint8ClampedArray(source.length);
+  const horizontal = new Uint8ClampedArray(source.length);
+  const r = Math.min(50, Math.round(radius));
+  for (let y2 = 0; y2 < height; y2 += 1) for (let c = 0; c < 3; c += 1) {
+    let sum = 0;
+    for (let x3 = -r; x3 <= r; x3 += 1) sum += source[(y2 * width + Math.max(0, Math.min(width - 1, x3))) * 4 + c];
+    for (let x3 = 0; x3 < width; x3 += 1) {
+      horizontal[(y2 * width + x3) * 4 + c] = byte(sum / (2 * r + 1));
+      sum += source[(y2 * width + Math.min(width - 1, x3 + r + 1)) * 4 + c] - source[(y2 * width + Math.max(0, x3 - r)) * 4 + c];
+    }
+  }
+  for (let x3 = 0; x3 < width; x3 += 1) for (let c = 0; c < 3; c += 1) {
+    let sum = 0;
+    for (let y2 = -r; y2 <= r; y2 += 1) sum += horizontal[(Math.max(0, Math.min(height - 1, y2)) * width + x3) * 4 + c];
+    for (let y2 = 0; y2 < height; y2 += 1) {
+      output[(y2 * width + x3) * 4 + c] = byte(sum / (2 * r + 1));
+      sum += horizontal[(Math.min(height - 1, y2 + r + 1) * width + x3) * 4 + c] - horizontal[(Math.max(0, y2 - r) * width + x3) * 4 + c];
+    }
+  }
+  for (let i2 = 3; i2 < source.length; i2 += 4) output[i2] = source[i2];
+  return output;
+}
+function applyPhotoRegions(source, width, height, globalLut, regions) {
+  if (source.length !== width * height * 4) throw new RangeError("photo pixel size mismatch");
+  const output = new Uint8ClampedArray(source);
+  if (globalLut) for (let i2 = 0; i2 < output.length; i2 += 4) {
+    const rgb = sampleLutTrilinear(globalLut, [output[i2] / 255, output[i2 + 1] / 255, output[i2 + 2] / 255]);
+    for (let c = 0; c < 3; c += 1) output[i2 + c] = byte(rgb[c] * 255);
+  }
+  for (const region of regions) {
+    if (region.enabled === false) continue;
+    if (region.mask.length !== width * height) throw new RangeError("region mask size mismatch");
+    const backdrop = region.blur ? blurred(output, width, height, region.blur) : output;
+    for (let pixel = 0; pixel < width * height; pixel += 1) {
+      const amount = (region.invert ? 255 - region.mask[pixel] : region.mask[pixel]) / 255;
+      if (!amount) continue;
+      const i2 = pixel * 4;
+      let rgb = [backdrop[i2] / 255, backdrop[i2 + 1] / 255, backdrop[i2 + 2] / 255];
+      if (region.adjustLut) rgb = sampleLutTrilinear(region.adjustLut, rgb);
+      if (region.filterLut) {
+        const filtered = sampleLutTrilinear(region.filterLut, rgb);
+        const strength = Math.max(0, Math.min(1, region.filterIntensity ?? 1));
+        rgb = rgb.map((value, c) => value * (1 - strength) + filtered[c] * strength);
+      }
+      for (let c = 0; c < 3; c += 1) output[i2 + c] = byte(output[i2 + c] * (1 - amount) + rgb[c] * 255 * amount);
+    }
+  }
+  return output;
+}
+
+// ../frame-engine/src/decode/still-image.ts
+var CachedStillImageSource = class {
+  constructor(url) {
+    this.url = url;
+  }
+  pending = /* @__PURE__ */ new Map();
+  values = /* @__PURE__ */ new Map();
+  load(options) {
+    const mode = options?.colorSpaceConversion ?? "default";
+    const value = this.values.get(mode);
+    if (value) return Promise.resolve(value);
+    let pending = this.pending.get(mode);
+    if (!pending) {
+      pending = fetch(this.url).then((response) => {
+        if (!response.ok) throw new Error(`image fetch failed (${response.status}): ${this.url}`);
+        return response.blob();
+      }).then((blob) => mode === "none" ? createImageBitmap(blob, { colorSpaceConversion: "none" }) : createImageBitmap(blob)).then((bitmap) => {
+        const value2 = { bitmap, width: bitmap.width, height: bitmap.height };
+        this.values.set(mode, value2);
+        return value2;
+      });
+      this.pending.set(mode, pending);
+    }
+    return pending;
+  }
+  destroy() {
+    for (const value of this.values.values()) value.bitmap.close();
+    this.values.clear();
+    this.pending.clear();
+  }
+};
+
 // ../frame-engine/src/evaluate.ts
 var notifiedLayerFailures = /* @__PURE__ */ new WeakMap();
 function noteLayerFailure(context, layerId, error) {
@@ -23871,13 +24245,100 @@ function noteLayerFailure(context, layerId, error) {
   context.onLayerFailure(layerId, error);
 }
 var composedStillMasks = /* @__PURE__ */ new WeakMap();
+var regionBitmaps = /* @__PURE__ */ new WeakMap();
+var regionImageSources = /* @__PURE__ */ new Map();
+function photoRegionImage(url) {
+  let source = regionImageSources.get(url);
+  if (!source) {
+    source = new CachedStillImageSource(url);
+    regionImageSources.set(url, source);
+  }
+  return source;
+}
+var regionLutTexts = /* @__PURE__ */ new Map();
+function photoRegionLut(reference) {
+  let result = regionLutTexts.get(reference);
+  if (!result) {
+    const url = /^(https?:|blob:|data:|\/)/iu.test(reference) ? reference : `/media/assets/luts/photo-region/${encodeURIComponent(reference)}.cube`;
+    result = fetch(url).then((response) => {
+      if (!response.ok) throw new Error(`region LUT fetch failed (${response.status})`);
+      return response.text();
+    }).then(parseCube);
+    regionLutTexts.set(reference, result);
+    result.catch(() => regionLutTexts.delete(reference));
+  }
+  return result;
+}
 var stillMaskIds = /* @__PURE__ */ new WeakMap();
 var nextStillMaskId = 1;
+var photoLutIds = /* @__PURE__ */ new WeakMap();
+function photoLutId(value) {
+  if (!value) return 0;
+  if (!photoLutIds.has(value)) photoLutIds.set(value, nextStillMaskId++);
+  return photoLutIds.get(value);
+}
+async function photoColorForLayer(layer, color) {
+  if (!layer.regions?.length) return color;
+  const owner = layer.image;
+  let cache = regionBitmaps.get(owner);
+  if (!cache) {
+    cache = /* @__PURE__ */ new Map();
+    regionBitmaps.set(owner, cache);
+  }
+  const key = JSON.stringify([layer.id, photoLutId(layer.baseAdjustLut), layer.regions.map((region) => {
+    if (region.mask && !stillMaskIds.has(region.mask)) stillMaskIds.set(region.mask, nextStillMaskId++);
+    return [
+      region.mask ? stillMaskIds.get(region.mask) : region.maskUrl,
+      region.invert,
+      region.enabled,
+      photoLutId(region.adjustLut),
+      photoLutId(region.filterLut),
+      region.filterRef,
+      region.filterIntensity,
+      region.blur
+    ];
+  })]);
+  let pending = cache.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = color.width;
+      canvas.height = color.height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) throw new Error("photo pixel context unavailable");
+      context.drawImage(color.bitmap, 0, 0);
+      const image = context.getImageData(0, 0, color.width, color.height);
+      const regions = [];
+      for (const region of layer.regions) {
+        const maskSource = region.mask ?? (region.maskUrl ? photoRegionImage(region.maskUrl) : void 0);
+        if (!maskSource) throw new Error("region mask source missing");
+        const loaded = await maskSource.load({ colorSpaceConversion: "none" });
+        if (loaded.width !== color.width || loaded.height !== color.height) throw new Error("region mask size mismatch");
+        context.clearRect(0, 0, color.width, color.height);
+        context.drawImage(loaded.bitmap, 0, 0);
+        const rgba = context.getImageData(0, 0, color.width, color.height).data;
+        const mask = new Uint8Array(color.width * color.height);
+        for (let i2 = 0; i2 < mask.length; i2 += 1) mask[i2] = rgba[i2 * 4];
+        regions.push({
+          ...region,
+          mask,
+          filterLut: region.filterLut ?? (region.filterRef ? await photoRegionLut(region.filterRef) : void 0)
+        });
+      }
+      image.data.set(applyPhotoRegions(image.data, color.width, color.height, layer.baseAdjustLut, regions));
+      const bitmap = await createImageBitmap(image, { colorSpaceConversion: "none" });
+      return { bitmap, width: color.width, height: color.height };
+    })();
+    cache.set(key, pending);
+    pending.catch(() => cache?.delete(key));
+  }
+  return pending;
+}
 async function stillMaskForLayer(layer, color) {
   const mask = layer.mask?.kind === "still" ? layer.mask.source : null;
   const strokes = layer.erase ?? [];
   if (!mask && strokes.length === 0) return null;
-  if (mask && strokes.length === 0) return mask.load({ colorSpaceConversion: "none" });
+  if (mask && strokes.length === 0 && !layer.maskFeather) return mask.load({ colorSpaceConversion: "none" });
   const owner = layer.image;
   let cache = composedStillMasks.get(owner);
   if (!cache) {
@@ -23885,7 +24346,7 @@ async function stillMaskForLayer(layer, color) {
     composedStillMasks.set(owner, cache);
   }
   if (mask && !stillMaskIds.has(mask)) stillMaskIds.set(mask, nextStillMaskId++);
-  const key = `${mask ? stillMaskIds.get(mask) : 0}:${color.width}x${color.height}:${JSON.stringify(strokes)}`;
+  const key = `${mask ? stillMaskIds.get(mask) : 0}:${color.width}x${color.height}:${layer.maskFeather ?? 0}:${JSON.stringify(strokes)}`;
   let pending = cache.get(key);
   if (!pending) {
     pending = (async () => {
@@ -23910,7 +24371,7 @@ async function stillMaskForLayer(layer, color) {
       const alphaRgba = context.getImageData(0, 0, width, height).data;
       const alpha = new Uint8Array(width * height);
       for (let i2 = 0; i2 < alpha.length; i2 += 1) alpha[i2] = alphaRgba[i2 * 4 + 3];
-      const gray = composeStillMask(base, width, height, strokes, alpha);
+      const gray = composeStillMask(base, width, height, strokes, alpha, layer.maskFeather ?? 0);
       const image = context.createImageData(width, height);
       for (let i2 = 0; i2 < gray.length; i2 += 1) {
         image.data[i2 * 4] = gray[i2];
@@ -23930,7 +24391,7 @@ async function prepareCompositeLayer(layer, metrics) {
   if (layer.kind === "image") {
     if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
     const color = await layer.image.load();
-    return { color, mask: await stillMaskForLayer(layer, color) };
+    return { color: await photoColorForLayer(layer, color), mask: await stillMaskForLayer(layer, color) };
   }
   if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
   const decodeStarted = performance.now();
@@ -24078,102 +24539,6 @@ async function evaluateFrame(plan, context) {
 // ../frame-engine/src/timeline/plan.ts
 var import_edit_store2 = __toESM(require_lib(), 1);
 var import_edit_store3 = __toESM(require_lib(), 1);
-
-// ../frame-engine/src/look/cube.ts
-function finite2(value, fallback) {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : fallback;
-}
-function clamp(value, low = 0, high = 1) {
-  return Math.min(high, Math.max(low, value));
-}
-function parseCube(text) {
-  if (typeof text !== "string" || !text.trim()) throw new TypeError(".cube text is required");
-  let size = 0;
-  let domainMin = [0, 0, 0];
-  let domainMax = [1, 1, 1];
-  const values = [];
-  const lines = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
-  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
-    const line = lines[lineNumber].replace(/#.*$/u, "").trim();
-    if (!line) continue;
-    const parts = line.split(/\s+/u);
-    const keyword = parts[0].toUpperCase();
-    if (keyword === "TITLE") continue;
-    if (keyword === "LUT_1D_SIZE") throw new TypeError("1D LUT is not supported");
-    if (keyword === "LUT_3D_SIZE") {
-      size = Number(parts[1]);
-      if (!Number.isInteger(size) || size < 2 || size > 256) {
-        throw new RangeError(`invalid LUT_3D_SIZE at line ${lineNumber + 1}`);
-      }
-      continue;
-    }
-    if (keyword === "DOMAIN_MIN" || keyword === "DOMAIN_MAX") {
-      const parsed = parts.slice(1, 4).map(Number);
-      if (parsed.length !== 3 || parsed.some((value) => !Number.isFinite(value))) {
-        throw new TypeError(`invalid ${keyword} at line ${lineNumber + 1}`);
-      }
-      const tuple = parsed;
-      if (keyword === "DOMAIN_MIN") domainMin = tuple;
-      else domainMax = tuple;
-      continue;
-    }
-    const row = parts.slice(0, 3).map(Number);
-    if (row.length !== 3 || row.some((value) => !Number.isFinite(value))) {
-      throw new TypeError(`invalid LUT row at line ${lineNumber + 1}`);
-    }
-    values.push(...row);
-  }
-  if (!size) throw new TypeError("LUT_3D_SIZE is missing");
-  if (domainMax.some((value, index) => !(value > domainMin[index]))) {
-    throw new RangeError("DOMAIN_MAX must be greater than DOMAIN_MIN");
-  }
-  const expected = size * size * size * 3;
-  if (values.length !== expected) {
-    throw new RangeError(`LUT_3D_SIZE ${size} requires ${expected / 3} rows; got ${values.length / 3}`);
-  }
-  return Object.freeze({
-    size,
-    domainMin: Object.freeze([...domainMin]),
-    domainMax: Object.freeze([...domainMax]),
-    data: new Float32Array(values)
-  });
-}
-function lutValue(lut, r, g2, b, channel) {
-  return lut.data[(b * lut.size * lut.size + g2 * lut.size + r) * 3 + channel];
-}
-function sampleLutTrilinear(lut, rgb) {
-  if (!lut || !Number.isInteger(lut.size) || !(lut.data instanceof Float32Array)) {
-    throw new TypeError("a parsed 3D LUT is required");
-  }
-  if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
-  const p2 = [0, 1, 2].map((index) => {
-    const unit2 = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
-    return clamp(unit2) * (lut.size - 1);
-  });
-  const lo = p2.map(Math.floor);
-  const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
-  const f2 = p2.map((value, index) => value - lo[index]);
-  const out = [0, 0, 0];
-  for (let channel = 0; channel < 3; channel += 1) {
-    const c000 = lutValue(lut, lo[0], lo[1], lo[2], channel);
-    const c100 = lutValue(lut, hi[0], lo[1], lo[2], channel);
-    const c010 = lutValue(lut, lo[0], hi[1], lo[2], channel);
-    const c110 = lutValue(lut, hi[0], hi[1], lo[2], channel);
-    const c001 = lutValue(lut, lo[0], lo[1], hi[2], channel);
-    const c101 = lutValue(lut, hi[0], lo[1], hi[2], channel);
-    const c011 = lutValue(lut, lo[0], hi[1], hi[2], channel);
-    const c111 = lutValue(lut, hi[0], hi[1], hi[2], channel);
-    const x00 = c000 + (c100 - c000) * f2[0];
-    const x10 = c010 + (c110 - c010) * f2[0];
-    const x01 = c001 + (c101 - c001) * f2[0];
-    const x11 = c011 + (c111 - c011) * f2[0];
-    const y0 = x00 + (x10 - x00) * f2[1];
-    const y1 = x01 + (x11 - x01) * f2[1];
-    out[channel] = y0 + (y1 - y0) * f2[2];
-  }
-  return out;
-}
 
 // ../frame-engine/src/adjust/kernel.ts
 var ADJUST_CONSTANTS = Object.freeze({
@@ -24737,6 +25102,13 @@ function motionVisualAt(motion2, localSeconds, itemDurationSeconds, fps) {
 }
 
 // ../frame-engine/src/timeline/plan.ts
+function regionMaskSource(sources, reference) {
+  const known = sources.get(reference);
+  if (known && "load" in known) return { mask: known };
+  if (!/\.png(?:\?|$)/iu.test(reference)) return void 0;
+  const maskUrl = /^(https?:|blob:|data:|\/)/iu.test(reference) ? reference : `/media/${reference.split("/").map(encodeURIComponent).join("/")}`;
+  return { maskUrl };
+}
 var KNOWN_CUT_KEY_LIST = [
   "in",
   "out",
@@ -24767,8 +25139,11 @@ var KNOWN_LAYER_KEY_LIST = [
   "kind",
   "src",
   "mask",
+  "maskFeather",
+  "regions",
   "erase",
   "flip",
+  "frame",
   "transform",
   "crop",
   "perspective",
@@ -25024,7 +25399,10 @@ function layerStyleVisualAt(cut, localSeconds) {
     },
     opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
     // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
-    ...cut.crop || animated?.crop || cut.perspective || animated?.perspective || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe" ? { layerStyle: { crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height } } } : {}
+    ...cut.crop || animated?.crop || cut.perspective || animated?.perspective || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe" ? { layerStyle: {
+      crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height },
+      ...finite4(cut.crop?.rotate, 0) !== 0 ? { cropRotate: finite4(cut.crop?.rotate, 0) } : {}
+    } } : {}
   };
 }
 function motionTransform(transform, motion2) {
@@ -25214,6 +25592,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const staticTransform = layer.transform ?? {};
     const visual = {
+      ...finite4(staticCrop.rotate, 0) !== 0 ? { cropRotate: finite4(staticCrop.rotate, 0) } : {},
       crop: animated?.crop ?? {
         x: clamp3(finite4(staticCrop.x, 0), 0, 1),
         y: clamp3(finite4(staticCrop.y, 0), 0, 1),
@@ -25244,13 +25623,16 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
     const adjustLut = timeline.layerAdjustLuts[index];
     const adjustFx = timeline.layerAdjustFx?.[index];
+    const useRegions = (0, import_edit_store2.isStillImageSourcePath)(layer.src) && Boolean(layer.regions?.length);
     const common = {
       id,
       visual,
       blend,
       opacity,
       ...layer.flip ? { flip: layer.flip } : {},
-      ...adjustLut ? { adjustLut } : {},
+      ...layer.frame ? { frame: layer.frame } : {},
+      ...adjustLut && !useRegions ? { adjustLut } : {},
+      ...adjustLut && useRegions ? { baseAdjustLut: adjustLut } : {},
       ...adjustFx ? { adjustFx } : {}
     };
     if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
@@ -25264,11 +25646,30 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
         kind: "image",
         image: source,
         mask: maskSource && "load" in maskSource ? { kind: "still", source: maskSource } : null,
+        ...layer.maskFeather !== void 0 ? { maskFeather: layer.maskFeather } : {},
+        ...layer.regions?.length ? { regions: layer.regions.flatMap((region) => {
+          const candidate = regionMaskSource(sources, region.maskRef);
+          if (!candidate) {
+            timeline.warn(`no region mask source registered for ${region.maskRef}; layer ${id}`);
+            return [];
+          }
+          return [{
+            ...candidate,
+            invert: region.invert,
+            enabled: region.enabled,
+            adjustLut: resolveAdjustLut(region.adjust),
+            filterLut: typeof region.filter?.lut === "object" ? region.filter.lut : void 0,
+            filterRef: typeof region.filter?.lut === "string" ? region.filter.lut : void 0,
+            filterIntensity: region.filter?.intensity,
+            blur: region.blur
+          }];
+        }) } : {},
         ...layer.erase ? { erase: layer.erase } : {}
       });
       return;
     }
     if (layer.erase?.length) timeline.warn(`erase ignored for video layer ${id}`);
+    if (layer.regions?.length) timeline.warn(`regions ignored for video layer ${id}`);
     if (!("decode" in source)) throw new Error(`no video frame source registered for ${layer.src}`);
     const sourceTimeUs = Math.round((finite4(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite4(layer.speed, 1))) * 1e6);
     const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
@@ -30466,38 +30867,6 @@ function parseSourceSelectionMode(value) {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   return normalized === "proxy" || normalized === "original" ? normalized : "auto";
 }
-
-// ../frame-engine/src/decode/still-image.ts
-var CachedStillImageSource = class {
-  constructor(url) {
-    this.url = url;
-  }
-  pending = /* @__PURE__ */ new Map();
-  values = /* @__PURE__ */ new Map();
-  load(options) {
-    const mode = options?.colorSpaceConversion ?? "default";
-    const value = this.values.get(mode);
-    if (value) return Promise.resolve(value);
-    let pending = this.pending.get(mode);
-    if (!pending) {
-      pending = fetch(this.url).then((response) => {
-        if (!response.ok) throw new Error(`image fetch failed (${response.status}): ${this.url}`);
-        return response.blob();
-      }).then((blob) => mode === "none" ? createImageBitmap(blob, { colorSpaceConversion: "none" }) : createImageBitmap(blob)).then((bitmap) => {
-        const value2 = { bitmap, width: bitmap.width, height: bitmap.height };
-        this.values.set(mode, value2);
-        return value2;
-      });
-      this.pending.set(mode, pending);
-    }
-    return pending;
-  }
-  destroy() {
-    for (const value of this.values.values()) value.bitmap.close();
-    this.values.clear();
-    this.pending.clear();
-  }
-};
 
 // ../frame-engine/src/cache/lookahead-cache.ts
 var LookaheadCache = class {

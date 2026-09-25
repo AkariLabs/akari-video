@@ -26,6 +26,7 @@ export interface CropV2 {
     y: number;
     w: number;
     h: number;
+    rotate?: number;
     [key: string]: unknown;
 }
 export type EasingV2 = string;
@@ -343,12 +344,33 @@ export type MediaItemV2 = ItemV2Base & {
     audio?: false;
     /** sources[].id of a gray mask video or a still-image PNG mask. */
     mask?: string;
+    maskFeather?: number;
+    regions?: PhotoRegionV1[];
     erase?: PhotoEraseStrokeV2[];
     flip?: {
         h?: boolean;
         v?: boolean;
     };
+    frame?: {
+        stroke?: {
+            color: string;
+            width: number;
+        };
+        cornerRadius?: number;
+    };
 };
+export interface PhotoRegionV1 {
+    id: string;
+    name?: string;
+    maskRef: string;
+    invert?: boolean;
+    enabled?: boolean;
+    adjust?: {
+        basic?: Pick<AdjustBasicV0, 'exposure' | 'contrast' | 'saturation' | 'temperature'>;
+    };
+    filter?: AdjustLutV0;
+    blur?: number;
+}
 export interface PhotoEraseStrokeV2 {
     mode: 'erase' | 'restore';
     points: [number, number][];
