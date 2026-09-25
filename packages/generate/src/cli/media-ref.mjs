@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { resolveProjectAssetPathSync } from "../../../asset-resolver/src/shell-reference-sync.mjs";
 
 export const MAX_INLINE_BYTES = 20 * 1024 * 1024;
 
@@ -11,18 +12,22 @@ const MIME = new Map([
   [".mp3", "audio/mpeg"], [".m4a", "audio/mp4"], [".aac", "audio/aac"],
 ]);
 
-function inside(projectDir, candidate) {
+function mediaPath(projectDir, candidate, env) {
+  // Preserve the CLI's lexical input normalization before applying the project/library resolver.
   const root = path.resolve(projectDir);
-  const absolute = path.isAbsolute(candidate) ? path.resolve(candidate) : path.resolve(root, candidate);
-  const relative = path.relative(root, absolute);
+  const lexical = path.isAbsolute(candidate) ? path.resolve(candidate) : path.resolve(root, candidate);
+  const relative = path.relative(root, lexical);
   if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     throw new Error(`projectDir 外の参照は扱えません: ${candidate}`);
   }
-  return { absolute, relative: relative.split(path.sep).join("/") };
+  const declared = relative.split(path.sep).join("/");
+  const absolute = resolveProjectAssetPathSync(projectDir, declared, env);
+  if (!absolute) throw new Error(`素材が見つかりません: ${declared}`);
+  return { absolute, relative: declared };
 }
 
-export function makeReference(projectDir, candidate, { source_id = null, name = null, role = null, range_s = null } = {}) {
-  const resolved = inside(projectDir, candidate);
+export function makeReference(projectDir, candidate, { source_id = null, name = null, role = null, range_s = null, env = process.env } = {}) {
+  const resolved = mediaPath(projectDir, candidate, env);
   const bytes = readFileSync(resolved.absolute);
   return {
     path: resolved.relative,
@@ -34,9 +39,9 @@ export function makeReference(projectDir, candidate, { source_id = null, name = 
   };
 }
 
-export function resolveMedia(ref, { projectDir, maxBytes = MAX_INLINE_BYTES } = {}) {
+export function resolveMedia(ref, { projectDir, maxBytes = MAX_INLINE_BYTES, env = process.env } = {}) {
   if (!projectDir) throw new Error("resolveMedia には projectDir が必要です");
-  const { absolute } = inside(projectDir, ref?.path);
+  const { absolute } = mediaPath(projectDir, ref?.path, env);
   const size = statSync(absolute).size;
   if (size > maxBytes) throw new Error("20 MB 超の参照は未対応（fal storage は後日）");
   const mime = MIME.get(path.extname(absolute).toLowerCase()) ?? "application/octet-stream";

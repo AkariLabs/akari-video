@@ -1,0 +1,8 @@
+makeReference: Error: ENOENT: no such file or directory, open '<project>/assets/still/bg-aurora-mesh/bg.png'
+    at Object.openSync (node:fs:556:18)
+    at readFileSync (node:fs:440:35)
+    at Module.makeReference (<repo>/packages/generate/src/cli/media-ref.mjs:26:17)
+resolveMedia: Error: ENOENT: no such file or directory, stat '<project>/assets/still/bg-aurora-mesh/bg.png'
+    at statSync (node:fs:1718:25)
+    at Module.resolveMedia (<repo>/packages/generate/src/cli/media-ref.mjs:40:16)
+    at [eval]:3:7
