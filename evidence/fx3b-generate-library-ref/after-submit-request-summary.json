@@ -1,0 +1,27 @@
+{
+ "url": "https://queue.fal.run/minimax/h3/image-to-video",
+ "method": "POST",
+ "argv": [
+  "video",
+  "<project>",
+  "--item",
+  "clip-01",
+  "--yes",
+  "--json"
+ ],
+ "keys": [
+  "prompt",
+  "image_url",
+  "duration",
+  "resolution"
+ ],
+ "images": [
+  {
+   "key": "image_url",
+   "mime": "image/png",
+   "bytes": 1288777,
+   "sha256": "f9c16d342a4a06ab1fc5a12cf4f0f0d96291dd0d909e243c22e058b1d57503a4"
+  }
+ ],
+ "prompt": "ゆっくり動く"
+}

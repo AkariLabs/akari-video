@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -17,6 +17,7 @@ import { loadCatalog, findModel } from "./catalog.mjs";
 import { resolveFalKey } from "./credentials.mjs";
 import { submit, pollStatus, fetchResponse, download } from "./fal-queue.mjs";
 import { createMediaResolver, makeReference } from "./media-ref.mjs";
+import { declaredProjectAssetPath, resolveProjectAssetPathSync } from "../../../asset-resolver/src/shell-reference-sync.mjs";
 import { writeGenerating, writeDone, writeFailed } from "./meta-video.mjs";
 import { applyReplacement, findItem, planReplacement } from "./edit-replace.mjs";
 
@@ -134,18 +135,17 @@ function findSource(edit, sourceId) {
 
 const STILL_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff"]);
 
-function checkedImage(projectDir, relativePath) {
-  if (path.isAbsolute(relativePath) || relativePath.split(/[\\/]/u).includes("..") || !STILL_EXTENSIONS.has(path.extname(relativePath).toLowerCase())) {
+function checkedImage(projectDir, relativePath, env = process.env) {
+  let declared;
+  try { declared = declaredProjectAssetPath(relativePath); }
+  catch { throw new CliError("--from-image はプロジェクト内の静止画の相対パスで指定してください"); }
+  if (!STILL_EXTENSIONS.has(path.extname(declared).toLowerCase())) {
     throw new CliError("--from-image はプロジェクト内の静止画の相対パスで指定してください");
   }
-  const absolute = path.resolve(projectDir, relativePath);
   try {
-    const root = realpathSync(projectDir);
-    const image = realpathSync(absolute);
-    const rel = path.relative(root, image);
-    if (!rel || rel === ".." || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel) || !statSync(image).isFile()) throw new Error();
+    if (!resolveProjectAssetPathSync(projectDir, declared, env)) throw new Error();
   } catch { throw new CliError("--from-image の静止画がプロジェクト内に見つかりません"); }
-  return path.relative(projectDir, absolute).split(path.sep).join("/");
+  return path.relative(projectDir, path.resolve(projectDir, declared)).split(path.sep).join("/");
 }
 
 function modelDefault(projectDir) {
@@ -155,7 +155,7 @@ function modelDefault(projectDir) {
   } catch { return "fal:h3-i2v"; }
 }
 
-function hydrateReference(projectDir, value, defaults = {}) {
+function hydrateReference(projectDir, value, defaults = {}, env = process.env) {
   if (value == null) return null;
   const raw = typeof value === "string" ? { path: value } : value;
   if (!raw || typeof raw.path !== "string") throw new CliError("参照には path が必要です");
@@ -164,11 +164,12 @@ function hydrateReference(projectDir, value, defaults = {}) {
     name: raw.name ?? null,
     role: raw.role ?? null,
     range_s: raw.range_s ?? null,
+    env,
   });
 }
 
-function hydrateList(projectDir, values) {
-  return (values ?? []).map((value) => hydrateReference(projectDir, value));
+function hydrateList(projectDir, values, env = process.env) {
+  return (values ?? []).map((value) => hydrateReference(projectDir, value, {}, env));
 }
 
 function stripReferenceNulls(reference) {
@@ -291,7 +292,8 @@ export async function runVideoCommand(argv, dependencies = {}) {
   try {
     const options = parseVideoArguments(argv);
     if (options.help) { log(usage); return { exitCode: 0 }; }
-    const fromImage = options.fromImage ? checkedImage(options.projectDir, options.fromImage) : null;
+    const env = dependencies.env ?? process.env;
+    const fromImage = options.fromImage ? checkedImage(options.projectDir, options.fromImage, env) : null;
     const project = fromImage ? null : await (dependencies.openProjectImpl ?? openProject)(options.projectDir);
     const item = fromImage ? null : findItem(project.edit, options.itemId);
     if (!fromImage && (!item || item.source?.kind !== "media")) throw new CliError(`media item が見つかりません: ${options.itemId}`);
@@ -335,12 +337,12 @@ export async function runVideoCommand(argv, dependencies = {}) {
       ...selectedInputs,
       prompt: options.prompt ?? suppliedInputs.prompt ?? null,
       negative_prompt: options.negativePrompt ?? suppliedInputs.negative_prompt ?? null,
-      first_frame: hydrateReference(options.projectDir, selectedInputs.first_frame, { source_id: sourceEntry.id }),
-      last_frame: hydrateReference(options.projectDir, selectedInputs.last_frame),
-      reference_images: hydrateList(options.projectDir, selectedInputs.reference_images),
-      reference_videos: hydrateList(options.projectDir, selectedInputs.reference_videos),
-      reference_audios: hydrateList(options.projectDir, selectedInputs.reference_audios),
-      source_video: hydrateReference(options.projectDir, suppliedInputs.source_video),
+      first_frame: hydrateReference(options.projectDir, selectedInputs.first_frame, { source_id: sourceEntry.id }, env),
+      last_frame: hydrateReference(options.projectDir, selectedInputs.last_frame, {}, env),
+      reference_images: hydrateList(options.projectDir, selectedInputs.reference_images, env),
+      reference_videos: hydrateList(options.projectDir, selectedInputs.reference_videos, env),
+      reference_audios: hydrateList(options.projectDir, selectedInputs.reference_audios, env),
+      source_video: hydrateReference(options.projectDir, suppliedInputs.source_video, {}, env),
       camera: options.camera !== undefined
         ? { notation: options.camera.trim().startsWith("[") ? "bracket" : "prose", value: options.camera, from_annotation: null }
         : suppliedInputs.camera ?? null,
@@ -359,7 +361,7 @@ export async function runVideoCommand(argv, dependencies = {}) {
     if (!validation.ok) return { exitCode: 1 };
     const adapter = getAdapter(model.id);
     if (!adapter) throw new CliError(`生成モデルのアダプタがありません: ${model.id}`, 1);
-    const resolver = createMediaResolver(options.projectDir);
+    const resolver = createMediaResolver(options.projectDir, { env });
     const allReferences = [validation.normalized.inputs.first_frame, validation.normalized.inputs.last_frame,
       ...validation.normalized.inputs.reference_images, ...validation.normalized.inputs.reference_videos,
       ...validation.normalized.inputs.reference_audios, validation.normalized.inputs.source_video].filter(Boolean);
@@ -396,7 +398,7 @@ export async function runVideoCommand(argv, dependencies = {}) {
     const destination = fromImage ? nextImageOutput(options.projectDir, fromImage, startedDate.getTime()) : nextOutput(options.projectDir, options.itemId);
     await mkdir(destination.directory, { recursive: true });
     const startedMs = startedDate.getTime();
-    const placeholderReference = fromImage ? null : makeReference(options.projectDir, sourceEntry.path);
+    const placeholderReference = fromImage ? null : makeReference(options.projectDir, sourceEntry.path, { env });
     const placeholder = fromImage ? undefined : { path: placeholderReference.path, sha256: placeholderReference.sha256, item_id: options.itemId };
     const submitted = await submit({ endpoint: mapped.endpoint, body: mapped.body, key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch });
     metaPath = destination.metaPath;
