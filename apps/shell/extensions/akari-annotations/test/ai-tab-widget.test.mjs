@@ -14,6 +14,8 @@ const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', 
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
 const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widget.members.find(node => node.name?.getText(ast) === name).getText(ast);
+const factory = name => ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(ast);
+let openedPhotoPanel;
 const dependencies = {
   CAPTION_ZONE_HOVER_EVENT: '', createSelectionHeader: () => new FakeNode('header'),
   CUT_SECTIONS: (_snapshot, _write, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],
@@ -25,9 +27,10 @@ const dependencies = {
   aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles,
   appendImageAiPanel,
   appendAiStillNotice, stillMismatchNotice, isInspectorStillImage,
+  openPhotoEditPanel: options => { openedPhotoPanel = options; },
   ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }]
 };
-const code = ts.transpileModule(`class Harness {
+const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\nclass Harness {
 ${['render', 'tabSourceHint', 'generationIdentity', 'appendTabStrip', 'loadAiCatalog'].map(method).join('\n')}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const Harness = new Function(...Object.keys(dependencies), `${code}; return Harness;`)(...Object.values(dependencies));
@@ -256,6 +259,35 @@ test('sources の id を持つ写真 item / layer と cut は編集の補正・�
     const scope = instance.sections.find(section => section.id === 'edit-correction').fields
       .find(field => field.name === 'edit-adjust-scope');
     assert.deepEqual(scope.options, ['画像全体', '選択エリア']);
+  }
+}));
+
+test('写真の背景透過と選択エリアは編集 > 補正に一度ずつ出て同じ item を開く', () => withDom(async () => {
+  for (const kind of ['cut', 'layer', 'item']) {
+    const instance = fixture();
+    instance.model.snapshot = kind === 'cut'
+      ? cutSnapshot({ itemId: 'photo-1', sourcePath: 'assets/photo.png', photo: true })
+      : { kind, id: 'photo-1', itemKind: 'media', sourceKind: 'media', sourcePath: 'assets/photo.png',
+          photo: true, outputStart: 0, duration: 5, durationFrames: 150 };
+    instance.generationIdentity = () => undefined;
+    instance.render();
+    const correction = instance.sections.find(section => section.id === 'edit-correction');
+    assert.ok(correction, kind);
+    assert.deepEqual(correction.fields.filter(field => field.name === 'photo-cutout-panel').map(field => field.actionLabel),
+      ['背景透過を開く']);
+    assert.equal(correction.fields.some(field => field.name === 'photo-region-panel'), false);
+    assert.equal(instance.sections.some(section => section.id === 'photo-edit'), false);
+    await correction.fields.find(field => field.name === 'photo-cutout-panel').action(instance.model.snapshot);
+    assert.deepEqual([openedPhotoPanel.id, openedPhotoPanel.mode], ['photo-1', 'cutout']);
+    const scope = correction.fields.find(field => field.name === 'edit-adjust-scope');
+    instance.sections = [];
+    await scope.write(instance.model.snapshot, '選択エリア');
+    const area = instance.sections.find(section => section.id === 'edit-correction');
+    assert.deepEqual(area.fields.filter(field => field.name === 'photo-region-panel').map(field => field.actionLabel),
+      ['エリアを選択']);
+    assert.equal(instance.sections.some(section => section.id === 'adjust:basic'), false);
+    await area.fields.find(field => field.name === 'photo-region-panel').action(instance.model.snapshot);
+    assert.deepEqual([openedPhotoPanel.id, openedPhotoPanel.mode], ['photo-1', 'regions']);
   }
 }));
 

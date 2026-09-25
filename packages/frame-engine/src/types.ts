@@ -194,6 +194,20 @@ export interface ResolvedCompositeLayer {
   image?: StillImageSource;
   mask: ResolvedLayerMask | ResolvedStillLayerMask | null;
   erase?: readonly StillMaskStroke[];
+  maskFeather?: number;
+  regions?: readonly {
+    mask?: StillImageSource;
+    /** Project-relative mask URL when the export page did not pre-register this source. */
+    maskUrl?: string;
+    invert?: boolean;
+    enabled?: boolean;
+    adjustLut?: ParsedCubeLut;
+    filterLut?: ParsedCubeLut;
+    filterRef?: string;
+    filterIntensity?: number;
+    blur?: number;
+  }[];
+  baseAdjustLut?: ParsedCubeLut;
   flip?: { h?: boolean; v?: boolean };
   visual: ResolvedLayerVisual;
   blend: ResolvedLayerBlendMode;

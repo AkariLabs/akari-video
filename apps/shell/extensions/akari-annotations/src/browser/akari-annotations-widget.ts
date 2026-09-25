@@ -33,6 +33,8 @@ import { evaluatedItemTransform, resolvePreviewItemWrite, resolvePreviewItemWrit
     selectGenerationSidecarForSource, setCaptionTimingLine,
     type PreviewItemWriteCommand, type TransformField } from '@akari-video/edit-store';
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
+import { isCurrentPhotoResponse } from './inspector/photo-response-state';
+import { buildAdoptedPhotoRegion, photoAdoptionPolarity } from './inspector/photo-panel-state';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
@@ -3169,6 +3171,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         this.selection = selection;
+        this.preparePhotoForSelection?.(selection);
         this.claimInspectorOwner?.();
         this.pushSelectionSnapshot();
         this.applySelectionClass();
@@ -4322,6 +4325,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let audioEnvelopeRole: 'bgm' | 'sfx' | 'narration' | undefined;
             let needsTelopRebake = false;
             let generatedMask: { id: string; ref: string } | undefined;
+            let adoptedRegion: Record<string, unknown> | undefined;
             if (request.kind === 'audio-keyframes') {
                 audioEnvelopeRole = request.audioKind;
                 itemId = request.audioKind === 'bgm'
@@ -4418,10 +4422,88 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     generatedMask = { id: `mask-${hash}`, ref: result.ref };
                     patch = { mask: generatedMask.id };
                     label = '背景を消す';
+                } else if (request.path === 'photo-query') {
+                    if (raw.source?.kind !== 'media' || !this.location) throw new Error('写真を選んでください');
+                    const sourceId = String(raw.source.src ?? '');
+                    const source = this.sourceMap.get(sourceId);
+                    if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) throw new Error('写真を選んでください');
+                    const revision = JSON.stringify(raw);
+                    const value = request.value as { mode?: string; x?: number; y?: number } | null;
+                    const engine = value?.mode === 'click' ? 'sam2.1-tiny' : 'apple-vision';
+                    const result = engine === 'sam2.1-tiny'
+                        ? await this.annotationsService.photoClick({ projectRootUri: this.location.root.toString(),
+                            sourceUri: source.videoUri, x: Number(value?.x), y: Number(value?.y) })
+                        : await this.annotationsService.photoCandidates({ projectRootUri: this.location.root.toString(),
+                            sourceUri: source.videoUri, mode: value?.mode === 'people' ? 'people' : 'foreground' });
+                    if ('message' in result) return { ok: false, message: result.message };
+                    if (!isCurrentPhotoResponse({ itemId, sourceId, sourceUri: source.videoUri,
+                        inputSha256: result.inputSha256, revision }, { itemId: this.rawV2Item(itemId)?.id ?? '',
+                        sourceId: String(this.rawV2Item(itemId)?.source?.src ?? ''),
+                        sourceUri: this.sourceMap.get(sourceId)?.videoUri ?? '',
+                        inputSha256: result.inputSha256, revision: JSON.stringify(this.rawV2Item(itemId)) })) {
+                        return { ok: false, message: '処理中に写真が変わりました' };
+                    }
+                    return { ok: true, photoCandidates: result.candidates, inputSha256: result.inputSha256,
+                        photoRevision: revision, photoEngine: engine };
+                } else if (request.path === 'photo-adopt') {
+                    if (raw.source?.kind !== 'media' || !this.location) throw new Error('写真を選んでください');
+                    const sourceId = String(raw.source.src ?? '');
+                    const source = this.sourceMap.get(sourceId);
+                    if (!source) throw new Error('写真を選んでください');
+                    const value = request.value as { candidate?: string; candidates?: string[]; inputSha256: string; photoRevision: string;
+                        engine: 'apple-vision' | 'sam2.1-tiny'; target: 'cutout' | 'region'; invert?: boolean; name?: string };
+                    if (JSON.stringify(raw) !== value.photoRevision) return { ok: false, message: '処理中に写真が変わりました' };
+                    const polarity = photoAdoptionPolarity(value.target, value.invert === true);
+                    const result = value.candidates ? await this.annotationsService.photoAdoptMany({
+                        projectRootUri: this.location.root.toString(), sourceUri: source.videoUri,
+                        candidates: value.candidates, inputSha256: value.inputSha256, engine: value.engine,
+                        invert: polarity.compositeInvert
+                    }) : await this.annotationsService.photoAdopt({ projectRootUri: this.location.root.toString(),
+                        sourceUri: source.videoUri, candidate: value.candidate ?? '', inputSha256: value.inputSha256,
+                        engine: value.engine });
+                    if ('message' in result) return { ok: false, message: result.message };
+                    if (!isCurrentPhotoResponse({ itemId, sourceId, sourceUri: source.videoUri,
+                        inputSha256: value.inputSha256, revision: value.photoRevision }, {
+                        itemId: this.rawV2Item(itemId)?.id ?? '', sourceId: String(this.rawV2Item(itemId)?.source?.src ?? ''),
+                        sourceUri: this.sourceMap.get(sourceId)?.videoUri ?? '',
+                        inputSha256: result.inputSha256, revision: JSON.stringify(this.rawV2Item(itemId)) })) {
+                        return { ok: false, message: '処理中に写真が変わりました' };
+                    }
+                    const hash = result.ref.match(/([a-f0-9]{64})\.png$/u)?.[1];
+                    if (!hash) throw new Error('マスクの保存名が正しくありません');
+                    generatedMask = { id: `mask-${hash}`, ref: result.ref };
+                    const existingRegions = Array.isArray(raw.regions) ? raw.regions : [];
+                    adoptedRegion = value.target === 'region'
+                        ? buildAdoptedPhotoRegion(hash, generatedMask.id, existingRegions, value.invert === true, value.name)
+                        : undefined;
+                    patch = value.target === 'cutout' ? { mask: generatedMask.id }
+                        : { regions: [...existingRegions, adoptedRegion] };
+                    label = value.target === 'cutout' ? '背景を消す' : 'エリアを追加';
+                } else if (request.path === 'maskFeather') {
+                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    patch = { maskFeather: request.value };
+                    label = '境界をなめらかに変更';
+                } else if (request.path === 'regions') {
+                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    if (Array.isArray(request.value) && this.location) for (const region of request.value as Array<{ filter?: { lut?: string } }>) {
+                        if (typeof region?.filter?.lut === 'string' && region.filter.lut) {
+                            await this.annotationsService.photoStageRegionLut({
+                                projectRootUri: this.location.root.toString(), id: region.filter.lut
+                            });
+                        }
+                    }
+                    patch = { regions: request.value };
+                    label = 'エリアの補正を変更';
                 } else if (request.path === 'photo-brush-toggle') {
                     if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error('写真を選んでください');
                     window.dispatchEvent(new CustomEvent('akari.photo.brush', { detail: {
                         editUri: this.location.editUri.toString(), itemId, settings: request.value
+                    } }));
+                    return { ok: true };
+                } else if (request.path === 'photo-select-toggle') {
+                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error('写真を選んでください');
+                    window.dispatchEvent(new CustomEvent('akari.photo.select', { detail: {
+                        editUri: this.location.editUri.toString(), itemId
                     } }));
                     return { ok: true };
                 } else if (request.path === 'flip.h' || request.path === 'flip.v') {
@@ -4664,7 +4746,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showNotice('テキストを変更しました。プレビューは焼成済み素材のままなので再ベイクが必要です。');
             }
             this.footer.textContent = `${label}しました。`;
-            return { ok: true };
+            return { ok: true, ...(adoptedRegion ? { photoRegion: adoptedRegion } : {}) };
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`変更できません: ${detail}`);
@@ -5680,6 +5762,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return { ...snapshot, playheadSeconds: this.playheadT, transform };
     }
 
+    protected readonly preparingPhotoSources = new Set<string>();
+
+    protected preparePhotoForSelection(selection: TimelineSelection): void {
+        if (!selection) return;
+        const itemId = selection.kind === 'cut' ? this.cutItemId(selection.index)
+            : selection.kind === 'layer' || selection.kind === 'item' ? selection.id : undefined;
+        if (!itemId) return;
+        const raw = this.rawV2Item(itemId);
+        if (raw?.source?.kind === 'media') this.prepareSelectedPhoto(String(raw.source.src ?? ''));
+    }
+
+    protected prepareSelectedPhoto(sourceId: string): void {
+        const source = this.sourceMap.get(sourceId);
+        if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path) || this.preparingPhotoSources.has(source.videoUri)) return;
+        this.preparingPhotoSources.add(source.videoUri);
+        this.showNotice('写真の準備をしています。初回はモデルを取得します…');
+        void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).then(result => {
+            if (!result.ok) this.showNotice(result.message ?? 'この Mac では使えません');
+            else this.hideNotice();
+        }).catch(() => this.showNotice('この Mac では使えません'));
+    }
+
     protected treeItemSnapshot(
         selection: TimelineTreeItemSelection,
         raw: Record<string, any> | undefined
@@ -5694,6 +5798,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? { canvasMotion: true } : {}),
             ...(raw.source?.kind === 'media' ? {
                 ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
+                ...(typeof raw.maskFeather === 'number' ? { maskFeather: raw.maskFeather } : {}),
+                ...(Array.isArray(raw.regions) ? { regions: raw.regions } : {}),
                 ...(raw.flip ? { flip: raw.flip } : {}),
                 ...(/\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? '') ? { photo: true } : {}),
                 maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,
@@ -5760,10 +5866,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const freeze = readCutFreeze((cut as EditCut & { freeze?: unknown }).freeze);
             const itemId = this.cutItemId(selection.index);
             const rawItem = this.rawKeyframeItem(itemId);
+            const photo = /\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(cut.src)?.path ?? '');
             const rawKeyframes = rawItem?.keyframes;
             const mediaSource = this.rawV2Item(itemId)?.source;
             return {
                 kind: 'cut', index: selection.index, itemId, label: `C${selection.index + 1}`,
+                ...(photo ? { photo: true } : {}),
+                ...(typeof rawItem?.maskFeather === 'number' ? { maskFeather: rawItem.maskFeather } : {}),
+                ...(Array.isArray(rawItem?.regions) ? { regions: rawItem.regions } : {}),
                 trackName: this.trackDisplayNameForItem(itemId),
                 clipName: this.cutSourceName(cut) || itemId,
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
@@ -5860,6 +5970,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ? { motion: rawItem.motion } : {}),
                 ...(raw?.source?.kind === 'media' ? {
                     ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
+                    ...(typeof raw.maskFeather === 'number' ? { maskFeather: raw.maskFeather } : {}),
+                    ...(Array.isArray(raw.regions) ? { regions: raw.regions } : {}),
                     ...(raw.flip ? { flip: raw.flip } : {}),
                     ...(/\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? '') ? { photo: true } : {}),
                     maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,

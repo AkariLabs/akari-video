@@ -77,6 +77,7 @@ import {
 } from './inspector/perspective-fields';
 import { createCutTransitionWriteRequest, transitionOptionLabel } from './inspector/transition-fields';
 import { createMaskWriteRequest, maskOptionLabel, maskOptionLabels } from './inspector/mask-fields';
+import { openPhotoEditPanel } from './inspector/photo-edit-panel';
 import {
     createMotionWriteRequest, normalizeInspectorMotion, MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS,
     MOTION_EASES, MOTION_PRESET_LABELS, MOTION_DURATION_DEFAULTS, MOTION_AMOUNT_DEFAULTS,
@@ -817,6 +818,23 @@ const LAYER_BLEND_OPTIONS = [
 const photoBrushSettings: { mode: 'erase' | 'restore'; size: number; hardness: number } = {
     mode: 'erase', size: 0.05, hardness: 0.8
 };
+
+function PHOTO_PANEL_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot | TimelineCutSelection>(
+    snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    if (!snapshot.photo) return [];
+    return [{
+        name: 'photo-cutout-panel', label: '背景透過', getValue: () => '', actionLabel: '背景透過を開く',
+        action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
+            mode: 'cutout', maskFeather: current.maskFeather, regions: current.regions,
+            adjust: current.adjust as Record<string, any> }); return { ok: true }; }
+    }, {
+        name: 'photo-region-panel', label: '選択エリア', getValue: () => '', actionLabel: 'エリアを選択',
+        action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
+            mode: 'regions', maskFeather: current.maskFeather, regions: current.regions,
+            adjust: current.adjust as Record<string, any> }); return { ok: true }; }
+    }];
+}
 
 function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
     snapshot: T,
@@ -4513,8 +4531,10 @@ export class AkariInspectorWidget extends BaseWidget {
         const aiAvailability = this.aiCatalogLoaded === undefined
             ? { enabled: !!generationIdentity, forcePanel: false }
             : aiTabAvailabilityFor({ kind: sectionKind, hasIdentity: !!generationIdentity, groups: aiGroups });
+        const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
+            && rowSnapshot.photo === true;
         const tabs = tabsForKind(sectionKind, {
-            src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled
+            src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled || photoSelection
         });
         const meta = generationIdentity ? this.generationTabMeta.get(generationIdentity.key) : undefined;
         const generationTodo = !!generationIdentity && (
@@ -4558,8 +4578,11 @@ export class AkariInspectorWidget extends BaseWidget {
                     ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
             const imageSelected = isInspectorStillImage(imageSource);
             if (imageSelected) {
+                const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
+                    ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
                 const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', fields: [
-                    ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields), {
+                    ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields),
+                    ...photoFields.filter(field => field.name === 'photo-cutout-panel'), {
                         name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
                         options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
                         write: async (_snapshot, value) => {
@@ -4567,9 +4590,8 @@ export class AkariInspectorWidget extends BaseWidget {
                             this.render();
                             return { ok: true };
                         }
-                    }, ...(this.editAdjustScope === '選択エリア' ? [{
-                        name: 'edit-area-soon', label: '選択エリア', getValue: () => '近日'
-                    }] : [])] }, rowSnapshot, sectionKind);
+                    }, ...(this.editAdjustScope === '選択エリア'
+                        ? photoFields.filter(field => field.name === 'photo-region-panel') : [])] }, rowSnapshot, sectionKind);
                 if (this.editAdjustScope !== '選択エリア' && correctionBody) {
                     this.refreshAdjustLuts();
                     ADJUST_SECTIONS(rowSnapshot, requestWrite, {

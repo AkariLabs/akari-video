@@ -137,6 +137,8 @@ export interface LayerSummaryBase {
     perspective?: LayerPerspectiveSummary;
     /** Declared sources id; the caller resolves it to an asset stream URL. */
     mask?: string;
+    maskFeather?: number;
+    regions?: readonly Record<string, unknown>[];
     erase?: readonly { mode: 'erase' | 'restore'; points: readonly (readonly [number, number])[]; size: number; hardness: number }[];
     flip?: { h?: boolean; v?: boolean };
     keyframes?: LayerKeyframesSummary;
@@ -369,6 +371,9 @@ export function buildLayerSummaryBase(
             warn(`[akari-preview] ${label}.mask を無視しました（非空文字列ではありません）`, record.mask);
         }
     }
+    if (typeof record.maskFeather === 'number' && record.maskFeather >= 0 && record.maskFeather <= 100)
+        base.maskFeather = record.maskFeather;
+    if (Array.isArray(record.regions)) base.regions = record.regions as Record<string, unknown>[];
     if (Array.isArray(record.erase)) base.erase = record.erase as LayerSummaryBase['erase'];
     if (isPlainObject(record.flip)) base.flip = record.flip as LayerSummaryBase['flip'];
     if (isPlainObject(record.motion)) base.motion = record.motion;

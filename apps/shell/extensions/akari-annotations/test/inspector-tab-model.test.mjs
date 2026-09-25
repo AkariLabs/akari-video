@@ -105,6 +105,7 @@ const factory = name => widgetAst.statements.find(node => ts.isFunctionDeclarati
 const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
   aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles,
   isInspectorStillImage,
+  PHOTO_PANEL_FIELDS: () => [],
   AUDIO_PREVIEW_SECTIONS, ADJUST_PREVIEW_SECTIONS, generationFields,
   CUT_SECTIONS: cutSections, LAYER_SECTIONS: layerSections, layerAudioControls: new WeakMap(), CAPTION_ZONE_HOVER_EVENT: '' };
 delete dependencies.default;

@@ -34,6 +34,7 @@ const deps = { appendAiTiles, appendAiBack, describeAiTiles, aiActionCatalog, ai
   LAYER_SECTIONS: (_snapshot, _write, _controls, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],
   stillMismatchNotice: () => undefined, appendAiStillNotice: () => undefined };
 deps.ADJUST_SECTIONS = () => [];
+deps.PHOTO_PANEL_FIELDS = () => [];
 const Harness = new Function(...Object.keys(deps), `${code}; return Harness;`)(...Object.values(deps));
 
 class FakeNode {

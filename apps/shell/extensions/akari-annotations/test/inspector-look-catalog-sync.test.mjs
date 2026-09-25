@@ -48,11 +48,20 @@ test('look replaces basic and wheels in one write and preserves other adjustment
     assert.throws(() => updateInspectorAdjust(current, 'adjust', invalid), /[ぁ-んァ-ヶ一-龠]/u);
   }
 });
+test('bundled LUT options use their catalog display names in both photo and color controls', () => {
+  const catalog = readFileSync(new URL('../../../../../presets/luts/index.jsonl', import.meta.url), 'utf8')
+    .trim().split(/\r?\n/u).map(JSON.parse);
+  const options = buildLutOptions([]).slice(1);
+  assert.deepEqual(options, catalog.map(({ id, name }) => ({ value: id, label: name })));
+});
+
 test('LUT labels compose bundled and project options and round trip values', () => {
   const options = buildLutOptions(['assets/luts/My.CUBE']);
   assert.equal(options.length, 12);
   assert.deepEqual(options[0], { label: 'なし', value: null });
   assert.deepEqual(options.at(-1), { label: 'My.CUBE（プロジェクト）', value: 'assets/luts/My.CUBE' });
+  assert.equal(lutOptionLabel('natural'), 'ナチュラル');
+  assert.equal(lutOptionLabel('mono'), 'モノクロ');
   assert.equal(lutOptionLabel('unknown'), 'unknown');
   assert.equal(lutOptionLabel(undefined), 'なし');
   assert.equal(updateInspectorAdjust({ lut: { lut: 'natural', intensity: 0.4 } }, 'adjust.lut.lut', options.at(-1).value).lut.intensity, 0.4);
