@@ -1,0 +1,239 @@
+{
+ "cardSpec": "asset:still/bg-aurora-mesh",
+ "dropSpec": "stage:0.75,0.25",
+ "at": "2026-09-25T07:17:20.817Z",
+ "card": {
+  "x": 87,
+  "y": 197,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283.0390625,
+   "y": 39,
+   "w": 779.953125,
+   "h": 358.515625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 780,
+   "h": 359
+  },
+  "inner": {
+   "x": 150.890625,
+   "y": 16.00390625,
+   "w": 478.21875,
+   "h": 268.9921875,
+   "offsetW": 478,
+   "offsetH": 269,
+   "transform": "matrix(1, 0, 0, 1, -239.109, -134.496)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 433.9296875,
+   "y": 55.00390625,
+   "w": 478.21875,
+   "h": 268.9921875
+  }
+ },
+ "drop": {
+  "x": 793,
+  "y": 122,
+  "outputPx": {
+   "x": 961.0873684898386,
+   "y": 179.32560773721355
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [
+   {
+    "text": "キャンバス背景",
+    "rect": {
+     "x": 132.3,
+     "y": 340,
+     "w": 42.3,
+     "h": 15
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/bg-aurora-mesh",
+  "id": "bg-aurora-mesh",
+  "category": "still",
+  "title": "オーロラメッシュ背景",
+  "thumb": "https://akari.video/assets/still/bg-aurora-mesh/v1/preview.png"
+ },
+ "alt": false,
+ "duringDrag": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "rect": {
+     "x": 733.2,
+     "y": 88.4,
+     "w": 119.5,
+     "h": 67.2
+    },
+    "border": "dashed rgb(251, 146, 60) 2px",
+    "text": "オーロラメッシュ背景0:05.0 → 0:10.0"
+   }
+  ],
+  "times": [
+   {
+    "text": "キャンバス背景",
+    "rect": {
+     "x": 132.3,
+     "y": 340,
+     "w": 42.3,
+     "h": 15
+    }
+   },
+   {
+    "text": "0:05.0 → 0:10.0",
+    "rect": {
+     "x": 738.7,
+     "y": 153.6,
+     "w": 108.6,
+     "h": 21
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 2539,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [
+   {
+    "text": "キャンバス背景",
+    "rect": {
+     "x": 132.3,
+     "y": 340,
+     "w": 42.3,
+     "h": 15
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v-canvas",
+   "trackIndex": 2,
+   "trackName": "V1",
+   "lane": "visual",
+   "parent": null,
+   "parentName": null,
+   "id": "image-1",
+   "at": 150,
+   "absAt": 150,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 5
+   },
+   "transform": {
+    "x": 321.16940233314244,
+    "y": -180.37423797351684,
+    "scale": 0.19138755980861244
+   }
+  }
+ ],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v-canvas",
+   "name": "V1",
+   "lane": "visual",
+   "items": 2
+  },
+  {
+   "index": 3,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioAfter": null,
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/still/bg-aurora-mesh/bg.png"
+  }
+ ],
+ "notices": [
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）使う開くだけ",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）"
+ ]
+}

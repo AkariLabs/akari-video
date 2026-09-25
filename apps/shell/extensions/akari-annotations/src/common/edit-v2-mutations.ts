@@ -6,11 +6,15 @@
  */
 
 import {
+    absoluteAt,
     attachEditHelpers,
+    composeTransforms,
     createCanvas as createTreeCanvas,
     createTrackAt,
     detachItem as detachTreeItem,
     groupItems as groupTreeItems,
+    insertItem as insertTreeItem,
+    locate,
     materializeProjectedPart,
     moveItem as moveTreeItem,
     putIntoCanvas as putTreeItemsIntoCanvas,
@@ -18,6 +22,7 @@ import {
     takeOutOfCanvas as takeTreeItemsOutOfCanvas,
     moveKeyframe as moveTreeKeyframe,
     normalizeTracks,
+    relativeTransform,
     removeKeyframe as removeTreeKeyframe,
     removeItem as removeTreeItem,
     serializeEdit,
@@ -25,6 +30,7 @@ import {
     setSegmentEasing as setTreeSegmentEasing,
     ungroupItem as ungroupTreeItem,
     updateItem as updateTreeItem,
+    worldTransformOfAncestors,
     type EditableEditV2,
     type CreateCanvasOptions,
     type GroupResult,
@@ -209,12 +215,44 @@ export function putTreeV2ItemsIntoCanvas(
     return finishTreeMutation(edit, beforeTrackIds, putTreeItemsIntoCanvas(edit, itemIds, canvasId));
 }
 
+/** 新規 item を直接子へ置く。既存の空段には触れない。 */
+export function insertTreeV2ItemIntoCanvas(
+    doc: EditV2Document, item: ProjectItemV2, canvasId: string
+): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const canvas = locate(edit, canvasId);
+    if (!canvas || canvas.item.source.kind !== 'group' || !canvas.item.source.canvas) {
+        throw new Error('置き先がキャンバスではありません。');
+    }
+    const parentTransform = composeTransforms(worldTransformOfAncestors(canvas.ancestors), canvas.item.transform);
+    const child = insertTreeItem(edit, canvasId, {
+        ...item,
+        at: item.at - absoluteAt(canvas),
+        ...(parentTransform ? { transform: relativeTransform(parentTransform, item.transform) } : {})
+    });
+    return { document: edit as unknown as EditV2Document, value: child };
+}
+
 export function putTreeV2PlacedCaptionIntoCanvas(
     doc: EditV2Document, caption: { id: string; at: number; duration: number }, canvasId: string
 ): TreeMutationResult<ProjectItemV2> {
     const edit = editTree(doc);
     const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
     return finishTreeMutation(edit, beforeTrackIds, putTreePlacedCaptionIntoCanvas(edit, caption, canvasId));
+}
+
+/** 新しく置いた字幕を一書き込みで子へ入れ、既存の空段と画面位置を保つ。 */
+export function placeTreeV2CaptionIntoCanvas(
+    doc: EditV2Document, caption: { id: string; at: number; duration: number }, canvasId: string
+): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const value = putTreePlacedCaptionIntoCanvas(edit, caption, canvasId);
+    const canvas = locate(edit, canvasId);
+    if (canvas) {
+        const parentTransform = composeTransforms(worldTransformOfAncestors(canvas.ancestors), canvas.item.transform);
+        if (parentTransform) value.transform = relativeTransform(parentTransform, undefined);
+    }
+    return { document: edit as unknown as EditV2Document, value };
 }
 
 export function takeTreeV2ItemsOutOfCanvas(
