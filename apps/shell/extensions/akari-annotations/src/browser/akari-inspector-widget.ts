@@ -107,6 +107,7 @@ import { buildGenerationBatch, executeGenerationBatch, type GenerationBatchItem,
 import { buildRgbCurveEditor, buildHueCurveEditor, buildColorWheelEditor, type AdjustEditorWrite } from './inspector/adjust-editors';
 import { INSPECTOR_LOOK_PRESETS, matchLookPreset } from './inspector/look-presets';
 import { buildLutOptions } from './inspector/lut-options';
+import { nextPhotoBrushItem } from './inspector/photo-brush-state';
 import { nextAdjustCompareState, type AdjustCompareState } from './inspector/adjust-compare';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
@@ -208,6 +209,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     actionLabel?: string;
     busyLabel?: string;
     action?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
+    pressed?: () => boolean;
     actions?: readonly {
         name: string;
         label: string;
@@ -840,6 +842,7 @@ const LAYER_BLEND_OPTIONS = [
 const photoBrushSettings: { mode: 'erase' | 'restore'; size: number; hardness: number } = {
     mode: 'erase', size: 0.05, hardness: 0.8
 };
+let activePhotoBrushItemId: string | null = null;
 
 function PHOTO_PANEL_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot | TimelineCutSelection>(
     snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -917,8 +920,21 @@ function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot
         }
     }, {
         name: 'photo-brush-start', label: '消しゴム', getValue: () => '', actionLabel: '消しゴム',
-        action: (current: T) => requestWrite({ kind: 'item-field', id: current.id,
-            path: 'photo-brush-toggle', value: { ...photoBrushSettings } })
+        pressed: () => activePhotoBrushItemId === snapshot.id,
+        action: async (current: T) => {
+            const previous = activePhotoBrushItemId;
+            const next = nextPhotoBrushItem(activePhotoBrushItemId, current.id);
+            activePhotoBrushItemId = next;
+            try {
+                const result = await requestWrite({ kind: 'item-field', id: current.id,
+                    path: 'photo-brush-toggle', value: next ? { ...photoBrushSettings } : null });
+                if (!result.ok) activePhotoBrushItemId = previous;
+                return result;
+            } catch (error) {
+                activePhotoBrushItemId = previous;
+                throw error;
+            }
+        }
     }] : [])];
 }
 
@@ -2976,6 +2992,13 @@ export class AkariInspectorWidget extends BaseWidget {
         };
         window.addEventListener('akari.imageAi.open', openImageAi);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.imageAi.open', openImageAi) });
+        const onPhotoBrushEnd = (): void => {
+            activePhotoBrushItemId = null;
+            this.node.querySelector('[data-akari-ui="action:inspector-photo-brush-start"]')
+                ?.setAttribute('aria-pressed', 'false');
+        };
+        window.addEventListener('akari.photo.brush-end', onPhotoBrushEnd);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.photo.brush-end', onPhotoBrushEnd) });
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:inspector');
         this.node.setAttribute('data-akari-ui-label', 'インスペクター');
@@ -3048,6 +3071,7 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-mismatch { margin: 0; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .akari-inspector-ai-still-error { color: var(--akari-danger, #e36b6b); }
 .akari-inspector-widget button.akari-inspector-ai-still-primary { padding: 9px 12px; color: var(--akari-bg); background: var(--akari-accent); border: 1px solid var(--akari-accent); border-radius: 5px; font-weight: 700; cursor: pointer; }
+.akari-inspector-widget [data-akari-ui="action:inspector-photo-brush-start"][aria-pressed="true"] { border-color: var(--akari-accent); color: var(--akari-accent); background: var(--akari-elevated); box-shadow: inset 0 0 0 1px var(--akari-accent); }
 .akari-inspector-widget button.akari-inspector-ai-still-primary:disabled { color: var(--akari-faint); background: var(--akari-card); border-color: var(--akari-line); cursor: default; }
 .akari-inspector-ai-transcribe-panel { display: grid; gap: 12px; min-width: 0; padding: 10px 2px; }
 .akari-inspector-ai-transcribe-detail, .akari-inspector-ai-transcribe-reason { margin: 0; color: var(--akari-muted); font-size: 12px; overflow-wrap: anywhere; }
@@ -6936,6 +6960,7 @@ export class AkariInspectorWidget extends BaseWidget {
             action.className = 'akari-inspector-row-input';
             action.textContent = field.actionLabel ?? field.label;
             action.disabled = field.disabled === true;
+            if (field.pressed) action.setAttribute('aria-pressed', String(field.pressed()));
             if (field.title) action.title = field.title;
             action.setAttribute('data-akari-ui', `action:inspector-${fieldName}`);
             action.addEventListener('click', () => {
@@ -6944,7 +6969,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 void field.action!(snapshot).then(result => {
                     if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
                 }).catch(error => this.showFieldNotice(error instanceof Error ? error.message : String(error)))
-                    .finally(() => { action.disabled = field.disabled === true; action.textContent = field.actionLabel ?? field.label; });
+                    .finally(() => { action.disabled = field.disabled === true; action.textContent = field.actionLabel ?? field.label;
+                        if (field.pressed) action.setAttribute('aria-pressed', String(field.pressed())); });
             });
             row.appendChild(action);
             parent.appendChild(row);

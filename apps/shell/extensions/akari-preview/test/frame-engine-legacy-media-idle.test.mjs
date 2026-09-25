@@ -68,12 +68,15 @@ test('engine 面の当たり判定は実寸とクロップ窓を使う トラッ
     const engineBranch = findHit.slice(0, findHit.indexOf('return document.elementsFromPoint'));
     assert.match(engineBranch, /for \(const entry of layerEntries\)/u);
     assert.match(engineBranch, /\(entry\.video\.videoWidth \|\| entry\.video\.naturalWidth\) > 0[\s\S]*?\(entry\.video\.videoHeight \|\| entry\.video\.naturalHeight\) > 0/u);
-    assert.match(engineBranch, /layerGeometryHitAt\(entry, event\.clientX, event\.clientY\)/u);
+    assert.match(engineBranch, /sourcePoint\(size, summary\.output, layerTransformNow\(entry\), layerCropNow\(entry\), stagePoint/u);
+    assert.match(engineBranch, /if \(!pixel\) continue;/u);
+    assert.match(engineBranch, /layerGeometryHitAt\(entry, event\.clientX, event\.clientY, hasSourceSize \? undefined : size\)/u);
     assert.doesNotMatch(engineBranch, /layerAlphaAtPoint|\.filter\(|entry\.video\.getBoundingClientRect/u);
     assert.equal((engineBranch.match(/for \(const entry of layerEntries\)/gu) || []).length, 1);
-    assert.match(engineBranch, /hits\.sort\(\(a, b\) => Number\(b\.style\.zIndex\) - Number\(a\.style\.zIndex\)\);/u);
+    assert.match(engineBranch, /z: Number\(entry\.video\.style\.zIndex\) \|\| 0/u);
+    assert.match(engineBranch, /frontmostPreviewHitFn\(hits\)/u);
     assert.match(engineBranch, /const bounds = video\.getBoundingClientRect\(\);/u);
-    assert.match(engineBranch, /return hits\[0\] \|\| null;/u);
+    assert.match(engineBranch, /hits\.sort\(\(a, b\) => b\.z - a\.z \|\| b\.order - a\.order\)/u);
     // 3 → 5: 上流 8d96eed5（keyframe-transform-edit-revert）で 1 回、P4b の shouldStartPreviewMarquee（マーキー開始判定フック）で 1 回増えた。
     assert.equal((compiledHandler.match(/findVisualMediaHitAt\(event\)/gu) || []).length, 5);
 });

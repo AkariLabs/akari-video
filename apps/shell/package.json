@@ -74,7 +74,7 @@
     "preflight": "node scripts/ensure-no-nested-extension-deps.mjs && node scripts/ensure-electron-dist.mjs",
     "prebuild": "npm run preflight && node resources/scripts/ensure-file-deps-linked.mjs",
     "build:ext": "tsc -b extensions/akari-theme extensions/akari-preview extensions/akari-annotations extensions/akari-project extensions/akari-shell-strip extensions/akari-world-view extensions/akari-partner extensions/akari-surfaces extensions/akari-tabs extensions/akari-transcript extensions/akari-companion",
-    "build": "npm run build:ext && theia build --mode production",
+    "build": "npm run build:ext && node -e \"const{spawnSync}=require('child_process');if(spawnSync('swiftc',['--version']).status===0){const r=spawnSync(process.execPath,['resources/scripts/build-photo-mask-helper.mjs'],{stdio:'inherit'});if(r.status!==0)console.warn('背景を消す補助を作れませんでした。開発ビルドを続けます。')}\" && theia build --mode production",
     "postbuild": "node scripts/resign-electron.mjs",
     "postinstall": "npm run preflight && node scripts/resign-electron.mjs",
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",

@@ -176,6 +176,9 @@ import { composePhotoPreviewMask } from '../common/photo-preview-mask';
 import { cutLayerStyleBoxPx, cutLayerStyleEntryTransform } from '../common/cut-layer-style-entry';
 import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { layerDeclaredGeometryHitAt, resolveLayerDeclaredSize } from '../common/layer-declared-geometry';
+import { previewPhotoSourcePoint, frontmostPreviewHit } from '../common/preview-photo-hit';
+import { isNestedPreviewLayer } from '../common/preview-nested-layer';
+import { placePreviewLayerActions } from '../common/preview-layer-action-placement';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import { buildPreviewContextMenuMessage, PREVIEW_Z_ORDER_MENU_ITEMS, previewGroupMenuVisible, previewZOrderMenuVisible } from '../common/preview-context-menu';
@@ -3349,13 +3352,31 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
+        let activeBrushItemId: string | null = null;
         const onPhotoBrush = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; itemId?: string; settings?: unknown }>).detail;
             if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
+            activeBrushItemId = detail.settings ? detail.itemId : null;
             widget.sendMessage({ type: 'akari-preview-photo-brush', itemId: detail.itemId, settings: detail.settings });
         };
         window.addEventListener('akari.photo.brush', onPhotoBrush);
         disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.brush', onPhotoBrush)));
+        const onPhotoBrushEnd = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string }>).detail;
+            if (detail?.editUri === widget.akariPreviewEditUri?.toString()) activeBrushItemId = null;
+        };
+        window.addEventListener('akari.photo.brush-end', onPhotoBrushEnd);
+        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.brush-end', onPhotoBrushEnd)));
+        const onMainEscape = (event: KeyboardEvent): void => {
+            if (event.key !== 'Escape' || !activeBrushItemId) return;
+            widget.sendMessage({ type: 'akari-preview-photo-brush', itemId: activeBrushItemId, settings: null });
+            activeBrushItemId = null;
+            window.dispatchEvent(new CustomEvent('akari.photo.brush-end', { detail: {
+                editUri: widget.akariPreviewEditUri?.toString()
+            } }));
+        };
+        window.addEventListener('keydown', onMainEscape, true);
+        disposables.push(Disposable.create(() => window.removeEventListener('keydown', onMainEscape, true)));
         const onPhotoSelect = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; itemId?: string }>).detail;
             if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
@@ -3414,6 +3435,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     widget.sendMessage({ type: 'akari-preview-photo-analyze-response',
                         requestId: message.requestId, ok: true, result });
                 });
+                return;
+            }
+            if (message?.type === 'akari-preview-photo-brush-end' && kind === 'output') {
+                window.dispatchEvent(new CustomEvent('akari.photo.brush-end', { detail: {
+                    editUri: widget.akariPreviewEditUri?.toString()
+                } }));
                 return;
             }
             if (message?.type === 'akari-preview-photo-stroke' && kind === 'output'
@@ -6922,6 +6949,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 patch: request.patch,
                 playheadSeconds: request.playheadSeconds ?? widget.akariPreviewLastKnownTime
             };
+            if (isNestedPreviewLayer(originalText, request.layerId)) {
+                const committed = this.commandRegistry.getCommand('akari.annotations.commitPreviewTransform')
+                    ? await this.commandRegistry.executeCommand('akari.annotations.commitPreviewTransform',
+                        editUri.toString(), write) : false;
+                if (committed !== true) throw new Error('キャンバス内の写真を書き戻せませんでした');
+                respond(true);
+                return;
+            }
             const resolved = resolvePreviewItemWrite(originalText, write);
             const candidateText = resolved.candidateText;
             if (!candidateText) {
@@ -8116,7 +8151,7 @@ ${previewSelectionHandlesStyle}
               <div id="akari-gen-band" hidden><span id="akari-gen-band-text"></span><span id="akari-gen-band-bar"><i id="akari-gen-band-fill"></i></span></div>
             </div>
           </div>
-          <div id="layer-select-box"><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><button type="button" class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate" aria-label="回転" title="回転"></button><button type="button" class="akari-layer-handle akari-layer-handle-move" data-akari-handle="move" aria-label="移動" title="移動"></button><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
+          <div id="layer-select-box"><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><button type="button" class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate" aria-label="回転" title="回転"></button><button type="button" class="akari-layer-handle akari-layer-handle-move" data-akari-handle="move" aria-label="移動" title="移動"></button><div class="akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n" data-akari-crop-edge="n" role="button" aria-label="上へ伸ばす" title="上へ伸ばす"></div><div class="akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e" data-akari-crop-edge="e" role="button" aria-label="右へ伸ばす" title="右へ伸ばす"></div><div class="akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s" data-akari-crop-edge="s" role="button" aria-label="下へ伸ばす" title="下へ伸ばす"></div><div class="akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w" data-akari-crop-edge="w" role="button" aria-label="左へ伸ばす" title="左へ伸ばす"></div></div>
           <div id="layer-crop-box"><img id="photo-crop-ghost" alt=""><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
           <div id="photo-crop-controls"><label>縦横比 <select data-photo-crop-ratio><option value="free">自由</option><option value="original">元の比</option><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="5:4">5:4</option><option value="3:4">3:4</option><option value="4:3">4:3</option><option value="9:16">9:16</option><option value="16:9">16:9</option></select></label><label>回転 <input data-photo-crop-rotate type="number" min="-45" max="45" step="0.1" value="0">°</label><button type="button" data-photo-crop-auto>自動水平</button><button type="button" data-photo-crop-smart>スマート切り抜き</button><button type="button" disabled title="近日対応">拡張（近日）</button><span data-photo-crop-status aria-live="polite"></span><button type="button" data-photo-crop-done>確定</button><button type="button" data-photo-crop-cancel>取り消し</button></div>
           <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
@@ -9623,6 +9658,7 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportPhotoStroke = (itemId, stroke) => {
                 vscode.postMessage({ type: 'akari-preview-photo-stroke', itemId, stroke });
             };
+            window.akari.reportPhotoBrushEnd = () => vscode.postMessage({ type: 'akari-preview-photo-brush-end' });
             window.akari.reportPhotoClick = (itemId, point) => {
                 vscode.postMessage({ type: 'akari-preview-photo-click', itemId, point });
             };
@@ -9780,6 +9816,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const key = media.src + ':' + media.dataset.akariPhotoMaskUrl + ':' + media.dataset.akariPhotoErase;
                 if (media.akariPhotoMaskKey === key) return;
                 media.akariPhotoMaskKey = key;
+                media.akariPhotoHitAlpha = null;
                 void (async () => {
                     const width = media.naturalWidth, height = media.naturalHeight;
                     const canvas = document.createElement('canvas');
@@ -9818,6 +9855,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (gray[i] !== 255) hasDeclarationMask = true;
                         if (borderMask.data[offset + 3] !== 255) hasBorderMask = true;
                     }
+                    media.akariPhotoHitAlpha = new Uint8Array(width * height);
+                    for (let i = 0; i < gray.length; i++) media.akariPhotoHitAlpha[i] = borderMask.data[i * 4 + 3];
                     if (hasDeclarationMask) {
                         ctx.putImageData(visible, 0, 0);
                         const url = 'url("' + canvas.toDataURL('image/png') + '")';
@@ -11582,6 +11621,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const describeOverlayFn = (${describeOverlay.toString()});
             const previewRatePresets = ${JSON.stringify(PREVIEW_RATE_PRESETS)};
             const frameEngineMediaIdle = initial.frameEngineEnabled === true;
+            const previewLayerActionsFn = (${placePreviewLayerActions.toString()});
+            const previewPhotoSourcePointFn = (${previewPhotoSourcePoint.toString()});
+            const frontmostPreviewHitFn = (${frontmostPreviewHit.toString()});
             let playbackMountReady = false;
             let playbackModelUpdate;
             let summary = initial.summary;
@@ -13101,6 +13143,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const layerPerspectiveClearButton = layerPerspectivePanel.querySelector('[data-akari-perspective-clear]');
             const layerSelectBox = document.getElementById('layer-select-box');
             const layerHandleElements = Array.from(layerSelectBox.querySelectorAll('[data-akari-handle]'));
+            let floatingMenuRect = null;
             const findLayerEntry = id => layerEntries.find(entry => String(entry.spec.id) === String(id));
             const layerTransformNow = entry => {
                 const scale = Number(entry.video.dataset.akariTransformScale) || 1;
@@ -13324,6 +13367,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     return 255;
                 }
             };
+            const layerAlphaAtSourcePoint = (entry, point) => {
+                try {
+                    if (entry.video.readyState < 2) return 255;
+                    layerAlphaCanvasEl.width = 1;
+                    layerAlphaCanvasEl.height = 1;
+                    const ctx = layerAlphaCanvasEl.getContext('2d', { willReadFrequently: true });
+                    ctx.clearRect(0, 0, 1, 1);
+                    ctx.drawImage(entry.video, point.x, point.y, 1, 1, 0, 0, 1, 1);
+                    return ctx.getImageData(0, 0, 1, 1).data[3];
+                } catch (_error) { return 255; }
+            };
             const measureLayerOpaqueBox = entry => {
                 try {
                     const vw = entry.video.videoWidth;
@@ -13468,11 +13522,36 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerSelectBox.dataset.akariPivotOffX = String(box.rotOffX);
                 layerSelectBox.dataset.akariPivotOffY = String(box.rotOffY);
                 layerSelectBox.classList.add('is-active');
+                // ホストの浮いたメニューと段の外を避けて、写真の回転・移動ボタンを置く。
+                if (typeof previewStage !== 'undefined' && previewStage?.getBoundingClientRect
+                    && layerSelectBox.getBoundingClientRect
+                    && typeof previewLayerActionsFn === 'function') {
+                    const zoomScale = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+                    const place = previewLayerActionsFn(previewStage.getBoundingClientRect(),
+                        layerSelectBox.getBoundingClientRect(), floatingMenuRect, zoomScale);
+                    for (const handle of layerHandleElements) {
+                        const kind = handle.getAttribute('data-akari-handle');
+                        if (kind !== 'rotate' && kind !== 'move') continue;
+                        if (!place || (place.placement === 'below' && place.offsetX === 0)) {
+                            handle.style.top = '';
+                            handle.style.left = '';
+                        } else {
+                            handle.style.top = place.top / zoomScale + 'px';
+                            handle.style.left = 'calc(50% + ' + ((kind === 'rotate' ? -14 : 14)
+                                + place.offsetX / zoomScale) + 'px)';
+                        }
+                    }
+                }
                 applyCropEdgeVisibility(layerSelectBox, box.width, box.height, true);
                 if (!cropModeActive) positionLayerCropToggle(box);
                 if (!cropModeActive) positionLayerPerspectiveToggle(box);
                 layerPerspectiveToggle.classList.toggle('is-declared', !!layerPerspectiveNow(entry));
             };
+            window.addEventListener('message', event => {
+                if (event.data?.type !== 'akari-preview-context-menu-rect') return;
+                floatingMenuRect = event.data.rect;
+                updateLayerSelectBox();
+            });
             // クロップトグルボタンは通常枠/クロップ枠のどちらが出ていても常に同じ場所（右上角の外側）
             // に留まり続ける（モード切替のたびに探し直させない）。box=null でレイヤー未選択として隠す。
             const positionLayerCropToggle = box => {
@@ -13821,6 +13900,42 @@ body { display: grid; place-items: center; padding: 32px; }
             let photoHoverLastMs = 0;
             let photoHighlightCanvas = null;
             let photoStroke = null;
+            let photoBrushStatus = null;
+            let photoBrushCursor = null;
+            const ensurePhotoBrushUi = () => {
+                if (photoBrushStatus || typeof document === 'undefined' || typeof previewStage === 'undefined') return;
+                photoBrushStatus = document.createElement('div');
+                photoBrushStatus.className = 'akari-photo-brush-status';
+                photoBrushStatus.textContent = '消しゴム中 — Esc で終わる';
+                photoBrushStatus.hidden = true;
+                previewStage.appendChild(photoBrushStatus);
+                photoBrushCursor = document.createElement('div');
+                photoBrushCursor.className = 'akari-photo-brush-cursor';
+                photoBrushCursor.hidden = true;
+                document.body.appendChild(photoBrushCursor);
+            };
+            const hidePhotoBrushUi = () => {
+                if (photoBrushStatus) photoBrushStatus.hidden = true;
+                if (photoBrushCursor) photoBrushCursor.hidden = true;
+            };
+            const updatePhotoBrushCursor = event => {
+                if (!photoBrushCursor) return;
+                const entry = photoBrush && findLayerEntry(photoBrush.itemId);
+                const point = photoBrush && photoBrushPoint(event);
+                photoBrushCursor.hidden = !point;
+                if (!point || !entry) return;
+                const width = entry.video.naturalWidth || entry.video.videoWidth;
+                const height = entry.video.naturalHeight || entry.video.videoHeight;
+                const transform = layerTransformNow(entry);
+                const scale = Math.max(transform.scaleX ?? transform.scale ?? 1,
+                    transform.scaleY ?? transform.scale ?? 1);
+                const diameter = Math.max(2, photoBrush.size * Math.min(width, height)
+                    * scale * (window.akari.stageScale() || 1) * zoom);
+                photoBrushCursor.style.width = diameter + 'px';
+                photoBrushCursor.style.height = diameter + 'px';
+                photoBrushCursor.style.left = event.clientX + 'px';
+                photoBrushCursor.style.top = event.clientY + 'px';
+            };
             const photoBrushPoint = event => {
                 const entry = (photoBrush || photoSelect) && findLayerEntry((photoBrush || photoSelect).itemId);
                 const stagePoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
@@ -13882,7 +13997,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message?.type === 'akari-preview-photo-select') {
                     const layer = findLayerEntry(message.itemId);
                     const cut = cutSelectionVideo().dataset.akariCutId === message.itemId;
+                    if (photoBrush) window.akari.reportPhotoBrushEnd?.();
                     photoBrush = null;
+                    hidePhotoBrushUi();
                     layerSelectBox.classList.remove('akari-photo-pointer-mode');
                     cutSelectBox.classList.remove('akari-photo-pointer-mode');
                     photoSelect = layer || cut ? { itemId: message.itemId } : null;
@@ -13906,14 +14023,25 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message?.type !== 'akari-preview-photo-brush') return;
+                if (!message.settings) {
+                    photoBrush = null;
+                    photoStroke = null;
+                    hidePhotoBrushUi();
+                    layerSelectBox.classList.remove('akari-photo-pointer-mode');
+                    layerSelectBox.style.cursor = '';
+                    layerSelectBox.title = '';
+                    return;
+                }
                 if (!findLayerEntry(message.itemId)) return;
+                ensurePhotoBrushUi();
                 selectLayer(message.itemId);
                 photoSelect = null;
                 cutSelectBox.classList.remove('akari-photo-pointer-mode');
                 photoBrush = { itemId: message.itemId, ...message.settings };
+                if (photoBrushStatus) photoBrushStatus.hidden = false;
                 layerSelectBox.classList.add('akari-photo-pointer-mode');
-                layerSelectBox.style.cursor = 'crosshair';
-                layerSelectBox.title = 'なぞって編集します。Esc で終わります';
+                layerSelectBox.style.cursor = 'none';
+                layerSelectBox.title = '';
             });
             window.addEventListener('keydown', event => {
                 if (event.key !== 'Escape' || (!photoBrush && !photoSelect)) return;
@@ -13921,6 +14049,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 photoBrush = null;
                 photoSelect = null;
                 photoStroke = null;
+                hidePhotoBrushUi();
                 layerSelectBox.classList.remove('akari-photo-pointer-mode');
                 cutSelectBox.classList.remove('akari-photo-pointer-mode');
                 layerSelectBox.style.cursor = '';
@@ -13928,6 +14057,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 cutSelectBox.style.cursor = '';
                 cutSelectBox.title = '';
                 if (selectedId) window.akari.reportPhotoSelectEnd(selectedId);
+                window.akari.reportPhotoBrushEnd?.();
             });
             layerSelectBox.addEventListener('pointerdown', event => {
                 if (photoSelect && event.button === 0) {
@@ -13946,6 +14076,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 photoStroke = { pointerId: event.pointerId, points: [point] };
             }, true);
             layerSelectBox.addEventListener('pointermove', event => {
+                if (photoBrush) updatePhotoBrushCursor(event);
                 if (photoSelect && findLayerEntry(photoSelect.itemId) && performance.now() - photoHoverLastMs >= 32) {
                     photoHoverLastMs = performance.now();
                     window.akari.reportPhotoHover(photoSelect.itemId, photoBrushPoint(event));
@@ -13969,6 +14100,7 @@ body { display: grid; place-items: center; padding: 32px; }
             }, true);
             layerSelectBox.addEventListener('pointercancel', () => { photoStroke = null; }, true);
             layerSelectBox.addEventListener('pointerleave', () => {
+                if (photoBrushCursor) photoBrushCursor.hidden = true;
                 if (photoSelect && findLayerEntry(photoSelect.itemId)) window.akari.reportPhotoHover(photoSelect.itemId, null);
             });
             }
@@ -14186,20 +14318,33 @@ body { display: grid; place-items: center; padding: 32px; }
                 beginLayerMoveDrag(entry, event);
             });
             const findVisualMediaHitAt = event => {
+                const sourcePoint = typeof previewPhotoSourcePointFn === 'function' ? previewPhotoSourcePointFn : null;
+                const stagePoint = sourcePoint
+                    ? window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY) || null : null;
                 if (frameEngineMediaIdle || window.akari.frameEngineClock) {
                     // Media and DOM overlays share the same track z order, including hit testing.
                     const hits = [];
                     const declaredSize = typeof summary === 'undefined' ? null : summary.output;
+                    let order = 0;
                     for (const entry of layerEntries) {
                         if (entry.video.style.display === 'none') continue;
                         const hasSourceSize = (entry.video.videoWidth || entry.video.naturalWidth) > 0
                             && (entry.video.videoHeight || entry.video.naturalHeight) > 0;
-                        if (hasSourceSize) {
-                            if (layerGeometryHitAt(entry, event.clientX, event.clientY)) hits.push(entry.video);
-                        } else if (declaredSize?.width > 0 && declaredSize?.height > 0
-                            && layerGeometryHitAt(entry, event.clientX, event.clientY, declaredSize)) {
-                            hits.push(entry.video);
-                        }
+                        const size = hasSourceSize
+                            ? { width: entry.video.videoWidth || entry.video.naturalWidth,
+                                height: entry.video.videoHeight || entry.video.naturalHeight }
+                            : declaredSize;
+                        if (!size) continue;
+                        if (sourcePoint) {
+                            const pixel = sourcePoint(size, summary.output, layerTransformNow(entry), layerCropNow(entry), stagePoint,
+                                entry.spec?.isImage ? entry.spec.flip : undefined,
+                                entry.spec?.isImage ? entry.spec.frame?.cornerRadius : 0);
+                            if (!pixel) continue;
+                            const alpha = entry.video.akariPhotoHitAlpha;
+                            if (alpha && hasSourceSize && alpha[pixel.y * size.width + pixel.x] <= 16) continue;
+                            if (!alpha && hasSourceSize && layerAlphaAtSourcePoint(entry, pixel) <= 16) continue;
+                        } else if (!layerGeometryHitAt(entry, event.clientX, event.clientY, hasSourceSize ? undefined : size)) continue;
+                        hits.push({ element: entry.video, z: Number(entry.video.style.zIndex) || 0, order: order++ });
                     }
                     const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
                     const segment = segments[activeSegmentIndex];
@@ -14207,10 +14352,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         && !hiddenTracksByScope.cuts.has(segment.track)) {
                         const bounds = video.getBoundingClientRect();
                         if (event.clientX >= bounds.left && event.clientX <= bounds.right
-                            && event.clientY >= bounds.top && event.clientY <= bounds.bottom) hits.push(video);
+                            && event.clientY >= bounds.top && event.clientY <= bounds.bottom) {
+                            hits.push({ element: video, z: Number(video.style.zIndex) || 0, order: -1 });
+                        }
                     }
-                    hits.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex));
-                    return hits[0] || null;
+                    return typeof frontmostPreviewHitFn === 'function' ? frontmostPreviewHitFn(hits)
+                        : hits.sort((a, b) => b.z - a.z || b.order - a.order)[0]?.element || null;
                 }
                 return document.elementsFromPoint(event.clientX, event.clientY)
                     .find(candidate => {
@@ -14219,7 +14366,21 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
                             && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
                         const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
-                        return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
+                        if (!candidateEntry) return true;
+                        const size = { width: candidate.videoWidth || candidate.naturalWidth,
+                            height: candidate.videoHeight || candidate.naturalHeight };
+                        if (!(size.width > 0 && size.height > 0)) {
+                            return layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
+                        }
+                        if (!sourcePoint) return layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
+                        const pixel = sourcePoint(size, summary.output, layerTransformNow(candidateEntry),
+                            layerCropNow(candidateEntry), stagePoint,
+                            candidateEntry.spec.isImage ? candidateEntry.spec.flip : undefined,
+                            candidateEntry.spec.isImage ? candidateEntry.spec.frame?.cornerRadius : 0);
+                        if (!pixel) return false;
+                        const alpha = candidate.akariPhotoHitAlpha;
+                        return (alpha ? alpha[pixel.y * size.width + pixel.x]
+                            : layerAlphaAtSourcePoint(candidateEntry, pixel)) > 16;
                     }) || null;
             };
             libraryMediaHitAt = findVisualMediaHitAt;
@@ -14438,7 +14599,11 @@ body { display: grid; place-items: center; padding: 32px; }
                                 anchorStageX: anchor.x,
                                 anchorStageY: anchor.y
                             });
-                            return translated ? { ...original, ...translated, scale: nextScale } : original;
+                            return translated ? { ...original, ...translated, scale: nextScale,
+                                ...(entry.spec.isImage === true ? {
+                                    scaleX: (original.scaleX ?? original.scale) * nextScale / original.scale,
+                                    scaleY: (original.scaleY ?? original.scale) * nextScale / original.scale
+                                } : {}) } : original;
                         });
                     }
                 });
@@ -18661,7 +18826,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!frameEngineMediaIdle && !layerVideo.paused) layerVideo.pause();
                         continue;
                     }
-                    if (layerVideo.readyState < HTMLMediaElement.HAVE_METADATA) {
+                    if (layerVideo.readyState < HTMLMediaElement.HAVE_METADATA
+                        && !(frameEngineMediaIdle && layer.isImage === true)) {
                         layerVideo.style.display = 'none';
                         continue;
                     }

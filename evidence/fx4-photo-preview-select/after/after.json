@@ -1,0 +1,4518 @@
+{
+  "tag": "after",
+  "steps": {
+    "open-timeline": {
+      "annotations": "[object Object]"
+    },
+    "open-inspector": {
+      "inspector": "[object Object]"
+    },
+    "initial": {
+      "stage": {
+        "x": 387.796875,
+        "y": 190.03125,
+        "width": 583,
+        "height": 327.9375,
+        "fx": 36,
+        "fy": 151.03125
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      }
+    },
+    "photo-rects-out": {
+      "A": {
+        "x": 350.0130360205832,
+        "y": 287.50188679245286,
+        "w": 720.0164665523156,
+        "h": 405.01132075471696
+      },
+      "B": {
+        "x": 699.9931389365352,
+        "y": 369.9993138936535,
+        "w": 719.9835334476844,
+        "h": 540.0041166380789
+      }
+    },
+    "points-out": {
+      "bOnly": {
+        "x": 1275.9799656946827,
+        "y": 802.0026072041167
+      },
+      "overlapOpaque": {
+        "x": 975.0092624356776,
+        "y": 531.2562607204117
+      },
+      "overlapTransparent": {
+        "x": 789.9910806174958,
+        "y": 531.2562607204117
+      },
+      "aOnly": {
+        "x": 566.0179759862779,
+        "y": 530.508679245283
+      },
+      "outside": {
+        "x": 1700,
+        "y": 1000
+      },
+      "canvasPhoto": {
+        "x": 260,
+        "y": 870
+      },
+      "libPhoto": {
+        "x": 330,
+        "y": 150
+      },
+      "shape": {
+        "x": 1650,
+        "y": 180
+      }
+    },
+    "click-b-only": {
+      "outPoint": {
+        "x": 1275.9799656946827,
+        "y": 802.0026072041167
+      },
+      "pagePoint": {
+        "x": 775.2,
+        "y": 433.6
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.63,
+          "h": 163.97
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-b"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "click-overlap-opaque": {
+      "outPoint": {
+        "x": 975.0092624356776,
+        "y": 531.2562607204117
+      },
+      "pagePoint": {
+        "x": 683.9,
+        "y": 351.3
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.63,
+          "h": 163.97
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-b"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "click-overlap-transparent": {
+      "outPoint": {
+        "x": 789.9910806174958,
+        "y": 531.2562607204117
+      },
+      "pagePoint": {
+        "x": 627.7,
+        "y": 351.3
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 142.27,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 137.77,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 354.4,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 137.77,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 354.4,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 225.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 253.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 241.59,
+          "y": 233.83,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 354.4,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 241.59,
+          "y": 354.8,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 137.77,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 137.77,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 354.4,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 137.77,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 354.4,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 225.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 253.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 241.59,
+          "y": 233.83,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 354.4,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 241.59,
+          "y": 354.8,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 137.77,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-a"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "click-a-only": {
+      "outPoint": {
+        "x": 566.0179759862779,
+        "y": 530.508679245283
+      },
+      "pagePoint": {
+        "x": 559.7,
+        "y": 351.1
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 142.27,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 137.77,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 354.4,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 137.77,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 354.4,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 225.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 253.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 241.59,
+          "y": 233.83,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 354.4,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 241.59,
+          "y": 354.8,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 137.77,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 137.77,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 354.4,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 137.77,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 354.4,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 225.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 253.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 241.59,
+          "y": 233.83,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 354.4,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 241.59,
+          "y": 354.8,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 137.77,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-a"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "click-outside": {
+      "outPoint": {
+        "x": 1700,
+        "y": 1000
+      },
+      "pagePoint": {
+        "x": 904,
+        "y": 493.7
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#cut-select-box.is-active",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 31.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 612.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 31.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 612.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 301,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 329,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-cut-handle akari-cut-handle-nw",
+          "x": 31.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-ne",
+          "x": 612.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-sw",
+          "x": 31.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-se",
+          "x": 612.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-rotate",
+          "x": 301,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-move",
+          "x": 329,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "cut:0"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transition-type",
+          "transition-duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "motion-summary",
+          "motion-open",
+          "framing-crop-x",
+          "framing-crop-y",
+          "framing-crop-w",
+          "framing-crop-h",
+          "framing-keyframe-add",
+          "freeze-at",
+          "freeze-duration",
+          "opacity",
+          "speed",
+          "gain-db",
+          "mute"
+        ]
+      }
+    },
+    "click-shape": {
+      "outPoint": {
+        "x": 1650,
+        "y": 180
+      },
+      "pagePoint": {
+        "x": 888.8,
+        "y": 244.7
+      },
+      "hit": {
+        "chain": [
+          "rect.",
+          "svg.",
+          "DIV.",
+          "DIV#overlay-stage.",
+          "DIV#preview-layers.",
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper."
+        ],
+        "overlay": "box",
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        },
+        {
+          "sel": ".akari-interaction-selection-frame",
+          "data": {
+            "akariInteraction": "selection-frame",
+            "akariSelectionKind": "leaf"
+          },
+          "x": 491.46,
+          "y": 175.32,
+          "w": 91.09,
+          "h": 60.73
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-interaction-handle is-nw",
+          "x": 486.96,
+          "y": 170.82,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-interaction-handle is-ne",
+          "x": 576.05,
+          "y": 170.82,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-interaction-handle is-se",
+          "x": 576.05,
+          "y": 229.55,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-interaction-handle is-sw",
+          "x": 486.96,
+          "y": 229.55,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-interaction-handle is-edge is-n",
+          "x": 527.01,
+          "y": 170.82,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-interaction-handle is-edge is-e",
+          "x": 576.05,
+          "y": 195.68,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-interaction-handle is-edge is-s",
+          "x": 527.01,
+          "y": 229.55,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-interaction-handle is-edge is-w",
+          "x": 486.96,
+          "y": 195.68,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-interaction-handle akari-interaction-action is-rotate",
+          "x": 510.01,
+          "y": 248.05,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-interaction-handle akari-interaction-action is-move",
+          "x": 539.01,
+          "y": 248.05,
+          "w": 25,
+          "h": 25
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "overlay:box"
+      ],
+      "inspector": {
+        "fields": [
+          "item-start",
+          "item-duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-scaleX",
+          "transform-scaleY",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "shape-fillMode",
+          "shape-fill",
+          "shape-strokeMode",
+          "shape-stroke",
+          "shape-strokeWidth"
+        ]
+      }
+    },
+    "click-lib-photo": {
+      "outPoint": {
+        "x": 330,
+        "y": 150
+      },
+      "pagePoint": {
+        "x": 488,
+        "y": 235.6
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 116.52,
+          "y": 173.86,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 223.83,
+          "y": 173.86,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 116.52,
+          "y": 244.73,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 223.83,
+          "y": 244.73,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 149.17,
+          "y": 262.73,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 177.17,
+          "y": 262.73,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 165.67,
+          "y": 173.86,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 223.83,
+          "y": 204.8,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 165.67,
+          "y": 244.73,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 116.52,
+          "y": 204.8,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 116.52,
+          "y": 173.86,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 223.83,
+          "y": 173.86,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 116.52,
+          "y": 244.73,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 223.83,
+          "y": 244.73,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 149.17,
+          "y": 262.73,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 177.17,
+          "y": 262.73,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 165.67,
+          "y": 173.86,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 223.83,
+          "y": 204.8,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 165.67,
+          "y": 244.73,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 116.52,
+          "y": 204.8,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-lib"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "click-canvas-photo": {
+      "outPoint": {
+        "x": 260,
+        "y": 870
+      },
+      "pagePoint": {
+        "x": 466.7,
+        "y": 454.2
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 64.9,
+          "y": 365.16,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 153.99,
+          "y": 365.16,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 64.9,
+          "y": 454.25,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 153.99,
+          "y": 454.25,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 88.45,
+          "y": 436.75,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 116.45,
+          "y": 436.75,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 104.95,
+          "y": 365.16,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 153.99,
+          "y": 405.2,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 104.95,
+          "y": 454.25,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 64.9,
+          "y": 405.2,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 64.9,
+          "y": 365.16,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 153.99,
+          "y": 365.16,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 64.9,
+          "y": 454.25,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 153.99,
+          "y": 454.25,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 88.45,
+          "y": 436.75,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 116.45,
+          "y": 436.75,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 104.95,
+          "y": 365.16,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 153.99,
+          "y": 405.2,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 104.95,
+          "y": 454.25,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 64.9,
+          "y": 405.2,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "item:photo-in-canvas",
+        "item:photo-in-canvas"
+      ],
+      "inspector": {
+        "fields": [
+          "item-start",
+          "item-duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-scaleX",
+          "transform-scaleY",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity"
+        ]
+      }
+    },
+    "preselect-cut": {
+      "outPoint": {
+        "x": 1700,
+        "y": 1000
+      },
+      "pagePoint": {
+        "x": 904,
+        "y": 493.7
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#cut-select-box.is-active",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 31.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 612.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 31.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 612.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 301,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-cut-handle.akari-cut-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 329,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-cut-handle akari-cut-handle-nw",
+          "x": 31.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-ne",
+          "x": 612.5,
+          "y": 146.53,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-sw",
+          "x": 31.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-se",
+          "x": 612.5,
+          "y": 472.47,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-rotate",
+          "x": 301,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-cut-handle akari-cut-handle-move",
+          "x": 329,
+          "y": 490.47,
+          "w": 25,
+          "h": 25
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "cut:0"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transition-type",
+          "transition-duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "motion-summary",
+          "motion-open",
+          "framing-crop-x",
+          "framing-crop-y",
+          "framing-crop-w",
+          "framing-crop-h",
+          "framing-keyframe-add",
+          "freeze-at",
+          "freeze-duration",
+          "opacity",
+          "speed",
+          "gain-db",
+          "mute"
+        ]
+      }
+    },
+    "click-b-after-cut": {
+      "outPoint": {
+        "x": 1275.9799656946827,
+        "y": 802.0026072041167
+      },
+      "pagePoint": {
+        "x": 775.2,
+        "y": 433.6
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.63,
+          "h": 163.97
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-b"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "click-a-after-b": {
+      "outPoint": {
+        "x": 566.0179759862779,
+        "y": 530.508679245283
+      },
+      "pagePoint": {
+        "x": 559.7,
+        "y": 351.1
+      },
+      "hit": {
+        "chain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark",
+          "HTML."
+        ],
+        "overlay": null,
+        "layer": null
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 142.27,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 137.77,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 354.4,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 137.77,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 354.4,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 225.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 253.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 241.59,
+          "y": 233.83,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 354.4,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 241.59,
+          "y": 354.8,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 137.77,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 137.77,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 354.4,
+          "y": 233.83,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 137.77,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 354.4,
+          "y": 354.8,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 225.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 253.09,
+          "y": 372.8,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 241.59,
+          "y": 233.83,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 354.4,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 241.59,
+          "y": 354.8,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 137.77,
+          "y": 289.81,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-a"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "handle-se": {
+      "timelineOnSelect": [
+        "layer:photo-b"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "transformAfter": {
+        "x": 164.0105460121493,
+        "y": 148.0087451320386,
+        "scale": 1.0600187407335973,
+        "rotate": 0
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": {
+        "x": 0,
+        "y": 0
+      },
+      "aspectBefore": 1.3334,
+      "aspectAfter": 1.3333,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 218.63,
+        "h": 163.97
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 257.49,
+        "h": 193.12
+      },
+      "transformAfterUndo": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "undoRestoredBytes": true
+    },
+    "handle-e": {
+      "timelineOnSelect": [
+        "layer:photo-b"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "transformAfter": {
+        "x": 165.8693475418936,
+        "y": 100,
+        "scale": 0.9,
+        "scaleX": 1.0646655231560895,
+        "scaleY": 0.9,
+        "rotate": 0
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": {
+        "x": 0,
+        "y": 0
+      },
+      "aspectBefore": 1.3334,
+      "aspectAfter": 1.5773,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 218.63,
+        "h": 163.97
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 258.63,
+        "h": 163.97
+      },
+      "transformAfterUndo": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "undoRestoredBytes": true
+    },
+    "handle-move": {
+      "timelineOnSelect": [
+        "layer:photo-b"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "transformAfter": {
+        "x": 2.842170943040401e-14,
+        "y": 34.133790737564325,
+        "scale": 0.9,
+        "rotate": 0
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": null,
+      "aspectBefore": 1.3334,
+      "aspectAfter": 1.3334,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 218.63,
+        "h": 163.97
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 218.19,
+        "y": 243.38,
+        "w": 218.63,
+        "h": 163.97
+      },
+      "transformAfterUndo": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "undoRestoredBytes": true
+    },
+    "handle-rotate": {
+      "timelineOnSelect": [
+        "layer:photo-b"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "transformAfter": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9,
+        "rotate": -26.41696562310642
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": null,
+      "aspectBefore": 1.3334,
+      "aspectAfter": 1.1009,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 218.63,
+        "h": 163.97
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 223.49,
+        "y": 223.3,
+        "w": 268.75,
+        "h": 244.11
+      },
+      "transformAfterUndo": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "undoRestoredBytes": true
+    },
+    "handle-w": {
+      "timelineOnSelect": [
+        "layer:photo-b"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "transformAfter": {
+        "x": 50.602696762766755,
+        "y": 100,
+        "scale": 0.9,
+        "scaleX": 1.023499142367067,
+        "scaleY": 0.9,
+        "rotate": 0
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": {
+        "x": 0,
+        "y": 0
+      },
+      "aspectBefore": 1.3334,
+      "aspectAfter": 1.5163,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 218.63,
+        "h": 163.97
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 218.55,
+        "y": 263.38,
+        "w": 248.63,
+        "h": 163.97
+      },
+      "transformAfterUndo": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "undoRestoredBytes": true
+    },
+    "handle-s": {
+      "timelineOnSelect": [
+        "layer:photo-b"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "transformAfter": {
+        "x": 100,
+        "y": 141.16899601791647,
+        "scale": 0.9,
+        "scaleX": 0.9,
+        "scaleY": 1.0372210600784295,
+        "rotate": 0
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": {
+        "x": 0,
+        "y": 0
+      },
+      "aspectBefore": 1.3334,
+      "aspectAfter": 1.157,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 218.63,
+        "h": 163.97
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 248.55,
+        "y": 263.38,
+        "w": 218.63,
+        "h": 188.96
+      },
+      "transformAfterUndo": {
+        "x": 100,
+        "y": 100,
+        "scale": 0.9
+      },
+      "undoRestoredBytes": true
+    },
+    "canvas-move": {
+      "timelineOnSelect": [
+        "item:photo-in-canvas",
+        "item:photo-in-canvas"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 0,
+        "y": 0,
+        "scale": 1
+      },
+      "transformAfter": {
+        "x": 131.73241852487126,
+        "y": -98.79931389365356,
+        "scale": 1,
+        "rotate": 0
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": null,
+      "aspectBefore": 1,
+      "aspectAfter": 1,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 69.4,
+        "y": 369.66,
+        "w": 91.09,
+        "h": 91.09
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 89.4,
+        "y": 354.66,
+        "w": 91.09,
+        "h": 91.09
+      },
+      "transformAfterUndo": {
+        "x": 0,
+        "y": 0,
+        "scale": 1
+      },
+      "undoRestoredBytes": true
+    },
+    "canvas-se": {
+      "timelineOnSelect": [
+        "item:photo-in-canvas",
+        "item:photo-in-canvas"
+      ],
+      "handlesOnSelect": [
+        "akari-layer-handle akari-layer-handle-nw",
+        "akari-layer-handle akari-layer-handle-ne",
+        "akari-layer-handle akari-layer-handle-sw",
+        "akari-layer-handle akari-layer-handle-se",
+        "akari-layer-handle akari-layer-handle-rotate",
+        "akari-layer-handle akari-layer-handle-move",
+        "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+        "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+        "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+        "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w"
+      ],
+      "transformBefore": {
+        "x": 0,
+        "y": 0,
+        "scale": 1
+      },
+      "transformAfter": {
+        "x": 60.0033481923806,
+        "y": 59.999917667238606,
+        "scale": 1.1999996157806572,
+        "rotate": 0
+      },
+      "historyDelta": 3,
+      "fixedCornerMovePx": {
+        "x": 0,
+        "y": 0
+      },
+      "aspectBefore": 1,
+      "aspectAfter": 1,
+      "boxBefore": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 69.4,
+        "y": 369.66,
+        "w": 91.09,
+        "h": 91.09
+      },
+      "boxAfter": {
+        "sel": "#layer-select-box.is-active",
+        "data": {
+          "akariPivotOffX": "0",
+          "akariPivotOffY": "0"
+        },
+        "x": 69.4,
+        "y": 369.66,
+        "w": 109.3,
+        "h": 109.3
+      },
+      "transformAfterUndo": {
+        "x": 0,
+        "y": 0,
+        "scale": 1
+      },
+      "undoRestoredBytes": true
+    },
+    "canvas-timeline-dom": [
+      {
+        "kind": "item",
+        "id": "canvas-1",
+        "cls": "",
+        "visible": true
+      },
+      {
+        "kind": "item",
+        "id": "photo-in-canvas",
+        "cls": "akari-annotations-selected",
+        "visible": true
+      },
+      {
+        "kind": "item",
+        "id": "canvas-1",
+        "cls": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+        "visible": true
+      },
+      {
+        "kind": "item",
+        "id": "photo-in-canvas",
+        "cls": "akari-annotations-strip-overlay akari-timeline-tree-item akari-generation-none akari-generation-chip-layout akari-annota",
+        "visible": true
+      }
+    ],
+    "canvas-inspector": {
+      "photoFields": [
+        "photo-mask-generate",
+        "photo-mask-remove",
+        "photo-brush-mode",
+        "photo-brush-size",
+        "photo-brush-hardness",
+        "photo-brush-start",
+        "photo-flip-h",
+        "photo-flip-v",
+        "photo-crop-open",
+        "photo-frame-width",
+        "photo-frame-color",
+        "photo-frame-radius",
+        "photo-cutout-panel"
+      ],
+      "timeline": [
+        "item:photo-in-canvas",
+        "item:photo-in-canvas"
+      ]
+    },
+    "timeline-select-b": {
+      "clicked": true
+    },
+    "after-timeline-select-b": {
+      "hit": null,
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      },
+      "selectionUi": [
+        {
+          "sel": "#layer-select-box.is-active",
+          "data": {
+            "akariPivotOffX": "0",
+            "akariPivotOffY": "0"
+          },
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.63,
+          "h": 163.97
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-nw",
+          "data": {
+            "akariHandle": "nw"
+          },
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-ne",
+          "data": {
+            "akariHandle": "ne"
+          },
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-sw",
+          "data": {
+            "akariHandle": "sw"
+          },
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-se",
+          "data": {
+            "akariHandle": "se"
+          },
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+          "data": {
+            "akariHandle": "rotate"
+          },
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-layer-handle.akari-layer-handle-move",
+          "data": {
+            "akariHandle": "move"
+          },
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "n"
+          },
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "e"
+          },
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "s"
+          },
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+          "data": {
+            "akariCropEdge": "w"
+          },
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "sel": "#caption-multi-select-boxes.",
+          "data": {},
+          "x": 36,
+          "y": 151.03,
+          "w": 583,
+          "h": 327.94
+        }
+      ],
+      "handles": [
+        {
+          "cls": "akari-layer-handle akari-layer-handle-nw",
+          "x": 244.05,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-ne",
+          "x": 460.67,
+          "y": 258.88,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-sw",
+          "x": 244.05,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-se",
+          "x": 460.67,
+          "y": 420.84,
+          "w": 11,
+          "h": 11
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-rotate",
+          "x": 331.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-layer-handle akari-layer-handle-move",
+          "x": 359.36,
+          "y": 438.84,
+          "w": 25,
+          "h": 25
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+          "x": 347.86,
+          "y": 258.88,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+          "x": 460.67,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+          "x": 347.86,
+          "y": 420.84,
+          "w": 20,
+          "h": 11
+        },
+        {
+          "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+          "x": 244.05,
+          "y": 335.36,
+          "w": 11,
+          "h": 20
+        }
+      ],
+      "brush": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      },
+      "timeline": [
+        "layer:photo-b"
+      ],
+      "inspector": {
+        "fields": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ]
+      }
+    },
+    "inspector-tabs": [
+      "プロジェクト",
+      "ライブラリ",
+      "映像色音声編集動き情報",
+      "映像",
+      "色",
+      "音声",
+      "編集",
+      "動き",
+      "情報"
+    ],
+    "inspector-photo-fields": [
+      {
+        "field": "photo-mask-generate",
+        "text": "背景背景を消す（この Mac で）",
+        "pressed": null,
+        "cls": "akari-inspector-row-input"
+      },
+      {
+        "field": "photo-mask-remove",
+        "text": "マスクマスクを外す",
+        "pressed": null,
+        "cls": "akari-inspector-row-input"
+      },
+      {
+        "field": "photo-brush-mode",
+        "text": "消しゴム消す戻す",
+        "pressed": null,
+        "cls": null
+      },
+      {
+        "field": "photo-brush-size",
+        "text": "大きさ%",
+        "pressed": null,
+        "cls": "akari-inspector-number-handle"
+      },
+      {
+        "field": "photo-brush-hardness",
+        "text": "硬さ%",
+        "pressed": null,
+        "cls": "akari-inspector-number-handle"
+      },
+      {
+        "field": "photo-brush-start",
+        "text": "消しゴム消しゴム",
+        "pressed": "false",
+        "cls": "akari-inspector-row-input"
+      },
+      {
+        "field": "photo-flip-h",
+        "text": "左右反転するしない",
+        "pressed": null,
+        "cls": null
+      },
+      {
+        "field": "photo-flip-v",
+        "text": "上下反転するしない",
+        "pressed": null,
+        "cls": null
+      },
+      {
+        "field": "photo-crop-open",
+        "text": "切り抜き切り抜き",
+        "pressed": null,
+        "cls": "akari-inspector-row-input"
+      },
+      {
+        "field": "photo-frame-width",
+        "text": "枠線の太さpx",
+        "pressed": null,
+        "cls": "akari-inspector-number-handle"
+      },
+      {
+        "field": "photo-frame-color",
+        "text": "枠線の色",
+        "pressed": null,
+        "cls": "akari-inspector-color-swatch"
+      },
+      {
+        "field": "photo-frame-radius",
+        "text": "角の丸み%",
+        "pressed": null,
+        "cls": "akari-inspector-number-handle"
+      },
+      {
+        "field": "photo-cutout-panel",
+        "text": "背景透過背景透過を開く",
+        "pressed": null,
+        "cls": "akari-inspector-row-input"
+      }
+    ],
+    "mask-click": {
+      "clicked": true
+    },
+    "mask-result": {
+      "notices": [
+        "背景を消しました。",
+        "背景を消す（この Mac で）"
+      ],
+      "editChanged": true,
+      "mask": "mask-3bf709109c9042153b23306ab6ab1eccc3e9ca59c7c8b8b48080c3f8b8081c14",
+      "masks": [
+        "3bf709109c9042153b23306ab6ab1eccc3e9ca59c7c8b8b48080c3f8b8081c14.png",
+        "3bf709109c9042153b23306ab6ab1eccc3e9ca59c7c8b8b48080c3f8b8081c14.png.meta.json"
+      ],
+      "historyCount": 27
+    },
+    "eraser-click": {
+      "clicked": true
+    },
+    "eraser-state": {
+      "button": {
+        "text": "消しゴム",
+        "pressed": "true",
+        "cls": "akari-inspector-row-input",
+        "bg": "rgb(26, 26, 26)"
+      },
+      "preview": {
+        "hit": {
+          "chain": [
+            "DIV#layer-select-box.is-active.akari-photo-pointer-mode",
+            "DIV#preview-stage.",
+            "DIV#zoom-layer.",
+            "DIV#preview-wrapper.",
+            "SECTION.preview-pane",
+            "MAIN.workspace",
+            "BODY.vscode-dark",
+            "HTML."
+          ],
+          "overlay": null,
+          "layer": null
+        },
+        "layers": {
+          "photo-a": {
+            "x": 142.28,
+            "y": 238.33,
+            "w": 218.63,
+            "h": 122.98,
+            "tag": "IMG",
+            "pe": "auto"
+          },
+          "photo-b": {
+            "x": 248.55,
+            "y": 263.38,
+            "w": 218.62,
+            "h": 163.97,
+            "tag": "IMG",
+            "pe": "auto"
+          },
+          "photo-in-canvas": {
+            "x": 69.4,
+            "y": 369.66,
+            "w": 91.09,
+            "h": 91.09,
+            "tag": "IMG",
+            "pe": "auto"
+          },
+          "photo-lib": {
+            "x": 121.02,
+            "y": 178.36,
+            "w": 109.31,
+            "h": 72.88,
+            "tag": "IMG",
+            "pe": "auto"
+          },
+          "box": {
+            "x": 491.47,
+            "y": 175.32,
+            "w": 583,
+            "h": 327.94,
+            "tag": "DIV",
+            "pe": "none"
+          }
+        },
+        "selectionUi": [
+          {
+            "sel": "#layer-select-box.is-active.akari-photo-pointer-mode",
+            "data": {
+              "akariPivotOffX": "0",
+              "akariPivotOffY": "0"
+            },
+            "x": 248.55,
+            "y": 263.38,
+            "w": 218.63,
+            "h": 163.97
+          },
+          {
+            "sel": ".akari-layer-handle.akari-layer-handle-nw",
+            "data": {
+              "akariHandle": "nw"
+            },
+            "x": 244.05,
+            "y": 258.88,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "sel": ".akari-layer-handle.akari-layer-handle-ne",
+            "data": {
+              "akariHandle": "ne"
+            },
+            "x": 460.67,
+            "y": 258.88,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "sel": ".akari-layer-handle.akari-layer-handle-sw",
+            "data": {
+              "akariHandle": "sw"
+            },
+            "x": 244.05,
+            "y": 420.84,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "sel": ".akari-layer-handle.akari-layer-handle-se",
+            "data": {
+              "akariHandle": "se"
+            },
+            "x": 460.67,
+            "y": 420.84,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "sel": ".akari-layer-handle.akari-layer-handle-rotate",
+            "data": {
+              "akariHandle": "rotate"
+            },
+            "x": 331.36,
+            "y": 438.84,
+            "w": 25,
+            "h": 25
+          },
+          {
+            "sel": ".akari-layer-handle.akari-layer-handle-move",
+            "data": {
+              "akariHandle": "move"
+            },
+            "x": 359.36,
+            "y": 438.84,
+            "w": 25,
+            "h": 25
+          },
+          {
+            "sel": ".akari-crop-edge.akari-crop-edge-n.akari-layer-handle",
+            "data": {
+              "akariCropEdge": "n"
+            },
+            "x": 347.86,
+            "y": 258.88,
+            "w": 20,
+            "h": 11
+          },
+          {
+            "sel": ".akari-crop-edge.akari-crop-edge-e.akari-layer-handle",
+            "data": {
+              "akariCropEdge": "e"
+            },
+            "x": 460.67,
+            "y": 335.36,
+            "w": 11,
+            "h": 20
+          },
+          {
+            "sel": ".akari-crop-edge.akari-crop-edge-s.akari-layer-handle",
+            "data": {
+              "akariCropEdge": "s"
+            },
+            "x": 347.86,
+            "y": 420.84,
+            "w": 20,
+            "h": 11
+          },
+          {
+            "sel": ".akari-crop-edge.akari-crop-edge-w.akari-layer-handle",
+            "data": {
+              "akariCropEdge": "w"
+            },
+            "x": 244.05,
+            "y": 335.36,
+            "w": 11,
+            "h": 20
+          },
+          {
+            "sel": "#caption-multi-select-boxes.",
+            "data": {},
+            "x": 36,
+            "y": 151.03,
+            "w": 583,
+            "h": 327.94
+          }
+        ],
+        "handles": [
+          {
+            "cls": "akari-layer-handle akari-layer-handle-nw",
+            "x": 244.05,
+            "y": 258.88,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "cls": "akari-layer-handle akari-layer-handle-ne",
+            "x": 460.67,
+            "y": 258.88,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "cls": "akari-layer-handle akari-layer-handle-sw",
+            "x": 244.05,
+            "y": 420.84,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "cls": "akari-layer-handle akari-layer-handle-se",
+            "x": 460.67,
+            "y": 420.84,
+            "w": 11,
+            "h": 11
+          },
+          {
+            "cls": "akari-layer-handle akari-layer-handle-rotate",
+            "x": 331.36,
+            "y": 438.84,
+            "w": 25,
+            "h": 25
+          },
+          {
+            "cls": "akari-layer-handle akari-layer-handle-move",
+            "x": 359.36,
+            "y": 438.84,
+            "w": 25,
+            "h": 25
+          },
+          {
+            "cls": "akari-crop-edge akari-crop-edge-n akari-layer-handle akari-layer-handle-n",
+            "x": 347.86,
+            "y": 258.88,
+            "w": 20,
+            "h": 11
+          },
+          {
+            "cls": "akari-crop-edge akari-crop-edge-e akari-layer-handle akari-layer-handle-e",
+            "x": 460.67,
+            "y": 335.36,
+            "w": 11,
+            "h": 20
+          },
+          {
+            "cls": "akari-crop-edge akari-crop-edge-s akari-layer-handle akari-layer-handle-s",
+            "x": 347.86,
+            "y": 420.84,
+            "w": 20,
+            "h": 11
+          },
+          {
+            "cls": "akari-crop-edge akari-crop-edge-w akari-layer-handle akari-layer-handle-w",
+            "x": 244.05,
+            "y": 335.36,
+            "w": 11,
+            "h": 20
+          }
+        ],
+        "brush": {
+          "stageCursor": "auto",
+          "layersCursor": "auto",
+          "badges": [
+            "消しゴム中 — Esc で終わる"
+          ],
+          "brushNodes": [
+            {
+              "sel": ".akari-photo-brush-status",
+              "x": 46,
+              "y": 161.03,
+              "w": 166.28,
+              "h": 28
+            },
+            {
+              "sel": ".akari-photo-brush-cursor",
+              "x": 375.62,
+              "y": 341.26,
+              "w": 8.2,
+              "h": 8.2
+            }
+          ]
+        },
+        "timeline": [
+          "layer:photo-b"
+        ],
+        "inspector": {
+          "title": "基本補正有効",
+          "fields": [
+            "mask",
+            "photo-mask-generate",
+            "photo-mask-remove",
+            "photo-brush-mode",
+            "photo-brush-size",
+            "photo-brush-hardness",
+            "photo-brush-start",
+            "photo-flip-h",
+            "photo-flip-v",
+            "photo-crop-open",
+            "photo-frame-width",
+            "photo-frame-color",
+            "photo-frame-radius",
+            "photo-cutout-panel",
+            "edit-adjust-scope",
+            "adjust-basic-enabled",
+            "adjust-look",
+            "adjust-basic-exposure",
+            "adjust-basic-contrast",
+            "adjust-basic-highlights",
+            "adjust-basic-shadows",
+            "adjust-basic-blacks",
+            "adjust-basic-whites",
+            "adjust-basic-temperature",
+            "adjust-basic-tint",
+            "adjust-basic-vibrance",
+            "adjust-basic-saturation",
+            "adjust-curves-enabled",
+            "adjust-wheels-enabled",
+            "adjust-hue-enabled",
+            "adjust-lut-enabled",
+            "adjust-lut-preset",
+            "adjust-lut-intensity",
+            "adjust-lut-import",
+            "adjust-fx-enabled",
+            "adjust-fx-add",
+            "edit-replace-subject"
+          ]
+        }
+      }
+    },
+    "eraser-stroke-1": {
+      "editChanged": true,
+      "erase": [
+        {
+          "mode": "erase",
+          "points": [
+            [
+              0.4499475890985325,
+              0.29999682358172924
+            ],
+            [
+              0.47496188298075087,
+              0.3249634711898864
+            ],
+            [
+              0.4999761768629693,
+              0.3499777650721047
+            ],
+            [
+              0.5249547360396415,
+              0.37499205895432297
+            ],
+            [
+              0.5499690299218599,
+              0.3999587065624801
+            ],
+            [
+              0.5749475890985325,
+              0.42497300044469843
+            ],
+            [
+              0.5999618829807509,
+              0.449987294326917
+            ],
+            [
+              0.6249761768629694,
+              0.4750015882091353
+            ],
+            [
+              0.6499547360396415,
+              0.4999682358172924
+            ],
+            [
+              0.6749690299218599,
+              0.5249825296995108
+            ],
+            [
+              0.6999475890985325,
+              0.5499968235817292
+            ],
+            [
+              0.7249618829807509,
+              0.5749634711898861
+            ],
+            [
+              0.7499404421574231,
+              0.5999777650721047
+            ],
+            [
+              0.7749547360396415,
+              0.624992058954323
+            ],
+            [
+              0.7999690299218599,
+              0.6499587065624801
+            ],
+            [
+              0.8249475890985325,
+              0.6749730004446984
+            ],
+            [
+              0.8499618829807509,
+              0.699987294326917
+            ],
+            [
+              0.8499618829807509,
+              0.699987294326917
+            ]
+          ],
+          "size": 0.05,
+          "hardness": 0.8
+        }
+      ],
+      "historyDelta": 3,
+      "timelineSel": [
+        "layer:photo-b"
+      ]
+    },
+    "eraser-undo": {
+      "strokes2": 2,
+      "strokesU1": 1,
+      "strokesU2": 0
+    },
+    "eraser-after-escape": {
+      "button": null,
+      "preview": {
+        "stageCursor": "auto",
+        "layersCursor": "auto",
+        "badges": [],
+        "brushNodes": []
+      }
+    },
+    "runtime-exceptions": []
+  },
+  "errors": [],
+  "electronPid": 14025,
+  "electronStderrTail": "kspace/.akari/cache/preview-audio/.2fd31a44b092d4ea0281b4b20cd25a3f93005e31.flac.14039.1790346453961.tmp.flac. Error opening output files: Invalid argument\n2026-09-25T14:29:10.195Z root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <scratch>/workspace/.akari/cache/preview-audio/.2fd31a44b092d4ea0281b4b20cd25a3f93005e31.flac.14039.1790346453961.tmp.flac. Error opening output files: Invalid argument\n2026-09-25T14:29:12.256Z root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <scratch>/workspace/.akari/cache/preview-audio/.2fd31a44b092d4ea0281b4b20cd25a3f93005e31.flac.14039.1790346453961.tmp.flac. Error opening output files: Invalid argument\n2026-09-25T14:29:14.120Z root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <scratch>/workspace/.akari/cache/preview-audio/.2fd31a44b092d4ea0281b4b20cd25a3f93005e31.flac.14039.1790346453961.tmp.flac. Error opening output files: Invalid argument\n"
+}

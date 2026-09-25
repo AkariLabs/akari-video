@@ -2,16 +2,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { resolveLayerDeclaredSize, layerDeclaredGeometryHitAt } from '../lib/common/layer-declared-geometry.js';
+import { previewPhotoSourcePoint, frontmostPreviewHit } from '../lib/common/preview-photo-hit.js';
 
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-const injected = { resolveLayerDeclaredSize, layerDeclaredGeometryHitAt };
+const injected = { resolveLayerDeclaredSize, layerDeclaredGeometryHitAt, previewPhotoSourcePoint, frontmostPreviewHit };
 const bootstrapStart = source.indexOf('    protected previewBootstrapScript(): string {');
 assert.notEqual(bootstrapStart, -1);
 const bootstrapEnd = source.indexOf('\n    }', bootstrapStart);
 assert.ok(bootstrapEnd > bootstrapStart);
 const bootstrapSource = source.slice(bootstrapStart, bootstrapEnd);
 function expandInjectedFunctions(text) {
-    return text.replace(/\$\{(resolveLayerDeclaredSize|layerDeclaredGeometryHitAt)\.toString\(\)\}/g,
+    return text.replace(/\$\{(resolveLayerDeclaredSize|layerDeclaredGeometryHitAt|previewPhotoSourcePoint|frontmostPreviewHit)\.toString\(\)\}/g,
         (_, name) => injected[name].toString());
 }
 function expression(name) {
@@ -83,7 +84,9 @@ function hitContext(idle = true, clock = undefined) {
         getBoundingClientRect: () => ({ left: 0, top: 0, right: 1000, bottom: 500 }) };
     const window = { akari: { frameEngineClock: clock, interaction: { stageLocalPoint: (x, y) => ({ x, y }) } } };
     const context = { frameEngineMediaIdle: idle, window, summary: { output },
+        previewPhotoSourcePointFn: previewPhotoSourcePoint, frontmostPreviewHitFn: frontmostPreviewHit,
         layerTransformNow: () => transform, layerCropNow: () => crop,
+        layerAlphaAtPoint: () => 255, layerAlphaAtSourcePoint: () => 255,
         layerEntries: layers, video, stillImage: {}, segments: [{ kind: 'src', track: 'V1' }], activeSegmentIndex: 0,
         allTracksHiddenByScope: { cuts: false }, hiddenTracksByScope: { cuts: new Set() } };
     context.layerGeometryHitAt = extract('layerGeometryHitAt', context);
@@ -103,6 +106,22 @@ test('engine picks frontmost of three overlapping clips with no metadata; hidden
     }
 });
 
+test('engine hit passes through erased photo pixels to the next visible photo', () => {
+    const context = hitContext();
+    for (const entry of context.layerEntries) {
+        entry.video.videoWidth = output.width;
+        entry.video.videoHeight = output.height;
+    }
+    const front = context.layerEntries[1].video;
+    const center = previewPhotoSourcePoint(output, output, transform, crop, { x: 600, y: 225 });
+    front.akariPhotoHitAlpha = new Uint8Array(output.width * output.height).fill(255);
+    front.akariPhotoHitAlpha[center.y * output.width + center.x] = 0;
+    const find = extract('findVisualMediaHitAt', context);
+    assert.equal(find({ clientX: 600, clientY: 225 }), context.layerEntries[0].video);
+    front.akariPhotoHitAlpha[center.y * output.width + center.x] = 255;
+    assert.equal(find({ clientX: 600, clientY: 225 }), front);
+});
+
 test('legacy elementsFromPoint and alpha hit selection remain authoritative', () => {
     const context = hitContext(false);
     const front = context.layerEntries[1];
@@ -115,6 +134,24 @@ test('legacy elementsFromPoint and alpha hit selection remain authoritative', ()
     assert.equal(extract('findVisualMediaHitAt', context)({ clientX: 600, clientY: 225 }), front.video);
 });
 
+test('legacy masked photo pixels also pass through to the cut', () => {
+    const context = hitContext(false);
+    const front = context.layerEntries[1];
+    front.spec.isImage = true;
+    front.video.tagName = 'IMG';
+    front.video.videoWidth = output.width;
+    front.video.videoHeight = output.height;
+    front.video.akariPhotoHitAlpha = new Uint8Array(output.width * output.height).fill(255);
+    const center = previewPhotoSourcePoint(output, output, transform, crop, { x: 600, y: 225 });
+    context.document = { elementsFromPoint: () => [front.video, context.video] };
+    context.findLayerEntry = () => front;
+    const find = extract('findVisualMediaHitAt', context);
+    front.video.akariPhotoHitAlpha[center.y * output.width + center.x] = 0;
+    assert.equal(find({ clientX: 600, clientY: 225 }), context.video);
+    front.video.akariPhotoHitAlpha[center.y * output.width + center.x] = 255;
+    assert.equal(find({ clientX: 600, clientY: 225 }), front.video);
+});
+
 function selectionContext(idle, clock) {
     const entry = spec('upper');
     const listeners = new Map();
@@ -123,7 +160,8 @@ function selectionContext(idle, clock) {
         listeners.set(name, callback);
     };
     const classes = new Set();
-    const classList = { add: key => classes.add(key), remove: key => classes.delete(key), toggle() {} };
+    const classList = { add: key => classes.add(key), remove: key => classes.delete(key),
+        toggle: (key, enabled) => enabled ? classes.add(key) : classes.delete(key) };
     const box = { style: {}, dataset: {}, classList };
     let measured = 0;
     const context = { selectedLayerId: 'upper', findLayerEntry: () => entry,

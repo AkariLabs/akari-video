@@ -19,10 +19,12 @@ const section = (from, to) => {
 test('cut / layer の両方の選択枠に四辺中央の辺バーが 4 本ある', () => {
     const layerBox = section('<div id="layer-select-box">', '<div id="layer-crop-box">');
     const cutBox = section('<div id="cut-select-box">', '<div id="caption-zone-highlight">');
-    for (const box of [layerBox, cutBox]) {
+    for (const [box, kind] of [[layerBox, 'layer'], [cutBox, 'cut']]) {
         for (const dir of ['n', 'e', 's', 'w']) {
             assert.ok(
-                box.includes(`class="akari-crop-edge akari-crop-edge-${dir}" data-akari-crop-edge="${dir}"`),
+                kind === 'layer'
+                    ? box.includes(`class="akari-crop-edge akari-crop-edge-${dir} akari-layer-handle akari-layer-handle-${dir}" data-akari-crop-edge="${dir}"`)
+                    : box.includes(`class="akari-crop-edge akari-crop-edge-${dir}" data-akari-crop-edge="${dir}"`),
                 `辺バー ${dir} が無い`
             );
         }
