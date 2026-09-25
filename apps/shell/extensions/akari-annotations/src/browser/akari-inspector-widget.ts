@@ -657,6 +657,23 @@ function CUT_SECTIONS(
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
     generation?: InspectorFieldDef<TimelineCutSelection>[]
 ): InspectorSection[] {
+    const photoItemId = /\.(png|jpe?g|webp|bmp|gif)$/iu.test(snapshot.sourcePath ?? '') ? snapshot.itemId : undefined;
+    const photoFrameFields: InspectorFieldDef<TimelineCutSelection>[] = photoItemId ? [{
+        name: 'photo-frame-width', label: '枠線の太さ', inputKind: 'scrub-number', unit: 'px', min: 0, max: 100,
+        getValue: () => String(snapshot.frame?.stroke?.width ?? 0),
+        write: (_current, value) => requestWrite({ kind: 'item-field', id: photoItemId,
+            path: 'frame.stroke.width', value: Number(value) })
+    }, {
+        name: 'photo-frame-color', label: '枠線の色', inputKind: 'color',
+        getValue: () => snapshot.frame?.stroke?.color ?? '#ffffff',
+        write: (_current, value) => requestWrite({ kind: 'item-field', id: photoItemId,
+            path: 'frame.stroke.color', value })
+    }, {
+        name: 'photo-frame-radius', label: '角の丸み', inputKind: 'scrub-number', unit: '%', min: 0, max: 100,
+        getValue: () => String(snapshot.frame?.cornerRadius ?? 0),
+        write: (_current, value) => requestWrite({ kind: 'item-field', id: photoItemId,
+            path: 'frame.cornerRadius', value: Number(value) })
+    }] : [];
     const transformFields: InspectorFieldDef<TimelineCutSelection>[] = [
         {
             name: 'transform-x', label: 'X', unit: 'px',
@@ -728,6 +745,11 @@ function CUT_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
+        ...(photoItemId ? [{ id: 'crop', label: '切り抜き', fields: [{
+            name: 'photo-crop-open', label: '切り抜き', getValue: () => '', actionLabel: '切り抜き',
+            action: () => requestWrite({ kind: 'item-field', id: photoItemId,
+                path: 'photo-crop-open', value: null })
+        }] }] : []),
         { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
         { id: 'freeze', label: 'フリーズ', fields: cutFreezeFields(snapshot, requestWrite) },
         ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
@@ -743,7 +765,7 @@ function CUT_SECTIONS(
                         return requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: parsed });
                     },
                     reset: () => requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: null })
-                }
+                }, ...photoFrameFields
             ]
         },
         {
@@ -887,6 +909,38 @@ function PHOTO_FLIP_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSn
     }));
 }
 
+function PHOTO_FRAME_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
+    snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    if (!snapshot.photo) return [];
+    return [{
+        name: 'photo-frame-width', label: '枠線の太さ', inputKind: 'scrub-number', unit: 'px',
+        min: 0, max: 100, scrubStep: 1,
+        getValue: () => String(snapshot.frame?.stroke?.width ?? 0),
+        write: (_current, value) => requestWrite({ kind: 'item-field', id: snapshot.id,
+            path: 'frame.stroke.width', value: Number(value) })
+    }, {
+        name: 'photo-frame-color', label: '枠線の色', inputKind: 'color',
+        getValue: () => snapshot.frame?.stroke?.color ?? '#ffffff',
+        write: (_current, value) => requestWrite({ kind: 'item-field', id: snapshot.id,
+            path: 'frame.stroke.color', value })
+    }, {
+        name: 'photo-frame-radius', label: '角の丸み', inputKind: 'scrub-number', unit: '%',
+        min: 0, max: 100, scrubStep: 1,
+        getValue: () => String(snapshot.frame?.cornerRadius ?? 0),
+        write: (_current, value) => requestWrite({ kind: 'item-field', id: snapshot.id,
+            path: 'frame.cornerRadius', value: Number(value) })
+    }];
+}
+
+function PHOTO_CROP_OPEN_FIELD<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
+    snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    return snapshot.photo ? [{ name: 'photo-crop-open', label: '切り抜き', getValue: () => '',
+        actionLabel: '切り抜き', action: () => requestWrite({ kind: 'item-field', id: snapshot.id,
+            path: 'photo-crop-open', value: null }) }] : [];
+}
+
 function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
     snapshot: T,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -1019,7 +1073,7 @@ function LAYER_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: [...transformFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)] },
-        { id: 'crop', label: 'クロップ', fields: cropFields },
+        { id: 'crop', label: '切り抜き', fields: [...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...cropFields] },
         perspectiveSection,
         ...(snapshot.sourceKind === 'html' ? [] : [{
             id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
@@ -1081,7 +1135,7 @@ function LAYER_SECTIONS(
                         })
                     })
                 },
-                ...MASK_FIELDS(snapshot, requestWrite)
+                ...MASK_FIELDS(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)
             ]
         },
         ...(snapshot.layerKind === 'video' ? [{ id: 'audio', label: '音声', fields: [
@@ -2358,7 +2412,7 @@ function TREE_ITEM_SECTIONS(
         { id: 'transform', label: '変形', fields: [...(['group', 'bag'].includes(snapshot.itemKind)
             ? transformFields.filter(field => field.name !== 'transform-scaleX' && field.name !== 'transform-scaleY')
             : transformFields), ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)] },
-        { id: 'crop', label: 'クロップ', fields: cropFields },
+        { id: 'crop', label: '切り抜き', fields: [...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...cropFields] },
         perspectiveSection,
         ...(snapshot.sourceKind === 'html' ? [] : [{
             id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
@@ -2373,7 +2427,7 @@ function TREE_ITEM_SECTIONS(
             write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'opacity', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
-        }, ...MASK_FIELDS(snapshot, requestWrite)] },
+        }, ...MASK_FIELDS(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)] },
         { id: 'info', label: '情報', collapsedByDefault: true, fields: [
             { name: 'item-kind', label: '種類', getValue: () => snapshot.sourceKind === 'group' ? 'キャンバス' : snapshot.sourceKind },
             { name: 'item-track', label: 'トラック', getValue: () => snapshot.trackName },

@@ -1061,6 +1061,9 @@ export interface AkariAnnotationsService {
     importAdjustLut(request: ImportAdjustLutRequest): Promise<ImportAdjustLutResult>;
     generatePhotoMask(request: { projectRootUri: string; sourceUri: string }): Promise<
         { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }>;
+    analyzePhoto(request: { projectRootUri: string; sourceUri: string; kind: 'horizon' | 'saliency' }): Promise<
+        { available: boolean; degrees?: number; basis?: 'foreground' | 'person' | 'saliency';
+            focus?: { x: number; y: number; w: number; h: number; cx?: number; cy?: number } }>;
 }
 
 export interface ImageAiInspection {

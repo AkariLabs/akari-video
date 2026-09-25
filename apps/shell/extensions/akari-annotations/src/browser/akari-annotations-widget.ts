@@ -1402,10 +1402,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 value: [...(Array.isArray(raw.erase) ? raw.erase : []), detail.stroke] });
         };
         window.addEventListener('akari.photo.stroke', onPhotoStroke);
+        const onPhotoAnalyze = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; id?: string;
+                kind?: 'horizon' | 'saliency'; accept?: () => void; resolve?: (value: unknown) => void }>).detail;
+            if (!detail?.resolve) return;
+            detail.accept?.();
+            if (!detail.id || !this.location?.editUri || detail.editUri !== this.location.editUri.toString()
+                || (detail.kind !== 'horizon' && detail.kind !== 'saliency')) {
+                detail.resolve({ available: false });
+                return;
+            }
+            const raw = this.rawV2Item(detail.id);
+            const source = raw?.source?.kind === 'media' ? this.sourceMap.get(String(raw.source.src)) : undefined;
+            if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) {
+                detail.resolve({ available: false });
+                return;
+            }
+            void this.annotationsService.analyzePhoto({ projectRootUri: this.location.root.toString(),
+                sourceUri: source.videoUri, kind: detail.kind }).then(detail.resolve,
+                () => detail.resolve?.({ available: false }));
+        };
+        window.addEventListener('akari.photo.analyze', onPhotoAnalyze);
         this.toDispose.push(Disposable.create(() => {
             window.removeEventListener('akari.mystyle.open-save', openMyStyleSave);
             window.removeEventListener('akari.mystyle.apply', applyMyStyle);
             window.removeEventListener('akari.photo.stroke', onPhotoStroke);
+            window.removeEventListener('akari.photo.analyze', onPhotoAnalyze);
         }));
         this.toDispose.push(this.workspaceService.onWorkspaceChanged(() => { void this.finishMaterialSwap(false); }));
         this.toDispose.push({ dispose: () => { void this.finishMaterialSwap(false); } });
@@ -4365,6 +4387,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const field = request.path.slice('crop.'.length) as InspectorCropAxis;
                     patch = { crop: updateInspectorCrop(raw.crop, field, request.value as number | null) };
                     label = 'クリップのクロップを変更';
+                } else if (request.path === 'photo-crop-open') {
+                    if (raw.source?.kind !== 'media' || !this.location?.editUri) throw new Error('写真を選んでください');
+                    window.dispatchEvent(new CustomEvent('akari.photo.crop-open', { detail: {
+                        editUri: this.location.editUri.toString(), itemId
+                    } }));
+                    return { ok: true };
+                } else if (request.path === 'frame.stroke.width' || request.path === 'frame.stroke.color'
+                    || request.path === 'frame.cornerRadius') {
+                    if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
+                    const frame: { stroke?: { color: string; width: number }; cornerRadius?: number } = { ...(raw.frame ?? {}) };
+                    if (request.path === 'frame.cornerRadius') {
+                        const radius = Number(request.value);
+                        if (!Number.isFinite(radius) || radius < 0 || radius > 100) throw new Error('角の丸みは 0〜100 です');
+                        frame.cornerRadius = radius;
+                    } else {
+                        const stroke = { color: '#ffffff', width: 0, ...(frame.stroke ?? {}) };
+                        if (request.path.endsWith('width')) {
+                            const width = Number(request.value);
+                            if (!Number.isFinite(width) || width < 0 || width > 100) throw new Error('枠線は 0〜100px です');
+                            stroke.width = width;
+                        } else {
+                            if (typeof request.value !== 'string' || !/^#[0-9a-fA-F]{6}$/u.test(request.value)) {
+                                throw new Error('色は #RRGGBB で指定してください');
+                            }
+                            stroke.color = request.value;
+                        }
+                        frame.stroke = stroke;
+                    }
+                    patch = { frame };
+                    label = '写真の枠を変更';
                 } else if (request.path === 'mask') {
                     const value = request.value;
                     if (raw.source?.kind !== 'media') throw new Error('media item だけが指定できます');
@@ -5597,6 +5649,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...(raw.source?.kind === 'media' ? {
                 ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
                 ...(raw.flip ? { flip: raw.flip } : {}),
+                ...(raw.frame ? { frame: raw.frame } : {}),
                 ...(/\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? '') ? { photo: true } : {}),
                 maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,
                     /\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? ''))
@@ -5670,6 +5723,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     sourcePath: this.sourceMap.get(cut.src)?.path
                 } : {}),
                 ...(cut.transform !== undefined ? { transform: cut.transform } : {}),
+                ...(rawItem?.frame ? { frame: rawItem.frame } : {}),
                 ...((cut as EditCut & { framing?: unknown }).framing !== undefined
                     ? { framing: readCutFraming((cut as EditCut & { framing?: unknown }).framing) } : {}),
                 ...(freeze ? { freeze } : {}),
@@ -5751,6 +5805,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(raw?.source?.kind === 'media' ? {
                     ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
                     ...(raw.flip ? { flip: raw.flip } : {}),
+                    ...(raw.frame ? { frame: raw.frame } : {}),
                     ...(/\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? '') ? { photo: true } : {}),
                     maskSourceOptions: maskSourceOptionsForSources(this.sourceMap,
                         /\.(png|jpe?g|webp|bmp|gif)$/iu.test(this.sourceMap.get(raw.source.src)?.path ?? ''))

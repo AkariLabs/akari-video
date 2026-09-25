@@ -212,7 +212,7 @@ test('base shader samples layer-style cuts through crop / box per input and leav
     assert.match(source, new RegExp(`uniform int layerStyle${index};`, 'u'));
     assert.match(source, new RegExp(`uniform vec4 crop${index};`, 'u'));
     assert.match(source, new RegExp(`uniform vec2 box${index};`, 'u'));
-    const sampler = source.slice(source.indexOf(`vec4 sample${index}(vec2 p)`), source.indexOf(`vec4 sample${index}(vec2 p)`) + 900);
+    const sampler = source.slice(source.indexOf(`vec4 sample${index}(vec2 p)`), source.indexOf(`vec4 sample${index}(vec2 p)`) + 1600);
     assert.match(sampler, new RegExp(`if \\(layerStyle${index} == 1\\) \\{\\s+vec2 local = inverseBox\\(p, transform${index}, box${index}\\);`, 'u'));
     assert.match(sampler, new RegExp(`q = crop${index}\\.xy \\+ local \\* crop${index}\\.zw;`, 'u'));
     assert.match(sampler, new RegExp(`\\} else \\{\\s+vec2 canvasPoint = inverseVisual\\(p, transform${index}, framing${index}, scaleAxes${index}\\);`, 'u'));
@@ -281,7 +281,8 @@ function layerFragment() {
 test('processed texture samplers replace the source before adjustment on layer and both cut sides', () => {
   const layer = layerFragment();
   assert.match(layer, /if \(hasFx == 1\) \{\s+src = sampleFx\(local\);\s+\} else \{/u);
-  assert.match(layer, /src\.rgb = applyAdjust\(src\.rgb\);\s+\}\s+float maskA/u);
+  assert.match(layer, /src\.rgb = applyAdjust\(src\.rgb\);\s+\}\s+if \(hasFx == 1 && \(cropRotation != 0\.0 \|\| flipAxes\.x == 1 \|\| flipAxes\.y == 1\)\)/u);
+  assert.match(layer, /src = sampleFx\(\(sourceUv - fxCrop\.xy\) \/ fxCrop\.zw\);\s+\}\s+float maskA/u);
   assert.ok(layer.indexOf('float maskA') < layer.indexOf('src.a * maskA * opacity'));
   assert.ok(layer.indexOf('src.a * maskA * opacity') < layer.indexOf('blend(dst.rgb, src.rgb)'));
   for (const type of ['hard-cut', ...TRANSITION_TYPE_IDS]) {

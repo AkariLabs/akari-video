@@ -30,6 +30,12 @@ export interface LayerCropSummary {
     y: number;
     w: number;
     h: number;
+    rotate?: number;
+}
+
+export interface PhotoFrameSummary {
+    stroke?: { color: string; width: number };
+    cornerRadius?: number;
 }
 
 export interface LayerPerspectiveSummary {
@@ -134,6 +140,7 @@ export interface LayerSummaryBase {
     blend: string;
     chromaKey?: ChromaKeySummary;
     crop?: LayerCropSummary;
+    frame?: PhotoFrameSummary;
     perspective?: LayerPerspectiveSummary;
     /** Declared sources id; the caller resolves it to an asset stream URL. */
     mask?: string;
@@ -163,6 +170,7 @@ export interface CutSummaryFields {
     opacity?: number;
     /** v2 media item の layer-style visual。layers[] と同じ正規化器を通して preview へ渡す。 */
     crop?: LayerCropSummary;
+    frame?: PhotoFrameSummary;
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
     motion?: MotionSummary;
@@ -211,7 +219,28 @@ export function normalizeLayerCropForSummary(value: unknown): LayerCropSummary |
     if (x + w > 1 + 1e-9 || y + h > 1 + 1e-9) {
         return undefined;
     }
-    return { x, y, w, h };
+    const rotate = value.rotate;
+    if (rotate !== undefined && (typeof rotate !== 'number' || !Number.isFinite(rotate)
+        || rotate < -45 || rotate > 45)) return undefined;
+    return { x, y, w, h, ...(rotate !== undefined ? { rotate: rotate as number } : {}) };
+}
+
+export function normalizePhotoFrameForSummary(value: unknown): PhotoFrameSummary | undefined {
+    if (!isPlainObject(value)) return undefined;
+    const frame: PhotoFrameSummary = {};
+    if (value.cornerRadius !== undefined) {
+        if (typeof value.cornerRadius !== 'number' || !Number.isFinite(value.cornerRadius)
+            || value.cornerRadius < 0 || value.cornerRadius > 100) return undefined;
+        frame.cornerRadius = value.cornerRadius;
+    }
+    if (value.stroke !== undefined) {
+        if (!isPlainObject(value.stroke) || typeof value.stroke.color !== 'string'
+            || !/^#[0-9a-fA-F]{6}$/u.test(value.stroke.color)
+            || typeof value.stroke.width !== 'number' || !Number.isFinite(value.stroke.width)
+            || value.stroke.width < 0 || value.stroke.width > 100) return undefined;
+        frame.stroke = { color: value.stroke.color, width: value.stroke.width };
+    }
+    return frame;
 }
 
 /**
@@ -354,6 +383,11 @@ export function buildLayerSummaryBase(
             warn(`[akari-preview] ${label}.crop を無視しました（0..1 範囲外/矩形が不正です）`, record.crop);
         }
     }
+    if (record.frame !== undefined) {
+        const frame = normalizePhotoFrameForSummary(record.frame);
+        if (frame) base.frame = frame;
+        else warn(`[akari-preview] ${label}.frame を無視しました（枠の値が不正です）`, record.frame);
+    }
     if (record.perspective !== undefined) {
         const perspective = normalizeLayerPerspectiveForSummary(record.perspective);
         if (perspective) {
@@ -462,6 +496,11 @@ export function buildCutSummaryFields(
         } else {
             warn('[akari-preview] cut.crop を無視しました（0..1 範囲外/矩形が不正です）', record.crop);
         }
+    }
+    if (record?.frame !== undefined) {
+        const frame = normalizePhotoFrameForSummary(record.frame);
+        if (frame) fields.frame = frame;
+        else warn('[akari-preview] cut.frame を無視しました（枠の値が不正です）', record.frame);
     }
     if (record?.perspective !== undefined) {
         const perspective = normalizeLayerPerspectiveForSummary(record.perspective);

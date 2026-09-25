@@ -136,6 +136,8 @@ function validateV2Item(item, label) {
     fail(`${label}.label は文字列である必要があります`);
   }
   if (hasOwn(item, "adjust")) validateAdjust(item.adjust, `${label}.adjust`);
+  if (hasOwn(item, "crop")) validateLayerCrop(item.crop, `${label}.crop`);
+  if (hasOwn(item, "frame")) validatePhotoFrame(item.frame, item.source, `${label}.frame`);
   if (hasOwn(item, "keyframes")) validateV2Keyframes(item.keyframes, `${label}.keyframes`);
   if (!Array.isArray(item.items)) return;
   for (const [index, child] of item.items.entries()) {
@@ -669,6 +671,26 @@ function validateLayerCrop(value, label) {
   }
   if (isFiniteNumber(value.y) && isFiniteNumber(value.h) && value.y + value.h > 1 + 1e-9) {
     fail(`${label}.y + ${label}.h は 1 以下である必要があります`);
+  }
+  if (hasOwn(value, "rotate") && (!isFiniteNumber(value.rotate) || value.rotate < -45 || value.rotate > 45)) {
+    fail(`${label}.rotate は -45 から 45 度の範囲である必要があります`);
+  }
+}
+
+function validatePhotoFrame(value, source, label) {
+  if (source?.kind !== "media" || !isPlainObject(value)) {
+    fail(`${label} は写真の media item の object である必要があります`);
+    return;
+  }
+  for (const key of Object.keys(value)) if (key !== "stroke" && key !== "cornerRadius") fail(`${label}.${key} は未知のキーです`);
+  if (hasOwn(value, "cornerRadius") && (!isFiniteNumber(value.cornerRadius) || value.cornerRadius < 0 || value.cornerRadius > 100)) {
+    fail(`${label}.cornerRadius は 0 から 100 の範囲である必要があります`);
+  }
+  if (hasOwn(value, "stroke")) {
+    if (!isPlainObject(value.stroke)) { fail(`${label}.stroke は object である必要があります`); return; }
+    for (const key of Object.keys(value.stroke)) if (key !== "color" && key !== "width") fail(`${label}.stroke.${key} は未知のキーです`);
+    if (typeof value.stroke.color !== "string" || !/^#[0-9a-fA-F]{6}$/u.test(value.stroke.color)) fail(`${label}.stroke.color は #RRGGBB である必要があります`);
+    if (!isFiniteNumber(value.stroke.width) || value.stroke.width < 0 || value.stroke.width > 100) fail(`${label}.stroke.width は 0 から 100 の範囲である必要があります`);
   }
 }
 

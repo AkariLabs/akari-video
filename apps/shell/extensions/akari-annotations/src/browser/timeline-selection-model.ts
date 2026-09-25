@@ -18,6 +18,7 @@ export interface TimelineCutSelection {
     sourceName: string;
     src?: string;
     sourcePath?: string;
+    frame?: { stroke?: { color: string; width: number }; cornerRadius?: number };
     sourceIn: number;
     sourceOut: number;
     outputStart: number;
@@ -47,6 +48,7 @@ export interface TimelineCropSnapshot {
     y: number;
     w: number;
     h: number;
+    rotate?: number;
 }
 
 export interface TimelineOverlaySelection {
@@ -90,6 +92,7 @@ export interface TimelineLayerSelection {
     mask?: string;
     photo?: boolean;
     flip?: { h?: boolean; v?: boolean };
+    frame?: { stroke?: { color: string; width: number }; cornerRadius?: number };
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     perspective?: Record<string, unknown>;
     motion?: Record<string, unknown>;
@@ -131,6 +134,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     mask?: string;
     photo?: boolean;
     flip?: { h?: boolean; v?: boolean };
+    frame?: { stroke?: { color: string; width: number }; cornerRadius?: number };
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     outputStart: number;
     playheadSeconds?: number;
@@ -322,7 +326,8 @@ type InspectorWriteOperation =
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.scaleX' | 'transform.scaleY' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
-            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'photo-mask' | 'photo-brush-toggle' | 'flip.h' | 'flip.v' | 'erase'
+            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'photo-mask' | 'photo-brush-toggle' | 'photo-crop-open' | 'flip.h' | 'flip.v' | 'erase'
+            | 'frame.stroke.width' | 'frame.stroke.color' | 'frame.cornerRadius'
             | 'motion' | 'animator' | 'name' | 'duration'
             | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';

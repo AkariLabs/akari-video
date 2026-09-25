@@ -8,6 +8,21 @@ import { readEditV2 } from "../lib/edit-v2.js";
 
 const fixturePath = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "edit-v2.json");
 
+test('photo crop rotation and frame survive reading with closed bounds', async () => {
+  const value = JSON.parse(await readFile(fixturePath, 'utf8'));
+  const item = value.tracks[3].items[0];
+  item.crop = { x: .1, y: .1, w: .8, h: .8, rotate: 5 };
+  item.frame = { stroke: { color: '#ff8040', width: 8 }, cornerRadius: 40 };
+  const read = readEditV2(value).tracks[3].items[0];
+  assert.deepEqual(read.crop, item.crop);
+  assert.deepEqual(read.frame, item.frame);
+  for (const bad of [46, Infinity]) {
+    const rejected = structuredClone(value);
+    rejected.tracks[3].items[0].crop.rotate = bad;
+    assert.throws(() => readEditV2(rejected), /crop.rotate/);
+  }
+});
+
 test("visual media source accepts embedded speech gain and mute with closed types and ranges", async () => {
   const value = JSON.parse(await readFile(fixturePath, "utf8"));
   const source = value.tracks[3].items[0].source;

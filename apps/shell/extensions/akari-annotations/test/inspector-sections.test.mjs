@@ -205,7 +205,7 @@ test('cut 選択の節は timing → audio → info の順に並ぶ', () => {
   const factory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
   const sections = [...factory.matchAll(/id: '([^']+)'/gu)].map(match => ({ id: match[1] }));
   assert.deepEqual(composeInspectorSections(sections).map(section => section.id), [
-    'time', 'transform', 'framing', 'freeze', 'appearance', 'timing', 'audio', 'info'
+    'time', 'transform', 'crop', 'framing', 'freeze', 'appearance', 'timing', 'audio', 'info'
   ]);
 });
 

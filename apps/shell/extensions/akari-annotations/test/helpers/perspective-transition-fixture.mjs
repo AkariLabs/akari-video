@@ -18,7 +18,8 @@ export const timelineSource = readFileSync(new URL('../../src/browser/akari-anno
 const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget.Latest, true);
 const names = [
     'PERSPECTIVE_FIELDS', 'cutTransitionFields', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
-    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS', 'PHOTO_FLIP_FIELDS', 'MOTION_FIELDS', 'ANIMATOR_SECTION',
+    'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'MASK_FIELDS', 'PHOTO_FLIP_FIELDS', 'PHOTO_FRAME_FIELDS',
+    'PHOTO_CROP_OPEN_FIELD', 'MOTION_FIELDS', 'ANIMATOR_SECTION',
     'formatTimestamp', 'formatDurationSeconds', 'withDefaultNumber', 'formatDecimal1', 'orDash'
 ];
 const declarations = names.map(name => {

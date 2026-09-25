@@ -116,6 +116,7 @@ export interface ResolvedFraming {
 export interface ResolvedCutLayerStyle {
   /** Normalized crop window of the source (layer semantics; the source keeps its natural pixel size). */
   crop: { x: number; y: number; width: number; height: number };
+  cropRotate?: number;
 }
 
 export interface ResolvedCutVisual {
@@ -165,6 +166,7 @@ export type ResolvedBaseLayer = ResolvedVideoLayer | ResolvedImageBaseLayer;
 
 export interface ResolvedLayerVisual {
   crop: { x: number; y: number; width: number; height: number };
+  cropRotate?: number;
   perspective: { corners: readonly (readonly [number, number])[] } | null;
   transform: { x: number; y: number; scale: number; scaleX?: number; scaleY?: number; rotateDegrees: number };
 }
@@ -195,6 +197,7 @@ export interface ResolvedCompositeLayer {
   mask: ResolvedLayerMask | ResolvedStillLayerMask | null;
   erase?: readonly StillMaskStroke[];
   flip?: { h?: boolean; v?: boolean };
+  frame?: { stroke?: { color: string; width: number }; cornerRadius?: number };
   visual: ResolvedLayerVisual;
   blend: ResolvedLayerBlendMode;
   opacity: number;
