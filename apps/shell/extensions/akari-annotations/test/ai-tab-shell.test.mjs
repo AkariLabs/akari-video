@@ -67,11 +67,11 @@ for (const [name, kind, hasIdentity, groups, expected] of [
   });
 }
 
-test('タブは id generation・表示 AI、ふつうの動画 cut でも enabled', () => {
-  const tab = tabsForKind('cut', { generationAvailable: true }).find(tab => tab.id === 'generation');
-  assert.equal(tab.label, 'AI');
+test('タブは id edit・表示 編集、ふつうの動画 cut でも enabled', () => {
+  const tab = tabsForKind('cut', { generationAvailable: true }).find(tab => tab.id === 'edit');
+  assert.equal(tab.label, '編集');
   assert.equal(tab.enabled, true);
-  assert.equal(tab.disabledTitle, 'このクリップで使える AI はまだありません');
+  assert.equal(tab.disabledTitle, undefined);
 });
 
 for (const [name, state, done, expected] of [

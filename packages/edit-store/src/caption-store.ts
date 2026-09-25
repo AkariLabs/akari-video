@@ -114,6 +114,7 @@ export interface CaptionTextStyle {
 export interface CaptionTextStylePatch {
     color?: string | null;
     sizePx?: number | null;
+    wrapWidthPct?: number | null;
     fontWeight?: number | null;
     weight?: number | null;
     lineHeight?: number | null;
@@ -573,6 +574,7 @@ export function updateCaptionTextStyleInSource(
         let textStyle = located.text;
         textStyle = updateOptionalStyleProperty(textStyle, 'color', updates.color, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, 'size_px', updates.sizePx, `字幕 ${captionId} の text_style`);
+        textStyle = updateOptionalStyleProperty(textStyle, 'wrap_width_pct', updates.wrapWidthPct, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, 'font_weight', updates.fontWeight, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalStyleProperty(textStyle, 'weight',
             updates.weight === undefined && updates.fontWeight !== undefined ? null : updates.weight,
@@ -1660,7 +1662,8 @@ function isHexColor(value: unknown): value is string {
 }
 
 function validateTextStylePatch(updates: CaptionTextStylePatch): void {
-    const hasUpdate = updates.color !== undefined || updates.sizePx !== undefined || updates.zone !== undefined
+    const hasUpdate = updates.color !== undefined || updates.sizePx !== undefined || updates.wrapWidthPct !== undefined
+        || updates.zone !== undefined
         || updates.fontWeight !== undefined || updates.weight !== undefined
         || updates.lineHeight !== undefined || updates.letterSpacingEm !== undefined
         || updates.fontFamily !== undefined || updates.shadow !== undefined || updates.glow !== undefined
@@ -1680,6 +1683,10 @@ function validateTextStylePatch(updates: CaptionTextStylePatch): void {
     if (updates.sizePx !== undefined && updates.sizePx !== null
         && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
         throw new Error('字幕サイズは正の数で指定してください。');
+    }
+    if (updates.wrapWidthPct !== undefined && updates.wrapWidthPct !== null
+        && (!Number.isFinite(updates.wrapWidthPct) || updates.wrapWidthPct <= 0 || updates.wrapWidthPct > 100)) {
+        throw new Error('文字の折り返し幅は 0 より大きく 100% 以下で指定してください。');
     }
     for (const [value, min, max, label] of [
         [updates.fontWeight, 1, 1000, 'font_weight'],
@@ -1795,6 +1802,8 @@ function textStylePatchToJson(updates: CaptionTextStylePatch): Record<string, un
     return {
         ...(updates.color !== undefined && updates.color !== null ? { color: updates.color } : {}),
         ...(updates.sizePx !== undefined && updates.sizePx !== null ? { size_px: updates.sizePx } : {}),
+        ...(updates.wrapWidthPct !== undefined && updates.wrapWidthPct !== null
+            ? { wrap_width_pct: updates.wrapWidthPct } : {}),
         ...(updates.fontWeight !== undefined && updates.fontWeight !== null ? { font_weight: updates.fontWeight } : {}),
         ...(updates.weight !== undefined && updates.weight !== null ? { weight: updates.weight } : {}),
         ...(updates.lineHeight !== undefined && updates.lineHeight !== null ? { line_height: updates.lineHeight } : {}),

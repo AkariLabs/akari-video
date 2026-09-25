@@ -5,6 +5,7 @@ import ts from 'typescript';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
 import { appendAiTiles, appendAiBack, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } from '../lib/browser/inspector/ai-tiles.js';
 import { tabsForKind, initialTabFor, assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
+import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 test('gap button CSS excludes AI tiles from every matching rule', () => {
@@ -27,11 +28,12 @@ const code = ts.transpileModule(`class Harness { ${['renderGapSelection', 'match
   compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
 const deps = { appendAiTiles, appendAiBack, describeAiTiles, aiActionCatalog, aiTabAvailabilityFor, aiTabViewFor,
-  aiTargetKindFor, tabsForKind, initialTabFor, assignSectionToTab, CAPTION_ZONE_HOVER_EVENT: '',
+  aiTargetKindFor, tabsForKind, initialTabFor, assignSectionToTab, isInspectorStillImage, CAPTION_ZONE_HOVER_EVENT: '',
   createSelectionHeader: () => new FakeNode('header'), layerAudioControls: new WeakMap(),
   CUT_SECTIONS: (_snapshot, _write, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],
   LAYER_SECTIONS: (_snapshot, _write, _controls, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],
   stillMismatchNotice: () => undefined, appendAiStillNotice: () => undefined };
+deps.ADJUST_SECTIONS = () => [];
 const Harness = new Function(...Object.keys(deps), `${code}; return Harness;`)(...Object.values(deps));
 
 class FakeNode {
@@ -92,7 +94,7 @@ for (const [kind, view] of [['cut', 'still'], ['cut', 'video'], ['layer', 'video
       instance.render();
     });
     Object.assign(instance, {
-      dispatchCaptionZoneEvent() {}, hideFieldNotice() {}, syncAdjustCompare() {}, appendSoloBanner() {},
+      dispatchCaptionZoneEvent() {}, hideFieldNotice() {}, syncAdjustCompare() {}, appendSoloBanner() {}, refreshAdjustLuts() {},
       tabSourceHint: snapshot => snapshot.sourcePath ?? snapshot.src,
       generationIdentity: snapshot => snapshot?.kind === 'cut' || snapshot?.kind === 'layer'
         ? { key: snapshot.itemId ?? snapshot.id, itemId: snapshot.itemId ?? snapshot.id,
@@ -110,7 +112,7 @@ for (const [kind, view] of [['cut', 'still'], ['cut', 'video'], ['layer', 'video
     find(instance.body, view).click();
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(calls, 1);
-    assert.equal(instance.currentTab, 'generation');
+    assert.equal(instance.currentTab, 'edit');
     assert.equal(instance.aiView, view);
     assert.equal(instance.gapAiOpening, undefined);
     assert.ok(instance.body.children.some(node => node.tag === `${view}-panel`));

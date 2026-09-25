@@ -70,7 +70,7 @@ test('cue 文脈のアニメーター節は袋の見出しを表示し、追加�
         async request => { writes.push(request); return { ok: true }; });
     assert.equal(section.id, 'animator');
     assert.equal(section.label, '袋 captions-bag のアニメーター（全 cue に効く）');
-    assert.equal(section.collapsedByDefault, true);
+    assert.equal(section.collapsedByDefault, undefined);
     const add = section.fields.find(field => field.name === 'animator-add');
     assert.equal(add.label, 'アニメーターを追加');
     assert.deepEqual(await add.write(snapshot, 'アニメーター'), { ok: true });

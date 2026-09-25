@@ -64,6 +64,7 @@ export function captionCueOriginalStylePatch(
     const original: CaptionTextStylePatch = {};
     if (patch.color !== undefined) original.color = style.color as string | undefined ?? null;
     if (patch.sizePx !== undefined) original.sizePx = style.size_px as number | undefined ?? null;
+    if (patch.wrapWidthPct !== undefined) original.wrapWidthPct = style.wrap_width_pct as number | undefined ?? null;
     if (patch.fontWeight !== undefined) original.fontWeight = style.font_weight as number | undefined ?? null;
     if (patch.weight !== undefined || patch.fontWeight !== undefined) {
         original.weight = style.weight as number | undefined ?? null;

@@ -178,14 +178,15 @@ test('appendSection stamps the enable checkbox and preserves its existing marker
 test('focusField passes adjust / generation as explicit tab choices before rendering', () => dom(() => {
     for (const tabId of ['adjust', 'generation']) {
         const widget = fixture();
+        const activeId = tabId === 'generation' ? 'edit' : tabId;
         widget.render = () => {
-            assert.equal(widget.explicitTabId, tabId);
+            assert.equal(widget.explicitTabId, activeId);
             const tab = new FakeElement();
-            tab.setAttribute('data-akari-ui', `tab:inspector-${tabId}`);
+            tab.setAttribute('data-akari-ui', `tab:inspector-${activeId}`);
             tab.classList.add('is-active');
             widget.body.appendChild(tab);
         };
         assert.equal(widget.focusField({ tabId }), true);
-        assert.deepEqual(widget.writes, [['tab', 'cut', tabId]]);
+        assert.deepEqual(widget.writes, [['tab', 'cut', activeId]]);
     }
 }));

@@ -3722,6 +3722,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 case 'caption-style-color':
                 case 'caption-style-size':
+                case 'caption-style-wrap-width':
                 case 'caption-style-font-weight':
                 case 'caption-style-line-height':
                 case 'caption-style-letter-spacing':
@@ -3746,6 +3747,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             break;
                         case 'caption-style-size':
                             nextStyle = { sizePx: request.value };
+                            break;
+                        case 'caption-style-wrap-width':
+                            nextStyle = { wrapWidthPct: request.value };
                             break;
                         case 'caption-style-font-weight':
                             nextStyle = { fontWeight: request.value, weight: request.value };
@@ -4461,12 +4465,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         source: { vars: { ...(raw.source?.vars ?? {}), [name]: request.value } }
                     };
                     label = 'クリップのパラメータを変更';
-                } else if (request.path.startsWith('source.params.')) {
+                } else if (request.path === 'source.params' || request.path.startsWith('source.params.')) {
                     const name = request.path.slice('source.params.'.length);
                     patch = {
-                        source: { params: { ...(raw.source?.params ?? {}), [name]: request.value } }
+                        source: { params: request.path === 'source.params' ? request.value
+                            : { ...(raw.source?.params ?? {}), [name]: request.value } }
                     };
-                    label = 'クリップのテキストを変更';
+                    label = raw.source?.kind === 'shape' ? '図形の見た目を変更' : 'クリップのテキストを変更';
                     needsTelopRebake = raw.source?.baked !== undefined;
                 } else if (request.path.startsWith('source.chroma_key.')) {
                     const field = request.path.slice('source.chroma_key.'.length);
@@ -5629,6 +5634,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? raw.transform as TimelineTreeItemSnapshot['transform'] : undefined;
         return {
             ...selection,
+            ...(selection.parentId && this.rawKeyframeItem(selection.parentId)?.motion
+                ? { canvasMotion: true } : {}),
             ...(raw.source?.kind === 'media' ? {
                 ...(typeof raw.mask === 'string' ? { mask: raw.mask } : {}),
                 ...(raw.flip ? { flip: raw.flip } : {}),
@@ -5650,6 +5657,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? { perspective: raw.perspective } : {}),
             ...(Array.isArray(raw.keyframes) ? { keyframes: raw.keyframes } : {}),
             ...(typeof raw.source?.src === 'string' && raw.source.src.length > 0 ? { src: raw.source.src } : {}),
+            ...(typeof raw.source?.src === 'string' && this.sourceMap.get(raw.source.src)?.path
+                ? { sourcePath: this.sourceMap.get(raw.source.src)!.path } : {}),
+            ...(raw.source?.kind === 'shape' && typeof raw.source.shape === 'string' ? {
+                shape: raw.source.shape,
+                shapeParams: raw.source.params && typeof raw.source.params === 'object' ? raw.source.params : {}
+            } : {}),
             ...(raw.source?.kind === 'group' && raw.source.canvas ? { canvas: raw.source.canvas } : {}),
             sourceKind: typeof raw.source?.kind === 'string' ? raw.source.kind : selection.itemKind,
             trackName: this.trackDisplayNameForItem(selection.id),
@@ -5699,6 +5712,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 clipName: this.cutSourceName(cut) || itemId,
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
+                ...(rawItem && Number.isInteger(rawItem.duration) ? { durationFrames: Number(rawItem.duration) } : {}),
+                ...(rawItem?.motion && typeof rawItem.motion === 'object' && !Array.isArray(rawItem.motion)
+                    ? { motion: rawItem.motion } : {}),
                 playheadSeconds: this.playheadT,
                 ...(cut.src !== undefined ? {
                     src: cut.src,
@@ -5734,6 +5750,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const rawKeyframes = rawItem?.keyframes;
             return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
+                ...(rawItem && Number.isInteger(rawItem.duration) ? { durationFrames: Number(rawItem.duration) } : {}),
+                ...(rawItem?.motion && typeof rawItem.motion === 'object' && !Array.isArray(rawItem.motion)
+                    ? { motion: rawItem.motion } : {}),
                 trackName: this.trackDisplayNameForItem(overlay.id), clipName: resolveTimelineClipName(overlay),
                 ...(track !== undefined ? { track } : {}),
                 ...(crop !== undefined ? { crop } : {}),
@@ -5794,6 +5813,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 clipName: resolveTimelineClipName(layer),
                 outputStart: layer.t, duration: layer.duration,
                 ...(typeof layer.src === 'string' && layer.src.length > 0 ? { src: layer.src } : {}),
+                ...(typeof layer.src === 'string' && this.sourceMap.get(layer.src)?.path
+                    ? { sourcePath: this.sourceMap.get(layer.src)!.path } : {}),
                 ...(typeof layer.preset === 'string' && layer.preset.length > 0 ? { preset: layer.preset } : {}),
                 ...(params !== undefined ? { params } : {}),
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),

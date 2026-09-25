@@ -44,6 +44,9 @@ import { AKARI_MATERIAL_SELECTED_EVENT, materialSelectionFromDetail, type AkariM
 import { appendAiNarrationPanel, chooseAiNarrationVoice, generateAiNarration, initialAiNarrationState, type AiNarrationState } from './inspector/ai-narration-panel';
 import { aiNarrationSourcePath, type NarrationTrack } from '../common/ai-narration-placement';
 import { createInspectorIcon } from './inspector/icons';
+import { enableShapeStroke, shapeControlGroups, shapeNumber, shapeOptionValue, swapShapeEnds } from './inspector/shape-fields';
+import { itemMotionMarks } from './inspector/motion-marks';
+import { isInspectorStillImage } from './inspector/edit-target';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
     captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
@@ -179,6 +182,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     name?: string;
     revealName?: string;
     label: string;
+    markers?: readonly string[];
     getValue: (snapshot: TSnapshot) => string;
     /** 編集用入力欄の初期値。省略時は getValue の戻り値を使う。 */
     getEditValue?: (snapshot: TSnapshot) => string;
@@ -318,6 +322,7 @@ const CAPTION_PLATE_CAPSULE_HALF_HEIGHT_EM = (1.42 + 0.08 * 2) / 2;
 type CaptionStyleFieldKey =
     | 'color'
     | 'size'
+    | 'wrap-width'
     | 'font-weight'
     | 'line-height'
     | 'letter-spacing'
@@ -655,7 +660,8 @@ function cutFreezeFields(
 function CUT_SECTIONS(
     snapshot: TimelineCutSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
-    generation?: InspectorFieldDef<TimelineCutSelection>[]
+    generation?: InspectorFieldDef<TimelineCutSelection>[],
+    openMotion?: () => void
 ): InspectorSection[] {
     const transformFields: InspectorFieldDef<TimelineCutSelection>[] = [
         {
@@ -728,6 +734,10 @@ function CUT_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
+        MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
+        ...(snapshot.itemId && snapshot.durationFrames ? [{ id: 'motion', label: '動き',
+            fields: MOTION_FIELDS({ id: snapshot.itemId, durationFrames: snapshot.durationFrames,
+                motion: snapshot.motion }, requestWrite) }] : [MOTION_EMPTY_SECTION()]),
         { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
         { id: 'freeze', label: 'フリーズ', fields: cutFreezeFields(snapshot, requestWrite) },
         ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
@@ -887,19 +897,19 @@ function PHOTO_FLIP_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSn
     }));
 }
 
-function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
-    snapshot: T,
+function MOTION_FIELDS(
+    snapshot: InspectorMotionSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
-): InspectorFieldDef<T>[] {
+): InspectorFieldDef[] {
     const motion = normalizeInspectorMotion(snapshot.motion);
     return (['in', 'out', 'loop'] as const).flatMap((slot: InspectorMotionSlot) => {
         const label = slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ';
         const seat = motion[slot];
         const amount = seat ? MOTION_AMOUNT_DEFAULTS[seat.preset] : undefined;
         const missingTitle = 'プリセットを選ぶと変更できます。';
-        const write = async (current: T, field: InspectorMotionField, input: string | null): Promise<InspectorWriteResult> => {
+        const write = async (_current: InspectorSnapshot, field: InspectorMotionField, input: string | null): Promise<InspectorWriteResult> => {
             try {
-                return await requestWrite(createMotionWriteRequest(current, slot, field, input));
+                return await requestWrite(createMotionWriteRequest(snapshot, slot, field, input));
             } catch (error) {
                 return { ok: false, message: error instanceof Error ? error.message : String(error) };
             }
@@ -939,8 +949,27 @@ function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
                 disabled: !seat || !amount, title: !seat ? missingTitle : !amount ? 'このプリセットに量はありません' : undefined,
                 write: (current, input) => write(current, 'amount', input), reset: current => write(current, 'amount', null)
             }
-        ] satisfies InspectorFieldDef<T>[]).map(field => ({ ...field, keyframeDisabled: true }));
+        ] satisfies InspectorFieldDef[]).map(field => ({ ...field, keyframeDisabled: true }));
     });
+}
+
+function MOTION_SUMMARY_SECTION(motion: Record<string, unknown> | undefined, open?: () => void): InspectorSection {
+    return { id: 'motion-summary', label: '動き', fields: [{
+        name: 'motion-summary', label: '現在の動き',
+        getValue: () => ['in', 'out', 'loop'].map(slot => {
+            const seat = motion?.[slot] as { preset?: string } | undefined;
+            return seat?.preset ? `${slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ'}: ${MOTION_PRESET_LABELS[seat.preset as keyof typeof MOTION_PRESET_LABELS] ?? seat.preset}` : '';
+        }).filter(Boolean).join(' / ') || 'なし'
+    }, {
+        name: 'motion-open', label: '詳しい設定', getValue: () => '', actionLabel: '動きタブで開く',
+        action: async () => { open?.(); return { ok: true }; }
+    }] };
+}
+
+function MOTION_EMPTY_SECTION(message = 'この要素で使える動きはまだありません'): InspectorSection {
+    return { id: 'motion-empty', label: '動き', fields: [{
+        name: 'motion-unavailable', label: '設定', getValue: () => message
+    }] };
 }
 
 interface LayerAudioControls {
@@ -955,11 +984,13 @@ function LAYER_SECTIONS(
     snapshot: TimelineLayerSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
     layerAudio?: LayerAudioControls | null,
-    generation?: InspectorFieldDef<TimelineLayerSelection>[]
+    generation?: InspectorFieldDef<TimelineLayerSelection>[],
+    openMotion?: () => void
 ): InspectorSection[] {
     const chromaSimilarity = chromaControlValue(snapshot.chromaKey, 'similarity', 0.1);
     const chromaBlend = chromaControlValue(snapshot.chromaKey, 'blend', 0);
     const cropFields = CROP_FIELDS(snapshot, 'layer', requestWrite);
+    const maskFields = MASK_FIELDS(snapshot, requestWrite);
     const perspectiveSection = {
         id: 'perspective', label: 'パース（4 隅）', collapsedByDefault: true,
         fields: PERSPECTIVE_FIELDS(snapshot, requestWrite)
@@ -1018,12 +1049,14 @@ function LAYER_SECTIONS(
                 { name: 'duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
             ]
         },
-        { id: 'transform', label: '変形', fields: [...transformFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)] },
+        { id: 'transform', label: '変形', fields: transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
         perspectiveSection,
+        MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
         ...(snapshot.sourceKind === 'html' ? [] : [{
-            id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
+            id: 'motion', label: '動き', fields: MOTION_FIELDS(snapshot, requestWrite)
         }]),
+        ...(snapshot.sourceKind === 'html' ? [MOTION_EMPTY_SECTION()] : []),
         ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
         {
             id: 'appearance', label: '外観', fields: [
@@ -1081,9 +1114,12 @@ function LAYER_SECTIONS(
                         })
                     })
                 },
-                ...MASK_FIELDS(snapshot, requestWrite)
+                ...(!snapshot.photo ? maskFields : [])
             ]
         },
+        ...(snapshot.photo ? [{
+            id: 'edit-photo', label: '補正', fields: [...maskFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)]
+        }] : []),
         ...(snapshot.layerKind === 'video' ? [{ id: 'audio', label: '音声', fields: [
             {
                 name: 'layer-audio', label: '音声', inputKind: 'select' as const,
@@ -1263,6 +1299,22 @@ function CAPTION_SECTIONS(
                     'px',
                     'サイズは正の数で入力してください。'
                 ),
+                {
+                    name: 'caption-wrap-width', label: '折り返し幅', inputKind: 'scrub-number',
+                    unit: '%', min: 0.1, max: 100, scrubStep: 0.5,
+                    getValue: () => options.mixedFields?.has('wrap-width') ? '—'
+                        : raw?.wrapWidthPct === undefined ? '自動' : String(effective?.wrapWidthPct ?? raw.wrapWidthPct),
+                    getEditValue: () => options.mixedFields?.has('wrap-width') ? '—'
+                        : String(effective?.wrapWidthPct ?? 100),
+                    write: async (_snapshot, nextValue) => {
+                        const width = Number(nextValue);
+                        if (!Number.isFinite(width) || width <= 0 || width > 100) {
+                            return { ok: false, message: '折り返し幅は 0 より大きく 100% 以下で入力してください。' };
+                        }
+                        return requestWrite({ kind: 'caption-style-wrap-width', id: snapshot.id,
+                            value: width, ...requestOptions });
+                    }
+                },
                 {
                     name: 'caption-font-weight', label: '太さ', inputKind: 'caption-weight',
                     getValue: () => options.mixedFields?.has('font-weight') ? '—'
@@ -1457,7 +1509,7 @@ function CAPTION_SECTIONS(
             `袋 ${snapshot.animatorOwner.id} のアニメーター（全 cue に効く）`,
             snapshot.animatorOwner.animator,
             requestWrite
-        )] : []),
+        )] : [MOTION_EMPTY_SECTION('字幕の動きは、字幕をまとめた袋を置くと設定できます')]),
         {
             id: 'info', label: '情報', collapsedByDefault: true, fields: [
                 { name: 'caption-id', label: 'clip', getValue: () => snapshot.id },
@@ -1473,7 +1525,7 @@ function CAPTION_SECTIONS(
         const fields = section.fields;
         return [
             { id: 'style', label: '文字', fields: [
-                ...fields.slice(0, 5),
+                ...fields.slice(0, 6),
                 ...(snapshot.runs?.length ? captionRunRows(snapshot.displayText ?? snapshot.text, snapshot.runs)
                     .map((run, index): InspectorFieldDef<TimelineCaptionSelection> => ({
                     name: `caption-run-${index}`, label: index === 0 ? '文字範囲' : ' ',
@@ -1488,16 +1540,16 @@ function CAPTION_SECTIONS(
                         requestWrite({ kind: 'caption-run-remove', id: snapshot.id, index }) }]
                 })) : [])
             ] },
-            { id: 'style:stroke', label: '縁取り', fields: fields.slice(5, 7) },
-            { id: 'style:background', label: '座布団', fields: fields.slice(7, 13), body: () => {
+            { id: 'style:stroke', label: '縁取り', fields: fields.slice(6, 8) },
+            { id: 'style:background', label: '座布団', fields: fields.slice(8, 14), body: () => {
                 const note = document.createElement('p');
                 note.className = 'akari-caption-radius-note';
                 note.textContent = '角丸を最大にすると文字に沿った丸い座布団（カプセル）になる';
                 return note;
             } },
-            { id: 'style:effect', label: '効果', fields: fields.slice(13,
-                options.mixedFields?.has('effect') || currentEffect === 'none' ? 14 : 16) },
-            { id: 'style:position', label: '位置', fields: fields.slice(16) }
+            { id: 'style:effect', label: '効果', fields: fields.slice(14,
+                options.mixedFields?.has('effect') || currentEffect === 'none' ? 15 : 17) },
+            { id: 'style:position', label: '位置', fields: fields.slice(17) }
         ];
     });
 }
@@ -1537,6 +1589,7 @@ function MULTI_CAPTION_SECTIONS(
             snapshot.effectiveTextStyle?.color ?? CAPTION_STYLE_DEFAULTS.color),
         sizePx: common('size', snapshot =>
             snapshot.effectiveTextStyle?.sizePx ?? CAPTION_STYLE_DEFAULTS.sizePx),
+        wrapWidthPct: common('wrap-width', snapshot => snapshot.effectiveTextStyle?.wrapWidthPct),
         fontWeight: common('font-weight', snapshot =>
             snapshot.effectiveTextStyle?.weight ?? snapshot.effectiveTextStyle?.fontWeight
                 ?? CAPTION_STYLE_DEFAULTS.fontWeight),
@@ -2041,7 +2094,8 @@ function AUDIO_MASTER_SECTION(
 function OVERLAY_SECTIONS(
     snapshot: TimelineOverlaySelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
-    knobs: readonly InspectorKnob[] = []
+    knobs: readonly InspectorKnob[] = [],
+    openMotion?: () => void
 ): InspectorSection[] {
     const transform = snapshot.payload.transform && typeof snapshot.payload.transform === 'object'
         && !Array.isArray(snapshot.payload.transform)
@@ -2148,6 +2202,10 @@ function OVERLAY_SECTIONS(
         },
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
+        MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
+        ...(snapshot.durationFrames ? [{ id: 'motion', label: '動き', fields: MOTION_FIELDS({
+            id: snapshot.id, durationFrames: snapshot.durationFrames, motion: snapshot.motion
+        }, requestWrite) }] : [MOTION_EMPTY_SECTION()]),
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -2260,18 +2318,20 @@ function ANIMATOR_SECTION(
             });
         }
     });
-    return { id: 'animator', label: headingLabel, collapsedByDefault: true, fields: animatorFields };
+    return { id: 'animator', label: headingLabel, fields: animatorFields };
 }
 
 function TREE_ITEM_SECTIONS(
     snapshot: TimelineTreeItemSnapshot,
-    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
+    openMotion?: () => void
 ): InspectorSection[] {
     const number = (key: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
     const axisScale = (axis: 'scaleX' | 'scaleY'): number => number(axis, number('scale', 1));
     const overallScale = (): number => Math.sqrt(axisScale('scaleX') * axisScale('scaleY'));
     const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
+    const maskFields = MASK_FIELDS(snapshot, requestWrite);
     const perspectiveSection = {
         id: 'perspective', label: 'パース（4 隅）', collapsedByDefault: true,
         fields: PERSPECTIVE_FIELDS(snapshot, requestWrite)
@@ -2318,6 +2378,43 @@ function TREE_ITEM_SECTIONS(
         }
     ];
     const opacity = snapshot.opacity ?? 1;
+    const shapeGroups = shapeControlGroups(snapshot.shape, snapshot.shapeParams);
+    const shapeFields = (id: 'appearance' | 'bubble'): InspectorFieldDef<TimelineTreeItemSnapshot>[] =>
+        (shapeGroups.find(group => group.id === id)?.fields ?? []).map(field => ({
+            name: `shape-${field.key}`, label: field.label, inputKind: field.kind === 'number' ? 'scrub-number' : field.kind,
+            ...(field.options ? { options: field.options } : {}),
+            ...(field.min === undefined ? {} : { min: field.min }),
+            ...(field.max === undefined ? {} : { max: field.max }),
+            ...(field.kind === 'number' ? { scrubStep: 1 } : {}),
+            getValue: () => field.value, getEditValue: () => field.value,
+            write: async (_snapshot, value) => {
+                const key = field.key.endsWith('Mode') ? field.key.slice(0, -4) : field.key;
+                const next = field.key.endsWith('Mode') ? value === 'なし' ? 'none'
+                    : key === 'fill' ? snapshot.shape === 'bubble' ? '#ffffff' : '#a6a6a6' : '#000000'
+                    : field.kind === 'number' ? snapshot.shape === 'line' && key === 'strokeWidth'
+                        ? Math.max(1, shapeNumber(key, value) ?? 1) : shapeNumber(key, value)
+                        : field.kind === 'select' ? shapeOptionValue(key, value) : value;
+                if (next === undefined) return { ok: false, message: '値を選び直してください。' };
+                if (field.key === 'strokeMode' && value === '色'
+                    && !(Number(snapshot.shapeParams?.strokeWidth ?? 0) > 0)) {
+                    return requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.params',
+                        value: enableShapeStroke(snapshot.shapeParams ?? {}) });
+                }
+                return requestWrite({ kind: 'item-field', id: snapshot.id, path: `source.params.${key}`, value: next });
+            }
+        }));
+    const shapeAppearance = shapeFields('appearance');
+    if (snapshot.shape === 'line' || snapshot.shape === 'arrow') shapeAppearance.push({
+        name: 'shape-swap-ends', label: '始点と終点', getValue: () => '', actionLabel: '入れ替え',
+        action: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.params',
+            value: swapShapeEnds(snapshot.shapeParams ?? {}) })
+    });
+    const shapeBubble = shapeFields('bubble');
+    if (snapshot.shape === 'bubble') shapeBubble.push({
+        name: 'shape-next-seed', label: '形の変化', getValue: () => '', actionLabel: '別の形にする',
+        action: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.params.seed',
+            value: Number(snapshot.shapeParams?.seed ?? 0) + 1 })
+    });
     return composeInspectorSections([
         ...(snapshot.itemKind === 'group' ? [{ id: 'canvas', label: 'キャンバス', fields: [
             { name: 'canvas-name', label: '名前', inputKind: 'text' as const,
@@ -2355,25 +2452,33 @@ function TREE_ITEM_SECTIONS(
             { name: 'item-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
             { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
         ] },
-        { id: 'transform', label: '変形', fields: [...(['group', 'bag'].includes(snapshot.itemKind)
+        { id: 'transform', label: '変形', fields: (['group', 'bag'].includes(snapshot.itemKind)
             ? transformFields.filter(field => field.name !== 'transform-scaleX' && field.name !== 'transform-scaleY')
-            : transformFields), ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)] },
-        { id: 'crop', label: 'クロップ', fields: cropFields },
+            : transformFields).map(field => ({ ...field,
+                markers: itemMotionMarks(snapshot, `transform.${field.name?.slice('transform-'.length)}`) })) },
+        { id: 'crop', label: 'クロップ', fields: cropFields.map(field => ({ ...field,
+            markers: itemMotionMarks(snapshot, 'crop') })) },
         perspectiveSection,
-        ...(snapshot.sourceKind === 'html' ? [] : [{
-            id: 'motion', label: '動き', collapsedByDefault: true, fields: MOTION_FIELDS(snapshot, requestWrite)
+        MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
+        ...(snapshot.sourceKind === 'html' ? [MOTION_EMPTY_SECTION()] : [{
+            id: 'motion', label: '動き', fields: MOTION_FIELDS(snapshot, requestWrite)
         }]),
         ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [
             ANIMATOR_SECTION(snapshot.id, 'アニメーター', snapshot.animator, requestWrite)
         ] : []),
         { id: 'appearance', label: '外観', fields: [{
             name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
+            markers: itemMotionMarks(snapshot, 'opacity'),
             getValue: () => String(opacity), getEditValue: () => String(opacity),
             inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: 1, liveField: 'opacity',
             write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'opacity', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
-        }, ...MASK_FIELDS(snapshot, requestWrite)] },
+        }, ...shapeAppearance, ...(!snapshot.photo ? maskFields : [])] },
+        ...(snapshot.photo ? [{
+            id: 'edit-photo', label: '補正', fields: [...maskFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite)]
+        }] : []),
+        ...(shapeBubble.length ? [{ id: 'bubble', label: '吹き出し', fields: shapeBubble }] : []),
         { id: 'info', label: '情報', collapsedByDefault: true, fields: [
             { name: 'item-kind', label: '種類', getValue: () => snapshot.sourceKind === 'group' ? 'キャンバス' : snapshot.sourceKind },
             { name: 'item-track', label: 'トラック', getValue: () => snapshot.trackName },
@@ -2696,6 +2801,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected lastWriteError?: { message: string; at: number };
     protected readonly sectionState = new InspectorSectionState(window.localStorage);
     protected readonly tabState = new InspectorTabState(window.localStorage);
+    protected editAdjustScope: '画像全体' | '選択エリア' = '画像全体';
     protected tabSelectionKey?: string;
     protected currentTab?: string;
     protected explicitTabId?: string;
@@ -2788,7 +2894,7 @@ export class AkariInspectorWidget extends BaseWidget {
             if (!itemId || selectedId() !== itemId) return;
             void this.loadAiCatalog().finally(() => {
                 if (selectedId() !== itemId) return;
-                this.explicitTabId = 'generation'; this.aiView = 'tiles'; this.render();
+                this.explicitTabId = 'edit'; this.aiView = 'tiles'; this.render();
                 this.imageAiPanelOpen?.itemId === itemId && this.imageAiPanelOpen.open();
             });
         };
@@ -2825,14 +2931,19 @@ export class AkariInspectorWidget extends BaseWidget {
 
         const style = document.createElement('style');
         style.textContent = `
-.akari-inspector-ai-list { display: grid; gap: 16px; padding: 8px 2px; min-width: 0; }
+.akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; }
 .akari-inspector-ai-group { min-width: 0; }
-.akari-inspector-ai-heading { margin: 0 0 9px; font-size: 13px; font-weight: 700; }
+.akari-inspector-widget .akari-inspector-ai-heading { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--akari-muted); }
 .akari-inspector-ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .akari-inspector-widget button.akari-inspector-ai-tile { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; padding: 0 0 7px; overflow: hidden; text-align: left; color: var(--akari-ink); background: var(--akari-elevated); border: 1px solid var(--akari-line); border-radius: 7px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-tile:hover:not(.akari-inspector-ai-disabled) { border-color: var(--akari-accent); }
 .akari-inspector-ai-image { display: block; box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
-.akari-inspector-ai-title { display: block; margin: 7px 8px 0; font-size: 12px; font-weight: 600; line-height: 1.35; }
+.akari-inspector-ai-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 5px; margin: 7px 8px 0; }
+.akari-inspector-ai-title { display: block; min-width: 0; font-size: 12px; font-weight: 600; line-height: 1.35; }
+.akari-inspector-cloud { display: inline-flex; flex: 0 0 14px; color: var(--akari-muted); opacity: .82; }
+.akari-inspector-cloud svg { width: 14px; height: 14px; }
+.akari-inspector-image-ai-tools { grid-column: 1 / -1; display: grid; gap: 6px; border-top: 1px solid var(--akari-line-inner); padding-top: 8px; }
+.akari-inspector-image-ai-tools .akari-inspector-image-ai-action { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; color: var(--akari-ink); }
 .akari-inspector-widget button.akari-inspector-ai-disabled { cursor: default; }
 .akari-inspector-ai-disabled .akari-inspector-ai-image { filter: grayscale(1); opacity: .55; }
 .akari-inspector-ai-disabled .akari-inspector-ai-title { color: var(--akari-muted); }
@@ -3270,6 +3381,25 @@ export class AkariInspectorWidget extends BaseWidget {
         display: grid;
         gap: 5px;
     }
+    .akari-inspector-widget .akari-inspector-adjust-subsection {
+        border-top: 1px solid var(--akari-line-inner);
+        padding-top: 6px;
+    }
+    .akari-inspector-widget .akari-inspector-adjust-subtitle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+    .akari-inspector-widget .akari-inspector-adjust-subtitle-label {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: var(--akari-muted);
+        font: inherit;
+        font-size: 11px;
+        font-weight: 600;
+    }
     .akari-inspector-widget .akari-inspector-section-body[hidden] {
         display: none;
     }
@@ -3478,6 +3608,16 @@ export class AkariInspectorWidget extends BaseWidget {
         grid-template-columns: 18px minmax(0, 1fr) auto 12px 80px;
         align-items: center;
         gap: 3px;
+    }
+    .akari-inspector-widget .akari-inspector-motion-mark {
+        display: inline-block;
+        margin: 2px 3px 0 0;
+        padding: 0 3px;
+        border: 1px solid var(--akari-line);
+        border-radius: 2px;
+        color: var(--akari-muted);
+        font-size: 9px;
+        white-space: nowrap;
     }
     .akari-inspector-widget .akari-inspector-number-field-seatless {
         grid-template-columns: 18px minmax(0, 1fr) auto 12px;
@@ -3766,10 +3906,11 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     focusField(options: { tabId?: string; sectionId?: string; fieldName?: string; solo?: boolean }): boolean {
-        if (options.tabId === 'generation' && options.fieldName === 'akari-generation-retry') {
+        if ((options.tabId === 'generation' || options.tabId === 'edit') && options.fieldName === 'akari-generation-retry') {
             void this.retryGenerationFromTimeline();
             return true;
         }
+        if (options.tabId === 'generation') options = { ...options, tabId: 'edit' };
         const clearedSolo = this.solo !== undefined;
         if (clearedSolo) {
             this.solo = undefined;
@@ -3809,9 +3950,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 section.querySelector?.('.akari-inspector-section-body')?.hasAttribute('hidden'));
             for (const section of matches) {
                 const ui = section.getAttribute?.('data-akari-ui');
-                this.sectionState.setCollapsed(kind,
-                    ui?.startsWith('section:inspector-')
-                        ? ui.slice('section:inspector-'.length) : requestedSectionId, false);
+                const id = ui?.startsWith('section:inspector-')
+                    ? ui.slice('section:inspector-'.length) : requestedSectionId;
+                this.sectionState.setCollapsed(id === 'motion' || id === 'animator' ? `${kind}:motion` : kind,
+                    id, false);
             }
             if (needsRender) this.render();
         }
@@ -3891,20 +4033,20 @@ export class AkariInspectorWidget extends BaseWidget {
             const deadline = Date.now() + 2000;
             let identity = this.generationIdentity(this.model.snapshot);
             while (!identity && !this.isDisposed && Date.now() < deadline) {
-                this.focusField({ tabId: 'generation', sectionId: 'generation' });
+                this.focusField({ tabId: 'edit', sectionId: 'generation' });
                 await new Promise<void>(resolve => window.setTimeout(resolve, 20));
                 identity = this.generationIdentity(this.model.snapshot);
             }
             if (this.isDisposed) return;
             if (!identity) { this.showFieldNotice('再試行するクリップの生成情報を読み込めませんでした。'); return; }
-            this.focusField({ tabId: 'generation', sectionId: 'generation' });
+            this.focusField({ tabId: 'edit', sectionId: 'generation' });
             await this.loadGeneration(identity);
             if (this.isDisposed) return;
             if (this.generationIdentity(this.model.snapshot)?.key !== identity.key) {
                 this.showFieldNotice('選択が変わったため再試行を取り消しました。');
                 return;
             }
-            this.focusField({ tabId: 'generation', sectionId: 'generation' });
+            this.focusField({ tabId: 'edit', sectionId: 'generation' });
             if (this.generationStates.get(identity.key) !== 'failed') {
                 this.showFieldNotice('このクリップは再試行できる失敗状態ではありません。');
                 return;
@@ -4219,6 +4361,11 @@ export class AkariInspectorWidget extends BaseWidget {
         let sections: InspectorSection[];
         let rowSnapshot: InspectorSnapshot;
         let sectionKind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item';
+        const openMotion = (): void => {
+            this.explicitTabId = 'motion';
+            this.tabState.setActiveTab(sectionKind, 'motion');
+            this.render();
+        };
         if (snapshot.kind === 'multi') {
             const captions = snapshot.items.filter(
                 (item): item is TimelineCaptionSelection => item.kind === 'caption'
@@ -4241,7 +4388,7 @@ export class AkariInspectorWidget extends BaseWidget {
             sectionKind = snapshot.kind;
             switch (snapshot.kind) {
                 case 'cut':
-                    sections = CUT_SECTIONS(snapshot, requestWrite, this.generationSectionFields(snapshot));
+                    sections = CUT_SECTIONS(snapshot, requestWrite, this.generationSectionFields(snapshot), openMotion);
                     break;
                 case 'layer':
                     if (snapshot.layerKind === 'video' && !layerAudioControls.has(snapshot)) {
@@ -4292,7 +4439,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         })().catch(error => this.showFieldNotice(String(error)));
                     }
                     sections = LAYER_SECTIONS(
-                        snapshot, requestWrite, layerAudioControls.get(snapshot), this.generationSectionFields(snapshot)
+                        snapshot, requestWrite, layerAudioControls.get(snapshot), this.generationSectionFields(snapshot), openMotion
                     );
                     break;
                 case 'caption':
@@ -4305,10 +4452,10 @@ export class AkariInspectorWidget extends BaseWidget {
                     sections = AUDIO_SECTIONS(snapshot as AudioInspectorSnapshot, request => this.commitWrite(request));
                     break;
                 case 'overlay':
-                    sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot));
+                    sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot), openMotion);
                     break;
                 case 'item':
-                    sections = TREE_ITEM_SECTIONS(snapshot, requestWrite);
+                    sections = TREE_ITEM_SECTIONS(snapshot, requestWrite, openMotion);
                     break;
             }
         }
@@ -4354,7 +4501,9 @@ export class AkariInspectorWidget extends BaseWidget {
             void this.verifyAiNarrationSource?.(rowSnapshot, transcribeKey);
         }
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
-        const aiGroups = this.aiCatalogLoaded === undefined ? [] : describeAiTiles(
+        const aiGroups = this.aiCatalogLoaded === undefined || rowSnapshot.kind === 'overlay'
+            || rowSnapshot.kind === 'item' && rowSnapshot.sourceKind !== 'media'
+            || rowSnapshot.kind === 'layer' && rowSnapshot.sourceKind === 'html' ? [] : describeAiTiles(
             aiActionCatalog(this.generationCatalog, this.narrationEngines),
             aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
                 audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
@@ -4385,7 +4534,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.aiStillSelectionClipKey = clipKey;
         const activeTab = initialTabFor({
             kind: sectionKind, tabs, persisted: this.tabState.activeTab(sectionKind, tabs), generationTodo,
-            explicitTabId: opensGapFrame ? 'generation' : this.explicitTabId,
+            explicitTabId: opensGapFrame ? 'edit' : this.explicitTabId,
             clipKey, previousClipKey: this.tabSelectionKey, currentTab: this.currentTab
         });
         if (this.explicitTabId || !generationIdentity || (this.generationStates.has(generationIdentity.key)
@@ -4401,7 +4550,41 @@ export class AkariInspectorWidget extends BaseWidget {
         this.syncAdjustCompare(compareTarget, activeTab);
         this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo);
 
-        if (activeTab === 'generation' && this.aiCatalogLoaded) {
+        if (activeTab === 'edit') {
+            const imageSource = rowSnapshot.kind === 'cut' ? rowSnapshot.sourcePath
+                : rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
+                    ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
+            const imageSelected = isInspectorStillImage(imageSource);
+            if (imageSelected) {
+                this.appendSection({ id: 'edit-correction', label: '補正', fields: [
+                    ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields), {
+                        name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
+                        options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
+                        write: async (_snapshot, value) => {
+                            this.editAdjustScope = value === '選択エリア' ? '選択エリア' : '画像全体';
+                            this.render();
+                            return { ok: true };
+                        }
+                    }, ...(this.editAdjustScope === '選択エリア' ? [{
+                        name: 'edit-area-soon', label: '選択エリア', getValue: () => '近日'
+                    }] : [])] }, rowSnapshot, sectionKind);
+            } else {
+                this.appendSection({ id: 'edit-correction', label: '補正', fields: [{
+                    name: 'edit-correction-unavailable', label: '補正',
+                    getValue: () => 'この要素で使える補正はまだありません'
+                }] }, rowSnapshot, sectionKind);
+            }
+            const appendMaterialChoice = (): void => {
+                this.appendSection({ id: 'edit-material-choice', label: '素材の選択', fields: [{
+                    name: 'edit-replace-subject', label: '被写体を別の要素にする', getValue: () => '近日'
+                }] }, rowSnapshot, sectionKind);
+            };
+            if (!this.aiCatalogLoaded) {
+                appendAiTiles(this.body, [], () => undefined, false, '別案を読み込んでいます…');
+                appendMaterialChoice();
+                this.appendSoloBanner();
+                return;
+            }
             if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
             this.aiView = aiTabViewFor({
                 clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
@@ -4420,17 +4603,17 @@ export class AkariInspectorWidget extends BaseWidget {
                     notice.className = 'akari-inspector-ai-narration-placement';
                     notice.textContent = this.narrationPlacementNotice.label; this.body.append(notice);
                 }
-                appendAiTiles(this.body, aiGroups, id => {
+                const imageItemId = imageSelected && (rowSnapshot.kind === 'item'
+                    || rowSnapshot.kind === 'layer') && rowSnapshot.sourceKind === 'media' ? rowSnapshot.id
+                    : imageSelected && rowSnapshot.kind === 'cut' ? rowSnapshot.itemId : undefined;
+                const alternativesGrid = appendAiTiles(this.body, aiGroups, id => {
                     if (id !== 'video' && id !== 'still' && id !== 'transcribe' && id !== 'narration') return;
                     this.aiView = id;
                     if (id === 'narration' && rowSnapshot.kind === 'audio') {
                         void this.loadAiNarrationVoices(clipKey);
                     }
                     this.render();
-                }, this.transcribeSummary.state === 'done');
-                const imageItemId = rowSnapshot.kind === 'item' && rowSnapshot.sourceKind === 'media' ? rowSnapshot.id
-                    : rowSnapshot.kind === 'cut' && /\.(png|jpe?g|webp)$/i.test(rowSnapshot.sourcePath ?? '')
-                        ? rowSnapshot.itemId : undefined;
+                }, this.transcribeSummary.state === 'done', imageItemId ? '' : undefined);
                 if (imageItemId && this.imageAiPanels) {
                     const root = this.workspaceService.tryGetRoots()[0]?.resource;
                     if (root) {
@@ -4440,7 +4623,7 @@ export class AkariInspectorWidget extends BaseWidget {
                             state = { itemId: imageItemId, phase: 'closed' };
                             this.imageAiPanels.set(key, state);
                         }
-                        const panel = appendImageAiPanel(this.body, {
+                        const panel = appendImageAiPanel(alternativesGrid, {
                             projectRootUri: root.toString(), itemId: imageItemId,
                             state, service: this.layerAudioService,
                             adopt: result => this.commitWrite({ kind: 'image-ai-apply', binding: result.binding,
@@ -4451,6 +4634,8 @@ export class AkariInspectorWidget extends BaseWidget {
                         this.imageAiPanelOpen = { ...panel, itemId: imageItemId };
                     }
                 }
+                appendMaterialChoice();
+                this.appendSoloBanner();
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {
@@ -4492,7 +4677,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     }
                 });
                 if (this.transcribePolling) this.transcribeTimer = setInterval(() => {
-                    if (this.isDisposed || this.currentTab !== 'generation' || this.aiView !== 'transcribe'
+                    if (this.isDisposed || this.currentTab !== 'edit' || this.aiView !== 'transcribe'
                         || this.transcribeKey !== transcribeKey
                         || !this.body.querySelector('.akari-inspector-ai-transcribe-panel')?.getBoundingClientRect().width) {
                         if (this.transcribeTimer) clearInterval(this.transcribeTimer);
@@ -4673,7 +4858,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.body.appendChild(list);
         if (active === 'world') {
             const button = document.createElement('button');
-            button.type = 'button'; button.className = 'theia-button'; button.textContent = 'AI への指示をコピー';
+            button.type = 'button'; button.className = 'theia-button'; button.textContent = '編集の指示をコピー';
             button.addEventListener('click', () => void navigator.clipboard.writeText(worldInstructionCopy(snapshot as any)));
             this.body.appendChild(button);
         }
@@ -4756,7 +4941,7 @@ export class AkariInspectorWidget extends BaseWidget {
             button.setAttribute('data-akari-ui', `tab:inspector-${tab.id}`);
             if (tab.id === activeTab) button.classList.add('is-active');
             if (!tab.enabled) button.title = tab.disabledTitle ?? '近日';
-            if (tab.id === 'generation' && generationTodo) {
+            if (tab.id === 'edit' && generationTodo) {
                 const todo = document.createElement('span');
                 todo.setAttribute('data-akari-generation-todo', 'true');
                 todo.setAttribute('aria-label', '生成でやることがあります');
@@ -4839,34 +5024,39 @@ export class AkariInspectorWidget extends BaseWidget {
     protected appendSection(
         section: InspectorSection,
         snapshot: InspectorSnapshot,
-        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item'
-    ): void {
+        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item',
+        parent: HTMLElement = this.body,
+        nested = false
+    ): HTMLElement | undefined {
         if (this.solo) {
             const [filteredSection] = filterInspectorSoloSections(kind, [section], this.solo);
             if (!filteredSection) return;
             section = filteredSection;
         }
         const container = document.createElement('section');
-        container.className = 'akari-inspector-section';
+        container.className = nested ? 'akari-inspector-adjust-subsection' : 'akari-inspector-section';
         container.setAttribute('data-akari-ui', `section:inspector-${section.id}`);
         if (section.id === 'style') container.setAttribute('data-inspector-field', 'caption-style');
         const header = document.createElement('div');
-        header.className = 'akari-inspector-section-header';
+        header.className = nested ? 'akari-inspector-adjust-subtitle' : 'akari-inspector-section-header';
         const toggle = document.createElement('button');
         toggle.type = 'button';
-        toggle.className = 'akari-inspector-section-toggle';
-        const collapsed = this.sectionState.isCollapsed(kind, section);
+        toggle.className = nested ? 'akari-inspector-adjust-subtitle-label' : 'akari-inspector-section-toggle';
+        const sectionStorageKind = section.id === 'motion' || section.id === 'animator'
+            ? `${kind}:motion` : kind;
+        const collapsed = nested ? false : this.sectionState.isCollapsed(sectionStorageKind, section);
         toggle.textContent = section.label;
-        toggle.appendChild(createInspectorIcon('down'));
+        if (!nested) toggle.appendChild(createInspectorIcon('down'));
         toggle.setAttribute('aria-expanded', String(!collapsed));
+        if (nested) toggle.disabled = true;
         const body = document.createElement('div');
         body.className = 'akari-inspector-section-body';
         body.hidden = collapsed;
-        toggle.addEventListener('click', () => {
+        if (!nested) toggle.addEventListener('click', () => {
             const next = !body.hidden;
             body.hidden = next;
             toggle.setAttribute('aria-expanded', String(!next));
-            this.sectionState.setCollapsed(kind, section.id, next);
+            this.sectionState.setCollapsed(sectionStorageKind, section.id, next);
         });
         header.appendChild(toggle);
         if (section.enable) {
@@ -4957,7 +5147,8 @@ export class AkariInspectorWidget extends BaseWidget {
             body.appendChild(customBody);
         }
         container.append(header, body);
-        this.body.appendChild(container);
+        parent.appendChild(container);
+        return body;
     }
 
     protected isOptionalFieldVisible(
@@ -6617,6 +6808,13 @@ export class AkariInspectorWidget extends BaseWidget {
         labelElement.className = 'akari-inspector-row-label';
         labelElement.textContent = field.label;
         row.appendChild(labelElement);
+        for (const mark of field.markers ?? []) {
+            const badge = document.createElement('small');
+            badge.className = 'akari-inspector-motion-mark';
+            badge.textContent = mark;
+            badge.title = mark;
+            labelElement.appendChild(badge);
+        }
 
         if (field.actions) {
             const actions = document.createElement('div');

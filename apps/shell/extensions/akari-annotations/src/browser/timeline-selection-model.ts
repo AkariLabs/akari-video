@@ -22,6 +22,8 @@ export interface TimelineCutSelection {
     sourceOut: number;
     outputStart: number;
     outputEnd: number;
+    durationFrames?: number;
+    motion?: Record<string, unknown>;
     playheadSeconds?: number;
     transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
     framing?: CutFraming;
@@ -55,6 +57,8 @@ export interface TimelineOverlaySelection {
     outputStart: number;
     playheadSeconds?: number;
     duration: number;
+    durationFrames?: number;
+    motion?: Record<string, unknown>;
     track?: number;
     payload: Record<string, unknown>;
     crop?: TimelineCropSnapshot;
@@ -99,6 +103,7 @@ export interface TimelineLayerSelection {
     playheadSeconds?: number;
     duration: number;
     src?: string;
+    sourcePath?: string;
     preset?: string;
     params?: Record<string, unknown>;
     transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
@@ -124,6 +129,9 @@ export interface TimelineTreeItemSelection {
 }
 
 export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
+    shape?: string;
+    shapeParams?: Record<string, unknown>;
+    canvasMotion?: boolean;
     canvas?: { origin: 'user' | 'plan'; durationMode: 'fixed'; intent?: string;
         background?: { type: 'none' | 'color'; color?: string } };
     motion?: Record<string, unknown>;
@@ -143,6 +151,7 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     perspective?: Record<string, unknown>;
     keyframes?: readonly Record<string, unknown>[];
     src?: string;
+    sourcePath?: string;
     sourceKind: string;
     trackName: string;
     clipName: string;
@@ -324,7 +333,7 @@ type InspectorWriteOperation =
             | InspectorAdjustPath
             | 'opacity' | 'blend' | 'perspective' | 'mask' | 'photo-mask' | 'photo-brush-toggle' | 'flip.h' | 'flip.v' | 'erase'
             | 'motion' | 'animator' | 'name' | 'duration'
-            | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | `source.params.${string}`
+            | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | 'source.params' | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
         value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | boolean | null;
     }
@@ -361,6 +370,7 @@ type InspectorWriteOperation =
     | { kind: 'caption-speaker'; id: string; value: string | null }
     | { kind: 'caption-style-color'; id: string; value: string }
     | { kind: 'caption-style-size'; id: string; value: number }
+    | { kind: 'caption-style-wrap-width'; id: string; value: number }
     | { kind: 'caption-style-font-weight'; id: string; value: number }
     | { kind: 'caption-style-line-height'; id: string; value: number }
     | { kind: 'caption-style-letter-spacing'; id: string; value: number }

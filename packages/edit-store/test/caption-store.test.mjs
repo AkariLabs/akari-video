@@ -59,6 +59,22 @@ test('wrap_width_pct survives caption parsing and insertion without changing siz
   assert.deepEqual(JSON.parse(inserted)[0].text_style, { size_px: 48, wrap_width_pct: 35 });
 });
 
+test('wrap width style patch changes only the selected cue and undo removes an unset width', () => {
+  const source = JSON.stringify([caption('c-0001', 0, '長い文字', {
+    text_style: { size_px: 48 }
+  }), caption('c-0002', 1, '別の文字', { text_style: { wrap_width_pct: 25 } })]);
+  const changed = updateCaptionTextStyleInSource(source, 'c-0001', { wrapWidthPct: 35 });
+  const rows = JSON.parse(changed);
+  assert.deepEqual(rows[0].text_style, { size_px: 48, wrap_width_pct: 35 });
+  assert.deepEqual(rows[1].text_style, { wrap_width_pct: 25 });
+  assert.deepEqual(JSON.parse(updateCaptionTextStyleInSource(changed, 'c-0001', { wrapWidthPct: null }))[0].text_style,
+    { size_px: 48 });
+  for (const value of [0, 101, NaN]) {
+    assert.throws(() => updateCaptionTextStyleInSource(source, 'c-0001', { wrapWidthPct: value }),
+      /折り返し幅/u);
+  }
+});
+
 test('style を karaoke に設定しても edited は立たない', () => {
   const source = JSON.stringify([caption('c-0001', 0, '本文')]);
   const record = JSON.parse(updateCaptionFieldsInSource(source, 'c-0001', { style: 'karaoke' }))[0];

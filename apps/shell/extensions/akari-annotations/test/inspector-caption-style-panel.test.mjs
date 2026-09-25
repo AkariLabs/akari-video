@@ -6,11 +6,12 @@ import { composeInspectorSections } from '../lib/browser/inspector/section-model
 import { filterInspectorSoloSections } from '../lib/browser/inspector/solo-model.js';
 import { captionRunRows } from '../lib/browser/inspector/caption-run-rows.js';
 import { parseCaptions } from '@akari-video/edit-store';
+import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import {
     CAPTION_BACKGROUND_ON_OPACITY, CAPTION_OUTLINE_WIDTH_PX,
     captionEffectFromWidth, captionEffectWrites, captionEffectFromStyle, captionEffectPatch,
     captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
-    captionPresetAwareStylePatch, resolveCaptionRevealField
+    captionPresetAwareStylePatch, captionCueOriginalStylePatch, resolveCaptionRevealField
 } from '../lib/browser/inspector/caption-style-effects.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -22,7 +23,7 @@ const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, 
 const functions = [
     'formatTimestamp', 'formatDurationSeconds', 'orDash', 'captionStyleDisplayValue',
     'isCaptionHexColor', 'effectiveCaptionBackgroundOpacity', 'CAPTION_SECTIONS',
-    'commonCaptionValue', 'MULTI_CAPTION_SECTIONS'
+    'commonCaptionValue', 'MULTI_CAPTION_SECTIONS', 'MOTION_EMPTY_SECTION'
 ];
 const declarations = functions.map(name => {
     const node = ast.statements.find(statement => ts.isFunctionDeclaration(statement) && statement.name.text === name);
@@ -52,6 +53,36 @@ const caption = (id, extra = {}) => ({
 });
 const cards = sections => sections.filter(section => section.id === 'style' || section.id.startsWith('style:'));
 const field = (sections, name) => sections.flatMap(section => section.fields).find(item => item.name === name);
+
+test('折り返し幅はテキストタブの文字カードで表示・編集し、複数選択の混在も示す', async () => {
+    const writes = [];
+    const current = caption('one', { textStyle: { sizePx: 48, wrapWidthPct: 35 },
+        effectiveTextStyle: { sizePx: 48, wrapWidthPct: 35 } });
+    const sections = captionSections(current, async request => { writes.push(request); return { ok: true }; });
+    const style = sections.find(section => section.id === 'style');
+    assert.equal(assignSectionToTab('caption', style.id), 'text');
+    const width = style.fields.find(row => row.name === 'caption-wrap-width');
+    assert.equal(width.getValue(), '35');
+    assert.equal(width.getEditValue(), '35');
+    assert.equal(width.unit, '%');
+    assert.equal((await width.write(current, '0')).ok, false);
+    await width.write(current, '42');
+    assert.deepEqual(writes, [{ kind: 'caption-style-wrap-width', id: 'one', value: 42 }]);
+    assert.deepEqual(captionCueOriginalStylePatch(JSON.stringify({ captions: [{ id: 'one', text_style: { size_px: 48 } }] }),
+        'one', { wrapWidthPct: 42 }), { wrapWidthPct: null });
+    const mixed = multiCaptionSections([current, caption('two', {
+        effectiveTextStyle: { sizePx: 48, wrapWidthPct: 55 }
+    })], async () => ({ ok: true }), {});
+    assert.equal(field(mixed, 'caption-wrap-width').getValue(), '—');
+    assert.equal(field(captionSections(caption('plain'), async () => ({ ok: true })),
+        'caption-wrap-width').getValue(), '自動');
+});
+
+test('袋がない字幕の動きタブは次の操作を案内する', () => {
+    const section = captionSections(caption('plain'), async () => ({ ok: true }))
+        .find(section => section.id === 'motion-empty');
+    assert.equal(section.fields[0].getValue(), '字幕の動きは、字幕をまとめた袋を置くと設定できます');
+});
 
 test('字幕の全種類と複数選択に同じ五枚のスタイルカードを出す', () => {
     for (const snapshot of [
@@ -153,7 +184,7 @@ test('単体と複数選択で短い欄ラベルと明示した単位を使う',
         multiCaptionSections(snapshots, async () => ({ ok: true }), {})
     ]) {
         assert.deepEqual(cards(sections).map(card => card.fields.map(entry => entry.label)), [
-            ['色', '大きさ', '太さ', '行間', '字間'], ['色', '太さ'],
+            ['色', '大きさ', '折り返し幅', '太さ', '行間', '字間'], ['色', '太さ'],
             ['表示', '形', '色', '不透明度', '余白', '角丸'],
             ['種類', '効果の色', '強さ'], ['位置']
         ]);

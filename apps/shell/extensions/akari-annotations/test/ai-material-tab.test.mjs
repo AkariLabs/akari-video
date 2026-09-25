@@ -71,7 +71,7 @@ test('画像素材は動画にするタイルを表示し、情報タブにパ�
     onView: () => {}, onDialogResult: () => {} };
   appendAiMaterialView(root, options);
   assert.equal(all(root, byData('data-akari-inspector-ai-tile', 'transcribe')).length, 0);
-  assert.equal(all(root, byText('この素材で使える AI はまだありません')).length, 0);
+  assert.equal(all(root, byText('この素材で使える編集はまだありません')).length, 0);
   find(root, byData('data-akari-inspector-ai-tab', 'info')).click();
   assert.equal(selectedTab, 'info');
   const info = new Node('div');
@@ -85,7 +85,7 @@ const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, tru
 const widget = ast.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariInspectorWidget');
 const method = name => widget.members.find(node => node.name?.getText(ast) === name).getText(ast);
 
-test('widget: 素材を選ぶと AI を表示し、タイムライン選択変更で元の表示へ戻る', () => withDom(async () => {
+test('widget: 素材を選ぶと編集を表示し、タイムライン選択変更で元の表示へ戻る', () => withDom(async () => {
   const init = widget.members.find(node => node.name?.getText(ast) === 'init');
   let onChanged;
   const visit = node => {
@@ -122,7 +122,7 @@ test('widget: 素材を選ぶと AI を表示し、タイムライン選択変�
   assert.ok(find(instance.body, byText('interview.wav')));
   assert.ok(find(instance.body, byText('音声の素材')));
   const tabs = all(instance.body, node => node.attributes.get('role') === 'tab');
-  assert.deepEqual(tabs.map(node => node.textContent), ['AI', '情報']);
+  assert.deepEqual(tabs.map(node => node.textContent), ['編集', '情報']);
   assert.equal(tabs[0].attributes.get('aria-selected'), 'true');
   const tile = find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe'));
   assert.equal(tile.attributes.get('aria-disabled'), 'false');

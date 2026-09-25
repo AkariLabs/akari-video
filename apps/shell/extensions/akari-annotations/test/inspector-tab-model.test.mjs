@@ -14,21 +14,21 @@ const tabShape = tabs => tabs.map(({ label, enabled }) => [label, enabled]);
 
 test('選択 kind ごとに正しいタブ語彙と enabled 状態を返す', () => {
   assert.deepEqual(tabShape(tabsForKind('cut')), [
-    ['映像', true], ['色', true], ['音声', true], ['AI', false], ['情報', true]
+    ['映像', true], ['色', true], ['音声', true], ['編集', true], ['動き', true], ['情報', true]
   ]);
   for (const kind of ['layer', 'overlay', 'item']) {
     assert.deepEqual(tabShape(tabsForKind(kind, {})), [
-      ['映像', true], ['色', false], ['音声', false], ['AI', false], ['情報', true]
+      ['映像', true], ['色', false], ['音声', false], ['編集', true], ['動き', true], ['情報', true]
     ], `${kind}: src なし`);
     assert.deepEqual(tabShape(tabsForKind(kind, { src: 'assets/source.mp4' })), [
-      ['映像', true], ['色', true], ['音声', true], ['AI', false], ['情報', true]
+      ['映像', true], ['色', true], ['音声', true], ['編集', true], ['動き', true], ['情報', true]
     ], `${kind}: src あり`);
   }
   assert.deepEqual(tabShape(tabsForKind('caption')), [
-    ['テキスト', true], ['情報', true]
+    ['テキスト', true], ['動き', true], ['情報', true]
   ]);
   assert.deepEqual(tabShape(tabsForKind('audio')), [
-    ['音声', true], ['AI', true], ['情報', true]
+    ['音声', true], ['編集', true], ['情報', true]
   ]);
   assert.deepEqual(tabShape(tabsForKind('world')), [['地図', true], ['情報', true]]);
 });
@@ -45,6 +45,8 @@ test('既存セクションを kind に応じたタブへ振り分ける', () =>
   assert.equal(assignSectionToTab('world', 'location'), 'world');
   assert.equal(assignSectionToTab('cut', 'adjust:basic'), 'adjust');
   assert.equal(assignSectionToTab('item', 'adjust:lut'), 'adjust');
+  assert.equal(assignSectionToTab('item', 'edit-photo'), 'edit');
+  assert.equal(assignSectionToTab('caption', 'animator'), 'motion');
 });
 
 test('アクティブタブは kind ごとに永続し disabled 保存値をフォールバックする', () => {
@@ -66,6 +68,10 @@ test('アクティブタブは kind ごとに永続し disabled 保存値をフ�
 
   state.setActiveTab('layer', 'adjust');
   assert.equal(state.activeTab('layer', layerTabs), 'video');
+  state.setActiveTab('item', 'generation');
+  assert.equal(state.activeTab('item', tabsForKind('item')), 'edit');
+  state.setActiveTab('caption', 'motion');
+  assert.equal(state.activeTab('caption', tabsForKind('caption')), 'motion');
 });
 
 test('調整タブは実働 6 件と Coming soon 0 件を裁定どおり分ける', () => {
@@ -87,6 +93,9 @@ import { buildLutOptions } from '../lib/browser/inspector/lut-options.js';
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
 import { ADJUST_PREVIEW_SECTIONS } from '../lib/browser/inspector/adjust-preview.js';
 import { generationFields } from '../lib/browser/inspector/generation-fields.js';
+import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles } from '../lib/browser/inspector/ai-tiles.js';
+import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 import { cutSections, layerSections, cutSnapshot, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
 const widgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 const widgetAst = ts.createSourceFile('inspector.ts', widgetSource, ts.ScriptTarget.Latest, true);
@@ -94,6 +103,8 @@ const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node
 const method = name => widgetClass.members.find(node => node.name?.getText(widgetAst) === name).getText(widgetAst);
 const factory = name => widgetAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(widgetAst);
 const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
+  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles,
+  isInspectorStillImage,
   AUDIO_PREVIEW_SECTIONS, ADJUST_PREVIEW_SECTIONS, generationFields,
   CUT_SECTIONS: cutSections, LAYER_SECTIONS: layerSections, layerAudioControls: new WeakMap(), CAPTION_ZONE_HOVER_EVENT: '' };
 delete dependencies.default;
@@ -148,6 +159,7 @@ function renderFixture(kind, Harness = RenderHarness) {
   const model = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8'))
     .models.find(row => row.id === 'fal:h3-i2v');
   widget.generationCatalog = [model];
+  widget.aiCatalogLoaded = true;
   widget.generationDrafts = new Map([[key, { modelId: model.id, inputs: { prompt: '', first_frame: { path: 'still.png' } },
     output: { duration_s: 5, resolution: '768P', audio_out: true } }]]);
   widget.generationTabDrafts = new Map(widget.generationDrafts);
@@ -172,7 +184,9 @@ function measureAllTabs(kind) {
       widget.render();
       measured.push(...widget.sections);
     }
-    return measured.sort(([a], [b]) => a.localeCompare(b));
+    const baselineIds = new Set(BASELINE_SECTION_FIELDS[kind].map(([id]) => id));
+    return [...new Map(measured.filter(([id]) => baselineIds.has(id)).map(entry => [entry[0], entry])).values()]
+      .sort(([a], [b]) => a.localeCompare(b));
   });
 }
 // Measured before implementation, fixed literals (never recomputed as expectations).
@@ -182,14 +196,14 @@ const BASELINE_SECTION_FIELDS = {
     ['adjust:lut', 3], ['adjust:wheels', 0], ['appearance', 1], ['audio', 2],
     ['audio-av-link', 3], ['audio-ducking', 2], ['audio-enhancement', 2], ['audio-fades', 2],
     ['audio-pitch-time', 2], ['audio-volume', 2], ['audio:master', 4], ['framing', 5],
-    ['freeze', 2], ['generation', 10], ['info', 3], ['time', 4], ['timing', 1], ['transform', 4]
+    ['freeze', 2], ['info', 3], ['time', 4], ['timing', 1], ['transform', 4]
   ],
   layer: [
     ['adjust:basic', 11], ['adjust:curves', 0], ['adjust:fx', 1], ['adjust:hue', 0],
     ['adjust:lut', 3], ['adjust:wheels', 0], ['appearance', 5], ['audio', 2],
     ['audio-av-link', 3], ['audio-ducking', 2], ['audio-enhancement', 2], ['audio-fades', 2],
     ['audio-pitch-time', 2], ['audio-volume', 2], ['audio:master', 4], ['crop', 4],
-    ['generation', 10], ['info', 5], ['motion', 12], ['perspective', 9], ['time', 2], ['transform', 4]
+    ['info', 5], ['motion', 12], ['perspective', 9], ['time', 2], ['transform', 4]
   ]
 };
 for (const kind of ['cut', 'layer']) {
@@ -198,22 +212,36 @@ for (const kind of ['cut', 'layer']) {
   });
 }
 
+test('色補正の実働節は色タブだけに出し、編集の補正群に重複表示しない', () => withTabDom(() => {
+  const widget = renderFixture('layer');
+  widget.explicitTabId = 'edit';
+  widget.render();
+  assert.ok(widget.sections.some(([id]) => id === 'edit-correction'));
+  assert.equal(widget.sections.some(([id]) => id.startsWith('adjust:')), false);
+  widget.sections = [];
+  widget.explicitTabId = 'adjust';
+  widget.render();
+  assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), [
+    'adjust:basic', 'adjust:curves', 'adjust:wheels', 'adjust:hue', 'adjust:lut', 'adjust:fx'
+  ]);
+}));
+
 const INITIAL_TAB_CASES = [
-  ['空の枠', { generationTodo: true }, 'generation'],
-  ['動画予定', { generationTodo: true }, 'generation'],
-  ['生成中', { generationTodo: true }, 'generation'],
-  ['応答なし', { generationTodo: true }, 'generation'],
-  ['失敗', { generationTodo: true }, 'generation'],
+  ['空の枠', { generationTodo: true }, 'edit'],
+  ['動画予定', { generationTodo: true }, 'edit'],
+  ['生成中', { generationTodo: true }, 'edit'],
+  ['応答なし', { generationTodo: true }, 'edit'],
+  ['失敗', { generationTodo: true }, 'edit'],
   ['画像のまま', {}, 'video'],
   ['生成済み動画', { generationAvailable: false }, 'video'],
   ['保存 adjust + 画像のまま', { persisted: 'adjust' }, 'adjust'],
-  ['保存 generation + 画像のまま', { persisted: 'generation' }, 'generation'],
-  ['保存 generation + AI が押せない', { persisted: 'generation', generationAvailable: false }, 'video'],
-  ['別クリップでも AI のまま', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation' }, 'generation'],
-  ['別クリップで AI が押せない', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation', generationAvailable: false }, 'video'],
+  ['旧保存値 generation', { persisted: 'generation' }, 'edit'],
+  ['旧保存値 generation・生成なし', { persisted: 'generation', generationAvailable: false }, 'edit'],
+  ['別クリップでも保存した色タブ', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation' }, 'adjust'],
+  ['別クリップで生成なし', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation', generationAvailable: false }, 'adjust'],
   ['同じクリップ再描画', { generationTodo: true, previousClipKey: 'clip', currentTab: 'adjust' }, 'adjust'],
-  ['同じクリップ完了後', { previousClipKey: 'clip', currentTab: 'generation' }, 'generation'],
-  ['別クリップは保存値より生成優先', { generationTodo: true, persisted: 'adjust', previousClipKey: 'other', currentTab: 'info' }, 'generation']
+  ['同じクリップ完了後', { previousClipKey: 'clip', currentTab: 'generation' }, 'edit'],
+  ['別クリップでも保存した色タブ', { generationTodo: true, persisted: 'adjust', previousClipKey: 'other', currentTab: 'info' }, 'adjust']
 ];
 for (const kind of ['cut', 'layer']) {
   for (const [label, options, expected] of INITIAL_TAB_CASES) {
@@ -231,8 +259,8 @@ for (const kind of ['cut', 'layer']) {
 
 test('caption / audio / world: id・ラベル・disabled title の語彙を固定する', () => withTabDom(() => {
   const vocabulary = {
-    caption: [['text', 'テキスト', true, ''], ['info', '情報', true, '']],
-    audio: [['audio', '音声', true, ''], ['generation', 'AI', true, ''], ['info', '情報', true, '']],
+    caption: [['text', 'テキスト', true, ''], ['motion', '動き', true, ''], ['info', '情報', true, '']],
+    audio: [['audio', '音声', true, ''], ['edit', '編集', true, ''], ['info', '情報', true, '']],
     world: [['world', '地図', true, ''], ['info', '情報', true, '']]
   };
   for (const [kind, expected] of Object.entries(vocabulary)) {
@@ -245,7 +273,7 @@ test('caption / audio / world: id・ラベル・disabled title の語彙を固�
     widget.body.replaceChildren();
     widget.appendTabStrip(kind, tabs.map(tab => ({ ...tab, enabled: false })), '');
     assert.deepEqual(widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.map(button => button.title),
-      kind === 'audio' ? ['近日', '近日', '近日'] : ['近日', '近日']);
+      kind === 'audio' || kind === 'caption' ? ['近日', '近日', '近日'] : ['近日', '近日']);
   }
 }));
 
@@ -257,19 +285,22 @@ test('generation: 節割付・enabled・disabled title・やること印の DOM 
       widget.sections = [];
       widget.generationStates.set(key, state);
       widget.tabSelectionKey = undefined;
+      widget.aiViewClipKey = undefined;
+      widget.aiView = undefined;
       widget.render();
       const buttons = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children;
-      const generation = buttons.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-generation');
+      const generation = buttons.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-edit');
       const todo = ['planned', 'generating', 'stale', 'failed'].includes(state);
       assert.equal(generation.disabled, false);
-      assert.equal(generation.attributes.get('aria-selected'), 'true');
+      assert.equal(generation.attributes.get('aria-selected'), String(todo));
       assert.deepEqual(generation.children.map(child => child.attributes.get('data-akari-generation-todo')), todo ? ['true'] : []);
-      assert.equal(widget.sections.some(([id]) => id === 'generation'), true);
+      const generatedPanel = ['generating', 'stale', 'failed'].includes(state);
+      assert.equal(widget.sections.some(([id, count]) => id === 'generation' && count === 10), generatedPanel);
     }
     widget.generationTabMeta.set(key, { next: { status: 'planned' } });
     widget.tabSelectionKey = undefined;
     widget.render();
-    assert.equal(widget.currentTab, 'generation', 'next planned overrides a done still');
+    assert.equal(widget.currentTab, 'edit', 'next planned overrides a done still');
     widget.generationTabMeta.clear();
     widget.explicitTabId = 'adjust';
     widget.render();
@@ -281,13 +312,12 @@ test('generation: 節割付・enabled・disabled title・やること印の DOM 
     else widget.model.snapshot.src = 'done.mp4';
     widget.render();
     assert.equal(widget.currentTab, 'adjust', 'same item after source replacement');
-    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === 'AI');
-    assert.equal(generation.disabled, true);
-    assert.equal(generation.title, 'このクリップで使える AI はまだありません');
+    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === '編集');
+    assert.equal(generation.disabled, false);
     assert.equal(generation.children.length, 0);
   }
   for (const kind of ['cut', 'layer', 'item', 'overlay']) {
-    assert.equal(assignSectionToTab(kind, 'generation'), 'generation');
+    assert.equal(assignSectionToTab(kind, 'generation'), 'edit');
     assert.equal(assignSectionToTab(kind, 'audio'), 'video', 'embedded audio stays in video');
   }
 }));
@@ -301,7 +331,7 @@ test('generation enabled は既存 generationIdentity の静止画 cut / media l
   ]) {
     const available = !!widget.generationIdentity(snapshot);
     assert.equal(available, false);
-    assert.equal(tabsForKind(snapshot.kind, { src: 'still.png', generationAvailable: available }).find(tab => tab.id === 'generation').enabled, false);
+    assert.equal(tabsForKind(snapshot.kind, { src: 'still.png', generationAvailable: available }).find(tab => tab.id === 'edit').enabled, true);
   }
 }));
 
@@ -324,16 +354,16 @@ test('非同期 next 読込後に初期タブを確定し、手動選択・同�
     await new Promise(resolve => setImmediate(resolve));
     finish({ entries: [{ sourcePath: 'still.png', meta: { version: 1, kind: 'still', status: 'done', next: { status: 'planned' } } }] });
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(widget.currentTab, explicit ?? 'generation');
+    assert.equal(widget.currentTab, explicit ?? 'edit');
     assert.equal(widget.generationTabLoads.size, 0);
     // A sidecar reload replaces the draft object. Refresh next, but do not move tabs.
     widget.generationDrafts.set(key, { ...widget.generationDrafts.get(key) });
     widget.layerAudioService.readGenerationSidecars = async () => ({ entries: [] });
     widget.render();
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(widget.currentTab, explicit ?? 'generation');
+    assert.equal(widget.currentTab, explicit ?? 'edit');
     assert.deepEqual(widget.generationTabMeta.get(key), {});
-    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === 'AI');
+    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === '編集');
     assert.equal(generation.children.length, 0, 'removing next clears the dot');
   }
 }));
@@ -350,7 +380,7 @@ test('world / 空選択を経た別クリップに前の explicit tab を持ち�
     assert.equal(widget.tabSelectionKey, undefined);
     widget.model.snapshot = clip;
     widget.render();
-    assert.equal(widget.currentTab, 'generation');
+    assert.equal(widget.currentTab, 'edit');
   }
 }));
 
@@ -377,8 +407,8 @@ for (const kind of ['cut', 'layer']) {
       widget.showFieldNotice = message => assert.fail(message);
       widget.render();
       await new Promise(resolve => setImmediate(resolve));
-      assert.equal(widget.currentTab, planned ? 'generation' : 'video');
-      const tab = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-generation');
+      assert.equal(widget.currentTab, planned ? 'edit' : 'video');
+      const tab = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.attributes.get('data-akari-ui') === 'tab:inspector-edit');
       assert.equal(tab.attributes.get('aria-selected'), String(planned));
       assert.equal(tab.children.some(child => child.attributes.get('data-akari-generation-todo') === 'true'), planned);
     }));
