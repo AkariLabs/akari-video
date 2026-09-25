@@ -20,10 +20,16 @@ function call(methodSource, callNeedle) {
 
 test('再利用 cut は前回と異なるメディア幾何だけを既存ノードへ反映する', () => {
   const renderStrip = method('protected renderStrip(): void', 'protected laneBand');
+  const rowHeight = call(renderStrip, 'cutMediaRowHeight(');
+  for (const identifier of ['cutLayout.height', 'this.trackHeightFor(cutTrack)', 'this.treeRowsByTrack.get(cutLayout.id)']) {
+    assert.ok(rowHeight.includes(identifier), identifier);
+  }
   const geometryUpdate = call(renderStrip, 'this.updateClipMediaGeometry(element, cut,');
-  for (const identifier of ['element', 'cut', 'clipWidth', 'segment', 'cutLayout.height']) {
+  for (const identifier of ['element', 'cut', 'clipWidth', 'segment', 'cutRowHeight']) {
     assert.ok(geometryUpdate.includes(identifier), identifier);
   }
+  assert.ok(call(renderStrip, 'this.keyedStripSegment(\n                `cut:').includes('cutRowHeight'),
+    '再利用ノードの配置にも同じ行高を渡す');
 
   const update = method('protected updateClipMediaGeometry(', 'protected renderSingleFrameFallback');
   const mediaGate = update.indexOf('if (!canRenderClipMedia(');

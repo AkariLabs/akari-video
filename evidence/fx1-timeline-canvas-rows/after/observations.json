@@ -1,0 +1,1312 @@
+{
+  "label": "after",
+  "steps": {
+    "open": {
+      "ok": false,
+      "error": "Converting circular structure to JSON\n    --> starting at object with constructor 'n'\n    |     property '_layout' -> object with constructor 'C3t'\n    --- property '_parent' closes the circle"
+    },
+    "geometry": {
+      "x0": 456.59375,
+      "pxPerSec": 12.81796875
+    },
+    "initial": {
+      "headers": [
+        {
+          "name": "文字",
+          "trackId": "t-placed-text-display",
+          "lane": "t-placed-text-display",
+          "kind": "captions",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 573,
+            "width": 136,
+            "height": 24
+          }
+        },
+        {
+          "name": "V6",
+          "trackId": "p2",
+          "lane": "p2",
+          "kind": "layers",
+          "track": "1",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 599,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V5",
+          "trackId": "p1",
+          "lane": "p1",
+          "kind": "layers",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 651,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V4",
+          "trackId": "s3",
+          "lane": "s3",
+          "kind": "overlays",
+          "track": "2",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 703,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V3",
+          "trackId": "s2",
+          "lane": "s2",
+          "kind": "overlays",
+          "track": "1",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 755,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V2",
+          "trackId": "s1",
+          "lane": "s1",
+          "kind": "overlays",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 807,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V1",
+          "trackId": "v1",
+          "lane": "v1",
+          "kind": "cuts",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 859,
+            "width": 136,
+            "height": 48
+          }
+        }
+      ],
+      "treeRows": [],
+      "bands": [
+        {
+          "track": "0",
+          "kind": "captions",
+          "rect": {
+            "x": 457,
+            "y": 573,
+            "width": 423,
+            "height": 25
+          }
+        },
+        {
+          "track": "1",
+          "kind": "layers",
+          "rect": {
+            "x": 457,
+            "y": 599,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "0",
+          "kind": "layers",
+          "rect": {
+            "x": 457,
+            "y": 651,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "2",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 703,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "1",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 755,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "0",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 807,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "0",
+          "kind": "cuts",
+          "rect": {
+            "x": 457,
+            "y": 859,
+            "width": 423,
+            "height": 49
+          }
+        }
+      ],
+      "items": [
+        {
+          "kind": "caption",
+          "id": "c-0001",
+          "lane": "t-placed-text-display",
+          "track": null,
+          "ui": null,
+          "text": "字幕の行",
+          "className": "akari-annotations-strip-caption akari-annotations-placed-text akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 469,
+            "y": 573,
+            "width": 26,
+            "height": 22
+          },
+          "treeRow": null,
+          "header": "文字"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-1",
+          "lane": "s1",
+          "track": "0",
+          "ui": "timeline:overlay:shape-1",
+          "text": "shape-1",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 807,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V2"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-2",
+          "lane": "s2",
+          "track": "1",
+          "ui": "timeline:overlay:shape-2",
+          "text": "shape-2",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 755,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V3"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-3",
+          "lane": "s3",
+          "track": "2",
+          "ui": "timeline:overlay:shape-3",
+          "text": "shape-3",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 703,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V4"
+        },
+        {
+          "kind": "layer",
+          "id": "image-1",
+          "lane": "p1",
+          "track": null,
+          "ui": null,
+          "text": "画像image-100:03:00",
+          "className": "akari-annotations-strip-layer akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 649,
+            "y": 651,
+            "width": 38,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V5"
+        },
+        {
+          "kind": "layer",
+          "id": "frame-1",
+          "lane": "p2",
+          "track": null,
+          "ui": null,
+          "text": "画像空の枠00:03:00",
+          "className": "akari-annotations-strip-layer akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 649,
+            "y": 599,
+            "width": 38,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V6"
+        },
+        {
+          "kind": "cut",
+          "id": "0",
+          "lane": "v1",
+          "track": null,
+          "ui": "timeline:cut:0",
+          "text": "clip.mp400:30:00動画",
+          "className": "akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 457,
+            "y": 859,
+            "width": 385,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V1"
+        }
+      ],
+      "sameTime": [],
+      "canvasChildMarks": []
+    },
+    "initialShot": "01-initial.png",
+    "shapeChips": {
+      "shape-1": [
+        {
+          "kind": "overlay",
+          "header": "V2",
+          "treeRow": null,
+          "rect": {
+            "x": 521,
+            "y": 807,
+            "width": 26,
+            "height": 48
+          },
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target"
+        }
+      ],
+      "shape-2": [
+        {
+          "kind": "overlay",
+          "header": "V3",
+          "treeRow": null,
+          "rect": {
+            "x": 521,
+            "y": 755,
+            "width": 26,
+            "height": 48
+          },
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target"
+        }
+      ],
+      "shape-3": [
+        {
+          "kind": "overlay",
+          "header": "V4",
+          "treeRow": null,
+          "rect": {
+            "x": 521,
+            "y": 703,
+            "width": 26,
+            "height": 48
+          },
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target"
+        }
+      ]
+    },
+    "pickedChips": {
+      "imageChip": {
+        "kind": "layer",
+        "id": "image-1",
+        "lane": "p1",
+        "track": null,
+        "ui": null,
+        "text": "画像image-100:03:00",
+        "className": "akari-annotations-strip-layer akari-annotations-strip-clip akari-annotations-strip-hit-target",
+        "rect": {
+          "x": 649,
+          "y": 651,
+          "width": 38,
+          "height": 48
+        },
+        "treeRow": null,
+        "header": "V5"
+      },
+      "frameChip": {
+        "kind": "layer",
+        "id": "frame-1",
+        "lane": "p2",
+        "track": null,
+        "ui": null,
+        "text": "画像空の枠00:03:00",
+        "className": "akari-annotations-strip-layer akari-annotations-strip-clip akari-annotations-strip-hit-target",
+        "rect": {
+          "x": 649,
+          "y": 599,
+          "width": 38,
+          "height": 48
+        },
+        "treeRow": null,
+        "header": "V6"
+      }
+    },
+    "pickClicks": [
+      {
+        "id": "image-1",
+        "clicked": true,
+        "hit": true
+      },
+      {
+        "id": "frame-1",
+        "clicked": true,
+        "hit": true
+      }
+    ],
+    "multiSelectionFooter": null,
+    "groupedBy": "cmd+g",
+    "canvas": {
+      "id": "g-1",
+      "trackId": "p2",
+      "at": 450,
+      "duration": 90,
+      "children": [
+        {
+          "id": "image-1",
+          "at": 0,
+          "duration": 90
+        },
+        {
+          "id": "frame-1",
+          "at": 0,
+          "duration": 90
+        }
+      ]
+    },
+    "collapsed": {
+      "headers": [
+        {
+          "name": "文字",
+          "trackId": "t-placed-text-display",
+          "lane": "t-placed-text-display",
+          "kind": "captions",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 718,
+            "width": 136,
+            "height": 24
+          }
+        },
+        {
+          "name": "V5",
+          "trackId": "p2",
+          "lane": "p2",
+          "kind": "layers",
+          "track": "0",
+          "tree": true,
+          "rect": {
+            "x": 321,
+            "y": 744,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V4",
+          "trackId": "s3",
+          "lane": "s3",
+          "kind": "overlays",
+          "track": "2",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 796,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V3",
+          "trackId": "s2",
+          "lane": "s2",
+          "kind": "overlays",
+          "track": "1",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 848,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V2",
+          "trackId": "s1",
+          "lane": "s1",
+          "kind": "overlays",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 900,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V1",
+          "trackId": "v1",
+          "lane": "v1",
+          "kind": "cuts",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 952,
+            "width": 136,
+            "height": 48
+          }
+        }
+      ],
+      "treeRows": [
+        {
+          "id": "g-1",
+          "ui": "timeline-canvas-row",
+          "text": "▸g-1",
+          "rect": {
+            "x": 321,
+            "y": 769,
+            "width": 136,
+            "height": 22
+          }
+        }
+      ],
+      "bands": [
+        {
+          "track": "0",
+          "kind": "captions",
+          "rect": {
+            "x": 457,
+            "y": 718,
+            "width": 423,
+            "height": 25
+          }
+        },
+        {
+          "track": "0",
+          "kind": "layers",
+          "rect": {
+            "x": 457,
+            "y": 744,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "2",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 796,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "1",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 848,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "0",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 900,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "0",
+          "kind": "cuts",
+          "rect": {
+            "x": 457,
+            "y": 952,
+            "width": 423,
+            "height": 49
+          }
+        }
+      ],
+      "items": [
+        {
+          "kind": "item",
+          "id": "g-1",
+          "lane": null,
+          "track": null,
+          "ui": "timeline-canvas-chip",
+          "text": "g-1",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 649,
+            "y": 768,
+            "width": 38,
+            "height": 22
+          },
+          "treeRow": "g-1",
+          "header": "V5"
+        },
+        {
+          "kind": "caption",
+          "id": "c-0001",
+          "lane": "t-placed-text-display",
+          "track": null,
+          "ui": null,
+          "text": "字幕の行",
+          "className": "akari-annotations-strip-caption akari-annotations-placed-text akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 469,
+            "y": 718,
+            "width": 26,
+            "height": 22
+          },
+          "treeRow": null,
+          "header": "文字"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-1",
+          "lane": "s1",
+          "track": "0",
+          "ui": "timeline:overlay:shape-1",
+          "text": "shape-1",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 900,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V2"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-2",
+          "lane": "s2",
+          "track": "1",
+          "ui": "timeline:overlay:shape-2",
+          "text": "shape-2",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 848,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V3"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-3",
+          "lane": "s3",
+          "track": "2",
+          "ui": "timeline:overlay:shape-3",
+          "text": "shape-3",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 796,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V4"
+        },
+        {
+          "kind": "cut",
+          "id": "0",
+          "lane": "v1",
+          "track": null,
+          "ui": "timeline:cut:0",
+          "text": "clip.mp400:30:00動画",
+          "className": "akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 457,
+            "y": 952,
+            "width": 385,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V1"
+        }
+      ],
+      "sameTime": [],
+      "canvasChildMarks": [
+        {
+          "id": "image-1",
+          "canvas": "g-1",
+          "title": "image-1",
+          "rect": {
+            "x": 649,
+            "y": 768,
+            "width": 38,
+            "height": 2
+          },
+          "treeRow": "g-1",
+          "header": "V5"
+        },
+        {
+          "id": "frame-1",
+          "canvas": "g-1",
+          "title": "frame-1",
+          "rect": {
+            "x": 649,
+            "y": 768,
+            "width": 38,
+            "height": 2
+          },
+          "treeRow": "g-1",
+          "header": "V5"
+        }
+      ]
+    },
+    "collapsedShot": "02-canvas-collapsed.png",
+    "collapsedChips": {
+      "image-1": [],
+      "frame-1": [],
+      "g-1": [
+        {
+          "kind": "item",
+          "header": "V5",
+          "treeRow": "g-1",
+          "rect": {
+            "x": 649,
+            "y": 768,
+            "width": 38,
+            "height": 22
+          },
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target"
+        }
+      ]
+    },
+    "canvasRowCollapsed": {
+      "id": "g-1",
+      "ui": "timeline-canvas-row",
+      "text": "▸g-1",
+      "rect": {
+        "x": 321,
+        "y": 769,
+        "width": 136,
+        "height": 22
+      }
+    },
+    "toggled": true,
+    "expanded": {
+      "headers": [
+        {
+          "name": "文字",
+          "trackId": "t-placed-text-display",
+          "lane": "t-placed-text-display",
+          "kind": "captions",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 718,
+            "width": 136,
+            "height": 24
+          }
+        },
+        {
+          "name": "V5",
+          "trackId": "p2",
+          "lane": "p2",
+          "kind": "layers",
+          "track": "0",
+          "tree": true,
+          "rect": {
+            "x": 321,
+            "y": 744,
+            "width": 136,
+            "height": 148
+          }
+        },
+        {
+          "name": "V4",
+          "trackId": "s3",
+          "lane": "s3",
+          "kind": "overlays",
+          "track": "2",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 894,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V3",
+          "trackId": "s2",
+          "lane": "s2",
+          "kind": "overlays",
+          "track": "1",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 946,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V2",
+          "trackId": "s1",
+          "lane": "s1",
+          "kind": "overlays",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 998,
+            "width": 136,
+            "height": 50
+          }
+        },
+        {
+          "name": "V1",
+          "trackId": "v1",
+          "lane": "v1",
+          "kind": "cuts",
+          "track": "0",
+          "tree": false,
+          "rect": {
+            "x": 321,
+            "y": 1050,
+            "width": 136,
+            "height": 48
+          }
+        }
+      ],
+      "treeRows": [
+        {
+          "id": "g-1",
+          "ui": "timeline-canvas-row",
+          "text": "▾g-1",
+          "rect": {
+            "x": 321,
+            "y": 769,
+            "width": 136,
+            "height": 22
+          }
+        },
+        {
+          "id": "image-1",
+          "ui": null,
+          "text": "image-1",
+          "rect": {
+            "x": 321,
+            "y": 793,
+            "width": 136,
+            "height": 48
+          }
+        },
+        {
+          "id": "frame-1",
+          "ui": null,
+          "text": "空の枠",
+          "rect": {
+            "x": 321,
+            "y": 843,
+            "width": 136,
+            "height": 48
+          }
+        }
+      ],
+      "bands": [
+        {
+          "track": "0",
+          "kind": "captions",
+          "rect": {
+            "x": 457,
+            "y": 718,
+            "width": 423,
+            "height": 25
+          }
+        },
+        {
+          "track": "0",
+          "kind": "layers",
+          "rect": {
+            "x": 457,
+            "y": 744,
+            "width": 423,
+            "height": 149
+          }
+        },
+        {
+          "track": "2",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 894,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "1",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 946,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "0",
+          "kind": "overlays",
+          "rect": {
+            "x": 457,
+            "y": 998,
+            "width": 423,
+            "height": 51
+          }
+        },
+        {
+          "track": "0",
+          "kind": "cuts",
+          "rect": {
+            "x": 457,
+            "y": 1050,
+            "width": 423,
+            "height": 49
+          }
+        }
+      ],
+      "items": [
+        {
+          "kind": "item",
+          "id": "g-1",
+          "lane": null,
+          "track": null,
+          "ui": "timeline-canvas-chip",
+          "text": "g-1",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 649,
+            "y": 768,
+            "width": 38,
+            "height": 22
+          },
+          "treeRow": "g-1",
+          "header": "V5"
+        },
+        {
+          "kind": "item",
+          "id": "image-1",
+          "lane": null,
+          "track": null,
+          "ui": "timeline-tree-chip",
+          "text": "静止画画像image-1",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-generation-none akari-generation-chip-layout akari-annota",
+          "rect": {
+            "x": 649,
+            "y": 792,
+            "width": 38,
+            "height": 48
+          },
+          "treeRow": "image-1",
+          "header": "V5"
+        },
+        {
+          "kind": "item",
+          "id": "frame-1",
+          "lane": null,
+          "track": null,
+          "ui": "timeline-tree-chip",
+          "text": "静止画画像空の枠",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-generation-none akari-generation-chip-layout akari-annota",
+          "rect": {
+            "x": 649,
+            "y": 842,
+            "width": 38,
+            "height": 48
+          },
+          "treeRow": "frame-1",
+          "header": "V5"
+        },
+        {
+          "kind": "caption",
+          "id": "c-0001",
+          "lane": "t-placed-text-display",
+          "track": null,
+          "ui": null,
+          "text": "字幕の行",
+          "className": "akari-annotations-strip-caption akari-annotations-placed-text akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 469,
+            "y": 718,
+            "width": 26,
+            "height": 22
+          },
+          "treeRow": null,
+          "header": "文字"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-1",
+          "lane": "s1",
+          "track": "0",
+          "ui": "timeline:overlay:shape-1",
+          "text": "shape-1",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 998,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V2"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-2",
+          "lane": "s2",
+          "track": "1",
+          "ui": "timeline:overlay:shape-2",
+          "text": "shape-2",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 946,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V3"
+        },
+        {
+          "kind": "overlay",
+          "id": "shape-3",
+          "lane": "s3",
+          "track": "2",
+          "ui": "timeline:overlay:shape-3",
+          "text": "shape-3",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 521,
+            "y": 894,
+            "width": 26,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V4"
+        },
+        {
+          "kind": "cut",
+          "id": "0",
+          "lane": "v1",
+          "track": null,
+          "ui": "timeline:cut:0",
+          "text": "clip.mp400:30:00動画",
+          "className": "akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "x": 457,
+            "y": 1050,
+            "width": 385,
+            "height": 48
+          },
+          "treeRow": null,
+          "header": "V1"
+        }
+      ],
+      "sameTime": [],
+      "canvasChildMarks": []
+    },
+    "expandedShot": "03-canvas-expanded.png",
+    "expandedChips": {
+      "image-1": [
+        {
+          "kind": "item",
+          "header": "V5",
+          "treeRow": "image-1",
+          "rect": {
+            "x": 649,
+            "y": 792,
+            "width": 38,
+            "height": 48
+          },
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-generation-none akari-generation-chip-layout akari-annota"
+        }
+      ],
+      "frame-1": [
+        {
+          "kind": "item",
+          "header": "V5",
+          "treeRow": "frame-1",
+          "rect": {
+            "x": 649,
+            "y": 842,
+            "width": 38,
+            "height": 48
+          },
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-generation-none akari-generation-chip-layout akari-annota"
+        }
+      ],
+      "g-1": [
+        {
+          "kind": "item",
+          "header": "V5",
+          "treeRow": "g-1",
+          "rect": {
+            "x": 649,
+            "y": 768,
+            "width": 38,
+            "height": 22
+          },
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target"
+        }
+      ]
+    },
+    "heights": {
+      "captionHeader": 24,
+      "canvasRow": 22,
+      "canvasHeaderTrack": 50,
+      "canvasBand": 22,
+      "childRowsExpanded": [
+        48,
+        48
+      ],
+      "normalTrack": 50
+    },
+    "takeOutCommand": {
+      "ok": false,
+      "error": "The command 'akari.annotations.takeOutOfCanvas' cannot be executed. There are no active handlers available for the command."
+    },
+    "childMenu": [
+      {
+        "id": "copy",
+        "text": "コピー"
+      },
+      {
+        "id": "cut",
+        "text": "切り取り"
+      },
+      {
+        "id": "paste",
+        "text": "貼り付け"
+      },
+      {
+        "id": "duplicate",
+        "text": "複製"
+      },
+      {
+        "id": "detach",
+        "text": "キャンバスから出す"
+      },
+      {
+        "id": "select-parent",
+        "text": "親を選択"
+      },
+      {
+        "id": "annotate",
+        "text": "注釈…"
+      },
+      {
+        "id": "delete",
+        "text": "削除"
+      },
+      {
+        "id": "material-swap",
+        "text": "入れ替え…"
+      },
+      {
+        "id": "image-ai-upscale",
+        "text": "高画質化"
+      }
+    ],
+    "afterOutShot": "04-after-take-out.png",
+    "afterUndoShot": "05-after-undo.png"
+  },
+  "checks": [
+    {
+      "name": "A: 「同じ時刻に N 個」の見出しが出ない",
+      "ok": true,
+      "sameTime": []
+    },
+    {
+      "name": "A: 3 つの図形がそれぞれ別のトラックの行に 1 つずつ描かれる",
+      "ok": true,
+      "shapeHeaders": [
+        "V2",
+        "V3",
+        "V4"
+      ]
+    },
+    {
+      "name": "B: ⌘G で image-1 と空の枠を子に持つキャンバスが 1 個できる（時刻 450 のまま）",
+      "ok": true,
+      "id": "g-1",
+      "trackId": "p2",
+      "at": 450,
+      "duration": 90,
+      "children": [
+        {
+          "id": "image-1",
+          "at": 0,
+          "duration": 90
+        },
+        {
+          "id": "frame-1",
+          "at": 0,
+          "duration": 90
+        }
+      ]
+    },
+    {
+      "name": "B: 畳んでいるとき、2 つはキャンバスの行の中にだけ描かれる（外の行に出ない）",
+      "ok": true,
+      "childCollapsed": [
+        {
+          "id": "image-1",
+          "rows": [],
+          "marks": [
+            {
+              "canvas": "g-1",
+              "header": "V5",
+              "treeRow": "g-1",
+              "height": 2
+            }
+          ]
+        },
+        {
+          "id": "frame-1",
+          "rows": [],
+          "marks": [
+            {
+              "canvas": "g-1",
+              "header": "V5",
+              "treeRow": "g-1",
+              "height": 2
+            }
+          ]
+        }
+      ],
+      "canvasHeader": "V5"
+    },
+    {
+      "name": "B: 開いたとき、2 つはそれぞれキャンバスの子の行に描かれる",
+      "ok": true,
+      "rows": [
+        {
+          "id": "image-1",
+          "row": {
+            "x": 321,
+            "y": 793,
+            "width": 136,
+            "height": 48
+          },
+          "chips": [
+            {
+              "header": "V5",
+              "treeRow": "image-1"
+            }
+          ]
+        },
+        {
+          "id": "frame-1",
+          "row": {
+            "x": 321,
+            "y": 843,
+            "width": 136,
+            "height": 48
+          },
+          "chips": [
+            {
+              "header": "V5",
+              "treeRow": "frame-1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "C: キャンバスの行の高さ ≒ 字幕の行の高さ（±4px）",
+      "ok": true,
+      "captionHeader": 24,
+      "canvasRow": 22,
+      "canvasHeaderTrack": 50,
+      "canvasBand": 22,
+      "childRowsExpanded": [
+        48,
+        48
+      ],
+      "normalTrack": 50
+    },
+    {
+      "name": "D: 1 つ出すと段直下へ・絶対時刻 450 のまま",
+      "ok": true,
+      "parentId": null,
+      "absAt": 450,
+      "trackId": "v2"
+    },
+    {
+      "name": "D: ⌘Z 1 回で出す前の edit.json に戻る",
+      "ok": true
+    },
+    {
+      "name": "D: もう 1 回の ⌘Z で「キャンバスにする」の前に戻る",
+      "ok": true
+    }
+  ],
+  "leftoverProcesses": 0
+}

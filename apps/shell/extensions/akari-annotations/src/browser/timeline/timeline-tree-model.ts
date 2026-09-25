@@ -25,7 +25,6 @@ export interface TimelineTreeRow {
     duration: number;
     ticks: TimelineTreeTick[];
     sourceKind: string;
-    memberIds?: readonly string[];
 }
 
 export interface TimelineTreeModelOptions {
@@ -99,42 +98,14 @@ export function rowsByTrack(rows: readonly TimelineTreeRow[]): Map<string, Timel
 export function visibleTimelineTreeRows(rows: readonly TimelineTreeRow[]): TimelineTreeRow[] {
     const byId = new Map(rows.map(row => [row.id, row]));
     return rows.filter(row => {
-        if (row.depth === 0) return row.sourceKind === 'group' || row.sourceKind === 'same-time';
+        if (row.depth === 0) return row.sourceKind === 'group';
         let parent = row.parentId ? byId.get(row.parentId) : undefined;
         while (parent) {
-            if (parent.sourceKind !== 'group' && parent.sourceKind !== 'same-time') return false;
+            if (parent.sourceKind !== 'group') return false;
             if (parent.depth === 0) return true;
             parent = parent.parentId ? byId.get(parent.parentId) : undefined;
         }
         return false;
-    });
-}
-
-/** 段をまたいで同じ開始時刻の 3 個以上を表示だけ畳む。非 media が 3 個あれば本編 media を含めない。 */
-export function foldSameTimeRows(rows: readonly TimelineTreeRow[]): TimelineTreeRow[] {
-    const sets = new Map<number, TimelineTreeRow[]>();
-    for (const row of rows) {
-        if (row.depth !== 0 || row.sourceKind === 'group' || row.sourceKind === 'captions') continue;
-        const members = sets.get(row.at) ?? [];
-        members.push(row);
-        sets.set(row.at, members);
-    }
-    const grouped = new Map<number, TimelineTreeRow[]>();
-    for (const [at, members] of sets) {
-        const nonMedia = members.filter(member => member.sourceKind !== 'media');
-        const eligible = nonMedia.length >= 3 ? nonMedia : members;
-        if (eligible.length >= 3) grouped.set(at, eligible);
-    }
-    return rows.flatMap(row => {
-        const members = grouped.get(row.at);
-        if (!members || row.depth !== 0 || !members.includes(row)) return [row];
-        if (members[members.length - 1] !== row) return [];
-        const id = `same-time:${row.trackId}:${row.at}`;
-        return [{ ...row, id, label: `同じ時刻に ${members.length} 個`,
-            itemKind: 'group' as const, sourceKind: 'same-time', hasChildren: true,
-            collapsed: true, duration: Math.max(...members.map(member => member.at + member.duration)) - row.at,
-            memberIds: members.map(member => member.id), ticks: [] },
-        ...members.map(member => ({ ...member, parentId: id, depth: 1 }))];
     });
 }
 
@@ -148,14 +119,14 @@ export function applyTimelineCollapsedRows(
         let parentId = row.parentId;
         while (parentId) {
             const parent = byId.get(parentId);
-            if ((parent?.sourceKind === 'group' || parent?.sourceKind === 'same-time') && collapsedIds.has(parentId)) return true;
+            if (parent?.sourceKind === 'group' && collapsedIds.has(parentId)) return true;
             parentId = parent?.parentId;
         }
         return false;
     };
     return expandedRows.flatMap(row => {
         if (hiddenByCollapsedAncestor(row)) return [];
-        const collapsed = (row.sourceKind === 'group' || row.sourceKind === 'same-time') && row.hasChildren && collapsedIds.has(row.id);
+        const collapsed = row.sourceKind === 'group' && row.hasChildren && collapsedIds.has(row.id);
         const children = collapsed ? expandedRows.filter(candidate => candidate.parentId === row.id) : [];
         return [{
             ...row,
