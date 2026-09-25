@@ -9,7 +9,7 @@ type JsonRecord = Record<string, unknown>;
 
 const ITEM_KEY_ORDER = [
     'id', 'name', 'at', 'duration', 'hidden', 'locked', 'transform', 'opacity',
-    'blend', 'crop', 'flip', 'mask', 'maskFeather', 'erase', 'regions', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
+    'blend', 'crop', 'flip', 'mask', 'maskFeather', 'erase', 'regions', 'frame', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
     'role', 'link', 'mute'
 ] as const;
 const EDIT_KEY_ORDER = ['version', 'output', 'sources', 'audio', 'tracks'] as const;

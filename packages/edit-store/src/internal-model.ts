@@ -637,6 +637,8 @@ function needsLayersEngine(
     if (item.source.kind !== 'media') return false;
     if ('mask' in item && item.mask !== undefined) return true;
     if ('regions' in item && Boolean(item.regions?.length)) return true;
+    if (('frame' in item && item.frame !== undefined) || (item.crop?.rotate ?? 0) !== 0
+        || ('erase' in item && item.erase !== undefined) || ('flip' in item && item.flip !== undefined)) return true;
     if (item.blend !== undefined && item.blend !== 'normal') return true;
     if (Array.isArray(item.keyframes) && item.keyframes.some(point =>
         point && typeof point === 'object' && 'perspective' in point && point.perspective !== undefined
@@ -791,6 +793,7 @@ function needsCrossTrackLayers(item: ItemV2, pathOf?: (sourceId: string) => stri
         || (transform?.y !== undefined && transform.y !== 0)
         || (transform?.rotate !== undefined && transform.rotate !== 0)
         || item.crop !== undefined
+        || (item.source.kind === 'media' && 'frame' in item && item.frame !== undefined)
         || (item.opacity !== undefined && item.opacity < 1)
         || item.keyframes !== undefined
         || (item.source.kind === 'media' && 'mask' in item && item.mask !== undefined)
@@ -905,6 +908,7 @@ function buildV2VisualItem(
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
+        ...(item.source.kind === 'media' && 'frame' in item && item.frame !== undefined ? { frame: structuredClone(item.frame) } : {}),
         ...(item.source.kind === 'media' && 'erase' in item && item.erase !== undefined ? { erase: structuredClone(item.erase) } : {}),
         ...(item.source.kind === 'media' && 'maskFeather' in item && item.maskFeather !== undefined ? { maskFeather: item.maskFeather } : {}),
         ...(item.source.kind === 'media' && 'regions' in item && item.regions !== undefined

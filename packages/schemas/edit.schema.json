@@ -1169,7 +1169,8 @@
         "x": { "type": "number", "minimum": 0, "maximum": 1 },
         "y": { "type": "number", "minimum": 0, "maximum": 1 },
         "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-        "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+        "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "rotate": { "type": "number", "minimum": -45, "maximum": 45 }
       },
       "$comment": "PiP レイヤーの空間クロップ（切り抜き）。0..1 正規化・ソースフレーム相対。この静的値は layerItem.keyframes が無いとき、またはキーフレーム点が crop を持たない区間の既定値として使う（#layerKeyframe 参照）。px 絶対は採らない（比率切替ラウンドの教訓）。x+w<=1・y+h<=1 は宣言的なレンジでは表現できないため validate-edit.mjs のセマンティック検証で担保する。適用順は render-cut/src/layers.mjs の合成チェーンで crop→scale→rotate→opacity→overlay（契約 contract-2026-08-02-preview-parity.md）。"
     },
@@ -1715,6 +1716,7 @@
         "regions": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/photoRegionV1" } },
         "erase": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["mode", "points", "size", "hardness"], "properties": { "mode": { "enum": ["erase", "restore"] }, "points": { "type": "array", "minItems": 1, "items": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 2, "maxItems": 2 } }, "size": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }, "hardness": { "type": "number", "minimum": 0, "maximum": 1 } } } },
         "flip": { "type": "object", "additionalProperties": false, "properties": { "h": { "type": "boolean" }, "v": { "type": "boolean" } } },
+        "frame": { "type": "object", "additionalProperties": false, "properties": { "stroke": { "type": "object", "additionalProperties": false, "required": ["color", "width"], "properties": { "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }, "width": { "type": "number", "minimum": 0, "maximum": 100 } } }, "cornerRadius": { "type": "number", "minimum": 0, "maximum": 100 } } },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" },
         "audio": { "const": false }
       },

@@ -190,7 +190,7 @@ function measureAllTabs(kind) {
       .sort(([a], [b]) => a.localeCompare(b));
   });
 }
-// Measured before implementation, fixed literals (never recomputed as expectations).
+// Fixed section expectations for the still-image fixture, including photo crop and frame.
 const BASELINE_SECTION_FIELDS = {
   cut: [
     ['adjust:basic', 11], ['adjust:curves', 0], ['adjust:fx', 1], ['adjust:hue', 0],

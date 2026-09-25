@@ -297,6 +297,42 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
     }
 
+    async analyzePhoto(request: { projectRootUri: string; sourceUri: string; kind: 'horizon' | 'saliency' }): Promise<
+        { available: boolean; degrees?: number; basis?: 'foreground' | 'person' | 'saliency';
+            focus?: { x: number; y: number; w: number; h: number; cx?: number; cy?: number } }> {
+        const empty = { available: false };
+        if (request.kind !== 'horizon' && request.kind !== 'saliency') return empty;
+        const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
+        if (!helper) return empty;
+        const source = await fs.realpath(this.fsPath(request.sourceUri)).catch(() => undefined);
+        if (!source) return empty;
+        try {
+            const { stdout } = await execFileAsync(helper, ['--analyze', source, request.kind],
+                { timeout: 120_000, maxBuffer: 1024 * 1024 });
+            const result = JSON.parse(stdout.trim()) as { available?: unknown; degrees?: unknown; basis?: unknown;
+                focus?: { x?: unknown; y?: unknown; w?: unknown; h?: unknown; cx?: unknown; cy?: unknown } };
+            if (result.available !== true) return empty;
+            if (request.kind === 'horizon') return { available: true,
+                degrees: typeof result.degrees === 'number' && Number.isFinite(result.degrees)
+                    ? Math.max(-45, Math.min(45, result.degrees)) : 0 };
+            const focus = result.focus;
+            if (focus && [focus.x, focus.y, focus.w, focus.h].every(v => typeof v === 'number' && Number.isFinite(v))
+                && (focus.x as number) >= 0 && (focus.y as number) >= 0 && (focus.w as number) > 0 && (focus.h as number) > 0
+                && (focus.x as number) + (focus.w as number) <= 1 && (focus.y as number) + (focus.h as number) <= 1) {
+                const centroid = typeof focus.cx === 'number' && typeof focus.cy === 'number'
+                    && Number.isFinite(focus.cx) && Number.isFinite(focus.cy)
+                    && focus.cx >= 0 && focus.cx <= 1 && focus.cy >= 0 && focus.cy <= 1
+                    ? { cx: focus.cx, cy: focus.cy } : {};
+                const basis: { basis?: 'foreground' | 'person' | 'saliency' } = result.basis === 'foreground'
+                    || result.basis === 'person' || result.basis === 'saliency'
+                    ? { basis: result.basis } : {};
+                return { available: true, focus: { x: focus.x as number, y: focus.y as number,
+                    w: focus.w as number, h: focus.h as number, ...centroid }, ...basis };
+            }
+            return empty;
+        } catch { return empty; }
+    }
+
     async voiceAvatars(): Promise<{ avatars: VoiceAvatar[] }> {
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
         const creatorRoot = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/creator-root/src/index.mjs')).toString());

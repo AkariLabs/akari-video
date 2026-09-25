@@ -169,6 +169,10 @@ import { resolveScrubSeek } from '../common/scrub-audio-wiring';
 import { computeTransitionVisual } from '../common/transition-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
 import { cropRectAfterEdgeDrag } from '../common/crop-edge-drag';
+import { dispatchPhotoAnalysis } from '../common/photo-analysis-dispatch';
+import { photoCropForRatio, photoCropAfterPan, photoCropConstrainRatioAfterEdge, photoCropClipPolygon, photoCropTransformPatch, smartPhotoCrop } from '../common/photo-crop-tools';
+import { photoFrameVisual } from '../common/photo-frame-visual';
+import { composePhotoPreviewMask } from '../common/photo-preview-mask';
 import { cutLayerStyleBoxPx, cutLayerStyleEntryTransform } from '../common/cut-layer-style-entry';
 import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { layerDeclaredGeometryHitAt, resolveLayerDeclaredSize } from '../common/layer-declared-geometry';
@@ -182,6 +186,7 @@ import {
     buildLayerSummaryBase,
     ChromaKeySummary,
     LayerCropSummary,
+    PhotoFrameSummary,
     LayerKeyframesSummary,
     LayerPerspectiveSummary,
     MotionSummary,
@@ -328,6 +333,7 @@ interface EditSummaryLayer {
     /** edit.schema.json #/$defs/layerCrop（0..1 正規化・ソースフレーム相対・静的）。
      * common/edit-summary-fields.ts の normalizeLayerCropForSummary が担う。 */
     crop?: LayerCropSummary;
+    frame?: PhotoFrameSummary;
     /** edit.schema.json #/$defs/layerPerspective（corner-pin パース変形・v0 静的）。
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
@@ -471,6 +477,7 @@ interface EditSummaryCut {
     opacity?: number;
     /** render-cut の cut layer-style 経路と同じ source-frame-relative visual。 */
     crop?: LayerCropSummary;
+    frame?: PhotoFrameSummary;
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
     motion?: MotionSummary;
@@ -835,6 +842,7 @@ interface LayerCropPatch {
     y: number;
     w: number;
     h: number;
+    rotate?: number;
 }
 
 // ㉖ layers[].perspective（corner-pin パース変形。v0 静的。#/$defs/layerPerspective）。
@@ -3378,6 +3386,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             widget.node.dataset.akariOutputPreview = 'true';
             disposables.push(contextBar.start());
         }
+        const onPhotoCropOpen = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; itemId?: string }>).detail;
+            if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
+            widget.sendMessage({ type: 'akari-preview-set-crop-mode', itemId: detail.itemId, on: true });
+        };
+        window.addEventListener('akari.photo.crop-open', onPhotoCropOpen);
+        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.crop-open', onPhotoCropOpen)));
         let lastAudioMeterFrame: AudioMeterFrame | undefined;
         widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
             type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
@@ -3389,6 +3404,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         disposables.push(widget.onMessage(message => {
             if (message?.type === PREVIEW_CONTEXT_BOX_MESSAGE) {
                 contextBar?.receive(message);
+                return;
+            }
+            if (message?.type === 'akari-preview-photo-analyze' && kind === 'output') {
+                void dispatchPhotoAnalysis({ editUri: widget.akariPreviewEditUri?.toString(),
+                    id: message.itemId, kind: message.kind }, detail => {
+                    window.dispatchEvent(new CustomEvent('akari.photo.analyze', { detail }));
+                }, (callback, delay) => { window.setTimeout(callback, delay); }).then(result => {
+                    widget.sendMessage({ type: 'akari-preview-photo-analyze-response',
+                        requestId: message.requestId, ok: true, result });
+                });
                 return;
             }
             if (message?.type === 'akari-preview-photo-stroke' && kind === 'output'
@@ -6823,6 +6848,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (patch.y + patch.h > 1 + 1e-9) {
             return 'crop.y + crop.h は 1 以下である必要があります。';
         }
+        if (patch.rotate !== undefined && (!Number.isFinite(patch.rotate) || patch.rotate < -45 || patch.rotate > 45)) {
+            return 'crop.rotate は -45 から 45 度の範囲である必要があります。';
+        }
         return undefined;
     }
 
@@ -6908,7 +6936,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.markRecentWrite(editUri);
-            await this.persistPreviewTransform(editUri, candidateText, request.patch.transform ? write : undefined);
+            await this.persistPreviewTransform(editUri, candidateText,
+                request.patch.transform || request.patch.crop ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -6960,7 +6989,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             this.markRecentWrite(editUri);
-            await this.persistPreviewTransform(editUri, candidateText, request.patch.transform ? write : undefined);
+            await this.persistPreviewTransform(editUri, candidateText,
+                request.patch.transform || request.patch.crop ? write : undefined);
             respond(true);
         } catch (error) {
             respond(false, error instanceof Error ? error.message : String(error));
@@ -7735,6 +7765,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #preview-still { position: absolute; top: 0; left: 0; object-fit: contain; display: none; user-select: none; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video, #preview-layers > img { position: absolute; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
+#preview-layers > .akari-photo-frame-overlay { position: absolute; box-sizing: border-box; pointer-events: none; }
 #preview-layers > [data-akari-layer-id] { display: none; }
 #preview-layers > [data-akari-deferred-telop-id] { position: absolute; inset: 0; display: none; place-items: center; pointer-events: none; }
 #preview-stage[data-frame-engine-active="true"] #preview-video,
@@ -7748,6 +7779,7 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #preview-stage[data-frame-engine-active="true"] .akari-video-fx-rail {
   visibility: hidden !important;
 }
+#preview-stage[data-frame-engine-active="true"] .akari-photo-frame-overlay { visibility: hidden !important; }
 .akari-deferred-telop-placeholder__label { display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.22); border-radius: 999px; background: rgba(20,20,20,0.82); color: #f2f2f2; font-size: 14px; font-weight: 600; letter-spacing: 0.02em; box-shadow: 0 6px 22px rgba(0,0,0,0.35); }
 .akari-deferred-telop-placeholder__label::before { content: ''; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: akari-deferred-telop-spin 0.8s linear infinite; }
 @keyframes akari-deferred-telop-spin { to { transform: rotate(360deg); } }
@@ -7786,6 +7818,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
    （枠自体は #layer-crop-box が別枠として表示する）。 */
 #layer-select-box.akari-crop-mode-hide-handles .akari-layer-handle,
 #layer-select-box.akari-crop-mode-hide-handles .akari-crop-edge,
+#cut-select-box.akari-crop-mode-hide-handles .akari-cut-handle,
+#cut-select-box.akari-crop-mode-hide-handles .akari-crop-edge,
 #layer-select-box.akari-crop-mode-hide-handles .akari-layer-rotate-stem { display: none; }
 /* クロップ編集オーバーレイ: 外枠はレイヤーの「クロップ無しなら見えていたはずの」全面フレーム
    （transform.rotate を outer 自身の中心まわりに適用 — pivot はソースフレーム中心固定。crop の
@@ -7807,6 +7841,16 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #layer-crop-box .akari-layer-crop-handle-s { top: 100%; }
 #layer-crop-box .akari-layer-crop-handle-sw { top: 100%; left: 0; }
 #layer-crop-box .akari-layer-crop-handle-w { top: 0; }
+#photo-crop-controls { position: absolute; z-index: 1970; display: none; gap: 6px; align-items: center; flex-wrap: wrap; max-width: min(680px, 90%); padding: 8px; border: 1px solid #4da3ff; border-radius: 8px; background: rgba(20,20,20,.94); color: #fff; pointer-events: auto; }
+#photo-crop-controls.is-active { display: flex; }
+#photo-crop-controls button, #photo-crop-controls select, #photo-crop-controls input { color: #fff; background: #292f38; border: 1px solid #57616d; border-radius: 5px; padding: 4px; }
+#photo-crop-controls input[type=number] { width: 55px; }
+#layer-crop-box.is-photo-crop .akari-layer-crop-rect { pointer-events: auto; cursor: grab; }
+#layer-crop-box.is-photo-crop .akari-layer-crop-handle { pointer-events: auto; }
+#photo-crop-ghost { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; opacity: .25; display: none; pointer-events: none; }
+#layer-crop-box.is-photo-crop #photo-crop-ghost { display: block; }
+#layer-crop-box.is-photo-crop { overflow: visible; outline: none; }
+#layer-crop-box.is-photo-crop #photo-crop-ghost { outline: 1px dashed rgba(255,255,255,.5); }
 #layer-crop-toggle { position: absolute; z-index: 1960; display: none; width: 22px; height: 22px; box-sizing: border-box; border-radius: 4px; border: 1px solid #4da3ff; background: rgba(20,20,20,0.85); color: #cfe6ff; font-size: 13px; line-height: 20px; text-align: center; cursor: pointer; pointer-events: auto; user-select: none; }
 #layer-crop-toggle.is-target-active { display: flex; align-items: center; justify-content: center; }
 #layer-crop-toggle.is-crop-mode { background: #4da3ff; color: #0b1a2a; }
@@ -8073,7 +8117,8 @@ ${previewSelectionHandlesStyle}
             </div>
           </div>
           <div id="layer-select-box"><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><button type="button" class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate" aria-label="回転" title="回転"></button><button type="button" class="akari-layer-handle akari-layer-handle-move" data-akari-handle="move" aria-label="移動" title="移動"></button><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
-          <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
+          <div id="layer-crop-box"><img id="photo-crop-ghost" alt=""><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
+          <div id="photo-crop-controls"><label>縦横比 <select data-photo-crop-ratio><option value="free">自由</option><option value="original">元の比</option><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="5:4">5:4</option><option value="3:4">3:4</option><option value="4:3">4:3</option><option value="9:16">9:16</option><option value="16:9">16:9</option></select></label><label>回転 <input data-photo-crop-rotate type="number" min="-45" max="45" step="0.1" value="0">°</label><button type="button" data-photo-crop-auto>自動水平</button><button type="button" data-photo-crop-smart>スマート切り抜き</button><button type="button" disabled title="近日対応">拡張（近日）</button><span data-photo-crop-status aria-live="polite"></span><button type="button" data-photo-crop-done>確定</button><button type="button" data-photo-crop-cancel>取り消し</button></div>
           <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
           <div id="layer-perspective-toggle" title="パース変形パネル">◈</div>
           <div id="layer-perspective-panel">
@@ -8856,6 +8901,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'layer-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-layer-write', requestId, layerId, patch });
+                }),
+                photoAnalyze: (itemId, kind) => new Promise((resolve, reject) => {
+                    const requestId = 'akari-preview-' + (++sequence);
+                    pending.set(requestId, { kind: 'photo-analyze', resolve, reject });
+                    vscode.postMessage({ type: 'akari-preview-photo-analyze', requestId, itemId, kind });
                 }),
                 cutWrite: (cutIndex, cutId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
@@ -9645,7 +9695,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 'layer-write': 'akari-preview-layer-write-response',
                 'cut-write': 'akari-preview-cut-write-response',
                 'caption-write': 'akari-preview-caption-write-response',
-                'hevc-fallback': 'akari-preview-hevc-fallback-response'
+                'hevc-fallback': 'akari-preview-hevc-fallback-response',
+                'photo-analyze': 'akari-preview-photo-analyze-response'
             };
             window.addEventListener('message', event => {
                 const message = event.data;
@@ -9676,7 +9727,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 writeErrorBanner.hidden = true;
-                request.resolve(undefined);
+                request.resolve(request.kind === 'photo-analyze' ? message.result : undefined);
             });
 
             const fitCompositeRect = (${fitPreviewCompositeRect.toString()});
@@ -9721,14 +9772,78 @@ body { display: grid; place-items: center; padding: 32px; }
                 width: media.tagName === 'IMG' ? media.naturalWidth : media.videoWidth,
                 height: media.tagName === 'IMG' ? media.naturalHeight : media.videoHeight
             });
+            const photoCropClipPolygonFn = (${photoCropClipPolygon.toString()});
+            const photoFrameVisualFn = (${photoFrameVisual.toString()});
+            const composePhotoPreviewMaskFn = (${composePhotoPreviewMask.toString()});
+            const preparePhotoMask = media => {
+                if (media.tagName !== 'IMG' || !(media.naturalWidth > 0) || !(media.naturalHeight > 0)) return;
+                const key = media.src + ':' + media.dataset.akariPhotoMaskUrl + ':' + media.dataset.akariPhotoErase;
+                if (media.akariPhotoMaskKey === key) return;
+                media.akariPhotoMaskKey = key;
+                void (async () => {
+                    const width = media.naturalWidth, height = media.naturalHeight;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    if (!ctx) return;
+                    let base = null;
+                    if (media.dataset.akariPhotoMaskUrl) {
+                        const maskImage = new Image();
+                        maskImage.crossOrigin = 'anonymous';
+                        maskImage.src = media.dataset.akariPhotoMaskUrl;
+                        await maskImage.decode();
+                        if (maskImage.naturalWidth !== width || maskImage.naturalHeight !== height) return;
+                        ctx.drawImage(maskImage, 0, 0);
+                        const pixels = ctx.getImageData(0, 0, width, height).data;
+                        base = new Uint8Array(width * height);
+                        for (let i = 0; i < base.length; i++) base[i] = pixels[i * 4];
+                        ctx.clearRect(0, 0, width, height);
+                    }
+                    ctx.drawImage(media, 0, 0);
+                    const rgba = ctx.getImageData(0, 0, width, height).data;
+                    const alpha = new Uint8Array(width * height);
+                    for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3];
+                    const strokes = JSON.parse(media.dataset.akariPhotoErase || '[]');
+                    const gray = composePhotoPreviewMaskFn(base, width, height, strokes, alpha);
+                    if (media.akariPhotoMaskKey !== key) return;
+                    const visible = ctx.createImageData(width, height);
+                    const borderMask = ctx.createImageData(width, height);
+                    let hasDeclarationMask = false, hasBorderMask = false;
+                    for (let i = 0; i < gray.length; i++) {
+                        const offset = i * 4;
+                        visible.data[offset] = visible.data[offset + 1] = visible.data[offset + 2] = 255;
+                        visible.data[offset + 3] = gray[i];
+                        borderMask.data[offset] = borderMask.data[offset + 1] = borderMask.data[offset + 2] = 255;
+                        borderMask.data[offset + 3] = Math.floor((gray[i] * alpha[i] + 127) / 255);
+                        if (gray[i] !== 255) hasDeclarationMask = true;
+                        if (borderMask.data[offset + 3] !== 255) hasBorderMask = true;
+                    }
+                    if (hasDeclarationMask) {
+                        ctx.putImageData(visible, 0, 0);
+                        const url = 'url("' + canvas.toDataURL('image/png') + '")';
+                        media.style.maskImage = url;
+                        media.style.webkitMaskImage = url;
+                        media.style.maskSize = media.style.webkitMaskSize = '100% 100%';
+                        media.style.maskRepeat = media.style.webkitMaskRepeat = 'no-repeat';
+                    } else {
+                        media.style.maskImage = media.style.webkitMaskImage = 'none';
+                    }
+                    if (hasBorderMask) {
+                        ctx.putImageData(borderMask, 0, 0);
+                        media.akariBorderSourceMask = canvas;
+                    } else media.akariBorderSourceMask = null;
+                    media.akariPhotoMaskRevision = (media.akariPhotoMaskRevision || 0) + 1;
+                    if (window.akari?.updateLayerLayout) window.akari.updateLayerLayout();
+                })().catch(error => console.warn('[akari-preview] photo mask preview unavailable', error));
+            };
             const applyLayerStyleMediaLayout = (media, outputWidth, outputHeight, cut = false) => {
                 const natural = mediaNaturalSize(media);
                 if (!(natural.width > 0) || !(natural.height > 0)) return false;
                 const x = Number(media.dataset.akariTransformX) || 0;
                 const y = Number(media.dataset.akariTransformY) || 0;
                 const scale = Number(media.dataset.akariTransformScale) || 1;
-                const scaleX = cut ? (Number(media.dataset.akariTransformScaleX) || scale) : scale;
-                const scaleY = cut ? (Number(media.dataset.akariTransformScaleY) || scale) : scale;
+                const scaleX = Number(media.dataset.akariTransformScaleX) || scale;
+                const scaleY = Number(media.dataset.akariTransformScaleY) || scale;
                 const rotate = Number(media.dataset.akariTransformRotate) || 0;
                 const cropX = Number(media.dataset.akariCropX) || 0;
                 const cropY = Number(media.dataset.akariCropY) || 0;
@@ -9736,6 +9851,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 const cropHRaw = Number(media.dataset.akariCropH);
                 const cropW = Number.isFinite(cropWRaw) && cropWRaw > 0 ? cropWRaw : 1;
                 const cropH = Number.isFinite(cropHRaw) && cropHRaw > 0 ? cropHRaw : 1;
+                const cropRotate = Number(media.dataset.akariCropRotate) || 0;
+                const flip = { h: media.dataset.akariFlipH === 'true', v: media.dataset.akariFlipV === 'true' };
+                let frame = null;
+                try { frame = media.dataset.akariPhotoFrame ? JSON.parse(media.dataset.akariPhotoFrame) : null; }
+                catch (_error) { frame = null; }
+                const photoVisual = media.tagName === 'IMG' && (frame || cropRotate || flip.h || flip.v)
+                    ? photoFrameVisualFn({ crop: { x: cropX, y: cropY, w: cropW, h: cropH, rotate: cropRotate },
+                        frame, sourceWidth: natural.width, sourceHeight: natural.height, scaleX, scaleY,
+                        outputWidth, outputHeight, x, y, rotate, flip }) : null;
+                if (media.tagName === 'IMG' && (frame || media.dataset.akariPhotoMaskUrl
+                    || media.dataset.akariPhotoErase !== '[]')) preparePhotoMask(media);
                 const pivotXPct = (cropX + cropW / 2) * 100;
                 const pivotYPct = (cropY + cropH / 2) * 100;
                 media.style.objectFit = 'fill';
@@ -9763,7 +9889,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
                 media.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate('
-                    + rotate + 'deg)' + perspectiveFn;
+                    + (rotate + cropRotate) + 'deg)' + perspectiveFn;
+                if (photoVisual) media.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct
+                    + '%) ' + photoVisual.mediaMatrix + perspectiveFn;
                 const opaqueX = Number(media.dataset.akariOpaqueX);
                 const opaqueY = Number(media.dataset.akariOpaqueY);
                 const opaqueW = Number(media.dataset.akariOpaqueW);
@@ -9772,13 +9900,63 @@ body { display: grid; place-items: center; padding: 32px; }
                     && opaqueW > 0 && opaqueH > 0
                     ? { x: opaqueX, y: opaqueY, w: opaqueW, h: opaqueH }
                     : undefined;
-                media.style.clipPath = resolveLayerHitRegionClipFn(
-                    natural.width,
-                    natural.height,
-                    { x: cropX, y: cropY, w: cropW, h: cropH },
-                    opaqueBox
-                );
+                media.style.clipPath = resolveLayerHitRegionClipFn(natural.width, natural.height,
+                    { x: cropX, y: cropY, w: cropW, h: cropH }, opaqueBox);
+                if (photoVisual) media.style.clipPath = photoVisual.clipPath;
+                else if (cropRotate) media.style.clipPath = photoCropClipPolygonFn(
+                    { x: cropX, y: cropY, w: cropW, h: cropH, rotate: cropRotate },
+                    natural.width, natural.height);
                 media.dataset.akariCropClipPath = media.style.clipPath || 'none';
+                let border = media.akariPhotoFrameBorder;
+                if (photoVisual && photoVisual.strokePx > 0) {
+                    if (!border) {
+                        border = document.createElement('div');
+                        border.className = 'akari-photo-frame-overlay';
+                        document.getElementById('preview-layers').appendChild(border);
+                        media.akariPhotoFrameBorder = border;
+                    }
+                    border.style.left = photoVisual.box.left + 'px';
+                    border.style.top = photoVisual.box.top + 'px';
+                    border.style.width = photoVisual.box.width + 'px';
+                    border.style.height = photoVisual.box.height + 'px';
+                    border.style.border = photoVisual.strokePx + 'px solid ' + photoVisual.color;
+                    border.style.borderRadius = photoVisual.radiusPx + 'px';
+                    border.style.transform = 'rotate(' + photoVisual.box.rotate + 'deg)';
+                    border.style.opacity = media.style.opacity || '1';
+                    border.style.mixBlendMode = media.style.mixBlendMode || 'normal';
+                    border.style.zIndex = media.style.zIndex || '1';
+                    border.style.display = media.style.display === 'none' ? 'none' : 'block';
+                    if (media.akariBorderSourceMask) {
+                        const maskKey = [media.akariPhotoMaskRevision, cropX, cropY, cropW, cropH,
+                            cropRotate, scaleX, scaleY, flip.h, flip.v, photoVisual.box.width,
+                            photoVisual.box.height].join(':');
+                        if (border.akariPhotoMaskKey !== maskKey) {
+                            const maskCanvas = document.createElement('canvas');
+                            maskCanvas.width = Math.max(1, Math.round(photoVisual.box.width));
+                            maskCanvas.height = Math.max(1, Math.round(photoVisual.box.height));
+                            const maskContext = maskCanvas.getContext('2d');
+                            if (maskContext) {
+                                maskContext.scale(maskCanvas.width / photoVisual.box.width,
+                                    maskCanvas.height / photoVisual.box.height);
+                                maskContext.translate(photoVisual.box.width / 2, photoVisual.box.height / 2);
+                                maskContext.scale(flip.h ? -1 : 1, flip.v ? -1 : 1);
+                                maskContext.scale(scaleX, scaleY);
+                                maskContext.rotate(cropRotate * Math.PI / 180);
+                                maskContext.translate(-(cropX + cropW / 2) * natural.width,
+                                    -(cropY + cropH / 2) * natural.height);
+                                maskContext.drawImage(media.akariBorderSourceMask, 0, 0);
+                                border.style.maskImage = border.style.webkitMaskImage
+                                    = 'url("' + maskCanvas.toDataURL('image/png') + '")';
+                                border.style.maskSize = border.style.webkitMaskSize = '100% 100%';
+                                border.style.maskRepeat = border.style.webkitMaskRepeat = 'no-repeat';
+                            }
+                            border.akariPhotoMaskKey = maskKey;
+                        }
+                    } else {
+                        border.style.maskImage = border.style.webkitMaskImage = 'none';
+                        border.akariPhotoMaskKey = null;
+                    }
+                } else if (border) border.style.display = 'none';
                 return true;
             };
             const applyCutLayerStyleLayout = media => {
@@ -11084,6 +11262,18 @@ body { display: grid; place-items: center; padding: 32px; }
                             current => summaryWithLivePreview(current, message),
                             false
                         );
+                    },
+                    applyCropPreview(target, crop, transform) {
+                        return queueEngineSummaryUpdate(current => {
+                            const collection = target.kind === 'cut' ? 'cuts' : 'layers';
+                            const entries = Array.isArray(current[collection]) ? current[collection] : [];
+                            const index = target.kind === 'cut' ? target.index
+                                : entries.findIndex(entry => String(entry?.id) === String(target.id));
+                            if (!Number.isInteger(index) || index < 0 || index >= entries.length) return current;
+                            const next = [...entries];
+                            next[index] = { ...next[index], crop: { ...crop }, transform: { ...transform } };
+                            return { ...current, [collection]: next };
+                        }, false);
                     }
                 };
 
@@ -12381,6 +12571,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     delete media.dataset.akariCropY;
                     delete media.dataset.akariCropW;
                     delete media.dataset.akariCropH;
+                    delete media.dataset.akariCropRotate;
+                    delete media.dataset.akariPhotoFrame;
                     delete media.dataset.akariPerspectiveCorners;
                     delete media.dataset.akariCropClipPath;
                     delete media.dataset.akariCutCropDeclared;
@@ -12403,6 +12595,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 media.dataset.akariCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
                 media.dataset.akariCropW = String(crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1);
                 media.dataset.akariCropH = String(crop && Number.isFinite(crop.h) && crop.h > 0 ? crop.h : 1);
+                media.dataset.akariCropRotate = String(Number.isFinite(crop?.rotate) ? crop.rotate : 0);
+                media.dataset.akariPhotoFrame = segment.frame ? JSON.stringify(segment.frame) : '';
                 const corners = segment.perspective && Array.isArray(segment.perspective.corners)
                     ? segment.perspective.corners : null;
                 if (corners) media.dataset.akariPerspectiveCorners = JSON.stringify(corners);
@@ -12595,6 +12789,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariTransformX = String(x);
                 layerVideo.dataset.akariTransformY = String(y);
                 layerVideo.dataset.akariTransformScale = String(scale);
+                layerVideo.dataset.akariTransformScaleX = String(transform.scaleX ?? scale);
+                layerVideo.dataset.akariTransformScaleY = String(transform.scaleY ?? scale);
                 layerVideo.dataset.akariTransformRotate = String(rotate);
                 const crop = layer.crop;
                 const cropW = crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1;
@@ -12603,6 +12799,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
                 layerVideo.dataset.akariCropW = String(cropW);
                 layerVideo.dataset.akariCropH = String(cropH);
+                layerVideo.dataset.akariCropRotate = String(Number.isFinite(crop?.rotate) ? crop.rotate : 0);
+                layerVideo.dataset.akariPhotoFrame = layer.frame ? JSON.stringify(layer.frame) : '';
+                layerVideo.dataset.akariPhotoMaskUrl = layer.mask || '';
+                layerVideo.dataset.akariPhotoErase = JSON.stringify(layer.erase || []);
+                layerVideo.dataset.akariFlipH = layer.flip?.h ? 'true' : 'false';
+                layerVideo.dataset.akariFlipV = layer.flip?.v ? 'true' : 'false';
                 // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）。absent/invalid
                 // (schema-invalid corners, etc.) is represented as an empty dataset value --
                 // updateStageScale's computeLayerPerspectiveVisualFn call already treats a falsy/
@@ -12846,6 +13048,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
                 layerVideo.dataset.akariCropW = String(crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1);
                 layerVideo.dataset.akariCropH = String(crop && Number.isFinite(crop.h) && crop.h > 0 ? crop.h : 1);
+                layerVideo.dataset.akariCropRotate = String(Number.isFinite(crop?.rotate) ? crop.rotate : 0);
+                layerVideo.dataset.akariPhotoFrame = layer.frame ? JSON.stringify(layer.frame) : '';
+                layerVideo.dataset.akariPhotoMaskUrl = layer.mask || '';
+                layerVideo.dataset.akariPhotoErase = JSON.stringify(layer.erase || []);
+                layerVideo.dataset.akariFlipH = layer.flip?.h ? 'true' : 'false';
+                layerVideo.dataset.akariFlipV = layer.flip?.v ? 'true' : 'false';
                 const corners = layer.perspective && Array.isArray(layer.perspective.corners)
                     ? layer.perspective.corners : null;
                 if (corners) layerVideo.dataset.akariPerspectiveCorners = JSON.stringify(corners);
@@ -12858,6 +13066,21 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉔ クロップモード（2026-08-06 オーナー裁定: shell/Web 両面）。移動/リサイズ/回転と
             // 操作が衝突しないための排他モード切替。選択が変わったら自動的に抜ける。
             let cropModeActive = false;
+            let photoCropTarget = null;
+            let photoCropSnapshot = null;
+            let photoCropDirty = false;
+            let photoCropItemId = null;
+            let cropModeCancelRequested = false;
+            const photoCropPanel = document.getElementById('photo-crop-controls');
+            const photoCropRatio = photoCropPanel.querySelector('[data-photo-crop-ratio]');
+            const photoCropRotate = photoCropPanel.querySelector('[data-photo-crop-rotate]');
+            const photoCropStatus = photoCropPanel.querySelector('[data-photo-crop-status]');
+            const photoCropForRatioFn = (${photoCropForRatio.toString()});
+            const photoCropAfterPanFn = (${photoCropAfterPan.toString()});
+            const photoCropConstrainRatioAfterEdgeFn = (${photoCropConstrainRatioAfterEdge.toString()});
+            const smartPhotoCropFn = (${smartPhotoCrop.toString()});
+            const photoCropTransformPatchFn = (${photoCropTransformPatch.toString()});
+            const photoFrameVisualFn = (${photoFrameVisual.toString()});
             // 裁定 3: 辺バーのドラッグ中だけ #layer-crop-box（全面の破線外枠 + 窓外の暗転）を
             // ゴーストとして出す。⛶ モードと違い、離せば元の選択枠だけに戻る。
             let edgeCropDragActive = false;
@@ -12931,17 +13154,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 const cy = Math.min(1 - ch, Math.max(0, Number.isFinite(y) ? y : 0));
                 return { x: cx, y: cy, w: cw, h: ch };
             };
-            const layerCropNow = entry => clampCrop(
+            const layerCropNow = entry => ({ ...clampCrop(
                 Number(entry.video.dataset.akariCropX),
                 Number(entry.video.dataset.akariCropY),
                 Number(entry.video.dataset.akariCropW),
                 Number(entry.video.dataset.akariCropH)
-            );
+            ), ...(Number(entry.video.dataset.akariCropRotate) ? { rotate: Number(entry.video.dataset.akariCropRotate) } : {}) });
             // RAF スロットリング（2026-08-09 raf-throttle）: applyLayerTransformNow と同じ規律
             // （dataset は同期・重い方だけ1フレーム1回）。crop 単独/crop+transform 一括のどちらも
             // 同じ「レイヤーの見た目を測り直す」作業なので throttle インスタンスを共有する
             // （同時に両方から呼ばれることはない = ドラッグは常に単一ジェスチャー）。
             const layerCropVisualThrottle = createRafThrottleFn(() => {
+                const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : null;
+                if (entry && (cropModeActive || edgeCropDragActive)) {
+                    void window.akari.frameEngineClock?.applyCropPreview?.(
+                        { kind: 'layer', id: entry.spec.id }, layerCropNow(entry), layerTransformNow(entry));
+                }
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (cropModeActive || edgeCropDragActive) updateLayerCropBox();
                 if (!cropModeActive) updateLayerSelectBox();
@@ -12952,6 +13180,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 entry.video.dataset.akariCropY = String(c.y);
                 entry.video.dataset.akariCropW = String(c.w);
                 entry.video.dataset.akariCropH = String(c.h);
+                entry.video.dataset.akariCropRotate = String(crop.rotate || 0);
                 layerCropVisualThrottle.call();
             };
             // ㉗ クロップハンドル操作の錨補正（2026-08-06 crop-handle-anchor-fix）: crop と
@@ -12964,6 +13193,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 entry.video.dataset.akariCropY = String(c.y);
                 entry.video.dataset.akariCropW = String(c.w);
                 entry.video.dataset.akariCropH = String(c.h);
+                entry.video.dataset.akariCropRotate = String(crop.rotate || 0);
                 entry.video.dataset.akariTransformX = String(transform.x);
                 entry.video.dataset.akariTransformY = String(transform.y);
                 entry.video.dataset.akariTransformScale = String(transform.scale);
@@ -12978,7 +13208,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 entry,
                 media: entry.video,
                 visible: () => entry.video.style.display !== 'none',
-                naturalSize: () => ({ width: entry.video.videoWidth, height: entry.video.videoHeight }),
+                naturalSize: () => ({ width: entry.video.videoWidth || entry.video.naturalWidth || entry.spec.width || 0,
+                    height: entry.video.videoHeight || entry.video.naturalHeight || entry.spec.height || 0 }),
                 transformNow: () => layerTransformNow(entry),
                 cropNow: () => layerCropNow(entry),
                 // layers[] は最初からソース実寸基準（layer-style）なので fit の焼き込みは無い。
@@ -13263,7 +13494,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const cropGhostTarget = () => {
                 if (edgeCropDragActive && edgeCropDragTarget) return edgeCropDragTarget;
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
-                return entry ? layerDragTarget(entry) : null;
+                return entry ? layerDragTarget(entry) : cutSelected ? cutDragTarget() : null;
             };
             const updateLayerCropBox = () => {
                 const target = cropGhostTarget();
@@ -13285,20 +13516,104 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerCropBox.style.width = outer.width + 'px';
                 layerCropBox.style.height = outer.height + 'px';
                 layerCropBox.style.transform = 'rotate(' + transform.rotate + 'deg)';
+                if (photoCropTarget) {
+                    const ghost = document.getElementById('photo-crop-ghost');
+                    const frame = photoFrameVisualFn({ crop, sourceWidth: vw, sourceHeight: vh,
+                        scaleX: transform.scaleX ?? transform.scale, scaleY: transform.scaleY ?? transform.scale,
+                        outputWidth: Number(summary.output?.width) || 1280,
+                        outputHeight: Number(summary.output?.height) || 720,
+                        x: 0, y: 0, rotate: 0, flip: target.entry?.spec.flip });
+                    ghost.style.transformOrigin = ((crop.x + crop.w / 2) * 100) + '% '
+                        + ((crop.y + crop.h / 2) * 100) + '%';
+                    ghost.style.transform = frame.ghostMatrix;
+                }
                 layerCropRect.style.left = (inner.left - outer.left) + 'px';
                 layerCropRect.style.top = (inner.top - outer.top) + 'px';
                 layerCropRect.style.width = inner.width + 'px';
                 layerCropRect.style.height = inner.height + 'px';
                 layerCropBox.classList.add('is-active');
+                if (photoCropTarget) {
+                    photoCropPanel.style.left = Math.max(4, Math.min(outer.left,
+                        previewStage.clientWidth - photoCropPanel.offsetWidth - 4)) + 'px';
+                    photoCropPanel.style.top = Math.max(4, Math.min(outer.top + outer.height + 10,
+                        previewStage.clientHeight - photoCropPanel.offsetHeight - 4)) + 'px';
+                }
                 // ⛶ トグルは layers[] 専用（cut には出さない）。
                 if (target.kind === 'layer') positionLayerCropToggle(outer);
             };
             const setCropMode = active => {
-                cropModeActive = !!(active && selectedLayerId);
+                const cancel = cropModeCancelRequested;
+                cropModeCancelRequested = false;
+                if (cropModeActive && !active && photoCropTarget) {
+                    const target = photoCropTarget;
+                    const snapshot = photoCropSnapshot;
+                    const changed = photoCropDirty;
+                    photoCropTarget = null;
+                    photoCropSnapshot = null;
+                    photoCropDirty = false;
+                    photoCropItemId = null;
+                    photoCropPanel.classList.remove('is-active');
+                    if (cancel) {
+                        target.restoreCrop(snapshot.restore);
+                        target.flushCrop();
+                    } else if (!changed) {
+                        target.restoreCrop(snapshot.restore);
+                        target.flushCrop();
+                    } else if (changed && target.canWrite()) {
+                        const finalTransform = target.transformNow();
+                        const before = snapshot.transform;
+                        const transformPatch = photoCropTransformPatchFn(before, finalTransform);
+                        const gesture = beginSelectionGesture(target);
+                        void target.write({ crop: target.cropNow(),
+                            ...(Object.keys(transformPatch).length ? { transform: transformPatch } : {}) })
+                            .then(() => window.akari.reportGesture('saved'))
+                            .catch(error => {
+                                window.akari.showWriteError(error);
+                                if (selectionGestureIsLatest(gesture)) {
+                                    target.restoreCrop(snapshot.restore);
+                                    target.flushCrop();
+                                }
+                            }).finally(() => endSelectionGesture(gesture));
+                    } else if (changed) {
+                        target.restoreCrop(snapshot.restore);
+                        target.flushCrop();
+                        window.akari.showWriteError('切り抜きを保存できませんでした。対象を選び直してください。');
+                    }
+                }
+                cropModeActive = !!(active && (selectedLayerId || cutSelected));
+                if (cropModeActive && !selectedLayerId && !cutCropEditable()) cropModeActive = false;
+                if (cropModeActive && !photoCropTarget) {
+                    const entry = findLayerEntry(selectedLayerId);
+                    const src = String(entry?.spec.src || '');
+                    const cutSourceId = !entry && cutSelected ? cutInteractionSegment()?.src : null;
+                    const cutImageUrl = cutSourceId ? (initial.imageSources || {})[cutSourceId] : null;
+                    if (entry?.spec.isImage === true || (cutImageUrl && cutCropEditable())) {
+                        photoCropTarget = entry ? layerDragTarget(entry) : cutDragTarget();
+                        photoCropItemId = entry ? entry.spec.id : cutSelectionVideo().dataset.akariCutId;
+                        photoCropSnapshot = { restore: photoCropTarget.cropRestorePoint(),
+                            transform: photoCropTarget.transformNow() };
+                        photoCropDirty = false;
+                        photoCropRotate.value = String(photoCropTarget.cropNow().rotate || 0);
+                        document.getElementById('photo-crop-ghost').src = src || cutImageUrl;
+                        photoCropRatio.value = 'free';
+                        photoCropStatus.textContent = '';
+                        photoCropPanel.classList.add('is-active');
+                        if (photoCropTarget.kind === 'cut') {
+                            const natural = photoCropTarget.naturalSize();
+                            if (natural.width > 0 && natural.height > 0) {
+                                photoCropTarget.applyCropAndTransform(photoCropTarget.cropNow(),
+                                    photoCropTarget.cropEntryTransform(photoCropTarget.transformNow(), natural));
+                                photoCropTarget.flushCrop();
+                            }
+                        }
+                    }
+                }
                 // ㉖ クロップモードとパースパネルは排他（ハンドル/操作の衝突を避ける）。
                 if (cropModeActive && perspectivePanelOpen) setPerspectivePanelOpen(false);
                 layerCropToggle.classList.toggle('is-crop-mode', cropModeActive);
+                layerCropBox.classList.toggle('is-photo-crop', Boolean(photoCropTarget));
                 layerSelectBox.classList.toggle('akari-crop-mode-hide-handles', cropModeActive);
+                cutSelectBox.classList.toggle('akari-crop-mode-hide-handles', cropModeActive && !selectedLayerId);
                 if (cropModeActive) {
                     updateLayerCropBox();
                 } else {
@@ -13306,6 +13621,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     updateLayerSelectBox();
                 }
             };
+            const cancelCropMode = () => { cropModeCancelRequested = true; setCropMode(false); };
             // click ではなく pointerdown+pointerup（setPointerCapture 付き）で拾う — 再生中は毎フレーム
             // positionLayerCropToggle が呼ばれてボタンが数 px 動くため、down/up の間にボタンが動くと
             // click イベントの合成対象がズレて発火しなくなることがある（実マウス操作で再現・
@@ -13320,7 +13636,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 setCropMode(!cropModeActive);
             });
             window.addEventListener('keydown', event => {
-                if (event.key === 'Escape' && cropModeActive) setCropMode(false);
+                if (event.key === 'Escape' && cropModeActive) cancelCropMode();
+                if (event.key === 'Enter' && cropModeActive && photoCropTarget) {
+                    if (document.activeElement === photoCropRotate
+                        && Number(photoCropRotate.value) !== (photoCropTarget.cropNow().rotate || 0)) {
+                        photoCropRotate.dispatchEvent(new Event('change'));
+                    }
+                    setCropMode(false);
+                }
             });
             // ㉖ layers[].perspective（v0）: 常に同じ場所（クロップトグルの下）に留まるトグル + パネル。
             // box=null でレイヤー未選択として隠す（クロップトグルと同じ規律）。
@@ -13448,6 +13771,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const selectLayer = (layerId, options) => {
                 const report = !options || options.report !== false;
                 const nextId = layerId && findLayerEntry(layerId) ? layerId : null;
+                if (nextId && cropModeActive && photoCropTarget?.kind === 'cut') setCropMode(false);
                 if (nextId) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
                 if (nextId === selectedLayerId) {
                     updateLayerSelectBox();
@@ -13481,11 +13805,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 const sx = transform.scaleX || transform.scale || 1;
                 const sy = transform.scaleY || transform.scale || 1;
                 if (!(sx > 0 && sy > 0)) return null;
-                const x = rx / sx / image.width + crop.x + crop.w / 2;
-                const y = ry / sy / image.height + crop.y + crop.h / 2;
-                if (x < crop.x || x > crop.x + crop.w || y < crop.y || y > crop.y + crop.h) return null;
-                return [flip?.h ? crop.x * 2 + crop.w - x : x,
-                    flip?.v ? crop.y * 2 + crop.h - y : y];
+                const localX = rx / sx / image.width;
+                const localY = ry / sy / image.height;
+                if (Math.abs(localX) > crop.w / 2 || Math.abs(localY) > crop.h / 2) return null;
+                const px = (flip?.h ? -localX : localX) * image.width;
+                const py = (flip?.v ? -localY : localY) * image.height;
+                const angle = (crop.rotate || 0) * Math.PI / 180;
+                const sourceX = crop.x + crop.w / 2 + (Math.cos(angle) * px + Math.sin(angle) * py) / image.width;
+                const sourceY = crop.y + crop.h / 2 + (-Math.sin(angle) * px + Math.cos(angle) * py) / image.height;
+                if (sourceX < 0 || sourceX > 1 || sourceY < 0 || sourceY > 1) return null;
+                return [sourceX, sourceY];
             };
             let photoBrush = null;
             let photoSelect = null;
@@ -13918,6 +14247,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // 箱は pointer-events:none、実体だけ auto なので、共通祖先から委譲しつつ
             // 全面透明 mov のアルファ実測だけは elementsFromPoint で下へ素通しする。
             const handledVisualPointerDownEvents = new WeakSet();
+            let lastPhotoPointerDown = null;
             const handleVisualMediaPointerDown = event => {
                 if (window.akari.shouldStartPreviewMarquee?.(event)) return;
                 // A blank click must release captions before selecting the media behind them.
@@ -13958,6 +14288,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (hit === video || hit === stillImage) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
                     selectCut();
+                    const segment = typeof cutInteractionSegment === 'function' ? cutInteractionSegment() : null;
+                    const cutImage = segment?.src && (initial.imageSources || {})[segment.src];
+                    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                    const key = 'cut:' + (segment?.id || video.dataset.akariCutId);
+                    const twice = cutImage && typeof lastPhotoPointerDown !== 'undefined'
+                        && lastPhotoPointerDown?.id === key
+                        && now - lastPhotoPointerDown.time < 400
+                        && Math.hypot(event.clientX - lastPhotoPointerDown.x, event.clientY - lastPhotoPointerDown.y) < 8;
+                    if (typeof lastPhotoPointerDown !== 'undefined') {
+                        lastPhotoPointerDown = { id: key, time: now, x: event.clientX, y: event.clientY };
+                    }
+                    if (twice) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setCropMode(true);
+                        return;
+                    }
                     const translate = pointerTranslationFrom(event);
                     let dragSnap = { x: null, y: null };
                     beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
@@ -13991,6 +14338,21 @@ body { display: grid; place-items: center; padding: 32px; }
                 const entry = findLayerEntry(hit.dataset.akariLayerId);
                 if (!entry) return;
                 selectLayer(entry.spec.id);
+                const photo = entry.spec.isImage === true;
+                const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+                const twice = photo && typeof lastPhotoPointerDown !== 'undefined'
+                    && lastPhotoPointerDown?.id === entry.spec.id
+                    && now - lastPhotoPointerDown.time < 400
+                    && Math.hypot(event.clientX - lastPhotoPointerDown.x, event.clientY - lastPhotoPointerDown.y) < 8;
+                if (typeof lastPhotoPointerDown !== 'undefined') {
+                    lastPhotoPointerDown = { id: entry.spec.id, time: now, x: event.clientX, y: event.clientY };
+                }
+                if (twice) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setCropMode(true);
+                    return;
+                }
                 // stageLocalPoint は親の frameScale と #zoom-layer の scale を実測して変換する。
                 beginLayerMoveDrag(entry, event);
             };
@@ -14140,12 +14502,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 const computeNext = moveEvent => {
                     const point = layerVideoPointForPivot(startTransform, pivotPx, moveEvent.clientX, moveEvent.clientY);
                     if (!point) return original;
-                    return cropRectAfterEdgeDragFn(
+                    const movedCrop = cropRectAfterEdgeDragFn(
                         original,
                         dir,
                         { x: point.x / natural.width, y: point.y / natural.height },
                         CROP_MIN
                     );
+                    const ratioName = typeof photoCropTarget !== 'undefined' && photoCropTarget?.entry === target.entry
+                        ? photoCropRatio.value : 'free';
+                    const ratio = ratioName === 'original' ? natural.width / natural.height
+                        : ratioName === 'free' ? null : Number(ratioName.split(':')[0]) / Number(ratioName.split(':')[1]);
+                    const constrained = ratio ? photoCropConstrainRatioAfterEdgeFn(original, movedCrop, dir,
+                        natural.width, natural.height, ratio) : movedCrop;
+                    return { ...constrained, ...(original.rotate ? { rotate: original.rotate } : {}) };
                 };
                 // cropAnchorCorrectedTransformFn は x/y のみを返す（scale/rotate は補正で
                 // 動かさない）ため、書き戻し用の完全な transform には startTransform の
@@ -14182,6 +14551,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         target.flushCrop();
                         const finalCrop = target.cropNow();
                         const finalTransform = target.transformNow();
+                        if (cropModeActive && typeof photoCropTarget !== 'undefined'
+                            && photoCropTarget?.entry === target.entry) {
+                            photoCropDirty = true;
+                            return;
+                        }
                         if (!target.canWrite()) {
                             window.akari.showWriteError('クロップを保存できませんでした。対象を選択し直してください。');
                             target.restoreCrop(restorePoint);
@@ -14227,20 +14601,112 @@ body { display: grid; place-items: center; padding: 32px; }
             // beginMediaCropDrag へ入る（挙動は従来どおり）。
             for (const handle of layerCropHandleElements) {
                 handle.addEventListener('pointerdown', event => {
-                    if (event.button !== 0 || !selectedLayerId || !cropModeActive) return;
-                    const entry = findLayerEntry(selectedLayerId);
-                    if (!entry) return;
+                    if (event.button !== 0 || !cropModeActive) return;
+                    const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : null;
+                    const target = entry ? layerDragTarget(entry) : cutSelected ? cutDragTarget() : null;
+                    if (!target) return;
                     beginMediaCropDrag(
-                        layerDragTarget(entry),
+                        target,
                         handle.getAttribute('data-akari-crop-handle'),
                         event
                     );
                 });
             }
+            const photoCropApply = nextCrop => {
+                const target = photoCropTarget;
+                if (!target) return;
+                const natural = target.naturalSize();
+                if (!(natural.width > 0 && natural.height > 0)) return;
+                const transform = target.transformNow();
+                target.applyCropAndTransform(nextCrop,
+                    target.cropEntryTransform(transform, natural));
+                target.flushCrop();
+                photoCropDirty = true;
+            };
+            const requestPhotoAnalysis = kind => photoCropItemId
+                ? window.akari.engine.photoAnalyze(photoCropItemId, kind).catch(() => null)
+                : Promise.resolve(null);
+            photoCropRatio.addEventListener('change', () => {
+                if (!photoCropTarget || photoCropRatio.value === 'free') return;
+                const natural = photoCropTarget.naturalSize();
+                if (!(natural.width > 0 && natural.height > 0)) return;
+                const aspect = photoCropRatio.value === 'original' ? natural.width / natural.height
+                    : Number(photoCropRatio.value.split(':')[0]) / Number(photoCropRatio.value.split(':')[1]);
+                photoCropApply(photoCropForRatioFn(photoCropTarget.cropNow(), natural.width, natural.height, aspect));
+            });
+            photoCropRotate.addEventListener('change', () => {
+                if (!photoCropTarget) return;
+                const rotate = Math.max(-45, Math.min(45, Number(photoCropRotate.value) || 0));
+                photoCropRotate.value = String(rotate);
+                const natural = photoCropTarget.naturalSize();
+                const crop = { ...photoCropTarget.cropNow(), rotate };
+                photoCropApply(photoCropForRatioFn(crop, natural.width, natural.height,
+                    crop.w * natural.width / (crop.h * natural.height)));
+            });
+            photoCropPanel.querySelector('[data-photo-crop-done]').addEventListener('click', () => setCropMode(false));
+            photoCropPanel.querySelector('[data-photo-crop-cancel]').addEventListener('click', cancelCropMode);
+            photoCropPanel.querySelector('[data-photo-crop-auto]').addEventListener('click', () => {
+                if (!photoCropTarget) return;
+                const itemId = photoCropItemId;
+                photoCropStatus.textContent = '水平を調べています…';
+                // Unsupported Vision requests return 0°, leaving the current crop intact.
+                requestPhotoAnalysis('horizon').then(result => {
+                    if (!photoCropTarget || photoCropItemId !== itemId) return;
+                    photoCropRotate.value = String(result?.degrees || 0);
+                    photoCropRotate.dispatchEvent(new Event('change'));
+                    photoCropStatus.textContent = result?.available ? '水平に合わせました' : '水平を見つけられませんでした';
+                });
+            });
+            photoCropPanel.querySelector('[data-photo-crop-smart]').addEventListener('click', () => {
+                if (!photoCropTarget) return;
+                const itemId = photoCropItemId;
+                photoCropStatus.textContent = '写真を調べています…';
+                requestPhotoAnalysis('saliency').then(result => {
+                    if (!photoCropTarget || photoCropItemId !== itemId) return;
+                    if (result?.focus) {
+                        const natural = photoCropTarget.naturalSize();
+                        photoCropApply(smartPhotoCropFn(photoCropTarget.cropNow(), result.focus,
+                            natural.width, natural.height));
+                    }
+                    photoCropStatus.textContent = result?.focus
+                        ? result.basis === 'saliency' ? '注目領域を基準にしました。構図を確認してください'
+                            : '主役を三分割に合わせました'
+                        : '主役を見つけられませんでした';
+                });
+            });
+            layerCropRect.addEventListener('pointerdown', event => {
+                if (!photoCropTarget || event.button !== 0 || event.target !== layerCropRect) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const target = photoCropTarget, start = target.cropNow(), natural = target.naturalSize();
+                const scale = window.akari.stageScale() || 1;
+                const transform = target.transformNow();
+                const pointerId = event.pointerId, x = event.clientX, y = event.clientY;
+                layerCropRect.setPointerCapture(pointerId);
+                const move = current => {
+                    if (current.pointerId !== pointerId) return;
+                    const a = -(transform.rotate || 0) * Math.PI / 180;
+                    const dx = current.clientX - x, dy = current.clientY - y;
+                    const localX = (dx * Math.cos(a) - dy * Math.sin(a))
+                        / (scale * (transform.scaleX || transform.scale) * natural.width);
+                    const localY = (dx * Math.sin(a) + dy * Math.cos(a))
+                        / (scale * (transform.scaleY || transform.scale) * natural.height);
+                    photoCropApply(photoCropAfterPanFn(start, localX, localY, natural.width, natural.height));
+                };
+                const end = current => {
+                    if (current.pointerId !== pointerId) return;
+                    layerCropRect.removeEventListener('pointermove', move);
+                    layerCropRect.removeEventListener('pointerup', end);
+                    layerCropRect.removeEventListener('pointercancel', end);
+                };
+                layerCropRect.addEventListener('pointermove', move);
+                layerCropRect.addEventListener('pointerup', end);
+                layerCropRect.addEventListener('pointercancel', end);
+            });
             new ResizeObserver(() => updateLayerCropBox()).observe(wrapper);
             const isSelectionReleaseTarget = event => {
                 if (event.target.closest?.('#layer-select-box, #cut-select-box, #caption-select-box, '
-                    + '#layer-crop-box, #layer-crop-toggle, #layer-perspective-toggle, '
+                    + '#layer-crop-box, #photo-crop-controls, #layer-crop-toggle, #layer-perspective-toggle, '
                     + '#layer-perspective-panel, .caption-row-plate, [data-overlay-id], [data-akari-interaction], '
                     + 'button, [role="button"], input, textarea, select, a[href]')) return false;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
@@ -14362,7 +14828,13 @@ body { display: grid; place-items: center; padding: 32px; }
             const cutTransformVisualThrottle = createRafThrottleFn(() => {
                 const index = Number(cutSelectionVideo().dataset.akariCutIndex);
                 if (cutSelectionVideo().dataset.akariCutIndex !== '' && Number.isInteger(index)) {
-                    void window.akari.frameEngineClock?.applyTransformPreview?.({ kind: 'cut', index }, cutTransformNow(), outputTime);
+                    if (cropModeActive || edgeCropDragActive) {
+                        void window.akari.frameEngineClock?.applyCropPreview?.(
+                            { kind: 'cut', index }, cutCropNow(), cutTransformNow());
+                    } else {
+                        void window.akari.frameEngineClock?.applyTransformPreview?.(
+                            { kind: 'cut', index }, cutTransformNow(), outputTime);
+                    }
                 }
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (cropModeActive || edgeCropDragActive) updateLayerCropBox();
@@ -14417,6 +14889,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (width > 0 && height > 0) {
                         cutSourceNaturalSizes.set(sourceId, { width, height });
                         updateCutSelectBox();
+                        if (cropModeActive && photoCropTarget?.kind === 'cut'
+                            && cutSelectionVideo().dataset.akariCutCropDeclared !== 'true') {
+                            photoCropTarget.applyCropAndTransform(photoCropTarget.cropNow(),
+                                photoCropTarget.cropEntryTransform(photoCropTarget.transformNow(), { width, height }));
+                            photoCropTarget.flushCrop();
+                        }
+                        if (cropModeActive) updateLayerCropBox();
                     }
                     probe.removeAttribute('src');
                     if (!isImage) probe.load();
@@ -14433,12 +14912,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (measured.width > 0 && measured.height > 0) return measured;
                 return ensureCutSourceNaturalSize() || { width: 0, height: 0 };
             };
-            const cutCropNow = () => clampCrop(
+            const cutCropNow = () => ({ ...clampCrop(
                 Number(cutSelectionVideo().dataset.akariCropX),
                 Number(cutSelectionVideo().dataset.akariCropY),
                 Number(cutSelectionVideo().dataset.akariCropW),
                 Number(cutSelectionVideo().dataset.akariCropH)
-            );
+            ), ...(Number(cutSelectionVideo().dataset.akariCropRotate) ? { rotate: Number(cutSelectionVideo().dataset.akariCropRotate) } : {}) });
             // 幾何統一（別票）の移行済みマーカー。'source' = cut も最初からソース実寸基準なので、
             // fit の焼き込み（裁定 5）も framing 除外（裁定 6）も要らなくなる。未宣言なら従来どおり。
             const outputGeometry = summary.output && typeof summary.output.geometry === 'string'
@@ -14493,14 +14972,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 // cutHasLayerStyleVisual は segment を見るので、ドラッグ中のモデルにも同じ crop を
                 // 置いて描画レール（applyCutFramingVisual / applyCutLayerStyleLayout）を揃える。
                 const segment = cutInteractionSegment();
-                if (segment && segment.kind === 'src') segment.crop = { x: c.x, y: c.y, w: c.w, h: c.h };
+                if (segment && segment.kind === 'src') segment.crop = { x: c.x, y: c.y, w: c.w, h: c.h,
+                    ...(crop.rotate ? { rotate: crop.rotate } : {}) };
                 cutSelectionVideo().dataset.akariCutTransformActive = 'true';
                 for (const media of cutInteractionMedia()) {
                     media.dataset.akariCutLayerStyleActive = 'true';
+                    media.dataset.akariCutCropDeclared = 'true';
                     media.dataset.akariCropX = String(c.x);
                     media.dataset.akariCropY = String(c.y);
                     media.dataset.akariCropW = String(c.w);
                     media.dataset.akariCropH = String(c.h);
+                    media.dataset.akariCropRotate = String(crop.rotate || 0);
                     media.dataset.akariTransformX = String(transform.x);
                     media.dataset.akariTransformY = String(transform.y);
                     media.dataset.akariTransformScale = String(transform.scale);
@@ -14619,6 +15101,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const deselectCut = options => {
                 const report = !options || options.report !== false;
+                if (cropModeActive && !selectedLayerId) setCropMode(false);
                 if (report) requestedCutId = undefined;
                 if (!cutSelected) {
                     updateCutSelectBox();
@@ -18064,6 +18547,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     const activeWindow = !allTracksHiddenByScope.layers
                         && !hiddenTracksByScope.layers.has(layer.track)
                         && timelineTime >= layer.t && timelineTime < layer.t + layer.duration;
+                    if (layerVideo.akariPhotoFrameBorder) {
+                        layerVideo.akariPhotoFrameBorder.style.display = activeWindow && !layer.proxyMissing
+                            && typeof layer.src === 'string' && layer.src ? 'block' : 'none';
+                        layerVideo.akariPhotoFrameBorder.style.opacity = layerVideo.style.opacity || '1';
+                    }
                     const localTime = clamp(timelineTime - layer.t, 0, layer.duration);
                     const mediaEnd = Number.isFinite(layerVideo.duration) && layerVideo.duration > 0
                         ? Math.max(0, layerVideo.duration - 0.001)
@@ -19700,7 +20188,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message?.type === 'akari-preview-set-crop-mode') {
-                    if (typeof message.itemId === 'string' && message.itemId) selectLayer(message.itemId);
+                    if (typeof message.itemId === 'string' && message.itemId) {
+                        if (typeof findLayerEntry !== 'function' || findLayerEntry(message.itemId)) selectLayer(message.itemId);
+                        else {
+                            requestedCutId = message.itemId;
+                            selectCut({ report: false });
+                        }
+                    }
                     setCropMode(typeof message.on === 'boolean' ? message.on : !cropModeActive);
                     return;
                 }

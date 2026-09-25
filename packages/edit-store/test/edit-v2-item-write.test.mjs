@@ -35,6 +35,20 @@ const v2 = () => ({
   ],
 });
 
+test('photo crop rotation writes as one crop and transform change', () => {
+  const value = v2();
+  value.sources[0].path = 'assets/photo.png';
+  const result = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'layer', itemId: 'clip-1', patch: {
+      crop: { x: .1, y: .1, w: .8, h: .8, rotate: 5 },
+      transform: { x: 12, y: -5, scale: .5, rotate: 0 }
+    }
+  });
+  const item = JSON.parse(result.candidateText).tracks[0].items[0];
+  assert.equal(item.crop.rotate, 5);
+  assert.equal(item.transform.x, 12);
+});
+
 test('v2 transform patch persists on tracks[].items[].transform', () => {
   const value = v2();
   value.sources.push({ id: 'mask', path: 'assets/mask.mp4' });

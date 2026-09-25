@@ -29,9 +29,16 @@ test('上のバー: 種類で項目が変わる（図形 / ライン / 写真 / 
     assert.equal(barItems(state('shape', square)).find(item => item.key === 'stroke').paint, 'none');
     const line = { source: { kind: 'shape', shape: 'line', params: { stroke: '#000000', strokeWidth: 4 } } };
     assert.deepEqual(keys(barItems(state('line', line))), ['stroke', 'weight', 'dash', 'ends', 'opacity', 'anim', 'arrange']);
-    const photo = keys(barItems(state('photo', { source: { kind: 'media', src: 'photo' } })));
+    const photoItems = barItems(state('photo', { source: { kind: 'media', src: 'photo' } }));
+    const photo = keys(photoItems);
     assert.deepEqual(photo.slice(0, 2), ['edit', 'replace']);
     assert.ok(['cutout', 'eraser', 'photoColor', 'crop', 'flip', 'opacity', 'anim', 'arrange', 'style'].every(key => photo.includes(key)));
+    for (const [key, fieldName] of [['border', 'photo-frame-width'], ['photoRadius', 'photo-frame-radius'],
+        ['crop', 'photo-crop-open'], ['cutout', 'photo-cutout-panel'], ['eraser', 'photo-brush-start']]) {
+        const item = photoItems.find(entry => entry.key === key);
+        assert.equal(item.disabled, undefined);
+        assert.deepEqual(item.inspector, { tabId: 'edit', sectionId: 'edit-correction', fieldName });
+    }
     assert.deepEqual(keys(barItems(state('text', { source: { kind: 'caption' } }))), ['opacity', 'anim', 'arrange', 'style']);
     assert.deepEqual(keys(barItems(state('canvas', { source: { kind: 'group' } }))), ['opacity', 'anim', 'arrange']);
     assert.deepEqual(barItems(state('shape', square, { selectedId: null })), []);

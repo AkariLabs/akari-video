@@ -19,6 +19,7 @@ import type { ParsedCubeLut } from '../look/cube.js';
 import { planFxPasses, fxWorkingSize, fxGaussianGeometry, fxGaussianWeights, FX_PASS_FRAGMENT, FX_PASS_KINDS, type FxCrop, type FxSize, type FxPass } from './fx-passes.js';
 import { cornersToHomography, invertMat3 } from '../timeline/layer-visual.js';
 import { dissolveNoiseField } from './dissolve-noise.js';
+import { photoFrameUniforms } from './photo-frame.js';
 
 export const TRANSITION_BLUR_MAX_TAPS = 65;
 
@@ -180,6 +181,7 @@ interface CutUniforms extends AdjustFxUniforms {
   /** issue #39 layer-style cut: 1 = sample through crop / box instead of framing / fit. */
   layerStyle: WebGLUniformLocation | null;
   crop: WebGLUniformLocation | null;
+  cropRotation: WebGLUniformLocation | null;
   box: WebGLUniformLocation | null;
   adjustLut: WebGLUniformLocation | null;
   hasAdjustLut: WebGLUniformLocation | null;
@@ -397,6 +399,8 @@ uniform int layerStyle0;
 uniform int layerStyle1;
 uniform vec4 crop0;
 uniform vec4 crop1;
+uniform float cropRotation0;
+uniform float cropRotation1;
 uniform vec2 box0;
 uniform vec2 box1;
 uniform sampler3D adjustLut0;
@@ -462,6 +466,14 @@ vec4 sample0(vec2 p) {
     vec2 local = inverseBox(p, transform0, box0);
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop0.xy + local * crop0.zw;
+    if (cropRotation0 != 0.0) {
+      vec2 center = crop0.xy + crop0.zw * 0.5;
+      vec2 delta = (q - center) * sourceSize0;
+      float a = radians(cropRotation0);
+      q = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                         -sin(a) * delta.x + cos(a) * delta.y) / sourceSize0;
+      if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0)))) return vec4(0.0);
+    }
   } else {
     vec2 canvasPoint = inverseVisual(p, transform0, framing0, scaleAxes0);
     if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
@@ -484,6 +496,14 @@ vec4 sample1(vec2 p) {
     vec2 local = inverseBox(p, transform1, box1);
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop1.xy + local * crop1.zw;
+    if (cropRotation1 != 0.0) {
+      vec2 center = crop1.xy + crop1.zw * 0.5;
+      vec2 delta = (q - center) * sourceSize1;
+      float a = radians(cropRotation1);
+      q = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                         -sin(a) * delta.x + cos(a) * delta.y) / sourceSize1;
+      if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0)))) return vec4(0.0);
+    }
   } else {
     vec2 canvasPoint = inverseVisual(p, transform1, framing1, scaleAxes1);
     if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
@@ -706,6 +726,12 @@ uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
 uniform ivec2 flipAxes;
+uniform float cropRotation;
+uniform vec2 sourcePixelSize;
+uniform vec2 framePixelSize;
+uniform float frameRadius;
+uniform float frameStrokeWidth;
+uniform vec3 frameStrokeColor;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -767,6 +793,17 @@ void main() {
   vec2 sampledLocal = vec2(flipAxes.x == 1 ? 1.0 - local.x : local.x,
                            flipAxes.y == 1 ? 1.0 - local.y : local.y);
   vec2 sourceUv = cropRect.xy + sampledLocal * cropRect.zw;
+  if (cropRotation != 0.0) {
+    vec2 center = cropRect.xy + cropRect.zw * 0.5;
+    vec2 delta = (sourceUv - center) * sourcePixelSize;
+    float a = radians(cropRotation);
+    sourceUv = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                             -sin(a) * delta.x + cos(a) * delta.y) / sourcePixelSize;
+    if (any(lessThan(sourceUv, vec2(0.0))) || any(greaterThan(sourceUv, vec2(1.0)))) {
+      color = dst;
+      return;
+    }
+  }
   vec2 colorUv = unrotate(sourceUv, layerRotation);
   vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
@@ -785,10 +822,24 @@ void main() {
     }
     src.rgb = applyAdjust(src.rgb);
   }
+  if (hasFx == 1 && (cropRotation != 0.0 || flipAxes.x == 1 || flipAxes.y == 1)) {
+    src = sampleFx((sourceUv - fxCrop.xy) / fxCrop.zw);
+  }
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
-  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
+  float edgeDistance = -100000.0;
+  if (frameRadius > 0.0 || frameStrokeWidth > 0.0) {
+    vec2 halfSize = framePixelSize * 0.5;
+    vec2 q = abs(local * framePixelSize - halfSize) - halfSize + frameRadius;
+    edgeDistance = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - frameRadius;
+  }
+  float cornerCoverage = frameRadius > 0.0 ? clamp(0.5 - edgeDistance, 0.0, 1.0) : 1.0;
+  if (frameStrokeWidth > 0.0) {
+    float strokeCoverage = clamp(edgeDistance + frameStrokeWidth + 0.5, 0.0, 1.0);
+    src.rgb = mix(src.rgb, frameStrokeColor, strokeCoverage);
+  }
+  float alpha = clamp(src.a * maskA * opacity * cornerCoverage, 0.0, 1.0);
   ${transparent ? `float outAlpha = alpha + dst.a * (1.0 - alpha);
   vec3 mixed = (src.rgb * alpha * (1.0 - dst.a)
     + blend(dst.rgb, src.rgb) * alpha * dst.a + dst.rgb * dst.a * (1.0 - alpha));
@@ -984,7 +1035,9 @@ export function compositeCutGeometry(
   cut: ResolvedCutVisual, srcW: number, srcH: number, outW: number, outH: number,
 ): { visual: ResolvedLayerVisual; width: number; height: number } {
   if (cut.layerStyle) return {
-    visual: { crop: cut.layerStyle.crop, perspective: null, transform: cut.transform }, width: srcW, height: srcH,
+    visual: { crop: cut.layerStyle.crop,
+      ...(cut.layerStyle.cropRotate ? { cropRotate: cut.layerStyle.cropRotate } : {}),
+      perspective: null, transform: cut.transform }, width: srcW, height: srcH,
   };
   const fit = Math.min(outW / srcW, outH / srcH);
   const axis = (start: number, length: number, source: number, out: number, scale: number) => {
@@ -1289,6 +1342,7 @@ export class WebGL2Compositor implements CompositorBackend {
       rotation: gl.getUniformLocation(program, `rotation${index}`),
       layerStyle: gl.getUniformLocation(program, `layerStyle${index}`),
       crop: gl.getUniformLocation(program, `crop${index}`),
+      cropRotation: gl.getUniformLocation(program, `cropRotation${index}`),
       box: gl.getUniformLocation(program, `box${index}`),
       adjustLut: gl.getUniformLocation(program, `adjustLut${index}`),
       hasAdjustLut: gl.getUniformLocation(program, `hasAdjustLut${index}`),
@@ -1553,6 +1607,7 @@ export class WebGL2Compositor implements CompositorBackend {
     if (v.layerStyle) {
       const box = cutLayerStyleBox(v, sourceLogical.width, sourceLogical.height);
       this.gl.uniform1i(u.layerStyle, 1);
+      this.gl.uniform1f(u.cropRotation, v.layerStyle.cropRotate ?? 0);
       this.gl.uniform4f(
         u.crop,
         v.layerStyle.crop.x,
@@ -1563,6 +1618,7 @@ export class WebGL2Compositor implements CompositorBackend {
       this.gl.uniform2f(u.box, Math.max(box.width, 1e-6), Math.max(box.height, 1e-6));
     } else {
       this.gl.uniform1i(u.layerStyle, 0);
+      this.gl.uniform1f(u.cropRotation, 0);
       this.gl.uniform4f(u.crop, 0, 0, 1, 1);
       this.gl.uniform2f(u.box, 1, 1);
     }
@@ -2013,7 +2069,8 @@ export class WebGL2Compositor implements CompositorBackend {
         height: crop.height * size.height * fit * (visual.transform.scaleY ?? visual.transform.scale) / framing.height,
       };
       const result = this.snapshotBaseFx(index, this.runFxPasses(passes, {
-        size, crop, displayed, format: still || video ? 2 : frame.format === 'NV12' ? 1 : 0,
+        size, crop: visual.layerStyle?.cropRotate ? FULL_CROP : crop, displayed,
+        format: still || video ? 2 : frame.format === 'NV12' ? 1 : 0,
         rotation, rgbaUnit: BASE_RGBA_UNITS[index]!, yuvUnits: [index * 3, index * 3 + 1, index * 3 + 2],
         preserveAlpha: false, lut: visual.adjustLut, lutUnit: BASE_ADJUST_LUT_UNITS[index]!,
       }, output, adjustFxFrameIndex(plan), draw));
@@ -2140,6 +2197,12 @@ export class WebGL2Compositor implements CompositorBackend {
     const layerRotationLoc = uniform(gl, this.layerProgram, 'layerRotation');
     const maskRotationLoc = uniform(gl, this.layerProgram, 'maskRotation');
     const flipAxesLoc = uniform(gl, this.layerProgram, 'flipAxes');
+    const cropRotationLoc = uniform(gl, this.layerProgram, 'cropRotation');
+    const sourcePixelSizeLoc = uniform(gl, this.layerProgram, 'sourcePixelSize');
+    const framePixelSizeLoc = uniform(gl, this.layerProgram, 'framePixelSize');
+    const frameRadiusLoc = uniform(gl, this.layerProgram, 'frameRadius');
+    const frameStrokeWidthLoc = uniform(gl, this.layerProgram, 'frameStrokeWidth');
+    const frameStrokeColorLoc = uniform(gl, this.layerProgram, 'frameStrokeColor');
     const blendLoc = uniform(gl, this.layerProgram, 'blendMode');
     const layerAdjustUniforms: AdjustLutUniforms = {
       hasAdjustLut: uniform(gl, this.layerProgram, 'hasAdjustLut'),
@@ -2253,6 +2316,15 @@ export class WebGL2Compositor implements CompositorBackend {
         )
         : { visual: layer.visual, width: sourceLogical.width, height: sourceLogical.height };
       const visual = geometry.visual;
+      const frameWidth = visual.crop.width * geometry.width * (visual.transform.scaleX ?? visual.transform.scale);
+      const frameHeight = visual.crop.height * geometry.height * (visual.transform.scaleY ?? visual.transform.scale);
+      const frameStyle = photoFrameUniforms(layer.frame, frameWidth, frameHeight, output.width);
+      gl.uniform1f(cropRotationLoc, visual.cropRotate ?? 0);
+      gl.uniform2f(sourcePixelSizeLoc, sourceLogical.width, sourceLogical.height);
+      gl.uniform2f(framePixelSizeLoc, frameWidth, frameHeight);
+      gl.uniform1f(frameRadiusLoc, frameStyle.radius);
+      gl.uniform1f(frameStrokeWidthLoc, frameStyle.strokeWidth);
+      gl.uniform3f(frameStrokeColorLoc, ...frameStyle.color);
       gl.uniform2i(flipAxesLoc, layer.flip?.h ? 1 : 0, layer.flip?.v ? 1 : 0);
       gl.uniform2f(outLoc, output.width, output.height);
       gl.uniformMatrix3fv(
@@ -2279,7 +2351,7 @@ export class WebGL2Compositor implements CompositorBackend {
       const passes = planFxPasses(layer.adjustFx);
       let fxResult: FxResult | null = null;
       if (passes.length) {
-        const crop = visual.crop;
+        const crop = (visual.cropRotate ?? 0) !== 0 ? FULL_CROP : visual.crop;
         const inverse = forwardInverse(visual, geometry.width, geometry.height, output.width, output.height);
         fxResult = this.runFxPasses(passes, {
           size: { width, height }, crop, displayed: fxDisplayedSize(inverse),

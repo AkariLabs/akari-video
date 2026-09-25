@@ -1,0 +1,91 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "bg",
+      "path": "assets/bg-green.png"
+    },
+    {
+      "id": "person",
+      "path": "assets/person-wide.png"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "base",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "bg-item",
+          "at": 0,
+          "duration": 120,
+          "source": {
+            "kind": "media",
+            "src": "bg",
+            "in": 0,
+            "out": 4
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "photo",
+          "at": 0,
+          "duration": 120,
+          "transform": {
+            "x": -128.4224498327759,
+            "y": -228.3065774804905,
+            "scaleX": 1.215,
+            "scaleY": 0.7200000000000001
+          },
+          "crop": {
+            "x": 0.6,
+            "y": 0.35,
+            "w": 0.3,
+            "h": 0.5,
+            "rotate": 5
+          },
+          "erase": [
+            {
+              "mode": "erase",
+              "points": [
+                [
+                  0.74,
+                  0.6
+                ],
+                [
+                  0.78,
+                  0.6
+                ]
+              ],
+              "size": 0.06,
+              "hardness": 1
+            }
+          ],
+          "frame": {
+            "stroke": {
+              "color": "#ffffff",
+              "width": 8
+            },
+            "cornerRadius": 40
+          },
+          "source": {
+            "kind": "media",
+            "src": "person",
+            "in": 0,
+            "out": 4
+          }
+        }
+      ]
+    }
+  ]
+}

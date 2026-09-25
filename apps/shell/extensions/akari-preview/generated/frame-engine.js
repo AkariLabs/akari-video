@@ -6844,6 +6844,7 @@ ${indent}`);
         "mask",
         "erase",
         "flip",
+        "frame",
         "source",
         "audio",
         "anchor"
@@ -6937,6 +6938,7 @@ ${indent}`);
           ...item,
           ..."erase" in item && item.erase ? { erase: structuredClone(item.erase) } : {},
           ..."flip" in item && item.flip ? { flip: { ...item.flip } } : {},
+          ..."frame" in item && item.frame ? { frame: structuredClone(item.frame) } : {},
           source: { ...item.source },
           ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
         };
@@ -7133,6 +7135,8 @@ ${indent}`);
         }
         if (hasOwn(value, "crop"))
           validateCrop(value.crop, `${path}.crop`);
+        if (hasOwn(value, "frame"))
+          validatePhotoFrame(value.frame, `${path}.frame`, value.source);
         if (hasOwn(value, "adjust"))
           validateAdjust(value.adjust, `${path}.adjust`);
         if (hasOwn(value, "perspective"))
@@ -7412,6 +7416,25 @@ ${indent}`);
           requireRange(value[key], 0, 1, `${path}.${key}`);
           if (value[key] === 0)
             throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+        if (hasOwn(value, "rotate"))
+          requireRange(value.rotate, -45, 45, `${path}.rotate`);
+      }
+      function validatePhotoFrame(value, path, source) {
+        if (!source || typeof source !== "object" || source.kind !== "media") {
+          throw invalid(path, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+        }
+        requireRecord(value, path);
+        requireExactKeys(value, /* @__PURE__ */ new Set(["stroke", "cornerRadius"]), path);
+        if (hasOwn(value, "cornerRadius"))
+          requireRange(value.cornerRadius, 0, 100, `${path}.cornerRadius`);
+        if (hasOwn(value, "stroke")) {
+          requireRecord(value.stroke, `${path}.stroke`);
+          requireExactKeys(value.stroke, /* @__PURE__ */ new Set(["color", "width"]), `${path}.stroke`);
+          if (typeof value.stroke.color !== "string" || !/^#[0-9a-fA-F]{6}$/u.test(value.stroke.color)) {
+            throw invalid(`${path}.stroke.color`, "#RRGGBB \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+          requireRange(value.stroke.width, 0, 100, `${path}.stroke.width`);
         }
       }
       function validateAdjust(value, path) {
@@ -10354,6 +10377,8 @@ ${indent}`);
           return false;
         if ("mask" in item && item.mask !== void 0)
           return true;
+        if ("frame" in item && item.frame !== void 0 || (item.crop?.rotate ?? 0) !== 0 || "erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0)
+          return true;
         if (item.blend !== void 0 && item.blend !== "normal")
           return true;
         if (Array.isArray(item.keyframes) && item.keyframes.some((point) => point && typeof point === "object" && "perspective" in point && point.perspective !== void 0))
@@ -10426,7 +10451,7 @@ ${indent}`);
       }
       function needsCrossTrackLayers(item, pathOf) {
         const transform = item.transform;
-        return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+        return transform?.scale !== void 0 && transform.scale !== 1 || transform?.scaleX !== void 0 && transform.scaleX !== 1 || transform?.scaleY !== void 0 && transform.scaleY !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.source.kind === "media" && "frame" in item && item.frame !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && ("erase" in item && item.erase !== void 0 || "flip" in item && item.flip !== void 0) || item.source.kind === "media" && (0, cut_adjacency_1.isStillImageSourcePath)(pathOf?.(item.source.src)) || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
       }
       function nextRef(counters, kind) {
         const ref = counters.get(kind) ?? 0;
@@ -10496,6 +10521,7 @@ ${indent}`);
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
           ...item.blend !== void 0 ? { blend: item.blend } : {},
           ...item.crop !== void 0 ? { crop: item.crop } : {},
+          ...item.source.kind === "media" && "frame" in item && item.frame !== void 0 ? { frame: structuredClone(item.frame) } : {},
           ...item.source.kind === "media" && "erase" in item && item.erase !== void 0 ? { erase: structuredClone(item.erase) } : {},
           ...item.source.kind === "media" && "flip" in item && item.flip !== void 0 ? { flip: { ...item.flip } } : {},
           ...item.adjust !== void 0 ? { adjust: structuredClone(item.adjust) } : {},
@@ -12868,7 +12894,7 @@ ${indent}`);
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-      exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "erase", "flip", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
+      exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "adjust", "perspective", "motion", "animator", "keyframes", "items", "mask", "erase", "flip", "frame", "source", "audio", "role", "link", "mute", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "caption_ref", "provenance"];
       exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "gain_db", "mute", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "shape", "preset", "baked", "from", "filter", "canvas", "id"];
       exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
       exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -12897,6 +12923,7 @@ ${indent}`);
           "mask",
           "erase",
           "flip",
+          "frame",
           "source",
           "audio"
         ],
@@ -13158,6 +13185,7 @@ ${indent}`);
         "flip",
         "mask",
         "erase",
+        "frame",
         "perspective",
         "motion",
         "animator",
@@ -21884,6 +21912,16 @@ void main() {
     return field;
   }
 
+  // packages/frame-engine/src/compositor/photo-frame.ts
+  function photoFrameUniforms(frame, width, height, outputWidth) {
+    const short = Math.max(0, Math.min(width, height));
+    const radius = short * Math.max(0, Math.min(100, frame?.cornerRadius ?? 0)) / 200;
+    const strokeWidth = Math.min(short / 2, Math.max(0, Math.min(100, frame?.stroke?.width ?? 0)) * outputWidth / 1920);
+    const hex = frame?.stroke?.color;
+    const color = typeof hex === "string" && /^#[0-9a-fA-F]{6}$/.test(hex) ? [1, 3, 5].map((at2) => parseInt(hex.slice(at2, at2 + 2), 16) / 255) : [0, 0, 0];
+    return { radius, strokeWidth, color };
+  }
+
   // packages/frame-engine/src/compositor/webgl2.ts
   var TRANSITION_BLUR_MAX_TAPS = 65;
   var TRANSITION_CODES = Object.freeze(Object.fromEntries([
@@ -22157,6 +22195,8 @@ uniform int layerStyle0;
 uniform int layerStyle1;
 uniform vec4 crop0;
 uniform vec4 crop1;
+uniform float cropRotation0;
+uniform float cropRotation1;
 uniform vec2 box0;
 uniform vec2 box1;
 uniform sampler3D adjustLut0;
@@ -22222,6 +22262,14 @@ vec4 sample0(vec2 p) {
     vec2 local = inverseBox(p, transform0, box0);
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop0.xy + local * crop0.zw;
+    if (cropRotation0 != 0.0) {
+      vec2 center = crop0.xy + crop0.zw * 0.5;
+      vec2 delta = (q - center) * sourceSize0;
+      float a = radians(cropRotation0);
+      q = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                         -sin(a) * delta.x + cos(a) * delta.y) / sourceSize0;
+      if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0)))) return vec4(0.0);
+    }
   } else {
     vec2 canvasPoint = inverseVisual(p, transform0, framing0, scaleAxes0);
     if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
@@ -22244,6 +22292,14 @@ vec4 sample1(vec2 p) {
     vec2 local = inverseBox(p, transform1, box1);
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
     q = crop1.xy + local * crop1.zw;
+    if (cropRotation1 != 0.0) {
+      vec2 center = crop1.xy + crop1.zw * 0.5;
+      vec2 delta = (q - center) * sourceSize1;
+      float a = radians(cropRotation1);
+      q = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                         -sin(a) * delta.x + cos(a) * delta.y) / sourceSize1;
+      if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(1.0)))) return vec4(0.0);
+    }
   } else {
     vec2 canvasPoint = inverseVisual(p, transform1, framing1, scaleAxes1);
     if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
@@ -22447,6 +22503,12 @@ uniform int maskFormat;
 uniform int layerRotation;
 uniform int maskRotation;
 uniform ivec2 flipAxes;
+uniform float cropRotation;
+uniform vec2 sourcePixelSize;
+uniform vec2 framePixelSize;
+uniform float frameRadius;
+uniform float frameStrokeWidth;
+uniform vec3 frameStrokeColor;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -22508,6 +22570,17 @@ void main() {
   vec2 sampledLocal = vec2(flipAxes.x == 1 ? 1.0 - local.x : local.x,
                            flipAxes.y == 1 ? 1.0 - local.y : local.y);
   vec2 sourceUv = cropRect.xy + sampledLocal * cropRect.zw;
+  if (cropRotation != 0.0) {
+    vec2 center = cropRect.xy + cropRect.zw * 0.5;
+    vec2 delta = (sourceUv - center) * sourcePixelSize;
+    float a = radians(cropRotation);
+    sourceUv = center + vec2(cos(a) * delta.x + sin(a) * delta.y,
+                             -sin(a) * delta.x + cos(a) * delta.y) / sourcePixelSize;
+    if (any(lessThan(sourceUv, vec2(0.0))) || any(greaterThan(sourceUv, vec2(1.0)))) {
+      color = dst;
+      return;
+    }
+  }
   vec2 colorUv = unrotate(sourceUv, layerRotation);
   vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
@@ -22526,10 +22599,24 @@ void main() {
     }
     src.rgb = applyAdjust(src.rgb);
   }
+  if (hasFx == 1 && (cropRotation != 0.0 || flipAxes.x == 1 || flipAxes.y == 1)) {
+    src = sampleFx((sourceUv - fxCrop.xy) / fxCrop.zw);
+  }
   float maskA = hasMask == 1
     ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
-  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
+  float edgeDistance = -100000.0;
+  if (frameRadius > 0.0 || frameStrokeWidth > 0.0) {
+    vec2 halfSize = framePixelSize * 0.5;
+    vec2 q = abs(local * framePixelSize - halfSize) - halfSize + frameRadius;
+    edgeDistance = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - frameRadius;
+  }
+  float cornerCoverage = frameRadius > 0.0 ? clamp(0.5 - edgeDistance, 0.0, 1.0) : 1.0;
+  if (frameStrokeWidth > 0.0) {
+    float strokeCoverage = clamp(edgeDistance + frameStrokeWidth + 0.5, 0.0, 1.0);
+    src.rgb = mix(src.rgb, frameStrokeColor, strokeCoverage);
+  }
+  float alpha = clamp(src.a * maskA * opacity * cornerCoverage, 0.0, 1.0);
   ${transparent ? `float outAlpha = alpha + dst.a * (1.0 - alpha);
   vec3 mixed = (src.rgb * alpha * (1.0 - dst.a)
     + blend(dst.rgb, src.rgb) * alpha * dst.a + dst.rgb * dst.a * (1.0 - alpha));
@@ -22689,7 +22776,12 @@ void main() {
   }
   function compositeCutGeometry(cut, srcW, srcH, outW, outH) {
     if (cut.layerStyle) return {
-      visual: { crop: cut.layerStyle.crop, perspective: null, transform: cut.transform },
+      visual: {
+        crop: cut.layerStyle.crop,
+        ...cut.layerStyle.cropRotate ? { cropRotate: cut.layerStyle.cropRotate } : {},
+        perspective: null,
+        transform: cut.transform
+      },
       width: srcW,
       height: srcH
     };
@@ -22927,6 +23019,7 @@ void main() {
         rotation: gl.getUniformLocation(program, `rotation${index}`),
         layerStyle: gl.getUniformLocation(program, `layerStyle${index}`),
         crop: gl.getUniformLocation(program, `crop${index}`),
+        cropRotation: gl.getUniformLocation(program, `cropRotation${index}`),
         box: gl.getUniformLocation(program, `box${index}`),
         adjustLut: gl.getUniformLocation(program, `adjustLut${index}`),
         hasAdjustLut: gl.getUniformLocation(program, `hasAdjustLut${index}`),
@@ -23160,6 +23253,7 @@ void main() {
       if (v2.layerStyle) {
         const box2 = cutLayerStyleBox(v2, sourceLogical.width, sourceLogical.height);
         this.gl.uniform1i(u2.layerStyle, 1);
+        this.gl.uniform1f(u2.cropRotation, v2.layerStyle.cropRotate ?? 0);
         this.gl.uniform4f(
           u2.crop,
           v2.layerStyle.crop.x,
@@ -23170,6 +23264,7 @@ void main() {
         this.gl.uniform2f(u2.box, Math.max(box2.width, 1e-6), Math.max(box2.height, 1e-6));
       } else {
         this.gl.uniform1i(u2.layerStyle, 0);
+        this.gl.uniform1f(u2.cropRotation, 0);
         this.gl.uniform4f(u2.crop, 0, 0, 1, 1);
         this.gl.uniform2f(u2.box, 1, 1);
       }
@@ -23621,7 +23716,7 @@ void main() {
         };
         const result = this.snapshotBaseFx(index, this.runFxPasses(passes, {
           size,
-          crop,
+          crop: visual.layerStyle?.cropRotate ? FULL_CROP : crop,
           displayed,
           format: still || video ? 2 : frame.format === "NV12" ? 1 : 0,
           rotation,
@@ -23727,6 +23822,12 @@ void main() {
       const layerRotationLoc = uniform(gl, this.layerProgram, "layerRotation");
       const maskRotationLoc = uniform(gl, this.layerProgram, "maskRotation");
       const flipAxesLoc = uniform(gl, this.layerProgram, "flipAxes");
+      const cropRotationLoc = uniform(gl, this.layerProgram, "cropRotation");
+      const sourcePixelSizeLoc = uniform(gl, this.layerProgram, "sourcePixelSize");
+      const framePixelSizeLoc = uniform(gl, this.layerProgram, "framePixelSize");
+      const frameRadiusLoc = uniform(gl, this.layerProgram, "frameRadius");
+      const frameStrokeWidthLoc = uniform(gl, this.layerProgram, "frameStrokeWidth");
+      const frameStrokeColorLoc = uniform(gl, this.layerProgram, "frameStrokeColor");
       const blendLoc = uniform(gl, this.layerProgram, "blendMode");
       const layerAdjustUniforms = {
         hasAdjustLut: uniform(gl, this.layerProgram, "hasAdjustLut"),
@@ -23836,6 +23937,15 @@ void main() {
           output.height
         ) : { visual: layer.visual, width: sourceLogical.width, height: sourceLogical.height };
         const visual = geometry.visual;
+        const frameWidth = visual.crop.width * geometry.width * (visual.transform.scaleX ?? visual.transform.scale);
+        const frameHeight = visual.crop.height * geometry.height * (visual.transform.scaleY ?? visual.transform.scale);
+        const frameStyle = photoFrameUniforms(layer.frame, frameWidth, frameHeight, output.width);
+        gl.uniform1f(cropRotationLoc, visual.cropRotate ?? 0);
+        gl.uniform2f(sourcePixelSizeLoc, sourceLogical.width, sourceLogical.height);
+        gl.uniform2f(framePixelSizeLoc, frameWidth, frameHeight);
+        gl.uniform1f(frameRadiusLoc, frameStyle.radius);
+        gl.uniform1f(frameStrokeWidthLoc, frameStyle.strokeWidth);
+        gl.uniform3f(frameStrokeColorLoc, ...frameStyle.color);
         gl.uniform2i(flipAxesLoc, layer.flip?.h ? 1 : 0, layer.flip?.v ? 1 : 0);
         gl.uniform2f(outLoc, output.width, output.height);
         gl.uniformMatrix3fv(
@@ -23862,7 +23972,7 @@ void main() {
         const passes = planFxPasses(layer.adjustFx);
         let fxResult = null;
         if (passes.length) {
-          const crop = visual.crop;
+          const crop = (visual.cropRotate ?? 0) !== 0 ? FULL_CROP : visual.crop;
           const inverse = forwardInverse(visual, geometry.width, geometry.height, output.width, output.height);
           fxResult = this.runFxPasses(passes, {
             size: { width, height },
@@ -24991,6 +25101,7 @@ void main() {
     "mask",
     "erase",
     "flip",
+    "frame",
     "transform",
     "crop",
     "perspective",
@@ -25246,7 +25357,10 @@ void main() {
       },
       opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
       // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
-      ...cut.crop || animated?.crop || cut.perspective || animated?.perspective || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe" ? { layerStyle: { crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height } } } : {}
+      ...cut.crop || animated?.crop || cut.perspective || animated?.perspective || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe" ? { layerStyle: {
+        crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height },
+        ...finite4(cut.crop?.rotate, 0) !== 0 ? { cropRotate: finite4(cut.crop?.rotate, 0) } : {}
+      } } : {}
     };
   }
   function motionTransform(transform, motion2) {
@@ -25436,6 +25550,7 @@ void main() {
       const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
       const staticTransform = layer.transform ?? {};
       const visual = {
+        ...finite4(staticCrop.rotate, 0) !== 0 ? { cropRotate: finite4(staticCrop.rotate, 0) } : {},
         crop: animated?.crop ?? {
           x: clamp3(finite4(staticCrop.x, 0), 0, 1),
           y: clamp3(finite4(staticCrop.y, 0), 0, 1),
@@ -25472,6 +25587,7 @@ void main() {
         blend,
         opacity,
         ...layer.flip ? { flip: layer.flip } : {},
+        ...layer.frame ? { frame: layer.frame } : {},
         ...adjustLut ? { adjustLut } : {},
         ...adjustFx ? { adjustFx } : {}
       };

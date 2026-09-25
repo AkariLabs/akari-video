@@ -183,7 +183,7 @@ test('クロップ節は layer / overlay / item の動画タブで変形直後�
   ];
   for (const source of mediaFactories) {
     assert.match(source, /const cropFields = CROP_FIELDS/u);
-    assert.match(source, /id: 'transform', label: '変形'[\s\S]*id: 'crop', label: 'クロップ'/u);
+    assert.match(source, /id: 'transform', label: '変形'[\s\S]*id: 'crop', label: '(?:クロップ|切り抜き)'/u);
   }
   const captionFactory = sourceBetween(inspectorSource, 'function CAPTION_SECTIONS(', 'function MULTI_CAPTION_SECTIONS(');
   const audioFactory = sourceBetween(inspectorSource, 'function AUDIO_SECTIONS(', 'function OVERLAY_SECTIONS(');

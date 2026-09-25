@@ -1074,6 +1074,9 @@ export interface AkariAnnotationsService {
         engine: 'apple-vision' | 'sam2.1-tiny'; invert?: boolean }): Promise<
         { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }>;
     photoStageRegionLut(request: { projectRootUri: string; id: string }): Promise<void>;
+    analyzePhoto(request: { projectRootUri: string; sourceUri: string; kind: 'horizon' | 'saliency' }): Promise<
+        { available: boolean; degrees?: number; basis?: 'foreground' | 'person' | 'saliency';
+            focus?: { x: number; y: number; w: number; h: number; cx?: number; cy?: number } }>;
 }
 
 export interface ImageAiInspection {

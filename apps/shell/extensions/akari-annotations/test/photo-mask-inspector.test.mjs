@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { itemSections, layerSections, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
+import { cutSections, itemSections, layerSections, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 
 test('photo inspector exposes the local mask, brush, and flip writes', async () => {
@@ -20,7 +20,8 @@ test('photo inspector exposes the local mask, brush, and flip writes', async () 
   assert.equal(transform.some(field => field.name?.startsWith('photo-')), false);
   assert.deepEqual(correction.map(field => field.name), [
     'mask', 'photo-mask-generate', 'photo-mask-remove', 'photo-brush-mode',
-    'photo-brush-size', 'photo-brush-hardness', 'photo-brush-start', 'photo-flip-h', 'photo-flip-v'
+    'photo-brush-size', 'photo-brush-hardness', 'photo-brush-start', 'photo-flip-h', 'photo-flip-v',
+    'photo-crop-open', 'photo-frame-width', 'photo-frame-color', 'photo-frame-radius'
   ]);
   assert.equal(generate.actionLabel, '背景を消す（この Mac で）');
   assert.equal(brush.actionLabel, '消しゴム');
@@ -43,6 +44,34 @@ test('photo item keeps every correction row once in edit and no photo row in vid
     ['edit-photo', 'photo-mask-remove'], ['edit-photo', 'photo-brush-mode'],
     ['edit-photo', 'photo-brush-size'], ['edit-photo', 'photo-brush-hardness'],
     ['edit-photo', 'photo-brush-start'], ['edit-photo', 'photo-flip-h'],
-    ['edit-photo', 'photo-flip-v']
+    ['edit-photo', 'photo-flip-v'], ['edit-photo', 'photo-crop-open'],
+    ['edit-photo', 'photo-frame-width'], ['edit-photo', 'photo-frame-color'],
+    ['edit-photo', 'photo-frame-radius']
   ]);
+});
+
+test('photo frame and crop action write to the same selected media item', async () => {
+  const writes = [];
+  const snapshot = visualSnapshot('layer', { photo: true, frame: { cornerRadius: 40,
+    stroke: { color: '#ff8040', width: 8 } }, maskSourceOptions: [], src: 'photo.jpg' });
+  const sections = layerSections(snapshot, async request => { writes.push(request); return { ok: true }; });
+  const photo = sections.find(section => section.id === 'edit-photo').fields;
+  assert.equal(photo.find(field => field.name === 'photo-frame-radius').getValue(), '40');
+  await photo.find(field => field.name === 'photo-crop-open').action(snapshot);
+  await photo.find(field => field.name === 'photo-frame-width').write(snapshot, '8');
+  assert.deepEqual(writes.map(write => write.path), ['photo-crop-open', 'frame.stroke.width']);
+  assert.ok(writes.every(write => write.id === snapshot.id));
+});
+
+test('still-image cut offers the crop action and frame controls', async () => {
+  const writes = [];
+  const snapshot = { kind: 'cut', index: 0, itemId: 'photo-cut', sourcePath: 'assets/photo.png',
+    sourceIn: 0, sourceOut: 1, outputStart: 0, outputEnd: 1, trackName: '映像', clipName: '写真' };
+  const sections = cutSections(snapshot, async request => { writes.push(request); return { ok: true }; });
+  await sections.find(section => section.id === 'edit-photo').fields
+    .find(field => field.name === 'photo-crop-open').action(snapshot);
+  await sections.find(section => section.id === 'edit-photo').fields
+    .find(field => field.name === 'photo-frame-radius').write(snapshot, '40');
+  assert.deepEqual(writes.map(write => [write.id, write.path]),
+    [['photo-cut', 'photo-crop-open'], ['photo-cut', 'frame.cornerRadius']]);
 });

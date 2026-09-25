@@ -62,7 +62,7 @@ export interface FrameEngineCut extends Omit<EditCut, 'transitionOut' | 'adjust'
    * and is read as **output-local seconds** (outputSeconds − placement.at — it keeps advancing while a
    * freeze holds the picture, the same clock as the legacy trimmed stream `t`).
    */
-  crop?: { x: number; y: number; w: number; h: number };
+  crop?: { x: number; y: number; w: number; h: number; rotate?: number };
   keyframes?: readonly LayerKeyframe[];
   motion?: MotionV0;
   perspective?: { corners: readonly (readonly [number, number])[] };
@@ -86,8 +86,9 @@ export interface FrameEngineLayer {
     adjust?: FrameEngineAdjust; filter?: { lut: ParsedCubeLut | string; intensity?: number }; blur?: number;
   }[];
   flip?: { h?: boolean; v?: boolean };
+  frame?: { stroke?: { color: string; width: number }; cornerRadius?: number };
   transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
-  crop?: { x: number; y: number; w: number; h: number };
+  crop?: { x: number; y: number; w: number; h: number; rotate?: number };
   perspective?: { corners: readonly (readonly [number, number])[] };
   keyframes?: readonly LayerKeyframe[];
   motion?: MotionV0;
@@ -106,7 +107,7 @@ const KNOWN_CUT_KEY_LIST = [
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [
-  'id', 't', 'duration', 'kind', 'src', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'transform', 'crop', 'perspective',
+  'id', 't', 'duration', 'kind', 'src', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'transform', 'crop', 'perspective',
   'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'animator', 'track', 'in', 'speed'
 ] as const;
 
@@ -467,7 +468,8 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
     // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
     ...(cut.crop || animated?.crop || cut.perspective || animated?.perspective
       || cut.motion?.in?.preset === 'wipe' || cut.motion?.out?.preset === 'wipe'
-      ? { layerStyle: { crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height } } }
+      ? { layerStyle: { crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height },
+          ...(finite(cut.crop?.rotate, 0) !== 0 ? { cropRotate: finite(cut.crop?.rotate, 0) } : {}) } }
       : {})
   };
 }
@@ -709,6 +711,7 @@ function resolvedCompositeLayers(
     const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const staticTransform = layer.transform ?? {};
     const visual = {
+      ...(finite(staticCrop.rotate, 0) !== 0 ? { cropRotate: finite(staticCrop.rotate, 0) } : {}),
       crop: animated?.crop ?? {
         x: clamp(finite(staticCrop.x, 0), 0, 1),
         y: clamp(finite(staticCrop.y, 0), 0, 1),
@@ -743,6 +746,7 @@ function resolvedCompositeLayers(
       id, visual,
       blend, opacity,
       ...(layer.flip ? { flip: layer.flip } : {}),
+      ...(layer.frame ? { frame: layer.frame } : {}),
       ...(adjustLut && !useRegions ? { adjustLut } : {}),
       ...(adjustLut && useRegions ? { baseAdjustLut: adjustLut } : {}),
       ...(adjustFx ? { adjustFx } : {})

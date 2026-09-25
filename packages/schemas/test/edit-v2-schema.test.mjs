@@ -11,6 +11,23 @@ const examplesRoot = join(packageRoot, "examples");
 const schema = JSON.parse(readFileSync(join(packageRoot, "edit.schema.json"), "utf8"));
 const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
 
+test('photo crop rotation and inside frame accept bounded values', () => {
+  const value = fixture('edit-v2-valid');
+  const item = value.tracks[3].items[0];
+  item.crop = { x: .1, y: .1, w: .8, h: .8, rotate: 5 };
+  item.frame = { stroke: { color: '#ff8040', width: 8 }, cornerRadius: 40 };
+  assert.equal(validate(value), true, JSON.stringify(validate.errors));
+  for (const bad of [
+    { crop: { ...item.crop, rotate: 46 } },
+    { frame: { stroke: { color: 'red', width: 8 } } },
+    { frame: { cornerRadius: 101 } },
+  ]) {
+    const rejected = structuredClone(value);
+    Object.assign(rejected.tracks[3].items[0], bad);
+    assert.equal(validate(rejected), false);
+  }
+});
+
 function fixture(name) {
   return JSON.parse(readFileSync(join(examplesRoot, name, "edit.json"), "utf8"));
 }

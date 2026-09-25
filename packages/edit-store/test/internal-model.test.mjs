@@ -156,6 +156,35 @@ test('v2 media mask resolves through sources and forces layers projection', () =
   assert.equal(projectLegacyEdit(internal).layers[0].mask, 'matte/person.mask.mp4');
 });
 
+test('photo crop rotation and frame reach the composited layer unchanged', () => {
+  const edit = base();
+  edit.sources[0].path = 'photo.png';
+  Object.assign(edit.tracks[0].items[0], {
+    crop: { x: .1, y: .1, w: .8, h: .8, rotate: 5 },
+    frame: { stroke: { color: '#ff8040', width: 8 }, cornerRadius: 40 },
+  });
+  const internal = readInternalEdit(edit);
+  assert.equal(internal.tracks[0].items[0].legacy.collection, 'layers');
+  const layer = projectLegacyEdit(internal).layers[0];
+  assert.deepEqual(layer.crop, edit.tracks[0].items[0].crop);
+  assert.deepEqual(layer.frame, edit.tracks[0].items[0].frame);
+  assert.deepEqual(JSON.parse(serializeEdit(edit)).tracks[0].items[0].frame, layer.frame);
+});
+
+test('eraser and flip alone keep still photos on the source-space layer path', () => {
+  for (const extra of [
+    { erase: [{ mode: 'erase', points: [[.2, .3]], size: .04, hardness: .8 }] },
+    { flip: { h: true } },
+    { crop: { x: .1, y: .1, w: .8, h: .8, rotate: 5 } },
+  ]) {
+    const edit = base();
+    edit.sources[0].path = 'photo.png';
+    Object.assign(edit.tracks[0].items[0], extra);
+    const internal = readInternalEdit(edit);
+    assert.equal(internal.tracks[0].items[0].legacy.collection, 'layers', JSON.stringify(extra));
+  }
+});
+
 test('readInternalEdit and readInternalSources reject legacy versions', () => {
   for (const version of [0, 1]) {
     assert.throws(() => readInternalEdit({ version }), LegacyEditVersionError);

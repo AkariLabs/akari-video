@@ -73,10 +73,10 @@ test('画像の辺は片軸伸縮、cut の辺は切り抜き、角と回転は�
     assert.match(edgeWiring, /beginMediaCropDrag\(target, edge\.element\.getAttribute\('data-akari-crop-edge'\), event\)/u);
     assert.equal((source.match(/const beginMediaCropDrag = /gu) || []).length, 1);
 
-    // ⛶ の 8 方向ハンドルも同じ 1 本へ入る（挙動は従来どおり）。
+    // ⛶ の 8 方向ハンドルも同じ 1 本へ入り、写真 cut と layer の両方を扱う。
     assert.match(
         source,
-        /for \(const handle of layerCropHandleElements\)[\s\S]*?beginMediaCropDrag\(\s*layerDragTarget\(entry\),/u
+        /for \(const handle of layerCropHandleElements\)[\s\S]*?const target = entry \? layerDragTarget\(entry\) : cutSelected \? cutDragTarget\(\) : null;[\s\S]*?beginMediaCropDrag\(\s*target,/u
     );
 
     // 角点 / 回転 / 移動の確定書き戻しも cut と layer で 1 本。
@@ -140,8 +140,9 @@ test('ドラッグ中だけゴースト枠を出すゲートは cropModeActive |
     assert.match(cropBox, /if \(target\.kind === 'layer'\) positionLayerCropToggle\(outer\);/u);
     // RAF throttle も同じゲート（layer / cut 両方）。
     assert.equal((source.match(/if \(cropModeActive \|\| edgeCropDragActive\) updateLayerCropBox\(\);/gu) || []).length, 2);
-    // setCropMode（⛶ の排他モード）は無変更で残す。
-    assert.match(source, /const setCropMode = active => \{\s*cropModeActive = !!\(active && selectedLayerId\);/u);
+    // 写真の下書き確定後も、従来の排他モードのゲートを保つ。
+    assert.match(source, /const setCropMode = active => \{[\s\S]*?cropModeActive = !!\(active && \(selectedLayerId \|\| cutSelected\)\);/u);
+    assert.match(source, /if \(cropModeActive && !selectedLayerId && !cutCropEditable\(\)\) cropModeActive = false;/u);
 });
 
 test('ズームのパン捕捉と frame-engine の pointerdown ガードは両 box を素通しする', () => {

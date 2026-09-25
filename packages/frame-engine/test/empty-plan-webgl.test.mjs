@@ -122,7 +122,7 @@ test('layer compositor path matches the source-space fx pass revision', () => {
   // r2 (不具合メモ 第10項) takes the layer geometry from compositionSourceSize（= ソースの論理寸法）
   // instead of the decoded texture size; width / height stay as the fx sampling size only.
   // Still-image masks bind an extra texture and flip uses the same source-space sample point.
-  assert.equal(sha256(section), 'b1a6a84a1a1a49026a8b689b166bd1b69677e3aaa1a6eccf358e8240b6fd3140');
+  assert.equal(sha256(section), 'd76ddf872097ec1ec569cdc4fc52c5829ed59393c9dbde2ed7ece5be918e8602');
 });
 
 test('FX program cache and pass dispatch match the compile-time specialization revision', () => {

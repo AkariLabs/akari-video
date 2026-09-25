@@ -135,17 +135,16 @@ export function barItems(state: ContextBarState): BarItem[] {
         ];
     }
     if (state.kind === 'photo') {
-        const soon = 'この道具は準備中です';
         return [
-            { key: 'edit', label: '編集', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'appearance' } },
+            { key: 'edit', label: '編集', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'edit-correction' } },
             SEP,
             { key: 'replace', label: '置き換え', kind: 'action', text: true },
-            { key: 'cutout', label: '背景透過', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-mask-generate' } },
-            { key: 'eraser', label: '消しゴム', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'appearance', fieldName: 'photo-brush-start' } },
+            { key: 'cutout', label: '背景透過', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'edit-correction', fieldName: 'photo-cutout-panel' } },
+            { key: 'eraser', label: '消しゴム', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'edit-correction', fieldName: 'photo-brush-start' } },
             { key: 'photoColor', label: '写真の色', kind: 'inspector', text: true, inspector: { tabId: 'adjust' } },
-            { key: 'border', label: '枠線', kind: 'inspector', text: true, disabled: true, title: soon },
-            { key: 'photoRadius', label: '角の丸み', kind: 'inspector', text: true, disabled: true, title: soon },
-            { key: 'crop', label: '切り抜き', kind: 'inspector', text: true, inspector: { tabId: 'video', sectionId: 'crop' } },
+            { key: 'border', label: '枠線', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'edit-correction', fieldName: 'photo-frame-width' } },
+            { key: 'photoRadius', label: '角の丸み', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'edit-correction', fieldName: 'photo-frame-radius' } },
+            { key: 'crop', label: '切り抜き', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'edit-correction', fieldName: 'photo-crop-open' } },
             { key: 'flip', label: '反転', kind: 'window', text: true },
             ...common(true)
         ];

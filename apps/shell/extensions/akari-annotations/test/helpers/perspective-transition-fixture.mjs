@@ -21,7 +21,7 @@ const ast = ts.createSourceFile('inspector.ts', inspectorSource, ts.ScriptTarget
 const names = [
     'PERSPECTIVE_FIELDS', 'cutTransitionFields', 'CROP_FIELDS', 'cutFramingFields', 'cutFreezeFields',
     'LAYER_SECTIONS', 'TREE_ITEM_SECTIONS', 'CUT_SECTIONS', 'OVERLAY_SECTIONS', 'MASK_FIELDS', 'PHOTO_FLIP_FIELDS', 'MOTION_FIELDS', 'ANIMATOR_SECTION',
-    'MOTION_SUMMARY_SECTION', 'MOTION_EMPTY_SECTION',
+    'PHOTO_FRAME_FIELDS', 'PHOTO_CROP_OPEN_FIELD', 'MOTION_SUMMARY_SECTION', 'MOTION_EMPTY_SECTION',
     'formatTimestamp', 'formatDurationSeconds', 'withDefaultNumber', 'formatDecimal1', 'orDash'
 ];
 const declarations = names.map(name => {

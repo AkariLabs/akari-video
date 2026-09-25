@@ -1,0 +1,495 @@
+{
+  "tag": "r1f",
+  "steps": [
+    {
+      "name": "open-timeline",
+      "annotations": "[object Object]"
+    },
+    {
+      "name": "open-inspector",
+      "inspector": "[object Object]"
+    },
+    {
+      "0": "プレビュー未対応: プレビューは近似・最終音声は書き出しで確認",
+      "1": "ⓘ 未対応 1",
+      "name": "indicator"
+    },
+    {
+      "name": "stage",
+      "box": {
+        "x": 511.109375,
+        "y": 55,
+        "width": 336.375,
+        "height": 598
+      }
+    },
+    {
+      "name": "dblclick",
+      "active": true,
+      "photoCropBox": true,
+      "ratio": "free",
+      "rotate": "0",
+      "status": "",
+      "labels": [
+        "縦横比 自由元の比1:14:55:43:44:39:1616:9",
+        "回転 °",
+        "自動水平",
+        "スマート切り抜き",
+        "拡張（近日）",
+        "確定",
+        "取り消し"
+      ],
+      "ratioOptions": [
+        "自由",
+        "元の比",
+        "1:1",
+        "4:5",
+        "5:4",
+        "3:4",
+        "4:3",
+        "9:16",
+        "16:9"
+      ],
+      "dataset": {
+        "x": "0",
+        "y": "0",
+        "w": "1",
+        "h": "1",
+        "rotate": "0"
+      },
+      "ghost": {
+        "display": "block",
+        "opacity": "0.25",
+        "w": 538.1953125,
+        "h": 302.734375
+      }
+    },
+    {
+      "name": "ratio-9-16",
+      "active": true,
+      "photoCropBox": true,
+      "ratio": "9:16",
+      "rotate": "0",
+      "status": "",
+      "labels": [
+        "縦横比 自由元の比1:14:55:43:44:39:1616:9",
+        "回転 °",
+        "自動水平",
+        "スマート切り抜き",
+        "拡張（近日）",
+        "確定",
+        "取り消し"
+      ],
+      "ratioOptions": [
+        "自由",
+        "元の比",
+        "1:1",
+        "4:5",
+        "5:4",
+        "3:4",
+        "4:3",
+        "9:16",
+        "16:9"
+      ],
+      "dataset": {
+        "x": "0.341796875",
+        "y": "0",
+        "w": "0.31640625",
+        "h": "1",
+        "rotate": "0"
+      },
+      "ghost": {
+        "display": "block",
+        "opacity": "0.25",
+        "w": 538.1953125,
+        "h": 302.734375
+      }
+    },
+    {
+      "name": "edge-handle",
+      "handle": {
+        "x": 412.6484375,
+        "y": 314.9921875,
+        "visible": true,
+        "pe": "auto"
+      }
+    },
+    {
+      "name": "edge-drag",
+      "active": true,
+      "photoCropBox": true,
+      "ratio": "9:16",
+      "rotate": "0",
+      "status": "",
+      "labels": [
+        "縦横比 自由元の比1:14:55:43:44:39:1616:9",
+        "回転 °",
+        "自動水平",
+        "スマート切り抜き",
+        "拡張（近日）",
+        "確定",
+        "取り消し"
+      ],
+      "ratioOptions": [
+        "自由",
+        "元の比",
+        "1:1",
+        "4:5",
+        "5:4",
+        "3:4",
+        "4:3",
+        "9:16",
+        "16:9"
+      ],
+      "dataset": {
+        "x": "0.341796875",
+        "y": "0",
+        "w": "0.167769155286139",
+        "h": "0.5302333796697727",
+        "rotate": "0"
+      },
+      "ghost": {
+        "display": "block",
+        "opacity": "0.25",
+        "w": 538.1953125,
+        "h": 302.734375
+      }
+    },
+    {
+      "name": "rotate-focus",
+      "hasFocus": true,
+      "active": "<input data-photo-crop-rotate=\"\" type=\"number\" min=\"-45\" max=\"45\" step=\"0.1\" value=\"0\" style=\"\">"
+    },
+    {
+      "name": "rotate-typed",
+      "hasFocus": true,
+      "value": "5",
+      "active": "<input data-photo-crop-rotate=\"\" type=\"number\" min=\"-45\" max=\"45\" step=\"0.1\" val"
+    },
+    {
+      "name": "rotate-5",
+      "active": true,
+      "photoCropBox": true,
+      "ratio": "9:16",
+      "rotate": "5",
+      "status": "",
+      "labels": [
+        "縦横比 自由元の比1:14:55:43:44:39:1616:9",
+        "回転 °",
+        "自動水平",
+        "スマート切り抜き",
+        "拡張（近日）",
+        "確定",
+        "取り消し"
+      ],
+      "ratioOptions": [
+        "自由",
+        "元の比",
+        "1:1",
+        "4:5",
+        "5:4",
+        "3:4",
+        "4:3",
+        "9:16",
+        "16:9"
+      ],
+      "dataset": {
+        "x": "0.341796875",
+        "y": "0.011988524589026245",
+        "w": "0.167769155286139",
+        "h": "0.5302333796697727",
+        "rotate": "5"
+      },
+      "ghost": {
+        "display": "block",
+        "opacity": "0.25",
+        "w": 538.1953125,
+        "h": 302.734375
+      }
+    },
+    {
+      "name": "edit-before-confirm-unchanged",
+      "unchanged": true
+    },
+    {
+      "name": "confirm-enter",
+      "crop": {
+        "x": 0.341796875,
+        "y": 0.011988524589026245,
+        "w": 0.167769155286139,
+        "h": 0.5302333796697727,
+        "rotate": 5
+      },
+      "transform": {
+        "x": -128.4224498327759,
+        "y": -228.3065774804905,
+        "scale": 0.9,
+        "rotate": 0
+      },
+      "aspectPx": 0.5625,
+      "historyDelta": 3,
+      "modeAfter": {
+        "active": false,
+        "photoCropBox": false,
+        "ratio": "9:16",
+        "rotate": "5",
+        "status": "",
+        "labels": [
+          "縦横比 自由元の比1:14:55:43:44:39:1616:9",
+          "回転 °",
+          "自動水平",
+          "スマート切り抜き",
+          "拡張（近日）",
+          "確定",
+          "取り消し"
+        ],
+        "ratioOptions": [
+          "自由",
+          "元の比",
+          "1:1",
+          "4:5",
+          "5:4",
+          "3:4",
+          "4:3",
+          "9:16",
+          "16:9"
+        ],
+        "dataset": {
+          "x": "0.341796875",
+          "y": "0.011988524589026245",
+          "w": "0.167769155286139",
+          "h": "0.5302333796697727",
+          "rotate": "0"
+        },
+        "ghost": {
+          "display": "none",
+          "opacity": "0.25",
+          "w": 0,
+          "h": 0
+        }
+      }
+    },
+    {
+      "name": "undo-redo",
+      "undoClick": "ok",
+      "undoRestoresOriginal": true,
+      "redoClick": "ok",
+      "redoRestoresCrop": true
+    },
+    {
+      "name": "after-redo-preview-state",
+      "dataset": {
+        "x": "0.341796875",
+        "w": "0.167769155286139",
+        "rotate": "0"
+      },
+      "summaryCrop": {
+        "x": 0.341796875,
+        "y": 0.011988524589026245,
+        "w": 0.167769155286139,
+        "h": 0.5302333796697727
+      },
+      "summaryFrame": null,
+      "tag": "IMG"
+    },
+    {
+      "name": "smart-crop",
+      "entry": true,
+      "smartClick": true,
+      "state": {
+        "active": true,
+        "photoCropBox": true,
+        "ratio": "free",
+        "rotate": "0",
+        "status": "主役を三分割に合わせました",
+        "labels": [
+          "縦横比 自由元の比1:14:55:43:44:39:1616:9",
+          "回転 °",
+          "自動水平",
+          "スマート切り抜き",
+          "拡張（近日）",
+          "確定",
+          "取り消し"
+        ],
+        "ratioOptions": [
+          "自由",
+          "元の比",
+          "1:1",
+          "4:5",
+          "5:4",
+          "3:4",
+          "4:3",
+          "9:16",
+          "16:9"
+        ],
+        "dataset": {
+          "x": "0.4763496972571575",
+          "y": "0",
+          "w": "0.167769155286139",
+          "h": "0.5302333796697727",
+          "rotate": "0"
+        },
+        "ghost": {
+          "display": "block",
+          "opacity": "0.25",
+          "w": 538.1953125,
+          "h": 302.734375
+        }
+      }
+    },
+    {
+      "name": "focus-before-esc",
+      "hasFocus": true,
+      "active": "<body class=\"vscode-dark\" data-vscode-theme-kind=\"vscode-dark\" data-vscode-theme-name=\"Dark (Theia)\""
+    },
+    {
+      "name": "esc-cancel",
+      "unchanged": true,
+      "modeAfter": false,
+      "datasetAfter": {
+        "x": "0.341796875",
+        "y": "0.011988524589026245",
+        "w": "0.167769155286139",
+        "h": "0.5302333796697727",
+        "rotate": "0"
+      }
+    },
+    {
+      "name": "auto-level",
+      "state": {
+        "active": true,
+        "photoCropBox": true,
+        "ratio": "free",
+        "rotate": "0",
+        "status": "水平を見つけられませんでした",
+        "labels": [
+          "縦横比 自由元の比1:14:55:43:44:39:1616:9",
+          "回転 °",
+          "自動水平",
+          "スマート切り抜き",
+          "拡張（近日）",
+          "確定",
+          "取り消し"
+        ],
+        "ratioOptions": [
+          "自由",
+          "元の比",
+          "1:1",
+          "4:5",
+          "5:4",
+          "3:4",
+          "4:3",
+          "9:16",
+          "16:9"
+        ],
+        "dataset": {
+          "x": "0.341796875",
+          "y": "0.011988524589026191",
+          "w": "0.167769155286139",
+          "h": "0.5302333796697727",
+          "rotate": "0"
+        },
+        "ghost": {
+          "display": "block",
+          "opacity": "0.25",
+          "w": 538.1953125,
+          "h": 302.734375
+        }
+      }
+    },
+    {
+      "name": "inspector-frame",
+      "fields": [
+        {
+          "field": "photo-flip-h",
+          "text": "左右反転するしない"
+        },
+        {
+          "field": "photo-flip-v",
+          "text": "上下反転するしない"
+        },
+        {
+          "field": "photo-crop-open",
+          "text": "切り抜き切り抜き"
+        },
+        {
+          "field": "photo-mask-generate",
+          "text": "背景背景を消す（この Mac で）"
+        },
+        {
+          "field": "photo-mask-remove",
+          "text": "マスクマスクを外す"
+        },
+        {
+          "field": "photo-brush-mode",
+          "text": "消しゴム消す戻す"
+        },
+        {
+          "field": "photo-brush-size",
+          "text": "大きさ%"
+        },
+        {
+          "field": "photo-brush-hardness",
+          "text": "硬さ%"
+        },
+        {
+          "field": "photo-brush-start",
+          "text": "消しゴム消しゴム"
+        },
+        {
+          "field": "photo-frame-width",
+          "text": "枠線の太さpx"
+        },
+        {
+          "field": "photo-frame-color",
+          "text": "枠線の色"
+        },
+        {
+          "field": "photo-frame-radius",
+          "text": "角の丸み%"
+        }
+      ],
+      "widthWrite": true,
+      "radiusWrite": true,
+      "frame": {
+        "stroke": {
+          "color": "#ffffff",
+          "width": 8
+        },
+        "cornerRadius": 40
+      }
+    },
+    {
+      "name": "export-gpu",
+      "code": 0,
+      "signal": null,
+      "stderr": "akari-gpu-export: --audio 未指定のため映像のみで書き出します（音声トラックなし）。音声を付けるには --audio <path> を指定してください\n[OpenH264] this = 0x0x11c02692820, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[gpu-renderer] WARN WebCodecs の quantizer レート制御が使えないため固定ビットレート（12000000bps）へ切り替えました（quality=high codec=h264 reason=quantizer-config-unsupported）\n[OpenH264] this = 0x0x11c00f62430, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n[49424:0925/191140.890907:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c4e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[49424:0925/191143.772352:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c7800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[49424:0925/191143.779864:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c4e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[OpenH264] this = 0x0x11c00f62430, Warning:CWelsH264SVCEncoder::Initialize(), reinitialize, m_bInitialFlag= 1.\n[49424:0925/191143.821139:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c4e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n[OpenH264] this = 0x0x11c00f62430, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.\n"
+    },
+    {
+      "name": "frame-gpu",
+      "code": 0,
+      "signal": null,
+      "stderr": ""
+    },
+    {
+      "name": "export-osr",
+      "code": 0,
+      "signal": null,
+      "stderr": "[52528:0925/191311.734298:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c7800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52528:0925/191313.239959:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c7800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52528:0925/191313.600315:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c7800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels\n[52528:0925/191313.916081:ERROR:gpu/command_buffer/service/gl_utils.cc:389] [.WebGL-0x11c004c7800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)\n"
+    },
+    {
+      "name": "frame-osr",
+      "code": 0,
+      "signal": null,
+      "stderr": ""
+    }
+  ],
+  "errors": [],
+  "electronPreflight": {
+    "code": 0,
+    "signal": null,
+    "stderr": ""
+  },
+  "runtimeMessages": [],
+  "electronStderr": "/.akari/cache/preview-audio/.f71249809b119be6ffd172dbff58898ed44a3276.flac.47468.1790331056526.tmp.flac. Error opening output files: Invalid argument\n2026-09-25T10:11:28.066Z root WARN [akari-preview] speech sidecar bg-item-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <scratch>/workspace/.akari/cache/preview-audio/.f71249809b119be6ffd172dbff58898ed44a3276.flac.47468.1790331056526.tmp.flac. Error opening output files: Invalid argument\n2026-09-25T10:11:28.658Z root WARN [akari-preview] speech sidecar bg-item-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <scratch>/workspace/.akari/cache/preview-audio/.f71249809b119be6ffd172dbff58898ed44a3276.flac.47468.1790331056526.tmp.flac. Error opening output files: Invalid argument\n2026-09-25T10:11:31.895Z root WARN [akari-preview] speech sidecar bg-item-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <scratch>/workspace/.akari/cache/preview-audio/.f71249809b119be6ffd172dbff58898ed44a3276.flac.47468.1790331056526.tmp.flac. Error opening output files: Invalid argument\n"
+}

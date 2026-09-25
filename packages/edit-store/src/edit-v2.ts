@@ -32,6 +32,7 @@ export interface CropV2 {
     y: number;
     w: number;
     h: number;
+    rotate?: number;
     [key: string]: unknown;
 }
 
@@ -272,6 +273,7 @@ export type MediaItemV2 = ItemV2Base & {
     regions?: PhotoRegionV1[];
     erase?: PhotoEraseStrokeV2[];
     flip?: { h?: boolean; v?: boolean };
+    frame?: { stroke?: { color: string; width: number }; cornerRadius?: number };
 };
 
 export interface PhotoRegionV1 {
@@ -429,7 +431,7 @@ const BLEND_MODES = new Set<BlendModeV2>([
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
-    'motion', 'animator', 'keyframes', 'items', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'source', 'audio', 'anchor'
+    'motion', 'animator', 'keyframes', 'items', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'source', 'audio', 'anchor'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
@@ -504,6 +506,7 @@ function cloneItem<T extends ItemV2 | AudioMediaItemV2>(item: T): T {
         ...item,
         ...('erase' in item && item.erase ? { erase: structuredClone(item.erase) } : {}),
         ...('flip' in item && item.flip ? { flip: { ...item.flip } } : {}),
+        ...('frame' in item && item.frame ? { frame: structuredClone(item.frame) } : {}),
         source: { ...item.source },
         ...('items' in item && Array.isArray(item.items)
             ? { items: item.items.map(child => cloneItem(child)) } : {})
@@ -696,6 +699,7 @@ function validateItem(
         throw invalid(`${path}.blend`, '未対応の blend mode です');
     }
     if (hasOwn(value, 'crop')) validateCrop(value.crop, `${path}.crop`);
+    if (hasOwn(value, 'frame')) validatePhotoFrame(value.frame, `${path}.frame`, value.source);
     if (hasOwn(value, 'adjust')) validateAdjust(value.adjust, `${path}.adjust`);
     if (hasOwn(value, 'perspective')) requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'motion')) validateMotion(value.motion, `${path}.motion`);
@@ -953,6 +957,24 @@ function validateCrop(value: unknown, path: string): asserts value is CropV2 {
     for (const key of ['w', 'h']) {
         requireRange(value[key], 0, 1, `${path}.${key}`);
         if (value[key] === 0) throw invalid(`${path}.${key}`, '0 より大きい必要があります');
+    }
+    if (hasOwn(value, 'rotate')) requireRange(value.rotate, -45, 45, `${path}.rotate`);
+}
+
+function validatePhotoFrame(value: unknown, path: string, source: unknown): void {
+    if (!source || typeof source !== 'object' || (source as { kind?: string }).kind !== 'media') {
+        throw invalid(path, 'media item だけが指定できます');
+    }
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['stroke', 'cornerRadius']), path);
+    if (hasOwn(value, 'cornerRadius')) requireRange(value.cornerRadius, 0, 100, `${path}.cornerRadius`);
+    if (hasOwn(value, 'stroke')) {
+        requireRecord(value.stroke, `${path}.stroke`);
+        requireExactKeys(value.stroke, new Set(['color', 'width']), `${path}.stroke`);
+        if (typeof value.stroke.color !== 'string' || !/^#[0-9a-fA-F]{6}$/u.test(value.stroke.color)) {
+            throw invalid(`${path}.stroke.color`, '#RRGGBB である必要があります');
+        }
+        requireRange(value.stroke.width, 0, 100, `${path}.stroke.width`);
     }
 }
 

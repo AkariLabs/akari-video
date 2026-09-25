@@ -7,6 +7,7 @@ import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
     normalizeLayerCropForSummary,
+    normalizePhotoFrameForSummary,
     normalizeChromaKeyForSummary,
     normalizeLayerKeyframesForSummary,
     normalizeLayerPerspectiveForSummary
@@ -15,6 +16,33 @@ import {
 const { TRANSITION_TYPE_IDS } = createRequire(import.meta.url)(
     '../../../../../packages/edit-store/lib/index.js'
 );
+const { readInternalEdit, projectLegacyEdit } = createRequire(import.meta.url)(
+    '../../../../../packages/edit-store/lib/index.js'
+);
+
+test('edit.json photo crop rotation and frame survive the internal projection and preview summary', () => {
+    const edit = { version: 2, output: { width: 1080, height: 1920, fps: 30 },
+        sources: [{ id: 'photo', path: 'assets/photo.png' }],
+        tracks: [{ id: 'visual', lane: 'visual', items: [{ id: 'photo-1', at: 0, duration: 60,
+            source: { kind: 'media', src: 'photo', in: 0, out: 2 },
+            crop: { x: .3418, y: .012, w: .1678, h: .5302, rotate: 5 },
+            frame: { stroke: { color: '#ffffff', width: 8 }, cornerRadius: 40 } }] }] };
+    const legacy = projectLegacyEdit(readInternalEdit(edit));
+    const layer = legacy.layers.find(item => item.id === 'photo-1');
+    assert.ok(layer);
+    const summary = buildLayerSummaryBase(layer, 'photo', identityTransform,
+        new Map([['normal', 'normal']]), noopWarn);
+    assert.equal(summary.base.crop.rotate, 5);
+    assert.deepEqual(summary.base.frame, edit.tracks[0].items[0].frame);
+});
+
+test('photo summary keeps valid rotation and frame, and rejects invalid declarations', () => {
+    assert.equal(normalizeLayerCropForSummary({ x: 0, y: 0, w: 1, h: 1, rotate: 5 }).rotate, 5);
+    assert.equal(normalizeLayerCropForSummary({ x: 0, y: 0, w: 1, h: 1, rotate: 46 }), undefined);
+    assert.deepEqual(normalizePhotoFrameForSummary({ stroke: { color: '#ffffff', width: 8 }, cornerRadius: 40 }),
+        { stroke: { color: '#ffffff', width: 8 }, cornerRadius: 40 });
+    assert.equal(normalizePhotoFrameForSummary({ stroke: { color: 'white', width: 8 } }), undefined);
+});
 
 test('chroma_key defaults and explicit background survive the edit-to-summary boundary', () => {
     assert.deepEqual(normalizeChromaKeyForSummary({ color: '0x00FF00', background: '#1020ff' }), {

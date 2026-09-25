@@ -43,6 +43,22 @@ test("v2 clip adjust v0 example passes", () => {
   assert.match(executed.stdout, /^OK: /);
 });
 
+test('v2 photo crop rotation and frame are checked by the standalone validator', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'akari-photo-frame-schema-'));
+  const value = JSON.parse(readFileSync(join(exampleRoot, 'edit-v2-valid', 'edit.json'), 'utf8'));
+  const item = value.tracks[3].items[0];
+  item.crop = { x: .1, y: .1, w: .8, h: .8, rotate: 5 };
+  item.frame = { stroke: { color: '#ffffff', width: 8 }, cornerRadius: 40 };
+  const path = join(directory, 'edit.json');
+  const check = () => { writeFileSync(path, JSON.stringify(value)); return spawnSync(process.execPath, [cliPath, path], { encoding: 'utf8' }); };
+  assert.equal(check().status, 0);
+  item.crop.rotate = 46;
+  assert.match(check().stderr, /crop.rotate/);
+  item.crop.rotate = 5;
+  item.frame.cornerRadius = 101;
+  assert.match(check().stderr, /frame.cornerRadius/);
+});
+
 for (const [name, expected] of [
   ["edit-v2-adjust-range-invalid", /adjust\.basic\.exposure は -3 から 3/u],
   ["edit-v2-adjust-unknown-key-invalid", /adjust\.basic に未知のキーがあります: gamma/u],
