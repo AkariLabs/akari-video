@@ -1,0 +1,2 @@
+WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）
+PASS: exports/export.mp4

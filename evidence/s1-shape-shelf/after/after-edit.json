@@ -1,0 +1,160 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "src-1",
+      "path": "assets/bg.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "bg",
+          "at": 0,
+          "duration": 600,
+          "source": {
+            "kind": "media",
+            "src": "src-1",
+            "in": 0,
+            "out": 20
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "shape-1",
+          "at": 30,
+          "duration": 150,
+          "transform": {
+            "x": 140,
+            "y": 651.5
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "path",
+            "params": {
+              "fill": "#a6a6a6",
+              "stroke": "none",
+              "strokeWidth": 0,
+              "preset": "heart-heart",
+              "path": {
+                "d": "M50 85.88C21.39 65.45 3 48.08 3 27.64C3 13.34 14.24 3.12 27.52 3.12C37.74 3.12 45.91 9.25 50 18.45C54.09 9.25 62.26 3.12 72.48 3.12C85.76 3.12 97 13.34 97 27.64C97 48.08 78.61 65.45 50 85.88Z",
+                "vb": [
+                  100,
+                  89
+                ]
+              },
+              "width": 360,
+              "height": 317
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "shape-2",
+          "at": 30,
+          "duration": 150,
+          "transform": {
+            "x": 780,
+            "y": 504
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "line",
+            "params": {
+              "fill": "none",
+              "stroke": "#000000",
+              "strokeWidth": 4,
+              "dash": "dash",
+              "startCap": "triangle",
+              "endCap": "triangle",
+              "lineCap": "butt",
+              "startCapFilled": true,
+              "endCapFilled": true,
+              "preset": "line-dash-tri-tri",
+              "width": 360,
+              "height": 72
+            }
+          }
+        },
+        {
+          "id": "shape-3",
+          "at": 197,
+          "duration": 150,
+          "transform": {
+            "x": 780,
+            "y": 381.5
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "path",
+            "params": {
+              "fill": "#a6a6a6",
+              "stroke": "none",
+              "strokeWidth": 0,
+              "preset": "heart-heart",
+              "path": {
+                "d": "M50 85.88C21.39 65.45 3 48.08 3 27.64C3 13.34 14.24 3.12 27.52 3.12C37.74 3.12 45.91 9.25 50 18.45C54.09 9.25 62.26 3.12 72.48 3.12C85.76 3.12 97 13.34 97 27.64C97 48.08 78.61 65.45 50 85.88Z",
+                "vb": [
+                  100,
+                  89
+                ]
+              },
+              "width": 360,
+              "height": 317
+            }
+          }
+        },
+        {
+          "id": "shape-4",
+          "at": 360,
+          "duration": 150,
+          "transform": {
+            "x": 780,
+            "y": 360
+          },
+          "source": {
+            "kind": "shape",
+            "shape": "bubble",
+            "params": {
+              "fill": "#ffffff",
+              "stroke": "#000000",
+              "strokeWidth": 5,
+              "style": "jagged",
+              "count": 22,
+              "depth": 42,
+              "jitter": 25,
+              "seed": 3,
+              "tail": "point",
+              "tailAngle": 215,
+              "tailLength": 40,
+              "tailWidth": 26,
+              "tailCurve": 0,
+              "dash": "solid",
+              "preset": "manga-shout",
+              "width": 360,
+              "height": 360
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

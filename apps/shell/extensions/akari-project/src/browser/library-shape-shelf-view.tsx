@@ -29,11 +29,13 @@ const CSS = `
 [data-akari-shape-nav="next"] { right:-4px; }
 [data-akari-shape-row]:hover [data-akari-shape-nav][data-enabled="true"],
 [data-akari-shape-nav][data-enabled="true"]:focus-visible { opacity:.96; pointer-events:auto; }
-[data-akari-shape-show-all] { padding:0; border:none; background:transparent; cursor:pointer; font-size:0.72em; color:var(--akari-muted, inherit); }
+[data-akari-shape-show-all] { flex:0 0 auto; white-space:nowrap; padding:0; border:none; background:transparent; cursor:pointer; font-size:0.72em; color:var(--akari-muted, inherit); }
 [data-akari-shape-show-all]:hover { color:var(--akari-ink, inherit); text-decoration:underline; }
 @media (prefers-reduced-motion: reduce) { [data-akari-shape-track] { scroll-behavior:auto; } [data-akari-shape-nav] { transition:none; } }
 `;
 
+// FAB の上端（下端から 100px）+ 10px。preset-showcase の presetShowcaseBottomPadding と同じ値。
+const SHELF_BOTTOM_PADDING = 100 + 10;
 const TILE = 62;
 const TILE_SVG = 50;
 const LINE_TILE = 84;
@@ -186,7 +188,7 @@ function ShapeRow(props: { row: ShapeShelfRow } & Pick<LibraryShapeShelfProps, '
     return (
         <section data-akari-shape-row={row.key} data-akari-shape-row-total={row.total} style={{ paddingTop: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', padding: '0 2px 4px' }}>
-                <strong style={{ fontSize: '0.8em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</strong>
+                <strong title={row.label} style={{ fontSize: '0.8em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</strong>
                 <button type='button' data-akari-shape-show-all={row.key}
                     onClick={event => { event.stopPropagation(); props.onShowAll(row.key); }}>すべて表示</button>
             </div>
@@ -251,14 +253,15 @@ export function LibraryShapeShelf(props: LibraryShapeShelfProps): React.ReactEle
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                     <button type='button' data-akari-library-back={inside ? undefined : true} data-akari-shape-back={inside ? true : undefined}
                         onClick={event => { event.stopPropagation(); if (inside) props.onShowAll(undefined); else props.onBack(); }}
-                        style={{ padding: 0, border: 'none', background: 'transparent', color: 'var(--theia-textLink-foreground)', cursor: 'pointer', fontSize: '0.8em' }}>
+                        style={{ flex: '0 0 auto', whiteSpace: 'nowrap', padding: 0, border: 'none', background: 'transparent', color: 'var(--theia-textLink-foreground)', cursor: 'pointer', fontSize: '0.8em' }}>
                         {inside ? '← 図形' : '← ライブラリ'}
                     </button>
                     <strong style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.86em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</strong>
                     <span data-akari-library-category-count={count} style={{ opacity: 0.6, fontSize: '0.72em' }}>{count}</span>
                 </div>
             </div>
-            <div style={{ padding: '0 10px 14px' }}>{body}</div>
+            {/* 下はライブラリの「追加」ボタン（FAB・高さ 42px・下端から 58px）の分だけ空け、最後の行を FAB の上まで送れるようにする */}
+            <div style={{ padding: `0 10px ${SHELF_BOTTOM_PADDING}px` }}>{body}</div>
         </div>
     );
 }

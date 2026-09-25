@@ -1,0 +1,588 @@
+{
+  "label": "after",
+  "port": 9553,
+  "steps": {
+    "openTimeline": {
+      "ok": true,
+      "value": "[aMn]"
+    },
+    "openLibrary": {
+      "ok": true,
+      "value": true
+    },
+    "tile": {
+      "disabled": false,
+      "soon": null,
+      "title": "図形 — 棚から選ぶ"
+    },
+    "shelf": {
+      "rows": [
+        {
+          "key": "line",
+          "label": "ライン",
+          "tiles": 15,
+          "total": 45,
+          "showAll": true
+        },
+        {
+          "key": "basic",
+          "label": "基本の図形",
+          "tiles": 14,
+          "total": 15,
+          "showAll": true
+        },
+        {
+          "key": "polygon",
+          "label": "多角形",
+          "tiles": 9,
+          "total": 9,
+          "showAll": true
+        },
+        {
+          "key": "star",
+          "label": "スター",
+          "tiles": 12,
+          "total": 12,
+          "showAll": true
+        },
+        {
+          "key": "arrow",
+          "label": "矢印",
+          "tiles": 14,
+          "total": 17,
+          "showAll": true
+        },
+        {
+          "key": "flow",
+          "label": "フローチャート",
+          "tiles": 14,
+          "total": 16,
+          "showAll": true
+        },
+        {
+          "key": "bubble",
+          "label": "吹き出し",
+          "tiles": 10,
+          "total": 10,
+          "showAll": true
+        },
+        {
+          "key": "cloud",
+          "label": "雲",
+          "tiles": 6,
+          "total": 6,
+          "showAll": true
+        },
+        {
+          "key": "heart",
+          "label": "ハート",
+          "tiles": 12,
+          "total": 12,
+          "showAll": true
+        },
+        {
+          "key": "banner",
+          "label": "横断幕・垂れ幕",
+          "tiles": 9,
+          "total": 9,
+          "showAll": true
+        },
+        {
+          "key": "drop",
+          "label": "雫",
+          "tiles": 4,
+          "total": 4,
+          "showAll": true
+        },
+        {
+          "key": "gear",
+          "label": "歯車",
+          "tiles": 8,
+          "total": 8,
+          "showAll": true
+        },
+        {
+          "key": "asterisk",
+          "label": "四角い星・アスタリスク",
+          "tiles": 8,
+          "total": 8,
+          "showAll": true
+        },
+        {
+          "key": "organic",
+          "label": "有機的",
+          "tiles": 14,
+          "total": 37,
+          "showAll": true
+        },
+        {
+          "key": "wave",
+          "label": "波線",
+          "tiles": 6,
+          "total": 6,
+          "showAll": true
+        },
+        {
+          "key": "abstract",
+          "label": "抽象的",
+          "tiles": 14,
+          "total": 50,
+          "showAll": true
+        },
+        {
+          "key": "manga",
+          "label": "漫画の吹き出し",
+          "tiles": 12,
+          "total": 12,
+          "showAll": true
+        }
+      ],
+      "tileTextChars": 0,
+      "tileTitlesSample": [
+        "実線・なし・なし",
+        "破線・なし・なし",
+        "点線・なし・なし"
+      ]
+    },
+    "shelfDarkColor": {
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "scheme": "dark",
+      "panelBackground": "rgba(0, 0, 0, 0)"
+    },
+    "slide": {
+      "scrollBefore": 0,
+      "nextOpacityOnHover": "0.96",
+      "scrollAfterNext": 189.5,
+      "starRowScrollAfterWheel": 160
+    },
+    "lightApplied": true,
+    "shelfLightColor": {
+      "color": "rgb(0, 0, 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "scheme": "light",
+      "panelBackground": "rgba(0, 0, 0, 0)"
+    },
+    "darkRestored": true,
+    "seekStar": {
+      "ok": true,
+      "value": null
+    },
+    "star": {
+      "id": "shape-1",
+      "track": "v2",
+      "at": 30,
+      "duration": 150,
+      "transform": {
+        "x": 780,
+        "y": 369
+      },
+      "shape": "path",
+      "preset": "star-5",
+      "width": 360,
+      "height": 342,
+      "fill": "#a6a6a6",
+      "stroke": "none",
+      "strokeWidth": 0,
+      "center": {
+        "x": 960,
+        "y": 540
+      }
+    },
+    "starPreview": {
+      "stage": {
+        "x": 36,
+        "y": 82.90625,
+        "width": 539,
+        "height": 303.1875
+      },
+      "items": {
+        "shape-1": {
+          "mounted": true,
+          "visible": true,
+          "output": {
+            "x": 780,
+            "y": 369,
+            "width": 360,
+            "height": 342,
+            "centerX": 960,
+            "centerY": 540
+          },
+          "fillAttr": "#a6a6a6",
+          "strokeAttr": null
+        }
+      }
+    },
+    "starSelected": {
+      "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target akari-annotations-selected",
+      "selected": true
+    },
+    "undo": {
+      "ok": true,
+      "value": null
+    },
+    "starAfterUndo": {
+      "gone": true,
+      "count": 0
+    },
+    "starPreviewAfterUndo": {
+      "stage": {
+        "x": 36,
+        "y": 82.90625,
+        "width": 539,
+        "height": 303.1875
+      },
+      "items": {
+        "shape-1": {
+          "mounted": false,
+          "visible": false
+        }
+      }
+    },
+    "heartCommand": {
+      "ok": true,
+      "value": "shape-1"
+    },
+    "heart": {
+      "id": "shape-1",
+      "track": "v2",
+      "at": 30,
+      "duration": 150,
+      "transform": {
+        "x": 140,
+        "y": 651.5
+      },
+      "shape": "path",
+      "preset": "heart-heart",
+      "width": 360,
+      "height": 317,
+      "fill": "#a6a6a6",
+      "stroke": "none",
+      "strokeWidth": 0,
+      "center": {
+        "x": 320,
+        "y": 810
+      }
+    },
+    "heartPreview": {
+      "stage": {
+        "x": 36,
+        "y": 82.90625,
+        "width": 539,
+        "height": 303.1875
+      },
+      "items": {
+        "shape-1": {
+          "mounted": true,
+          "visible": true,
+          "output": {
+            "x": 140,
+            "y": 651.5,
+            "width": 360,
+            "height": 317,
+            "centerX": 320,
+            "centerY": 810
+          },
+          "fillAttr": "#a6a6a6",
+          "strokeAttr": null
+        }
+      }
+    },
+    "linesAll": {
+      "tiles": 45,
+      "title": "ライン"
+    },
+    "line": {
+      "id": "shape-2",
+      "track": "v3",
+      "at": 30,
+      "duration": 150,
+      "transform": {
+        "x": 780,
+        "y": 504
+      },
+      "shape": "line",
+      "preset": "line-dash-tri-tri",
+      "width": 360,
+      "height": 72,
+      "fill": "none",
+      "stroke": "#000000",
+      "strokeWidth": 4,
+      "dash": "dash",
+      "startCap": "triangle",
+      "endCap": "triangle",
+      "center": {
+        "x": 960,
+        "y": 540
+      }
+    },
+    "linePreview": {
+      "stage": {
+        "x": 36,
+        "y": 82.90625,
+        "width": 539,
+        "height": 303.1875
+      },
+      "items": {
+        "shape-2": {
+          "mounted": true,
+          "visible": true,
+          "output": {
+            "x": 780,
+            "y": 504,
+            "width": 360,
+            "height": 72,
+            "centerX": 960,
+            "centerY": 540
+          },
+          "fillAttr": "none",
+          "strokeAttr": "#000000"
+        }
+      }
+    },
+    "timelineDrop": {
+      "ok": true,
+      "prevented": true,
+      "payload": "{\"kind\":\"shape\",\"preset\":\"heart-heart\",\"name\":\"ハート\",\"vb\":[100,89]}"
+    },
+    "timelineDropHeart": {
+      "id": "shape-3",
+      "track": "v3",
+      "at": 197,
+      "duration": 150,
+      "transform": {
+        "x": 780,
+        "y": 381.5
+      },
+      "shape": "path",
+      "preset": "heart-heart",
+      "width": 360,
+      "height": 317,
+      "fill": "#a6a6a6",
+      "stroke": "none",
+      "strokeWidth": 0,
+      "center": {
+        "x": 960,
+        "y": 540
+      }
+    },
+    "shout": {
+      "id": "shape-4",
+      "track": "v3",
+      "at": 360,
+      "duration": 150,
+      "transform": {
+        "x": 780,
+        "y": 360
+      },
+      "shape": "bubble",
+      "preset": "manga-shout",
+      "width": 360,
+      "height": 360,
+      "fill": "#ffffff",
+      "stroke": "#000000",
+      "strokeWidth": 5,
+      "dash": "solid",
+      "style": "jagged",
+      "center": {
+        "x": 960,
+        "y": 540
+      }
+    },
+    "shoutPreview": {
+      "stage": {
+        "x": 36,
+        "y": 82.90625,
+        "width": 539,
+        "height": 303.1875
+      },
+      "items": {
+        "shape-4": {
+          "mounted": true,
+          "visible": true,
+          "output": {
+            "x": 780,
+            "y": 360,
+            "width": 360,
+            "height": 360,
+            "centerX": 960,
+            "centerY": 540
+          },
+          "fillAttr": null,
+          "strokeAttr": null
+        }
+      }
+    },
+    "recent": [
+      "manga-shout",
+      "heart-heart",
+      "line-dash-tri-tri",
+      "star-5"
+    ],
+    "recentStorage": "[\"manga-shout\",\"heart-heart\",\"line-dash-tri-tri\",\"star-5\"]",
+    "shelfEnd": {
+      "fabTop": 814,
+      "lastRowBottom": 757.5,
+      "clear": true
+    },
+    "searchShelf": {
+      "results": "13",
+      "tiles": [
+        "ハート",
+        "ふっくらハート",
+        "傾いたハート",
+        "ハートの輪",
+        "細身のハート",
+        "横長のハート",
+        "トランプのハート",
+        "すらりとしたハート",
+        "先がはねたハート",
+        "右に傾いたハート",
+        "左に傾いた手描きハート",
+        "ふんわり横長のハート",
+        "ハート形の葉"
+      ]
+    },
+    "searchHome": {
+      "total": 28,
+      "shapes": [
+        "◇4 点の星図形",
+        "◇5 点の星図形",
+        "◇6 点の星図形",
+        "◇7 点の星図形",
+        "◇8 点の星図形",
+        "◇10 点の星図形",
+        "◇12 点の星図形",
+        "◇16 点の星図形",
+        "◇角丸の星図形",
+        "◇四角い星（12 点）図形",
+        "◇アスタリスク（6 本）図形",
+        "◇アスタリスク（8 本）図形",
+        "◇丸い十字図形",
+        "◇丸い 5 本腕図形",
+        "◇きらめき図形",
+        "◇細いきらめき図形",
+        "◇またたき（8 光線）図形",
+        "◇四角い星（8 点）図形"
+      ]
+    },
+    "clearSelection": {
+      "ok": false,
+      "error": "The command 'akari.timeline.clearSelection' cannot be executed. There are no active handlers available for the command."
+    }
+  },
+  "previewBuilt": true,
+  "consoleErrors": [],
+  "finalShapes": [
+    {
+      "id": "shape-1",
+      "track": "v2",
+      "at": 30,
+      "duration": 150,
+      "transform": {
+        "x": 140,
+        "y": 651.5
+      },
+      "shape": "path",
+      "preset": "heart-heart",
+      "width": 360,
+      "height": 317,
+      "fill": "#a6a6a6",
+      "stroke": "none",
+      "strokeWidth": 0,
+      "center": {
+        "x": 320,
+        "y": 810
+      }
+    },
+    {
+      "id": "shape-2",
+      "track": "v3",
+      "at": 30,
+      "duration": 150,
+      "transform": {
+        "x": 780,
+        "y": 504
+      },
+      "shape": "line",
+      "preset": "line-dash-tri-tri",
+      "width": 360,
+      "height": 72,
+      "fill": "none",
+      "stroke": "#000000",
+      "strokeWidth": 4,
+      "dash": "dash",
+      "startCap": "triangle",
+      "endCap": "triangle",
+      "center": {
+        "x": 960,
+        "y": 540
+      }
+    },
+    {
+      "id": "shape-3",
+      "track": "v3",
+      "at": 197,
+      "duration": 150,
+      "transform": {
+        "x": 780,
+        "y": 381.5
+      },
+      "shape": "path",
+      "preset": "heart-heart",
+      "width": 360,
+      "height": 317,
+      "fill": "#a6a6a6",
+      "stroke": "none",
+      "strokeWidth": 0,
+      "center": {
+        "x": 960,
+        "y": 540
+      }
+    },
+    {
+      "id": "shape-4",
+      "track": "v3",
+      "at": 360,
+      "duration": 150,
+      "transform": {
+        "x": 780,
+        "y": 360
+      },
+      "shape": "bubble",
+      "preset": "manga-shout",
+      "width": 360,
+      "height": 360,
+      "fill": "#ffffff",
+      "stroke": "#000000",
+      "strokeWidth": 5,
+      "dash": "solid",
+      "style": "jagged",
+      "center": {
+        "x": 960,
+        "y": 540
+      }
+    }
+  ],
+  "exportExit": 0,
+  "compare": [
+    {
+      "t": 1.5,
+      "preview": "compare-preview-1_5s.png",
+      "export": "compare-export-1_5s.png",
+      "ssim": "0.999138"
+    },
+    {
+      "t": 12.5,
+      "preview": "compare-preview-12_5s.png",
+      "export": "compare-export-12_5s.png",
+      "ssim": "0.983498"
+    },
+    {
+      "t": 7.07,
+      "preview": "compare-preview-7_07s.png",
+      "export": "compare-export-7_07s.png",
+      "ssim": "0.999450"
+    }
+  ]
+}

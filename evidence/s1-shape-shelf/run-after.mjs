@@ -44,10 +44,13 @@ let shell;
 let view;
 async function panelRect(main, selector) {
   return evaluate(main, `(() => {
+    // いちばん近い縦スクロールの箱（左のパネル）の見えている範囲を撮る。
     let node = document.querySelector(${JSON.stringify(selector)});
-    while (node && !(node.getBoundingClientRect().height > 400 && node.getBoundingClientRect().width < 800)) node = node.parentElement;
+    while (node && !(/(auto|scroll)/.test(getComputedStyle(node).overflowY) && node.clientHeight > 200)) node = node.parentElement;
     const r = node?.getBoundingClientRect();
-    return r ? { x: r.x, y: r.y, width: r.width, height: r.height } : null;
+    if (!r) return null;
+    const top = Math.max(0, r.top), bottom = Math.min(innerHeight, r.bottom);
+    return { x: Math.max(0, r.left), y: top, width: Math.min(innerWidth, r.right) - Math.max(0, r.left), height: bottom - top };
   })()`);
 }
 async function shotPanel(main, name, selector = '[data-akari-shape-shelf]') {
@@ -141,15 +144,17 @@ try {
   }
   report.previewBuilt = Boolean(view);
   report.steps.openLibrary = await executeCommand(main, 'akari.catalog.open', { tab: 'library' });
-  await waitFor(main, `Boolean(document.querySelector('[data-akari-library-primary-tile="shapes"]'))`, 60000);
+  await waitFor(main, `(document.querySelector('[data-akari-library-primary-tile="shapes"]')?.getBoundingClientRect().width ?? 0) > 0`, 60000);
   await sleep(1000);
   report.steps.tile = await evaluate(main, `(() => { const n = document.querySelector('[data-akari-library-primary-tile="shapes"]');
     return { disabled: n.disabled, soon: n.getAttribute('data-akari-library-soon'), title: n.title }; })()`);
   await shotPanel(main, 'after-library-home.png', '[data-akari-library-primary-tile="shapes"]');
 
-  // 1. 棚（暗い）
-  await clickSelector(main, '[data-akari-library-primary-tile="shapes"]');
-  await waitFor(main, `document.querySelectorAll('[data-akari-shape-tile]').length > 50`, 30000);
+  // 1. 棚（暗い）。起動直後は描画が遅れることがあるので、棚が出るまで押し直す
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await clickSelector(main, '[data-akari-library-primary-tile="shapes"]').catch(() => undefined);
+    if (await waitFor(main, `document.querySelectorAll('[data-akari-shape-tile]').length > 50`, 10000)) break;
+  }
   await sleep(800);
   report.steps.shelf = await evaluate(main, `(() => {
     const rows = [...document.querySelectorAll('[data-akari-shape-row]')].map(row => ({
@@ -169,8 +174,9 @@ try {
   await sleep(400);
   const scrollBefore = await evaluate(main, `document.querySelector('[data-akari-shape-track="basic"]').scrollLeft`);
   const next = await rectOf(main, '[data-akari-shape-row="basic"] [data-akari-shape-nav="next"]');
-  const nextOpacity = await evaluate(main, `getComputedStyle(document.querySelector('[data-akari-shape-row="basic"] [data-akari-shape-nav="next"]')).opacity`);
   await shell.main.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: next.x + 12, y: next.y + 12 });
+  await sleep(400);
+  const nextOpacity = await evaluate(main, `getComputedStyle(document.querySelector('[data-akari-shape-row="basic"] [data-akari-shape-nav="next"]')).opacity`);
   await shell.main.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: next.x + 12, y: next.y + 12, button: 'left', clickCount: 1 });
   await shell.main.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: next.x + 12, y: next.y + 12, button: 'left', clickCount: 1 });
   await sleep(900);
@@ -209,7 +215,7 @@ try {
   await sleep(2500);
   report.steps.starPreview = await observe([starItem?.id ?? 'shape-1']);
   report.steps.starSelected = await evaluate(main, `(() => { const n = document.querySelector('[data-akari-item-id="${starItem?.id ?? 'shape-1'}"]');
-    return n ? { className: n.className, selected: n.classList.contains('selected') || n.getAttribute('aria-selected') === 'true' || n.dataset.selected === 'true' } : null; })()`);
+    return n ? { className: n.className, selected: n.classList.contains('akari-annotations-selected') } : null; })()`);
   await shotStage(main, 'after-star-stage.png');
   report.steps.undo = await executeCommand(main, 'akari.timeline.undo');
   const afterUndo = await waitShape(items => (items.every(item => item.source.params.preset !== 'star-5') ? { gone: true, count: items.length } : undefined));
@@ -278,6 +284,20 @@ try {
   report.steps.recent = await evaluate(main, `[...document.querySelectorAll('[data-akari-shape-track="recent"] [data-akari-shape-tile]')].map(t => t.getAttribute('data-akari-shape-tile'))`);
   report.steps.recentStorage = await evaluate(main, `localStorage.getItem('akari.library.shapes.recent')`);
   await shotPanel(main, 'after-recent-dark.png');
+  // 棚の最後（漫画の吹き出しの行）まで送ったとき、ライブラリの「追加」ボタンに隠れないこと
+  report.steps.shelfEnd = await evaluate(main, `(() => {
+    let box = document.querySelector('[data-akari-shape-shelf]');
+    while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement;
+    if (!box) return null;
+    box.scrollTop = box.scrollHeight;
+    const fab = document.querySelector('.akari-library-import-add')?.getBoundingClientRect();
+    const tiles = [...document.querySelectorAll('[data-akari-shape-track="manga"] [data-akari-shape-tile]')].map(t => t.getBoundingClientRect())
+      .filter(r => r.right > box.getBoundingClientRect().left && r.left < box.getBoundingClientRect().right);
+    const lastBottom = Math.max(...tiles.map(r => r.bottom));
+    return { fabTop: fab?.top, lastRowBottom: lastBottom, clear: fab ? lastBottom <= fab.top : true };
+  })()`);
+  await sleep(300);
+  await shotPanel(main, 'after-shelf-end-dark.png');
 
   // 10. 検索（棚の中 / ライブラリのホーム）
   await setSearch(main, 'ハート');
@@ -286,15 +306,22 @@ try {
     tiles: [...document.querySelectorAll('[data-akari-shape-shelf] [data-akari-shape-tile]')].map(t => t.title) })`);
   await shotPanel(main, 'after-search-shelf-dark.png');
   await setSearch(main, '');
-  await clickSelector(main, '[data-akari-library-back]');
   await sleep(500);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await clickSelector(main, '[data-akari-library-back]').catch(() => undefined);
+    if (await waitFor(main, `Boolean(document.querySelector('[data-akari-library-primary-tile="shapes"]'))`, 5000)) break;
+  }
   await setSearch(main, '星');
   await sleep(800);
-  report.steps.searchHome = await evaluate(main, `[...document.querySelectorAll('[data-akari-library-search-kind="shape"]')].map(n => n.textContent)`);
+  report.steps.searchHome = await evaluate(main, `({ total: Number(document.querySelector('[data-akari-library-home]')?.getAttribute('data-akari-library-search-results')),
+    shapes: [...document.querySelectorAll('[data-akari-library-search-kind="shape"]')].map(n => n.textContent) })`);
   await shotPanel(main, 'after-search-home-dark.png', '[data-akari-library-home]');
   await setSearch(main, '');
 
   // 11. 書き出しとの比較用にプレビューを撮る
+  // 選択の枠（つまみ）はプレビューだけに出るので、外してから撮る
+  report.steps.clearSelection = await executeCommand(main, 'akari.timeline.clearSelection');
+  await sleep(800);
   const times = [1.5, 12.5];
   if (droppedHeart) times.push(+(droppedHeart.at / 30 + 0.5).toFixed(2));
   for (const t of times) {
@@ -317,7 +344,9 @@ try {
   const finalEdit = await readEdit();
   report.finalShapes = shapeItems(finalEdit).map(summarize);
   await writeFile(out('after-edit.json'), `${JSON.stringify(finalEdit, null, 2)}\n`);
-  const video = path.join(dirs.scratch, 'export.mp4');
+  // render-cut は書き出し先をプロジェクトの中に限る。
+  await mkdir(path.join(dirs.project, 'exports'), { recursive: true });
+  const video = path.join(dirs.project, 'exports', 'export.mp4');
   let exportLog = '';
   try {
     exportLog = execFileSync('node', [path.join(repo, 'packages/render-cut/bin/render-cut.mjs'), dirs.project, '--engine', 'auto',
@@ -327,7 +356,7 @@ try {
     report.exportExit = error.status ?? 'error';
     exportLog = `${error.stdout ?? ''}\n${error.stderr ?? ''}`;
   }
-  await writeFile(out('export-log.txt'), scrub(exportLog).split('\n').filter(Boolean).slice(-30).join('\n') + '\n');
+  await writeFile(out('export-log.txt'), scrub(exportLog).split('\n').filter(line => line && !line.startsWith('PROGRESS')).slice(-30).join('\n') + '\n');
   report.compare = [];
   for (const entry of compareTimes) {
     const frame = out(`compare-export-${String(entry.t).replace('.', '_')}s.png`);

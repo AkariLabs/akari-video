@@ -1,7 +1,7 @@
 // L1（検証専用）の共通部品: 隔離プロジェクトで本物の Electron シェルを起動し、CDP で操作する。
 // evidence/s0-shape-contract/run-l1.mjs の CDP まわりを切り出したもの。
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -87,7 +87,7 @@ export async function setTheme(configDir, theme) {
 }
 
 /** Electron を自分のプロセスグループで起動し、主窓に CDP でつなぐ。 */
-export async function launchShell({ shellDir, dirs, port, width = 1680, height = 1040 }) {
+export async function launchShell({ shellDir, dirs, port, width = 1680, height = 940 }) {
   const electron = path.join(shellDir, 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron');
   const child = spawn(electron, [shellDir, dirs.project, `--remote-debugging-port=${port}`,
     `--user-data-dir=${dirs.profile}`, '--no-sandbox'], {
@@ -114,10 +114,8 @@ export async function launchShell({ shellDir, dirs, port, width = 1680, height =
   const version = await waitForJson(`http://127.0.0.1:${port}/json/version`, value => value.webSocketDebuggerUrl);
   const browser = new CDP(version.webSocketDebuggerUrl);
   await browser.connect();
-  try {
-    const { windowId } = await browser.send('Browser.getWindowForTarget', { targetId: target.id });
-    await browser.send('Browser.setWindowBounds', { windowId, bounds: { left: 0, top: 0, width, height, windowState: 'normal' } });
-  } catch { /* best-effort */ }
+  // Electron の CDP には Browser.setWindowBounds が無いので、画面の寸法は Emulation で固定する（画面より大きい窓は作れない）。
+  await main.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: false }).catch(() => undefined);
   const stop = async () => {
     main.close();
     browser.close();
@@ -125,6 +123,12 @@ export async function launchShell({ shellDir, dirs, port, width = 1680, height =
       try { process.kill(-child.pid, 'SIGTERM'); } catch { /* exited */ }
       await sleep(1500);
       try { process.kill(-child.pid, 'SIGKILL'); } catch { /* exited */ }
+    }
+    // プロセスグループから外れた Electron の補助プロセスも、この起動専用のプロファイル名で拾って止める（自分の起動分だけ）。
+    const pids = args => spawnSync('pgrep', args, { encoding: 'utf8' }).stdout.split('\n').map(Number).filter(Boolean);
+    const stray = pids(['-f', `user-data-dir=${dirs.profile}`]);
+    for (const pid of [...stray.flatMap(parent => pids(['-P', String(parent)])), ...stray]) {
+      try { process.kill(pid, 'SIGKILL'); } catch { /* exited */ }
     }
   };
   return { child, main, browser, consoleErrors, stop };
@@ -140,7 +144,9 @@ export async function executeCommand(main, command, ...args) {
       if (!CommandClass) return { ok: false, error: 'command registry unavailable' };
       const value = await window.theia.container.get(CommandClass)
         .executeCommand(${JSON.stringify(command)}, ...${JSON.stringify(args)});
-      return { ok: true, value: value === undefined ? null : JSON.parse(JSON.stringify(value)) };
+      if (value === undefined) return { ok: true, value: null };
+      try { return { ok: true, value: JSON.parse(JSON.stringify(value)) }; }
+      catch { return { ok: true, value: '[' + (value?.constructor?.name ?? typeof value) + ']' }; }
     } catch (error) { return { ok: false, error: error?.message ?? String(error) }; }
   })()`);
 }
@@ -179,7 +185,7 @@ export async function clickAt(main, x, y) {
 }
 
 export async function clickSelector(main, selector) {
-  await evaluate(main, `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: 'nearest', inline: 'nearest' })`);
+  await evaluate(main, `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: 'center', inline: 'nearest' })`);
   await sleep(200);
   const rect = await rectOf(main, selector);
   if (!rect) throw new Error(`not found: ${selector}`);
