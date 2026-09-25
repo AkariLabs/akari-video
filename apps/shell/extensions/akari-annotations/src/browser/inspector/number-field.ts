@@ -13,6 +13,7 @@ export interface NumberFieldOptions {
     displayOffset?: number;
     displayPrecision?: number;
     onPreview?: (value: number) => void;
+    onCancel?: () => void;
     onCommit: (value: number) => Promise<boolean>;
     keyframe?: KeyframeSeatOptions;
 }
@@ -172,7 +173,8 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     input.type = 'text';
     input.inputMode = 'decimal';
     input.className = 'akari-inspector-number-input';
-    input.value = formatNumberStep(displayValue, displayStep, options.displayPrecision);
+    const initialDisplayText = formatNumberStep(displayValue, displayStep, options.displayPrecision);
+    input.value = initialDisplayText;
     input.setAttribute('role', 'spinbutton');
     input.setAttribute('aria-label', options.label);
     if (displayMin !== undefined) input.setAttribute('aria-valuemin', String(displayMin));
@@ -183,6 +185,9 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     unit.textContent = options.unit ?? '';
 
     let composing = false;
+    let cancelled = false;
+    let commitInFlight = false;
+    let committedForFocus = false;
     let lastInputPreviewAt = -Infinity;
     let inputPreviewTimer: ReturnType<typeof setTimeout> | undefined;
     const cancelInputPreview = (): void => {
@@ -191,8 +196,10 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     };
     const restore = (): void => {
         cancelInputPreview();
-        input.value = formatNumberStep(displayValue, displayStep, options.displayPrecision);
+        input.value = initialDisplayText;
+        if (input.dataset) input.dataset.akariInspectorDirty = 'false';
         options.onPreview?.(options.value);
+        options.onCancel?.();
     };
     const buttons = document.createElement('span');
     buttons.className = 'akari-inspector-number-steps';
@@ -220,17 +227,29 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
     buttons.append(up, down);
 
     const commitInput = async (): Promise<void> => {
-        cancelInputPreview();
-        const parsed = Number(input.value);
-        if (!Number.isFinite(parsed)) {
-            restore();
+        if (commitInFlight || committedForFocus) return;
+        if (input.value === initialDisplayText) {
+            cancelInputPreview();
             return;
         }
-        const displayNext = clampNumber(parsed, displayMin, displayMax);
-        const next = fromDisplay(displayNext);
-        input.value = formatNumberStep(displayNext, displayStep, options.displayPrecision);
-        options.onPreview?.(next);
-        if (!await options.onCommit(next)) restore();
+        commitInFlight = true;
+        committedForFocus = true;
+        if (input.dataset) input.dataset.akariInspectorDirty = 'false';
+        cancelInputPreview();
+        try {
+            const parsed = Number(input.value);
+            if (!Number.isFinite(parsed)) {
+                restore();
+                return;
+            }
+            const displayNext = clampNumber(parsed, displayMin, displayMax);
+            const next = fromDisplay(displayNext);
+            input.value = formatNumberStep(displayNext, displayStep, options.displayPrecision);
+            options.onPreview?.(next);
+            if (!await options.onCommit(next)) restore();
+        } finally {
+            commitInFlight = false;
+        }
     };
     const previewInput = (): void => {
         cancelInputPreview();
@@ -258,13 +277,18 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         previewInput();
     });
     input.addEventListener('input', event => {
+        committedForFocus = false;
         if ((event as InputEvent).isComposing) {
             cancelInputPreview();
             return;
         }
         previewInput();
     });
-    input.addEventListener('blur', () => void commitInput());
+    input.addEventListener('focus', () => { committedForFocus = false; });
+    input.addEventListener('blur', () => {
+        if (cancelled || input.isConnected === false) { cancelled = false; return; }
+        void commitInput();
+    });
     const stepInput = (key: string, shiftKey: boolean): void => {
         cancelInputPreview();
         const current = Number(input.value);
@@ -290,6 +314,7 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
             input.blur();
         } else if (event.key === 'Escape') {
             event.preventDefault();
+            cancelled = true;
             restore();
             input.blur();
         } else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown')

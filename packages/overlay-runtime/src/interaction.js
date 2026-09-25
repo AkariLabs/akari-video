@@ -144,6 +144,20 @@ function marqueeHits(candidates, rect) {
   let activeDrag = null;
   let activeResize = null;
   let activeRotate = null;
+  function reportLiveValues(id, values, clear = false) {
+    if (!id || typeof window.akari?.reportLiveValues !== 'function') return;
+    window.akari.reportLiveValues({ id, ...(clear ? { clear: true } : { values }) });
+  }
+  function reportLivePose(gesture) {
+    if (!gesture || !gesture.moved) return;
+    const pose = gesture.group
+      ? gesture.pose ?? { ...gesture.transform, x: gesture.startX + gesture.dx,
+        y: gesture.startY + gesture.dy }
+      : readTransform(gesture.container);
+    reportLiveValues(gesture.overlayId, { x: pose.x, y: pose.y,
+      scale: pose.scale, scaleX: pose.scaleX ?? pose.scale,
+      scaleY: pose.scaleY ?? pose.scale, rotate: pose.rotate });
+  }
   let activeLine = null;
   let rotationBadge = null;
   let handleHint = null;
@@ -1588,6 +1602,7 @@ function marqueeHits(candidates, rect) {
     if (!activeDrag) return;
 
     const drag = activeDrag;
+    reportLiveValues(drag.overlayId, undefined, true);
     activeDrag = null;
     if (drag.group) {
       moveGroupMembers(drag, 0, 0);
@@ -2275,6 +2290,7 @@ function marqueeHits(candidates, rect) {
   function cancelRotate() {
     if (!activeRotate) return;
     const rotation = activeRotate;
+    reportLiveValues(rotation.overlayId, undefined, true);
     activeRotate = null;
     rotationBadge?.remove(); rotationBadge = null;
     document.body.style.cursor = '';
@@ -2620,6 +2636,7 @@ function marqueeHits(candidates, rect) {
     if (!activeResize) return;
 
     const resize = activeResize;
+    reportLiveValues(resize.overlayId, undefined, true);
     activeResize = null;
     handleHint?.remove(); handleHint = null;
     if (resize.group) {
@@ -2860,10 +2877,12 @@ function marqueeHits(candidates, rect) {
     }
     if (activeRotate && event.pointerId === activeRotate.pointerId) {
       updateRotate(event);
+      reportLivePose(activeRotate);
       return;
     }
     if (activeResize && event.pointerId === activeResize.pointerId) {
       updateResize(event);
+      reportLivePose(activeResize);
       return;
     }
 
@@ -2903,6 +2922,7 @@ function marqueeHits(candidates, rect) {
           ? { x: videoDeltaX, y: 0 }
           : event.shiftKey ? { x: 0, y: videoDeltaY } : { x: videoDeltaX, y: videoDeltaY });
       moveGroupDrag(drag, locked.x, locked.y, event.metaKey || event.ctrlKey, lockedAxis);
+      reportLivePose(drag);
       if (event.cancelable) event.preventDefault();
       return;
     }
@@ -2917,6 +2937,7 @@ function marqueeHits(candidates, rect) {
       event.metaKey || event.ctrlKey,
       lockedAxis
     );
+    reportLivePose(drag);
 
     if (event.cancelable) event.preventDefault();
   }

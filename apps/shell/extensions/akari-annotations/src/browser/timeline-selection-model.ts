@@ -472,12 +472,13 @@ export interface KeyframeControlRequest {
 
 /**
  * インスペクターのスクラブドラッグ中に、書き込みなしでプレビューへ即時反映するための
- * ephemeral な通知。対象は cuts/layers の transform/opacity/crop/perspective。
+ * ephemeral な通知。transform/opacity/crop/perspective と字幕サイズ・写真の露出を含む。
  */
 export type LivePreviewTarget =
     | { kind: 'cut'; index: number }
     | { kind: 'layer'; id: string }
-    | { kind: 'item'; id: string };
+    | { kind: 'item'; id: string }
+    | { kind: 'caption'; id: string };
 
 export interface AdjustBypassRequest { target: LivePreviewTarget; enabled: boolean; }
 
@@ -485,8 +486,10 @@ export interface LivePreviewRequest {
     target: LivePreviewTarget;
     field: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate' | 'opacity'
         | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
-        | `perspective.${'tl' | 'tr' | 'bl' | 'br'}.${'x' | 'y'}`;
+        | `perspective.${'tl' | 'tr' | 'bl' | 'br'}.${'x' | 'y'}`
+        | 'caption.size' | 'adjust.basic.exposure';
     value: number;
+    clear?: boolean;
     easing?: string;
 }
 

@@ -1,0 +1,1817 @@
+{
+  "label": "after",
+  "port": 9572,
+  "pid": 26036,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "outer": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 404,
+    "h": 359
+  },
+  "windowShot": "after-window.png",
+  "results": {
+    "discover": {
+      "box-a": {
+        "tabs": [
+          "tab:inspector-video",
+          "tab:inspector-adjust(disabled)",
+          "tab:inspector-audio(disabled)",
+          "tab:inspector-edit",
+          "tab:inspector-motion",
+          "tab:inspector-info"
+        ],
+        "fields": [
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-scaleX",
+          "transform-scaleY",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "opacity",
+          "shape-fillMode",
+          "shape-fill",
+          "shape-strokeMode",
+          "shape-stroke",
+          "shape-strokeWidth"
+        ],
+        "rows": [
+          "item-start",
+          "item-duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-scaleX",
+          "transform-scaleY",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "shape-fillMode",
+          "shape-fill",
+          "shape-strokeMode",
+          "shape-stroke",
+          "shape-strokeWidth"
+        ],
+        "ranges": [],
+        "scrollHeight": 1023,
+        "clientHeight": 603
+      },
+      "box-a-shot": "after-discover-box-a.png",
+      "photo-a": {
+        "tabs": [
+          "tab:inspector-video",
+          "tab:inspector-adjust",
+          "tab:inspector-audio",
+          "tab:inspector-edit",
+          "tab:inspector-motion",
+          "tab:inspector-info"
+        ],
+        "fields": [
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "opacity",
+          "blend",
+          "layer-audio",
+          "layer-gain-db"
+        ],
+        "rows": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ],
+        "ranges": [],
+        "scrollHeight": 1029,
+        "clientHeight": 603
+      },
+      "photo-a-shot": "after-discover-photo-a.png",
+      "ms": 3616
+    },
+    "z-diag": {
+      "setup": {
+        "top": 120
+      },
+      "xVisible": {
+        "x": 742,
+        "y": 183.5,
+        "w": 188.65625,
+        "h": 24,
+        "cx": 836.328125,
+        "cy": 195.5
+      },
+      "after": {
+        "sameNode": true,
+        "top": 120,
+        "panels": 1,
+        "active": "Y",
+        "log": [
+          {
+            "t": 79,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at x3n.render (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:149",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:745",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:430:8702",
+              "at SSi.invoke (file://<repo>/apps/shell/lib/frontend/bundle.js:430:8792)"
+            ]
+          },
+          {
+            "t": 86,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at x3n.render (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:149",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:745",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:430:8702",
+              "at SSi.invoke (file://<repo>/apps/shell/lib/frontend/bundle.js:430:8792)"
+            ]
+          },
+          {
+            "t": 93,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at x3n.render (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:149",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:745",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:430:8702",
+              "at SSi.invoke (file://<repo>/apps/shell/lib/frontend/bundle.js:430:8792)"
+            ]
+          },
+          {
+            "t": 114,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at x3n.render (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:149",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:745",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:430:8702",
+              "at SSi.invoke (file://<repo>/apps/shell/lib/frontend/bundle.js:430:8792)"
+            ]
+          },
+          {
+            "t": 126,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:15100"
+            ]
+          },
+          {
+            "t": 229,
+            "what": "set",
+            "top": 0,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at x3n.render (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:149",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:745",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:430:8702",
+              "at SSi.invoke (file://<repo>/apps/shell/lib/frontend/bundle.js:430:8792)"
+            ]
+          },
+          {
+            "t": 244,
+            "what": "set",
+            "top": 0,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at x3n.render (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:149",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:745",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:430:8702",
+              "at SSi.invoke (file://<repo>/apps/shell/lib/frontend/bundle.js:430:8792)"
+            ]
+          },
+          {
+            "t": 254,
+            "what": "set",
+            "top": 0,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at x3n.render (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:149",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:745",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:430:8702",
+              "at SSi.invoke (file://<repo>/apps/shell/lib/frontend/bundle.js:430:8792)"
+            ]
+          },
+          {
+            "t": 275,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:15100"
+            ]
+          },
+          {
+            "t": 526,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<repo>/apps/shell/lib/frontend/bundle.js:18012:14308)",
+              "at file://<repo>/apps/shell/lib/frontend/bundle.js:18012:15350"
+            ]
+          }
+        ]
+      },
+      "ms": 4050
+    },
+    "a-scroll": {
+      "initial": {
+        "scrollTop": 120,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "300",
+        "y": "200",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "bottom": 420,
+      "afterPreviewDrag": {
+        "scrollTop": 420,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "652",
+        "y": "340",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "afterPreviewDragWrites": 1,
+      "afterPreviewDragShot": "after-a1-after-preview-drag.png",
+      "bottom2": {
+        "scrollTop": 420,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "652",
+        "y": "340",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "numberTarget": {
+        "field": "field:inspector-shape-strokeWidth",
+        "aria": "枠の太さ",
+        "value": "0",
+        "cx": 883,
+        "cy": 612.5
+      },
+      "whileTyping": {
+        "scrollTop": 420,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "652",
+        "y": "340",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": {
+          "tag": "INPUT",
+          "aria": "枠の太さ",
+          "field": "field:inspector-shape-strokeWidth",
+          "selStart": 1
+        }
+      },
+      "afterNumberCommit": {
+        "scrollTop": 420,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "652",
+        "y": "340",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "afterNumberWrites": 1,
+      "afterNumberShot": "after-a2-after-number.png",
+      "tabCommit": {
+        "before": {
+          "scrollTop": 120,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-a00:00.0 – 00:10.0 · 素材",
+          "x": "652",
+          "y": "340",
+          "scale": "100",
+          "rotate": "0",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": {
+            "tag": "INPUT",
+            "aria": "X",
+            "field": "field:inspector-transform-x",
+            "selStart": 0
+          }
+        },
+        "after": {
+          "scrollTop": 120,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-a00:00.0 – 00:10.0 · 素材",
+          "x": "657",
+          "y": "340",
+          "scale": "100",
+          "rotate": "0",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": {
+            "tag": "INPUT",
+            "aria": "Y",
+            "field": "field:inspector-transform-y",
+            "selStart": 3
+          }
+        },
+        "writes": 1,
+        "writeLog": [
+          {
+            "at": 1790359687628,
+            "file": "edit.json",
+            "boxA": {
+              "x": 657,
+              "y": 339.9999705854668,
+              "scale": 1,
+              "rotate": 0
+            }
+          }
+        ]
+      },
+      "beforeOtherSelect": {
+        "scrollTop": 420,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "657",
+        "y": "340",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": {
+          "tag": "INPUT",
+          "aria": "Y",
+          "field": "field:inspector-transform-y",
+          "selStart": 3
+        }
+      },
+      "afterOtherSelect": {
+        "scrollTop": 0,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-b00:00.0 – 00:10.0 · 素材",
+        "x": "300",
+        "y": "620",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "ms": 11939
+    },
+    "b-preview-to-inspector": {
+      "initial": {
+        "scrollTop": 0,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "300",
+        "y": "200",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "midShot": "after-b-mid-drag.png",
+      "series": [
+        {
+          "step": 1,
+          "dxScreen": 12.5,
+          "x": "390",
+          "y": "228.92",
+          "writes": 0
+        },
+        {
+          "step": 2,
+          "dxScreen": 25,
+          "x": "420",
+          "y": "257.83",
+          "writes": 0
+        },
+        {
+          "step": 3,
+          "dxScreen": 37.5,
+          "x": "502",
+          "y": "286.75",
+          "writes": 0
+        },
+        {
+          "step": 4,
+          "dxScreen": 50,
+          "x": "602",
+          "y": "340",
+          "writes": 0
+        },
+        {
+          "step": 5,
+          "dxScreen": 62.5,
+          "x": "660",
+          "y": "340",
+          "writes": 0
+        },
+        {
+          "step": 6,
+          "dxScreen": 75,
+          "x": "752",
+          "y": "340",
+          "writes": 0
+        },
+        {
+          "step": 7,
+          "dxScreen": 87.5,
+          "x": "810",
+          "y": "420",
+          "writes": 0
+        },
+        {
+          "step": 8,
+          "dxScreen": 100,
+          "x": "902",
+          "y": "440",
+          "writes": 0
+        }
+      ],
+      "justAfterRelease": {
+        "scrollTop": 0,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "902",
+        "y": "440",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "afterRelease": {
+        "scrollTop": 0,
+        "scrollHeight": 1023,
+        "clientHeight": 603,
+        "header": "box-a00:00.0 – 00:10.0 · 素材",
+        "x": "902",
+        "y": "440",
+        "scale": "100",
+        "rotate": "0",
+        "opacity": "100",
+        "tabs": [
+          {
+            "ui": "tab:inspector-video",
+            "selected": "true"
+          },
+          {
+            "ui": "tab:inspector-adjust",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-audio",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-edit",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-motion",
+            "selected": "false"
+          },
+          {
+            "ui": "tab:inspector-info",
+            "selected": "false"
+          }
+        ],
+        "activeTab": "tab:inspector-video",
+        "focus": null
+      },
+      "writes": 1,
+      "written": {
+        "x": 901.9999529367471,
+        "y": 439.99995587820035,
+        "scale": 1,
+        "rotate": 0
+      },
+      "handles": {
+        "se": {
+          "cx": 242.84375,
+          "cy": 166.78125
+        },
+        "rotate": {
+          "cx": 203.40625,
+          "cy": 192.28125
+        }
+      },
+      "resize": {
+        "series": [
+          {
+            "step": 1,
+            "scale": "117",
+            "rotate": "0",
+            "x": "1065.57",
+            "y": "532.01",
+            "writes": 0
+          },
+          {
+            "step": 2,
+            "scale": "136.3",
+            "rotate": "0",
+            "x": "1250.61",
+            "y": "636.09",
+            "writes": 0
+          },
+          {
+            "step": 3,
+            "scale": "155.6",
+            "rotate": "0",
+            "x": "1435.71",
+            "y": "740.21",
+            "writes": 0
+          },
+          {
+            "step": 4,
+            "scale": "174.9",
+            "rotate": "0",
+            "x": "1620.75",
+            "y": "844.3",
+            "writes": 0
+          },
+          {
+            "step": 5,
+            "scale": "194.1",
+            "rotate": "0",
+            "x": "1805.79",
+            "y": "948.38",
+            "writes": 0
+          },
+          {
+            "step": 6,
+            "scale": "213.4",
+            "rotate": "0",
+            "x": "1990.89",
+            "y": "1052.5",
+            "writes": 0
+          }
+        ],
+        "after": {
+          "scrollTop": 0,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-a00:00.0 – 00:10.0 · 素材",
+          "x": "1991",
+          "y": "1053",
+          "scale": "213",
+          "rotate": "0",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": null
+        },
+        "writes": 1
+      },
+      "rotateMidShot": "after-b-mid-rotate.png",
+      "rotate": {
+        "series": [
+          {
+            "step": 1,
+            "scale": "213.4",
+            "rotate": "-12.35",
+            "x": "2151.73",
+            "y": "661.06",
+            "writes": 0
+          },
+          {
+            "step": 2,
+            "scale": "213.4",
+            "rotate": "-21.79",
+            "x": "2215.96",
+            "y": "343.69",
+            "writes": 0
+          },
+          {
+            "step": 3,
+            "scale": "213.4",
+            "rotate": "-28.88",
+            "x": "2229.45",
+            "y": "100.75",
+            "writes": 0
+          },
+          {
+            "step": 4,
+            "scale": "213.4",
+            "rotate": "-34.25",
+            "x": "2219.64",
+            "y": "-83.14",
+            "writes": 0
+          },
+          {
+            "step": 5,
+            "scale": "213.4",
+            "rotate": "-38.39",
+            "x": "2200.35",
+            "y": "-223.93",
+            "writes": 0
+          },
+          {
+            "step": 6,
+            "scale": "213.4",
+            "rotate": "-45",
+            "x": "2148.58",
+            "y": "-444.96",
+            "writes": 0
+          }
+        ],
+        "after": {
+          "scrollTop": 0,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-a00:00.0 – 00:10.0 · 素材",
+          "x": "2149",
+          "y": "-445",
+          "scale": "213",
+          "rotate": "-45",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": null
+        },
+        "writes": 1
+      },
+      "ms": 9361
+    },
+    "c-inspector-to-preview": {
+      "initialRect": {
+        "left": 87.9,
+        "top": 91.7,
+        "width": 51.9,
+        "height": 34.6,
+        "cx": 113.8,
+        "cy": 109,
+        "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+        "opacity": "1",
+        "filter": "none",
+        "fontSize": "13px"
+      },
+      "scrubHandle": {
+        "x": 722,
+        "y": 307.5,
+        "w": 18,
+        "h": 16,
+        "cx": 731,
+        "cy": 315.5
+      },
+      "scrub": {
+        "series": [
+          {
+            "step": 1,
+            "dxScrub": 20,
+            "inspectorX": "320",
+            "previewLeft": 91.3,
+            "writes": 0
+          },
+          {
+            "step": 2,
+            "dxScrub": 40,
+            "inspectorX": "340",
+            "previewLeft": 94.8,
+            "writes": 0
+          },
+          {
+            "step": 3,
+            "dxScrub": 60,
+            "inspectorX": "360",
+            "previewLeft": 98.3,
+            "writes": 0,
+            "shot": "after-c1-scrub-3.png"
+          },
+          {
+            "step": 4,
+            "dxScrub": 80,
+            "inspectorX": "380",
+            "previewLeft": 101.7,
+            "writes": 0
+          },
+          {
+            "step": 5,
+            "dxScrub": 100,
+            "inspectorX": "400",
+            "previewLeft": 105.2,
+            "writes": 0
+          },
+          {
+            "step": 6,
+            "dxScrub": 120,
+            "inspectorX": "420",
+            "previewLeft": 108.6,
+            "writes": 0,
+            "shot": "after-c1-scrub-6.png"
+          },
+          {
+            "step": 7,
+            "dxScrub": 140,
+            "inspectorX": "440",
+            "previewLeft": 112.1,
+            "writes": 0
+          },
+          {
+            "step": 8,
+            "dxScrub": 160,
+            "inspectorX": "460",
+            "previewLeft": 115.5,
+            "writes": 0
+          },
+          {
+            "step": 9,
+            "dxScrub": 180,
+            "inspectorX": "480",
+            "previewLeft": 119,
+            "writes": 0,
+            "shot": "after-c1-scrub-9.png"
+          }
+        ],
+        "afterRelease": {
+          "left": 119,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 144.9,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "inspector": {
+          "scrollTop": 0,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-a00:00.0 – 00:10.0 · 素材",
+          "x": "480",
+          "y": "200",
+          "scale": "100",
+          "rotate": "0",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": null
+        },
+        "writes": 1,
+        "written": {
+          "x": 480,
+          "y": 200,
+          "scale": 1
+        },
+        "undoEqualsHead": true,
+        "afterUndoRect": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        }
+      },
+      "esc": {
+        "during": {
+          "left": 87.9,
+          "top": 117.6,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 134.9,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "duringShot": "after-c2-esc-during.png",
+        "afterEsc": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "afterRelease": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writes": 0,
+        "editUnchanged": true,
+        "afterEscShot": "after-c2-esc-after.png"
+      },
+      "typing": {
+        "duringRect": {
+          "left": 191.6,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 217.6,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writesDuring": 0,
+        "afterRect": {
+          "left": 191.6,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 217.6,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writes": 1,
+        "undoEqualsHead": true
+      },
+      "sliders": [
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 0,
+          "aria": "大きさ スライダー",
+          "min": "0",
+          "max": "160",
+          "value": "38",
+          "visibleTab": true,
+          "series": [
+            {
+              "step": 1,
+              "rect": {
+                "left": 115.6,
+                "top": 209.5,
+                "width": 146.2,
+                "height": 21.3,
+                "cx": 188.7,
+                "cy": 220.1,
+                "transform": "",
+                "opacity": "1",
+                "filter": "none",
+                "fontSize": "78px"
+              },
+              "writes": 0,
+              "shot": "after-c4-captions-range0-1.png"
+            },
+            {
+              "step": 2,
+              "rect": {
+                "left": 100.6,
+                "top": 205.1,
+                "width": 176.2,
+                "height": 25.7,
+                "cx": 188.7,
+                "cy": 218,
+                "transform": "",
+                "opacity": "1",
+                "filter": "none",
+                "fontSize": "94px"
+              },
+              "writes": 0,
+              "shot": "after-c4-captions-range0-2.png"
+            },
+            {
+              "step": 3,
+              "rect": {
+                "left": 71.6,
+                "top": 196.7,
+                "width": 234.3,
+                "height": 34.2,
+                "cx": 188.7,
+                "cy": 213.7,
+                "transform": "",
+                "opacity": "1",
+                "filter": "none",
+                "fontSize": "125px"
+              },
+              "writes": 0,
+              "shot": "after-c4-captions-range0-3.png"
+            }
+          ],
+          "writes": 1,
+          "changed": true,
+          "undoOk": true
+        },
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 1,
+          "aria": "行間 スライダー",
+          "min": "0.9",
+          "max": "2.2",
+          "value": "1.4",
+          "visibleTab": true,
+          "skipped": "not visible"
+        },
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 2,
+          "aria": "字間 スライダー",
+          "min": "-0.1",
+          "max": "0.4",
+          "value": "0",
+          "visibleTab": true,
+          "skipped": "not visible"
+        },
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 3,
+          "aria": "太さ スライダー",
+          "min": "0",
+          "max": "20",
+          "value": "1.5",
+          "visibleTab": true,
+          "skipped": "not visible"
+        }
+      ],
+      "photoAdjustSelectShot": "after-c5-photo-select.png",
+      "photoAdjustTabClicked": true,
+      "photoAdjustFields": {
+        "rows": [
+          "adjust-basic-enabled",
+          "adjust-look",
+          "adjust-basic-exposure",
+          "adjust-basic-contrast",
+          "adjust-basic-highlights",
+          "adjust-basic-shadows",
+          "adjust-basic-blacks",
+          "adjust-basic-whites",
+          "adjust-basic-temperature",
+          "adjust-basic-tint",
+          "adjust-basic-vibrance",
+          "adjust-basic-saturation",
+          "adjust-curves-enabled",
+          "adjust-wheels-enabled",
+          "adjust-hue-enabled",
+          "adjust-lut-enabled",
+          "adjust-lut-preset",
+          "adjust-lut-intensity",
+          "adjust-lut-import",
+          "adjust-fx-enabled",
+          "adjust-fx-add"
+        ],
+        "numbers": [
+          "adjust-basic-enabled",
+          "adjust-look",
+          "adjust-basic-exposure",
+          "adjust-basic-contrast",
+          "adjust-basic-highlights",
+          "adjust-basic-shadows",
+          "adjust-basic-blacks",
+          "adjust-basic-whites",
+          "adjust-basic-temperature",
+          "adjust-basic-tint",
+          "adjust-basic-vibrance",
+          "adjust-basic-saturation",
+          "adjust-curves-enabled",
+          "adjust-wheels-enabled",
+          "adjust-wheel-lift-luma",
+          "adjust-wheel-gamma-luma",
+          "adjust-wheel-gain-luma",
+          "adjust-wheel-offset-luma",
+          "adjust-hue-enabled",
+          "adjust-lut-enabled",
+          "adjust-lut-preset",
+          "adjust-lut-intensity",
+          "adjust-fx-enabled",
+          "adjust-fx-add"
+        ],
+        "sections": [
+          "section:inspector-adjust:basic",
+          "section:inspector-adjust:curves",
+          "section:inspector-adjust:wheels",
+          "section:inspector-adjust:hue",
+          "section:inspector-adjust:lut",
+          "section:inspector-adjust:fx"
+        ],
+        "handles": 15,
+        "ranges": 0
+      },
+      "photoAdjustPick": "adjust-basic-exposure",
+      "photoAdjust": {
+        "series": [
+          {
+            "step": 0,
+            "luma": 97.96
+          },
+          {
+            "step": 1,
+            "value": "0.40",
+            "luma": 99.87,
+            "writes": 0,
+            "shot": "after-c5-photo-adjust-1.png"
+          },
+          {
+            "step": 2,
+            "value": "0.80",
+            "luma": 101.39,
+            "writes": 0,
+            "shot": "after-c5-photo-adjust-2.png"
+          },
+          {
+            "step": 3,
+            "value": "1.20",
+            "luma": 102.43,
+            "writes": 0,
+            "shot": "after-c5-photo-adjust-3.png"
+          },
+          {
+            "step": "released",
+            "luma": 102.43
+          }
+        ],
+        "writes": 1,
+        "changed": true,
+        "undoOk": true
+      },
+      "ms": 41419
+    },
+    "d-regression": {
+      "photoSelected": "画像photo.png00:10:00",
+      "photoHeader": "photo.png00:00.0 – 00:10.0 · 素材",
+      "eraserPressed": "true",
+      "eraseWrites": 1,
+      "eraseCount": 1,
+      "eraseUndoEqualsHead": true,
+      "handle": {
+        "before": {
+          "left": 87.9,
+          "top": 164.3,
+          "width": 41.5,
+          "height": 27.7,
+          "cx": 108.6,
+          "cy": 178.2,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "after": {
+          "left": 87.9,
+          "top": 164.3,
+          "width": 82.8,
+          "height": 55.2,
+          "cx": 129.3,
+          "cy": 191.9,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "topLeftDelta": {
+          "x": 0,
+          "y": 0
+        },
+        "writes": 1,
+        "written": {
+          "x": 1255.468120477439,
+          "y": 1157.450759217208,
+          "scale": 1.995279292163999,
+          "rotate": 0
+        },
+        "undoEqualsHead": true
+      },
+      "shot": "after-d-regression.png",
+      "ms": 11755
+    },
+    "e-keyframed": {
+      "initial": {
+        "inspector": {
+          "scrollTop": 0,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-kf00:00.0 – 00:10.0 · 素材",
+          "x": "1000",
+          "y": "780",
+          "scale": "100",
+          "rotate": "0",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": null
+        },
+        "rect": {
+          "left": 158.8,
+          "top": 192,
+          "width": 34.6,
+          "height": 20.8,
+          "cx": 176.1,
+          "cy": 202.4,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        }
+      },
+      "shot": "after-e-kf-scrub.png",
+      "series": [
+        {
+          "step": 1,
+          "inspectorX": "1030",
+          "rect": {
+            "left": 214.1,
+            "top": 192,
+            "width": 34.6,
+            "height": 20.8,
+            "cx": 231.4,
+            "cy": 202.4,
+            "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+            "opacity": "1",
+            "filter": "none",
+            "fontSize": "13px"
+          },
+          "writes": 0
+        },
+        {
+          "step": 2,
+          "inspectorX": "1060",
+          "rect": {
+            "left": 219.3,
+            "top": 192,
+            "width": 34.6,
+            "height": 20.8,
+            "cx": 236.6,
+            "cy": 202.4,
+            "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+            "opacity": "1",
+            "filter": "none",
+            "fontSize": "13px"
+          },
+          "writes": 0
+        },
+        {
+          "step": 3,
+          "inspectorX": "1090",
+          "rect": {
+            "left": 224.5,
+            "top": 192,
+            "width": 34.6,
+            "height": 20.8,
+            "cx": 241.8,
+            "cy": 202.4,
+            "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+            "opacity": "1",
+            "filter": "none",
+            "fontSize": "13px"
+          },
+          "writes": 0
+        },
+        {
+          "step": 4,
+          "inspectorX": "1120",
+          "rect": {
+            "left": 229.7,
+            "top": 192,
+            "width": 34.6,
+            "height": 20.8,
+            "cx": 247,
+            "cy": 202.4,
+            "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+            "opacity": "1",
+            "filter": "none",
+            "fontSize": "13px"
+          },
+          "writes": 0
+        }
+      ],
+      "after": {
+        "inspector": {
+          "scrollTop": 0,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-kf00:00.0 – 00:10.0 · 素材",
+          "x": "1120",
+          "y": "780",
+          "scale": "100",
+          "rotate": "0",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": null
+        },
+        "rect": {
+          "left": 159.5,
+          "top": 192,
+          "width": 34.6,
+          "height": 20.8,
+          "cx": 176.8,
+          "cy": 202.4,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writes": 1,
+        "item": {
+          "id": "box-kf",
+          "at": 0,
+          "duration": 300,
+          "transform": {
+            "x": 800,
+            "y": 780
+          },
+          "keyframes": [
+            {
+              "t": 0,
+              "transform": {
+                "x": 700
+              }
+            },
+            {
+              "t": 150,
+              "transform": {
+                "x": 1120
+              }
+            },
+            {
+              "t": 300,
+              "transform": {
+                "x": 1300
+              }
+            }
+          ],
+          "source": {
+            "kind": "shape",
+            "shape": "rect",
+            "params": {
+              "width": 200,
+              "height": 120,
+              "fill": "#10b981"
+            }
+          }
+        }
+      },
+      "dragSeries": [
+        "860",
+        "960",
+        "1060.99",
+        "1176.65"
+      ],
+      "afterDrag": "1177",
+      "ms": 7752
+    }
+  },
+  "allConsoleErrors": []
+}

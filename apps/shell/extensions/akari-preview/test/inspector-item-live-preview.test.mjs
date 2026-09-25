@@ -10,13 +10,18 @@ function between(start, end) {
   assert.notEqual(to, -1, end);
   return source.slice(from, to);
 }
-const summaryWithLivePreview = new Function(`
+const summaryWithLivePreviewAt = new Function('outputTime', `
   ${between('const summaryWithLivePreview = ', 'const applyEngineSummary = ')}
   return summaryWithLivePreview;
-`)();
+`);
+const summaryWithLivePreview = summaryWithLivePreviewAt(0);
 const receiveLivePreview = new Function(
   'message', 'window', 'video', 'layersStage', 'CSS', 'updateLayerSelectBox',
-  between("if (message && message.type === 'akari-preview-live-transform' && message.target", '\n            });')
+  `let liveKey = null;
+  const liveDom = { update(key) { liveKey = key; }, captureOverlayCss() {}, key() { return liveKey; } };
+  const clearLiveOverride = () => { liveKey = null; };
+  const paintLiveOverride = () => {}; const tick = () => {};
+  ${between("if (message && message.type === 'akari-preview-live-transform' && message.target", '\n            });')}`
 );
 
 function fixture() {
@@ -74,6 +79,47 @@ test('tree HTML live scale preserves axis ratio and axis previews accept restora
   const restored = summaryWithLivePreview(current, { target, field: 'scaleX', value: 1.5 });
   assert.equal(restored.tree[0].transform.scaleX, 1.5);
   assert.deepEqual(current.tree[0].transform, { scale: 1, scaleX: 1.5, scaleY: .75 });
+});
+
+test('shape overlay live X reaches its CSS pose without a selection tree', () => {
+  const css = new Map([['--x', '300px']]);
+  const overlay = { getAttribute: name => name === 'data-overlay-id' ? 'box-a' : null,
+    style: { getPropertyValue: name => css.get(name) || '', setProperty: (name, value) => css.set(name, value),
+      removeProperty: name => css.delete(name) } };
+  const beforeStage = globalThis.stage, beforeSummary = globalThis.summary;
+  globalThis.stage = { querySelectorAll: () => [overlay] };
+  globalThis.summary = { tree: [], overlays: [{ id: 'box-a', transform: { x: 300 } }] };
+  try {
+    receive({ kind: 'item', id: 'box-a' }, 'x', 480);
+    assert.equal(css.get('--x'), '480px');
+    const next = summaryWithLivePreview(globalThis.summary, {
+      target: { kind: 'item', id: 'box-a' }, field: 'x', value: 480
+    });
+    assert.equal(next.overlays[0].transform.x, 480);
+    assert.equal(globalThis.summary.overlays[0].transform.x, 300);
+  } finally {
+    if (beforeStage === undefined) delete globalThis.stage; else globalThis.stage = beforeStage;
+    if (beforeSummary === undefined) delete globalThis.summary; else globalThis.summary = beforeSummary;
+  }
+});
+
+test('keyframed shape gets a temporary value at the current frame', () => {
+  const before = { overlays: [{ id: 'box-kf', start: 0, transform: { x: 800 },
+    keyframes: [{ t: 0, transform: { x: 700 } }, { t: 300, transform: { x: 1300 } }] }],
+    output: { fps: 30 } };
+  const next = summaryWithLivePreviewAt(5)(before,
+    { target: { kind: 'item', id: 'box-kf' }, field: 'x', value: 900 });
+  assert.equal(next.overlays[0].keyframes.find(point => point.t === 150).transform.x, 900);
+  assert.equal(before.overlays[0].keyframes.length, 2);
+});
+
+test('photo exposure updates the frame engine summary without changing the source', () => {
+  const current = { layers: [{ id: 'photo-a', adjust: { basic: { exposure: 0, contrast: 0.2 } } }] };
+  const next = summaryWithLivePreview(current, {
+    target: { kind: 'item', id: 'photo-a' }, field: 'adjust.basic.exposure', value: 1
+  });
+  assert.deepEqual(next.layers[0].adjust.basic, { exposure: 1, contrast: 0.2 });
+  assert.equal(current.layers[0].adjust.basic.exposure, 0);
 });
 
 test('grouped HTML live width and X stay in world coordinates through a bag and restore', () => {

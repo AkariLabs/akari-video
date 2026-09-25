@@ -1,0 +1,458 @@
+{
+  "label": "before-c5",
+  "port": 9572,
+  "pid": 25820,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "outer": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 404,
+    "h": 359
+  },
+  "windowShot": "before-c5-window.png",
+  "results": {
+    "c-inspector-to-preview": {
+      "initialRect": {
+        "left": 87.9,
+        "top": 91.7,
+        "width": 51.9,
+        "height": 34.6,
+        "cx": 113.8,
+        "cy": 109,
+        "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+        "opacity": "1",
+        "filter": "none",
+        "fontSize": "13px"
+      },
+      "scrubHandle": {
+        "x": 722,
+        "y": 307.5,
+        "w": 18,
+        "h": 16,
+        "cx": 731,
+        "cy": 315.5
+      },
+      "scrub": {
+        "series": [
+          {
+            "step": 1,
+            "dxScrub": 20,
+            "inspectorX": "320",
+            "previewLeft": 87.9,
+            "writes": 0
+          },
+          {
+            "step": 2,
+            "dxScrub": 40,
+            "inspectorX": "340",
+            "previewLeft": 87.9,
+            "writes": 0
+          },
+          {
+            "step": 3,
+            "dxScrub": 60,
+            "inspectorX": "360",
+            "previewLeft": 87.9,
+            "writes": 0,
+            "shot": "before-c5-c1-scrub-3.png"
+          },
+          {
+            "step": 4,
+            "dxScrub": 80,
+            "inspectorX": "380",
+            "previewLeft": 87.9,
+            "writes": 0
+          },
+          {
+            "step": 5,
+            "dxScrub": 100,
+            "inspectorX": "400",
+            "previewLeft": 87.9,
+            "writes": 0
+          },
+          {
+            "step": 6,
+            "dxScrub": 120,
+            "inspectorX": "420",
+            "previewLeft": 87.9,
+            "writes": 0,
+            "shot": "before-c5-c1-scrub-6.png"
+          },
+          {
+            "step": 7,
+            "dxScrub": 140,
+            "inspectorX": "440",
+            "previewLeft": 87.9,
+            "writes": 0
+          },
+          {
+            "step": 8,
+            "dxScrub": 160,
+            "inspectorX": "460",
+            "previewLeft": 87.9,
+            "writes": 0
+          },
+          {
+            "step": 9,
+            "dxScrub": 180,
+            "inspectorX": "480",
+            "previewLeft": 87.9,
+            "writes": 0,
+            "shot": "before-c5-c1-scrub-9.png"
+          }
+        ],
+        "afterRelease": {
+          "left": 119,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 144.9,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "inspector": {
+          "scrollTop": 0,
+          "scrollHeight": 1023,
+          "clientHeight": 603,
+          "header": "box-a00:00.0 – 00:10.0 · 素材",
+          "x": "480",
+          "y": "200",
+          "scale": "100",
+          "rotate": "0",
+          "opacity": "100",
+          "tabs": [
+            {
+              "ui": "tab:inspector-video",
+              "selected": "true"
+            },
+            {
+              "ui": "tab:inspector-adjust",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-audio",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-edit",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-motion",
+              "selected": "false"
+            },
+            {
+              "ui": "tab:inspector-info",
+              "selected": "false"
+            }
+          ],
+          "activeTab": "tab:inspector-video",
+          "focus": null
+        },
+        "writes": 1,
+        "written": {
+          "x": 480,
+          "y": 200,
+          "scale": 1
+        },
+        "undoEqualsHead": true,
+        "afterUndoRect": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        }
+      },
+      "esc": {
+        "during": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "duringShot": "before-c5-c2-esc-during.png",
+        "afterEsc": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "afterRelease": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writes": 0,
+        "editUnchanged": true,
+        "afterEscShot": "before-c5-c2-esc-after.png"
+      },
+      "typing": {
+        "duringRect": {
+          "left": 87.9,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 113.8,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writesDuring": 0,
+        "afterRect": {
+          "left": 191.6,
+          "top": 91.7,
+          "width": 51.9,
+          "height": 34.6,
+          "cx": 217.6,
+          "cy": 109,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writes": 1,
+        "undoEqualsHead": true
+      },
+      "sliders": [
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 0,
+          "aria": "大きさ スライダー",
+          "min": "0",
+          "max": "160",
+          "value": "38",
+          "visibleTab": true,
+          "series": [
+            {
+              "step": 1,
+              "rect": {
+                "left": 153.1,
+                "top": 220.4,
+                "width": 71.2,
+                "height": 10.4,
+                "cx": 188.7,
+                "cy": 225.6,
+                "transform": "",
+                "opacity": "1",
+                "filter": "none",
+                "fontSize": "38px"
+              },
+              "writes": 0,
+              "shot": "before-c5-c4-captions-range0-1.png"
+            },
+            {
+              "step": 2,
+              "rect": {
+                "left": 153.1,
+                "top": 220.4,
+                "width": 71.2,
+                "height": 10.4,
+                "cx": 188.7,
+                "cy": 225.6,
+                "transform": "",
+                "opacity": "1",
+                "filter": "none",
+                "fontSize": "38px"
+              },
+              "writes": 0,
+              "shot": "before-c5-c4-captions-range0-2.png"
+            },
+            {
+              "step": 3,
+              "rect": {
+                "left": 153.1,
+                "top": 220.4,
+                "width": 71.2,
+                "height": 10.4,
+                "cx": 188.7,
+                "cy": 225.6,
+                "transform": "",
+                "opacity": "1",
+                "filter": "none",
+                "fontSize": "38px"
+              },
+              "writes": 0,
+              "shot": "before-c5-c4-captions-range0-3.png"
+            }
+          ],
+          "writes": 1,
+          "changed": true,
+          "undoOk": true
+        },
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 1,
+          "aria": "行間 スライダー",
+          "min": "0.9",
+          "max": "2.2",
+          "value": "1.4",
+          "visibleTab": true,
+          "skipped": "not visible"
+        },
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 2,
+          "aria": "字間 スライダー",
+          "min": "-0.1",
+          "max": "0.4",
+          "value": "0",
+          "visibleTab": true,
+          "skipped": "not visible"
+        },
+        {
+          "id": "captions",
+          "tab": "text",
+          "i": 3,
+          "aria": "太さ スライダー",
+          "min": "0",
+          "max": "20",
+          "value": "1.5",
+          "visibleTab": true,
+          "skipped": "not visible"
+        }
+      ],
+      "photoAdjustSelectShot": "before-c5-c5-photo-select.png",
+      "photoAdjustTabClicked": true,
+      "photoAdjustFields": {
+        "rows": [
+          "adjust-basic-enabled",
+          "adjust-look",
+          "adjust-basic-exposure",
+          "adjust-basic-contrast",
+          "adjust-basic-highlights",
+          "adjust-basic-shadows",
+          "adjust-basic-blacks",
+          "adjust-basic-whites",
+          "adjust-basic-temperature",
+          "adjust-basic-tint",
+          "adjust-basic-vibrance",
+          "adjust-basic-saturation",
+          "adjust-curves-enabled",
+          "adjust-wheels-enabled",
+          "adjust-hue-enabled",
+          "adjust-lut-enabled",
+          "adjust-lut-preset",
+          "adjust-lut-intensity",
+          "adjust-lut-import",
+          "adjust-fx-enabled",
+          "adjust-fx-add"
+        ],
+        "numbers": [
+          "adjust-basic-enabled",
+          "adjust-look",
+          "adjust-basic-exposure",
+          "adjust-basic-contrast",
+          "adjust-basic-highlights",
+          "adjust-basic-shadows",
+          "adjust-basic-blacks",
+          "adjust-basic-whites",
+          "adjust-basic-temperature",
+          "adjust-basic-tint",
+          "adjust-basic-vibrance",
+          "adjust-basic-saturation",
+          "adjust-curves-enabled",
+          "adjust-wheels-enabled",
+          "adjust-wheel-lift-luma",
+          "adjust-wheel-gamma-luma",
+          "adjust-wheel-gain-luma",
+          "adjust-wheel-offset-luma",
+          "adjust-hue-enabled",
+          "adjust-lut-enabled",
+          "adjust-lut-preset",
+          "adjust-lut-intensity",
+          "adjust-fx-enabled",
+          "adjust-fx-add"
+        ],
+        "sections": [
+          "section:inspector-adjust:basic",
+          "section:inspector-adjust:curves",
+          "section:inspector-adjust:wheels",
+          "section:inspector-adjust:hue",
+          "section:inspector-adjust:lut",
+          "section:inspector-adjust:fx"
+        ],
+        "handles": 15,
+        "ranges": 0
+      },
+      "photoAdjustPick": "adjust-basic-exposure",
+      "photoAdjust": {
+        "series": [
+          {
+            "step": 0,
+            "luma": 97.96
+          },
+          {
+            "step": 1,
+            "value": "0.40",
+            "luma": 97.96,
+            "writes": 0,
+            "shot": "before-c5-c5-photo-adjust-1.png"
+          },
+          {
+            "step": 2,
+            "value": "0.80",
+            "luma": 97.96,
+            "writes": 0,
+            "shot": "before-c5-c5-photo-adjust-2.png"
+          },
+          {
+            "step": 3,
+            "value": "1.20",
+            "luma": 97.96,
+            "writes": 0,
+            "shot": "before-c5-c5-photo-adjust-3.png"
+          },
+          {
+            "step": "released",
+            "luma": 102.43
+          }
+        ],
+        "writes": 1,
+        "changed": true,
+        "undoOk": true
+      },
+      "ms": 42102
+    }
+  },
+  "allConsoleErrors": []
+}

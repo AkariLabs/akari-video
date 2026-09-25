@@ -111,7 +111,8 @@ const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, 
 delete dependencies.default;
 delete dependencies['module.exports'];
 const renderCode = ts.transpileModule(`${factory('ADJUST_SECTIONS')}\n${factory('AUDIO_MASTER_SECTION')}\nclass RenderHarness {
-${['render', 'tabSourceHint', 'generationIdentity', 'generationSectionFields', 'appendTabStrip'].map(method).join('\n')}
+${method('renderContent').replace('renderContent', 'render')}
+${['tabSourceHint', 'generationIdentity', 'generationSectionFields', 'appendTabStrip'].map(method).join('\n')}
 }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const RenderHarness = new Function(...Object.keys(dependencies), `${renderCode}; return RenderHarness;`)(...Object.values(dependencies));
 class TabElement {
