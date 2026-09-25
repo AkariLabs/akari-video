@@ -15,5 +15,5 @@ A は青い斜線と輪、B は橙色の点と四角です。動きが見える�
 
 ```sh
 node presets/luts/bake-previews.mjs
-node --test presets/luts/test/previews.test.mjs
+node --test presets/luts/previews.test.mjs
 ```

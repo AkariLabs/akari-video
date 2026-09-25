@@ -5,10 +5,10 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parseCube, readLut, sampleLutTrilinear, renderLutPreview, renderReferenceFrame } from '../preview-art.mjs';
-import { CELL_WIDTH, CELL_HEIGHT, renderTransition, sourcePixel, transitionVocabulary } from '../../transitions/preview-art.mjs';
+import { parseCube, readLut, sampleLutTrilinear, renderLutPreview, renderReferenceFrame } from './preview-art.mjs';
+import { CELL_WIDTH, CELL_HEIGHT, renderTransition, sourcePixel, transitionVocabulary } from '../transitions/preview-art.mjs';
 
-const root = fileURLToPath(new URL('../../..', import.meta.url));
+const root = fileURLToPath(new URL('../..', import.meta.url));
 const records = path => readFileSync(join(root, path), 'utf8').trim().split('\n').map(JSON.parse);
 const digest = path => createHash('sha256').update(readFileSync(join(root, path))).digest('hex');
 

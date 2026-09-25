@@ -7,7 +7,7 @@ A → 50% → B を並べた確認画像です。基準フレームは `../../pr
 
 ```sh
 node presets/luts/bake-previews.mjs
-node --test presets/luts/test/previews.test.mjs
+node --test presets/luts/previews.test.mjs
 ```
 
 見る点:
