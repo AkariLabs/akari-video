@@ -36,7 +36,7 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     strip.className = 'akari-inspector-tab-strip';
     strip.setAttribute('role', 'tablist');
     strip.setAttribute('aria-label', '素材のインスペクター');
-    for (const tab of [{ id: 'generation', label: 'AI' }, { id: 'info', label: '情報' }] as const) {
+    for (const tab of [{ id: 'generation', label: '編集' }, { id: 'info', label: '情報' }] as const) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'akari-inspector-tab';
@@ -90,7 +90,7 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     if (!groups.length) {
         const empty = document.createElement('p');
         empty.className = 'akari-inspector-ai-material-empty';
-        empty.textContent = 'この素材で使える AI はまだありません';
+        empty.textContent = 'この素材で使える編集はまだありません';
         parent.appendChild(empty);
         return;
     }

@@ -1,0 +1,1225 @@
+{
+  "label": "after",
+  "port": 9555,
+  "pid": 66121,
+  "timelineOpen": {
+    "ok": false,
+    "error": "command registry unavailable"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "toastDismissed": false,
+  "results": {
+    "photo": {
+      "focus": {
+        "ok": true,
+        "value": true
+      },
+      "tabs": [
+        {
+          "id": "video",
+          "label": "映像",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "tabEdit": true,
+      "editSections": [
+        {
+          "ui": "section:inspector-edit-correction",
+          "heading": "補正"
+        },
+        {
+          "ui": "section:inspector-adjust:basic",
+          "heading": "基本補正"
+        },
+        {
+          "ui": "section:inspector-adjust:curves",
+          "heading": "RGB カーブ"
+        },
+        {
+          "ui": "section:inspector-adjust:wheels",
+          "heading": "カラーホイール"
+        },
+        {
+          "ui": "section:inspector-adjust:hue",
+          "heading": "Hue カーブ"
+        },
+        {
+          "ui": "section:inspector-adjust:lut",
+          "heading": "LUT"
+        },
+        {
+          "ui": "section:inspector-adjust:fx",
+          "heading": "エフェクト"
+        },
+        {
+          "ui": "section:inspector-edit-alternatives",
+          "heading": "別案を生成"
+        },
+        {
+          "ui": "section:inspector-edit-material-choice",
+          "heading": "素材の選択"
+        }
+      ],
+      "editHeadings": [
+        "別案を生成"
+      ],
+      "editRows": [
+        {
+          "field": "edit-adjust-scope",
+          "label": "対象",
+          "marks": [],
+          "value": "画像全体",
+          "cloud": false,
+          "section": "section:inspector-edit-correction"
+        },
+        {
+          "field": "adjust-basic-enabled",
+          "label": "",
+          "marks": [],
+          "value": "",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-look",
+          "label": "ルック",
+          "marks": [],
+          "value": "カスタム",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-exposure",
+          "label": "露出",
+          "marks": [],
+          "value": "0.00",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-contrast",
+          "label": "コントラスト",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-highlights",
+          "label": "ハイライト",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-shadows",
+          "label": "シャドウ",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-blacks",
+          "label": "黒レベル",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-whites",
+          "label": "白レベル",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-temperature",
+          "label": "色温度",
+          "marks": [],
+          "value": "6500",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-tint",
+          "label": "ティント",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-vibrance",
+          "label": "バイブランス",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-basic-saturation",
+          "label": "彩度",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-adjust:basic"
+        },
+        {
+          "field": "adjust-curves-enabled",
+          "label": "",
+          "marks": [],
+          "value": "",
+          "cloud": false,
+          "section": "section:inspector-adjust:curves"
+        },
+        {
+          "field": "adjust-wheels-enabled",
+          "label": "",
+          "marks": [],
+          "value": "",
+          "cloud": false,
+          "section": "section:inspector-adjust:wheels"
+        },
+        {
+          "field": "adjust-hue-enabled",
+          "label": "",
+          "marks": [],
+          "value": "",
+          "cloud": false,
+          "section": "section:inspector-adjust:hue"
+        },
+        {
+          "field": "adjust-lut-enabled",
+          "label": "",
+          "marks": [],
+          "value": "",
+          "cloud": false,
+          "section": "section:inspector-adjust:lut"
+        },
+        {
+          "field": "adjust-lut-preset",
+          "label": "プリセット",
+          "marks": [],
+          "value": "なし",
+          "cloud": false,
+          "section": "section:inspector-adjust:lut"
+        },
+        {
+          "field": "adjust-lut-intensity",
+          "label": "強度",
+          "marks": [],
+          "value": "100",
+          "cloud": false,
+          "section": "section:inspector-adjust:lut"
+        },
+        {
+          "field": "adjust-lut-import",
+          "label": "読み込み",
+          "marks": [],
+          "value": "読み込みLUT を読み込む…",
+          "cloud": false,
+          "section": "section:inspector-adjust:lut"
+        },
+        {
+          "field": "adjust-fx-enabled",
+          "label": "",
+          "marks": [],
+          "value": "",
+          "cloud": false,
+          "section": "section:inspector-adjust:fx"
+        },
+        {
+          "field": "adjust-fx-add",
+          "label": "効果を追加",
+          "marks": [],
+          "value": "選択…",
+          "cloud": false,
+          "section": "section:inspector-adjust:fx"
+        },
+        {
+          "field": "edit-replace-subject",
+          "label": "被写体を別の要素にする",
+          "marks": [],
+          "value": "被写体を別の要素にする近日",
+          "cloud": false,
+          "section": "section:inspector-edit-material-choice"
+        }
+      ],
+      "editTiles": [
+        {
+          "label": "静止画",
+          "cloud": true,
+          "disabled": false,
+          "group": "別案を生成"
+        },
+        {
+          "label": "動画にする",
+          "cloud": true,
+          "disabled": false,
+          "group": "別案を生成"
+        },
+        {
+          "label": "文字起こし",
+          "cloud": true,
+          "disabled": false,
+          "group": "別案を生成"
+        }
+      ],
+      "clouds": [
+        "静止画空の枠か静止画で使えます",
+        "動画にする静止画か空の枠で使えます",
+        "文字起こし",
+        "高画質化",
+        "背景生成（近日）"
+      ],
+      "aiHitsByTab": {
+        "video": [],
+        "edit": [],
+        "adjust": [],
+        "audio": [],
+        "motion": [],
+        "info": []
+      },
+      "otherTabs": {
+        "adjust": {
+          "sections": [
+            "基本補正有効",
+            "RGB カーブ有効",
+            "カラーホイール有効",
+            "Hue カーブ有効",
+            "LUT有効",
+            "エフェクト有効"
+          ],
+          "rows": 21
+        },
+        "audio": {
+          "sections": [
+            "音量近日",
+            "フェード近日",
+            "音声強調近日",
+            "ダッキング近日",
+            "A/V リンク近日",
+            "ピッチ・タイム近日",
+            "マスター（書き出し全体）"
+          ],
+          "rows": 4
+        },
+        "motion": {
+          "sections": [
+            "動き"
+          ],
+          "rows": 12
+        },
+        "info": {
+          "sections": [
+            "情報"
+          ],
+          "rows": 0
+        }
+      }
+    },
+    "motion": {
+      "motionTabSections": [
+        {
+          "ui": "section:inspector-motion",
+          "heading": "動き"
+        }
+      ],
+      "motionTabRows": [
+        "motion-in-preset",
+        "motion-in-duration",
+        "motion-in-ease",
+        "motion-in-amount",
+        "motion-out-preset",
+        "motion-out-duration",
+        "motion-out-ease",
+        "motion-out-amount",
+        "motion-loop-preset",
+        "motion-loop-duration",
+        "motion-loop-ease",
+        "motion-loop-amount"
+      ],
+      "how": "select",
+      "written": true,
+      "motionAfter": {
+        "in": {
+          "preset": "fade",
+          "duration": 12
+        }
+      },
+      "motionTabAfter": [
+        {
+          "field": "motion-in-preset",
+          "label": "入り",
+          "marks": [],
+          "value": "フェード",
+          "cloud": false,
+          "section": "section:inspector-motion"
+        },
+        {
+          "field": "motion-in-duration",
+          "label": "入りの尺",
+          "marks": [],
+          "value": "12",
+          "cloud": false,
+          "section": "section:inspector-motion"
+        },
+        {
+          "field": "motion-in-ease",
+          "label": "入りのイージング",
+          "marks": [],
+          "value": "linear",
+          "cloud": false,
+          "section": "section:inspector-motion"
+        },
+        {
+          "field": "motion-in-amount",
+          "label": "入りの量",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-motion"
+        }
+      ],
+      "summary": [
+        {
+          "field": "motion-summary",
+          "label": "現在の動き",
+          "marks": [],
+          "value": "現在の動き入り: フェード",
+          "cloud": false,
+          "section": "section:inspector-motion-summary"
+        },
+        {
+          "field": "motion-open",
+          "label": "詳しい設定",
+          "marks": [],
+          "value": "詳しい設定動きタブで開く",
+          "cloud": false,
+          "section": "section:inspector-motion-summary"
+        }
+      ],
+      "marks": [
+        {
+          "field": "transform-x",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "transform-y",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "transform-scale",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "transform-scaleX",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "transform-scaleY",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "transform-rotate",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "crop-x",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "crop-y",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "crop-w",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "crop-h",
+          "marks": [
+            "入り・抜き"
+          ]
+        },
+        {
+          "field": "opacity",
+          "marks": [
+            "入り・抜き"
+          ]
+        }
+      ]
+    },
+    "shape": {
+      "appearance": [
+        {
+          "field": "opacity",
+          "label": "不透明度",
+          "marks": [],
+          "value": "100",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-fillMode",
+          "label": "塗り",
+          "marks": [],
+          "value": "色",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-fill",
+          "label": "塗りの色",
+          "marks": [],
+          "value": "#a6a6a6",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-strokeMode",
+          "label": "枠",
+          "marks": [],
+          "value": "なし",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-strokeWidth",
+          "label": "枠の太さ",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-cornerRadius",
+          "label": "角の丸み",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        }
+      ],
+      "original": {
+        "fill": "#a6a6a6",
+        "stroke": "none",
+        "strokeWidth": 0,
+        "preset": "basic-square",
+        "path": {
+          "d": "M3 3L97 3L97 97L3 97Z",
+          "vb": [
+            100,
+            100
+          ]
+        }
+      },
+      "fillHow": "text:focused",
+      "fillWritten": true,
+      "fillParams": {
+        "fill": "#ef4444",
+        "stroke": "none",
+        "strokeWidth": 0,
+        "preset": "basic-square",
+        "path": {
+          "d": "M3 3L97 3L97 97L3 97Z",
+          "vb": [
+            100,
+            100
+          ]
+        }
+      },
+      "svgBefore": {
+        "fills": [
+          "#a6a6a6"
+        ],
+        "strokes": [],
+        "strokeWidths": [],
+        "length": 267,
+        "head": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"600\" height=\"340\" viewBox=\"0 0 600 340\" style=\"pointer-events: none !important;\"><path d=\"M0 0L600 0L600 340L0 34"
+      },
+      "svgFill": {
+        "fills": [
+          "#ef4444"
+        ],
+        "strokes": [],
+        "strokeWidths": [],
+        "length": 267,
+        "head": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"600\" height=\"340\" viewBox=\"0 0 600 340\" style=\"pointer-events: none !important;\"><path d=\"M0 0L600 0L600 340L0 34"
+      },
+      "shotFill": "after-07-shape-fill-window.png",
+      "undoFill": {
+        "result": "cmd+z",
+        "changed": true
+      },
+      "afterUndo": {
+        "fill": "#a6a6a6",
+        "stroke": "none",
+        "strokeWidth": 0,
+        "preset": "basic-square",
+        "path": {
+          "d": "M3 3L97 3L97 97L3 97Z",
+          "vb": [
+            100,
+            100
+          ]
+        }
+      },
+      "svgUndo": {
+        "fills": [
+          "#a6a6a6"
+        ],
+        "strokes": [],
+        "strokeWidths": [],
+        "length": 267,
+        "head": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"600\" height=\"340\" viewBox=\"0 0 600 340\" style=\"pointer-events: none !important;\"><path d=\"M0 0L600 0L600 340L0 34",
+        "waitedMs": 3
+      },
+      "strokeModeHow": "select",
+      "strokeModeParams": {
+        "stroke": "#000000",
+        "strokeWidth": 4
+      },
+      "widthHow": "text:focused",
+      "cornerHow": "text:focused",
+      "strokeParams": {
+        "fill": "#a6a6a6",
+        "stroke": "#000000",
+        "strokeWidth": 12,
+        "preset": "basic-square",
+        "path": {
+          "d": "M3 3L97 3L97 97L3 97Z",
+          "vb": [
+            100,
+            100
+          ]
+        },
+        "cornerRadius": 30
+      },
+      "svgStroke": {
+        "fills": [
+          "#a6a6a6",
+          "none"
+        ],
+        "strokes": [
+          "#000000"
+        ],
+        "strokeWidths": [
+          "8"
+        ],
+        "length": 1115,
+        "head": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"600\" height=\"340\" viewBox=\"0 0 600 340\" style=\"pointer-events: none !important;\"><defs style=\"pointer-events: non"
+      },
+      "rowsAfter": [
+        {
+          "field": "shape-fillMode",
+          "label": "塗り",
+          "marks": [],
+          "value": "色",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-fill",
+          "label": "塗りの色",
+          "marks": [],
+          "value": "#a6a6a6",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-strokeMode",
+          "label": "枠",
+          "marks": [],
+          "value": "色",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-stroke",
+          "label": "枠の色",
+          "marks": [],
+          "value": "#000000",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-strokeWidth",
+          "label": "枠の太さ",
+          "marks": [],
+          "value": "12",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-cornerRadius",
+          "label": "角の丸み",
+          "marks": [],
+          "value": "30",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        }
+      ]
+    },
+    "line": {
+      "rows": [
+        {
+          "field": "shape-stroke",
+          "label": "線の色",
+          "marks": [],
+          "value": "#000000",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-strokeWidth",
+          "label": "太さ",
+          "marks": [],
+          "value": "4",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-dash",
+          "label": "線種",
+          "marks": [],
+          "value": "実線",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-lineCap",
+          "label": "端を丸く",
+          "marks": [],
+          "value": "なし",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-startCap",
+          "label": "始点のパーツ",
+          "marks": [],
+          "value": "なし",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-endCap",
+          "label": "終点のパーツ",
+          "marks": [],
+          "value": "三角",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-swap-ends",
+          "label": "始点と終点",
+          "marks": [],
+          "value": "始点と終点入れ替え",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        }
+      ],
+      "before": {
+        "startCap": "none",
+        "endCap": "triangle"
+      },
+      "swap": true,
+      "swapped": true,
+      "after": {
+        "startCap": "triangle",
+        "endCap": "none"
+      },
+      "undone": {
+        "result": "cmd+z",
+        "changed": true
+      },
+      "afterUndo": {
+        "startCap": "none",
+        "endCap": "triangle"
+      }
+    },
+    "bubble": {
+      "sections": [
+        {
+          "ui": "section:inspector-time",
+          "heading": "時間"
+        },
+        {
+          "ui": "section:inspector-transform",
+          "heading": "変形"
+        },
+        {
+          "ui": "section:inspector-crop",
+          "heading": "クロップ"
+        },
+        {
+          "ui": "section:inspector-perspective",
+          "heading": "パース（4 隅）"
+        },
+        {
+          "ui": "section:inspector-motion-summary",
+          "heading": "動き"
+        },
+        {
+          "ui": "section:inspector-appearance",
+          "heading": "外観"
+        },
+        {
+          "ui": "section:inspector-bubble",
+          "heading": "吹き出し"
+        }
+      ],
+      "rows": [
+        {
+          "field": "shape-fillMode",
+          "label": "塗り",
+          "marks": [],
+          "value": "色",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-fill",
+          "label": "塗りの色",
+          "marks": [],
+          "value": "#ffffff",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-strokeMode",
+          "label": "枠",
+          "marks": [],
+          "value": "色",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-stroke",
+          "label": "枠の色",
+          "marks": [],
+          "value": "#000000",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-strokeWidth",
+          "label": "枠の太さ",
+          "marks": [],
+          "value": "5",
+          "cloud": false,
+          "section": "section:inspector-appearance"
+        },
+        {
+          "field": "shape-style",
+          "label": "形の種類",
+          "marks": [],
+          "value": "爆発",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-count",
+          "label": "山やトゲの数",
+          "marks": [],
+          "value": "16",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-depth",
+          "label": "深さ",
+          "marks": [],
+          "value": "40",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-jitter",
+          "label": "ばらつき",
+          "marks": [],
+          "value": "25",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-dash",
+          "label": "枠の線種",
+          "marks": [],
+          "value": "実線",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-tail",
+          "label": "しっぽ",
+          "marks": [],
+          "value": "とがった",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-tailAngle",
+          "label": "しっぽの向き",
+          "marks": [],
+          "value": "210",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-tailLength",
+          "label": "しっぽの長さ",
+          "marks": [],
+          "value": "45",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-tailWidth",
+          "label": "しっぽの太さ",
+          "marks": [],
+          "value": "30",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-tailCurve",
+          "label": "しっぽの曲がり",
+          "marks": [],
+          "value": "0",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-next-seed",
+          "label": "形の変化",
+          "marks": [],
+          "value": "形の変化別の形にする",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        }
+      ],
+      "countHow": "text:focused",
+      "countWritten": true,
+      "angleHow": "text:focused",
+      "angleWritten": true,
+      "seedHow": true,
+      "seedWritten": true,
+      "params": {
+        "count": 24,
+        "tailAngle": 90,
+        "seed": 2
+      },
+      "undoSeed": {
+        "result": "cmd+z",
+        "changed": true
+      },
+      "afterUndo": {
+        "count": 24,
+        "tailAngle": 90,
+        "seed": 1
+      },
+      "svgChanged": true,
+      "rowsAfter": [
+        {
+          "field": "shape-count",
+          "label": "山やトゲの数",
+          "marks": [],
+          "value": "24",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        },
+        {
+          "field": "shape-tailAngle",
+          "label": "しっぽの向き",
+          "marks": [],
+          "value": "90",
+          "cloud": false,
+          "section": "section:inspector-bubble"
+        }
+      ]
+    },
+    "caption": {
+      "selected": {
+        "ok": true,
+        "value": null
+      },
+      "tabs": [
+        {
+          "id": "text",
+          "label": "テキスト",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "motionSections": [
+        {
+          "ui": "section:inspector-motion-empty",
+          "heading": "動き"
+        }
+      ],
+      "motionRows": [
+        "motion-unavailable"
+      ],
+      "aiHits": []
+    }
+  },
+  "windowShot": "after-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "s2",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "v-main",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "v-photo",
+        "items": [
+          {
+            "id": "photo",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 120,
+              "y": 120,
+              "scale": 0.35
+            },
+            "motion": {
+              "in": {
+                "preset": "fade",
+                "duration": 12
+              }
+            },
+            "source": {
+              "kind": "media",
+              "src": "s2",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-box",
+        "lane": "visual",
+        "name": "v-box",
+        "items": [
+          {
+            "id": "box",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 900,
+              "y": 140,
+              "scale": 3
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#a6a6a6",
+                "stroke": "#000000",
+                "strokeWidth": 12,
+                "preset": "basic-square",
+                "path": {
+                  "d": "M3 3L97 3L97 97L3 97Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "cornerRadius": 30
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-line",
+        "lane": "visual",
+        "name": "v-line",
+        "items": [
+          {
+            "id": "line",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 900,
+              "y": 620,
+              "scaleX": 5,
+              "scaleY": 1
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "line",
+              "params": {
+                "fill": "none",
+                "stroke": "#000000",
+                "strokeWidth": 4,
+                "dash": "solid",
+                "startCap": "none",
+                "endCap": "triangle",
+                "lineCap": "butt",
+                "startCapFilled": true,
+                "endCapFilled": true,
+                "preset": "line-solid-none-tri"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-bubble",
+        "lane": "visual",
+        "name": "v-bubble",
+        "items": [
+          {
+            "id": "bubble",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1400,
+              "y": 300,
+              "scale": 4
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "bubble",
+              "params": {
+                "fill": "#ffffff",
+                "stroke": "#000000",
+                "strokeWidth": 5,
+                "style": "burst",
+                "count": 24,
+                "depth": 40,
+                "jitter": 25,
+                "seed": 1,
+                "tail": "point",
+                "tailAngle": 90,
+                "tailLength": 45,
+                "tailWidth": 30,
+                "tailCurve": 0,
+                "dash": "solid",
+                "preset": "manga-burst"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument",
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Fyc (<file>)\n    at async HMn.reloadResolvedCaptionDisplay (<file>)\n    at async Oyc (<file>"
+  ]
+}

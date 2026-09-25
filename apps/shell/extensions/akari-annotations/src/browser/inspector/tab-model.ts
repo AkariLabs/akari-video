@@ -25,13 +25,14 @@ export function tabsForKind(
     if (kind === 'caption') {
         return [
             { id: 'text', label: 'テキスト', enabled: true },
+            { id: 'motion', label: '動き', enabled: true },
             { ...INFO_TAB }
         ];
     }
     if (kind === 'audio') {
         return [
             { id: 'audio', label: '音声', enabled: true },
-            { id: 'generation', label: 'AI', enabled: true },
+            { id: 'edit', label: '編集', enabled: true },
             { ...INFO_TAB }
         ];
     }
@@ -42,8 +43,8 @@ export function tabsForKind(
         { ...VIDEO_TAB },
         { id: 'adjust', label: '色', enabled: hasMediaPreview },
         { id: 'audio', label: '音声', enabled: hasMediaPreview },
-        { id: 'generation', label: 'AI', enabled: snapshotHints.generationAvailable === true,
-            disabledTitle: 'このクリップで使える AI はまだありません' },
+        { id: 'edit', label: '編集', enabled: true },
+        { id: 'motion', label: '動き', enabled: true },
         { ...INFO_TAB }
     ];
 }
@@ -52,10 +53,13 @@ export function assignSectionToTab(kind: InspectorTabKind, sectionId: string): s
     const rootId = sectionId.split(':')[0];
     if (rootId === 'info') return 'info';
     if (rootId === 'adjust') return 'adjust';
+    if (rootId === 'motion' || rootId === 'motion-empty' || rootId === 'animator') return 'motion';
     if (kind === 'caption') return 'text';
     if (kind === 'audio') return 'audio';
     if (kind === 'world') return 'world';
-    if (rootId === 'generation') return 'generation';
+    if (rootId === 'generation') return 'edit';
+    if (rootId === 'edit-photo') return 'edit';
+    if (rootId === 'motion-summary') return 'video';
     return 'video';
 }
 
@@ -74,15 +78,17 @@ export interface InitialInspectorTabOptions {
 export function initialTabFor(options: InitialInspectorTabOptions): string {
     const { tabs, persisted, generationTodo, explicitTabId, clipKey, previousClipKey, currentTab } = options;
     const enabled = (id: string | null | undefined): string | undefined =>
-        tabs.find(tab => tab.id === id && tab.enabled)?.id;
+        tabs.find(tab => tab.id === (id === 'generation' ? 'edit' : id) && tab.enabled)?.id;
     const fallback = (): string => enabled(persisted) ?? tabs.find(tab => tab.enabled)?.id ?? '';
     if (explicitTabId) return enabled(explicitTabId) ?? fallback();
     if (clipKey !== undefined && clipKey === previousClipKey && currentTab) {
         return enabled(currentTab) ?? fallback();
     }
-    if (generationTodo && enabled('generation')) return 'generation';
+    const remembered = enabled(persisted);
+    if (remembered && remembered !== tabs.find(tab => tab.enabled)?.id) return remembered;
+    if (generationTodo && enabled('edit')) return 'edit';
     if (persisted === 'generation' || currentTab === 'generation') {
-        return enabled('generation') ?? tabs.find(tab => tab.enabled)?.id ?? '';
+        return enabled('edit') ?? tabs.find(tab => tab.enabled)?.id ?? '';
     }
     return fallback();
 }
@@ -95,7 +101,7 @@ export class InspectorTabState {
 
     activeTab(kind: string, tabs: readonly InspectorTabDef[]): string {
         const saved = this.storage.getItem(`${this.prefix}:${kind}`);
-        const savedTab = tabs.find(tab => tab.id === saved && tab.enabled);
+        const savedTab = tabs.find(tab => tab.id === (saved === 'generation' ? 'edit' : saved) && tab.enabled);
         return savedTab?.id ?? tabs.find(tab => tab.enabled)?.id ?? '';
     }
 

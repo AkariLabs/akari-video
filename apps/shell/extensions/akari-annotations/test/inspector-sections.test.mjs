@@ -3,27 +3,51 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { audioSections, audioSnapshot, fxSections } from './helpers/audio-clip-fx-fixture.mjs';
-import { layerSections, itemSections, cutSections, visualSnapshot, cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
+import { layerSections, itemSections, cutSections, overlaySections, visualSnapshot, cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
 import { keyframeRowPropertyOf, keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
-test('media layer / item の動画タブはパース直後に「動き」12行を畳んで表示する', () => {
+test('media layer / item は映像タブに要約、動きタブに開いた12行を表示する', () => {
   for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
     const snapshot = visualSnapshot(kind);
-    const sections = factory(snapshot, async () => ({ ok: true }))
-      .filter(section => assignSectionToTab(kind, section.id) === 'video');
-    const index = sections.findIndex(section => section.id === 'motion');
-    assert.ok(index > 0);
-    assert.equal(sections[index - 1].id, 'perspective');
-    assert.equal(sections[index].label, '動き');
-    assert.equal(sections[index].collapsedByDefault, true);
-    assert.deepEqual(sections[index].fields.map(field => field.label), [
+    const sections = factory(snapshot, async () => ({ ok: true }));
+    const video = sections.filter(section => assignSectionToTab(kind, section.id) === 'video');
+    const summary = video.findIndex(section => section.id === 'motion-summary');
+    assert.ok(summary > 0);
+    assert.equal(video[summary - 1].id, 'perspective');
+    assert.equal(video[summary].fields[1].actionLabel, '動きタブで開く');
+    const motion = sections.find(section => section.id === 'motion');
+    assert.equal(assignSectionToTab(kind, motion.id), 'motion');
+    assert.equal(motion.collapsedByDefault, undefined);
+    assert.deepEqual(motion.fields.map(field => field.label), [
       '入り', '入りの尺', '入りのイージング', '入りの量',
       '抜き', '抜きの尺', '抜きのイージング', '抜きの量',
       'ループ', '周期', 'ループのイージング', 'ループの量'
     ]);
-    assert.deepEqual(sections[index].fields.map(field => field.inputKind),
+    assert.deepEqual(motion.fields.map(field => field.inputKind),
       Array(3).fill(['select', 'scrub-number', 'select', 'scrub-number']).flat());
+  }
+});
+
+test('cut / overlay も映像の要約と動きタブの 12 行を同じ motion から読む', async () => {
+  for (const [kind, snapshot, factory] of [
+    ['cut', cutSnapshot({ itemId: 'cut-1', durationFrames: 150,
+      motion: { in: { preset: 'fade', duration: 12 } } }), cutSections],
+    ['overlay', { kind: 'overlay', id: 'overlay-1', payload: {}, outputStart: 0, duration: 5,
+      durationFrames: 150, motion: { in: { preset: 'fade', duration: 12 } }, trackName: 'Video', clipName: 'Overlay' }, overlaySections]
+  ]) {
+    const writes = [];
+    const sections = factory(snapshot, async request => { writes.push(request); return { ok: true }; });
+    const summary = sections.find(section => section.id === 'motion-summary');
+    assert.equal(assignSectionToTab(kind, summary.id), 'video');
+    assert.equal(summary.fields[0].getValue(), '入り: フェード');
+    const motion = sections.find(section => section.id === 'motion');
+    assert.equal(assignSectionToTab(kind, motion.id), 'motion');
+    assert.equal(motion.collapsedByDefault, undefined);
+    assert.equal(motion.fields.length, 12);
+    await motion.fields[0].write(snapshot, 'なし');
+    assert.deepEqual(writes, [{ kind: 'item-field', id: kind === 'cut' ? 'cut-1' : 'overlay-1',
+      path: 'motion', value: null }]);
   }
 });
 
@@ -205,7 +229,7 @@ test('cut 選択の節は timing → audio → info の順に並ぶ', () => {
   const factory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
   const sections = [...factory.matchAll(/id: '([^']+)'/gu)].map(match => ({ id: match[1] }));
   assert.deepEqual(composeInspectorSections(sections).map(section => section.id), [
-    'time', 'transform', 'framing', 'freeze', 'appearance', 'timing', 'audio', 'info'
+    'time', 'transform', 'motion', 'framing', 'freeze', 'appearance', 'timing', 'audio', 'info'
   ]);
 });
 
@@ -655,7 +679,7 @@ test('cut / layer / overlay / item の変形節は拡縮・回転を既定 field
     assert.match(transformFields, /name: 'transform-scale'/u);
     assert.match(transformFields, /name: 'transform-rotate'/u);
     assert.doesNotMatch(source, /const optionalFields/u);
-    assert.match(source, /\{ id: 'transform', label: '変形', fields: (?:transformFields|\['group', 'bag'\]\.includes\(snapshot\.itemKind\))/u);
+    assert.match(source, /\{ id: 'transform', label: '変形', fields: (?:transformFields|\(\['group', 'bag'\]\.includes\(snapshot\.itemKind\))/u);
   }
 });
 

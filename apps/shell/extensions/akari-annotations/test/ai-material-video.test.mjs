@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,6 +11,8 @@ import { appendAiMaterialView } from '../lib/browser/inspector/ai-material-view.
 import { aiActionCatalog, aiActionPlacement } from '../lib/common/ai-action-catalog.js';
 import { GenerationCliManager } from '../lib/node/generation-cli.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
+import { doneStillMeta, inspectPng, withNextVideoDraft } from '../../../../../packages/generate/src/cli/meta-still.mjs';
+import { makeReference } from '../../../../../packages/generate/src/cli/media-ref.mjs';
 
 class Node {
   constructor(tag) { this.tag = tag; this.children = []; this.listeners = new Map(); this.attrs = new Map(); this.textContent = ''; this.className = ''; }
@@ -125,9 +126,25 @@ test('素材フォームの承認後 startGenerateVideo に fromImage を渡す'
 test('実 widget: L1 fixture の画像を選び動画タイルを押すとフォームの DOM が出る', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'akari-material-widget-'));
   const project = path.join(root, 'project');
-  const fixtureScript = fileURLToPath(new URL('../evidence/ai-material-video/scripts/gen-fixture.mjs', import.meta.url));
-  const made = spawnSync(process.execPath, [fixtureScript, project], { encoding: 'utf8' });
-  assert.equal(made.status, 0, made.stderr);
+  await cp(fileURLToPath(new URL('../../../../../templates/project-default/', import.meta.url)), project, { recursive: true });
+  await mkdir(path.join(project, 'assets'), { recursive: true });
+  await cp(fileURLToPath(new URL('./fixtures/generation-states/assets/generated/planned.png', import.meta.url)),
+    path.join(project, 'assets/still.png'));
+  await cp(fileURLToPath(new URL('./fixtures/generation-states/assets/generated/done.mp4', import.meta.url)),
+    path.join(project, 'assets/ordinary.mp4'));
+  const at = new Date().toISOString();
+  const still = doneStillMeta({ prompt: '', duration_s: 5, at, asOf: at.slice(0, 10), path: 'assets/still.png',
+    image: await inspectPng(path.join(project, 'assets/still.png')) });
+  const planned = withNextVideoDraft(still, { firstFrame: makeReference(project, 'assets/still.png'),
+    prompt: 'A slow camera move through a violet garden.', at });
+  planned.next.output.resolution = '768P';
+  await writeFile(path.join(project, 'assets/still.png.meta.json'), JSON.stringify(planned, null, 2) + '\n');
+  const edit = JSON.parse(await readFile(new URL('./fixtures/inspector-generation/edit.json', import.meta.url), 'utf8'));
+  edit.sources = [{ id: 'video', path: 'assets/ordinary.mp4' }];
+  edit.tracks[0].items = [{ id: 'video-clip', at: 0, duration: 180,
+    source: { kind: 'media', src: 'video', in: 0, out: 6 } }];
+  edit.audio = { narration: [], sfx: [] };
+  await writeFile(path.join(project, 'edit.json'), JSON.stringify(edit, null, 2) + '\n');
   const previous = new Map(['document', 'window', 'Element', 'HTMLElement', 'Node', 'Event', 'DragEvent', 'MouseEvent', 'KeyboardEvent']
     .map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const require = createRequire(import.meta.url);

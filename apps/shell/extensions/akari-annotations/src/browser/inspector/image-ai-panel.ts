@@ -1,4 +1,5 @@
 import type { AkariAnnotationsService, ImageAiInspection, ImageAiResult } from '../../common/akari-annotations-protocol';
+import { createInspectorIcon } from './icons';
 
 export interface ImageAiPanelState {
     itemId: string;
@@ -17,6 +18,16 @@ function button(label: string, action: () => void, primary = false): HTMLButtonE
     return node;
 }
 
+function cloudButton(label: string, action: () => void, primary = false): HTMLButtonElement {
+    const node = button(label, action, primary);
+    node.className += ' akari-inspector-image-ai-action';
+    const cloud = createInspectorIcon('cloud');
+    cloud.className += ' akari-inspector-cloud';
+    cloud.setAttribute('title', '時間や料金がかかる処理');
+    node.append(cloud);
+    return node;
+}
+
 /** No secret or temporary URL enters browser state or edit.json. */
 export function appendImageAiPanel(parent: HTMLElement, options: {
     projectRootUri: string; itemId: string; state: ImageAiPanelState; service: AkariAnnotationsService;
@@ -24,20 +35,16 @@ export function appendImageAiPanel(parent: HTMLElement, options: {
     openSettings: () => void;
 }): { open: () => void } {
     const { state, service, projectRootUri, itemId } = options;
-    const panel = document.createElement('section');
-    panel.className = 'akari-inspector-ai-group';
+    const panel = document.createElement('div');
+    panel.className = 'akari-inspector-image-ai-tools';
     panel.setAttribute('data-akari-image-ai-panel', itemId);
-    const tileList = parent.querySelector('.akari-inspector-ai-list');
-    if (tileList) parent.insertBefore(panel, tileList);
-    else parent.append(panel);
+    parent.append(panel);
     const line = (value: string): void => { const p = document.createElement('p'); p.textContent = value; panel.append(p); };
     const render = (): void => {
         if (!panel.isConnected) return;
         panel.replaceChildren();
-        const heading = document.createElement('h3'); heading.textContent = '写真を直す';
-        heading.className = 'akari-inspector-ai-heading'; panel.append(heading);
         if (state.phase === 'closed') {
-            panel.append(button('高画質化', open));
+            panel.append(cloudButton('高画質化', open));
         } else if (state.phase === 'loading') {
             line('画像を確かめています…');
         } else if (state.phase === 'confirm' && state.inspection) {
@@ -55,7 +62,7 @@ export function appendImageAiPanel(parent: HTMLElement, options: {
                 line('キーを設定すると使えます。');
                 panel.append(button('設定を開く', options.openSettings));
             }
-            const send = button('送って高画質化', () => void run(), true);
+            const send = cloudButton('送って高画質化', () => void run(), true);
             send.disabled = !info.configured || info.priceUsd === null;
             panel.append(send, button('戻る', () => { state.phase = 'closed'; render(); }));
         } else if (state.phase === 'running') {
@@ -69,7 +76,7 @@ export function appendImageAiPanel(parent: HTMLElement, options: {
             if (/キーが無効|キーを確認/.test(state.error ?? '')) panel.append(button('設定を開く', options.openSettings));
             panel.append(button('再試行', open));
         }
-        const background = button('背景生成（近日）', () => undefined);
+        const background = cloudButton('背景生成（近日）', () => undefined);
         background.disabled = true; panel.append(background);
     };
     const open = (): void => {

@@ -42,9 +42,9 @@ test('静止画クリップの AI タブは作るに静止画・動画にする�
   });
 });
 
-test('音声のタブは音声・AI・情報、既定は音声', () => {
+test('音声のタブは音声・編集・情報、既定は音声', () => {
   const tabs = tabsForKind('audio');
-  assert.deepEqual(tabs.map(tab => [tab.id, tab.label]), [['audio', '音声'], ['generation', 'AI'], ['info', '情報']]);
+  assert.deepEqual(tabs.map(tab => [tab.id, tab.label]), [['audio', '音声'], ['edit', '編集'], ['info', '情報']]);
   assert.equal(initialTabFor({ kind: 'audio', tabs, generationTodo: false }), 'audio');
   assert.equal(initialTabFor({ kind: 'audio', tabs, generationTodo: false, persisted: 'audio' }), 'audio');
 });
@@ -95,6 +95,9 @@ test('タイルには済みの札が付き、タイトルと別の要素にな�
   const tile = find(parent, node => node.attributes.get('data-akari-inspector-ai-tile') === 'transcribe');
   assert.equal(find(tile, byText('済み')).className, 'akari-inspector-ai-done-badge');
   assert.equal(find(tile, byText('文字起こし')).className, 'akari-inspector-ai-title');
+  const titleRow = tile.children.find(child => child.className === 'akari-inspector-ai-title-row');
+  assert.equal(titleRow.children[0].textContent, '文字起こし');
+  assert.match(titleRow.children[1].className, /akari-inspector-cloud/u);
 }));
 
 test('専用パネル: 対象解決・まだの openDialog 引数・running・済みの台本時刻', () => withDom(async () => {

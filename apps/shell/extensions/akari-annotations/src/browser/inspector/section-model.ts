@@ -28,7 +28,7 @@ export class InspectorSectionState {
     }
 }
 
-const ORDER = ['time', 'transform', 'crop', 'perspective', 'motion', 'animator', 'framing', 'freeze', 'generation', 'appearance', 'easing', 'content', 'style', 'timing', 'audio', 'knobs', 'telop', 'info'];
+const ORDER = ['time', 'transform', 'crop', 'perspective', 'motion-summary', 'motion', 'motion-empty', 'animator', 'framing', 'freeze', 'generation', 'appearance', 'easing', 'content', 'style', 'timing', 'audio', 'knobs', 'telop', 'info'];
 
 export function composeInspectorSections<T extends { id: string }>(sections: readonly T[]): T[] {
     return [...sections].sort((left, right) => {

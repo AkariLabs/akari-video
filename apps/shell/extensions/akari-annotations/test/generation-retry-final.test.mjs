@@ -267,7 +267,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 test('retry 合図で生成タブを開く・承認保留/取消は startGenerateVideo 0 回・承認後だけ1回', async () => {
   const w = inspector(); let approve; approval = new Promise(resolve => { approve = resolve; }); dialogCount = 0;
   w.focusField({ tabId: 'generation', sectionId: 'generation', fieldName: 'akari-generation-retry' });
-  await tick(); assert.equal(w.currentTab, 'generation'); assert.equal(dialogCount, 1); assert.equal(w.starts.length, 0);
+  await tick(); assert.equal(w.currentTab, 'edit'); assert.equal(dialogCount, 1); assert.equal(w.starts.length, 0);
   approve(false); await tick(); assert.equal(w.starts.length, 0); approval = Promise.resolve(true); await w.retryGenerationFromTimeline(); assert.equal(w.starts.length, 1); assert.equal(w.starts[0].approved, true);
 });
 test('再試行: inspector への選択到着と loadGeneration 完了を待ち、重複合図でも承認ダイアログは1回', async () => {
@@ -281,7 +281,7 @@ test('再試行: inspector への選択到着と loadGeneration 完了を待ち�
   w.model.snapshot = {kind:'cut'};
   await new Promise(resolve => setTimeout(resolve,30));
   assert.equal(typeof loaded,'function'); assert.equal(dialogCount,0);
-  loaded(); await tick(); assert.equal(w.currentTab,'generation'); assert.equal(dialogCount,1);
+  loaded(); await tick(); assert.equal(w.currentTab,'edit'); assert.equal(dialogCount,1);
   w.focusField(request); assert.equal(dialogCount,1); assert.equal(w.starts.length,0);
   approve(true); await tick(); assert.equal(w.starts.length,1);
 });

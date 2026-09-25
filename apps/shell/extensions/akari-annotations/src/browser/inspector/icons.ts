@@ -10,6 +10,7 @@ const ICONS = {
     down: '<path d="M6 9l6 6 6-6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     close: '<path d="M6 6l12 12M18 6L6 18"/>',
+    cloud: '<path d="M6.5 18h11a4 4 0 0 0 .2-8 5.8 5.8 0 0 0-11-1.6A4.8 4.8 0 0 0 6.5 18z"/>',
     plateLine: '<rect x="2" y="4" width="20" height="6" rx="2"/><rect x="6" y="14" width="12" height="6" rx="2"/>',
     plateBlock: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M6 10h12M8 15h8"/>'
 } as const;
