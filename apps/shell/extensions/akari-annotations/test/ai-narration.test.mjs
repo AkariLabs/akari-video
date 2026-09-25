@@ -248,3 +248,36 @@ test('本物の commitEditMutation は replace / lower-track / new-track を 1 �
     assert.deepEqual(JSON.parse(disk), initial, `${name}: one undo restores frame and removes any new track`);
   }
 });
+
+test('キャンバスの作成・出し入れ・尺変更は各 1 回の undo で戻る', async () => {
+  const initial = { version: 2, output: { width: 640, height: 360, fps: 30 }, sources: [],
+    tracks: [{ id: 'v1', lane: 'visual', items: [{ id: 'leaf', at: 330, duration: 30,
+      source: { kind: 'filter', filter: { type: 'invert' } } }] }] };
+  let disk = mutations.stringifyEditV2(initial);
+  const history = new AkariEditHistoryService();
+  const timeline = Object.assign(new Timeline(), {
+    editMutationTail: Promise.resolve(), fps: 30, contentEndDuration: () => 0,
+    location: { editUri: 'edit' }, historyService: history,
+    fileService: { readFile: async () => ({ value: disk }) },
+    prepareMotionChanges: async () => [], writeMotionChanges: async () => {},
+    reloadEdit: async () => {}, reloadCaptions: async () => {},
+    writeEditSnapshotGuarded: async source => { disk = source; },
+    pushHistory: entry => history.push(entry)
+  });
+  await timeline.commitEditMutation('キャンバスを作る', doc =>
+    mutations.createTreeV2Canvas(doc, { at: 300, duration: 150 }).document);
+  const afterCreate = disk;
+  const canvasId = JSON.parse(disk).tracks.flatMap(track => track.items).find(item => item.source.kind === 'group').id;
+  await timeline.commitEditMutation('キャンバスへ入れる', doc =>
+    mutations.putTreeV2ItemsIntoCanvas(doc, ['leaf'], canvasId).document);
+  const afterPut = disk;
+  await timeline.commitEditMutation('キャンバスの尺を変更', doc =>
+    mutations.updateTreeV2Item(doc, canvasId, { duration: 90 }));
+  await history.undo();
+  assert.equal(disk, afterPut);
+  await history.undo();
+  assert.equal(disk, afterCreate);
+  await history.undo();
+  assert.deepEqual(JSON.parse(disk), initial);
+  assert.equal(history.canUndo, false);
+});

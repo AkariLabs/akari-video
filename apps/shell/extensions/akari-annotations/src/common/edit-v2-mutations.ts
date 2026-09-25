@@ -7,11 +7,15 @@
 
 import {
     attachEditHelpers,
+    createCanvas as createTreeCanvas,
     createTrackAt,
     detachItem as detachTreeItem,
     groupItems as groupTreeItems,
     materializeProjectedPart,
     moveItem as moveTreeItem,
+    putIntoCanvas as putTreeItemsIntoCanvas,
+    putPlacedCaptionIntoCanvas as putTreePlacedCaptionIntoCanvas,
+    takeOutOfCanvas as takeTreeItemsOutOfCanvas,
     moveKeyframe as moveTreeKeyframe,
     normalizeTracks,
     removeKeyframe as removeTreeKeyframe,
@@ -22,6 +26,7 @@ import {
     ungroupItem as ungroupTreeItem,
     updateItem as updateTreeItem,
     type EditableEditV2,
+    type CreateCanvasOptions,
     type GroupResult,
     type MoveTarget,
     type ProjectedItemTiming,
@@ -183,11 +188,41 @@ export function detachTreeV2Item(
 export function groupTreeV2Items(
     doc: EditV2Document,
     itemIds: string[],
-    options?: { name?: string }
+    options?: { name?: string; canvas?: boolean }
 ): TreeMutationResult<GroupResult> {
     const edit = editTree(doc);
     const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
     return finishTreeMutation(edit, beforeTrackIds, groupTreeItems(edit, itemIds, options));
+}
+
+export function createTreeV2Canvas(doc: EditV2Document, options: CreateCanvasOptions): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, createTreeCanvas(edit, options));
+}
+
+export function putTreeV2ItemsIntoCanvas(
+    doc: EditV2Document, itemIds: readonly string[], canvasId: string
+): TreeMutationResult<ProjectItemV2[]> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, putTreeItemsIntoCanvas(edit, itemIds, canvasId));
+}
+
+export function putTreeV2PlacedCaptionIntoCanvas(
+    doc: EditV2Document, caption: { id: string; at: number; duration: number }, canvasId: string
+): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, putTreePlacedCaptionIntoCanvas(edit, caption, canvasId));
+}
+
+export function takeTreeV2ItemsOutOfCanvas(
+    doc: EditV2Document, itemIds: readonly string[]
+): TreeMutationResult<ProjectItemV2[]> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, takeTreeItemsOutOfCanvas(edit, itemIds));
 }
 
 export function ungroupTreeV2Item(

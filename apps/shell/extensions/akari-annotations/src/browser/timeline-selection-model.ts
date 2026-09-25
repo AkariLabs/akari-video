@@ -122,6 +122,8 @@ export interface TimelineTreeItemSelection {
 }
 
 export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
+    canvas?: { origin: 'user' | 'plan'; durationMode: 'fixed'; intent?: string;
+        background?: { type: 'none' | 'color'; color?: string } };
     motion?: Record<string, unknown>;
     animator?: readonly Record<string, unknown>[];
     mask?: string;
@@ -316,7 +318,8 @@ type InspectorWriteOperation =
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.scaleX' | 'transform.scaleY' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
-            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'motion' | 'animator' | `source.vars.${string}` | `source.params.${string}`
+            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'motion' | 'animator' | 'name' | 'duration'
+            | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
         value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | null;
     }

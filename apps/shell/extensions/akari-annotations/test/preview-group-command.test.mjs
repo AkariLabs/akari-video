@@ -18,12 +18,12 @@ test('preview multi receiver opens ancestors and records item rows without an ec
 });
 
 test('group guards give a reason and menu command reuses the shortcut mutation', () => {
-  assert.match(widget, /ばらすのは 1 つずつ選んでください/u);
-  assert.match(widget, /まとめるには 2 つ以上選んでください/u);
-  assert.match(widget, /袋の中の部品はまとめられません（先に出してください）/u);
+  assert.match(widget, /キャンバスをほどくときは 1 つだけ選んでください/u);
+  assert.match(widget, /キャンバスにするものを 2 つ以上選んでください/u);
+  assert.match(widget, /袋の部品はキャンバスにできません。先に出してください/u);
   assert.match(widget, /runPreviewGroupCommand\([\s\S]*this\.runRegisteredShortcut\(/u);
-  assert.match(widget, /commitEditMutation\('まとめる', doc =>/u);
-  assert.match(widget, /commitEditMutation\('ばらす', doc =>/u);
+  assert.match(widget, /commitEditMutation\('キャンバスにする', doc =>/u);
+  assert.match(widget, /commitEditMutation\('キャンバスをほどく', doc =>/u);
   assert.match(widget, /notifyPreviewBagGrouping\([\s\S]*this\.previewBagSelection\?\.editUri === editUri/u);
 });
 

@@ -49,7 +49,7 @@ export function createSelectionHeader(
             kind = snapshot.kind === 'cut' ? 'カット'
                 : snapshot.kind === 'caption' ? '字幕'
                     : snapshot.kind === 'audio' ? '音声'
-                        : snapshot.kind === 'item' ? ({ group: 'グループ', bag: '袋', part: 'パート',
+                        : snapshot.kind === 'item' ? ({ group: 'キャンバス', bag: '袋', part: 'パート',
                             caption: '字幕', captions: '字幕', telop: 'テロップ', filter: 'フィルター',
                             media: '素材', item: '素材' }[snapshot.itemKind]) : '素材';
             start = snapshot.outputStart;

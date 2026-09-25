@@ -46,6 +46,9 @@ import {
     ATTACH_AKARI_ANNOTATIONS_PASSIVE,
     OPEN_AKARI_ANNOTATIONS,
     OPEN_AKARI_CANVAS,
+    CREATE_TIMELINE_CANVAS,
+    PUT_INTO_TIMELINE_CANVAS,
+    TAKE_OUT_OF_TIMELINE_CANVAS,
     OPEN_AKARI_INSPECTOR,
     REVEAL_AKARI_INSPECTOR_FIELD,
     OPEN_AKARI_INSPECTOR_COLOR_PANEL,
@@ -353,6 +356,24 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
 
     registerCommands(commands: CommandRegistry): void {
         this.getShortcutKeybindings().registerCommands(commands);
+        commands.registerCommand(CREATE_TIMELINE_CANVAS, {
+            execute: async (options?: { at?: number; duration?: number }) => {
+                const widget = this.timelineWidget ?? await this.attach();
+                return widget?.createCanvasAt(options?.at, options?.duration);
+            }
+        });
+        commands.registerCommand(PUT_INTO_TIMELINE_CANVAS, {
+            execute: async (options: { itemIds: string[]; canvasId: string }) => {
+                const widget = this.timelineWidget ?? await this.attach();
+                return widget?.putItemsIntoCanvas(options?.itemIds ?? [], options?.canvasId);
+            }
+        });
+        commands.registerCommand(TAKE_OUT_OF_TIMELINE_CANVAS, {
+            execute: async (options: { itemIds: string[] }) => {
+                const widget = this.timelineWidget ?? await this.attach();
+                return widget?.takeItemsOutOfCanvas(options?.itemIds ?? []);
+            }
+        });
         commands.registerCommand(VOICE_CREATE, {
             execute: async (options: { avatar?: string } = {}) => {
                 const { avatars } = await this.annotationsService.voiceAvatars();

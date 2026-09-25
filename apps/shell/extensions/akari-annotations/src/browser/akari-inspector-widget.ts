@@ -2261,6 +2261,38 @@ function TREE_ITEM_SECTIONS(
     ];
     const opacity = snapshot.opacity ?? 1;
     return composeInspectorSections([
+        ...(snapshot.itemKind === 'group' ? [{ id: 'canvas', label: 'キャンバス', fields: [
+            { name: 'canvas-name', label: '名前', inputKind: 'text' as const,
+                getValue: () => snapshot.clipName, getEditValue: () => snapshot.clipName,
+                write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
+                    kind: 'item-field', id: snapshot.id, path: 'name', value
+                }) },
+            { name: 'canvas-intent', label: '意図', inputKind: 'text' as const,
+                getValue: () => snapshot.canvas?.intent ?? '', getEditValue: () => snapshot.canvas?.intent ?? '',
+                write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
+                    kind: 'item-field', id: snapshot.id, path: 'source.canvas.intent', value
+                }) },
+            { name: 'canvas-duration', label: '尺', inputKind: 'number' as const, min: 0.01, unit: '秒',
+                getValue: () => String(snapshot.duration), getEditValue: () => String(snapshot.duration),
+                write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
+                    kind: 'item-field', id: snapshot.id, path: 'duration', value: Number(value)
+                }) },
+            { name: 'canvas-background-mode', label: '背景', inputKind: 'select' as const,
+                options: ['なし', '色'],
+                getValue: () => snapshot.canvas?.background?.type === 'color' ? '色' : 'なし',
+                write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => requestWrite({
+                    kind: 'item-field', id: snapshot.id, path: 'source.canvas.background',
+                    value: value === '色' ? { type: 'color', color: snapshot.canvas?.background?.color ?? '#142644' } : { type: 'none' }
+                }) },
+            ...(snapshot.canvas?.background?.type === 'color' ? [{ name: 'canvas-background-color',
+                label: '背景色', inputKind: 'color' as const,
+                getValue: () => snapshot.canvas?.background?.color ?? '#142644',
+                getEditValue: () => snapshot.canvas?.background?.color ?? '#142644',
+                write: async (_snapshot: TimelineTreeItemSnapshot, value: string) => /^#[0-9a-fA-F]{6}$/u.test(value)
+                    ? requestWrite({ kind: 'item-field', id: snapshot.id, path: 'source.canvas.background',
+                        value: { type: 'color', color: value } })
+                    : { ok: false, message: '色は #RRGGBB で入力してください。' } }] : [])
+        ] }] : []),
         { id: 'time', label: '時間', fields: [
             { name: 'item-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
             { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
@@ -2285,7 +2317,7 @@ function TREE_ITEM_SECTIONS(
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
         }, ...MASK_FIELDS(snapshot, requestWrite)] },
         { id: 'info', label: '情報', collapsedByDefault: true, fields: [
-            { name: 'item-kind', label: 'kind', getValue: () => snapshot.sourceKind },
+            { name: 'item-kind', label: '種類', getValue: () => snapshot.sourceKind === 'group' ? 'キャンバス' : snapshot.sourceKind },
             { name: 'item-track', label: 'トラック', getValue: () => snapshot.trackName },
             { name: 'item-clip', label: 'クリップ', getValue: () => snapshot.clipName }
         ] }

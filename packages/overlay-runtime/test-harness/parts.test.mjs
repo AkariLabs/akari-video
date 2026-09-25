@@ -85,6 +85,24 @@ test("expandBagOverlays は全写しを無加工 1 件へ統合し、名札な�
   assert.equal(records[1].html, "plain.html");
 });
 
+test("色背景は子より先に 1 レコードだけ出て、固定尺で切られる", () => {
+  const group = { id: 'g', at: 10, duration: 3, source: { kind: 'group',
+    canvas: { origin: 'user', durationMode: 'fixed', background: { type: 'color', color: '#142644' } } },
+    declaration: { id: 'g', at: 10, duration: 3, track: 1 }, children: [
+      { id: 'h', at: 12, duration: 4, source: { kind: 'html', html: 'h.html' },
+        declaration: { id: 'h', start: 12, duration: 4, track: 1 }, children: [] }
+    ] };
+  const records = expandBagOverlays({ tracks: [{ z: 1, items: [group] }] }, () => '<div>child</div>');
+  assert.deepEqual(records.map(record => record.id), ['g:background', 'h']);
+  assert.match(records[0].html, /background:#142644/u);
+  assert.equal(records[0].parentId, 'g');
+  assert.equal(records[0].role, 'background');
+  assert.equal(records[0].start, 10);
+  assert.equal(records[0].duration, 3);
+  assert.equal(records[1].start, 12);
+  assert.equal(records[1].duration, 1);
+});
+
 test("expandBagOverlays は切り詰めのない非整数秒 duration/start を宣言値のまま保つ", () => {
   const start = 264 / 30;
   const duration = 96 / 30;

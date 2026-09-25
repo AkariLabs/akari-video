@@ -1180,7 +1180,7 @@ function validateEditV2(edit, findings) {
         if (parent && Number.isInteger(item.at) && Number.isInteger(item.duration)
           && (item.at < 0 || item.at + item.duration > parent.duration)) {
           addFinding(findings, {
-            severity: "error",
+            severity: "warning",
             check: "v2.child-in-parent",
             message: `child interval [${item.at}, ${item.at + item.duration}) exceeds parent ${String(parent.id)} interval [0, ${parent.duration})`,
             path: itemPath,

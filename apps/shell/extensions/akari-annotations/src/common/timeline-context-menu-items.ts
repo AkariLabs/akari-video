@@ -79,9 +79,9 @@ export function buildTimelineClipMenuItems(
     if (tree.canSplit ?? SPLIT_CAPABLE_KINDS.has(kind)) {
         items.push({ id: 'split', label: '分割' });
     }
-    if (tree.canDetach) items.push({ id: 'detach', label: '出す' });
-    if (tree.canGroup) items.push({ id: 'group', label: 'まとめる' });
-    if (tree.canUngroup) items.push({ id: 'ungroup', label: 'ばらす' });
+    if (tree.canDetach) items.push({ id: 'detach', label: 'キャンバスから出す' });
+    if (tree.canGroup) items.push({ id: 'group', label: 'キャンバスにする' });
+    if (tree.canUngroup) items.push({ id: 'ungroup', label: 'キャンバスをほどく' });
     if (tree.canToggleCollapse) {
         items.push({ id: 'toggle-collapse', label: tree.collapsed ? '展開' : '折りたたむ' });
     }

@@ -71,7 +71,7 @@ test('⌘⇧G は tree-ops へ委譲し、袋拒否文を UI に固定する', (
   assert.equal(child.at, 12);
   assert.equal(child.transform.x, 5);
   assert.equal(child.opacity, 0.5);
-  assert.match(widgetSource, /袋はばらせません。部品を出してください/);
+  assert.match(widgetSource, /キャンバスをほどけません: \$\{canvasOperationReason\(error\)\}/u);
 });
 
 test('写しの子のプレビュー選択は既存 selectOverlay が mount の共通 id をそのまま報告する', () => {

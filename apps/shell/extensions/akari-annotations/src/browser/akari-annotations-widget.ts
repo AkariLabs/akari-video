@@ -187,7 +187,11 @@ import {
     insertItem as insertV2Item,
     insertTrack as insertV2Track,
     detachTreeV2Item,
+    createTreeV2Canvas,
     groupTreeV2Items,
+    putTreeV2ItemsIntoCanvas,
+    putTreeV2PlacedCaptionIntoCanvas,
+    takeTreeV2ItemsOutOfCanvas,
     moveAudioSfxPreferV2,
     moveItemToNewTrack as moveV2ItemToNewTrack,
     removeItem as removeV2Item,
@@ -329,9 +333,12 @@ import {
     TransitionBoundaryHitCandidate
 } from './library-drop-model';
 import { TimelineCollapsedState } from './timeline/timeline-collapsed-state';
+import { canvasChipDropPatch, canvasRangeFrames } from './timeline/canvas-chip-drop';
+import { canvasOperationReason } from '../common/canvas-operation-reason';
 import {
     applyTimelineCollapsedRows,
     buildTimelineTreeRows,
+    foldSameTimeRows,
     childRow,
     parentRow,
     rowsByTrack,
@@ -1058,6 +1065,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly dragFeedback = document.createElement('div');
     protected readonly trackInsertIndicator = document.createElement('div');
     protected readonly selectionMarquee = document.createElement('div');
+    protected canvasRange?: { at: number; duration: number };
     /** 素材カード D&D の点線ゴースト（task 2026-08-10-material-dnd-timeline 司令塔裁定5）。 */
     protected readonly materialGhost = document.createElement('div');
     protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-akari-timeline-notice' });
@@ -1797,7 +1805,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.openTimelineClipContextMenu(event, itemElement);
                 return;
             }
-            this.openAnnotationPopup(event);
+            if (this.editDocument?.version === 2) this.openEmptyTimelineCanvasMenu(event);
+            else this.openAnnotationPopup(event);
         });
         this.rulerBar.addEventListener('click', event => this.onStripClick(event));
         this.rulerBar.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
@@ -2598,20 +2607,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.stopPropagation();
                 if (event.shiftKey) {
                     if (this.multiSelection.length > 1) {
-                        this.footer.textContent = 'ばらすのは 1 つずつ選んでください';
+                        this.footer.textContent = 'キャンバスをほどくときは 1 つだけ選んでください';
                         return;
                     }
                     const id = selectedVisualItemId();
                     if (!id) {
-                        this.footer.textContent = 'ばらすグループを 1 つ選んでください';
+                        this.footer.textContent = 'ほどくキャンバスを 1 つ選んでください';
                         return;
                     }
-                    void this.commitEditMutation('ばらす', doc => ungroupTreeV2Item(doc, id).document)
-                        .then(() => { this.footer.textContent = 'グループをばらしました。'; })
+                    void this.commitEditMutation('キャンバスをほどく', doc => ungroupTreeV2Item(doc, id).document)
+                        .then(() => { this.footer.textContent = 'キャンバスをほどきました。'; })
                         .catch(error => {
-                            const detail = this.errorMessage(error);
-                            this.showNotice(detail.includes('袋グループ')
-                                ? '袋はばらせません。部品を出してください' : `ばらせません: ${detail}`);
+                            this.showNotice(`キャンバスをほどけません: ${canvasOperationReason(error)}`);
                         });
                     return;
                 }
@@ -2622,31 +2629,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (this.previewBagSelection && this.location?.editUri?.normalizePath().toString() === this.previewBagSelection.editUri
                     && (!this.selection || ('id' in this.selection
                         && this.selection.id === this.previewBagSelection.representative))) {
-                    this.footer.textContent = '袋の中の部品はまとめられません（先に出してください）';
+                    this.footer.textContent = '袋の部品はキャンバスにできません。先に出してください';
                     return;
                 }
                 if (ids.length < 2) {
-                    this.footer.textContent = 'まとめるには 2 つ以上選んでください';
+                    this.footer.textContent = 'キャンバスにするものを 2 つ以上選んでください';
                     return;
                 }
                 if (ids.some(id => id.includes('#') || this.rawV2Item(this.timelineTreeRows.find(row => row.id === id)?.parentId ?? '')?.source?.kind === 'html')) {
-                    this.footer.textContent = '袋の中の部品はまとめられません（先に出してください）';
+                    this.footer.textContent = '袋の部品はキャンバスにできません。先に出してください';
                     return;
                 }
                 let changedOrderIds: string[] = [];
-                void this.commitEditMutation('まとめる', doc => {
-                    const result = groupTreeV2Items(doc, ids);
+                void this.commitEditMutation('キャンバスにする', doc => {
+                    const result = groupTreeV2Items(doc, ids, { canvas: true });
                     changedOrderIds = result.value.changedOrderIds;
                     return result.document;
                 }).then(() => {
                     if (changedOrderIds.length > 0) {
                         this.showNotice(`${changedOrderIds.join('、')} の前後が変わりました`);
                     } else {
-                        this.footer.textContent = 'アイテムをまとめました。';
+                        this.footer.textContent = 'キャンバスにしました。';
                     }
                 }).catch(error => {
-                    const detail = this.errorMessage(error);
-                    this.showNotice(detail.includes('同じ場所') ? '先に出してください' : `まとめられません: ${detail}`);
+                    this.showNotice(`キャンバスにできません: ${canvasOperationReason(error)}`);
                 });
                 return;
             }
@@ -4336,6 +4342,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         )
                     };
                     label = 'クリップの調整を変更';
+                } else if (request.path === 'source.canvas.intent' || request.path === 'source.canvas.background') {
+                    if (raw.source?.kind !== 'group') throw new Error('キャンバスを選んでください。');
+                    const field = request.path.slice('source.canvas.'.length);
+                    patch = { source: { canvas: { ...(raw.source.canvas ?? { origin: 'user', durationMode: 'fixed' }),
+                        [field]: request.value } } };
+                    label = 'キャンバスの設定を変更';
+                } else if (request.path === 'duration') {
+                    if (raw.source?.kind !== 'group') throw new Error('キャンバスを選んでください。');
+                    if (typeof request.value !== 'number' || !Number.isFinite(request.value) || request.value <= 0) {
+                        throw new Error('尺は正の秒数で指定してください。');
+                    }
+                    patch = { duration: Math.max(1, Math.round(Number(request.value) * this.fps)) };
+                    label = 'キャンバスの尺を変更';
+                } else if (request.path === 'name') {
+                    patch = { name: String(request.value ?? '') };
+                    label = 'キャンバスの名前を変更';
                 } else if (request.path.startsWith('source.vars.')) {
                     const name = request.path.slice('source.vars.'.length);
                     patch = {
@@ -5057,7 +5079,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     notifyPreviewBagGrouping(editUri: string): void {
         if (this.canHandlePlaybackTick(editUri) && this.previewBagSelection?.editUri === editUri) {
-            this.footer.textContent = '袋の中の部品はまとめられません（先に出してください）';
+            this.footer.textContent = '袋の部品はキャンバスにできません。先に出してください';
         }
     }
 
@@ -5482,6 +5504,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? { perspective: raw.perspective } : {}),
             ...(Array.isArray(raw.keyframes) ? { keyframes: raw.keyframes } : {}),
             ...(typeof raw.source?.src === 'string' && raw.source.src.length > 0 ? { src: raw.source.src } : {}),
+            ...(raw.source?.kind === 'group' && raw.source.canvas ? { canvas: raw.source.canvas } : {}),
             sourceKind: typeof raw.source?.kind === 'string' ? raw.source.kind : selection.itemKind,
             trackName: this.trackDisplayNameForItem(selection.id),
             clipName: typeof raw.name === 'string' && raw.name.trim() ? raw.name : selection.id
@@ -9134,11 +9157,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const layout = this.captionLayouts.get(caption.id);
             return layout ? [{ id: caption.id, at: layout.start, duration: layout.end - layout.start }] : [];
         })]]);
-        this.expandedTimelineTreeRows = buildTimelineTreeRows(this.timelineTreeTracks, {
+        this.expandedTimelineTreeRows = foldSameTimeRows(buildTimelineTreeRows(this.timelineTreeTracks, {
             includeAllItems: true,
             partsByHtml: this.timelineTreePartsByHtml,
             captionsByPath
-        });
+        }));
         if (this.focusScope.rootId !== null
             && this.expandedTimelineTreeRows.some(row => row.id === this.focusScope.rootId)) {
             this.focusScope = enterFocusScope(this.expandedTimelineTreeRows, this.focusScope.rootId);
@@ -9146,7 +9169,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.focusScope = initialFocusScope(this.expandedTimelineTreeRows);
         }
         const pureGroupIds = this.expandedTimelineTreeRows
-            .filter(row => row.sourceKind === 'group' && row.hasChildren).map(row => row.id);
+            .filter(row => (row.sourceKind === 'group' || row.sourceKind === 'same-time') && row.hasChildren).map(row => row.id);
         const expanded = this.timelineCollapsedState?.snapshot(pureGroupIds) ?? new Set<string>();
         const collapsed = new Set(pureGroupIds.filter(id => !expanded.has(id)));
         this.timelineCollapsedIds.clear();
@@ -9630,6 +9653,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.applyInitialVerticalScroll(stripHeight, viewportHeight, centerGapPx);
         this.trackHeaders.style.transform = `translateY(${-this.stripScroll.scrollTop}px)`;
         this.renderTrackHeaders(beatsBandTop, beatsBandHeight);
+        const foldedMemberIds = new Set(this.expandedTimelineTreeRows
+            .filter(row => row.sourceKind === 'same-time' && this.timelineCollapsedIds.has(row.id))
+            .flatMap(row => row.memberIds ?? []));
 
         if (this.worldMapData) {
             const signature = JSON.stringify([this.worldMapData, this.laneLayout.world, this.layoutViewStart, this.layoutViewDuration, stripLayoutWidthPx]);
@@ -9774,9 +9800,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!layout || rowIndex < 0 || !this.isRangeMounted(row.at, row.at + row.duration)) continue;
             const raw = this.rawKeyframeItem(row.id);
             const captionId = raw?.source?.kind === 'caption' ? raw.source.id : undefined;
-            const label = typeof captionId === 'string'
+            const labelBase = typeof captionId === 'string'
                 ? this.captions.find(caption => caption.id === captionId)?.text ?? row.label
                 : String(raw?.name ?? row.label);
+            const label = row.sourceKind === 'group' && raw?.source?.canvas?.intent
+                ? `${labelBase} · ${raw.source.canvas.intent}` : labelBase;
             const path = badgeSources.find(source => source.id === raw?.source?.src)?.path
                 ?? (typeof raw?.source?.path === 'string' ? raw.source.path : undefined);
             const generation = row.sourceKind === 'media' ? this.generationForPath(path) : undefined;
@@ -9791,6 +9819,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTreeItemKind = row.itemKind;
             element.dataset.akariTreeParentId = row.parentId ?? '';
             element.dataset.akariTreeTrackId = row.trackId;
+            element.setAttribute('data-akari-ui', row.sourceKind === 'group' ? 'timeline-canvas-chip'
+                : row.sourceKind === 'same-time' ? 'timeline-same-time-chip' : 'timeline-tree-chip');
             element.style.pointerEvents = 'auto';
             this.applyGenerationChip(element, generation);
             if (created) {
@@ -9810,6 +9840,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 element.addEventListener('click', event => {
                     event.preventDefault();
                     event.stopPropagation();
+                    if (element.dataset.akariChipDrag === 'done') {
+                        delete element.dataset.akariChipDrag;
+                        return;
+                    }
+                    if (row.sourceKind === 'same-time') {
+                        this.toggleTimelineTreeRow(row.id);
+                        return;
+                    }
                     if (this.detectTreeDoubleClick(row.id, event.clientX, event.clientY)) {
                         this.enterTreeItem(row);
                         return;
@@ -9818,10 +9856,52 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
                     else this.applySelection(selected);
                 });
+                if (row.sourceKind === 'group') element.addEventListener('pointerdown', event => {
+                    if (event.button !== 0 || event.target instanceof Element && event.target.closest('button')) return;
+                    event.stopPropagation();
+                    const original = this.rawV2Item(row.id);
+                    if (!original) return;
+                    const startX = event.clientX;
+                    const originalWidth = element.getBoundingClientRect().width;
+                    const resize = element.getBoundingClientRect().right - startX < 12;
+                    let dragged = false;
+                    element.setPointerCapture(event.pointerId);
+                    const onMove = (move: PointerEvent): void => {
+                        if (!dragged && Math.abs(move.clientX - startX) < DRAG_THRESHOLD_PX) return;
+                        dragged = true;
+                        const delta = move.clientX - startX;
+                        if (resize) element.style.width = `${Math.max(12, originalWidth + delta)}px`;
+                        else element.style.transform = `translateX(${delta}px)`;
+                    };
+                    const onUp = (up: PointerEvent): void => {
+                        element.removeEventListener('pointermove', onMove);
+                        element.removeEventListener('pointerup', onUp);
+                        element.removeEventListener('pointercancel', onUp);
+                        element.style.transform = '';
+                        if (resize) element.style.width = `${originalWidth}px`;
+                        if (!dragged || up.type !== 'pointerup') return;
+                        element.dataset.akariChipDrag = 'done';
+                        this.suppressNextStripClick = true;
+                        const deltaFrames = Math.round((this.timeAtClientX(up.clientX) - this.timeAtClientX(startX)) * this.fps);
+                        const patch = canvasChipDropPatch({ at: Number(original.at), duration: Number(original.duration) },
+                            deltaFrames, resize ? 'right' : 'body');
+                        void this.commitEditMutation(resize ? 'キャンバスの尺を変える' : 'キャンバスを動かす', doc =>
+                            updateTreeV2Item(doc, row.id, patch)
+                        ).catch(error => this.showNotice(`キャンバスを変更できません: ${canvasOperationReason(error)}`));
+                    };
+                    element.addEventListener('pointermove', onMove);
+                    element.addEventListener('pointerup', onUp);
+                    element.addEventListener('pointercancel', onUp);
+                });
             }
             if (row.sourceKind === 'html' || row.sourceKind === 'group') {
                 this.renderVisualThumbnail(element, row.id, label, [row, raw]);
             }
+            if (row.sourceKind === 'group' && (!Array.isArray(raw?.items) || raw.items.length === 0)) {
+                element.style.setProperty('background-image',
+                    'repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)', 'important');
+                element.title = raw?.source?.canvas?.intent ?? '空のキャンバス';
+            } else element.style.removeProperty('background-image');
         }
 
         const excludedCaptionIds = collectExcludedCaptionIds({ tracks: this.timelineTreeTracks });
@@ -9901,6 +9981,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         });
         this.overlays.forEach(overlay => {
+            if (foldedMemberIds.has(overlay.id)) return;
             if (!this.itemVisibleInFocus(overlay.id)) return;
             const layout = resolveItemRowLayout(
                 this.laneLayout.tracks,
@@ -9945,6 +10026,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }));
         });
         this.layers.forEach(layer => {
+            if (foldedMemberIds.has(layer.id)) return;
             if (!this.itemVisibleInFocus(layer.id)) return;
             const layout = resolveItemRowLayout(
                 this.laneLayout.tracks,
@@ -10308,6 +10390,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
         this.segments.forEach(segment => {
             const cutItemId = this.cutItemIds[segment.index] ?? '';
+            if (foldedMemberIds.has(cutItemId)) return;
             if (!this.itemVisibleInFocus(cutItemId)) return;
             const itemTrackId = this.itemLocations.get(cutItemId)?.trackId;
             const cutLayout = resolveItemRowLayout(
@@ -11690,6 +11773,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const treeRows = this.treeRowsByTrack.get(track.id) ?? [];
             const { element: header, created } = this.keyedNode(
                 'header', `header:${layout.id ?? track.id}`, JSON.stringify([track, name, visible, audible, locked, treeRows,
+                    treeRows.map(row => {
+                        const raw = this.rawV2Item(row.id);
+                        return [raw?.name, raw?.source?.canvas?.intent];
+                    }),
                     this.timelineRowStride(track.id), this.pasteTargetTracks.has(track.id),
                     treeRows.map(row => this.keyframeRowsByItem.get(row.id)),
                     ...(track.kind === 'captions' ? [this.captionFragmentBreaksVisible()] : [])]),
@@ -11723,6 +11810,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const stride = this.timelineRowStride(treeRow.trackId);
             const row = document.createElement('div');
             row.dataset.akariTreeRowId = treeRow.id;
+            if (treeRow.sourceKind === 'group') row.dataset.akariUi = 'timeline-canvas-row';
+            if (treeRow.sourceKind === 'same-time') row.dataset.akariUi = 'timeline-same-time-row';
             row.dataset.akariItemId = treeRow.id;
             row.dataset.akariItemKind = 'item';
             row.dataset.akariLocked = String(this.isTrackLocked(treeRow.trackId));
@@ -11732,9 +11821,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 display: 'flex', alignItems: 'center', gap: '3px',
                 paddingLeft: `${4 + treeRow.depth * 16}px`, boxSizing: 'border-box', overflow: 'hidden'
             });
-            const canToggle = treeRow.sourceKind === 'group' && treeRow.hasChildren;
+            const canvasRaw = treeRow.sourceKind === 'group' ? this.rawV2Item(treeRow.id) : undefined;
+            if (canvasRaw && (!Array.isArray(canvasRaw.items) || canvasRaw.items.length === 0)) {
+                row.style.backgroundImage = 'repeating-linear-gradient(135deg, transparent 0 8px, var(--theia-widget-border) 8px 9px)';
+            }
+            const canToggle = (treeRow.sourceKind === 'group' || treeRow.sourceKind === 'same-time') && treeRow.hasChildren;
             const label = document.createElement('span');
             label.textContent = String(this.rawKeyframeItem(treeRow.id)?.name ?? treeRow.label);
+            if (canvasRaw?.source?.canvas?.intent) label.textContent += ` · ${canvasRaw.source.canvas.intent}`;
             label.title = label.textContent;
             Object.assign(label.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
             if (canToggle) {
@@ -11781,6 +11875,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             row.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
+                if (treeRow.sourceKind === 'same-time') {
+                    this.toggleTimelineTreeRow(treeRow.id);
+                    return;
+                }
                 if (this.detectTreeDoubleClick(treeRow.id, event.clientX, event.clientY)) {
                     this.enterTreeItem(treeRow);
                     return;
@@ -11790,7 +11888,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 else this.applySelection(selected);
             });
             row.addEventListener('pointerdown', event => event.stopPropagation());
-            this.installTreeRowDrag(row, treeRow, rows);
+            row.addEventListener('contextmenu', event => {
+                event.stopPropagation();
+                void this.openTimelineClipContextMenu(event, row);
+            });
+            if (treeRow.sourceKind !== 'same-time') this.installTreeRowDrag(row, treeRow, rows);
             header.appendChild(row);
             visualIndex++;
             for (const propertyRow of this.keyframeRowsByItem.get(treeRow.id) ?? []) {
@@ -11817,6 +11919,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? visibleTimelineTreeRows(this.timelineTreeRows)
             : this.timelineTreeRows);
         this.renderStrip();
+    }
+
+    protected toggleTimelineTreeRow(id: string): void {
+        const expanding = this.timelineCollapsedIds.has(id);
+        this.timelineCollapsedState?.set(id, expanding);
+        if (expanding) this.timelineCollapsedIds.delete(id);
+        else this.timelineCollapsedIds.add(id);
+        this.refreshTimelineTreeRows();
     }
 
     protected installTreeRowDrag(
@@ -11884,21 +11994,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return;
                     }
                 }
-                if (source.parentId && source.parentId !== target.parentId && hit!.mode === 'line') {
+                const sourceParentId = source.parentId?.startsWith('same-time:') ? undefined : source.parentId;
+                const targetParentId = target.parentId?.startsWith('same-time:') ? undefined : target.parentId;
+                if (sourceParentId && sourceParentId !== targetParentId && hit!.mode === 'line') {
+                    if (this.rawV2Item(sourceParentId)?.source?.kind === 'group') {
+                        void this.takeItemsOutOfCanvas([source.id]);
+                        return;
+                    }
                     void this.commitEditMutation('出す', doc => detachTreeV2Item(doc, source.id, {
                         at: Math.round(source.at * this.fps), duration: Math.round(source.duration * this.fps)
                     }).document)
-                        .catch(error => this.showNotice(`出せません: ${this.errorMessage(error)}`));
+                        .catch(error => this.showNotice(`出せません: ${canvasOperationReason(error)}`));
                     return;
                 }
                 const moveTarget = hit!.mode === 'inside'
                     ? { parent: target.id, index: undefined }
-                    : target.parentId
-                        ? { parent: target.parentId, index: hit!.index }
+                    : targetParentId
+                        ? { parent: targetParentId, index: hit!.index }
                         : { track: target.trackId, index: hit!.index };
                 void this.commitEditMutation('木の行を移動', doc =>
                     moveTreeV2Item(doc, source.id, moveTarget).document
-                ).catch(error => this.showNotice(`移動できません: ${this.errorMessage(error)}`));
+                ).catch(error => this.showNotice(`移動できません: ${canvasOperationReason(error)}`));
             };
             element.addEventListener('pointermove', onMove);
             element.addEventListener('pointerup', onUp);
@@ -17141,6 +17257,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (event.button !== 0 || this.toolMode !== 'select') {
             return;
         }
+        this.canvasRange = undefined;
+        this.selectionMarquee.style.display = 'none';
         const target = event.target instanceof Element ? event.target : undefined;
         if (target?.closest(
             '[data-akari-item-kind], .akari-beat-marker, .akari-track-header-row, .akari-annotations-pin'
@@ -17181,6 +17299,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 return;
             }
+            if (this.editDocument?.version === 2 && typeof this.timeAtClientX === 'function') {
+                const start = this.timeAtClientX(Math.min(startX, upEvent.clientX));
+                const end = this.timeAtClientX(Math.max(startX, upEvent.clientX));
+                this.canvasRange = end > start ? canvasRangeFrames(start, end, this.fps) : undefined;
+            }
+            if (this.canvasRange) this.selectionMarquee.style.display = 'block';
             this.selectedGap = undefined;
             this.gapBand?.remove();
             this.suppressNextStripClick = true;
@@ -17524,9 +17648,78 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 右クリックしたアイテムを先に単一選択に切り替えてから（司令塔裁定2）メニューを出す。
      * 項目構成は既存ハンドラの対応範囲に従う純関数 buildTimelineClipMenuItems に委ねる。
      */
+    public createCanvasAt(atSeconds = this.playheadT, durationSeconds = 5): Promise<void> {
+        if (this.editDocument?.version !== 2) {
+            this.showNotice('キャンバスは edit.json v2 で作れます。');
+            return Promise.resolve();
+        }
+        const at = Math.max(0, this.frameAt(atSeconds));
+        const duration = Math.max(1, this.frameAt(durationSeconds));
+        let createdId: string | undefined;
+        return this.commitEditMutation('キャンバスを作る', doc => {
+            const result = createTreeV2Canvas(doc, { at, duration });
+            createdId = result.value.id;
+            return result.document;
+        }).then(() => {
+            const row = this.timelineTreeRows.find(candidate => candidate.id === createdId);
+            if (row) this.applySelection(this.selectionForTreeRow(row));
+        }).catch(error => this.showNotice(`キャンバスを作れません: ${canvasOperationReason(error)}`));
+    }
+
+    public putItemsIntoCanvas(itemIds: readonly string[], canvasId: string): Promise<void> {
+        return this.commitEditMutation('キャンバスへ入れる', doc => itemIds.reduce((next, id) => {
+            const layout = this.captionLayouts.get(id);
+            if (layout && this.captions.some(caption => caption.id === id)) {
+                return putTreeV2PlacedCaptionIntoCanvas(next, { id,
+                    at: this.frameAt(layout.start), duration: Math.max(1, this.frameAt(layout.end - layout.start)) }, canvasId).document;
+            }
+            return putTreeV2ItemsIntoCanvas(next, [id], canvasId).document;
+        }, doc)).then(() => undefined).catch(error => this.showNotice(`キャンバスへ入れられません: ${canvasOperationReason(error)}`));
+    }
+
+    public takeItemsOutOfCanvas(itemIds: readonly string[]): Promise<void> {
+        return this.commitEditMutation('キャンバスから出す', doc =>
+            takeTreeV2ItemsOutOfCanvas(doc, itemIds).document
+        ).then(() => undefined).catch(error => this.showNotice(`キャンバスから出せません: ${canvasOperationReason(error)}`));
+    }
+
+    protected openEmptyTimelineCanvasMenu(event: MouseEvent): void {
+        event.preventDefault();
+        closeTimelineContextMenu();
+        const range = this.canvasRange;
+        openTimelineContextMenu({ x: event.clientX, y: event.clientY,
+            items: range ? [{ id: 'create-canvas-range', label: 'キャンバスを作る' },
+                { id: 'create-canvas-here', label: 'ここにキャンバスを作る' },
+                { id: 'annotate', label: '注釈…' }]
+                : [{ id: 'create-canvas-here', label: 'ここにキャンバスを作る' },
+                    { id: 'annotate', label: '注釈…' }],
+            onSelect: id => {
+                if (id === 'create-canvas-range' && range) {
+                    void this.createCanvasAt(range.at / this.fps, range.duration / this.fps);
+                    this.canvasRange = undefined;
+                    this.selectionMarquee.style.display = 'none';
+                } else if (id === 'create-canvas-here') void this.createCanvasAt();
+                else if (id === 'annotate') this.openAnnotationPopup(event);
+            } });
+    }
+
     protected async openTimelineClipContextMenu(event: MouseEvent, element: HTMLElement): Promise<void> {
         event.preventDefault();
         closeTimelineContextMenu();
+        const folded = this.timelineTreeRows.find(row => row.id === (element.dataset.akariTreeRowId ?? element.dataset.akariItemId)
+            && row.sourceKind === 'same-time');
+        if (folded?.memberIds) {
+            openTimelineContextMenu({ x: event.clientX, y: event.clientY,
+                items: [{ id: 'canvas', label: 'キャンバスにする' },
+                    { id: 'toggle', label: folded.collapsed ? '展開' : '折りたたむ' }],
+                onSelect: id => {
+                    if (id === 'toggle') this.toggleTimelineTreeRow(folded.id);
+                    else if (id === 'canvas') void this.commitEditMutation('キャンバスにする', doc =>
+                        groupTreeV2Items(doc, [...folded.memberIds!], { canvas: true }).document
+                    ).catch(error => this.showNotice(`キャンバスにできません: ${canvasOperationReason(error)}`));
+                } });
+            return;
+        }
         const captionTreeRow = element.dataset.akariLane === PLACED_TEXT_TRACK_ID ? undefined
             : element.dataset.akariTreeRowId
             ? this.expandedTimelineTreeRows.find(row => row.id === element.dataset.akariTreeRowId) : undefined;
@@ -17541,8 +17734,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const alreadyMultiSelected = this.multiSelection.some(candidate =>
             this.selectionKey(candidate) === this.selectionKey(item));
         if (!alreadyMultiSelected) this.applySelection(item);
-        const row = item.kind === 'item'
-            ? this.timelineTreeRows.find(candidate => candidate.id === item.id) : undefined;
+        const v2ItemId = item.kind === 'cut' ? this.cutItemIds[item.index]
+            : 'id' in item ? item.id : undefined;
+        const rawVisualItem = v2ItemId ? this.rawV2Item(v2ItemId) : undefined;
+        const row = v2ItemId ? this.expandedTimelineTreeRows.find(candidate => candidate.id === v2ItemId) : undefined;
         if (item.kind === 'world-stop' || item.kind === 'world-edge') return;
         const document = this.editDocument;
         let hasAudio: boolean | undefined;
@@ -17576,12 +17771,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.clipboard !== undefined,
             row ? {
                 canSplit: this.splittableItemId(item) !== undefined,
-                canDetach: row.parentId !== undefined,
+                canDetach: row.parentId !== undefined && !row.parentId.startsWith('same-time:'),
                 canGroup: this.multiSelection.length >= 2,
                 canUngroup: row.sourceKind === 'group',
                 canToggleCollapse: row.sourceKind === 'group' && row.hasChildren,
                 collapsed: row.collapsed,
-                hasParent: row.parentId !== undefined
+                hasParent: row.parentId !== undefined && !row.parentId.startsWith('same-time:')
             } : { canSplit: this.splittableItemId(item) !== undefined },
             {
                 ...(item.kind === 'cut' && document ? { split: canSplitCutAudio(
@@ -17599,11 +17794,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             item.kind === 'audio' && (this.audioSfx.some(candidate => candidate.id === item.id)
                 || this.audioSpeech.some(candidate => candidate.id === item.id))
         );
+        const itemAt = item.kind === 'caption' && !rawVisualItem ? this.captionLayouts.get(item.id)?.start
+            : row?.at;
+        const targetCanvas = row?.sourceKind === 'group' && this.multiSelection.length > 1 ? row
+            : itemAt === undefined ? undefined : this.timelineTreeRows.find(candidate => candidate.sourceKind === 'group'
+                && candidate.id !== ('id' in item ? item.id : '')
+                && candidate.at <= itemAt && itemAt < candidate.at + candidate.duration);
+        if (targetCanvas && item.kind !== 'audio' && (rawVisualItem || item.kind === 'caption')) {
+            items.push({ id: 'put-canvas', label: 'キャンバスへ入れる' });
+        }
         const swapTarget = this.selectedMaterialSwapTarget(item);
         if (swapTarget) items.push({ id: 'material-swap', label: '入れ替え…' });
         if (swapTarget?.kind === 'visual' && /\.(png|jpe?g|webp)$/i.test(swapTarget.currentRelativePath)
             && (item.kind === 'item' || item.kind === 'cut')) items.push({ id: 'image-ai-upscale', label: '高画質化' });
-        const attachItem = 'id' in item ? this.rawV2Item(item.id) : undefined;
+        const attachItem = rawVisualItem;
         if (attachItem && (['html', 'filter'].includes(attachItem.source?.kind)
             || (item.kind === 'audio' && this.audioSfx.some(candidate => candidate.id === item.id)))) {
             items.push({ id: 'caption-attach', label: '字幕にひも付ける…' });
@@ -17621,10 +17825,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     } }));
                     return;
                 }
+                if (id === 'put-canvas' && targetCanvas) {
+                    const selected = row?.sourceKind === 'group' && this.multiSelection.length > 1
+                        ? this.multiSelection.filter(candidate => 'id' in candidate && candidate.id !== targetCanvas.id)
+                        : [item];
+                    void this.putSelectionIntoCanvas(selected, targetCanvas.id);
+                    return;
+                }
                 if (id === 'caption-attach' && 'id' in item) { void this.openCaptionAttachDialog(item.id, event.clientX, event.clientY); return; }
                 this.dispatchTimelineClipMenuAction(id, item, clientX, hasAudio, click.altKey);
             }
         });
+    }
+
+    protected putSelectionIntoCanvas(items: readonly TimelineSelectionItem[], canvasId: string): Promise<void> {
+        return this.commitEditMutation('キャンバスへ入れる', doc => items.reduce((next, item) => {
+            if (item.kind === 'caption') {
+                const layout = this.captionLayouts.get(item.id);
+                if (!layout) return next;
+                return putTreeV2PlacedCaptionIntoCanvas(next, { id: item.id,
+                    at: this.frameAt(layout.start), duration: Math.max(1, this.frameAt(layout.end - layout.start)) }, canvasId).document;
+            }
+            const visualId = item.kind === 'cut' ? this.cutItemId(item.index)
+                : 'id' in item ? item.id : undefined;
+            if (visualId && item.kind !== 'audio' && visualId !== canvasId) {
+                return putTreeV2ItemsIntoCanvas(next, [visualId], canvasId).document;
+            }
+            return next;
+        }, doc)).then(() => undefined).catch(error => this.showNotice(`キャンバスへ入れられません: ${canvasOperationReason(error)}`));
     }
 
     protected async openCaptionAttachDialog(itemId: string, x: number, y: number): Promise<void> {
@@ -17777,11 +18005,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             void this.performRazorSplitAt(item, clientX);
             return;
         }
-        if (id === 'detach' && item.kind === 'item') {
+        if (id === 'detach' && item.kind !== 'audio' && item.kind !== 'caption') {
+            const itemId = item.kind === 'cut' ? this.cutItemId(item.index) : item.id;
+            const currentRow = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
+            if (currentRow?.parentId && this.rawV2Item(currentRow.parentId)?.source?.kind === 'group') {
+                void this.takeItemsOutOfCanvas([itemId]);
+                return;
+            }
             let createdTrackId: string | undefined;
-            void this.commitEditMutation('出す', doc => {
-                const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === item.id);
-                const result = detachTreeV2Item(doc, item.id, row ? {
+            void this.commitEditMutation('キャンバスから出す', doc => {
+                const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === itemId);
+                const result = detachTreeV2Item(doc, itemId, row ? {
                     at: Math.round(row.at * this.fps), duration: Math.round(row.duration * this.fps)
                 } : undefined);
                 createdTrackId = result.createdTrackId;
@@ -17790,7 +18024,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const name = createdTrackId
                     ? this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId : '新しい段';
                 this.showNotice(`${name} を追加しました`);
-            }).catch(error => this.showNotice(`出せません: ${this.errorMessage(error)}`));
+            }).catch(error => this.showNotice(`キャンバスから出せません: ${canvasOperationReason(error)}`));
             return;
         }
         if (id === 'group') {
@@ -17798,19 +18032,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? [this.cutItemId(selection.index)]
                 : selection.kind === 'caption' || selection.kind === 'audio' ? [] : [selection.id]);
             let changed: string[] = [];
-            void this.commitEditMutation('まとめる', doc => {
-                const result = groupTreeV2Items(doc, ids);
+            void this.commitEditMutation('キャンバスにする', doc => {
+                const result = groupTreeV2Items(doc, ids, { canvas: true });
                 changed = result.value.changedOrderIds;
                 return result.document;
             }).then(() => {
                 if (changed.length > 0) this.showNotice(`${changed.join('、')} の前後が変わりました`);
-            }).catch(error => this.showNotice(`まとめられません: ${this.errorMessage(error)}`));
+            }).catch(error => this.showNotice(`キャンバスにできません: ${canvasOperationReason(error)}`));
             return;
         }
         if (id === 'ungroup' && item.kind === 'item') {
-            void this.commitEditMutation('ばらす', doc => ungroupTreeV2Item(doc, item.id).document)
-                .catch(error => this.showNotice(this.errorMessage(error).includes('袋グループ')
-                    ? '袋はばらせません。部品を出してください' : `ばらせません: ${this.errorMessage(error)}`));
+            void this.commitEditMutation('キャンバスをほどく', doc => ungroupTreeV2Item(doc, item.id).document)
+                .catch(error => this.showNotice(`キャンバスをほどけません: ${canvasOperationReason(error)}`));
             return;
         }
         if (id === 'toggle-collapse' && item.kind === 'item') {

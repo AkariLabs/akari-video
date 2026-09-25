@@ -177,7 +177,13 @@ export interface FilterSourceV2 {
     filter: FilterV2;
 }
 
-export interface GroupSourceV2 { kind: 'group' }
+export interface CanvasV0 {
+    origin: 'user' | 'plan';
+    durationMode: 'fixed';
+    intent?: string;
+    background?: { type: 'none' } | { type: 'color'; color: string };
+}
+export interface GroupSourceV2 { kind: 'group'; canvas?: CanvasV0 }
 export interface CaptionsSourceV2 { kind: 'captions'; path: 'captions.json'; exclude?: string[] }
 export interface CaptionSourceV2 { kind: 'caption'; path: 'captions.json'; id: string }
 
@@ -776,7 +782,21 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             validateFilter(value.filter, `${path}.filter`);
             return;
         case 'group':
-            requireExactKeys(value, new Set(['kind']), path);
+            requireExactKeys(value, new Set(['kind', 'canvas']), path);
+            if (hasOwn(value, 'canvas')) {
+                requireRecord(value.canvas, `${path}.canvas`);
+                requireExactKeys(value.canvas, new Set(['origin', 'durationMode', 'intent', 'background']), `${path}.canvas`);
+                if (value.canvas.origin !== 'user' && value.canvas.origin !== 'plan') throw invalid(`${path}.canvas.origin`, 'user / plan を指定してください');
+                if (value.canvas.durationMode !== 'fixed') throw invalid(`${path}.canvas.durationMode`, 'fixed を指定してください');
+                if (hasOwn(value.canvas, 'intent') && typeof value.canvas.intent !== 'string') throw invalid(`${path}.canvas.intent`, '文字列である必要があります');
+                if (hasOwn(value.canvas, 'background')) {
+                    requireRecord(value.canvas.background, `${path}.canvas.background`);
+                    requireExactKeys(value.canvas.background, new Set(['type', 'color']), `${path}.canvas.background`);
+                    if (value.canvas.background.type === 'color') {
+                        if (typeof value.canvas.background.color !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(value.canvas.background.color)) throw invalid(`${path}.canvas.background.color`, '#RRGGBB で指定してください');
+                    } else if (value.canvas.background.type !== 'none' || hasOwn(value.canvas.background, 'color')) throw invalid(`${path}.canvas.background`, 'none または color を指定してください');
+                }
+            }
             return;
         case 'captions':
             requireExactKeys(value, new Set(['kind', 'path', 'exclude']), path);
