@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import {
     retainedInspectorView, viewForInspectorSelection, shouldDeferInspectorEmpty,
     rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender,
-    shouldRememberInspectorScroll, inspectorHeldHeight, mergeLiveValues, visibleLiveValues
+    shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin,
+    mergeLiveValues, visibleLiveValues
 } from '../lib/browser/inspector/live-state.js';
 
 test('same item keeps scroll, tab, focus and caret; another item starts at top', () => {
@@ -44,6 +45,14 @@ test('blur followed by selecting the same item does not resurrect focus or an ol
     assert.equal(selected.inputValue, undefined);
     assert.deepEqual(viewForInspectorSelection(selected, 'item:box-b', 'item:box-a'),
         { selectionKey: 'item:box-b', scrollTop: 0 });
+});
+
+test('a redraw re-pins the scroll until the panel height settles, unless the user scrolled', () => {
+    assert.equal(inspectorScrollPin(120, 0, 0, 100), 120);
+    assert.equal(inspectorScrollPin(120, 115, 0, 100), 120);
+    assert.equal(inspectorScrollPin(120, 116, 0, 100), undefined);
+    assert.equal(inspectorScrollPin(120, 118, 0, 100), undefined);
+    assert.equal(inspectorScrollPin(120, 0, 101, 100), undefined);
 });
 
 test('clamp scroll events are ignored through restoration and a later user scroll is remembered', () => {

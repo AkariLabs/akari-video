@@ -1,0 +1,2833 @@
+{
+  "label": "before",
+  "port": 9573,
+  "pid": 26143,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "outer": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 404,
+    "h": 359
+  },
+  "windowShot": "before-window.png",
+  "results": {
+    "discover": {
+      "box-a": {
+        "tabs": [
+          "tab:inspector-video",
+          "tab:inspector-adjust(disabled)",
+          "tab:inspector-audio(disabled)",
+          "tab:inspector-edit",
+          "tab:inspector-motion",
+          "tab:inspector-info"
+        ],
+        "fields": [
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-scaleX",
+          "transform-scaleY",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "opacity",
+          "shape-fillMode",
+          "shape-fill",
+          "shape-strokeMode",
+          "shape-stroke",
+          "shape-strokeWidth"
+        ],
+        "rows": [
+          "item-start",
+          "item-duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-scaleX",
+          "transform-scaleY",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "shape-fillMode",
+          "shape-fill",
+          "shape-strokeMode",
+          "shape-stroke",
+          "shape-strokeWidth"
+        ],
+        "ranges": [],
+        "scrollHeight": 1023,
+        "clientHeight": 603
+      },
+      "box-a-shot": "before-discover-box-a.png",
+      "photo-a": {
+        "tabs": [
+          "tab:inspector-video",
+          "tab:inspector-adjust",
+          "tab:inspector-audio",
+          "tab:inspector-edit",
+          "tab:inspector-motion",
+          "tab:inspector-info"
+        ],
+        "fields": [
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "opacity",
+          "blend",
+          "layer-audio",
+          "layer-gain-db"
+        ],
+        "rows": [
+          "output-start",
+          "duration",
+          "transform-x",
+          "transform-y",
+          "transform-scale",
+          "transform-rotate",
+          "crop-x",
+          "crop-y",
+          "crop-w",
+          "crop-h",
+          "perspective-tl-x",
+          "perspective-tl-y",
+          "perspective-tr-x",
+          "perspective-tr-y",
+          "perspective-bl-x",
+          "perspective-bl-y",
+          "perspective-br-x",
+          "perspective-br-y",
+          "perspective-clear",
+          "motion-summary",
+          "motion-open",
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "layer-audio",
+          "layer-gain-db"
+        ],
+        "ranges": [],
+        "scrollHeight": 1029,
+        "clientHeight": 603
+      },
+      "photo-a-shot": "before-discover-photo-a.png",
+      "ms": 3840
+    },
+    "z-diag": {
+      "setup": {
+        "top": 120
+      },
+      "xVisible": {
+        "x": 742,
+        "y": 183.5,
+        "w": 188.65625,
+        "h": 24,
+        "cx": 836.328125,
+        "cy": 195.5
+      },
+      "after": {
+        "sameNode": true,
+        "top": 120,
+        "panels": 1,
+        "active": "Y",
+        "log": [
+          {
+            "t": 87,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at W3n.render (file://<tmp>)",
+              "at file://<tmp>",
+              "at file://<tmp>",
+              "at NSi.invoke (file://<tmp>)"
+            ]
+          },
+          {
+            "t": 96,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at W3n.render (file://<tmp>)",
+              "at file://<tmp>",
+              "at file://<tmp>",
+              "at NSi.invoke (file://<tmp>)"
+            ]
+          },
+          {
+            "t": 104,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at W3n.render (file://<tmp>)",
+              "at file://<tmp>",
+              "at file://<tmp>",
+              "at NSi.invoke (file://<tmp>)"
+            ]
+          },
+          {
+            "t": 130,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at file://<tmp>"
+            ]
+          },
+          {
+            "t": 147,
+            "what": "set",
+            "top": 0,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at W3n.render (file://<tmp>)",
+              "at file://<tmp>",
+              "at file://<tmp>",
+              "at NSi.invoke (file://<tmp>)"
+            ]
+          },
+          {
+            "t": 177,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at file://<tmp>"
+            ]
+          },
+          {
+            "t": 304,
+            "what": "set",
+            "top": 0,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at W3n.render (file://<tmp>)",
+              "at file://<tmp>",
+              "at file://<tmp>",
+              "at NSi.invoke (file://<tmp>)"
+            ]
+          },
+          {
+            "t": 327,
+            "what": "set",
+            "top": 0,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at W3n.render (file://<tmp>)",
+              "at file://<tmp>",
+              "at file://<tmp>",
+              "at NSi.invoke (file://<tmp>)"
+            ]
+          },
+          {
+            "t": 340,
+            "what": "set",
+            "top": 0,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at W3n.render (file://<tmp>)",
+              "at file://<tmp>",
+              "at file://<tmp>",
+              "at NSi.invoke (file://<tmp>)"
+            ]
+          },
+          {
+            "t": 375,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at file://<tmp>"
+            ]
+          },
+          {
+            "t": 626,
+            "what": "set",
+            "top": 120,
+            "h": 1023,
+            "head": "box-a00:00.0 – 00:10.0 ·",
+            "v": 120,
+            "stack": [
+              "at c (file://<tmp>)",
+              "at file://<tmp>"
+            ]
+          }
+        ]
+      },
+      "ms": 4102
+    },
+    "z-flicker": {
+      "trials": [
+        {
+          "trial": 0,
+          "start": 120,
+          "min": 0,
+          "max": 120,
+          "maxDeviation": 120,
+          "samples": 180,
+          "frames": 150,
+          "offending": [
+            {
+              "t": 296,
+              "what": "pre",
+              "v": 0
+            },
+            {
+              "t": 312,
+              "what": "pre",
+              "v": 0
+            },
+            {
+              "t": 325,
+              "what": "pre",
+              "v": 0
+            }
+          ],
+          "final": 120,
+          "focus": "field:inspector-transform-y",
+          "writes": 1
+        },
+        {
+          "trial": 1,
+          "start": 120,
+          "min": 0,
+          "max": 120,
+          "maxDeviation": 120,
+          "samples": 183,
+          "frames": 153,
+          "offending": [
+            {
+              "t": 299,
+              "what": "pre",
+              "v": 0
+            },
+            {
+              "t": 318,
+              "what": "pre",
+              "v": 0
+            },
+            {
+              "t": 332,
+              "what": "pre",
+              "v": 0
+            }
+          ],
+          "final": 120,
+          "focus": "field:inspector-transform-y",
+          "writes": 1
+        },
+        {
+          "trial": 2,
+          "start": 120,
+          "min": 0,
+          "max": 120,
+          "maxDeviation": 120,
+          "samples": 181,
+          "frames": 151,
+          "offending": [
+            {
+              "t": 183,
+              "what": "pre",
+              "v": 0
+            },
+            {
+              "t": 196,
+              "what": "pre",
+              "v": 0
+            },
+            {
+              "t": 206,
+              "what": "pre",
+              "v": 0
+            }
+          ],
+          "final": 120,
+          "focus": "field:inspector-transform-y",
+          "writes": 1
+        }
+      ],
+      "ms": 14526
+    },
+    "s-shape": {
+      "knobs": [
+        {
+          "id": "box-a",
+          "name": "shape-strokeWidth",
+          "tab": true,
+          "before": {
+            "value": "6",
+            "svg": {
+              "hash": "27a7b479",
+              "len": 284,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#3b82f6",
+                  "stroke": "#111827",
+                  "sw": "6",
+                  "rx": null,
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 192.55,
+              "g": 199.59,
+              "b": 214.68,
+              "luma": 199.18
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "16",
+              "svg": {
+                "hash": "27a7b479",
+                "len": 284,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#3b82f6",
+                    "stroke": "#111827",
+                    "sw": "6",
+                    "rx": null,
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-box-a-shape-strokeWidth-1.png"
+            },
+            {
+              "step": 2,
+              "value": "26",
+              "svg": {
+                "hash": "27a7b479",
+                "len": 284,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#3b82f6",
+                    "stroke": "#111827",
+                    "sw": "6",
+                    "rx": null,
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-box-a-shape-strokeWidth-2.png"
+            },
+            {
+              "step": 3,
+              "value": "36",
+              "svg": {
+                "hash": "27a7b479",
+                "len": 284,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#3b82f6",
+                    "stroke": "#111827",
+                    "sw": "6",
+                    "rx": null,
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-box-a-shape-strokeWidth-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "36",
+            "svg": {
+              "hash": "35770aac",
+              "len": 285,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#3b82f6",
+                  "stroke": "#111827",
+                  "sw": "36",
+                  "rx": null,
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 300,
+              "height": 200,
+              "fill": "#3b82f6",
+              "stroke": "#111827",
+              "strokeWidth": 36
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 1.751,
+            "changedPct": 2.011
+          },
+          "startVsCommitted": {
+            "meanAbs": 1.751,
+            "changedPct": 2.011
+          },
+          "committedShot": "before-s-box-a-shape-strokeWidth-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "round-a",
+          "name": "shape-cornerRadius",
+          "tab": true,
+          "before": {
+            "value": "10",
+            "svg": {
+              "hash": "bb9686f5",
+              "len": 297,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#f59e0b",
+                  "stroke": "none",
+                  "sw": "0",
+                  "rx": "10",
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 156.94,
+              "g": 154,
+              "b": 139.97,
+              "luma": 153.61
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "35",
+              "svg": {
+                "hash": "bb9686f5",
+                "len": 297,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#f59e0b",
+                    "stroke": "none",
+                    "sw": "0",
+                    "rx": "10",
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-round-a-shape-cornerRadius-1.png"
+            },
+            {
+              "step": 2,
+              "value": "60",
+              "svg": {
+                "hash": "bb9686f5",
+                "len": 297,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#f59e0b",
+                    "stroke": "none",
+                    "sw": "0",
+                    "rx": "10",
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-round-a-shape-cornerRadius-2.png"
+            },
+            {
+              "step": 3,
+              "value": "85",
+              "svg": {
+                "hash": "bb9686f5",
+                "len": 297,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#f59e0b",
+                    "stroke": "none",
+                    "sw": "0",
+                    "rx": "10",
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.003,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-round-a-shape-cornerRadius-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "85",
+            "svg": {
+              "hash": "2d2384cd",
+              "len": 297,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#f59e0b",
+                  "stroke": "none",
+                  "sw": "0",
+                  "rx": "85",
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 300,
+              "height": 200,
+              "fill": "#f59e0b",
+              "cornerRadius": 85
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 0.119,
+            "changedPct": 0.273
+          },
+          "startVsCommitted": {
+            "meanAbs": 0.119,
+            "changedPct": 0.273
+          },
+          "committedShot": "before-s-round-a-shape-cornerRadius-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-tailAngle",
+          "tab": true,
+          "before": {
+            "value": "180",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.49,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "220",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailAngle-1.png"
+            },
+            {
+              "step": 2,
+              "value": "260",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailAngle-2.png"
+            },
+            {
+              "step": 3,
+              "value": "300",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailAngle-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "300",
+            "svg": {
+              "hash": "731fb1a3",
+              "len": 19774,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M68.23 27.83L69.88 26.92L71.55 26.02L73.22 25.15L74.91 24.28L76.6 23.4"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M68.23 27.83L69.88 26.92L71.55 26.02L73.22 25.15L74.91 24.28L76.6 23.4"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M68.23 27.83L69.88 26.92L71.55 26.02L73.22 25.15L74.91 24.28L76.6 23.4"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 300,
+              "tailLength": 30,
+              "tailWidth": 20
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 3.973,
+            "changedPct": 2.568
+          },
+          "startVsCommitted": {
+            "meanAbs": 3.981,
+            "changedPct": 2.568
+          },
+          "committedShot": "before-s-bubble-a-shape-tailAngle-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0.008,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-tailLength",
+          "tab": true,
+          "before": {
+            "value": "30",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.49,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "50",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailLength-1.png"
+            },
+            {
+              "step": 2,
+              "value": "70",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailLength-2.png"
+            },
+            {
+              "step": 3,
+              "value": "90",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailLength-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "90",
+            "svg": {
+              "hash": "7ca117ad",
+              "len": 19027,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M168.95 73.58L167.37 73.55L165.79 73.53L164.22 73.5L162.64 73.47L161.0"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M168.95 73.58L167.37 73.55L165.79 73.53L164.22 73.5L162.64 73.47L161.0"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M168.95 73.58L167.37 73.55L165.79 73.53L164.22 73.5L162.64 73.47L161.0"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 180,
+              "tailLength": 90,
+              "tailWidth": 20
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 4.99,
+            "changedPct": 2.902
+          },
+          "startVsCommitted": {
+            "meanAbs": 4.99,
+            "changedPct": 2.902
+          },
+          "committedShot": "before-s-bubble-a-shape-tailLength-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-tailWidth",
+          "tab": true,
+          "before": {
+            "value": "20",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.49,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "40",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailWidth-1.png"
+            },
+            {
+              "step": 2,
+              "value": "60",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailWidth-2.png"
+            },
+            {
+              "step": 3,
+              "value": "80",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-tailWidth-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "80",
+            "svg": {
+              "hash": "4f129c83",
+              "len": 18157,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M132.36 158.47L130.61 158.25L128.86 158.02L127.1 157.79L125.35 157.54L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M132.36 158.47L130.61 158.25L128.86 158.02L127.1 157.79L125.35 157.54L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M132.36 158.47L130.61 158.25L128.86 158.02L127.1 157.79L125.35 157.54L"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 180,
+              "tailLength": 30,
+              "tailWidth": 80
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 0.783,
+            "changedPct": 0.577
+          },
+          "startVsCommitted": {
+            "meanAbs": 0.783,
+            "changedPct": 0.577
+          },
+          "committedShot": "before-s-bubble-a-shape-tailWidth-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0.008,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-strokeWidth",
+          "tab": true,
+          "before": {
+            "value": "5",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.48,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "11",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-strokeWidth-1.png"
+            },
+            {
+              "step": 2,
+              "value": "17",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-strokeWidth-2.png"
+            },
+            {
+              "step": 3,
+              "value": "23",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-s-bubble-a-shape-strokeWidth-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "23",
+            "svg": {
+              "hash": "4927b702",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "46",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 180,
+              "tailLength": 30,
+              "tailWidth": 20,
+              "strokeWidth": 23
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 7.176,
+            "changedPct": 3.755
+          },
+          "startVsCommitted": {
+            "meanAbs": 7.184,
+            "changedPct": 3.755
+          },
+          "committedShot": "before-s-bubble-a-shape-strokeWidth-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        }
+      ],
+      "esc": {
+        "svg0": {
+          "hash": "27a7b479",
+          "len": 284,
+          "els": [
+            {
+              "tag": "rect",
+              "fill": "#3b82f6",
+              "stroke": "#111827",
+              "sw": "6",
+              "rx": null,
+              "d": ""
+            }
+          ],
+          "live": null
+        },
+        "during": {
+          "svg": {
+            "hash": "27a7b479",
+            "len": 284,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "6",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "diff": {
+            "meanAbs": 0,
+            "changedPct": 0
+          },
+          "shot": "before-s-esc-during.png"
+        },
+        "afterEsc": {
+          "svg": {
+            "hash": "27a7b479",
+            "len": 284,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "6",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "diff": {
+            "meanAbs": 20.849,
+            "changedPct": 13.788
+          },
+          "shot": "before-s-esc-after.png"
+        },
+        "afterRelease": {
+          "svg": {
+            "hash": "da23ee09",
+            "len": 285,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "42",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "diff": {
+            "meanAbs": 26.05,
+            "changedPct": 16.062
+          }
+        },
+        "writes": 1,
+        "unchanged": false
+      },
+      "fill": {
+        "tab": true,
+        "before": {
+          "svg": {
+            "hash": "27a7b479",
+            "len": 284,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "6",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "px": {
+            "r": 192.55,
+            "g": 199.59,
+            "b": 214.68,
+            "luma": 199.18
+          }
+        },
+        "opened": true,
+        "panel": {
+          "drags": [],
+          "hue": null
+        }
+      },
+      "ms": 57062
+    },
+    "p-photo": {
+      "knobs": [
+        {
+          "key": "contrast",
+          "tab": true,
+          "before": {
+            "value": "0",
+            "px": {
+              "r": 103.67,
+              "g": 98.08,
+              "b": 104.55,
+              "luma": 99.73
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "-30",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-contrast-1.png"
+            },
+            {
+              "step": 2,
+              "value": "-60",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-contrast-2.png"
+            },
+            {
+              "step": 3,
+              "value": "-90",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-contrast-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": {
+            "value": "-90",
+            "px": {
+              "r": 87.41,
+              "g": 87.86,
+              "b": 87.56,
+              "luma": 87.74
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 50.902,
+            "changedPct": 75.803
+          },
+          "startVsCommitted": {
+            "meanAbs": 50.902,
+            "changedPct": 75.803
+          },
+          "undoEqualsHead": true
+        },
+        {
+          "key": "highlights",
+          "tab": true,
+          "before": {
+            "value": "0",
+            "px": {
+              "r": 103.67,
+              "g": 98.08,
+              "b": 104.55,
+              "luma": 99.73
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "30",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-highlights-1.png"
+            },
+            {
+              "step": 2,
+              "value": "60",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-highlights-2.png"
+            },
+            {
+              "step": 3,
+              "value": "90",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-highlights-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": {
+            "value": "90",
+            "px": {
+              "r": 104.1,
+              "g": 98.45,
+              "b": 105.36,
+              "luma": 100.15
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 0.54,
+            "changedPct": 0.535
+          },
+          "startVsCommitted": {
+            "meanAbs": 0.54,
+            "changedPct": 0.535
+          },
+          "undoEqualsHead": true
+        },
+        {
+          "key": "shadows",
+          "tab": true,
+          "before": {
+            "value": "0",
+            "px": {
+              "r": 103.67,
+              "g": 98.08,
+              "b": 104.55,
+              "luma": 99.73
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "30",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-shadows-1.png"
+            },
+            {
+              "step": 2,
+              "value": "60",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-shadows-2.png"
+            },
+            {
+              "step": 3,
+              "value": "90",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-shadows-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": {
+            "value": "90",
+            "px": {
+              "r": 104.67,
+              "g": 98.61,
+              "b": 105.4,
+              "luma": 100.39
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 0.795,
+            "changedPct": 1.07
+          },
+          "startVsCommitted": {
+            "meanAbs": 0.795,
+            "changedPct": 1.07
+          },
+          "undoEqualsHead": true
+        },
+        {
+          "key": "temperature",
+          "tab": true,
+          "before": {
+            "value": "6500",
+            "px": {
+              "r": 103.67,
+              "g": 98.08,
+              "b": 104.55,
+              "luma": 99.73
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "7550",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-temperature-1.png"
+            },
+            {
+              "step": 2,
+              "value": "8600",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-temperature-2.png"
+            },
+            {
+              "step": 3,
+              "value": "9650",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-temperature-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": {
+            "value": "9650",
+            "px": {
+              "r": 104.71,
+              "g": 98.21,
+              "b": 92.52,
+              "luma": 99.18
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 4.413,
+            "changedPct": 20.214
+          },
+          "startVsCommitted": {
+            "meanAbs": 4.413,
+            "changedPct": 20.214
+          },
+          "undoEqualsHead": true
+        },
+        {
+          "key": "saturation",
+          "tab": true,
+          "before": {
+            "value": "0",
+            "px": {
+              "r": 103.67,
+              "g": 98.08,
+              "b": 104.55,
+              "luma": 99.73
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "-30",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-saturation-1.png"
+            },
+            {
+              "step": 2,
+              "value": "-60",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-saturation-2.png"
+            },
+            {
+              "step": 3,
+              "value": "-90",
+              "px": {
+                "r": 103.67,
+                "g": 98.08,
+                "b": 104.55,
+                "luma": 99.73
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-p-saturation-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": {
+            "value": "-90",
+            "px": {
+              "r": 88.51,
+              "g": 88.87,
+              "b": 88.71,
+              "luma": 88.78
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 43.613,
+            "changedPct": 75.803
+          },
+          "startVsCommitted": {
+            "meanAbs": 43.613,
+            "changedPct": 75.803
+          },
+          "undoEqualsHead": true
+        }
+      ],
+      "esc": {
+        "during": {
+          "meanAbs": 0,
+          "changedPct": 0
+        },
+        "afterEsc": {
+          "meanAbs": 0,
+          "changedPct": 0
+        },
+        "writes": 0,
+        "unchanged": true
+      },
+      "ms": 45293
+    },
+    "t-caption": {
+      "sliders": [
+        {
+          "name": "caption-line-height",
+          "range": {
+            "aria": "行間 スライダー",
+            "min": "0.9",
+            "max": "2.2",
+            "value": "1.4"
+          },
+          "before": [
+            {
+              "tag": "P",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 10.4,
+              "w": 72.7,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 21.5,
+              "w": 305.4,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 186.8,
+              "w": 332,
+              "live": null
+            }
+          ],
+          "series": [
+            {
+              "step": 1,
+              "value": "1.65",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-line-height-1.png"
+            },
+            {
+              "step": 2,
+              "value": "1.7",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-line-height-2.png"
+            },
+            {
+              "step": 3,
+              "value": "1.95",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-line-height-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": [
+            {
+              "tag": "P",
+              "lineHeight": "74.1px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 13.9,
+              "w": 72.7,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "74.1px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 28.4,
+              "w": 305.4,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "74.1px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 186.8,
+              "w": 332,
+              "live": null
+            }
+          ],
+          "liveLastVsCommitted": {
+            "meanAbs": 22.149,
+            "changedPct": 20.602
+          },
+          "startVsCommitted": {
+            "meanAbs": 22.149,
+            "changedPct": 20.602
+          },
+          "undoEqualsHead": true
+        },
+        {
+          "name": "caption-letter-spacing",
+          "range": {
+            "aria": "字間 スライダー",
+            "min": "-0.1",
+            "max": "0.4",
+            "value": "0"
+          },
+          "before": [
+            {
+              "tag": "P",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 10.4,
+              "w": 72.7,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 21.5,
+              "w": 305.4,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 186.8,
+              "w": 332,
+              "live": null
+            }
+          ],
+          "series": [
+            {
+              "step": 1,
+              "value": "0.13",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-letter-spacing-1.png"
+            },
+            {
+              "step": 2,
+              "value": "0.19",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-letter-spacing-2.png"
+            },
+            {
+              "step": 3,
+              "value": "0.29",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-letter-spacing-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": [
+            {
+              "tag": "P",
+              "lineHeight": "53.96px",
+              "letterSpacing": "11.02px",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 10.4,
+              "w": 93.7,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "11.02px",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 21.5,
+              "w": 305.4,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "11.02px",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 186.8,
+              "w": 332,
+              "live": null
+            }
+          ],
+          "liveLastVsCommitted": {
+            "meanAbs": 2.924,
+            "changedPct": 3.768
+          },
+          "startVsCommitted": {
+            "meanAbs": 2.924,
+            "changedPct": 3.768
+          },
+          "undoEqualsHead": true
+        },
+        {
+          "name": "caption-stroke-width",
+          "range": {
+            "aria": "太さ スライダー",
+            "min": "0",
+            "max": "20",
+            "value": "1.5"
+          },
+          "before": [
+            {
+              "tag": "P",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 10.4,
+              "w": 72.7,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 21.5,
+              "w": 305.4,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "5.32px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 186.8,
+              "w": 332,
+              "live": null
+            }
+          ],
+          "series": [
+            {
+              "step": 1,
+              "value": "7.5",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-stroke-width-1.png"
+            },
+            {
+              "step": 2,
+              "value": "11",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-stroke-width-2.png"
+            },
+            {
+              "step": 3,
+              "value": "15.5",
+              "style": [
+                {
+                  "tag": "P",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 10.4,
+                  "w": 72.7,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 21.5,
+                  "w": 305.4,
+                  "live": null
+                },
+                {
+                  "tag": "DIV",
+                  "lineHeight": "53.96px",
+                  "letterSpacing": "normal",
+                  "strokeW": "5.32px",
+                  "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+                  "h": 186.8,
+                  "w": 332,
+                  "live": null
+                }
+              ],
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-t-caption-stroke-width-3.png"
+            }
+          ],
+          "writes": 1,
+          "after": [
+            {
+              "tag": "P",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "31px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 10.4,
+              "w": 72.7,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "31px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 21.5,
+              "w": 305.4,
+              "live": null
+            },
+            {
+              "tag": "DIV",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "strokeW": "31px",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "h": 186.8,
+              "w": 332,
+              "live": null
+            }
+          ],
+          "liveLastVsCommitted": {
+            "meanAbs": 4.744,
+            "changedPct": 3.519
+          },
+          "startVsCommitted": {
+            "meanAbs": 4.744,
+            "changedPct": 3.519
+          },
+          "undoEqualsHead": true
+        }
+      ],
+      "esc": {
+        "during": {
+          "meanAbs": 0,
+          "changedPct": 0
+        },
+        "afterEsc": {
+          "meanAbs": 0,
+          "changedPct": 0
+        },
+        "afterRelease": {
+          "meanAbs": 2.905,
+          "changedPct": 3.762
+        },
+        "writes": 1,
+        "unchanged": false
+      },
+      "ms": 48581
+    }
+  },
+  "allConsoleErrors": []
+}

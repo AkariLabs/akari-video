@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createNumberField,
-  INSPECTOR_LIVE_PREVIEW_THROTTLE_MS
+  INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
+  shouldPullNumberFieldFocus
 } from '../lib/browser/inspector/number-field.js';
 
 class FakeElement {
@@ -69,10 +70,44 @@ function setup(t, options = {}) {
   });
   const [handle, input, , buttons] = field.children;
   return {
-    input, handle, buttons, window, previews, commits, tick,
+    field, input, handle, buttons, window, previews, commits, tick,
     type(value, event) { input.value = value; input.emit('input', event); }
   };
 }
+
+test('scrub focus is pulled only when the keyboard focus is outside the inspector', () => {
+  const container = { contains: node => node === 'input' };
+  const root = { contains: node => node === 'input' || node === 'other-field' };
+  assert.equal(shouldPullNumberFieldFocus(null, container), true);
+  assert.equal(shouldPullNumberFieldFocus(undefined, container), true);
+  assert.equal(shouldPullNumberFieldFocus('input', container), false);
+  assert.equal(shouldPullNumberFieldFocus('outside', container), true);
+  assert.equal(shouldPullNumberFieldFocus('other-field', container, root), false);
+  assert.equal(shouldPullNumberFieldFocus('iframe', container, root), true);
+});
+
+test('scrub pointerdown moves focus off the preview frame into the field', t => {
+  const f = setup(t);
+  const focused = [];
+  f.input.focus = options => { focused.push(options); };
+  f.field.contains = () => false;
+  globalThis.document.activeElement = { tagName: 'IFRAME' };
+  f.handle.emit('pointerdown', { button: 0, pointerId: 1, clientX: 0 });
+  f.window.emit('pointerup', { pointerId: 1 });
+  assert.deepEqual(focused, [{ preventScroll: true }]);
+});
+
+test('scrub pointerdown keeps focus when another inspector field owns it', t => {
+  const active = { tagName: 'INPUT' };
+  const focusRoot = { contains: node => node === active };
+  const f = setup(t, { focusRoot });
+  const focused = [];
+  f.input.focus = options => { focused.push(options); };
+  globalThis.document.activeElement = active;
+  f.handle.emit('pointerdown', { button: 0, pointerId: 1, clientX: 0 });
+  f.window.emit('pointerup', { pointerId: 1 });
+  assert.deepEqual(focused, []);
+});
 
 test('number input previews immediately and throttles the latest trailing value without committing', t => {
   const f = setup(t);

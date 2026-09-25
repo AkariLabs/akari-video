@@ -1,0 +1,1481 @@
+{
+  "label": "before-fill",
+  "port": 9573,
+  "pid": 38514,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "outer": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 404,
+    "h": 359
+  },
+  "windowShot": "before-fill-window.png",
+  "results": {
+    "s-shape": {
+      "knobs": [
+        {
+          "id": "box-a",
+          "name": "shape-strokeWidth",
+          "tab": true,
+          "before": {
+            "value": "6",
+            "svg": {
+              "hash": "27a7b479",
+              "len": 284,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#3b82f6",
+                  "stroke": "#111827",
+                  "sw": "6",
+                  "rx": null,
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 192.55,
+              "g": 199.59,
+              "b": 214.68,
+              "luma": 199.18
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "16",
+              "svg": {
+                "hash": "27a7b479",
+                "len": 284,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#3b82f6",
+                    "stroke": "#111827",
+                    "sw": "6",
+                    "rx": null,
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-box-a-shape-strokeWidth-1.png"
+            },
+            {
+              "step": 2,
+              "value": "26",
+              "svg": {
+                "hash": "27a7b479",
+                "len": 284,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#3b82f6",
+                    "stroke": "#111827",
+                    "sw": "6",
+                    "rx": null,
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-box-a-shape-strokeWidth-2.png"
+            },
+            {
+              "step": 3,
+              "value": "36",
+              "svg": {
+                "hash": "27a7b479",
+                "len": 284,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#3b82f6",
+                    "stroke": "#111827",
+                    "sw": "6",
+                    "rx": null,
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-box-a-shape-strokeWidth-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "36",
+            "svg": {
+              "hash": "35770aac",
+              "len": 285,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#3b82f6",
+                  "stroke": "#111827",
+                  "sw": "36",
+                  "rx": null,
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 300,
+              "height": 200,
+              "fill": "#3b82f6",
+              "stroke": "#111827",
+              "strokeWidth": 36
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 1.751,
+            "changedPct": 2.011
+          },
+          "startVsCommitted": {
+            "meanAbs": 1.751,
+            "changedPct": 2.011
+          },
+          "committedShot": "before-fill-s-box-a-shape-strokeWidth-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "round-a",
+          "name": "shape-cornerRadius",
+          "tab": true,
+          "before": {
+            "value": "10",
+            "svg": {
+              "hash": "bb9686f5",
+              "len": 297,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#f59e0b",
+                  "stroke": "none",
+                  "sw": "0",
+                  "rx": "10",
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 156.94,
+              "g": 154,
+              "b": 139.97,
+              "luma": 153.61
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "35",
+              "svg": {
+                "hash": "bb9686f5",
+                "len": 297,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#f59e0b",
+                    "stroke": "none",
+                    "sw": "0",
+                    "rx": "10",
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.003,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-round-a-shape-cornerRadius-1.png"
+            },
+            {
+              "step": 2,
+              "value": "60",
+              "svg": {
+                "hash": "bb9686f5",
+                "len": 297,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#f59e0b",
+                    "stroke": "none",
+                    "sw": "0",
+                    "rx": "10",
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.003,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-round-a-shape-cornerRadius-2.png"
+            },
+            {
+              "step": 3,
+              "value": "85",
+              "svg": {
+                "hash": "bb9686f5",
+                "len": 297,
+                "els": [
+                  {
+                    "tag": "rect",
+                    "fill": "#f59e0b",
+                    "stroke": "none",
+                    "sw": "0",
+                    "rx": "10",
+                    "d": ""
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.003,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-round-a-shape-cornerRadius-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "85",
+            "svg": {
+              "hash": "2d2384cd",
+              "len": 297,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#f59e0b",
+                  "stroke": "none",
+                  "sw": "0",
+                  "rx": "85",
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 300,
+              "height": 200,
+              "fill": "#f59e0b",
+              "cornerRadius": 85
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 0.122,
+            "changedPct": 0.273
+          },
+          "startVsCommitted": {
+            "meanAbs": 0.122,
+            "changedPct": 0.273
+          },
+          "committedShot": "before-fill-s-round-a-shape-cornerRadius-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0.003,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-tailAngle",
+          "tab": true,
+          "before": {
+            "value": "180",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.49,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "220",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailAngle-1.png"
+            },
+            {
+              "step": 2,
+              "value": "260",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailAngle-2.png"
+            },
+            {
+              "step": 3,
+              "value": "300",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailAngle-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "300",
+            "svg": {
+              "hash": "731fb1a3",
+              "len": 19774,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M68.23 27.83L69.88 26.92L71.55 26.02L73.22 25.15L74.91 24.28L76.6 23.4"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M68.23 27.83L69.88 26.92L71.55 26.02L73.22 25.15L74.91 24.28L76.6 23.4"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M68.23 27.83L69.88 26.92L71.55 26.02L73.22 25.15L74.91 24.28L76.6 23.4"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 300,
+              "tailLength": 30,
+              "tailWidth": 20
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 3.973,
+            "changedPct": 2.568
+          },
+          "startVsCommitted": {
+            "meanAbs": 3.973,
+            "changedPct": 2.568
+          },
+          "committedShot": "before-fill-s-bubble-a-shape-tailAngle-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-tailLength",
+          "tab": true,
+          "before": {
+            "value": "30",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.48,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "50",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailLength-1.png"
+            },
+            {
+              "step": 2,
+              "value": "70",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailLength-2.png"
+            },
+            {
+              "step": 3,
+              "value": "90",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailLength-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "90",
+            "svg": {
+              "hash": "7ca117ad",
+              "len": 19027,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M168.95 73.58L167.37 73.55L165.79 73.53L164.22 73.5L162.64 73.47L161.0"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M168.95 73.58L167.37 73.55L165.79 73.53L164.22 73.5L162.64 73.47L161.0"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M168.95 73.58L167.37 73.55L165.79 73.53L164.22 73.5L162.64 73.47L161.0"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 180,
+              "tailLength": 90,
+              "tailWidth": 20
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 4.99,
+            "changedPct": 2.902
+          },
+          "startVsCommitted": {
+            "meanAbs": 4.99,
+            "changedPct": 2.902
+          },
+          "committedShot": "before-fill-s-bubble-a-shape-tailLength-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-tailWidth",
+          "tab": true,
+          "before": {
+            "value": "20",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.49,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "40",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailWidth-1.png"
+            },
+            {
+              "step": 2,
+              "value": "60",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailWidth-2.png"
+            },
+            {
+              "step": 3,
+              "value": "80",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-tailWidth-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "80",
+            "svg": {
+              "hash": "4f129c83",
+              "len": 18157,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M132.36 158.47L130.61 158.25L128.86 158.02L127.1 157.79L125.35 157.54L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M132.36 158.47L130.61 158.25L128.86 158.02L127.1 157.79L125.35 157.54L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M132.36 158.47L130.61 158.25L128.86 158.02L127.1 157.79L125.35 157.54L"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 180,
+              "tailLength": 30,
+              "tailWidth": 80
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 0.783,
+            "changedPct": 0.577
+          },
+          "startVsCommitted": {
+            "meanAbs": 0.783,
+            "changedPct": 0.577
+          },
+          "committedShot": "before-fill-s-bubble-a-shape-tailWidth-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        },
+        {
+          "id": "bubble-a",
+          "name": "shape-strokeWidth",
+          "tab": true,
+          "before": {
+            "value": "5",
+            "svg": {
+              "hash": "d8d9f639",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "10",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 158.15,
+              "g": 158.49,
+              "b": 159.13,
+              "luma": 158.46
+            }
+          },
+          "series": [
+            {
+              "step": 1,
+              "value": "11",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-strokeWidth-1.png"
+            },
+            {
+              "step": 2,
+              "value": "17",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-strokeWidth-2.png"
+            },
+            {
+              "step": 3,
+              "value": "23",
+              "svg": {
+                "hash": "d8d9f639",
+                "len": 19819,
+                "els": [
+                  {
+                    "tag": "path",
+                    "fill": "",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "sw": null,
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  },
+                  {
+                    "tag": "path",
+                    "fill": "none",
+                    "stroke": "#000000",
+                    "sw": "10",
+                    "rx": null,
+                    "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                  }
+                ],
+                "live": null
+              },
+              "diffFromStart": {
+                "meanAbs": 0.008,
+                "changedPct": 0
+              },
+              "writes": 0,
+              "shot": "before-fill-s-bubble-a-shape-strokeWidth-3.png"
+            }
+          ],
+          "writesDuring": 0,
+          "writes": 1,
+          "after": {
+            "value": "23",
+            "svg": {
+              "hash": "4927b702",
+              "len": 19819,
+              "els": [
+                {
+                  "tag": "path",
+                  "fill": "",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "#ffffff",
+                  "stroke": null,
+                  "sw": null,
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                },
+                {
+                  "tag": "path",
+                  "fill": "none",
+                  "stroke": "#000000",
+                  "sw": "46",
+                  "rx": null,
+                  "d": "M167.62 161.16L165.85 161.1L164.09 161.03L162.32 160.96L160.55 160.88L"
+                }
+              ],
+              "live": null
+            },
+            "written": {
+              "width": 360,
+              "height": 220,
+              "tailAngle": 180,
+              "tailLength": 30,
+              "tailWidth": 20,
+              "strokeWidth": 23
+            }
+          },
+          "liveLastVsCommitted": {
+            "meanAbs": 7.184,
+            "changedPct": 3.755
+          },
+          "startVsCommitted": {
+            "meanAbs": 7.184,
+            "changedPct": 3.755
+          },
+          "committedShot": "before-fill-s-bubble-a-shape-strokeWidth-committed.png",
+          "undoEqualsHead": true,
+          "afterUndoVsStart": {
+            "meanAbs": 0,
+            "changedPct": 0
+          }
+        }
+      ],
+      "esc": {
+        "svg0": {
+          "hash": "27a7b479",
+          "len": 284,
+          "els": [
+            {
+              "tag": "rect",
+              "fill": "#3b82f6",
+              "stroke": "#111827",
+              "sw": "6",
+              "rx": null,
+              "d": ""
+            }
+          ],
+          "live": null
+        },
+        "during": {
+          "svg": {
+            "hash": "27a7b479",
+            "len": 284,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "6",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "diff": {
+            "meanAbs": 0,
+            "changedPct": 0
+          },
+          "shot": "before-fill-s-esc-during.png"
+        },
+        "afterEsc": {
+          "svg": {
+            "hash": "27a7b479",
+            "len": 284,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "6",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "diff": {
+            "meanAbs": 20.849,
+            "changedPct": 13.788
+          },
+          "shot": "before-fill-s-esc-after.png"
+        },
+        "afterRelease": {
+          "svg": {
+            "hash": "da23ee09",
+            "len": 285,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "42",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "diff": {
+            "meanAbs": 26.05,
+            "changedPct": 16.062
+          }
+        },
+        "writes": 1,
+        "unchanged": false
+      },
+      "fill": {
+        "tab": true,
+        "before": {
+          "svg": {
+            "hash": "27a7b479",
+            "len": 284,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "sw": "6",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "px": {
+            "r": 192.55,
+            "g": 199.59,
+            "b": 214.68,
+            "luma": 199.18
+          }
+        },
+        "opened": true,
+        "pickerClicked": {
+          "cx": 670.28125,
+          "cy": 239
+        },
+        "panel": {
+          "drags": [
+            "sv",
+            "hue"
+          ],
+          "hue": {
+            "x": 658,
+            "y": 333.5,
+            "w": 376,
+            "h": 14,
+            "knobX": 884.8671875
+          }
+        },
+        "series": [
+          {
+            "step": 1,
+            "svg": {
+              "hash": "27a7b479",
+              "len": 284,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#3b82f6",
+                  "stroke": "#111827",
+                  "sw": "6",
+                  "rx": null,
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 192.55,
+              "g": 199.59,
+              "b": 214.68,
+              "luma": 199.18
+            },
+            "diffFromStart": {
+              "meanAbs": 0,
+              "changedPct": 0
+            },
+            "writes": 0,
+            "shot": "before-fill-s-fill-1.png"
+          },
+          {
+            "step": 2,
+            "svg": {
+              "hash": "27a7b479",
+              "len": 284,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#3b82f6",
+                  "stroke": "#111827",
+                  "sw": "6",
+                  "rx": null,
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 192.55,
+              "g": 199.59,
+              "b": 214.68,
+              "luma": 199.18
+            },
+            "diffFromStart": {
+              "meanAbs": 0,
+              "changedPct": 0
+            },
+            "writes": 0,
+            "shot": "before-fill-s-fill-2.png"
+          },
+          {
+            "step": 3,
+            "svg": {
+              "hash": "27a7b479",
+              "len": 284,
+              "els": [
+                {
+                  "tag": "rect",
+                  "fill": "#3b82f6",
+                  "stroke": "#111827",
+                  "sw": "6",
+                  "rx": null,
+                  "d": ""
+                }
+              ],
+              "live": null
+            },
+            "px": {
+              "r": 192.55,
+              "g": 199.59,
+              "b": 214.68,
+              "luma": 199.18
+            },
+            "diffFromStart": {
+              "meanAbs": 0,
+              "changedPct": 0
+            },
+            "writes": 0,
+            "shot": "before-fill-s-fill-3.png"
+          }
+        ],
+        "writes": 1,
+        "after": {
+          "svg": {
+            "hash": "428535c7",
+            "len": 284,
+            "els": [
+              {
+                "tag": "rect",
+                "fill": "#F64D3B",
+                "stroke": "#111827",
+                "sw": "6",
+                "rx": null,
+                "d": ""
+              }
+            ],
+            "live": null
+          },
+          "px": {
+            "r": 212.16,
+            "g": 194.53,
+            "b": 192.66,
+            "luma": 198.14
+          },
+          "written": "#F64D3B"
+        },
+        "liveLastVsCommitted": {
+          "meanAbs": 15.569,
+          "changedPct": 13.929
+        },
+        "committedShot": "before-fill-s-fill-committed.png",
+        "undoEqualsHead": true
+      },
+      "ms": 64450
+    }
+  },
+  "allConsoleErrors": []
+}

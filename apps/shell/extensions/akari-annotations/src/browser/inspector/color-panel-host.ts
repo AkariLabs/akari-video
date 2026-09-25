@@ -32,6 +32,8 @@ export interface ColorPanelResolved {
     title: string;
     current: Paint | undefined;
     write(paint: Paint): Promise<{ ok: boolean; message?: string }>;
+    /** ドラッグ中の色を書き込みなしで見せる（確定時は write が呼ばれる）。 */
+    preview?(paint: Paint): void;
 }
 
 interface ColorPanelSession {
@@ -86,7 +88,11 @@ export class ColorPanelHost {
     }
 
     close(): void {
-        this.session?.view.dispose();
+        const session = this.session;
+        if (session?.resolved?.preview && session.resolved.current !== undefined) {
+            session.resolved.preview(session.resolved.current);
+        }
+        session?.view.dispose();
         this.session = undefined;
     }
 
@@ -134,6 +140,7 @@ export class ColorPanelHost {
             photos: this.photos,
             onApply: (paint, options) => {
                 if (options.final) void this.commit(session, paint);
+                else resolved.preview?.(paint);
             },
             onClose: close,
             onBrandAdd: color => void this.updateBrand(BRAND_KIT_ADD_COLOR_COMMAND_ID, color, 'ブランドキットに入れました（どのプロジェクトでも使えます）'),

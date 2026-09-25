@@ -34,7 +34,7 @@ import {
     TimelineGapSelection
 } from './timeline-selection-model';
 import { createSelectionHeader } from './inspector/selection-header';
-import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
+import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
@@ -46,6 +46,7 @@ import { appendAiNarrationPanel, chooseAiNarrationVoice, generateAiNarration, in
 import { aiNarrationSourcePath, type NarrationTrack } from '../common/ai-narration-placement';
 import { createInspectorIcon } from './inspector/icons';
 import { enableShapeStroke, shapeControlGroups, shapeNumber, shapeOptionValue, swapShapeEnds } from './inspector/shape-fields';
+import { shapeLiveMarkup } from './inspector/shape-live';
 import { itemMotionMarks } from './inspector/motion-marks';
 import { isInspectorStillImage } from './inspector/edit-target';
 import {
@@ -230,6 +231,8 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
      * cuts/layers の transform/opacity/crop に設定する。
      */
     liveField?: LivePreviewRequest['field'];
+    liveShape?: (value: number | undefined) => void;
+    liveColor?: (value: string) => void;
     previewOption?: (value: string) => void;
     zoneHover?: (value: string | null) => void;
     zonePreset?: (value: string) => void;
@@ -2435,7 +2438,8 @@ function ANIMATOR_SECTION(
 function TREE_ITEM_SECTIONS(
     snapshot: TimelineTreeItemSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
-    openMotion?: () => void
+    openMotion?: () => void,
+    requestLivePreview?: (request: LivePreviewRequest) => void
 ): InspectorSection[] {
     const number = (key: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
@@ -2490,6 +2494,22 @@ function TREE_ITEM_SECTIONS(
     ];
     const opacity = snapshot.opacity ?? 1;
     const shapeGroups = shapeControlGroups(snapshot.shape, snapshot.shapeParams);
+    const liveShape = (key: string, value: string | number | undefined): void => {
+        if (!requestLivePreview) return;
+        const target: LivePreviewTarget = { kind: 'item', id: snapshot.id };
+        if (value === undefined) {
+            requestLivePreview({ target, field: 'shape', value: 0, clear: true });
+            return;
+        }
+        const shapeHtml = shapeLiveMarkup({
+            itemId: snapshot.id,
+            shape: snapshot.shape,
+            params: snapshot.shapeParams,
+            outputWidth: snapshot.outputWidth,
+            transform: snapshot.transform
+        }, key, value);
+        if (shapeHtml !== undefined) requestLivePreview({ target, field: 'shape', value: 0, shapeHtml });
+    };
     const shapeFields = (id: 'appearance' | 'bubble'): InspectorFieldDef<TimelineTreeItemSnapshot>[] =>
         (shapeGroups.find(group => group.id === id)?.fields ?? []).map(field => ({
             name: `shape-${field.key}`, label: field.label, inputKind: field.kind === 'number' ? 'scrub-number' : field.kind,
@@ -2497,6 +2517,8 @@ function TREE_ITEM_SECTIONS(
             ...(field.min === undefined ? {} : { min: field.min }),
             ...(field.max === undefined ? {} : { max: field.max }),
             ...(field.kind === 'number' ? { scrubStep: 1 } : {}),
+            ...(field.kind === 'number' ? { liveShape: (value: number | undefined) => liveShape(field.key, value) } : {}),
+            ...(field.kind === 'color' ? { liveColor: (value: string) => liveShape(field.key, value) } : {}),
             getValue: () => field.value, getEditValue: () => field.value,
             write: async (_snapshot, value) => {
                 const key = field.key.endsWith('Mode') ? field.key.slice(0, -4) : field.key;
@@ -2628,7 +2650,7 @@ function ADJUST_SECTIONS(
         displayScale: field.displayScale,
         displayOffset: field.displayOffset,
         displayPrecision: field.displayPrecision,
-        ...(field.key === 'exposure' ? { liveField: 'adjust.basic.exposure' as const } : {}),
+        liveField: `adjust.basic.${field.key}` as const,
         keyframeDisabled: true,
         disabled: !basicEnabled,
         title: basicEnabled ? undefined : disabledTitle,
@@ -3051,6 +3073,7 @@ export class AkariInspectorWidget extends BaseWidget {
             overflowY: 'auto',
             minWidth: '0',
             containerType: 'inline-size',
+            overflowAnchor: 'none',
             background: 'var(--akari-bg)'
         });
         Object.assign(this.body.style, {
@@ -4539,6 +4562,15 @@ export class AkariInspectorWidget extends BaseWidget {
         restore(!this.pendingTabFocus);
         const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (callback: FrameRequestCallback) =>
             setTimeout(() => callback(0), 0);
+        const pinUntil = this.ignoreScrollUntil + 150;
+        const pin = (): void => {
+            if (revision !== this.viewRestoreRevision || Date.now() > pinUntil) return;
+            const pinned = inspectorScrollPin(this.rememberedView.scrollTop, this.node.scrollTop,
+                this.lastScrollIntentAt, this.latestRenderAt);
+            if (pinned !== undefined) this.node.scrollTop = pinned;
+            schedule(pin);
+        };
+        if (typeof requestAnimationFrame === 'function') schedule(pin);
         schedule(() => schedule(() => {
             restore();
             if (revision === this.viewRestoreRevision) {
@@ -4810,7 +4842,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot), openMotion);
                     break;
                 case 'item':
-                    sections = TREE_ITEM_SECTIONS(snapshot, requestWrite, openMotion);
+                    sections = TREE_ITEM_SECTIONS(snapshot, requestWrite, openMotion,
+                        request => this.model.requestLivePreview?.(request));
                     break;
             }
         }
@@ -7296,10 +7329,20 @@ export class AkariInspectorWidget extends BaseWidget {
                     range.value = editValue === '—' ? range.min : editValue;
                 });
             };
-            const captionLive = snapshot.kind === 'caption' && fieldName === 'caption-size'
-                ? (raw: number, clear = false): void => this.model.requestLivePreview?.({
-                    target: { kind: 'caption', id: snapshot.id }, field: 'caption.size', value: raw, clear
-                }) : undefined;
+            let captionLive: ((raw: number, clear?: boolean) => void) | undefined;
+            if (snapshot.kind === 'caption') {
+                const captionLiveField = fieldName === 'caption-size' ? 'caption.size' as const
+                    : fieldName === 'caption-line-height' ? 'caption.lineHeight' as const
+                        : fieldName === 'caption-letter-spacing' ? 'caption.letterSpacing' as const
+                            : fieldName === 'caption-stroke-width' ? 'caption.strokeWidth' as const
+                                : undefined;
+                if (captionLiveField) {
+                    const captionId = snapshot.id;
+                    captionLive = (raw, clear = false) => this.model.requestLivePreview?.({
+                        target: { kind: 'caption', id: captionId }, field: captionLiveField, value: raw, clear
+                    });
+                }
+            }
             range.addEventListener('input', () => {
                 number.value = String(Number(range.value) * scale);
                 defaultNote.textContent = '';
@@ -7393,7 +7436,8 @@ export class AkariInspectorWidget extends BaseWidget {
         if (field.inputKind === 'scrub-number') {
             let sendLive: ((value: number) => void) | undefined;
             let clearLive: (() => void) | undefined;
-            if (field.liveField) {
+            const liveShape = field.liveShape;
+            if (field.liveField || liveShape) {
                 const liveField = field.liveField;
                 const target: LivePreviewTarget | undefined = snapshot.kind === 'cut'
                     ? { kind: 'cut', index: snapshot.index }
@@ -7401,7 +7445,10 @@ export class AkariInspectorWidget extends BaseWidget {
                         ? { kind: 'layer', id: snapshot.id }
                         : snapshot.kind === 'item' || snapshot.kind === 'overlay'
                             ? { kind: 'item', id: snapshot.id } : undefined;
-                if (target) {
+                if (liveShape) {
+                    sendLive = value => liveShape(value);
+                    clearLive = () => liveShape(undefined);
+                } else if (target && liveField) {
                     sendLive = value => this.model.requestLivePreview?.({
                         target, field: liveField,
                         value: /^transform-scale(?:X|Y)?$/u.test(fieldName) && field.unit === '%'
@@ -7423,6 +7470,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     displayScale: field.displayScale,
                     displayOffset: field.displayOffset,
                     displayPrecision: field.displayPrecision,
+                    focusRoot: this.node,
                     onPreview: sendLive,
                     onCancel: clearLive,
                     onCommit: async value => {
@@ -7475,7 +7523,7 @@ export class AkariInspectorWidget extends BaseWidget {
         }
 
         if (field.inputKind === 'color') {
-            this.appendColorInput(row, fieldName, editValue, commitValue, field.label);
+            this.appendColorInput(row, fieldName, editValue, commitValue, field.label, field.liveColor);
             parent.appendChild(row);
             return;
         }
@@ -7682,7 +7730,8 @@ export class AkariInspectorWidget extends BaseWidget {
         fieldName: string,
         editValue: string,
         commitValue: (nextValue: string, revert: () => void) => Promise<boolean>,
-        label = '色'
+        label = '色',
+        onInput?: (value: string) => void
     ): void {
         const container = document.createElement('div');
         container.className = 'akari-inspector-color-field';
@@ -7702,7 +7751,10 @@ export class AkariInspectorWidget extends BaseWidget {
             textInput.value = editValue;
             paintSwatch(editValue);
         };
-        textInput.addEventListener('input', () => paintSwatch(textInput.value));
+        textInput.addEventListener('input', () => {
+            paintSwatch(textInput.value);
+            onInput?.(textInput.value);
+        });
         textInput.addEventListener('blur', () => {
             void commitValue(textInput.value, revert);
         });
@@ -7713,6 +7765,7 @@ export class AkariInspectorWidget extends BaseWidget {
             } else if (event.key === 'Escape') {
                 event.preventDefault();
                 revert();
+                onInput?.(editValue);
                 textInput.blur();
             }
         });
@@ -7793,12 +7846,16 @@ export class AkariInspectorWidget extends BaseWidget {
                     if (fieldName !== name || field.inputKind !== 'color' || !field.write || field.disabled) continue;
                     const write = field.write;
                     const value = (field.getEditValue ?? field.getValue)(rowSnapshot);
+                    const liveColor = field.liveColor;
                     resolved = {
                         title: field.label === '色' ? `${section.label}の色` : field.label,
                         current: parsePaint(value),
                         write: async (paint: Paint) => typeof paint === 'string' && paint !== TRANSPARENT_PAINT
                             ? write(rowSnapshot, paint)
-                            : { ok: false, message: 'この欄は単色だけです。' }
+                            : { ok: false, message: 'この欄は単色だけです。' },
+                        ...(liveColor ? { preview: (paint: Paint) => {
+                            if (typeof paint === 'string' && paint !== TRANSPARENT_PAINT) liveColor(paint);
+                        } } : {})
                     };
                 }
             }
