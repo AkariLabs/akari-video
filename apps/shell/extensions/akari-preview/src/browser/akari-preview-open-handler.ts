@@ -1926,6 +1926,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 field?: string;
                 value?: number;
                 clear?: boolean;
+                shapeHtml?: string;
             }>).detail;
             if (!detail?.editUri || !detail.target
                 || (detail.target.kind !== 'cut'
@@ -1950,7 +1951,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     field: detail.field,
                     value: detail.value,
                     values: { [detail.field]: detail.value },
-                    ...(detail.clear ? { clear: true } : {})
+                    ...(detail.clear ? { clear: true } : {}),
+                    ...(typeof detail.shapeHtml === 'string' ? { shapeHtml: detail.shapeHtml } : {})
                 });
             }
         };
@@ -11513,9 +11515,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         entry.perspective = { corners };
                     } else if (message.field === 'opacity') {
                         entry.opacity = message.value;
-                    } else if (message.field === 'adjust.basic.exposure') {
+                    } else if (message.field.startsWith('adjust.basic.')
+                        && message.field.length > 'adjust.basic.'.length) {
+                        const key = message.field.slice('adjust.basic.'.length);
                         entry.adjust = { ...(entry.adjust || {}), basic: {
-                            ...(entry.adjust?.basic || {}), exposure: message.value
+                            ...(entry.adjust?.basic || {}), [key]: message.value
                         } };
                     } else if (['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
                         entry.transform = applyTransformField(entry.transform);
@@ -20632,6 +20636,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         void window.akari.frameEngineClock?.applyLivePreview?.(message);
                         clearLiveOverride();
                         tick(true);
+                        return;
+                    }
+                    if (typeof message.shapeHtml === 'string') {
+                        liveDom.updateShape(targetKey, message.shapeHtml);
                         return;
                     }
                     liveDom.update(targetKey, message.field, message.value);

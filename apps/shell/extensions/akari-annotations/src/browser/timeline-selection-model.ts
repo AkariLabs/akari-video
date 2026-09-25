@@ -139,6 +139,7 @@ export interface TimelineTreeItemSelection {
 export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     shape?: string;
     shapeParams?: Record<string, unknown>;
+    outputWidth?: number;
     canvasMotion?: boolean;
     canvas?: { origin: 'user' | 'plan'; durationMode: 'fixed'; intent?: string;
         background?: { type: 'none' | 'color'; color?: string } };
@@ -487,10 +488,13 @@ export interface LivePreviewRequest {
     field: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate' | 'opacity'
         | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
         | `perspective.${'tl' | 'tr' | 'bl' | 'br'}.${'x' | 'y'}`
-        | 'caption.size' | 'adjust.basic.exposure';
+        | 'caption.size' | 'caption.lineHeight' | 'caption.letterSpacing' | 'caption.strokeWidth'
+        | `adjust.basic.${string}`
+        | 'shape';
     value: number;
     clear?: boolean;
     easing?: string;
+    shapeHtml?: string;
 }
 
 /**

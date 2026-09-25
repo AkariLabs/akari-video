@@ -58,6 +58,12 @@ export function inspectorHeldHeight(previous: number, scrollHeight: number, body
     return Math.max(previous, scrollHeight, bodyHeight, clientHeight + desiredScroll);
 }
 
+export function inspectorScrollPin(desired: number, current: number,
+    userIntentAt: number, renderAt: number): number | undefined {
+    if (userIntentAt > renderAt) return undefined;
+    return Math.abs(current - desired) > 4 ? desired : undefined;
+}
+
 export interface LiveValues {
     id: string;
     values: Readonly<Record<string, number>>;

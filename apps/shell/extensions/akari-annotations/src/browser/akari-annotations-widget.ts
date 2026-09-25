@@ -892,7 +892,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             target: request.target, field: request.field, value: request.value,
             values: { [request.field]: request.value },
             ...(request.clear ? { clear: true } : {}),
-            ...(request.easing === undefined ? {} : { easing: request.easing })
+            ...(request.easing === undefined ? {} : { easing: request.easing }),
+            ...(request.shapeHtml === undefined ? {} : { shapeHtml: request.shapeHtml })
         });
     };
     protected inspectorBypass?: AdjustBypassRequest;
@@ -5944,7 +5945,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ? { sourcePath: this.sourceMap.get(raw.source.src)!.path } : {}),
             ...(raw.source?.kind === 'shape' && typeof raw.source.shape === 'string' ? {
                 shape: raw.source.shape,
-                shapeParams: raw.source.params && typeof raw.source.params === 'object' ? raw.source.params : {}
+                shapeParams: raw.source.params && typeof raw.source.params === 'object' ? raw.source.params : {},
+                ...((this.editDocument?.output as { width?: number } | undefined)?.width
+                    ? { outputWidth: (this.editDocument!.output as { width: number }).width } : {})
             } : {}),
             ...(raw.source?.kind === 'group' && raw.source.canvas ? { canvas: raw.source.canvas } : {}),
             sourceKind: typeof raw.source?.kind === 'string' ? raw.source.kind : selection.itemKind,

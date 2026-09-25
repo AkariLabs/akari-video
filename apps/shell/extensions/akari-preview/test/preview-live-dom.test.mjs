@@ -6,7 +6,7 @@ import { nextPreviewLiveOverride } from '../lib/common/preview-live-override.js'
 const element = dataset => {
     const styles = new Map();
     const attrs = new Map();
-    return { dataset, styles, attrs,
+    return { dataset, styles, attrs, innerHTML: '',
         style: { setProperty: (name, value) => styles.set(name, value),
             getPropertyValue: name => styles.get(name) ?? '', getPropertyPriority: () => '' },
         setAttribute: (name, value) => attrs.set(name, value),
@@ -58,4 +58,56 @@ test('cancel removes the marker and restores the caption size', () => {
     live.clear();
     assert.equal(caption.attrs.has('data-akari-live-override'), false);
     assert.equal(caption.styles.get('--caption-font-size'), '38px');
+});
+
+test('caption line height, letter spacing and stroke width reach the plate and restore', () => {
+    const caption = element({});
+    caption.style.setProperty('--caption-line-height', '1.42');
+    caption.style.setProperty('--caption-webkit-text-stroke', '3px #112233');
+    const live = controller({ caption });
+    live.update('caption:caption', 'caption.lineHeight', 1.8);
+    live.update('caption:caption', 'caption.letterSpacing', 0.12);
+    live.update('caption:caption', 'caption.strokeWidth', 6);
+    live.paint();
+    assert.equal(caption.styles.get('--caption-line-height'), '1.8');
+    assert.equal(caption.styles.get('--caption-letter-spacing'), '0.12em');
+    assert.equal(caption.styles.get('--caption-webkit-text-stroke'), '12px rgba(0,0,0,.9)');
+    assert.equal(caption.attrs.get('data-akari-live-override'), '1');
+    live.clear();
+    assert.equal(caption.styles.get('--caption-line-height'), '1.42');
+    assert.equal(caption.styles.get('--caption-webkit-text-stroke'), '3px #112233');
+    assert.equal(caption.styles.get('--caption-letter-spacing'), '');
+});
+
+test('shape markup override swaps the overlay SVG and clear restores it', () => {
+    const shape = element({ overlayId: 'box-a' });
+    shape.innerHTML = '<svg data-original="1"></svg>';
+    const live = controller({ overlay: shape });
+    live.updateShape('item:box-a', '<svg data-live="1"></svg>');
+    assert.equal(shape.innerHTML, '<svg data-live="1"></svg>');
+    assert.equal(shape.attrs.get('data-akari-live-override'), '1');
+    live.updateShape('item:box-a', '<svg data-live="2"></svg>');
+    assert.equal(shape.innerHTML, '<svg data-live="2"></svg>');
+    live.clear();
+    assert.equal(shape.innerHTML, '<svg data-original="1"></svg>');
+    assert.equal(shape.attrs.has('data-akari-live-override'), false);
+});
+
+test('photo adjust sliders merge into one visual with the committed basic values', () => {
+    const photo = element({ akariLayerId: 'photo-a' });
+    const seen = [];
+    const live = createPreviewLiveDomController({
+        stage: { querySelectorAll: () => [] },
+        layersStage: { querySelectorAll: () => [photo] },
+        captionRows: new Map(),
+        layerEntries: [{ spec: { id: 'photo-a', adjust: { basic: { exposure: 0.5, saturation: 0.2 } } } }],
+        computeAdjustCssVisual: adjust => { seen.push(adjust); return { filter: 'x' }; },
+        video: element({}), next: nextPreviewLiveOverride
+    });
+    live.update('item:photo-a', 'adjust.basic.contrast', 0.4);
+    live.update('item:photo-a', 'adjust.basic.saturation', -0.3);
+    live.paint();
+    assert.deepEqual(seen.at(-1), { basic: { exposure: 0.5, saturation: -0.3, contrast: 0.4 } });
+    assert.equal(photo.style.filter, 'x');
+    assert.equal(photo.attrs.get('data-akari-live-override'), '1');
 });

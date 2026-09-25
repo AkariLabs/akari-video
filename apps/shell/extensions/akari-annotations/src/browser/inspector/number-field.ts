@@ -16,6 +16,8 @@ export interface NumberFieldOptions {
     onCancel?: () => void;
     onCommit: (value: number) => Promise<boolean>;
     keyframe?: KeyframeSeatOptions;
+    /** この欄が属するインスペクターの根。外にキーボードのフォーカスがあるときだけ引き戻す。 */
+    focusRoot?: HTMLElement;
 }
 
 export interface KeyframeSeatOptions {
@@ -42,6 +44,15 @@ export function numericStep(
     max?: number
 ): number {
     return clampNumber(value + direction * step * (shiftKey ? 10 : 1), min, max);
+}
+
+export function shouldPullNumberFieldFocus(
+    active: Element | null | undefined,
+    container: Element,
+    focusRoot?: Element
+): boolean {
+    if (active == null) return true;
+    return !(focusRoot ?? container).contains(active);
 }
 
 export function formatNumberStep(value: number, step: number, precision?: number): string {
@@ -331,6 +342,11 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         if (downEvent.button !== 0) return;
         cancelInputPreview();
         downEvent.preventDefault();
+        const active = typeof document === 'undefined' ? null : document.activeElement;
+        if (shouldPullNumberFieldFocus(active, container, options.focusRoot)
+            && typeof input.focus === 'function') {
+            input.focus({ preventScroll: true });
+        }
         const pointerId = downEvent.pointerId;
         const startX = downEvent.clientX;
         let current = options.value;
