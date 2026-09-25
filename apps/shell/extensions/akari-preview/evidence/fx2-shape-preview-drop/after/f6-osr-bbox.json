@@ -1,0 +1,5 @@
+{"osr_3.5s":
+{"image":{"w":1280,"h":720},"output":{"w":1280,"h":720},"base":[39,48,64],"pixels":19013,"bboxOutputPx":{"x":841,"y":66,"w":240,"h":228},"centerOutputPx":{"x":961,"y":180}}
+,"osr_12.5s":
+{"image":{"w":1280,"h":720},"output":{"w":1280,"h":720},"base":[39,48,64],"pixels":19014,"bboxOutputPx":{"x":199,"y":318,"w":239,"h":228},"centerOutputPx":{"x":318.5,"y":432}}
+}

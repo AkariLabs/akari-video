@@ -1,0 +1,219 @@
+{
+ "cardSpec": "css:[data-akari-shape-tile=\"star-5\"]",
+ "dropSpec": "stage:0.75,0.25",
+ "at": "2026-09-25T12:26:56.743Z",
+ "card": {
+  "x": 89,
+  "y": 178,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283.0390625,
+   "y": 39,
+   "w": 779.953125,
+   "h": 358.515625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 780,
+   "h": 359
+  },
+  "inner": {
+   "x": 150.890625,
+   "y": 16.00390625,
+   "w": 478.21875,
+   "h": 268.9921875,
+   "offsetW": 478,
+   "offsetH": 269,
+   "transform": "matrix(1, 0, 0, 1, -239.109, -134.496)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 433.9296875,
+   "y": 55.00390625,
+   "w": 478.21875,
+   "h": 268.9921875
+  }
+ },
+ "drop": {
+  "x": 793,
+  "y": 122,
+  "outputPx": {
+   "x": 961.0873684898386,
+   "y": 179.32560773721355
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "shape",
+  "preset": "star-5",
+  "name": "5 点の星",
+  "vb": [
+   100,
+   95
+  ]
+ },
+ "alt": true,
+ "duringDrag": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "rect": {
+     "x": 748.2,
+     "y": 79.5,
+     "w": 89.7,
+     "h": 85.1
+    },
+    "border": "dashed rgb(251, 146, 60) 2px",
+    "text": "5 点の星0:12.0 → 0:17.0"
+   }
+  ],
+  "times": [
+   {
+    "text": "0:12.0 → 0:17.0",
+    "rect": {
+     "x": 740.6,
+     "y": 162.5,
+     "w": 104.8,
+     "h": 21
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 505,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v1",
+   "trackIndex": 3,
+   "lane": "visual",
+   "parent": null,
+   "parentName": null,
+   "id": "shape-1",
+   "at": 360,
+   "absAt": 360,
+   "duration": 150,
+   "source": {
+    "kind": "shape",
+    "shape": "path",
+    "params": {
+     "fill": "#a6a6a6",
+     "stroke": "none",
+     "strokeWidth": 0,
+     "preset": "star-5",
+     "path": {
+      "d": "M50 3L61.57 36.28L96.79 36.99L68.72 58.28L78.92 92L50 71.88L21.08 92L31.28 58.28L3.21 36.99L38.43 36.28Z",
+      "vb": [
+       100,
+       95
+      ]
+     },
+     "width": 240,
+     "height": 228
+    }
+   },
+   "transform": {
+    "x": 841.17,
+    "y": 65.63
+   }
+  }
+ ],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v-canvas",
+   "name": "V1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 3,
+   "id": "v1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 4,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioAfter": null,
+ "newSources": [],
+ "notices": []
+}

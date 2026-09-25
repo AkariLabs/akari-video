@@ -29,6 +29,8 @@ test('引数: preset は必須、t・center・transform は有限の数だけ受
         { preset: 'star-5', t: 2.5, center: { x: 100, y: 900 }, transform: { x: 3 } });
     assert.deepEqual(parseShapePlaceRequest({ preset: 'star-5', t: -1, center: { x: 'a', y: 1 }, transform: { x: NaN } }),
         { preset: 'star-5' });
+    assert.deepEqual(parseShapePlaceRequest({ preset: 'star-5', canvasAware: true, outsideCanvas: true }),
+        { preset: 'star-5', canvasAware: true, outsideCanvas: true });
 });
 
 test('外形は曲線の膨らみを含む実寸（棚の viewBox の余白は捨てる）', () => {

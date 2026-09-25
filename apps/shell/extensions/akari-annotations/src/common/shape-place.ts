@@ -30,6 +30,8 @@ export interface ShapePlaceRequest {
     readonly t?: number;
     readonly center?: ShapePoint;
     readonly transform?: { readonly x?: number; readonly y?: number };
+    readonly canvasAware?: boolean;
+    readonly outsideCanvas?: boolean;
 }
 
 function finite(value: unknown): value is number {
@@ -56,7 +58,9 @@ export function parseShapePlaceRequest(value: unknown): ShapePlaceRequest | unde
         preset: candidate.preset,
         ...(finite(candidate.t) && candidate.t >= 0 ? { t: candidate.t } : {}),
         ...(center ? { center } : {}),
-        ...(transform ? { transform } : {})
+        ...(transform ? { transform } : {}),
+        ...(candidate.canvasAware === true ? { canvasAware: true } : {}),
+        ...(candidate.outsideCanvas === true ? { outsideCanvas: true } : {})
     };
 }
 
