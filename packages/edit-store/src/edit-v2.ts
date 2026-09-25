@@ -266,9 +266,18 @@ export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
     /** 省略時は埋め込み音声を供給。false は明示分離後の停止。 */
     audio?: false;
-    /** sources[].id of a gray-h264-fullrange mask video. */
+    /** sources[].id of a gray mask video or a still-image PNG mask. */
     mask?: string;
+    erase?: PhotoEraseStrokeV2[];
+    flip?: { h?: boolean; v?: boolean };
 };
+
+export interface PhotoEraseStrokeV2 {
+    mode: 'erase' | 'restore';
+    points: [number, number][];
+    size: number;
+    hardness: number;
+}
 
 export type ItemV2 =
     | MediaItemV2
@@ -407,7 +416,7 @@ const BLEND_MODES = new Set<BlendModeV2>([
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
-    'motion', 'animator', 'keyframes', 'items', 'mask', 'source', 'audio', 'anchor'
+    'motion', 'animator', 'keyframes', 'items', 'mask', 'erase', 'flip', 'source', 'audio', 'anchor'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
@@ -480,6 +489,8 @@ export function readEditV2(json: unknown): InternalEditV2 {
 function cloneItem<T extends ItemV2 | AudioMediaItemV2>(item: T): T {
     return {
         ...item,
+        ...('erase' in item && item.erase ? { erase: structuredClone(item.erase) } : {}),
+        ...('flip' in item && item.flip ? { flip: { ...item.flip } } : {}),
         source: { ...item.source },
         ...('items' in item && Array.isArray(item.items)
             ? { items: item.items.map(child => cloneItem(child)) } : {})
@@ -694,6 +705,29 @@ function validateItem(
         if (value.source.kind !== 'media') throw invalid(`${path}.mask`, 'media item だけが指定できます');
         requireText(value.mask, `${path}.mask`);
         if (!sourceIds.has(value.mask)) throw invalid(`${path}.mask`, `sources[].id に存在しません: ${value.mask}`);
+    }
+    if (hasOwn(value, 'erase')) {
+        if (value.source.kind !== 'media' || !Array.isArray(value.erase)) throw invalid(`${path}.erase`, 'media item の配列である必要があります');
+        value.erase.forEach((stroke, index) => {
+            const at = `${path}.erase[${index}]`;
+            requireRecord(stroke, at);
+            requireExactKeys(stroke, new Set(['mode', 'points', 'size', 'hardness']), at);
+            if (stroke.mode !== 'erase' && stroke.mode !== 'restore') throw invalid(`${at}.mode`, 'erase または restore が必要です');
+            if (!Array.isArray(stroke.points) || stroke.points.length === 0) throw invalid(`${at}.points`, '点が必要です');
+            stroke.points.forEach((point, pointIndex) => {
+                if (!Array.isArray(point) || point.length !== 2) throw invalid(`${at}.points[${pointIndex}]`, '2 座標が必要です');
+                requireRange(point[0], 0, 1, `${at}.points[${pointIndex}][0]`);
+                requireRange(point[1], 0, 1, `${at}.points[${pointIndex}][1]`);
+            });
+            requireRange(stroke.size, Number.EPSILON, 1, `${at}.size`);
+            requireRange(stroke.hardness, 0, 1, `${at}.hardness`);
+        });
+    }
+    if (hasOwn(value, 'flip')) {
+        if (value.source.kind !== 'media') throw invalid(`${path}.flip`, 'media item だけが指定できます');
+        requireRecord(value.flip, `${path}.flip`);
+        requireExactKeys(value.flip, new Set(['h', 'v']), `${path}.flip`);
+        for (const axis of ['h', 'v']) if (hasOwn(value.flip, axis) && typeof value.flip[axis] !== 'boolean') throw invalid(`${path}.flip.${axis}`, 'boolean である必要があります');
     }
     if (hasOwn(value, 'items')) {
         if (!Array.isArray(value.items)) throw invalid(`${path}.items`, '配列である必要があります');

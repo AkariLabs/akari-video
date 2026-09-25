@@ -43,7 +43,7 @@ export function planStreamsBySource(plan: EvaluationPlan): Map<NativeFrameSource
   for (const layer of plan.layers) {
     if (layer.kind === 'filter') continue;
     add(layer.source, `layer-${layer.id}`);
-    if (layer.mask) add(layer.mask.source, `layer-${layer.id}-mask`);
+    if (layer.mask?.kind === 'greyscale') add(layer.mask.source, `layer-${layer.id}-mask`);
   }
   return streams;
 }

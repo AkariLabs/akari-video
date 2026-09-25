@@ -88,6 +88,8 @@ export interface TimelineLayerSelection {
     id: string;
     layerKind: 'baked' | 'video';
     mask?: string;
+    photo?: boolean;
+    flip?: { h?: boolean; v?: boolean };
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     perspective?: Record<string, unknown>;
     motion?: Record<string, unknown>;
@@ -127,6 +129,8 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     motion?: Record<string, unknown>;
     animator?: readonly Record<string, unknown>[];
     mask?: string;
+    photo?: boolean;
+    flip?: { h?: boolean; v?: boolean };
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     outputStart: number;
     playheadSeconds?: number;
@@ -318,10 +322,11 @@ type InspectorWriteOperation =
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.scaleX' | 'transform.scaleY' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
-            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'motion' | 'animator' | 'name' | 'duration'
+            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'photo-mask' | 'photo-brush-toggle' | 'flip.h' | 'flip.v' | 'erase'
+            | 'motion' | 'animator' | 'name' | 'duration'
             | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
-        value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | null;
+        value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | boolean | null;
     }
     | { kind: 'cut-transition-out'; index: number; value: { type: TransitionType; duration: number } | null }
     | { kind: 'cut-speed'; index: number; value: number | null }

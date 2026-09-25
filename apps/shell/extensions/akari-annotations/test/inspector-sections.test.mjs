@@ -92,7 +92,7 @@ test('mask 候補0件の行は disabled と理由を表示し、書き込みを�
       .find(section => section.id === 'appearance').fields.at(-1);
     assert.equal(row.disabled, true);
     assert.deepEqual(row.options, ['なし']);
-    assert.match(row.title, /プロジェクトにマスクに使える動画ソースがありません/u);
+    assert.match(row.title, /プロジェクトにマスクがありません/u);
     assert.match(row.title, /グレースケール動画（白 = 表示・黒 = 透過）/u);
     assert.equal((await row.write(snapshot, 'なし')).ok, false);
   }
@@ -655,7 +655,7 @@ test('cut / layer / overlay / item の変形節は拡縮・回転を既定 field
     assert.match(transformFields, /name: 'transform-scale'/u);
     assert.match(transformFields, /name: 'transform-rotate'/u);
     assert.doesNotMatch(source, /const optionalFields/u);
-    assert.match(source, /\{ id: 'transform', label: '変形', fields: (?:transformFields|\['group', 'bag'\]\.includes\(snapshot\.itemKind\))/u);
+    assert.match(source, /\{ id: 'transform', label: '変形', fields: (?:transformFields|\[\.\.\.)/u);
   }
 });
 

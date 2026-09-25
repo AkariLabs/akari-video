@@ -166,6 +166,7 @@ All contracts follow the
 | [contract-2026-09-25-image-ai-v0.md](./contract-2026-09-25-image-ai-v0.md) | Image AI v0 — one BYOK key, fal provider port, upscale alternatives with scoped edit binding and persistent provenance (Japanese) |
 | [contract-2026-09-25-color-panel-v0.md](./contract-2026-09-25-color-panel-v0.md) | Color panel v0 — the inspector's color field (search, history, design / brand / photo colors, default solids and gradients), the color-making window, `akari.inspector.openColorPanel`, and the per-user brand kit (Japanese) |
 | [contract-2026-09-25-asset-license-axes-v0.md](./contract-2026-09-25-asset-license-axes-v0.md) | Asset license axes v0 — commercial use, attribution, nonblocking export notices (Japanese) |
+| [contract-2026-09-25-photo-edit-v0.md](./contract-2026-09-25-photo-edit-v0.md) | Non-destructive photo masks, eraser strokes, and flips (Japanese) |
 
 ### Direction notes
 

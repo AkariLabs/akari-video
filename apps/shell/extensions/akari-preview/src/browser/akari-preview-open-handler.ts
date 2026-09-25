@@ -303,6 +303,8 @@ interface EditSummaryLayer {
      * bootstrap はこれをマスクソースとして登録し、engine が kind 'matte' として色×マスク合成する
      * （Web UI の frameEngine.intake と同型）。両方ある場合は alpha intake を優先する。 */
     mask?: string;
+    erase?: readonly { mode: 'erase' | 'restore'; points: readonly (readonly [number, number])[]; size: number; hardness: number }[];
+    flip?: { h?: boolean; v?: boolean };
     /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
      * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
      * どちらを生成するか決める。'baked' は常に false（後述 isImageLayerSrc の呼び出し側コメント参照）。 */
@@ -3275,6 +3277,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         widget.akariPreviewConfigured = true;
         const disposables = new DisposableCollection();
+        const onPhotoBrush = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; itemId?: string; settings?: unknown }>).detail;
+            if (kind !== 'output' || detail?.editUri !== widget.akariPreviewEditUri?.toString() || !detail.itemId) return;
+            widget.sendMessage({ type: 'akari-preview-photo-brush', itemId: detail.itemId, settings: detail.settings });
+        };
+        window.addEventListener('akari.photo.brush', onPhotoBrush);
+        disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.brush', onPhotoBrush)));
         let lastAudioMeterFrame: AudioMeterFrame | undefined;
         widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
             type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
@@ -3284,6 +3293,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let collapsedBagSummary: EditSummary | undefined;
         let projectedBagSummary: EditSummary | undefined;
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-photo-stroke' && kind === 'output'
+                && typeof message.itemId === 'string' && message.stroke) {
+                window.dispatchEvent(new CustomEvent('akari.photo.stroke', { detail: {
+                    editUri: widget.akariPreviewEditUri?.toString(), id: message.itemId, stroke: message.stroke
+                } }));
+                return;
+            }
             if (message?.type === 'akari-preview-capture-frame') {
                 void this.capturePreviewFrame(widget, message);
                 return;
@@ -5459,10 +5475,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         const maskUri = maskSource
                             ? await this.resolveEditAssetUri(maskSource.uri.toString(), editUri)
                             : await this.resolveEditAssetUri(maskSourceId, editUri);
-                        if (isImageLayerSrc(maskUri.path.toString()) || isImageLayerSrc(value.src)) {
-                            console.warn(`[akari-preview] ${label}.mask を無視しました（静止画には対応していません）`);
-                            return undefined;
-                        }
                         return (await ensureAssetStream(maskUri.toString(), maskUri)).url;
                     } catch {
                         console.warn(`[akari-preview] ${label}.mask を無視しました（sources の id / パスとして解決・配信できません）`);
@@ -9405,6 +9417,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (layerId) selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
+            window.akari.reportPhotoStroke = (itemId, stroke) => {
+                vscode.postMessage({ type: 'akari-preview-photo-stroke', itemId, stroke });
+            };
             window.akari.reportCutSelection = cutId => {
                 if (cutId) selectedPrimary = { kind: 'cut', id: cutId };
                 else if (selectedPrimary?.kind === 'cut') selectedPrimary = null;
@@ -10142,7 +10157,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!images.has(sourceId)) {
                             images.set(sourceId, new engine.CachedStillImageSource(layer.src));
                         }
-                        return { ...layer, src: sourceId };
+                        const maskId = layer.mask ? 'akari-image-mask-' + index + '.png' : null;
+                        if (maskId && !images.has(maskId)) {
+                            images.set(maskId, new engine.CachedStillImageSource(layer.mask));
+                        }
+                        return { ...layer, src: sourceId, ...(maskId ? { mask: maskId } : {}) };
                     }
                     // A media item can move between cuts and layers after a transform. Reuse the
                     // declared source pool; stream IDs still keep each item's decode clock independent.
@@ -10185,7 +10204,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const registerLayerMasks = layers => {
                     for (const layer of layers) {
                         const maskUrl = layer && layer.mask;
-                        if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
+                        if (typeof maskUrl === 'string' && maskUrl && !images.has(maskUrl) && !sourceUrls.has(maskUrl)) {
                             sourceUrls.set(maskUrl, maskUrl);
                         }
                     }
@@ -13227,6 +13246,90 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateLayerSelectBox();
                 if (report) window.akari.reportLayerSelection(selectedLayerId);
             };
+            const photoBrushMapPoint = (stage, geometry) => {
+                const { output, image, crop, transform, flip } = geometry;
+                if (!(image.width > 0 && image.height > 0 && crop.w > 0 && crop.h > 0)) return null;
+                const dx = stage.x - output.width / 2 - (transform.x || 0);
+                const dy = stage.y - output.height / 2 - (transform.y || 0);
+                const rad = -(transform.rotate || 0) * Math.PI / 180;
+                const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+                const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+                const sx = transform.scaleX || transform.scale || 1;
+                const sy = transform.scaleY || transform.scale || 1;
+                if (!(sx > 0 && sy > 0)) return null;
+                const x = rx / sx / image.width + crop.x + crop.w / 2;
+                const y = ry / sy / image.height + crop.y + crop.h / 2;
+                if (x < crop.x || x > crop.x + crop.w || y < crop.y || y > crop.y + crop.h) return null;
+                return [flip?.h ? crop.x * 2 + crop.w - x : x,
+                    flip?.v ? crop.y * 2 + crop.h - y : y];
+            };
+            let photoBrush = null;
+            let photoStroke = null;
+            const photoBrushPoint = event => {
+                const entry = photoBrush && findLayerEntry(photoBrush.itemId);
+                const stagePoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
+                if (!entry || !stagePoint) return null;
+                const width = entry.video.naturalWidth || entry.video.videoWidth;
+                const height = entry.video.naturalHeight || entry.video.videoHeight;
+                if (!(width > 0 && height > 0)) return null;
+                return photoBrushMapPoint(stagePoint, {
+                    output: summary.output, image: { width, height },
+                    crop: layerCropNow(entry),
+                    transform: {
+                        x: Number(entry.video.dataset.akariTransformX) || 0,
+                        y: Number(entry.video.dataset.akariTransformY) || 0,
+                        scaleX: Number(entry.video.dataset.akariTransformScaleX) || 1,
+                        scaleY: Number(entry.video.dataset.akariTransformScaleY) || 1,
+                        rotate: Number(entry.video.dataset.akariTransformRotate) || 0
+                    },
+                    flip: entry.spec.flip
+                });
+            };
+            if (typeof window.addEventListener === 'function' && typeof layerSelectBox !== 'undefined' && layerSelectBox?.addEventListener) {
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message?.type !== 'akari-preview-photo-brush') return;
+                if (!findLayerEntry(message.itemId)) return;
+                selectLayer(message.itemId);
+                photoBrush = { itemId: message.itemId, ...message.settings };
+                layerSelectBox.style.cursor = 'crosshair';
+                layerSelectBox.title = 'なぞって編集します。Esc で終わります';
+            });
+            window.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || !photoBrush) return;
+                photoBrush = null;
+                photoStroke = null;
+                layerSelectBox.style.cursor = '';
+                layerSelectBox.title = '';
+            });
+            layerSelectBox.addEventListener('pointerdown', event => {
+                if (!photoBrush || event.button !== 0) return;
+                const point = photoBrushPoint(event);
+                if (!point) return;
+                event.preventDefault(); event.stopImmediatePropagation();
+                layerSelectBox.setPointerCapture(event.pointerId);
+                photoStroke = { pointerId: event.pointerId, points: [point] };
+            }, true);
+            layerSelectBox.addEventListener('pointermove', event => {
+                if (!photoStroke || event.pointerId !== photoStroke.pointerId) return;
+                event.preventDefault(); event.stopImmediatePropagation();
+                const point = photoBrushPoint(event);
+                if (point) photoStroke.points.push(point);
+            }, true);
+            layerSelectBox.addEventListener('pointerup', event => {
+                if (!photoStroke || event.pointerId !== photoStroke.pointerId || !photoBrush) return;
+                event.preventDefault(); event.stopImmediatePropagation();
+                const point = photoBrushPoint(event);
+                if (point) photoStroke.points.push(point);
+                const points = photoStroke.points;
+                const reduced = points.length <= 100 ? points : Array.from({ length: 100 }, (_unused, index) =>
+                    points[Math.round(index * (points.length - 1) / 99)]);
+                window.akari.reportPhotoStroke(photoBrush.itemId, { mode: photoBrush.mode, points: reduced,
+                    size: photoBrush.size, hardness: photoBrush.hardness });
+                photoStroke = null;
+            }, true);
+            layerSelectBox.addEventListener('pointercancel', () => { photoStroke = null; }, true);
+            }
             // ㉒ スナップ統一: layers[]（この後 cut/caption も同型）の移動・拡縮を、
             // interaction.js（overlay-runtime、overlays[] 用スナップの単一正本）が公開する
             // computeSnapCorrection/stageLocalPoint/showSnapGuides/hideSnapGuides へ委譲する。

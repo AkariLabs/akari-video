@@ -3,13 +3,22 @@ import type { InspectorWriteRequest, TimelineLayerSelection } from '../timeline-
 type MaskSourceOptions = NonNullable<TimelineLayerSelection['maskSourceOptions']>;
 type MaskSnapshot = Pick<TimelineLayerSelection, 'id' | 'mask' | 'maskSourceOptions'>;
 
-export function isMaskCandidatePath(path: string): boolean {
-    return /\.(mp4|mov|webm|m4v|mkv)$/i.test(path);
+export function isMaskCandidatePath(path: string, photo = false): boolean {
+    return photo ? /\.png$/i.test(path) : /\.(mp4|mov|webm|m4v|mkv)$/i.test(path);
 }
 
-export function maskSourceOptionsForSources(sources: ReadonlyMap<string, { path: string }>): MaskSourceOptions {
-    return Array.from(sources).flatMap(([id, source]) => isMaskCandidatePath(source.path)
-        ? [{ id, label: source.path.split(/[\\/]/).pop() || source.path }] : []);
+export function maskSourceOptionsForSources(sources: ReadonlyMap<string, { path: string }>, photo = false): MaskSourceOptions {
+    let generatedCount = 0;
+    return Array.from(sources).flatMap(([id, source]) => {
+        if (!isMaskCandidatePath(source.path, photo)) return [];
+        const generatedHash = source.path.match(/(?:^|[\\/])assets[\\/]masks[\\/]([a-f0-9]{64})\.png$/iu)?.[1];
+        const generated = photo && generatedHash !== undefined && id === `mask-${generatedHash}`;
+        if (generated) generatedCount += 1;
+        const label = generated
+            ? `背景を消したマスク${generatedCount === 1 ? '' : ` ${generatedCount}`}`
+            : source.path.split(/[\\/]/).pop() || source.path;
+        return [{ id, label }];
+    });
 }
 
 export function maskOptionLabels(options: MaskSourceOptions): string[] {

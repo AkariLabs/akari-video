@@ -790,6 +790,7 @@ function needsCrossTrackLayers(item: ItemV2, pathOf?: (sourceId: string) => stri
         || (item.opacity !== undefined && item.opacity < 1)
         || item.keyframes !== undefined
         || (item.source.kind === 'media' && 'mask' in item && item.mask !== undefined)
+        || (item.source.kind === 'media' && (('erase' in item && item.erase !== undefined) || ('flip' in item && item.flip !== undefined)))
         || (item.source.kind === 'media' && isStillImageSourcePath(pathOf?.(item.source.src)))
         || (item.source.kind === 'media' && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src)));
 }
@@ -895,6 +896,8 @@ function buildV2VisualItem(
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
+        ...(item.source.kind === 'media' && 'erase' in item && item.erase !== undefined ? { erase: structuredClone(item.erase) } : {}),
+        ...(item.source.kind === 'media' && 'flip' in item && item.flip !== undefined ? { flip: { ...item.flip } } : {}),
         ...(item.adjust !== undefined ? { adjust: structuredClone(item.adjust) } : {}),
         ...(item.perspective !== undefined ? { perspective: item.perspective } : {}),
         ...(item.motion !== undefined ? { motion: structuredClone(item.motion) } : {}),

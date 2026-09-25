@@ -1,5 +1,6 @@
 import { copyNativeYuvFrame } from './decode/native-yuv.js';
 import { DirectUploadFallbackError } from './compositor/webgl2.js';
+import { composeStillMask } from './mask/compose-still-mask.js';
 import type {
   CompositedFrame,
   CompositorLayerInput,
@@ -55,8 +56,63 @@ function noteLayerFailure(context: EvaluationContext, layerId: string, error: un
 }
 
 type PreparedLayer =
-  | { color: StillImageBitmap; mask?: undefined }
+  | { color: StillImageBitmap; mask: StillImageBitmap | null }
   | { color: VideoFrame; mask: VideoFrame | null; sourceTimeUs: number };
+
+const composedStillMasks = new WeakMap<object, Map<string, Promise<StillImageBitmap>>>();
+const stillMaskIds = new WeakMap<object, number>();
+let nextStillMaskId = 1;
+
+async function stillMaskForLayer(layer: ResolvedCompositeLayer, color: StillImageBitmap): Promise<StillImageBitmap | null> {
+  const mask = layer.mask?.kind === 'still' ? layer.mask.source : null;
+  const strokes = layer.erase ?? [];
+  if (!mask && strokes.length === 0) return null;
+  if (mask && strokes.length === 0) return mask.load({ colorSpaceConversion: 'none' });
+  const owner = layer.image!;
+  let cache = composedStillMasks.get(owner);
+  if (!cache) { cache = new Map(); composedStillMasks.set(owner, cache); }
+  if (mask && !stillMaskIds.has(mask)) stillMaskIds.set(mask, nextStillMaskId++);
+  const key = `${mask ? stillMaskIds.get(mask) : 0}:${color.width}x${color.height}:${JSON.stringify(strokes)}`;
+  let pending = cache.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const width = color.width;
+      const height = color.height;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) throw new Error('still mask pixel context unavailable');
+      let base: Uint8Array | null = null;
+      if (mask) {
+        const loaded = await mask.load({ colorSpaceConversion: 'none' });
+        if (loaded.width !== width || loaded.height !== height) throw new Error('still mask size mismatch');
+        context.drawImage(loaded.bitmap, 0, 0);
+        const rgba = context.getImageData(0, 0, width, height).data;
+        base = new Uint8Array(width * height);
+        for (let i = 0; i < base.length; i += 1) base[i] = rgba[i * 4]!;
+      }
+      context.clearRect(0, 0, width, height);
+      context.drawImage(color.bitmap, 0, 0);
+      const alphaRgba = context.getImageData(0, 0, width, height).data;
+      const alpha = new Uint8Array(width * height);
+      for (let i = 0; i < alpha.length; i += 1) alpha[i] = alphaRgba[i * 4 + 3]!;
+      const gray = composeStillMask(base, width, height, strokes, alpha);
+      const image = context.createImageData(width, height);
+      for (let i = 0; i < gray.length; i += 1) {
+        image.data[i * 4] = gray[i]!;
+        image.data[i * 4 + 1] = gray[i]!;
+        image.data[i * 4 + 2] = gray[i]!;
+        image.data[i * 4 + 3] = 255;
+      }
+      const bitmap = await createImageBitmap(image, { colorSpaceConversion: 'none' });
+      return { bitmap, width, height };
+    })();
+    cache.set(key, pending);
+    pending.catch(() => cache?.delete(key));
+  }
+  return pending;
+}
 
 /**
  * 合成層 1 枚の入力を揃える。失敗は throw で呼び出し側に返し、その時点で decode 済みの frame は
@@ -69,14 +125,15 @@ async function prepareCompositeLayer(
   if (layer.kind === 'image') {
     if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
     // 静止画のビットマップは source が保持するので閉じない（base の image cut と同じ）
-    return { color: await layer.image.load() };
+    const color = await layer.image.load();
+    return { color, mask: await stillMaskForLayer(layer, color) };
   }
   if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
   const decodeStarted = performance.now();
   const frame = await layer.source.decode(layer.sourceTimeUs, metrics, { streamId: `layer-${layer.id}` });
   metrics.record('decode', performance.now() - decodeStarted);
   const sourceTimeUs = layer.sourceTimeUs;
-  if (!(layer.kind === 'matte' && layer.mask)) return { color: frame, mask: null, sourceTimeUs };
+  if (!(layer.kind === 'matte' && layer.mask?.kind === 'greyscale')) return { color: frame, mask: null, sourceTimeUs };
   let maskFrame: VideoFrame;
   try {
     const maskDecodeStarted = performance.now();
@@ -102,7 +159,7 @@ export async function evaluateFrame(
   const decoded: VideoFrame[] = [];
   const baseFrames: Array<VideoFrame | StillImageBitmap> = [];
   const layerFrames: Array<
-    | { kind?: 'media'; color: VideoFrame | StillImageBitmap; mask?: VideoFrame | null }
+    | { kind?: 'media'; color: VideoFrame | StillImageBitmap; mask?: VideoFrame | StillImageBitmap | null }
     | { kind: 'filter' }
   > = [];
   // compositor は layerFrames[i] と plan.layers[i] を位置で対応づけるので、抜いた層は plan 側からも外す
@@ -140,8 +197,8 @@ export async function evaluateFrame(
         noteLayerFailure(context, layer.id, error);
         continue;
       }
-      if ('bitmap' in prepared.color) {
-        layerFrames.push({ color: prepared.color });
+      if (!('sourceTimeUs' in prepared)) {
+        layerFrames.push({ color: prepared.color, mask: prepared.mask });
         composedLayers.push(layer);
         continue;
       }
@@ -186,7 +243,7 @@ export async function evaluateFrame(
         const color = 'bitmap' in input.color
           ? input.color
           : await copyFrame(input.color);
-        const mask = input.mask ? await copyFrame(input.mask) : input.mask;
+        const mask = input.mask && 'bitmap' in input.mask ? input.mask : input.mask ? await copyFrame(input.mask) : input.mask;
         layers.push({ color, mask });
       }
       return { base, layers };
