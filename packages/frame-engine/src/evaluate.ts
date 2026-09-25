@@ -1,6 +1,9 @@
 import { copyNativeYuvFrame } from './decode/native-yuv.js';
 import { DirectUploadFallbackError } from './compositor/webgl2.js';
 import { composeStillMask } from './mask/compose-still-mask.js';
+import { applyPhotoRegions } from './adjust/photo-regions.js';
+import { parseCube } from './look/cube.js';
+import { CachedStillImageSource } from './decode/still-image.js';
 import type {
   CompositedFrame,
   CompositorLayerInput,
@@ -60,19 +63,90 @@ type PreparedLayer =
   | { color: VideoFrame; mask: VideoFrame | null; sourceTimeUs: number };
 
 const composedStillMasks = new WeakMap<object, Map<string, Promise<StillImageBitmap>>>();
+const regionBitmaps = new WeakMap<object, Map<string, Promise<StillImageBitmap>>>();
+const regionImageSources = new Map<string, CachedStillImageSource>();
+function photoRegionImage(url: string): CachedStillImageSource {
+  let source = regionImageSources.get(url);
+  if (!source) { source = new CachedStillImageSource(url); regionImageSources.set(url, source); }
+  return source;
+}
+const regionLutTexts = new Map<string, Promise<ReturnType<typeof parseCube>>>();
+function photoRegionLut(reference: string): Promise<ReturnType<typeof parseCube>> {
+  let result = regionLutTexts.get(reference);
+  if (!result) {
+    const url = /^(https?:|blob:|data:|\/)/iu.test(reference) ? reference
+      : `/media/assets/luts/photo-region/${encodeURIComponent(reference)}.cube`;
+    result = fetch(url).then(response => {
+      if (!response.ok) throw new Error(`region LUT fetch failed (${response.status})`);
+      return response.text();
+    }).then(parseCube);
+    regionLutTexts.set(reference, result);
+    result.catch(() => regionLutTexts.delete(reference));
+  }
+  return result;
+}
 const stillMaskIds = new WeakMap<object, number>();
 let nextStillMaskId = 1;
+const photoLutIds = new WeakMap<object, number>();
+function photoLutId(value: object | undefined): number {
+  if (!value) return 0;
+  if (!photoLutIds.has(value)) photoLutIds.set(value, nextStillMaskId++);
+  return photoLutIds.get(value)!;
+}
+
+async function photoColorForLayer(layer: ResolvedCompositeLayer, color: StillImageBitmap): Promise<StillImageBitmap> {
+  if (!layer.regions?.length) return color;
+  const owner = layer.image!;
+  let cache = regionBitmaps.get(owner);
+  if (!cache) { cache = new Map(); regionBitmaps.set(owner, cache); }
+  const key = JSON.stringify([layer.id, photoLutId(layer.baseAdjustLut), layer.regions.map(region => {
+    if (region.mask && !stillMaskIds.has(region.mask)) stillMaskIds.set(region.mask, nextStillMaskId++);
+    return [region.mask ? stillMaskIds.get(region.mask) : region.maskUrl, region.invert, region.enabled, photoLutId(region.adjustLut),
+      photoLutId(region.filterLut), region.filterRef, region.filterIntensity, region.blur];
+  })]);
+  let pending = cache.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = color.width; canvas.height = color.height;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) throw new Error('photo pixel context unavailable');
+      context.drawImage(color.bitmap, 0, 0);
+      const image = context.getImageData(0, 0, color.width, color.height);
+      const regions = [];
+      for (const region of layer.regions!) {
+        const maskSource = region.mask ?? (region.maskUrl ? photoRegionImage(region.maskUrl) : undefined);
+        if (!maskSource) throw new Error('region mask source missing');
+        const loaded = await maskSource.load({ colorSpaceConversion: 'none' });
+        if (loaded.width !== color.width || loaded.height !== color.height) throw new Error('region mask size mismatch');
+        context.clearRect(0, 0, color.width, color.height);
+        context.drawImage(loaded.bitmap, 0, 0);
+        const rgba = context.getImageData(0, 0, color.width, color.height).data;
+        const mask = new Uint8Array(color.width * color.height);
+        for (let i = 0; i < mask.length; i += 1) mask[i] = rgba[i * 4]!;
+        regions.push({ ...region, mask,
+          filterLut: region.filterLut ?? (region.filterRef ? await photoRegionLut(region.filterRef) : undefined) });
+      }
+      image.data.set(applyPhotoRegions(image.data, color.width, color.height, layer.baseAdjustLut, regions));
+      const bitmap = await createImageBitmap(image, { colorSpaceConversion: 'none' });
+      return { bitmap, width: color.width, height: color.height };
+    })();
+    cache.set(key, pending);
+    pending.catch(() => cache?.delete(key));
+  }
+  return pending;
+}
 
 async function stillMaskForLayer(layer: ResolvedCompositeLayer, color: StillImageBitmap): Promise<StillImageBitmap | null> {
   const mask = layer.mask?.kind === 'still' ? layer.mask.source : null;
   const strokes = layer.erase ?? [];
   if (!mask && strokes.length === 0) return null;
-  if (mask && strokes.length === 0) return mask.load({ colorSpaceConversion: 'none' });
+  if (mask && strokes.length === 0 && !layer.maskFeather) return mask.load({ colorSpaceConversion: 'none' });
   const owner = layer.image!;
   let cache = composedStillMasks.get(owner);
   if (!cache) { cache = new Map(); composedStillMasks.set(owner, cache); }
   if (mask && !stillMaskIds.has(mask)) stillMaskIds.set(mask, nextStillMaskId++);
-  const key = `${mask ? stillMaskIds.get(mask) : 0}:${color.width}x${color.height}:${JSON.stringify(strokes)}`;
+  const key = `${mask ? stillMaskIds.get(mask) : 0}:${color.width}x${color.height}:${layer.maskFeather ?? 0}:${JSON.stringify(strokes)}`;
   let pending = cache.get(key);
   if (!pending) {
     pending = (async () => {
@@ -97,7 +171,7 @@ async function stillMaskForLayer(layer: ResolvedCompositeLayer, color: StillImag
       const alphaRgba = context.getImageData(0, 0, width, height).data;
       const alpha = new Uint8Array(width * height);
       for (let i = 0; i < alpha.length; i += 1) alpha[i] = alphaRgba[i * 4 + 3]!;
-      const gray = composeStillMask(base, width, height, strokes, alpha);
+      const gray = composeStillMask(base, width, height, strokes, alpha, layer.maskFeather ?? 0);
       const image = context.createImageData(width, height);
       for (let i = 0; i < gray.length; i += 1) {
         image.data[i * 4] = gray[i]!;
@@ -126,7 +200,7 @@ async function prepareCompositeLayer(
     if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
     // 静止画のビットマップは source が保持するので閉じない（base の image cut と同じ）
     const color = await layer.image.load();
-    return { color, mask: await stillMaskForLayer(layer, color) };
+    return { color: await photoColorForLayer(layer, color), mask: await stillMaskForLayer(layer, color) };
   }
   if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
   const decodeStarted = performance.now();

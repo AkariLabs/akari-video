@@ -14,6 +14,9 @@ export interface TimelineCutSelection {
     kind: 'cut';
     index: number;
     itemId?: string;
+    photo?: boolean;
+    maskFeather?: number;
+    regions?: readonly Record<string, any>[];
     label: string;
     sourceName: string;
     src?: string;
@@ -89,6 +92,8 @@ export interface TimelineLayerSelection {
     layerKind: 'baked' | 'video';
     mask?: string;
     photo?: boolean;
+    maskFeather?: number;
+    regions?: readonly Record<string, any>[];
     flip?: { h?: boolean; v?: boolean };
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     perspective?: Record<string, unknown>;
@@ -130,6 +135,8 @@ export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
     animator?: readonly Record<string, unknown>[];
     mask?: string;
     photo?: boolean;
+    maskFeather?: number;
+    regions?: readonly Record<string, any>[];
     flip?: { h?: boolean; v?: boolean };
     maskSourceOptions?: ReadonlyArray<{ id: string; label: string }>;
     outputStart: number;
@@ -322,7 +329,7 @@ type InspectorWriteOperation =
         path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.scaleX' | 'transform.scaleY' | 'transform.rotate'
             | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
             | InspectorAdjustPath
-            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'photo-mask' | 'photo-brush-toggle' | 'flip.h' | 'flip.v' | 'erase'
+            | 'opacity' | 'blend' | 'perspective' | 'mask' | 'maskFeather' | 'regions' | 'photo-mask' | 'photo-query' | 'photo-adopt' | 'photo-select-toggle' | 'photo-brush-toggle' | 'flip.h' | 'flip.v' | 'erase'
             | 'motion' | 'animator' | 'name' | 'duration'
             | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
@@ -425,6 +432,11 @@ export type InspectorWriteRequest = InspectorWriteOperation & {
 export interface InspectorWriteResult {
     ok: boolean;
     message?: string;
+    photoCandidates?: Array<{ id: string; label: string; png: string; area?: number; score?: number }>;
+    inputSha256?: string;
+    photoRevision?: string;
+    photoEngine?: 'apple-vision' | 'sam2.1-tiny';
+    photoRegion?: Record<string, unknown>;
 }
 
 export interface TimelineKeyframeSelection {

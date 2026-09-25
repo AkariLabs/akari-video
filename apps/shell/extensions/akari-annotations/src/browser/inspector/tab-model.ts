@@ -31,7 +31,7 @@ export function tabsForKind(
     if (kind === 'audio') {
         return [
             { id: 'audio', label: '音声', enabled: true },
-            { id: 'generation', label: 'AI', enabled: true },
+            { id: 'generation', label: '編集', enabled: true },
             { ...INFO_TAB }
         ];
     }
@@ -42,8 +42,8 @@ export function tabsForKind(
         { ...VIDEO_TAB },
         { id: 'adjust', label: '色', enabled: hasMediaPreview },
         { id: 'audio', label: '音声', enabled: hasMediaPreview },
-        { id: 'generation', label: 'AI', enabled: snapshotHints.generationAvailable === true,
-            disabledTitle: 'このクリップで使える AI はまだありません' },
+        { id: 'generation', label: '編集', enabled: snapshotHints.generationAvailable === true,
+            disabledTitle: 'このクリップで使える編集はまだありません' },
         { ...INFO_TAB }
     ];
 }

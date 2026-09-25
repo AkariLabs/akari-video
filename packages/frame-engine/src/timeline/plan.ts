@@ -24,6 +24,16 @@ import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.
 import { motionVisualAt, type MotionV0, type MotionVisual } from './item-motion.js';
 import type { StillMaskStroke } from '../mask/compose-still-mask.js';
 
+function regionMaskSource(sources: TimelineSourceRegistry, reference: string):
+  { mask: StillImageSource } | { maskUrl: string } | undefined {
+  const known = sources.get(reference);
+  if (known && 'load' in known) return { mask: known };
+  if (!/\.png(?:\?|$)/iu.test(reference)) return undefined;
+  const maskUrl = /^(https?:|blob:|data:|\/)/iu.test(reference)
+    ? reference : `/media/${reference.split('/').map(encodeURIComponent).join('/')}`;
+  return { maskUrl };
+}
+
 export type TimelineSourceRegistry = ReadonlyMap<string, NativeFrameSource | StillImageSource>;
 
 export interface CutFramingKeyframe {
@@ -70,6 +80,11 @@ export interface FrameEngineLayer {
   src?: string;
   mask?: string;
   erase?: readonly StillMaskStroke[];
+  maskFeather?: number;
+  regions?: readonly {
+    id: string; maskRef: string; invert?: boolean; enabled?: boolean;
+    adjust?: FrameEngineAdjust; filter?: { lut: ParsedCubeLut | string; intensity?: number }; blur?: number;
+  }[];
   flip?: { h?: boolean; v?: boolean };
   transform?: { x?: number; y?: number; scale?: number; scaleX?: number; scaleY?: number; rotate?: number };
   crop?: { x: number; y: number; w: number; h: number };
@@ -91,7 +106,7 @@ const KNOWN_CUT_KEY_LIST = [
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [
-  'id', 't', 'duration', 'kind', 'src', 'mask', 'erase', 'flip', 'transform', 'crop', 'perspective',
+  'id', 't', 'duration', 'kind', 'src', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'transform', 'crop', 'perspective',
   'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'animator', 'track', 'in', 'speed'
 ] as const;
 
@@ -723,11 +738,13 @@ function resolvedCompositeLayers(
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
     const adjustLut = timeline.layerAdjustLuts[index];
     const adjustFx = timeline.layerAdjustFx?.[index];
+    const useRegions = isStillImageSourcePath(layer.src) && Boolean(layer.regions?.length);
     const common = {
       id, visual,
       blend, opacity,
       ...(layer.flip ? { flip: layer.flip } : {}),
-      ...(adjustLut ? { adjustLut } : {}),
+      ...(adjustLut && !useRegions ? { adjustLut } : {}),
+      ...(adjustLut && useRegions ? { baseAdjustLut: adjustLut } : {}),
       ...(adjustFx ? { adjustFx } : {})
     };
     if (isStillImageSourcePath(layer.src)) {
@@ -738,10 +755,24 @@ function resolvedCompositeLayers(
       }
       resolved.push({ ...common, kind: 'image', image: source,
         mask: maskSource && 'load' in maskSource ? { kind: 'still', source: maskSource } : null,
+        ...(layer.maskFeather !== undefined ? { maskFeather: layer.maskFeather } : {}),
+        ...(layer.regions?.length ? { regions: layer.regions.flatMap(region => {
+          const candidate = regionMaskSource(sources, region.maskRef);
+          if (!candidate) {
+            timeline.warn(`no region mask source registered for ${region.maskRef}; layer ${id}`);
+            return [];
+          }
+          return [{ ...candidate, invert: region.invert, enabled: region.enabled,
+            adjustLut: resolveAdjustLut(region.adjust),
+            filterLut: typeof region.filter?.lut === 'object' ? region.filter.lut : undefined,
+            filterRef: typeof region.filter?.lut === 'string' ? region.filter.lut : undefined,
+            filterIntensity: region.filter?.intensity, blur: region.blur }];
+        }) } : {}),
         ...(layer.erase ? { erase: layer.erase } : {}) });
       return;
     }
     if (layer.erase?.length) timeline.warn(`erase ignored for video layer ${id}`);
+    if (layer.regions?.length) timeline.warn(`regions ignored for video layer ${id}`);
     if (!('decode' in source)) throw new Error(`no video frame source registered for ${layer.src}`);
     const sourceTimeUs = Math.round((finite(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite(layer.speed, 1))) * 1e6);
     const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;

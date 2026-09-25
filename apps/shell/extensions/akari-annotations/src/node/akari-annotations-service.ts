@@ -20,6 +20,7 @@ import { homedir, tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { savePhotoMask } from './photo-mask-storage';
+import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, adoptPhotoCandidates } from './photo-segmentation';
 import { NarrationCliManager } from './narration-cli';
 import { ImageAiService } from './image-ai-service';
 import type { ImageAiInspection, ImageAiResult } from '../common/akari-annotations-protocol';
@@ -255,6 +256,42 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         { ok: true; ref: string; inputSha256: string } | { ok: false; message: string }> {
         const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
         return savePhotoMask(this.fsPath(request.projectRootUri), this.fsPath(request.sourceUri), helper);
+    }
+    async photoCandidates(request: { projectRootUri: string; sourceUri: string; mode: 'foreground' | 'people' }) {
+        const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
+        return visionCandidates(this.fsPath(request.projectRootUri), this.fsPath(request.sourceUri), helper, request.mode);
+    }
+    async photoPrepare(request: { sourceUri: string }) {
+        const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
+        return preparePhotoClick(this.fsPath(request.sourceUri), helper);
+    }
+    async photoClick(request: { projectRootUri: string; sourceUri: string; x: number; y: number }) {
+        const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
+        return clickPhoto(this.fsPath(request.projectRootUri), this.fsPath(request.sourceUri), request.x, request.y, helper);
+    }
+    async photoAdopt(request: { projectRootUri: string; sourceUri: string; candidate: string; inputSha256: string;
+        engine: 'apple-vision' | 'sam2.1-tiny' }) {
+        return adoptPhotoCandidate(this.fsPath(request.projectRootUri), this.fsPath(request.sourceUri),
+            request.candidate, request.inputSha256, request.engine);
+    }
+    async photoAdoptMany(request: { projectRootUri: string; sourceUri: string; candidates: string[]; inputSha256: string;
+        engine: 'apple-vision' | 'sam2.1-tiny'; invert?: boolean }) {
+        const helper = await this.findGenerationAsset('native/bin/akari-photo-mask').catch(() => undefined);
+        return adoptPhotoCandidates(this.fsPath(request.projectRootUri), this.fsPath(request.sourceUri), request.candidates,
+            request.inputSha256, request.engine, helper, request.invert);
+    }
+    async photoStageRegionLut(request: { projectRootUri: string; id: string }): Promise<void> {
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(request.id)) throw new Error('フィルターが見つかりません');
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const preset = await this.findGenerationAsset(`presets/luts/${request.id}/${request.id}.cube`);
+        const folder = join(root, 'assets', 'luts', 'photo-region');
+        for (const directory of [join(root, 'assets'), join(root, 'assets', 'luts'), folder]) {
+            await fs.mkdir(directory, { recursive: true });
+            if (!(await fs.realpath(directory)).startsWith(root + sep)) throw new Error('プロジェクト外には保存できません');
+        }
+        const destination = join(folder, `${request.id}.cube`);
+        try { await fs.writeFile(destination, await fs.readFile(preset), { flag: 'wx' }); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
     }
 
     async voiceAvatars(): Promise<{ avatars: VoiceAvatar[] }> {

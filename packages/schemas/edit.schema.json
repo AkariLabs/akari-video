@@ -1663,6 +1663,26 @@
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" }
       }
     },
+    "photoRegionV1": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "maskRef"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "maskRef": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "invert": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "adjust": { "type": "object", "additionalProperties": false,
+          "properties": { "basic": { "type": "object", "additionalProperties": false, "properties": {
+            "exposure": { "type": "number", "minimum": -3, "maximum": 3 },
+            "contrast": { "type": "number", "minimum": -1, "maximum": 1 },
+            "saturation": { "type": "number", "minimum": -1, "maximum": 1 },
+            "temperature": { "type": "number", "minimum": -1, "maximum": 1 }
+          } } } },
+        "filter": { "$ref": "#/$defs/adjustLutV0" },
+        "blur": { "type": "number", "minimum": 0, "maximum": 50 }
+      }
+    },
     "itemV2Media": {
       "type": "object",
       "additionalProperties": false,
@@ -1691,6 +1711,8 @@
         "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
         "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "mask": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "maskFeather": { "type": "number", "minimum": 0, "maximum": 100 },
+        "regions": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/photoRegionV1" } },
         "erase": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["mode", "points", "size", "hardness"], "properties": { "mode": { "enum": ["erase", "restore"] }, "points": { "type": "array", "minItems": 1, "items": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 2, "maxItems": 2 } }, "size": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }, "hardness": { "type": "number", "minimum": 0, "maximum": 1 } } } },
         "flip": { "type": "object", "additionalProperties": false, "properties": { "h": { "type": "boolean" }, "v": { "type": "boolean" } } },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" },

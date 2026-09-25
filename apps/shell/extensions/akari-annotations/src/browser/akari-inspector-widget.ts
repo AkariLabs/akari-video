@@ -74,6 +74,7 @@ import {
 } from './inspector/perspective-fields';
 import { createCutTransitionWriteRequest, transitionOptionLabel } from './inspector/transition-fields';
 import { createMaskWriteRequest, maskOptionLabel, maskOptionLabels } from './inspector/mask-fields';
+import { openPhotoEditPanel } from './inspector/photo-edit-panel';
 import {
     createMotionWriteRequest, normalizeInspectorMotion, MOTION_IN_OUT_PRESETS, MOTION_LOOP_PRESETS,
     MOTION_EASES, MOTION_PRESET_LABELS, MOTION_DURATION_DEFAULTS, MOTION_AMOUNT_DEFAULTS,
@@ -807,6 +808,23 @@ const LAYER_BLEND_OPTIONS = [
 const photoBrushSettings: { mode: 'erase' | 'restore'; size: number; hardness: number } = {
     mode: 'erase', size: 0.05, hardness: 0.8
 };
+
+function PHOTO_PANEL_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot | TimelineCutSelection>(
+    snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<T>[] {
+    if (!snapshot.photo) return [];
+    return [{
+        name: 'photo-cutout-panel', label: '背景透過', getValue: () => '', actionLabel: '背景透過を開く',
+        action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
+            mode: 'cutout', maskFeather: current.maskFeather, regions: current.regions,
+            adjust: current.adjust as Record<string, any> }); return { ok: true }; }
+    }, {
+        name: 'photo-region-panel', label: '写真を編集', getValue: () => '', actionLabel: 'エリアを選択',
+        action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
+            mode: 'regions', maskFeather: current.maskFeather, regions: current.regions,
+            adjust: current.adjust as Record<string, any> }); return { ok: true }; }
+    }];
+}
 
 function MASK_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot>(
     snapshot: T,
@@ -4362,8 +4380,10 @@ export class AkariInspectorWidget extends BaseWidget {
         const aiAvailability = this.aiCatalogLoaded === undefined
             ? { enabled: !!generationIdentity, forcePanel: false }
             : aiTabAvailabilityFor({ kind: sectionKind, hasIdentity: !!generationIdentity, groups: aiGroups });
+        const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
+            && rowSnapshot.photo === true;
         const tabs = tabsForKind(sectionKind, {
-            src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled
+            src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled || photoSelection
         });
         const meta = generationIdentity ? this.generationTabMeta.get(generationIdentity.key) : undefined;
         const generationTodo = !!generationIdentity && (
@@ -4400,6 +4420,11 @@ export class AkariInspectorWidget extends BaseWidget {
                 : { kind: 'item', id: rowSnapshot.id };
         this.syncAdjustCompare(compareTarget, activeTab);
         this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo);
+
+        if (activeTab === 'generation' && (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut') && rowSnapshot.photo) {
+            this.appendSection({ id: 'photo-edit', label: '写真', fields: PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) },
+                rowSnapshot, sectionKind);
+        }
 
         if (activeTab === 'generation' && this.aiCatalogLoaded) {
             if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;

@@ -92,10 +92,10 @@ const aiTab = root => find(root, byData('data-akari-ui', 'tab:inspector-generati
 const aiTile = root => find(root, byData('data-akari-inspector-ai-tile', 'video'));
 const panel = root => find(root, byData('data-akari-ui', 'section:inspector-generation'));
 
-test('widget: ふつうの動画 cut は AI が押せ、動画タイルは理由付き disabled でクリックしても戻らない', () => withDom(() => {
+test('widget: ふつうの動画 cut は編集が押せ、動画タイルは理由付き disabled でクリックしても戻らない', () => withDom(() => {
   const instance = fixture({ sourcePath: 'ordinary.mp4' });
   instance.render();
-  assert.equal(aiTab(instance.body).textContent, 'AI');
+  assert.equal(aiTab(instance.body).textContent, '編集');
   assert.equal(aiTab(instance.body).disabled, false);
   const tile = aiTile(instance.body);
   assert.match(tile.className, /akari-inspector-ai-disabled/u);
@@ -173,7 +173,7 @@ test('widget: 同じクリップの再選択はパネルを保ち、別クリッ
   assert.equal(panel(instance.body), undefined);
 }));
 
-test('widget: 動画モデル 0 本のふつうの動画は動画タイルなし・文字起こしで AI が押せる', () => withDom(() => {
+test('widget: 動画モデル 0 本のふつうの動画は動画タイルなし・文字起こしで編集が押せる', () => withDom(() => {
   const instance = fixture({ sourcePath: 'ordinary.mp4', routes: false });
   instance.render();
   assert.equal(aiTab(instance.body).disabled, false);

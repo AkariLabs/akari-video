@@ -12,6 +12,7 @@ export function composeStillMask(
   height: number,
   strokes: readonly StillMaskStroke[],
   originalAlpha?: Uint8Array,
+  feather = 0,
 ): Uint8Array {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1
     || width > 65_536 || height > 65_536 || width * height > 268_435_456) {
@@ -21,6 +22,30 @@ export function composeStillMask(
   if (basePixels && basePixels.length !== length) throw new RangeError('base mask size mismatch');
   if (originalAlpha && originalAlpha.length !== length) throw new RangeError('original alpha size mismatch');
   const output = basePixels ? new Uint8Array(basePixels) : new Uint8Array(length).fill(255);
+  if (!Number.isFinite(feather) || feather < 0 || feather > 100) throw new RangeError('invalid mask feather');
+  const radius = Math.round(feather);
+  if (radius > 0 && basePixels) {
+    // Integral running sums keep this deterministic and independent of canvas blur/color management.
+    const horizontal = new Uint8Array(length);
+    for (let y = 0; y < height; y += 1) {
+      let sum = 0;
+      for (let x = -radius; x <= radius; x += 1) sum += basePixels[y * width + Math.max(0, Math.min(width - 1, x))]!;
+      for (let x = 0; x < width; x += 1) {
+        horizontal[y * width + x] = Math.floor((sum + radius) / (2 * radius + 1));
+        sum += basePixels[y * width + Math.min(width - 1, x + radius + 1)]!
+          - basePixels[y * width + Math.max(0, x - radius)]!;
+      }
+    }
+    for (let x = 0; x < width; x += 1) {
+      let sum = 0;
+      for (let y = -radius; y <= radius; y += 1) sum += horizontal[Math.max(0, Math.min(height - 1, y)) * width + x]!;
+      for (let y = 0; y < height; y += 1) {
+        output[y * width + x] = Math.floor((sum + radius) / (2 * radius + 1));
+        sum += horizontal[Math.min(height - 1, y + radius + 1) * width + x]!
+          - horizontal[Math.max(0, y - radius) * width + x]!;
+      }
+    }
+  }
   // Sides <= 2^16 and unit = 2^6 bound deltas to 2^23, squared sums to 2^47, and coverage products below 2^50 (< 2^53).
   const unit = 64;
   for (const stroke of strokes) {

@@ -644,8 +644,8 @@ test('runtime known-key inventories expose declared shapes plus recognized non-t
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [
-    'adjust', 'animator', 'blend', 'crop', 'duration', 'erase', 'filter', 'flip', 'id', 'in', 'keyframes', 'kind', 'mask', 'motion', 'opacity',
-    'perspective', 'speed', 'src', 't', 'track', 'transform',
+    'adjust', 'animator', 'blend', 'crop', 'duration', 'erase', 'filter', 'flip', 'id', 'in', 'keyframes', 'kind', 'mask', 'maskFeather', 'motion', 'opacity',
+    'perspective', 'regions', 'speed', 'src', 't', 'track', 'transform',
   ]);
   assert.deepEqual([...KNOWN_KEYFRAME_KEYS].sort(), [
     'animator', 'crop', 'easing', 'opacity', 'perspective', 't', 'transform',

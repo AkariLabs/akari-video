@@ -9,11 +9,12 @@ type JsonRecord = Record<string, unknown>;
 
 const ITEM_KEY_ORDER = [
     'id', 'name', 'at', 'duration', 'hidden', 'locked', 'transform', 'opacity',
-    'blend', 'crop', 'flip', 'mask', 'erase', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
+    'blend', 'crop', 'flip', 'mask', 'maskFeather', 'erase', 'regions', 'perspective', 'motion', 'animator', 'keyframes', 'source', 'audio', 'items',
     'role', 'link', 'mute'
 ] as const;
 const EDIT_KEY_ORDER = ['version', 'output', 'sources', 'audio', 'tracks'] as const;
 const TRACK_KEY_ORDER = ['id', 'lane', 'name', 'muted', 'items', 'content'] as const;
+const PHOTO_REGION_KEY_ORDER = ['id', 'name', 'maskRef', 'invert', 'enabled', 'adjust', 'filter', 'blur'] as const;
 const CAPTION_KEY_ORDER = [
     'id', 'start', 'end', 'text', 'speaker', 'sourceRef', 'edited', 'time_domain', 'text_style'
 ] as const;
@@ -177,6 +178,9 @@ function inlineField(key: string, value: unknown, item: boolean): string {
     if (item && key === 'source' && isRecord(value)) return inlineObject(value, ['kind', 'canvas']);
     if (item && key === 'keyframes' && Array.isArray(value)) {
         return `[${value.map(point => inlineOrdered(point, KEYFRAME_V2_KEYS)).join(', ')}]`;
+    }
+    if (item && key === 'regions' && Array.isArray(value)) {
+        return `[${value.map(region => inlineOrdered(region, PHOTO_REGION_KEY_ORDER)).join(', ')}]`;
     }
     return inline(value);
 }

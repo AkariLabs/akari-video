@@ -268,9 +268,22 @@ export type MediaItemV2 = ItemV2Base & {
     audio?: false;
     /** sources[].id of a gray mask video or a still-image PNG mask. */
     mask?: string;
+    maskFeather?: number;
+    regions?: PhotoRegionV1[];
     erase?: PhotoEraseStrokeV2[];
     flip?: { h?: boolean; v?: boolean };
 };
+
+export interface PhotoRegionV1 {
+    id: string;
+    name?: string;
+    maskRef: string;
+    invert?: boolean;
+    enabled?: boolean;
+    adjust?: { basic?: Pick<AdjustBasicV0, 'exposure' | 'contrast' | 'saturation' | 'temperature'> };
+    filter?: AdjustLutV0;
+    blur?: number;
+}
 
 export interface PhotoEraseStrokeV2 {
     mode: 'erase' | 'restore';
@@ -416,7 +429,7 @@ const BLEND_MODES = new Set<BlendModeV2>([
 ]);
 const ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'reason', 'label', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
-    'motion', 'animator', 'keyframes', 'items', 'mask', 'erase', 'flip', 'source', 'audio', 'anchor'
+    'motion', 'animator', 'keyframes', 'items', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'source', 'audio', 'anchor'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'link', 'mute', 'source', 'gain_db', 'keyframes',
@@ -705,6 +718,45 @@ function validateItem(
         if (value.source.kind !== 'media') throw invalid(`${path}.mask`, 'media item だけが指定できます');
         requireText(value.mask, `${path}.mask`);
         if (!sourceIds.has(value.mask)) throw invalid(`${path}.mask`, `sources[].id に存在しません: ${value.mask}`);
+    }
+    if (hasOwn(value, 'maskFeather')) {
+        if (value.source.kind !== 'media') throw invalid(`${path}.maskFeather`, 'media item だけが指定できます');
+        requireRange(value.maskFeather, 0, 100, `${path}.maskFeather`);
+    }
+    if (hasOwn(value, 'regions')) {
+        if (value.source.kind !== 'media' || !Array.isArray(value.regions) || value.regions.length > 32)
+            throw invalid(`${path}.regions`, 'media item の 32 個以下の配列である必要があります');
+        const regionIds = new Set<string>();
+        value.regions.forEach((region, index) => {
+            const at = `${path}.regions[${index}]`;
+            requireRecord(region, at);
+            requireExactKeys(region, new Set(['id', 'name', 'maskRef', 'invert', 'enabled', 'adjust', 'filter', 'blur']), at);
+            requireText(region.id, `${at}.id`);
+            if (hasOwn(region, 'name')) requireText(region.name, `${at}.name`);
+            if (regionIds.has(region.id)) throw invalid(`${at}.id`, '重複しています');
+            regionIds.add(region.id);
+            requireText(region.maskRef, `${at}.maskRef`);
+            if (!sourceIds.has(region.maskRef)) throw invalid(`${at}.maskRef`, `sources[].id に存在しません: ${region.maskRef}`);
+            for (const key of ['invert', 'enabled']) if (hasOwn(region, key) && typeof region[key] !== 'boolean') throw invalid(`${at}.${key}`, 'boolean である必要があります');
+            if (hasOwn(region, 'adjust')) {
+                requireRecord(region.adjust, `${at}.adjust`);
+                requireExactKeys(region.adjust, new Set(['basic']), `${at}.adjust`);
+                if (hasOwn(region.adjust, 'basic')) {
+                    requireRecord(region.adjust.basic, `${at}.adjust.basic`);
+                    requireExactKeys(region.adjust.basic, new Set(['exposure', 'contrast', 'saturation', 'temperature']), `${at}.adjust.basic`);
+                    for (const key of ['exposure', 'contrast', 'saturation', 'temperature']) if (hasOwn(region.adjust.basic, key))
+                        requireRange(region.adjust.basic[key], key === 'exposure' ? -3 : -1,
+                            key === 'exposure' ? 3 : 1, `${at}.adjust.basic.${key}`);
+                }
+            }
+            if (hasOwn(region, 'filter')) {
+                requireRecord(region.filter, `${at}.filter`);
+                requireExactKeys(region.filter, new Set(['lut', 'intensity']), `${at}.filter`);
+                requireText(region.filter.lut, `${at}.filter.lut`);
+                if (hasOwn(region.filter, 'intensity')) requireRange(region.filter.intensity, 0, 1, `${at}.filter.intensity`);
+            }
+            if (hasOwn(region, 'blur')) requireRange(region.blur, 0, 50, `${at}.blur`);
+        });
     }
     if (hasOwn(value, 'erase')) {
         if (value.source.kind !== 'media' || !Array.isArray(value.erase)) throw invalid(`${path}.erase`, 'media item の配列である必要があります');

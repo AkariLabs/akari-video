@@ -14,21 +14,21 @@ const tabShape = tabs => tabs.map(({ label, enabled }) => [label, enabled]);
 
 test('選択 kind ごとに正しいタブ語彙と enabled 状態を返す', () => {
   assert.deepEqual(tabShape(tabsForKind('cut')), [
-    ['映像', true], ['色', true], ['音声', true], ['AI', false], ['情報', true]
+    ['映像', true], ['色', true], ['音声', true], ['編集', false], ['情報', true]
   ]);
   for (const kind of ['layer', 'overlay', 'item']) {
     assert.deepEqual(tabShape(tabsForKind(kind, {})), [
-      ['映像', true], ['色', false], ['音声', false], ['AI', false], ['情報', true]
+      ['映像', true], ['色', false], ['音声', false], ['編集', false], ['情報', true]
     ], `${kind}: src なし`);
     assert.deepEqual(tabShape(tabsForKind(kind, { src: 'assets/source.mp4' })), [
-      ['映像', true], ['色', true], ['音声', true], ['AI', false], ['情報', true]
+      ['映像', true], ['色', true], ['音声', true], ['編集', false], ['情報', true]
     ], `${kind}: src あり`);
   }
   assert.deepEqual(tabShape(tabsForKind('caption')), [
     ['テキスト', true], ['情報', true]
   ]);
   assert.deepEqual(tabShape(tabsForKind('audio')), [
-    ['音声', true], ['AI', true], ['情報', true]
+    ['音声', true], ['編集', true], ['情報', true]
   ]);
   assert.deepEqual(tabShape(tabsForKind('world')), [['地図', true], ['情報', true]]);
 });
@@ -232,7 +232,7 @@ for (const kind of ['cut', 'layer']) {
 test('caption / audio / world: id・ラベル・disabled title の語彙を固定する', () => withTabDom(() => {
   const vocabulary = {
     caption: [['text', 'テキスト', true, ''], ['info', '情報', true, '']],
-    audio: [['audio', '音声', true, ''], ['generation', 'AI', true, ''], ['info', '情報', true, '']],
+    audio: [['audio', '音声', true, ''], ['generation', '編集', true, ''], ['info', '情報', true, '']],
     world: [['world', '地図', true, ''], ['info', '情報', true, '']]
   };
   for (const [kind, expected] of Object.entries(vocabulary)) {
@@ -281,9 +281,9 @@ test('generation: 節割付・enabled・disabled title・やること印の DOM 
     else widget.model.snapshot.src = 'done.mp4';
     widget.render();
     assert.equal(widget.currentTab, 'adjust', 'same item after source replacement');
-    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === 'AI');
+    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === '編集');
     assert.equal(generation.disabled, true);
-    assert.equal(generation.title, 'このクリップで使える AI はまだありません');
+    assert.equal(generation.title, 'このクリップで使える編集はまだありません');
     assert.equal(generation.children.length, 0);
   }
   for (const kind of ['cut', 'layer', 'item', 'overlay']) {
@@ -333,7 +333,7 @@ test('非同期 next 読込後に初期タブを確定し、手動選択・同�
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(widget.currentTab, explicit ?? 'generation');
     assert.deepEqual(widget.generationTabMeta.get(key), {});
-    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === 'AI');
+    const generation = widget.body.children.find(child => child.className === 'akari-inspector-tab-strip').children.find(button => button.textContent === '編集');
     assert.equal(generation.children.length, 0, 'removing next clears the dot');
   }
 }));

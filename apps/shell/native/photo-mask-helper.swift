@@ -10,6 +10,19 @@ import Vision
 struct PhotoMaskHelper {
     static func main() {
         do {
+            if CommandLine.arguments.count == 5 && CommandLine.arguments[1] == "instances" {
+                try PhotoMaskInstances.run(input: CommandLine.arguments[2], output: CommandLine.arguments[3], mode: CommandLine.arguments[4])
+                return
+            }
+            if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "sam-serve" {
+                try PhotoSamServer.run(models: CommandLine.arguments[2])
+                return
+            }
+            if CommandLine.arguments.count >= 5 && CommandLine.arguments[1] == "combine" {
+                try PhotoMaskInstances.combine(output: CommandLine.arguments[2], invert: CommandLine.arguments[3] == "invert",
+                    inputs: Array(CommandLine.arguments.dropFirst(4)))
+                return
+            }
             guard CommandLine.arguments.count == 3 else { throw NSError(domain: "PhotoMask", code: 1, userInfo: [NSLocalizedDescriptionKey: "input and output paths required"]) }
             let input = URL(fileURLWithPath: CommandLine.arguments[1])
             let output = URL(fileURLWithPath: CommandLine.arguments[2])
