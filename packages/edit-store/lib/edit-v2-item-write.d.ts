@@ -26,6 +26,13 @@ export type PreviewItemWriteCommand = ({
         html?: string;
         text?: string;
         params?: Record<string, string>;
+        xyKeyframes?: {
+            t: number;
+            transform: {
+                x: number;
+                y: number;
+            };
+        }[];
     };
 } | {
     kind: 'layer';
@@ -34,6 +41,13 @@ export type PreviewItemWriteCommand = ({
         transform?: PreviewItemTransformPatch;
         crop?: PreviewItemCropPatch;
         perspective?: PreviewItemPerspectivePatch | null;
+        xyKeyframes?: {
+            t: number;
+            transform: {
+                x: number;
+                y: number;
+            };
+        }[];
     };
 } | {
     kind: 'cut';
@@ -44,6 +58,13 @@ export type PreviewItemWriteCommand = ({
         transform?: PreviewItemTransformPatch;
         /** 出力プレビューの辺バークロップ。cuts[] に crop の席があるのは v2 だけ。 */
         crop?: PreviewItemCropPatch;
+        xyKeyframes?: {
+            t: number;
+            transform: {
+                x: number;
+                y: number;
+            };
+        }[];
     };
 }) & {
     playheadSeconds?: number;

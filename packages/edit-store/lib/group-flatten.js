@@ -23,10 +23,15 @@ function flattenGroupDescendants(internal) {
             ? item.groupCaptionLocal.transform : item.declaration?.transform;
         const localOpacity = item.groupCaptionLocal
             ? item.groupCaptionLocal.opacity : item.declaration?.opacity;
+        const motionSource = { at: item.atFrames / fps, duration: item.durationFrames / fps,
+            keyframeUnit: 'seconds', transform: localTransform, opacity: localOpacity,
+            keyframes: item.declaration?.keyframes, motion: item.declaration?.motion };
+        const motionParents = parent?.motionParents ?? [];
         const transform = (0, tree_ops_1.composeTransforms)(parent?.transform, localTransform);
         const opacity = (parent?.opacity ?? 1) * (typeof localOpacity === 'number' ? localOpacity : 1);
         if (item.source.kind === 'group') {
-            const context = { transform, opacity, clipStart: start, clipEnd: end, hidden };
+            const context = { transform, opacity, clipStart: start, clipEnd: end, hidden,
+                motionParents: [motionSource, ...motionParents] };
             for (const child of item.children ?? [])
                 visit(child, track, context, true);
             return;
@@ -37,6 +42,9 @@ function flattenGroupDescendants(internal) {
             ...item.declaration,
             ...(transform === undefined ? {} : { transform }),
             opacity,
+            ...((motionParents.length && [motionSource, ...motionParents].some(source => source.motion !== undefined || (Array.isArray(source.keyframes) && source.keyframes.length >= 2
+                && source.keyframes.some(point => point?.transform || Number.isFinite(point?.opacity)))))
+                ? { motionSource, motionParents } : {}),
             at,
             t: at,
             start: at,
@@ -65,7 +73,7 @@ function flattenGroupDescendants(internal) {
         // A bag can also have explicit children. Only group ancestry changes media/caption projection.
         for (const child of item.children ?? [])
             visit(child, track, {
-                transform, opacity, clipStart: start, clipEnd: end, hidden
+                transform, opacity, clipStart: start, clipEnd: end, hidden, motionParents
             }, true);
     };
     for (const track of internal.tracks)

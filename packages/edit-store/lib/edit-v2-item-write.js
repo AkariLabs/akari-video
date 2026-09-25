@@ -5,6 +5,9 @@ exports.resolvePreviewItemWriteBatch = resolvePreviewItemWriteBatch;
 const edit_v2_1 = require("./edit-v2");
 const transform_1 = require("./transform");
 const transform_keyframe_edit_1 = require("./transform-keyframe-edit");
+const item_motion_js_1 = require("../../overlay-runtime/src/item-motion.js");
+const motion_keyframe_replace_1 = require("./motion-keyframe-replace");
+const motion_position_write_1 = require("./motion-position-write");
 const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const recordOf = (value) => isRecord(value) ? value : {};
 const stringifyEdit = (value) => `${JSON.stringify(value, undefined, 2)}\n`;
@@ -125,6 +128,17 @@ function resolveV2Write(parsed, command) {
     const item = target.item;
     const writeTransform = (patch) => {
         const seconds = command.playheadSeconds;
+        const positionOnly = Object.keys(patch).length > 0
+            && Object.keys(patch).every(key => key === 'x' || key === 'y');
+        if (positionOnly) {
+            const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+            const frame = Number.isFinite(seconds)
+                ? Math.max(0, Math.min(item.duration, Math.round(seconds * edit.output.fps) - start)) : 0;
+            const updated = (0, motion_position_write_1.writeItemPositionAt)(item, frame, patch);
+            item.transform = updated.transform;
+            item.keyframes = updated.keyframes;
+            return;
+        }
         if (Number.isFinite(seconds) && Array.isArray(item.keyframes)
             && item.keyframes.some(point => point.transform)) {
             const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
@@ -152,7 +166,7 @@ function resolveV2Write(parsed, command) {
         // parts.mjs composes groups, but a bag supplies per-key defaults that
         // its part overrides. Only group ancestors form an invertible parent.
         // Preserve the original top-level merge/serialization byte for byte.
-        if (command.patch.transform && target.ancestors.length) {
+        if (command.patch.transform && (target.ancestors.length || item.motion || item.keyframes?.length)) {
             const compose = (parent, child = {}) => {
                 const angle = parent.rotate * Math.PI / 180;
                 const x = child.x ?? 0, y = child.y ?? 0;
@@ -174,10 +188,21 @@ function resolveV2Write(parsed, command) {
             const world = { ...compose(parent, { ...bagDefaults, ...item.transform }), ...patch };
             const local = {};
             if (patch.x !== undefined || patch.y !== undefined) {
-                const angle = -parent.rotate * Math.PI / 180;
-                const dx = world.x - parent.x, dy = world.y - parent.y;
-                local.x = (Math.cos(angle) * dx - Math.sin(angle) * dy) / parent.scale;
-                local.y = (Math.sin(angle) * dx + Math.cos(angle) * dy) / parent.scale;
+                const fps = edit.output.fps;
+                let at = 0;
+                const ancestors = target.ancestors.filter(ancestor => ancestor.source.kind === 'group');
+                const parentChain = ancestors.map(ancestor => {
+                    at += ancestor.at;
+                    return { at: at / fps, duration: ancestor.duration / fps, fps,
+                        transform: ancestor.transform, opacity: ancestor.opacity,
+                        keyframes: ancestor.keyframes, motion: ancestor.motion };
+                }).reverse();
+                const currentAt = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+                const base = (0, item_motion_js_1.invertItemMotionPosition)({ at: currentAt / fps,
+                    duration: item.duration / fps, fps, transform: item.transform,
+                    opacity: item.opacity, keyframes: item.keyframes, motion: item.motion }, command.playheadSeconds ?? currentAt / fps, parentChain, world.x, world.y);
+                local.x = base.x;
+                local.y = base.y;
             }
             if (patch.scale !== undefined)
                 local.scale = world.scale / parent.scale;
@@ -193,9 +218,12 @@ function resolveV2Write(parsed, command) {
             if (command.patch.html !== undefined || command.patch.vars !== undefined || command.patch.params !== undefined) {
                 throw new Error(`グループアイテムには HTML 本文・vars・HTML params を書き戻せません: ${itemId}`);
             }
-            if (!command.patch.transform)
+            if (command.patch.xyKeyframes)
+                item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            if (command.patch.transform)
+                writeTransform(command.patch.transform);
+            if (!command.patch.transform && !command.patch.xyKeyframes)
                 return {};
-            writeTransform(command.patch.transform);
             return { candidateText: stringifyEdit(edit) };
         }
     }
@@ -235,8 +263,16 @@ function resolveV2Write(parsed, command) {
             writeTransform(command.patch.transform);
             editChanged = true;
         }
+        if (command.patch.xyKeyframes) {
+            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            editChanged = true;
+        }
     }
     else if (command.kind === 'layer') {
+        if (command.patch.xyKeyframes) {
+            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            editChanged = true;
+        }
         if (command.patch.transform) {
             writeTransform(command.patch.transform);
             editChanged = true;
@@ -260,6 +296,10 @@ function resolveV2Write(parsed, command) {
     else {
         if (item.source.kind !== 'media') {
             throw new Error(`映像アイテムではありません: ${itemId}`);
+        }
+        if (command.patch.xyKeyframes) {
+            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+            editChanged = true;
         }
         if (command.patch.transform) {
             writeTransform(command.patch.transform);

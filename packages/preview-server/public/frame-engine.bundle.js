@@ -7817,7 +7817,7 @@ var require_transform_keyframe_edit = __commonJS({
     exports.writeItemTransformAt = writeItemTransformAt;
     var FIELDS = ["x", "y", "scale", "scaleX", "scaleY", "rotate"];
     var DEFAULTS = { x: 0, y: 0, scale: 1, scaleX: 1, scaleY: 1, rotate: 0 };
-    var finite5 = (value) => typeof value === "number" && Number.isFinite(value);
+    var finite4 = (value) => typeof value === "number" && Number.isFinite(value);
     var isMedia = (item) => item.source.kind === "media";
     var pointsOf = (item) => Array.isArray(item.keyframes) ? item.keyframes.slice().sort((a, b) => a.t - b.t) : [];
     var frameOf = (item, frame) => Math.min(item.duration, Math.max(0, Math.round(frame)));
@@ -7896,12 +7896,12 @@ var require_transform_keyframe_edit = __commonJS({
         if (!transform)
           return [];
         let value = transform[field];
-        if (!finite5(value) && (field === "scaleX" || field === "scaleY")) {
+        if (!finite4(value) && (field === "scaleX" || field === "scaleY")) {
           value = transform.scale ?? (media ? statics[field] ?? statics.scale ?? 1 : fallback);
         }
-        if (!finite5(value) && media)
+        if (!finite4(value) && media)
           value = DEFAULTS[field];
-        return finite5(value) ? [{ point, value }] : [];
+        return finite4(value) ? [{ point, value }] : [];
       });
       if (!declared.length)
         return fallback;
@@ -7940,11 +7940,11 @@ var require_transform_keyframe_edit = __commonJS({
       ]));
     }
     function hasTransformKeyframe(item, field) {
-      return pointsOf(item).some((point) => finite5(point.transform?.[field]));
+      return pointsOf(item).some((point) => finite4(point.transform?.[field]));
     }
     function validPatch(patch) {
       for (const [field, value] of Object.entries(patch)) {
-        if (!FIELDS.includes(field) || !finite5(value) || (field === "scale" || field === "scaleX" || field === "scaleY") && value <= 0) {
+        if (!FIELDS.includes(field) || !finite4(value) || (field === "scale" || field === "scaleX" || field === "scaleY") && value <= 0) {
           throw new Error(`Invalid transform.${field}`);
         }
       }
@@ -7964,7 +7964,7 @@ var require_transform_keyframe_edit = __commonJS({
     function activateItemTransformKeyframe(item, frame, field) {
       const at2 = frameOf(item, frame), before = evaluatedItemTransform(item, at2);
       const points = pointsOf(item);
-      if (hasTransformKeyframe(item, field) && points.some((point) => point.t === at2 && finite5(point.transform?.[field])))
+      if (hasTransformKeyframe(item, field) && points.some((point) => point.t === at2 && finite4(point.transform?.[field])))
         return item;
       const next = points.map((point) => isMedia(item) ? fullMediaPoint(item, point) : { ...point });
       const value = isMedia(item) ? { ...before } : field === "scale" ? { scale: Math.sqrt(before.scaleX * before.scaleY), scaleX: before.scaleX, scaleY: before.scaleY } : { [field]: before[field] };
@@ -8028,6 +8028,322 @@ var require_transform_keyframe_edit = __commonJS({
   }
 });
 
+// ../overlay-runtime/src/item-motion.js
+var require_item_motion = __commonJS({
+  "../overlay-runtime/src/item-motion.js"(exports, module) {
+    (function(root, factory) {
+      const api = factory();
+      if (typeof module === "object" && module.exports) module.exports = api;
+      if (root) {
+        root.akari = root.akari || {};
+        root.akari.itemMotion = api;
+      }
+    })(typeof window === "undefined" ? null : window, function() {
+      const number = (v2, fallback) => typeof v2 === "number" && Number.isFinite(v2) ? v2 : fallback;
+      const clamp5 = (v2) => Math.max(0, Math.min(1, v2));
+      const axes = ["x", "y", "scale", "scaleX", "scaleY", "rotate", "opacity"];
+      const read = (point, axis) => axis === "opacity" ? point.opacity : axis === "scaleX" || axis === "scaleY" ? point.transform?.[axis] ?? point.transform?.scale : point.transform?.[axis];
+      function ease2(name, value) {
+        const u2 = clamp5(value);
+        if (name === "hold") return u2 < 1 ? 0 : 1;
+        if (u2 === 0 || u2 === 1) return u2;
+        const polynomial = /^(in|out|in-out)-(quad|cubic|quart)$/.exec(name ?? "");
+        if (polynomial) {
+          const power = polynomial[2] === "quad" ? 2 : polynomial[2] === "cubic" ? 3 : 4;
+          if (polynomial[1] === "in") return u2 ** power;
+          if (polynomial[1] === "out") return 1 - (1 - u2) ** power;
+          return u2 < 0.5 ? (2 * u2) ** power / 2 : 1 - (2 * (1 - u2)) ** power / 2;
+        }
+        if (name === "ease-in-out" || name === "in-out-cubic") return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
+        if (name === "in-expo") return 2 ** (10 * u2 - 10);
+        if (name === "out-expo") return 1 - 2 ** (-10 * u2);
+        if (name === "in-out-expo") return u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
+        const back = 1.70158;
+        if (name === "in-back") return (back + 1) * u2 ** 3 - back * u2 ** 2;
+        if (name === "out-back") return 1 + (back + 1) * (u2 - 1) ** 3 + back * (u2 - 1) ** 2;
+        if (name === "in-out-back") {
+          const c = back * 1.525;
+          return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
+        }
+        if (name === "out-bounce") {
+          const n2 = 7.5625, d2 = 2.75;
+          if (u2 < 1 / d2) return n2 * u2 * u2;
+          if (u2 < 2 / d2) return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
+          if (u2 < 2.5 / d2) return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
+          return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
+        }
+        if (name === "out-elastic") return 2 ** (-10 * u2) * Math.sin((10 * u2 - 0.75) * (2 * Math.PI / 3)) + 1;
+        const bezier = /^cubic-bezier\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+)\s*\)$/.exec(name ?? "");
+        if (bezier) {
+          const [x1, y1, x22, y2] = bezier.slice(1).map(Number);
+          if ([x1, y1, x22, y2].every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
+            const coordinate = (t, a, b) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
+            let low = 0, high = 1;
+            for (let i2 = 0; i2 < 48; i2++) {
+              const t = (low + high) / 2;
+              if (coordinate(t, x1, x22) < u2) low = t;
+              else high = t;
+            }
+            return coordinate((low + high) / 2, y1, y2);
+          }
+        }
+        return u2;
+      }
+      function keyframeValue(item, axis, localSeconds, fallback) {
+        const fps = number(item.fps, 30);
+        const t = item.keyframeUnit === "seconds" ? localSeconds : localSeconds * fps;
+        const points = (Array.isArray(item.keyframes) ? item.keyframes : []).filter((p2) => p2 && Number.isFinite(p2.t) && Number.isFinite(read(p2, axis))).slice().sort((a, b) => a.t - b.t);
+        if (!points.length) return fallback;
+        if (t <= points[0].t) return read(points[0], axis);
+        const last = points[points.length - 1];
+        if (t >= last.t) return read(last, axis);
+        for (let i2 = 1; i2 < points.length; i2++) {
+          const b = points[i2], a = points[i2 - 1];
+          if (t > b.t) continue;
+          const names = b.easing;
+          const name = typeof names === "string" ? names : names?.[axis] ?? names?.transform?.[axis] ?? names?.transform;
+          const u2 = ease2(name, (t - a.t) / (b.t - a.t || 1));
+          return read(a, axis) + (read(b, axis) - read(a, axis)) * u2;
+        }
+        return fallback;
+      }
+      function base(item, localSeconds) {
+        const statics = item.transform ?? {};
+        const result = {};
+        for (const axis of axes) {
+          const fallback = axis === "opacity" ? number(item.opacity, 1) : number(statics[axis], axis.startsWith("scale") ? number(statics.scale, 1) : 0);
+          result[axis] = keyframeValue(item, axis, localSeconds, fallback);
+        }
+        for (const axis of ["scaleX", "scaleY"]) {
+          if (statics[axis] === void 0 && !(Array.isArray(item.keyframes) ? item.keyframes : []).some((point) => Number.isFinite(point?.transform?.[axis]))) {
+            result[axis] = result.scale;
+          }
+        }
+        return result;
+      }
+      function effect(motion2, localSeconds, duration, fps) {
+        const result = { dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 };
+        if (!motion2 || duration <= 0) return result;
+        for (const seat of ["in", "out"]) {
+          const spec = motion2[seat];
+          const span = number(spec?.duration, 0) / fps;
+          if (!spec || !Number.isFinite(span) || span <= 0) continue;
+          const progress = seat === "in" ? localSeconds / span : 1 - (duration - localSeconds) / span;
+          const hidden = seat === "in" ? 1 - ease2(spec.ease, progress) : ease2(spec.ease, progress);
+          const amount = number(spec.amount, { scale: 0.2, pop: 0.25, zoom: 0.55, twirl: 200 }[spec.preset] ?? 40);
+          switch (spec.preset) {
+            case "fade":
+              result.opacity *= clamp5(1 - hidden);
+              break;
+            case "slide-up":
+              result.dy += hidden * amount;
+              break;
+            case "slide-down":
+              result.dy -= hidden * amount;
+              break;
+            case "slide-left":
+              result.dx += hidden * amount;
+              break;
+            case "slide-right":
+              result.dx -= hidden * amount;
+              break;
+            case "scale":
+              result.scale *= 1 - hidden * amount;
+              break;
+            case "pop":
+              result.scale *= Math.max(0.01, 1 - hidden * (1 - amount));
+              result.opacity *= clamp5(1 - hidden);
+              break;
+            case "zoom":
+              result.scale *= 1 + hidden * amount;
+              result.opacity *= clamp5(1 - hidden);
+              break;
+            case "twirl":
+              result.rotate -= hidden * amount;
+              result.scale *= 1 - hidden * 0.65;
+              result.opacity *= clamp5(1 - hidden);
+              break;
+            case "wipe": {
+              const width = clamp5(1 - hidden);
+              result.reveal = { x: 0, y: 0, w: Math.min(result.reveal?.w ?? 1, width), h: 1 };
+              break;
+            }
+          }
+        }
+        const loop = motion2.loop;
+        const period = number(loop?.period, 0) / fps;
+        if (loop && Number.isFinite(period) && period > 0) {
+          const phase = ease2(loop.ease, (localSeconds % period + period) % period / period);
+          if (loop.preset === "pulse") result.scale *= 1 + number(loop.amount, 0.05) * Math.sin(2 * Math.PI * phase);
+          if (loop.preset === "float") result.dy += number(loop.amount, 6) * Math.sin(2 * Math.PI * phase);
+          if (loop.preset === "spin") result.rotate += 360 * phase * number(loop.amount, 1);
+          if (loop.preset === "blink") result.opacity *= clamp5(1 - number(loop.amount, 0.75) * (phase > 0.55 ? 1 : 0));
+          if (loop.preset === "jiggle") {
+            const strength = number(loop.amount, 1);
+            result.dx += Math.sin(18 * Math.PI * phase) * 4 * strength;
+            result.rotate += Math.sin(12 * Math.PI * phase) * 2.5 * strength;
+          }
+        }
+        return result;
+      }
+      function compose(parent, child) {
+        const angle = parent.rotate * Math.PI / 180;
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        const scale = parent.scale;
+        const a = parent.reveal, b = child.reveal;
+        const reveal = a && b ? (() => {
+          const x3 = Math.max(a.x, b.x), y2 = Math.max(a.y, b.y);
+          return {
+            x: x3,
+            y: y2,
+            w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x3),
+            h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y2)
+          };
+        })() : a ?? b;
+        return {
+          ...child,
+          x: parent.x + scale * (cos * child.x - sin * child.y),
+          y: parent.y + scale * (sin * child.x + cos * child.y),
+          scale: scale * child.scale,
+          scaleX: parent.scaleX * child.scaleX,
+          scaleY: parent.scaleY * child.scaleY,
+          rotate: parent.rotate + child.rotate,
+          opacity: parent.opacity * child.opacity,
+          ...reveal ? { reveal } : {}
+        };
+      }
+      function local(item, t) {
+        const localSeconds = t - number(item.at, 0);
+        const value = base(item, localSeconds);
+        const fx = effect(item.motion, localSeconds, number(item.duration, 0), number(item.fps, 30));
+        return {
+          x: value.x + fx.dx,
+          y: value.y + fx.dy,
+          scale: value.scale * fx.scale,
+          scaleX: value.scaleX * fx.scale,
+          scaleY: value.scaleY * fx.scale,
+          rotate: value.rotate + fx.rotate,
+          opacity: value.opacity * fx.opacity,
+          ...fx.reveal ? { reveal: fx.reveal } : {}
+        };
+      }
+      function evaluateItemMotion3(item, t, parentChain = []) {
+        let value = local(item, t);
+        for (const parent of parentChain) value = compose(local(parent, t), value);
+        return { ...value, opacity: clamp5(value.opacity) };
+      }
+      function evaluateOverlayMotion(record, t, fps) {
+        const item = record.motionSource ? { ...record.motionSource, fps } : {
+          at: number(record.start, 0),
+          duration: number(record.duration, 0),
+          fps,
+          keyframeUnit: record.keyframeUnit ?? "frames",
+          transform: record.transform,
+          opacity: record.opacity,
+          keyframes: record.keyframes,
+          motion: record.motion
+        };
+        const parents = (record.motionParents ?? []).map((parent) => ({ ...parent, fps }));
+        return evaluateItemMotion3(item, t, parents);
+      }
+      function motionRevealCss(state) {
+        const box2 = state.reveal;
+        return box2 ? "inset(" + box2.y * 100 + "% " + (1 - box2.x - box2.w) * 100 + "% " + (1 - box2.y - box2.h) * 100 + "% " + box2.x * 100 + "%)" : "";
+      }
+      function invertItemMotionPosition(item, t, parentChain, finalX, finalY) {
+        let x3 = finalX, y2 = finalY;
+        for (const parent of [...parentChain].reverse()) {
+          const p2 = local(parent, t), angle = -p2.rotate * Math.PI / 180;
+          const dx = x3 - p2.x, dy = y2 - p2.y, scale = p2.scale;
+          if (!Number.isFinite(scale) || Math.abs(scale) < Number.EPSILON) {
+            throw new Error("\u89AA\u306E\u62E1\u7E2E\u3092\u9006\u7B97\u3067\u304D\u307E\u305B\u3093");
+          }
+          x3 = (Math.cos(angle) * dx - Math.sin(angle) * dy) / scale;
+          y2 = (Math.sin(angle) * dx + Math.cos(angle) * dy) / scale;
+        }
+        const fx = effect(item.motion, t - number(item.at, 0), number(item.duration, 0), number(item.fps, 30));
+        return { x: x3 - fx.dx, y: y2 - fx.dy };
+      }
+      function dragItemMotionPosition(item, t, parentChain, visibleStart, dx, dy) {
+        const visible = { x: visibleStart.x + dx, y: visibleStart.y + dy };
+        return { visible, base: invertItemMotionPosition(item, t, parentChain, visible.x, visible.y) };
+      }
+      return Object.freeze({
+        evaluateItemMotion: evaluateItemMotion3,
+        evaluateOverlayMotion,
+        motionRevealCss,
+        invertItemMotionPosition,
+        dragItemMotionPosition
+      });
+    });
+  }
+});
+
+// ../edit-store/lib/motion-keyframe-replace.js
+var require_motion_keyframe_replace = __commonJS({
+  "../edit-store/lib/motion-keyframe-replace.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.replaceXYKeyframes = replaceXYKeyframes;
+    function replaceXYKeyframes(existing, drawn, duration) {
+      if (drawn.length < 2 || !Number.isInteger(duration) || duration < 1) {
+        throw new Error("\u9053\u7B4B\u306B\u306F 2 \u70B9\u4EE5\u4E0A\u5FC5\u8981\u3067\u3059\u3002");
+      }
+      const sorted = drawn.slice().sort((a, b) => a.t - b.t);
+      if (sorted.some((point) => !Number.isInteger(point.t) || point.t < 0 || point.t > duration || !Number.isFinite(point.transform.x) || !Number.isFinite(point.transform.y)) || sorted.some((point, index) => index > 0 && point.t === sorted[index - 1].t)) {
+        throw new Error("\u9053\u7B4B\u306E\u6642\u523B\u307E\u305F\u306F\u4F4D\u7F6E\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093\u3002");
+      }
+      const first = sorted[0].t, last = sorted[sorted.length - 1].t;
+      const byTime = /* @__PURE__ */ new Map();
+      for (const point of existing ?? []) {
+        const copy = structuredClone(point);
+        if (point.t >= first && point.t <= last && copy.transform) {
+          delete copy.transform.x;
+          delete copy.transform.y;
+          if (Object.keys(copy.transform).length === 0)
+            delete copy.transform;
+        }
+        if (copy.transform || copy.opacity !== void 0 || copy.crop || copy.perspective || copy.animator) {
+          byTime.set(copy.t, copy);
+        }
+      }
+      for (const point of sorted) {
+        const current = byTime.get(point.t) ?? { t: point.t };
+        current.transform = { ...current.transform, x: point.transform.x, y: point.transform.y };
+        byTime.set(point.t, current);
+      }
+      return [...byTime.values()].sort((a, b) => a.t - b.t);
+    }
+  }
+});
+
+// ../edit-store/lib/motion-position-write.js
+var require_motion_position_write = __commonJS({
+  "../edit-store/lib/motion-position-write.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.writeItemPositionAt = writeItemPositionAt;
+    function writeItemPositionAt(item, frame, position) {
+      if (!Number.isInteger(frame) || frame < 0 || frame > item.duration || Object.keys(position).length === 0 || Object.keys(position).some((axis) => axis !== "x" && axis !== "y" || !Number.isFinite(position[axis]))) {
+        throw new Error("\u4F4D\u7F6E\u307E\u305F\u306F\u6642\u523B\u304C\u6B63\u3057\u304F\u3042\u308A\u307E\u305B\u3093");
+      }
+      const copy = structuredClone(item);
+      if (Array.isArray(copy.keyframes) && copy.keyframes.length >= 2) {
+        let point = copy.keyframes.find((entry) => entry.t === frame);
+        if (!point) {
+          point = { t: frame };
+          copy.keyframes.push(point);
+          copy.keyframes.sort((left, right) => left.t - right.t);
+        }
+        point.transform = { ...point.transform, ...position };
+      } else {
+        copy.transform = { ...copy.transform, ...position };
+      }
+      return copy;
+    }
+  }
+});
+
 // ../edit-store/lib/edit-v2-item-write.js
 var require_edit_v2_item_write = __commonJS({
   "../edit-store/lib/edit-v2-item-write.js"(exports) {
@@ -8038,6 +8354,9 @@ var require_edit_v2_item_write = __commonJS({
     var edit_v2_1 = require_edit_v2();
     var transform_1 = require_transform();
     var transform_keyframe_edit_1 = require_transform_keyframe_edit();
+    var item_motion_js_1 = require_item_motion();
+    var motion_keyframe_replace_1 = require_motion_keyframe_replace();
+    var motion_position_write_1 = require_motion_position_write();
     var isRecord2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
     var recordOf = (value) => isRecord2(value) ? value : {};
     var stringifyEdit = (value) => `${JSON.stringify(value, void 0, 2)}
@@ -8143,6 +8462,15 @@ var require_edit_v2_item_write = __commonJS({
       const item = target.item;
       const writeTransform = (patch) => {
         const seconds = command.playheadSeconds;
+        const positionOnly = Object.keys(patch).length > 0 && Object.keys(patch).every((key) => key === "x" || key === "y");
+        if (positionOnly) {
+          const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+          const frame = Number.isFinite(seconds) ? Math.max(0, Math.min(item.duration, Math.round(seconds * edit.output.fps) - start)) : 0;
+          const updated = (0, motion_position_write_1.writeItemPositionAt)(item, frame, patch);
+          item.transform = updated.transform;
+          item.keyframes = updated.keyframes;
+          return;
+        }
         if (Number.isFinite(seconds) && Array.isArray(item.keyframes) && item.keyframes.some((point) => point.transform)) {
           const start = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
           const frame = Math.round(seconds * edit.output.fps) - start;
@@ -8165,8 +8493,8 @@ var require_edit_v2_item_write = __commonJS({
         if (item.source.kind === "html" && item.source.part && "html" in command.patch) {
           throw new Error(`\u90E8\u54C1\u306E\u6587\u5B57\u306F source.text \u306B\u4FDD\u5B58\u3057\u307E\u3059: ${itemId}`);
         }
-        if (command.patch.transform && target.ancestors.length) {
-          const compose2 = (parent2, child = {}) => {
+        if (command.patch.transform && (target.ancestors.length || item.motion || item.keyframes?.length)) {
+          const compose = (parent2, child = {}) => {
             const angle = parent2.rotate * Math.PI / 180;
             const x3 = child.x ?? 0, y2 = child.y ?? 0;
             return {
@@ -8176,20 +8504,43 @@ var require_edit_v2_item_write = __commonJS({
               rotate: parent2.rotate + (child.rotate ?? 0)
             };
           };
-          const parent = target.ancestors.filter((ancestor) => ancestor.source.kind === "group").reduce((world2, ancestor) => compose2(world2, ancestor.transform), { x: 0, y: 0, scale: 1, rotate: 0 });
+          const parent = target.ancestors.filter((ancestor) => ancestor.source.kind === "group").reduce((world2, ancestor) => compose(world2, ancestor.transform), { x: 0, y: 0, scale: 1, rotate: 0 });
           if (!Number.isFinite(parent.scale) || parent.scale === 0) {
             throw new Error(`\u89AA\u306E\u5909\u5F62\u3092\u9006\u5909\u63DB\u3067\u304D\u307E\u305B\u3093: ${itemId}`);
           }
           const patch = command.patch.transform;
           const bag = target.ancestors[target.ancestors.length - 1];
           const bagDefaults = item.source.kind === "html" && item.source.part && bag?.source.kind === "html" ? bag.transform : void 0;
-          const world = { ...compose2(parent, { ...bagDefaults, ...item.transform }), ...patch };
+          const world = { ...compose(parent, { ...bagDefaults, ...item.transform }), ...patch };
           const local = {};
           if (patch.x !== void 0 || patch.y !== void 0) {
-            const angle = -parent.rotate * Math.PI / 180;
-            const dx = world.x - parent.x, dy = world.y - parent.y;
-            local.x = (Math.cos(angle) * dx - Math.sin(angle) * dy) / parent.scale;
-            local.y = (Math.sin(angle) * dx + Math.cos(angle) * dy) / parent.scale;
+            const fps = edit.output.fps;
+            let at2 = 0;
+            const ancestors = target.ancestors.filter((ancestor) => ancestor.source.kind === "group");
+            const parentChain = ancestors.map((ancestor) => {
+              at2 += ancestor.at;
+              return {
+                at: at2 / fps,
+                duration: ancestor.duration / fps,
+                fps,
+                transform: ancestor.transform,
+                opacity: ancestor.opacity,
+                keyframes: ancestor.keyframes,
+                motion: ancestor.motion
+              };
+            }).reverse();
+            const currentAt = [...target.ancestors, item].reduce((sum, entry) => sum + entry.at, 0);
+            const base = (0, item_motion_js_1.invertItemMotionPosition)({
+              at: currentAt / fps,
+              duration: item.duration / fps,
+              fps,
+              transform: item.transform,
+              opacity: item.opacity,
+              keyframes: item.keyframes,
+              motion: item.motion
+            }, command.playheadSeconds ?? currentAt / fps, parentChain, world.x, world.y);
+            local.x = base.x;
+            local.y = base.y;
           }
           if (patch.scale !== void 0)
             local.scale = world.scale / parent.scale;
@@ -8205,9 +8556,12 @@ var require_edit_v2_item_write = __commonJS({
           if (command.patch.html !== void 0 || command.patch.vars !== void 0 || command.patch.params !== void 0) {
             throw new Error(`\u30B0\u30EB\u30FC\u30D7\u30A2\u30A4\u30C6\u30E0\u306B\u306F HTML \u672C\u6587\u30FBvars\u30FBHTML params \u3092\u66F8\u304D\u623B\u305B\u307E\u305B\u3093: ${itemId}`);
           }
-          if (!command.patch.transform)
+          if (command.patch.xyKeyframes)
+            item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+          if (command.patch.transform)
+            writeTransform(command.patch.transform);
+          if (!command.patch.transform && !command.patch.xyKeyframes)
             return {};
-          writeTransform(command.patch.transform);
           return { candidateText: stringifyEdit(edit) };
         }
       }
@@ -8246,7 +8600,15 @@ var require_edit_v2_item_write = __commonJS({
           writeTransform(command.patch.transform);
           editChanged = true;
         }
+        if (command.patch.xyKeyframes) {
+          item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+          editChanged = true;
+        }
       } else if (command.kind === "layer") {
+        if (command.patch.xyKeyframes) {
+          item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+          editChanged = true;
+        }
         if (command.patch.transform) {
           writeTransform(command.patch.transform);
           editChanged = true;
@@ -8268,6 +8630,10 @@ var require_edit_v2_item_write = __commonJS({
       } else {
         if (item.source.kind !== "media") {
           throw new Error(`\u6620\u50CF\u30A2\u30A4\u30C6\u30E0\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${itemId}`);
+        }
+        if (command.patch.xyKeyframes) {
+          item.keyframes = (0, motion_keyframe_replace_1.replaceXYKeyframes)(item.keyframes, command.patch.xyKeyframes, item.duration);
+          editChanged = true;
         }
         if (command.patch.transform) {
           writeTransform(command.patch.transform);
@@ -10039,10 +10405,27 @@ var require_group_flatten = __commonJS({
           return;
         const localTransform = item.groupCaptionLocal ? item.groupCaptionLocal.transform : item.declaration?.transform;
         const localOpacity = item.groupCaptionLocal ? item.groupCaptionLocal.opacity : item.declaration?.opacity;
+        const motionSource = {
+          at: item.atFrames / fps,
+          duration: item.durationFrames / fps,
+          keyframeUnit: "seconds",
+          transform: localTransform,
+          opacity: localOpacity,
+          keyframes: item.declaration?.keyframes,
+          motion: item.declaration?.motion
+        };
+        const motionParents = parent?.motionParents ?? [];
         const transform = (0, tree_ops_1.composeTransforms)(parent?.transform, localTransform);
         const opacity = (parent?.opacity ?? 1) * (typeof localOpacity === "number" ? localOpacity : 1);
         if (item.source.kind === "group") {
-          const context = { transform, opacity, clipStart: start, clipEnd: end, hidden };
+          const context = {
+            transform,
+            opacity,
+            clipStart: start,
+            clipEnd: end,
+            hidden,
+            motionParents: [motionSource, ...motionParents]
+          };
           for (const child of item.children ?? [])
             visit(child, track, context, true);
           return;
@@ -10053,6 +10436,7 @@ var require_group_flatten = __commonJS({
           ...item.declaration,
           ...transform === void 0 ? {} : { transform },
           opacity,
+          ...motionParents.length && [motionSource, ...motionParents].some((source2) => source2.motion !== void 0 || Array.isArray(source2.keyframes) && source2.keyframes.length >= 2 && source2.keyframes.some((point) => point?.transform || Number.isFinite(point?.opacity))) ? { motionSource, motionParents } : {},
           at: at2,
           t: at2,
           start: at2,
@@ -10095,7 +10479,8 @@ var require_group_flatten = __commonJS({
             opacity,
             clipStart: start,
             clipEnd: end,
-            hidden
+            hidden,
+            motionParents
           }, true);
       };
       for (const track of internal.tracks)
@@ -22862,7 +23247,7 @@ var WebGL2Compositor = class {
     gl.enableVertexAttribArray(position);
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
     ["y0", "u0", "v0", "y1", "u1", "v1", "rgba0", "rgba1"].forEach(
-      (name, unit2) => gl.uniform1i(gl.getUniformLocation(program, name), unit2)
+      (name, unit) => gl.uniform1i(gl.getUniformLocation(program, name), unit)
     );
     const cutUniforms = [0, 1].map((index) => ({
       ...this.adjustFxUniforms(program, String(index)),
@@ -22896,12 +23281,12 @@ var WebGL2Compositor = class {
     this.basePrograms.set(type, state);
     return state;
   }
-  bind(unit2, texture) {
-    this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
+  bind(unit, texture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
     this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
   }
-  bind3d(unit2, texture) {
-    this.gl.activeTexture(this.gl.TEXTURE0 + unit2);
+  bind3d(unit, texture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
     this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
   }
   lookTexture(lut, allocationUnit = LUT_UNIT) {
@@ -22970,7 +23355,7 @@ var WebGL2Compositor = class {
     this.stats.directUploadFallbackReason ??= reason;
     throw new DirectUploadFallbackError(reason);
   }
-  uploadVideoFrameTexture(texture, unit2, frame, uniforms) {
+  uploadVideoFrameTexture(texture, unit, frame, uniforms) {
     if (this.directUploadDisabled && !isCopyToPassthroughVideoFormat(frame.format))
       this.failDirectUpload("direct upload is disabled for this session");
     if (!isDirectUploadableFormat(frame.format))
@@ -22983,7 +23368,7 @@ var WebGL2Compositor = class {
       this.failDirectUpload(`invalid display size ${width}x${height}`);
     const gl = this.gl;
     while (gl.getError() !== gl.NO_ERROR) this.stats.glErrors += 1;
-    this.bind(unit2, texture);
+    this.bind(unit, texture);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
@@ -23125,7 +23510,7 @@ var WebGL2Compositor = class {
       this.gl.uniform2f(u2.box, 1, 1);
     }
   }
-  configureAdjustLut(lut, unit2, uniforms) {
+  configureAdjustLut(lut, unit, uniforms) {
     const gl = this.gl;
     gl.uniform1i(uniforms.hasAdjustLut, lut ? 1 : 0);
     if (!lut) {
@@ -23135,7 +23520,7 @@ var WebGL2Compositor = class {
       gl.uniform1f(uniforms.adjustLutIntensity, 0);
       return;
     }
-    this.bind3d(unit2, this.lookTexture(lut, unit2));
+    this.bind3d(unit, this.lookTexture(lut, unit));
     gl.uniform3fv(uniforms.adjustLutDomainMin, lut.domainMin);
     gl.uniform3fv(uniforms.adjustLutDomainMax, lut.domainMax);
     gl.uniform1f(uniforms.adjustLutSize, lut.size);
@@ -23445,9 +23830,9 @@ var WebGL2Compositor = class {
     return texture;
   }
   /** 静止画 cut（issue #30）: layers と同じ texture cache を base の RGBA unit へ結び、format 2 で標本化する。 */
-  uploadStillBaseTexture(value, unit2, uniforms) {
+  uploadStillBaseTexture(value, unit, uniforms) {
     const texture = this.stillTexture(value);
-    this.bind(unit2, texture);
+    this.bind(unit, texture);
     if (uniforms) {
       this.gl.uniform1i(uniforms.format, 2);
       this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
@@ -23998,16 +24383,16 @@ function composeStillMask(basePixels, width, height, strokes, originalAlpha, fea
       }
     }
   }
-  const unit2 = 64;
+  const unit = 64;
   for (const stroke of strokes) {
     if (stroke.mode !== "erase" && stroke.mode !== "restore" || !Number.isFinite(stroke.size) || stroke.size <= 0 || stroke.size > 1 || !Number.isFinite(stroke.hardness) || stroke.hardness < 0 || stroke.hardness > 1 || stroke.points.length === 0) {
       throw new RangeError("invalid mask stroke");
     }
     const points = stroke.points.map(([x3, y2]) => {
       if (!Number.isFinite(x3) || !Number.isFinite(y2) || x3 < 0 || x3 > 1 || y2 < 0 || y2 > 1) throw new RangeError("invalid mask point");
-      return [Math.round(x3 * width * unit2), Math.round(y2 * height * unit2)];
+      return [Math.round(x3 * width * unit), Math.round(y2 * height * unit)];
     });
-    const radius2 = Math.max(1, Math.round(stroke.size * Math.min(width, height) * unit2 / 2));
+    const radius2 = Math.max(1, Math.round(stroke.size * Math.min(width, height) * unit / 2));
     const inner = Math.round(radius2 * stroke.hardness);
     const outerSq = radius2 * radius2;
     const innerSq = inner * inner;
@@ -24015,17 +24400,17 @@ function composeStillMask(basePixels, width, height, strokes, originalAlpha, fea
     for (let segment = 0; segment < points.length; segment += 1) {
       const a = points[Math.max(0, segment - 1)];
       const b = points[segment];
-      const lowX = Math.max(0, Math.floor((Math.min(a[0], b[0]) - radius2) / unit2));
-      const highX = Math.min(width - 1, Math.ceil((Math.max(a[0], b[0]) + radius2) / unit2));
-      const lowY = Math.max(0, Math.floor((Math.min(a[1], b[1]) - radius2) / unit2));
-      const highY = Math.min(height - 1, Math.ceil((Math.max(a[1], b[1]) + radius2) / unit2));
+      const lowX = Math.max(0, Math.floor((Math.min(a[0], b[0]) - radius2) / unit));
+      const highX = Math.min(width - 1, Math.ceil((Math.max(a[0], b[0]) + radius2) / unit));
+      const lowY = Math.max(0, Math.floor((Math.min(a[1], b[1]) - radius2) / unit));
+      const highY = Math.min(height - 1, Math.ceil((Math.max(a[1], b[1]) + radius2) / unit));
       const dx = b[0] - a[0];
       const dy = b[1] - a[1];
       const segmentSq = dx * dx + dy * dy;
       for (let y2 = lowY; y2 <= highY; y2 += 1) {
         for (let x3 = lowX; x3 <= highX; x3 += 1) {
-          const px = (x3 * 2 + 1) * unit2 / 2;
-          const py = (y2 * 2 + 1) * unit2 / 2;
+          const px = (x3 * 2 + 1) * unit / 2;
+          const py = (y2 * 2 + 1) * unit / 2;
           const projection = segmentSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / segmentSq));
           const distX = px - a[0] - Math.round(dx * projection);
           const distY = py - a[1] - Math.round(dy * projection);
@@ -24117,8 +24502,8 @@ function sampleLutTrilinear(lut, rgb) {
   }
   if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
   const p2 = [0, 1, 2].map((index) => {
-    const unit2 = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
-    return clamp(unit2) * (lut.size - 1);
+    const unit = (finite2(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
+    return clamp(unit) * (lut.size - 1);
   });
   const lo = p2.map(Math.floor);
   const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
@@ -24957,151 +25342,9 @@ function normalizeAdjustFx(fx, sections, warnings = []) {
   return resolved;
 }
 
-// ../frame-engine/src/timeline/item-motion.ts
-var MOTION_IN_OUT_PRESETS = ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"];
-var MOTION_LOOP_PRESETS = ["pulse", "float", "spin"];
-var inOutPresets = new Set(MOTION_IN_OUT_PRESETS);
-var loopPresets = new Set(MOTION_LOOP_PRESETS);
-var unit = (u2) => Math.max(0, Math.min(1, u2));
-var finite3 = (value) => typeof value === "number" && Number.isFinite(value);
-var identity = () => ({ dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 });
-function bounce(u2) {
-  const n2 = 7.5625;
-  const d2 = 2.75;
-  if (u2 < 1 / d2) return n2 * u2 * u2;
-  if (u2 < 2 / d2) return n2 * (u2 - 1.5 / d2) ** 2 + 0.75;
-  if (u2 < 2.5 / d2) return n2 * (u2 - 2.25 / d2) ** 2 + 0.9375;
-  return n2 * (u2 - 2.625 / d2) ** 2 + 0.984375;
-}
-function easeValue(name, u2) {
-  u2 = unit(u2);
-  if (name === "hold") return u2 < 1 ? 0 : 1;
-  if (u2 === 0 || u2 === 1) return u2;
-  const polynomial = /^(in|out|in-out)-(quad|cubic|quart)$/.exec(name ?? "");
-  if (polynomial) {
-    const power = polynomial[2] === "quad" ? 2 : polynomial[2] === "cubic" ? 3 : 4;
-    if (polynomial[1] === "in") return u2 ** power;
-    if (polynomial[1] === "out") return 1 - (1 - u2) ** power;
-    return u2 < 0.5 ? (2 * u2) ** power / 2 : 1 - (2 * (1 - u2)) ** power / 2;
-  }
-  const back = 1.70158;
-  switch (name) {
-    case "ease-in-out":
-      return u2 < 0.5 ? 4 * u2 ** 3 : 1 - (-2 * u2 + 2) ** 3 / 2;
-    case "in-expo":
-      return 2 ** (10 * u2 - 10);
-    case "out-expo":
-      return 1 - 2 ** (-10 * u2);
-    case "in-out-expo":
-      return u2 < 0.5 ? 2 ** (20 * u2 - 10) / 2 : (2 - 2 ** (-20 * u2 + 10)) / 2;
-    case "in-back":
-      return (back + 1) * u2 ** 3 - back * u2 ** 2;
-    case "out-back":
-      return 1 + (back + 1) * (u2 - 1) ** 3 + back * (u2 - 1) ** 2;
-    case "in-out-back": {
-      const c = back * 1.525;
-      return u2 < 0.5 ? (2 * u2) ** 2 * ((c + 1) * 2 * u2 - c) / 2 : ((2 * u2 - 2) ** 2 * ((c + 1) * (2 * u2 - 2) + c) + 2) / 2;
-    }
-    case "out-bounce":
-      return bounce(u2);
-    case "out-elastic":
-      return 2 ** (-10 * u2) * Math.sin((10 * u2 - 0.75) * (2 * Math.PI / 3)) + 1;
-  }
-  const bezier = /^cubic-bezier\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([^,]+)\s*\)$/.exec(name ?? "");
-  if (bezier) {
-    const values = bezier.slice(1).map((value) => value.trim() ? Number(value) : NaN);
-    const [x1, y1, x22, y2] = values;
-    if (values.every(Number.isFinite) && x1 >= 0 && x1 <= 1 && x22 >= 0 && x22 <= 1) {
-      const coordinate = (t, a, b) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
-      let low = 0;
-      let high = 1;
-      for (let iteration = 0; iteration < 48; iteration += 1) {
-        const t = (low + high) / 2;
-        if (coordinate(t, x1, x22) < u2) low = t;
-        else high = t;
-      }
-      return coordinate((low + high) / 2, y1, y2);
-    }
-  }
-  return u2;
-}
-function compose(target, effect) {
-  target.dx += effect.dx;
-  target.dy += effect.dy;
-  target.scale *= effect.scale;
-  target.rotate += effect.rotate;
-  target.opacity *= effect.opacity;
-  if (effect.reveal) {
-    const a = target.reveal ?? { x: 0, y: 0, w: 1, h: 1 };
-    const b = effect.reveal;
-    const x3 = Math.max(a.x, b.x);
-    const y2 = Math.max(a.y, b.y);
-    target.reveal = {
-      x: x3,
-      y: y2,
-      w: Math.max(0, Math.min(a.x + a.w, b.x + b.w) - x3),
-      h: Math.max(0, Math.min(a.y + a.h, b.y + b.h) - y2)
-    };
-  }
-}
-function motionVisualAt(motion2, localSeconds, itemDurationSeconds, fps) {
-  if (!motion2 || !finite3(localSeconds) || !finite3(itemDurationSeconds) || itemDurationSeconds <= 0 || !finite3(fps) || fps <= 0) return null;
-  const result = identity();
-  let applied = false;
-  for (const seat of ["in", "out"]) {
-    const entry = motion2[seat];
-    if (!entry || !inOutPresets.has(entry.preset) || !finite3(entry.duration) || entry.duration <= 0) continue;
-    const span = entry.duration / fps;
-    if (!finite3(span) || span <= 0) continue;
-    applied = true;
-    const progress = seat === "in" ? localSeconds / span : 1 - (itemDurationSeconds - localSeconds) / span;
-    const eased = easeValue(entry.ease, progress);
-    const hidden = seat === "in" ? 1 - eased : eased;
-    const amount = finite3(entry.amount) ? entry.amount : entry.preset === "scale" ? 0.2 : 40;
-    const effect = identity();
-    switch (entry.preset) {
-      case "fade":
-        effect.opacity = unit(1 - hidden);
-        break;
-      case "slide-up":
-        effect.dy = hidden * amount;
-        break;
-      case "slide-down":
-        effect.dy = -hidden * amount;
-        break;
-      case "slide-left":
-        effect.dx = hidden * amount;
-        break;
-      case "slide-right":
-        effect.dx = -hidden * amount;
-        break;
-      case "scale":
-        effect.scale = 1 - hidden * amount;
-        break;
-      case "wipe":
-        effect.reveal = { x: 0, y: 0, w: unit(1 - hidden), h: 1 };
-        break;
-    }
-    compose(result, effect);
-  }
-  const loop = motion2.loop;
-  if (loop && loopPresets.has(loop.preset) && finite3(loop.period) && loop.period > 0) {
-    const span = loop.period / fps;
-    if (finite3(span) && span > 0) {
-      applied = true;
-      const phase = easeValue(loop.ease, (localSeconds % span + span) % span / span);
-      const amount = finite3(loop.amount) ? loop.amount : loop.preset === "pulse" ? 0.05 : loop.preset === "float" ? 6 : 1;
-      const effect = identity();
-      if (loop.preset === "pulse") effect.scale = 1 + amount * Math.sin(2 * Math.PI * phase);
-      if (loop.preset === "float") effect.dy = amount * Math.sin(2 * Math.PI * phase);
-      if (loop.preset === "spin") effect.rotate = 360 * phase * amount;
-      compose(result, effect);
-    }
-  }
-  return applied ? result : null;
-}
-
 // ../frame-engine/src/timeline/plan.ts
+var import_item_motion = __toESM(require_item_motion(), 1);
+var { evaluateItemMotion } = import_item_motion.default;
 function regionMaskSource(sources, reference) {
   const known = sources.get(reference);
   if (known && "load" in known) return { mask: known };
@@ -25128,6 +25371,8 @@ var KNOWN_CUT_KEY_LIST = [
   "perspective",
   "adjust",
   "motion",
+  "motionSource",
+  "motionParents",
   "animator",
   "audio",
   "mute"
@@ -25153,6 +25398,8 @@ var KNOWN_LAYER_KEY_LIST = [
   "filter",
   "adjust",
   "motion",
+  "motionSource",
+  "motionParents",
   "animator",
   "track",
   "in",
@@ -25176,7 +25423,7 @@ var DEFAULT_VISUAL = {
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
   opacity: 1
 };
-function finite4(value, fallback) {
+function finite3(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 function clamp3(value, minimum, maximum) {
@@ -25205,7 +25452,7 @@ function usableKeyframeCount(keyframes) {
   return Array.isArray(keyframes) ? keyframes.filter((point) => Boolean(point) && typeof point === "object" && Number.isFinite(point.t) && point.t >= 0).length : 0;
 }
 function hasCutLayerStyleVisual(cut) {
-  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2 || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe";
+  return Boolean(cut.motionSource) || isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2 || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe";
 }
 function cutDeclaresPerspective(cut) {
   return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
@@ -25254,8 +25501,8 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
   }
   const virtualCuts = cuts.map((cut) => {
-    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
-    const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
+    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
+    const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
     return {
       ...cut,
       out: cut.out + freezeDuration * speed,
@@ -25267,10 +25514,10 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
   const placements = cuts.map((cut, index) => {
     const segment = trackSegments[index];
     if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
-    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
     const playbackDuration = Math.max(0, cut.out - cut.in) / speed;
-    const freezeDuration = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
-    const freezeAt = cut.freeze ? clamp3(finite4(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+    const freezeDuration = Math.max(0, finite3(cut.freeze?.duration_sec, 0));
+    const freezeAt = cut.freeze ? clamp3(finite3(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
     const adjustLut = resolveAdjustLut(cut.adjust);
     const adjustFx = itemFx(cut.adjust, `cut ${cut.id ?? `cut-${index}`}`);
     return {
@@ -25310,7 +25557,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       maskSources.set(layer.src, null);
     }
   }
-  const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))), 0);
+  const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))), 0);
   const overlaysEnd = overlays.reduce((end, overlay) => Number.isFinite(overlay.start) && Number.isFinite(overlay.duration) && overlay.duration > 0 ? Math.max(end, overlay.start + overlay.duration) : end, 0);
   return {
     map,
@@ -25322,13 +25569,13 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     ...layerAdjustFx.some(Boolean) ? { layerAdjustFx } : {},
     maskSources,
     warn,
-    fps: finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite4(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
+    fps: finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite3(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
   };
 }
 function isLayerActiveAt(layer, timeUs, fps) {
   const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
-  const startFrame = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
-  const endFrame = Math.max(startFrame, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
+  const startFrame = Math.max(0, Math.ceil(finite3(layer.t, 0) * fps - 1e-6));
+  const endFrame = Math.max(startFrame, Math.ceil((finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))) * fps - 1e-6));
   return frame >= startFrame && frame < endFrame;
 }
 function playbackSecondsAt(placement, outputSeconds) {
@@ -25363,29 +25610,52 @@ function interpolateFraming(keyframes, playbackSeconds) {
   const amount = right.t > left.t ? clamp3((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
   const lerp = (a, b) => a + (b - a) * amount;
   return {
-    scale: Math.max(1, lerp(finite4(left.scale, 1), finite4(right.scale, 1))),
-    centerX: clamp3(lerp(finite4(left.cx, 0.5), finite4(right.cx, 0.5)), 0, 1),
-    centerY: clamp3(lerp(finite4(left.cy, 0.5), finite4(right.cy, 0.5)), 0, 1)
+    scale: Math.max(1, lerp(finite3(left.scale, 1), finite3(right.scale, 1))),
+    centerX: clamp3(lerp(finite3(left.cx, 0.5), finite3(right.cx, 0.5)), 0, 1),
+    centerY: clamp3(lerp(finite3(left.cy, 0.5), finite3(right.cy, 0.5)), 0, 1)
   };
 }
-function layerStyleVisualAt(cut, localSeconds) {
+function hasAxisScale(item) {
+  return item.transform?.scaleX !== void 0 || item.transform?.scaleY !== void 0 || (item.keyframes ?? []).some((point) => point.transform?.scaleX !== void 0 || point.transform?.scaleY !== void 0) || item.motionSource?.transform?.scaleX !== void 0 || item.motionSource?.transform?.scaleY !== void 0 || (item.motionParents ?? []).some((parent) => parent.transform?.scaleX !== void 0 || parent.transform?.scaleY !== void 0);
+}
+function layerStyleVisualAt(cut, localSeconds, outputSeconds, fps) {
   const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform, true);
+  const composed = cut.motionSource ? evaluateItemMotion(
+    { ...cut.motionSource, fps },
+    outputSeconds,
+    (cut.motionParents ?? []).map((parent) => ({ ...parent, fps }))
+  ) : cut.keyframes || cut.motion ? evaluateItemMotion({
+    at: 0,
+    duration: (cut.out - cut.in) / (finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1),
+    fps,
+    keyframeUnit: "seconds",
+    transform: cut.transform,
+    opacity: cut.opacity,
+    keyframes: cut.keyframes,
+    motion: cut.motion
+  }, localSeconds) : null;
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
-    x: finite4(staticCrop.x, 0),
-    y: finite4(staticCrop.y, 0),
-    width: finite4(staticCrop.w, 1),
-    height: finite4(staticCrop.h, 1)
+    x: finite3(staticCrop.x, 0),
+    y: finite3(staticCrop.y, 0),
+    width: finite3(staticCrop.w, 1),
+    height: finite3(staticCrop.h, 1)
   };
   const width = clamp3(crop.width, Number.EPSILON, 1);
   const height = clamp3(crop.height, Number.EPSILON, 1);
-  const transform = animated?.transform ?? {
-    x: finite4(cut.transform?.x, 0),
-    y: finite4(cut.transform?.y, 0),
-    scale: finite4(cut.transform?.scale, 1),
+  const transform = composed ? {
+    x: composed.x,
+    y: composed.y,
+    scale: composed.scale,
+    ...hasAxisScale(cut) ? { scaleX: composed.scaleX, scaleY: composed.scaleY } : {},
+    rotateDegrees: composed.rotate
+  } : animated?.transform ?? {
+    x: finite3(cut.transform?.x, 0),
+    y: finite3(cut.transform?.y, 0),
+    scale: finite3(cut.transform?.scale, 1),
     ...cut.transform?.scaleX !== void 0 ? { scaleX: cut.transform.scaleX } : {},
     ...cut.transform?.scaleY !== void 0 ? { scaleY: cut.transform.scaleY } : {},
-    rotateDegrees: finite4(cut.transform?.rotate, 0)
+    rotateDegrees: finite3(cut.transform?.rotate, 0)
   };
   return {
     framing: DEFAULT_VISUAL.framing,
@@ -25397,22 +25667,12 @@ function layerStyleVisualAt(cut, localSeconds) {
       ...transform.scaleY !== void 0 ? { scaleY: transform.scaleY } : {},
       rotateDegrees: transform.rotateDegrees
     },
-    opacity: clamp3(animated?.opacity ?? finite4(cut.opacity, 1), 0, 1),
+    opacity: composed?.reveal && (composed.reveal.w === 0 || composed.reveal.h === 0) ? 0 : clamp3(composed?.opacity ?? animated?.opacity ?? finite3(cut.opacity, 1), 0, 1),
     // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
     ...cut.crop || animated?.crop || cut.perspective || animated?.perspective || cut.motion?.in?.preset === "wipe" || cut.motion?.out?.preset === "wipe" ? { layerStyle: {
-      crop: { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height },
-      ...finite4(cut.crop?.rotate, 0) !== 0 ? { cropRotate: finite4(cut.crop?.rotate, 0) } : {}
+      crop: composed?.reveal ? motionCrop({ x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height }, composed.reveal) : { x: clamp3(crop.x, 0, 1 - width), y: clamp3(crop.y, 0, 1 - height), width, height },
+      ...finite3(cut.crop?.rotate, 0) !== 0 ? { cropRotate: finite3(cut.crop?.rotate, 0) } : {}
     } } : {}
-  };
-}
-function motionTransform(transform, motion2) {
-  return {
-    x: transform.x + motion2.dx,
-    y: transform.y + motion2.dy,
-    ...transform.scaleX !== void 0 ? { scaleX: transform.scaleX * motion2.scale } : {},
-    ...transform.scaleY !== void 0 ? { scaleY: transform.scaleY * motion2.scale } : {},
-    scale: transform.scale * motion2.scale,
-    rotateDegrees: transform.rotateDegrees + motion2.rotate
   };
 }
 function motionCrop(crop, reveal) {
@@ -25424,23 +25684,10 @@ function motionCrop(crop, reveal) {
     height: Math.max(Number.EPSILON, crop.height * reveal.h)
   };
 }
-function motionOpacity(opacity, motion2) {
-  return motion2.reveal && (motion2.reveal.w === 0 || motion2.reveal.h === 0) ? 0 : opacity * motion2.opacity;
-}
-function cutMotionVisual(visual, motion2) {
-  if (!motion2) return visual;
-  return {
-    ...visual,
-    transform: motionTransform(visual.transform, motion2),
-    opacity: motionOpacity(visual.opacity, motion2),
-    ...visual.layerStyle && motion2.reveal ? { layerStyle: { ...visual.layerStyle, crop: motionCrop(visual.layerStyle.crop, motion2.reveal) } } : {}
-  };
-}
-function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut, adjustFx) {
-  const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
-  const motion2 = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
+function visualAt(cut, playbackSeconds, localSeconds, outputSeconds, fps, adjustLut, adjustFx) {
+  const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
   if (hasCutLayerStyleVisual(cut)) {
-    const visual2 = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion2);
+    const visual2 = layerStyleVisualAt(cut, localSeconds, outputSeconds, fps);
     return { ...visual2, ...adjustLut ? { adjustLut } : {}, ...adjustFx ? { adjustFx } : {} };
   }
   let framing = DEFAULT_VISUAL.framing;
@@ -25458,31 +25705,45 @@ function visualAt(cut, playbackSeconds, localSeconds, fps, adjustLut, adjustFx) 
     };
   } else if (cut.framing?.crop) {
     const crop = cut.framing.crop;
-    const width = clamp3(finite4(crop.w, 1), Number.EPSILON, 1);
-    const height = clamp3(finite4(crop.h, 1), Number.EPSILON, 1);
+    const width = clamp3(finite3(crop.w, 1), Number.EPSILON, 1);
+    const height = clamp3(finite3(crop.h, 1), Number.EPSILON, 1);
     framing = {
-      x: clamp3(finite4(crop.x, 0), 0, 1 - width),
-      y: clamp3(finite4(crop.y, 0), 0, 1 - height),
+      x: clamp3(finite3(crop.x, 0), 0, 1 - width),
+      y: clamp3(finite3(crop.y, 0), 0, 1 - height),
       width,
       height,
       scale: Math.max(1 / width, 1 / height),
-      centerX: clamp3(finite4(crop.x, 0) + width / 2, 0, 1),
-      centerY: clamp3(finite4(crop.y, 0) + height / 2, 0, 1)
+      centerX: clamp3(finite3(crop.x, 0) + width / 2, 0, 1),
+      centerY: clamp3(finite3(crop.y, 0) + height / 2, 0, 1)
     };
   }
   const visual = {
     framing,
     transform: {
-      x: finite4(cut.transform?.x, 0),
-      y: finite4(cut.transform?.y, 0),
-      scale: Math.max(Number.EPSILON, finite4(cut.transform?.scale, 1)),
+      x: finite3(cut.transform?.x, 0),
+      y: finite3(cut.transform?.y, 0),
+      scale: Math.max(Number.EPSILON, finite3(cut.transform?.scale, 1)),
       ...cut.transform?.scaleX !== void 0 ? { scaleX: cut.transform.scaleX } : {},
       ...cut.transform?.scaleY !== void 0 ? { scaleY: cut.transform.scaleY } : {},
-      rotateDegrees: finite4(cut.transform?.rotate, 0)
+      rotateDegrees: finite3(cut.transform?.rotate, 0)
     },
-    opacity: clamp3(finite4(cut.opacity, 1), 0, 1)
+    opacity: clamp3(finite3(cut.opacity, 1), 0, 1)
   };
-  const composed = cutMotionVisual(visual, motion2);
+  const state = cut.motion ? evaluateItemMotion({
+    at: 0,
+    duration: (cut.out - cut.in) / speed,
+    fps,
+    transform: cut.transform,
+    opacity: cut.opacity,
+    motion: cut.motion
+  }, localSeconds) : null;
+  const composed = state ? { ...visual, transform: {
+    x: state.x,
+    y: state.y,
+    scale: state.scale,
+    ...hasAxisScale(cut) ? { scaleX: state.scaleX, scaleY: state.scaleY } : {},
+    rotateDegrees: state.rotate
+  }, opacity: state.opacity } : visual;
   return { ...composed, ...adjustLut ? { adjustLut } : {}, ...adjustFx ? { adjustFx } : {} };
 }
 function layerFromPlacement(placement, cutIndex, outputSeconds, sources, fps) {
@@ -25491,11 +25752,11 @@ function layerFromPlacement(placement, cutIndex, outputSeconds, sources, fps) {
   const source = sources.get(cut.src);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   const localSeconds = Math.max(0, outputSeconds - placement.at);
-  const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut, placement.adjustFx);
+  const visual = visualAt(cut, playbackSeconds, localSeconds, outputSeconds, fps, placement.adjustLut, placement.adjustFx);
   const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
-  const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+  const speed = finite3(cut.speed, 1) > 0 ? finite3(cut.speed, 1) : 1;
   return {
     id: `cut-${cutIndex}`,
     source,
@@ -25566,7 +25827,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
   const resolved = [];
   timeline.layers.forEach((layer, index) => {
     if (!isLayerActiveAt(layer, timeUs, timeline.fps)) return;
-    const localSeconds = Math.max(0, seconds - finite4(layer.t, 0));
+    const localSeconds = Math.max(0, seconds - finite3(layer.t, 0));
     const id = String(layer.id ?? `layer-${index}`);
     if (layer.kind === "filter") {
       if (!validFilter(layer.filter)) {
@@ -25578,7 +25839,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
         kind: "filter",
         filter: layer.filter,
         corners: filterQuadCornersAt(layer, localSeconds),
-        opacity: clamp3(finite4(layer.opacity, 1), 0, 1)
+        opacity: clamp3(finite3(layer.opacity, 1), 0, 1)
       });
       return;
     }
@@ -25592,33 +25853,52 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const staticTransform = layer.transform ?? {};
     const visual = {
-      ...finite4(staticCrop.rotate, 0) !== 0 ? { cropRotate: finite4(staticCrop.rotate, 0) } : {},
+      ...finite3(staticCrop.rotate, 0) !== 0 ? { cropRotate: finite3(staticCrop.rotate, 0) } : {},
       crop: animated?.crop ?? {
-        x: clamp3(finite4(staticCrop.x, 0), 0, 1),
-        y: clamp3(finite4(staticCrop.y, 0), 0, 1),
-        width: clamp3(finite4(staticCrop.w, 1), Number.EPSILON, 1),
-        height: clamp3(finite4(staticCrop.h, 1), Number.EPSILON, 1)
+        x: clamp3(finite3(staticCrop.x, 0), 0, 1),
+        y: clamp3(finite3(staticCrop.y, 0), 0, 1),
+        width: clamp3(finite3(staticCrop.w, 1), Number.EPSILON, 1),
+        height: clamp3(finite3(staticCrop.h, 1), Number.EPSILON, 1)
       },
       perspective: animated?.perspective ?? (layer.perspective ?? null),
       transform: animated?.transform ?? {
-        x: finite4(staticTransform.x, 0),
-        y: finite4(staticTransform.y, 0),
-        scale: Math.max(Number.EPSILON, finite4(staticTransform.scale, 1)),
+        x: finite3(staticTransform.x, 0),
+        y: finite3(staticTransform.y, 0),
+        scale: Math.max(Number.EPSILON, finite3(staticTransform.scale, 1)),
         ...staticTransform?.scaleX !== void 0 ? { scaleX: staticTransform.scaleX } : {},
         ...staticTransform?.scaleY !== void 0 ? { scaleY: staticTransform.scaleY } : {},
-        rotateDegrees: finite4(staticTransform.rotate, 0)
+        rotateDegrees: finite3(staticTransform.rotate, 0)
       }
     };
     visual.crop.width = clamp3(visual.crop.width, Number.EPSILON, 1);
     visual.crop.height = clamp3(visual.crop.height, Number.EPSILON, 1);
     visual.crop.x = clamp3(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp3(visual.crop.y, 0, 1 - visual.crop.height);
-    const motion2 = motionVisualAt(layer.motion, localSeconds, layer.duration, timeline.fps);
-    let opacity = clamp3(animated?.opacity ?? finite4(layer.opacity, 1), 0, 1);
-    if (motion2) {
-      visual.transform = motionTransform(visual.transform, motion2);
-      if (motion2.reveal) visual.crop = motionCrop(visual.crop, motion2.reveal);
-      opacity = motionOpacity(opacity, motion2);
+    const inherited = layer.motionSource ? evaluateItemMotion(
+      { ...layer.motionSource, fps: timeline.fps },
+      seconds,
+      (layer.motionParents ?? []).map((parent) => ({ ...parent, fps: timeline.fps }))
+    ) : layer.keyframes || layer.motion ? evaluateItemMotion({
+      at: 0,
+      duration: layer.duration,
+      fps: timeline.fps,
+      keyframeUnit: "seconds",
+      transform: layer.transform,
+      opacity: layer.opacity,
+      keyframes: layer.keyframes,
+      motion: layer.motion
+    }, localSeconds) : null;
+    if (inherited) visual.transform = {
+      x: inherited.x,
+      y: inherited.y,
+      scale: inherited.scale,
+      ...hasAxisScale(layer) ? { scaleX: inherited.scaleX, scaleY: inherited.scaleY } : {},
+      rotateDegrees: inherited.rotate
+    };
+    let opacity = clamp3(inherited?.opacity ?? animated?.opacity ?? finite3(layer.opacity, 1), 0, 1);
+    if (inherited?.reveal) {
+      visual.crop = motionCrop(visual.crop, inherited.reveal);
+      if (inherited.reveal.w === 0 || inherited.reveal.h === 0) opacity = 0;
     }
     const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
     const adjustLut = timeline.layerAdjustLuts[index];
@@ -25671,7 +25951,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     if (layer.erase?.length) timeline.warn(`erase ignored for video layer ${id}`);
     if (layer.regions?.length) timeline.warn(`regions ignored for video layer ${id}`);
     if (!("decode" in source)) throw new Error(`no video frame source registered for ${layer.src}`);
-    const sourceTimeUs = Math.round((finite4(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite4(layer.speed, 1))) * 1e6);
+    const sourceTimeUs = Math.round((finite3(layer.in, 0) + localSeconds * Math.max(Number.EPSILON, finite3(layer.speed, 1))) * 1e6);
     const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
     let mask = null;
     if (maskSrc) {
@@ -33437,6 +33717,14 @@ var CAPTION_SPRITE_MOTIONS = {
   "crawl-up": fromTo({ yPercent: 1 }, { yPercent: -1 })
 };
 
+// ../frame-engine/src/timeline/item-motion.ts
+var import_item_motion2 = __toESM(require_item_motion(), 1);
+var { evaluateItemMotion: evaluateItemMotion2 } = import_item_motion2.default;
+var MOTION_IN_OUT_PRESETS = ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"];
+var MOTION_LOOP_PRESETS = ["pulse", "float", "spin", "blink", "jiggle"];
+var inOutPresets = new Set(MOTION_IN_OUT_PRESETS);
+var loopPresets = new Set(MOTION_LOOP_PRESETS);
+
 // src/frame-engine-client.ts
 var requestedUploadPath = new URLSearchParams(window.location.search).get("uploadPath") === "copyTo" ? "copyTo" : "direct";
 function percentile2(values, fraction = 0.5) {
@@ -33668,13 +33956,13 @@ async function requestAutoProxy(candidate, ui, isCurrent) {
 function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
   const ids = /* @__PURE__ */ new Set();
   if (!Number.isFinite(atSeconds) || atSeconds < 0 || cuts.length === 0) return ids;
-  const finite5 = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const finite4 = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
   const cursors = /* @__PURE__ */ new Map();
   const overlaps = /* @__PURE__ */ new Map();
   for (const cut of cuts) {
     const track = Number.isInteger(cut.track) && Number(cut.track) >= 0 ? Number(cut.track) : 0;
-    const speed = finite5(cut.speed, 1) > 0 ? finite5(cut.speed, 1) : 1;
-    const freeze = Math.max(0, finite5(cut.freeze?.duration_sec, 0));
+    const speed = finite4(cut.speed, 1) > 0 ? finite4(cut.speed, 1) : 1;
+    const freeze = Math.max(0, finite4(cut.freeze?.duration_sec, 0));
     const duration = Math.max(0, cut.out + freeze * speed - cut.in) / speed;
     const at2 = Number.isFinite(cut.at) && Number(cut.at) >= 0 ? Number(cut.at) : (cursors.get(track) ?? 0) - (overlaps.get(track) ?? 0);
     const end = at2 + duration;
@@ -33685,11 +33973,11 @@ function initialSourceIds(edit, timelineData, cuts, layers, atSeconds) {
       if (typeof id === "string" && id) ids.add(id);
     }
   }
-  const fps = finite5(timelineData?.fps, 30) > 0 ? finite5(timelineData?.fps, 30) : 30;
+  const fps = finite4(timelineData?.fps, 30) > 0 ? finite4(timelineData?.fps, 30) : 30;
   const frame = Math.floor(atSeconds * fps + 1e-9);
   for (const layer of layers) {
-    const start = Math.max(0, Math.ceil(finite5(layer.t, 0) * fps - 1e-6));
-    const end = Math.max(start, Math.ceil((finite5(layer.t, 0) + Math.max(0, finite5(layer.duration, 0))) * fps - 1e-6));
+    const start = Math.max(0, Math.ceil(finite4(layer.t, 0) * fps - 1e-6));
+    const end = Math.max(start, Math.ceil((finite4(layer.t, 0) + Math.max(0, finite4(layer.duration, 0))) * fps - 1e-6));
     if (frame < start || frame >= end || layer.kind === "filter") continue;
     for (const id of [layer.src, layer.mask]) {
       if (typeof id === "string" && id) ids.add(id);

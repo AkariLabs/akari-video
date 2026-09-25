@@ -3684,10 +3684,27 @@ function flattenGroupDescendants(internal) {
     if (hidden || end <= start) return;
     const localTransform = item.groupCaptionLocal ? item.groupCaptionLocal.transform : item.declaration?.transform;
     const localOpacity = item.groupCaptionLocal ? item.groupCaptionLocal.opacity : item.declaration?.opacity;
+    const motionSource = {
+      at: item.atFrames / fps,
+      duration: item.durationFrames / fps,
+      keyframeUnit: "seconds",
+      transform: localTransform,
+      opacity: localOpacity,
+      keyframes: item.declaration?.keyframes,
+      motion: item.declaration?.motion
+    };
+    const motionParents = parent?.motionParents ?? [];
     const transform = composeTransforms(parent?.transform, localTransform);
     const opacity = (parent?.opacity ?? 1) * (typeof localOpacity === "number" ? localOpacity : 1);
     if (item.source.kind === "group") {
-      const context = { transform, opacity, clipStart: start, clipEnd: end, hidden };
+      const context = {
+        transform,
+        opacity,
+        clipStart: start,
+        clipEnd: end,
+        hidden,
+        motionParents: [motionSource, ...motionParents]
+      };
       for (const child of item.children ?? []) visit(child, track, context, true);
       return;
     }
@@ -3697,6 +3714,7 @@ function flattenGroupDescendants(internal) {
       ...item.declaration,
       ...transform === void 0 ? {} : { transform },
       opacity,
+      ...motionParents.length && [motionSource, ...motionParents].some((source2) => source2.motion !== void 0 || Array.isArray(source2.keyframes) && source2.keyframes.length >= 2 && source2.keyframes.some((point2) => point2?.transform || Number.isFinite(point2?.opacity))) ? { motionSource, motionParents } : {},
       at,
       t: at,
       start: at,
@@ -3738,7 +3756,8 @@ function flattenGroupDescendants(internal) {
       opacity,
       clipStart: start,
       clipEnd: end,
-      hidden
+      hidden,
+      motionParents
     }, true);
   };
   for (const track of internal.tracks) for (const item of track.items) visit(item, track);
