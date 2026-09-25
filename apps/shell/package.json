@@ -359,6 +359,30 @@
         "to": "presets/word-book"
       },
       {
+        "from": "../../presets/textstyle",
+        "to": "presets/textstyle",
+        "filter": [
+          "index.jsonl",
+          "*.json"
+        ]
+      },
+      {
+        "from": "../../presets/shapes",
+        "to": "presets/shapes",
+        "filter": [
+          "index.jsonl"
+        ]
+      },
+      {
+        "from": "../../presets/transitions",
+        "to": "presets/transitions",
+        "filter": [
+          "index.jsonl",
+          "*/preview.webp",
+          "*/preview-strip.webp"
+        ]
+      },
+      {
         "from": "../../packages/generate",
         "to": "packages/generate",
         "filter": [
