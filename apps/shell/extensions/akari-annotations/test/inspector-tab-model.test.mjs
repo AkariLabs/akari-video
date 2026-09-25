@@ -140,9 +140,9 @@ function withTabDom(callback) {
     return result;
   } catch (error) { restore(); throw error; }
 }
-function renderFixture(kind, Harness = RenderHarness) {
-  const snapshot = kind === 'cut' ? cutSnapshot({ src: 'still', sourcePath: 'still.png' })
-    : visualSnapshot('layer', { src: 'still.png' });
+function renderFixture(kind, Harness = RenderHarness, sourcePath = 'still.png') {
+  const snapshot = kind === 'cut' ? cutSnapshot({ src: sourcePath, sourcePath })
+    : visualSnapshot('layer', { src: sourcePath, sourcePath });
   const widget = new Harness();
   const values = new Map();
   widget.tabState = new InspectorTabState({ getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) });
@@ -153,17 +153,17 @@ function renderFixture(kind, Harness = RenderHarness) {
   widget.workspaceService = { tryGetRoots: () => [] };
   widget.generationTabMeta = new Map();
   widget.generationTabLoads = new Set();
-  const key = widget.generationIdentity(snapshot).key;
-  widget.generationLoads = new Set([key]);
-  widget.generationStates = new Map([[key, 'planned']]);
+  const key = widget.generationIdentity(snapshot)?.key;
+  widget.generationLoads = new Set(key ? [key] : []);
+  widget.generationStates = new Map(key ? [[key, 'planned']] : []);
   const model = JSON.parse(readFileSync(new URL('../../../../../packages/schemas/gen-models.json', import.meta.url), 'utf8'))
     .models.find(row => row.id === 'fal:h3-i2v');
   widget.generationCatalog = [model];
   widget.aiCatalogLoaded = true;
-  widget.generationDrafts = new Map([[key, { modelId: model.id, inputs: { prompt: '', first_frame: { path: 'still.png' } },
-    output: { duration_s: 5, resolution: '768P', audio_out: true } }]]);
+  widget.generationDrafts = new Map(key ? [[key, { modelId: model.id, inputs: { prompt: '', first_frame: { path: sourcePath } },
+    output: { duration_s: 5, resolution: '768P', audio_out: true } }]] : []);
   widget.generationTabDrafts = new Map(widget.generationDrafts);
-  widget.generationValidations = new Map([[key, { ok: true, messages: [], cost: { estimate_usd: 0.3 } }]]);
+  widget.generationValidations = new Map(key ? [[key, { ok: true, messages: [], cost: { estimate_usd: 0.3 } }]] : []);
   dependencies.layerAudioControls.set(snapshot, { audio: true, gain_db: 0 });
   for (const name of ['dispatchCaptionZoneEvent', 'hideFieldNotice', 'syncAdjustCompare', 'refreshAdjustLuts', 'appendSoloBanner']) widget[name] = () => {};
   widget.sections = [];
@@ -212,19 +212,24 @@ for (const kind of ['cut', 'layer']) {
   });
 }
 
-test('色補正の実働節は色タブだけに出し、編集の補正群に重複表示しない', () => withTabDom(() => {
-  const widget = renderFixture('layer');
-  widget.explicitTabId = 'edit';
-  widget.render();
-  assert.ok(widget.sections.some(([id]) => id === 'edit-correction'));
-  assert.equal(widget.sections.some(([id]) => id.startsWith('adjust:')), false);
-  widget.sections = [];
-  widget.explicitTabId = 'adjust';
-  widget.render();
-  assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), [
-    'adjust:basic', 'adjust:curves', 'adjust:wheels', 'adjust:hue', 'adjust:lut', 'adjust:fx'
-  ]);
-}));
+const ADJUST_SECTION_IDS = ['adjust:basic', 'adjust:curves', 'adjust:wheels', 'adjust:hue', 'adjust:lut', 'adjust:fx'];
+for (const [label, sourcePath, editAdjustIds] of [
+  ['写真', 'still.png', ADJUST_SECTION_IDS],
+  ['動画', 'clip.mp4', []]
+]) {
+  test(`${label}の layer: 編集の補正と色タブの adjust 節を対象どおりに出す`, () => withTabDom(() => {
+    const widget = renderFixture('layer', RenderHarness, sourcePath);
+    assert.equal(isInspectorStillImage(widget.model.snapshot.sourcePath), label === '写真');
+    widget.explicitTabId = 'edit';
+    widget.render();
+    assert.ok(widget.sections.some(([id]) => id === 'edit-correction'));
+    assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), editAdjustIds);
+    widget.sections = [];
+    widget.explicitTabId = 'adjust';
+    widget.render();
+    assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), ADJUST_SECTION_IDS);
+  }));
+}
 
 const INITIAL_TAB_CASES = [
   ['空の枠', { generationTodo: true }, 'edit'],

@@ -4558,7 +4558,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
             const imageSelected = isInspectorStillImage(imageSource);
             if (imageSelected) {
-                this.appendSection({ id: 'edit-correction', label: '補正', fields: [
+                const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', fields: [
                     ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields), {
                         name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
                         options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
@@ -4570,6 +4570,13 @@ export class AkariInspectorWidget extends BaseWidget {
                     }, ...(this.editAdjustScope === '選択エリア' ? [{
                         name: 'edit-area-soon', label: '選択エリア', getValue: () => '近日'
                     }] : [])] }, rowSnapshot, sectionKind);
+                if (this.editAdjustScope !== '選択エリア' && correctionBody) {
+                    this.refreshAdjustLuts();
+                    ADJUST_SECTIONS(rowSnapshot, requestWrite, {
+                        projectLutRefs: this.projectLutRefs,
+                        importLut: () => this.importAdjustLut(rowSnapshot)
+                    }).forEach(section => this.appendSection(section, rowSnapshot, sectionKind, correctionBody, true));
+                }
             } else {
                 this.appendSection({ id: 'edit-correction', label: '補正', fields: [{
                     name: 'edit-correction-unavailable', label: '補正',
