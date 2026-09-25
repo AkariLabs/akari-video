@@ -1,0 +1,108 @@
+{
+  "corner": {
+    "nwMoveScreenPx": {
+      "x": 0,
+      "y": 0
+    },
+    "aspectBefore": 1.5,
+    "aspectAfter": 1.5
+  },
+  "cutCorner": {
+    "nwMoveScreenPx": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "rotatedEdge": {
+    "wMoveScreenPx": {
+      "x": 0,
+      "y": 0
+    },
+    "heightBefore": 32.58,
+    "heightAfter": 32.58
+  },
+  "text": {
+    "nwMoveScreenPx": {
+      "x": -0.02,
+      "y": -0.01
+    },
+    "textStyleAfter": {
+      "wrap_width_pct": 21.56,
+      "text_anchor": "tl",
+      "position": {
+        "x": 0.2844,
+        "y": 0.8151
+      }
+    }
+  },
+  "rotate": {
+    "rotateAfter": 45,
+    "centerMoveScreenPx": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "guides": {
+    "leftGapToBoxAScreenPx": 0,
+    "centerGapScreenPx": 0
+  },
+  "line45": {
+    "angleDeg": 45,
+    "startMove": {
+      "x": -0.28,
+      "y": 0.71
+    }
+  },
+  "modifiers": {
+    "shift": {
+      "moveScreenPx": {
+        "x": 41.5,
+        "y": 0
+      }
+    },
+    "meta": {
+      "leftGapToBoxBScreenPx": 3,
+      "guidesDuring": []
+    },
+    "alt": {
+      "itemsBefore": 12,
+      "itemsAfter": 13,
+      "newIds": [
+        "box-alt-copy-1"
+      ],
+      "originalMoveScreenPx": {
+        "x": 0,
+        "y": 0
+      },
+      "copies": [
+        {
+          "id": "box-alt-copy-1",
+          "track": 11,
+          "moveFromOriginalScreenPx": {
+            "x": -62.25,
+            "y": -24.21
+          }
+        }
+      ],
+      "originalTrack": 10,
+      "tracksBefore": 12,
+      "tracksAfter": 13,
+      "lintAfterDuplicate": {
+        "status": 0,
+        "head": [
+          "PASS: <path> (3 findings, 5 skipped)"
+        ]
+      },
+      "itemsAfterUndo": 13,
+      "tracksAfterUndo": 13
+    }
+  },
+  "backSelect": {
+    "seInsideFront": true,
+    "hitAtSe": "akari-interaction-handle is-se"
+  },
+  "deselect": {
+    "selectedBefore": true,
+    "selectedAfter": false
+  }
+}

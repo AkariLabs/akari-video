@@ -31,6 +31,10 @@ export const previewSelectionHandlesStyle = `
 #layer-select-box, #cut-select-box { z-index: 2147483647; border: 1px solid var(--akari-accent); box-shadow: none; }
 #layer-select-box.is-active, #cut-select-box.is-active, #preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active { pointer-events: none; }
 #preview-stage #layer-select-box.is-active.akari-photo-pointer-mode, #preview-stage #cut-select-box.is-active.akari-photo-pointer-mode { pointer-events: auto; }
+#preview-stage #layer-select-box.is-active.akari-photo-pointer-mode { cursor: none; }
+.akari-photo-brush-status { position: absolute; top: 10px; left: 10px; z-index: 2147483647; pointer-events: none; padding: 5px 9px; border-radius: 5px; background: var(--theia-editor-background, #252526); color: var(--theia-editor-foreground, #eee); box-shadow: 0 2px 6px rgba(0,0,0,.3); font-size: 12px; }
+.akari-photo-brush-status[hidden], .akari-photo-brush-cursor[hidden] { display: none; }
+.akari-photo-brush-cursor { position: fixed; z-index: 2147483647; box-sizing: border-box; transform: translate(-50%,-50%); border: 1px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #222, 0 0 5px #0009; pointer-events: none; }
 #layer-select-box .akari-layer-handle, #cut-select-box .akari-cut-handle { width: 11px; height: 11px; margin: -5.5px; border: 1px solid var(--akari-accent); border-radius: 50%; background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,.35); }
 #layer-select-box .akari-layer-handle-rotate, #layer-select-box .akari-layer-handle-move,
 #cut-select-box .akari-cut-handle-rotate, #cut-select-box .akari-cut-handle-move { top: calc(100% + 25px); width: 25px; height: 25px; margin: -12.5px; border-radius: 50%; background: var(--theia-editor-background, #252526); color: var(--theia-editor-foreground, #eee); display: grid; place-items: center; padding: 0; }

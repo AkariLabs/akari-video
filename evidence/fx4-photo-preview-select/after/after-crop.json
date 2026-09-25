@@ -1,0 +1,137 @@
+{
+  "tag": "after-crop",
+  "steps": {
+    "open-timeline": {
+      "annotations": "[object Object]"
+    },
+    "open-inspector": {
+      "inspector": "[object Object]"
+    },
+    "initial": {
+      "stage": {
+        "x": 387.796875,
+        "y": 190.03125,
+        "width": 583,
+        "height": 327.9375,
+        "fx": 36,
+        "fy": 151.03125
+      },
+      "layers": {
+        "photo-a": {
+          "x": 142.28,
+          "y": 238.33,
+          "w": 218.63,
+          "h": 122.98,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-b": {
+          "x": 248.55,
+          "y": 263.38,
+          "w": 218.62,
+          "h": 163.97,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-in-canvas": {
+          "x": 69.4,
+          "y": 369.66,
+          "w": 91.09,
+          "h": 91.09,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "photo-lib": {
+          "x": 121.02,
+          "y": 178.36,
+          "w": 109.31,
+          "h": 72.88,
+          "tag": "IMG",
+          "pe": "auto"
+        },
+        "box": {
+          "x": 491.47,
+          "y": 175.32,
+          "w": 583,
+          "h": 327.94,
+          "tag": "DIV",
+          "pe": "none"
+        }
+      }
+    },
+    "photo-rects-out": {
+      "A": {
+        "x": 350.0130360205832,
+        "y": 287.50188679245286,
+        "w": 720.0164665523156,
+        "h": 405.01132075471696
+      },
+      "B": {
+        "x": 699.9931389365352,
+        "y": 369.9993138936535,
+        "w": 719.9835334476844,
+        "h": 540.0041166380789
+      }
+    },
+    "points-out": {
+      "bOnly": {
+        "x": 1275.9799656946827,
+        "y": 802.0026072041167
+      },
+      "overlapOpaque": {
+        "x": 975.0092624356776,
+        "y": 531.2562607204117
+      },
+      "overlapTransparent": {
+        "x": 789.9910806174958,
+        "y": 531.2562607204117
+      },
+      "aOnly": {
+        "x": 566.0179759862779,
+        "y": 530.508679245283
+      },
+      "outside": {
+        "x": 1700,
+        "y": 1000
+      },
+      "canvasPhoto": {
+        "x": 260,
+        "y": 870
+      },
+      "libPhoto": {
+        "x": 330,
+        "y": 150
+      },
+      "shape": {
+        "x": 1650,
+        "y": 180
+      }
+    },
+    "crop-dblclick": {
+      "state": {
+        "active": true,
+        "photoCropBox": true
+      },
+      "afterEscape": {
+        "active": false
+      },
+      "timeline": []
+    },
+    "eraser-toggle": {
+      "on": {
+        "pressed": "true",
+        "badges": [
+          "消しゴム中 — Esc で終わる"
+        ]
+      },
+      "off": {
+        "pressed": "false",
+        "badges": []
+      }
+    },
+    "runtime-exceptions": []
+  },
+  "errors": [],
+  "electronPid": 21561,
+  "electronStderrTail": "not exist.\n2026-09-25T14:29:52.149Z root WARN Linked preference \"workbench.colorCustomizations\" not found.\n2026-09-25T14:29:52.149Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found.\n2026-09-25T14:29:52.159Z root WARN Frontend Qqe.onStart took longer than the expected maximum 100 milliseconds: 495.4 ms [1.915 s since frontend page start]\n2026-09-25T14:29:52.367Z root WARN Frontend Jm.initializeLayout took longer than the expected maximum 100 milliseconds: 136.1 ms [2.122 s since frontend page start]\n2026-09-25T14:29:53.468Z root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: ENOENT: no such file or directory, lstat '<scratch>/workspace/captions.json'\n[21961:0925/232953.933751:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 \"paramErr: error in user parameter list\" (-50)\n2026-09-25T14:29:54.180Z root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <scratch>/workspace/.akari/cache/preview-audio/.d8a4c6e13745298374dd7496bae70624f08dbaed.flac.21583.1790346593008.tmp.flac. Error opening output files: Invalid argument\n2026-09-25T14:29:55.551Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-annotations-widget\n"
+}

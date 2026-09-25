@@ -14,6 +14,7 @@ import * as mappings from '../../lib/browser/inspector/field-mappings.js';
 import * as shapeFields from '../../lib/browser/inspector/shape-fields.js';
 import * as motionMarks from '../../lib/browser/inspector/motion-marks.js';
 import { composeInspectorSections } from '../../lib/browser/inspector/section-model.js';
+import { nextPhotoBrushItem } from '../../lib/browser/inspector/photo-brush-state.js';
 
 export const inspectorSource = readFileSync(new URL('../../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 export const timelineSource = readFileSync(new URL('../../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
@@ -29,7 +30,7 @@ const declarations = names.map(name => {
     assert.ok(node, name);
     return node.getText(ast);
 });
-for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE', 'photoBrushSettings']) {
+for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE', 'photoBrushSettings', 'activePhotoBrushItemId']) {
     const node = ast.statements.find(statement => ts.isVariableStatement(statement)
         && statement.declarationList.declarations.some(declaration => declaration.name.getText(ast) === name));
     assert.ok(node, name);
@@ -37,7 +38,7 @@ for (const name of ['LAYER_BLEND_OPTIONS', 'CUT_FRAMING_CROP_DISABLED_TITLE', 'p
 }
 const dependencies = { ...perspective, ...transition, ...mask, ...motion, ...animator, ...crop, ...framing, ...freeze, ...mappings,
     ...shapeFields, ...motionMarks,
-    TRANSITION_VOCABULARY, composeInspectorSections };
+    TRANSITION_VOCABULARY, composeInspectorSections, nextPhotoBrushItem };
 delete dependencies.default;
 delete dependencies['module.exports'];
 const code = ts.transpileModule(declarations.join('\n'), {

@@ -98,6 +98,7 @@ export class PreviewContextBar implements Disposable {
     protected barSignature = '';
     protected popSignature = '';
     protected menuSignature = '';
+    protected menuRectSignature = '';
     protected popPointerActive = false;
     protected keepRatio = true;
     protected layerDrag: { id: string; pointerId: number; over?: string } | undefined;
@@ -482,6 +483,14 @@ export class PreviewContextBar implements Disposable {
             }
         }
         this.more.classList.toggle('is-placed', showMenu);
+        const menuBox = showMenu ? this.menu.getBoundingClientRect() : null;
+        const menuRect = menuBox ? { left: menuBox.left - area.left, top: menuBox.top - area.top,
+            width: menuBox.width, height: menuBox.height } : null;
+        const signature = JSON.stringify(menuRect);
+        if (signature !== this.menuRectSignature) {
+            this.menuRectSignature = signature;
+            this.host.sendMessage({ type: 'akari-preview-context-menu-rect', rect: menuRect });
+        }
     }
 
     // ---- 操作 --------------------------------------------------------------------------

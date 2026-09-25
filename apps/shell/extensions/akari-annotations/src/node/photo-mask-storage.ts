@@ -38,7 +38,7 @@ export async function commitPhotoMask(projectRoot: string, input: string, png: B
 
 export async function savePhotoMask(projectRoot: string, input: string, helper: string | undefined): Promise<PhotoMaskResult> {
     if (!helper || !await fs.stat(helper).then(stat => stat.isFile()).catch(() => false)) {
-        return { ok: false, message: 'この Mac では使えません' };
+        return { ok: false, message: '背景を消す準備ができていません（開発中は build で作られます）' };
     }
     const root = await fs.realpath(projectRoot);
     const inputBefore = await fs.readFile(input);

@@ -134,7 +134,7 @@ export function openPhotoEditPanel(options: PhotoPanelOptions): void {
         status.textContent = mode === 'click' ? '写真を分けています… 初回はモデルを取得します' : '写真の中身を調べています…';
         const result = await write('photo-query', { mode, ...(point ? { x: point[0], y: point[1] } : {}) });
         if (closed || epoch !== queryEpoch) return;
-        if (!result.ok || !result.photoCandidates) { status.textContent = result.message ?? 'この Mac では使えません'; return; }
+        if (!result.ok || !result.photoCandidates) { status.textContent = result.message ?? '背景を消す準備ができていません（開発中は build で作られます）'; return; }
         if (!append || response?.inputSha256 !== result.inputSha256 || response.photoRevision !== result.photoRevision) {
             highlight(null);
             candidates = []; selected = new Set();

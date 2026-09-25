@@ -36,6 +36,7 @@ import { evaluatedItemTransform, resolvePreviewItemWrite, resolvePreviewItemWrit
 import { maskSourceOptionsForSources } from './inspector/mask-fields';
 import { isCurrentPhotoResponse } from './inspector/photo-response-state';
 import { buildAdoptedPhotoRegion, photoAdoptionPolarity } from './inspector/photo-panel-state';
+import { writeNestedPreviewLayer } from './inspector/nested-preview-layer';
 import { CommandRegistry, CommandService, Disposable, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
@@ -1413,7 +1414,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const onPhotoStroke = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; id?: string; stroke?: unknown }>).detail;
             if (!detail?.id || !this.location?.editUri || detail.editUri !== this.location.editUri.toString()) return;
-            const raw = this.rawV2Item(detail.id);
+            const raw = this.rawKeyframeItem(detail.id);
             if (raw?.source?.kind !== 'media') return;
             void this.handleInspectorWriteV2({ kind: 'item-field', id: detail.id, path: 'erase',
                 value: [...(Array.isArray(raw.erase) ? raw.erase : []), detail.stroke] });
@@ -1429,7 +1430,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 detail.resolve({ available: false });
                 return;
             }
-            const raw = this.rawV2Item(detail.id);
+            const raw = this.rawKeyframeItem(detail.id);
             const source = raw?.source?.kind === 'media' ? this.sourceMap.get(String(raw.source.src)) : undefined;
             if (!source || !/\.(png|jpe?g|webp|bmp|gif)$/iu.test(source.path)) {
                 detail.resolve({ available: false });
@@ -1478,6 +1479,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         return true;
                     }
                     await this.commitEditMutation('プレビューで変形を変更', doc => {
+                        if (!Array.isArray(command) && command.kind === 'layer') {
+                            const nested = writeNestedPreviewLayer(doc, command);
+                            if (nested) return nested;
+                        }
                         const source = JSON.stringify(doc);
                         if (!Array.isArray(command) && command.kind === 'duplicate') {
                             return JSON.parse(duplicatePreviewItem(source, command)) as EditV2Document;
@@ -4467,7 +4472,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         projectRootUri: this.location.root.toString(), sourceUri: source.videoUri
                     });
                     if ('message' in result) return { ok: false, message: result.message };
-                    if (this.rawV2Item(itemId)?.source?.src !== sourceId
+                    if (this.rawKeyframeItem(itemId)?.source?.src !== sourceId
                         || this.sourceMap.get(sourceId)?.videoUri !== source.videoUri) {
                         return { ok: false, message: '処理中に写真が変わりました' };
                     }
@@ -4491,10 +4496,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                             sourceUri: source.videoUri, mode: value?.mode === 'people' ? 'people' : 'foreground' });
                     if ('message' in result) return { ok: false, message: result.message };
                     if (!isCurrentPhotoResponse({ itemId, sourceId, sourceUri: source.videoUri,
-                        inputSha256: result.inputSha256, revision }, { itemId: this.rawV2Item(itemId)?.id ?? '',
-                        sourceId: String(this.rawV2Item(itemId)?.source?.src ?? ''),
+                        inputSha256: result.inputSha256, revision }, { itemId: this.rawKeyframeItem(itemId)?.id ?? '',
+                        sourceId: String(this.rawKeyframeItem(itemId)?.source?.src ?? ''),
                         sourceUri: this.sourceMap.get(sourceId)?.videoUri ?? '',
-                        inputSha256: result.inputSha256, revision: JSON.stringify(this.rawV2Item(itemId)) })) {
+                        inputSha256: result.inputSha256, revision: JSON.stringify(this.rawKeyframeItem(itemId)) })) {
                         return { ok: false, message: '処理中に写真が変わりました' };
                     }
                     return { ok: true, photoCandidates: result.candidates, inputSha256: result.inputSha256,
@@ -4518,9 +4523,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if ('message' in result) return { ok: false, message: result.message };
                     if (!isCurrentPhotoResponse({ itemId, sourceId, sourceUri: source.videoUri,
                         inputSha256: value.inputSha256, revision: value.photoRevision }, {
-                        itemId: this.rawV2Item(itemId)?.id ?? '', sourceId: String(this.rawV2Item(itemId)?.source?.src ?? ''),
+                        itemId: this.rawKeyframeItem(itemId)?.id ?? '', sourceId: String(this.rawKeyframeItem(itemId)?.source?.src ?? ''),
                         sourceUri: this.sourceMap.get(sourceId)?.videoUri ?? '',
-                        inputSha256: result.inputSha256, revision: JSON.stringify(this.rawV2Item(itemId)) })) {
+                        inputSha256: result.inputSha256, revision: JSON.stringify(this.rawKeyframeItem(itemId)) })) {
                         return { ok: false, message: '処理中に写真が変わりました' };
                     }
                     const hash = result.ref.match(/([a-f0-9]{64})\.png$/u)?.[1];
@@ -4799,7 +4804,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (needsTelopRebake) {
                 this.showNotice('テキストを変更しました。プレビューは焼成済み素材のままなので再ベイクが必要です。');
             }
-            this.footer.textContent = `${label}しました。`;
+            this.footer.textContent = label === '背景を消す' ? '背景を消しました。' : `${label}しました。`;
             return { ok: true, ...(adoptedRegion ? { photoRegion: adoptedRegion } : {}) };
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -5460,7 +5465,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return;
         }
-        if (this.layers.some(layer => layer.id === layerId)) {
+        const nestedMedia = this.expandedTimelineTreeRows.find(row => row.id === layerId
+            && row.parentId && row.sourceKind === 'media');
+        if (nestedMedia) {
+            // キャンバス内の写真も layers に平坦化される。木の子を先に開いて選ぶ。
+            this.handleOverlaySelection(editUri, layerId);
+        } else if (this.layers.some(layer => layer.id === layerId)) {
             this.applySelection({ kind: 'layer', id: layerId }, false);
             this.revealPreviewSelection();
         }
@@ -5848,7 +5858,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const itemId = selection.kind === 'cut' ? this.cutItemId(selection.index)
             : selection.kind === 'layer' || selection.kind === 'item' ? selection.id : undefined;
         if (!itemId) return;
-        const raw = this.rawV2Item(itemId);
+        const raw = this.rawKeyframeItem(itemId);
         if (raw?.source?.kind === 'media') this.prepareSelectedPhoto(String(raw.source.src ?? ''));
     }
 
@@ -5858,9 +5868,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.preparingPhotoSources.add(source.videoUri);
         this.showNotice('写真の準備をしています。初回はモデルを取得します…');
         void this.annotationsService.photoPrepare({ sourceUri: source.videoUri }).then(result => {
-            if (!result.ok) this.showNotice(result.message ?? 'この Mac では使えません');
+            if (!result.ok) this.showNotice(result.message ?? '背景を消す準備ができていません（開発中は build で作られます）');
             else this.hideNotice();
-        }).catch(() => this.showNotice('この Mac では使えません'));
+        }).catch(() => this.showNotice('背景を消す準備ができていません（開発中は build で作られます）'));
     }
 
     protected treeItemSnapshot(
