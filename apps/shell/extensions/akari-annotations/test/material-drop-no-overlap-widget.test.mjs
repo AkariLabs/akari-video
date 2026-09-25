@@ -7,6 +7,7 @@ import { materialOverlapInsertIndex } from '../lib/common/material-drop-overlap.
 import { computeMaterialGhostRange, materialGhostRejectLabel, materialGhostVisibility } from '../lib/common/timeline-material-insert.js';
 import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
 import { libraryAssetGhostPayload } from '../lib/browser/library-drop-model.js';
+import { timelineApplyTarget } from '../lib/browser/library-apply-plan.js';
 import { topVisualTarget } from '../lib/browser/preview-material-placement.js';
 import { probePreviewMediaDimensions } from '../lib/browser/preview-media-dimensions.js';
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
@@ -33,6 +34,7 @@ const bindings = {
     probePreviewMediaDimensions: options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }),
     computeMaterialGhostRange,
     materialGhostVisibility, materialGhostRejectLabel, hitTestTimelineTrackDrop, libraryAssetGhostPayload,
+    timelineApplyTarget,
     lockedTrackMessage: id => `locked: ${id}`,
     PLACE_TEXT_COMMAND_ID: 'akari.caption.placeText',
     textStyleDropStart: () => 13,
