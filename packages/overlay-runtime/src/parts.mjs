@@ -104,20 +104,23 @@ export function applyPartMask(htmlText, partId, overrides = {}) {
  * internal edit の HTML / group 木を、既存 renderer が消費できる overlay レコードへ射影する。
  * readHtml(ref, item) は同期関数で、ファイル参照を断片本文へ解決する。
  */
-export function expandBagOverlays(internal, readHtml = value => String(value ?? "")) {
+export function expandBagOverlays(internal, readHtml = value => String(value ?? ""), options = {}) {
   const records = [];
   for (const track of internal?.tracks ?? []) {
     for (const item of track?.items ?? []) {
-      expandItem(item, track, emptyGroupContext(), readHtml, records);
+      expandItem(item, track, emptyGroupContext(), readHtml, records, options);
     }
   }
   return records;
 }
 
-function expandItem(item, track, group, readHtml, records) {
+function expandItem(item, track, group, readHtml, records, options) {
   if (!item || itemHidden(item)) return;
   if (item.source?.kind === "group") {
     const declaration = declarationOf(item);
+    const motionParent = { at: finiteNumber(item.at, 0), duration: finiteNumber(item.duration, 0),
+      keyframeUnit: 'seconds', transform: declaration.transform, opacity: declaration.opacity,
+      keyframes: declaration.keyframes, motion: declaration.motion };
     const ownTransform = transformOf(declaration.transform);
     const itemStart = finiteNumber(item.at, 0);
     const itemEnd = itemStart + Math.max(0, finiteNumber(item.duration, 0));
@@ -129,6 +132,7 @@ function expandItem(item, track, group, readHtml, records) {
       blend: declaration.blend ?? group.blend,
       clipStart: Math.max(group.clipStart, itemStart),
       clipEnd: Math.min(group.clipEnd, itemEnd),
+      motionParents: [motionParent, ...(group.motionParents ?? [])],
     };
     if (!(next.clipEnd > next.clipStart)) return;
     const background = item.source.canvas?.background;
@@ -145,7 +149,7 @@ function expandItem(item, track, group, readHtml, records) {
       }));
     }
     for (const child of item.children ?? item.items ?? []) {
-      expandItem(child, track, next, readHtml, records);
+      expandItem(child, track, next, readHtml, records, options);
     }
     return;
   }
@@ -166,13 +170,13 @@ function expandItem(item, track, group, readHtml, records) {
       html: masked,
       part: item.source.part,
       parentId: item.parentId,
-    });
+    }, options);
     if (record) records.push(record);
     return;
   }
 
   if (!isBag || (explicitChildren.length === 0 && exclude.length === 0)) {
-    const record = overlayRecord(item, track, group, { html: htmlReference });
+    const record = overlayRecord(item, track, group, { html: htmlReference }, options);
     if (record) records.push(record);
     return;
   }
@@ -182,7 +186,7 @@ function expandItem(item, track, group, readHtml, records) {
     if (itemHidden(child)) continue;
     const part = child?.source?.part;
     if (typeof part !== "string") {
-      expandItem(child, track, group, readHtml, records);
+      expandItem(child, track, group, readHtml, records, options);
       continue;
     }
     const childReference = String(child.source?.html ?? htmlReference);
@@ -190,12 +194,12 @@ function expandItem(item, track, group, readHtml, records) {
       ? htmlText
       : String(readHtml(childReference, child) ?? "");
     const [masked] = applyPartMask(childHtml, part, child.source);
-    const record = bagChildRecord(item, child, track, group, masked, part);
+    const record = bagChildRecord(item, child, track, group, masked, part, options);
     if (record) records.push(record);
   }
 }
 
-function overlayRecord(item, track, group, extra) {
+function overlayRecord(item, track, group, extra, options) {
   const declaration = declarationOf(item);
   const declaredStart = finiteNumber(item.at, 0);
   const declaredDuration = Math.max(0, finiteNumber(item.duration, 0));
@@ -217,6 +221,12 @@ function overlayRecord(item, track, group, extra) {
     html: extra.html,
     start,
     duration,
+    ...(Array.isArray(declaration.keyframes) ? { keyframeUnit: options.keyframeUnit ?? 'seconds' } : {}),
+    ...(group.motionParents?.length && (hasAnimatedMotion(declaration)
+      || group.motionParents.some(hasAnimatedMotion)) ? { motionSource: { at: declaredStart,
+      duration: declaredDuration, keyframeUnit: options.keyframeUnit ?? 'seconds', transform: declaration.transform,
+      opacity: declaration.opacity, keyframes: declaration.keyframes, motion: declaration.motion },
+      motionParents: group.motionParents } : {}),
     ...(hasResolvedTransform ? { transform } : {}),
     ...(group.hasOpacity || declaration.opacity !== undefined ? { opacity } : {}),
     ...(declaration.blend ?? group.blend) !== undefined
@@ -226,7 +236,7 @@ function overlayRecord(item, track, group, extra) {
   });
 }
 
-function bagChildRecord(bag, child, track, group, html, part) {
+function bagChildRecord(bag, child, track, group, html, part, options) {
   const bagDeclaration = declarationOf(bag);
   const childDeclaration = declarationOf(child);
   const bagStart = finiteNumber(bag.at, 0);
@@ -264,6 +274,12 @@ function bagChildRecord(bag, child, track, group, html, part) {
     html,
     start,
     duration,
+    ...(Array.isArray(childDeclaration.keyframes) ? { keyframeUnit: options.keyframeUnit ?? 'seconds' } : {}),
+    ...(group.motionParents?.length && (hasAnimatedMotion(childDeclaration)
+      || group.motionParents.some(hasAnimatedMotion)) ? { motionSource: { at: declaredStart,
+      duration: declaredDuration, keyframeUnit: options.keyframeUnit ?? 'seconds', transform: resolvedTransformDeclaration,
+      opacity: localOpacity, keyframes: childDeclaration.keyframes, motion: childDeclaration.motion },
+      motionParents: group.motionParents } : {}),
     ...(hasResolvedTransform ? { transform: resolvedTransform } : {}),
     ...(group.hasOpacity || localOpacity !== undefined ? { opacity } : {}),
     ...(blend !== undefined ? { blend } : {}),
@@ -283,7 +299,13 @@ function emptyGroupContext() {
     blend: undefined,
     clipStart: Number.NEGATIVE_INFINITY,
     clipEnd: Number.POSITIVE_INFINITY,
+    motionParents: [],
   };
+}
+
+function hasAnimatedMotion(item) {
+  return item?.motion !== undefined || (Array.isArray(item?.keyframes) && item.keyframes.length >= 2
+    && item.keyframes.some(point => point?.transform || Number.isFinite(point?.opacity)));
 }
 
 export function composeTransforms(parent, child) {

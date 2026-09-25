@@ -7,8 +7,21 @@ const near = (actual, expected, tolerance = 1e-10) =>
 const identity = { dx: 0, dy: 0, scale: 1, rotate: 0, opacity: 1 };
 
 test('motion preset inventories match the v0 vocabulary', () => {
-  assert.deepEqual(MOTION_IN_OUT_PRESETS, ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe']);
-  assert.deepEqual(MOTION_LOOP_PRESETS, ['pulse', 'float', 'spin']);
+  assert.deepEqual(MOTION_IN_OUT_PRESETS, ['fade', 'slide-up', 'slide-down', 'slide-left', 'slide-right', 'scale', 'wipe', 'pop', 'zoom', 'twirl']);
+  assert.deepEqual(MOTION_LOOP_PRESETS, ['pulse', 'float', 'spin', 'blink', 'jiggle']);
+});
+
+test('new entrance and emphasis presets use additive and multiplicative channels', () => {
+  const pop = motionVisualAt({ in: { preset: 'pop', duration: 30 } }, 0, 3, 30);
+  near(pop.scale, .25); near(pop.opacity, 0);
+  const zoom = motionVisualAt({ in: { preset: 'zoom', duration: 30 } }, 0, 3, 30);
+  near(zoom.scale, 1.55); near(zoom.opacity, 0);
+  const twirl = motionVisualAt({ out: { preset: 'twirl', duration: 30 } }, 3, 3, 30);
+  near(twirl.rotate, -200); near(twirl.scale, .35); near(twirl.opacity, 0);
+  const blink = motionVisualAt({ loop: { preset: 'blink', period: 30 } }, .75, 3, 30);
+  near(blink.opacity, .25);
+  const jiggle = motionVisualAt({ loop: { preset: 'jiggle', period: 30 } }, .2, 3, 30);
+  assert.notEqual(jiggle.dx, 0); assert.notEqual(jiggle.rotate, 0);
 });
 
 for (const [preset, property, hidden, middle, visible] of [

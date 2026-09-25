@@ -755,9 +755,15 @@ function CUT_SECTIONS(
         },
         { id: 'transform', label: '変形', fields: transformFields },
         MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
-        ...(snapshot.itemId && snapshot.durationFrames ? [{ id: 'motion', label: '動き',
-            fields: MOTION_FIELDS({ id: snapshot.itemId, durationFrames: snapshot.durationFrames,
-                motion: snapshot.motion }, requestWrite) }] : [MOTION_EMPTY_SECTION()]),
+        ...(snapshot.itemId && snapshot.durationFrames ? (() => {
+            const fields = MOTION_FIELDS({ id: snapshot.itemId, durationFrames: snapshot.durationFrames,
+                motion: snapshot.motion }, requestWrite);
+            return ([['draw', '動きを描く'], ['in', '登場'], ['loop', '強調'], ['out', '退場']] as const)
+                .map(([slot, label]) => ({ id: `motion:${slot}`, label,
+                    fields: fields.filter(field => slot === 'draw' ? field.name === 'motion-draw'
+                        : field.name?.startsWith(`motion-${slot}-`)) }))
+                .filter(section => section.fields.length > 0);
+        })() : [MOTION_EMPTY_SECTION()]),
         { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
         { id: 'freeze', label: 'フリーズ', fields: cutFreezeFields(snapshot, requestWrite) },
         ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
@@ -990,8 +996,12 @@ function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorFieldDef[] {
     const motion = normalizeInspectorMotion(snapshot.motion);
-    return (['in', 'out', 'loop'] as const).flatMap((slot: InspectorMotionSlot) => {
-        const label = slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ';
+    return [...(snapshot.sourceKind !== 'caption' && snapshot.sourceKind !== 'captions' ? [{
+        name: 'motion-draw', label: '動きを描く', getValue: () => '', actionLabel: 'プレビューで描く',
+        action: () => requestWrite({ kind: 'item-field' as const, id: snapshot.id, path: 'motion-draw' as const, value: true })
+    }] : []),
+    ...(['in', 'loop', 'out'] as const).flatMap((slot: InspectorMotionSlot) => {
+        const label = slot === 'in' ? '登場' : slot === 'out' ? '退場' : '強調';
         const seat = motion[slot];
         const amount = seat ? MOTION_AMOUNT_DEFAULTS[seat.preset] : undefined;
         const missingTitle = 'プリセットを選ぶと変更できます。';
@@ -1031,22 +1041,34 @@ function MOTION_FIELDS<T extends InspectorMotionSnapshot>(
             },
             {
                 name: `motion-${slot}-amount`, label: `${label}の量`, inputKind: 'scrub-number',
-                unit: amount?.unit, scrubStep: amount?.unit === '倍' ? 0.01 : 1,
+                unit: amount?.unit, scrubStep: amount?.unit === '倍' || amount?.unit === '量' ? 0.01 : 1,
                 getValue: () => String(seat?.amount ?? amount?.value ?? 0),
                 getEditValue: () => String(seat?.amount ?? amount?.value ?? 0),
                 disabled: !seat || !amount, title: !seat ? missingTitle : !amount ? 'このプリセットに量はありません' : undefined,
                 write: (current, input) => write(current, 'amount', input), reset: current => write(current, 'amount', null)
             }
         ] satisfies InspectorFieldDef[]).map(field => ({ ...field, keyframeDisabled: true }));
-    });
+    })];
+}
+
+function MOTION_SECTIONS(snapshot: InspectorMotionSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>): InspectorSection[] {
+    const fields = MOTION_FIELDS(snapshot, requestWrite);
+    return [
+        { id: 'motion:draw', label: '動きを描く', fields: fields.filter(field => field.name === 'motion-draw') },
+        ...([['in', '登場'], ['loop', '強調'], ['out', '退場']] as const).map(([slot, label]) => ({
+            id: `motion:${slot}`, label,
+            fields: fields.filter(field => field.name?.startsWith(`motion-${slot}-`))
+        }))
+    ].filter(section => section.fields.length > 0);
 }
 
 function MOTION_SUMMARY_SECTION(motion: Record<string, unknown> | undefined, open?: () => void): InspectorSection {
     return { id: 'motion-summary', label: '動き', fields: [{
         name: 'motion-summary', label: '現在の動き',
-        getValue: () => ['in', 'out', 'loop'].map(slot => {
+        getValue: () => ['in', 'loop', 'out'].map(slot => {
             const seat = motion?.[slot] as { preset?: string } | undefined;
-            return seat?.preset ? `${slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ'}: ${MOTION_PRESET_LABELS[seat.preset as keyof typeof MOTION_PRESET_LABELS] ?? seat.preset}` : '';
+            return seat?.preset ? `${slot === 'in' ? '登場' : slot === 'out' ? '退場' : '強調'}: ${MOTION_PRESET_LABELS[seat.preset as keyof typeof MOTION_PRESET_LABELS] ?? seat.preset}` : '';
         }).filter(Boolean).join(' / ') || 'なし'
     }, {
         name: 'motion-open', label: '詳しい設定', getValue: () => '', actionLabel: '動きタブで開く',
@@ -1141,10 +1163,7 @@ function LAYER_SECTIONS(
         { id: 'crop', label: 'クロップ', fields: cropFields },
         perspectiveSection,
         MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
-        ...(snapshot.sourceKind === 'html' ? [] : [{
-            id: 'motion', label: '動き', fields: MOTION_FIELDS(snapshot, requestWrite)
-        }]),
-        ...(snapshot.sourceKind === 'html' ? [MOTION_EMPTY_SECTION()] : []),
+        ...MOTION_SECTIONS(snapshot, requestWrite),
         ...(generation ? [{ id: GENERATION_SECTION_ID, label: '生成', fields: generation }] : []),
         {
             id: 'appearance', label: '外観', fields: [
@@ -2294,9 +2313,9 @@ function OVERLAY_SECTIONS(
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'crop', label: 'クロップ', fields: cropFields },
         MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
-        ...(snapshot.durationFrames ? [{ id: 'motion', label: '動き', fields: MOTION_FIELDS({
+        ...(snapshot.durationFrames ? MOTION_SECTIONS({
             id: snapshot.id, durationFrames: snapshot.durationFrames, motion: snapshot.motion
-        }, requestWrite) }] : [MOTION_EMPTY_SECTION()]),
+        }, requestWrite) : [MOTION_EMPTY_SECTION()]),
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -2551,9 +2570,9 @@ function TREE_ITEM_SECTIONS(
             markers: itemMotionMarks(snapshot, 'crop') })) },
         perspectiveSection,
         MOTION_SUMMARY_SECTION(snapshot.motion, openMotion),
-        ...(snapshot.sourceKind === 'html' ? [MOTION_EMPTY_SECTION()] : [{
-            id: 'motion', label: '動き', fields: MOTION_FIELDS(snapshot, requestWrite)
-        }]),
+        ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption'
+            ? [{ id: 'motion', label: '動き', fields: MOTION_FIELDS({ ...snapshot,
+                sourceKind: 'caption' }, requestWrite) }] : MOTION_SECTIONS(snapshot, requestWrite)),
         ...(snapshot.itemKind === 'captions' || snapshot.itemKind === 'caption' ? [
             ANIMATOR_SECTION(snapshot.id, 'アニメーター', snapshot.animator, requestWrite)
         ] : []),

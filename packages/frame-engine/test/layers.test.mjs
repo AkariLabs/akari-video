@@ -127,7 +127,7 @@ test('timeline resolves z order, local source time, static and animated visuals'
   assert.deepEqual(plan.layers.map(layer => layer.id), ['back','front']);
   assert.deepEqual(plan.layers.map(layer => layer.sourceTimeUs), [1_500_000,500_000]);
   assert.deepEqual(plan.layers[0].visual.crop, { x:.1,y:.2,width:.5,height:.6 });
-  assert.equal(plan.layers[1].visual.transform.x, 9.375);
+  assert.equal(plan.layers[1].visual.transform.x, 10);
   assert.equal(plan.layers[1].opacity, .5);
 });
 
@@ -152,6 +152,25 @@ test('layer motion composes with keyframes at output-local seconds and timeline 
   assert.ok(Math.abs(scale - 3.325) < 1e-12);
   assert.ok(Math.abs(at(3.5).opacity - 0.35) < 1e-12);
   assert.equal(at(2.5).sourceTimeUs, 500_000);
+});
+
+test('parent canvas motion follows child keyframes in the resolved layer plan', () => {
+  const source = { decode: async () => { throw new Error('unused'); } };
+  const layer = { id: 'child', t: 1, duration: 2, src: 'video',
+    transform: { x: 110, y: 0 },
+    motionSource: { at: 1, duration: 2, keyframeUnit: 'seconds',
+      keyframes: [{ t: 0, transform: { x: 0 } }, { t: 2, transform: { x: 100 } }],
+      opacity: .5, motion: { in: { preset: 'slide-up', duration: 30, amount: 40 } } },
+    motionParents: [{ at: 0, duration: 3, keyframeUnit: 'seconds',
+      transform: { x: 10, scale: 2 }, motion: { in: { preset: 'scale', duration: 30, amount: .2 } } }]
+  };
+  const timeline = buildResolvedTimelinePlan([], { fps: 30, layers: [layer] });
+  const at = seconds => evaluationPlanFromResolvedTimeline(timeline, seconds * 1e6,
+    new Map([['video', source]]), { width: 320, height: 180, colorSpace: 'bt709-limited' }).layers[0];
+  assert.equal(at(1).visual.transform.x, 10);
+  assert.equal(at(1).visual.transform.y, 80);
+  assert.equal(at(1.5).visual.transform.x, 60);
+  assert.equal(at(1.5).opacity, .5);
 });
 
 test('layers without motion retain the serialized static and keyframed evaluation', () => {

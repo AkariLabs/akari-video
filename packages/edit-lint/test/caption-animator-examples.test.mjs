@@ -72,8 +72,8 @@ test('GPU caption animator exception accepts selector easing but preserves unsup
     const group = structuredClone(original);
     group.tracks[0].items[0].source = { kind: 'group' };
     const groupResult = await lint(group);
-    assert.ok(groupResult.findings.some(finding => finding.check === 'engine.unsupported-field'
-      && finding.path.endsWith('.keyframes')), JSON.stringify(groupResult.findings));
+    assert.equal(groupResult.findings.some(finding => finding.check === 'engine.unsupported-field'
+      && finding.path.endsWith('.keyframes')), false, JSON.stringify(groupResult.findings));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

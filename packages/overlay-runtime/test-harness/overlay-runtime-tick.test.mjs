@@ -13,10 +13,13 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import vm from "node:vm";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, "../src/overlay-runtime.js"), "utf8");
+const require = createRequire(import.meta.url);
+const itemMotion = require('../src/item-motion.js');
 
 const THREE_HTML =
   '<div class="scene-root"><canvas></canvas>'
@@ -113,6 +116,7 @@ function createHost({ animations = () => [] } = {}) {
         applyOverlayHitPolicy(container) { host.interactionCalls.push(["apply", container]); },
         invalidateOverlayHitPolicy(container) { host.interactionCalls.push(["invalidate", container]); },
       },
+      itemMotion,
     },
   };
   const context = { window, document, performance: { now: () => host.clock }, console };
@@ -296,4 +300,26 @@ test("3D 断片の CSS アニメもタイムラインへ同期する（three の
   host.clock = 9300;
   host.runtime.tick(0.5, true);
   assert.equal(animation.currentTime, 500);
+});
+
+test('animated overlay keeps the pointer position during a live move', async () => {
+  const host = createHost();
+  await host.runtime.mount({ output: { fps: 30 }, overlays: [{
+    id: 'shape', start: 0, duration: 4, html: CAPTION_HTML,
+    transform: { x: 0, y: 0, scale: 1 },
+    motion: { in: { preset: 'slide-up', duration: 30, amount: 100 } }
+  }] });
+  const container = host.stage.children[0];
+  host.runtime.tick(.5, false);
+  assert.equal(container.dataset.akariMotionDriven, 'true');
+  assert.equal(container.style.getPropertyValue('--y'), '50px');
+  container.dataset.akariMotionDragging = 'true';
+  container.style.setProperty('--x', '80px');
+  container.style.setProperty('--y', '50px');
+  host.runtime.tick(.5, false);
+  assert.equal(container.style.getPropertyValue('--x'), '80px');
+  assert.equal(container.style.getPropertyValue('--y'), '50px');
+  delete container.dataset.akariMotionDragging;
+  host.runtime.tick(.5, false);
+  assert.equal(container.style.getPropertyValue('--x'), '0px');
 });

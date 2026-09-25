@@ -33,6 +33,7 @@ export function applyPartMask(
 export function expandBagOverlays(
   internal: any,
   readHtml?: (reference: string, item: any) => string,
+  options?: { keyframeUnit?: 'seconds' | 'frames' },
 ): OverlayRecord[];
 
 /** Uniform parent composition; explicit equal axes fold to scale. */

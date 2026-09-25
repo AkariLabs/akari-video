@@ -561,6 +561,35 @@ test('one photo plan carries global and ordered region color through mask, crop,
   assert.deepEqual(photo.frame, frame);
 });
 
+test('photo pixel stages and item motion resolve together on the same image', () => {
+  const image = { load: async () => { throw new Error('not used'); }, destroy() {} };
+  const mask = { load: async () => { throw new Error('not used'); }, destroy() {} };
+  const timeline = buildResolvedTimelinePlan([], { fps: 30, layers: [{
+    id: 'moving-photo', t: 0, duration: 2, src: 'photo.png',
+    motionSource: { at: 0, duration: 2, keyframeUnit: 'seconds',
+      transform: { x: 10, scale: 2 }, opacity: 0.8,
+      motion: { in: { preset: 'fade', duration: 30 } } },
+    mask: 'mask.png', maskFeather: 3,
+    erase: [{ mode: 'erase', points: [[0.25, 0.5]], size: 0.1, hardness: 1 }],
+    regions: [{ id: 'subject', maskRef: 'mask.png', adjust: { basic: { exposure: 0.5 } } }],
+    crop: { x: 0.1, y: 0.2, w: 0.7, h: 0.6, rotate: 5 },
+    flip: { h: true }, frame: { cornerRadius: 20 }
+  }] });
+  const photo = evaluationPlanFromResolvedTimeline(timeline, 500_000,
+    new Map([['photo.png', image], ['mask.png', mask]]), stillOutput).layers[0];
+  assert.equal(photo.kind, 'image');
+  assert.deepEqual(photo.visual.transform, { x: 10, y: 0, scale: 2, rotateDegrees: 0 });
+  assert.equal(photo.opacity, 0.4);
+  assert.equal(photo.visual.cropRotate, 5);
+  assert.equal(photo.mask.source, mask);
+  assert.equal(photo.maskFeather, 3);
+  assert.equal(photo.erase.length, 1);
+  assert.equal(photo.regions[0].mask, mask);
+  assert.ok(photo.regions[0].adjustLut);
+  assert.deepEqual(photo.flip, { h: true });
+  assert.deepEqual(photo.frame, { cornerRadius: 20 });
+});
+
 test('active non-filter layer without src warns before preserving the existing skip', () => {
   const warnings = [];
   const timeline = buildResolvedTimelinePlan([{ src: 'fixture.mp4', in: 0, out: 1 }], {
@@ -667,11 +696,11 @@ test('cuts without motion retain serialized fit-basis and layerStyle visuals', (
 
 test('runtime known-key inventories expose declared shapes plus recognized non-text animator', () => {
   assert.deepEqual([...KNOWN_CUT_KEYS].sort(), [
-    'adjust', 'animator', 'at', 'audio', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'mute', 'opacity', 'out', 'perspective',
+    'adjust', 'animator', 'at', 'audio', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'motion', 'motionParents', 'motionSource', 'mute', 'opacity', 'out', 'perspective',
     'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
   ]);
   assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [
-    'adjust', 'animator', 'blend', 'crop', 'duration', 'erase', 'filter', 'flip', 'frame', 'id', 'in', 'keyframes', 'kind', 'mask', 'maskFeather', 'motion', 'opacity',
+    'adjust', 'animator', 'blend', 'crop', 'duration', 'erase', 'filter', 'flip', 'frame', 'id', 'in', 'keyframes', 'kind', 'mask', 'maskFeather', 'motion', 'motionParents', 'motionSource', 'opacity',
     'perspective', 'regions', 'speed', 'src', 't', 'track', 'transform',
   ]);
   assert.deepEqual([...KNOWN_KEYFRAME_KEYS].sort(), [

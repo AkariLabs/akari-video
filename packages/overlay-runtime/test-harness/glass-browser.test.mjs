@@ -172,12 +172,16 @@ test('preview app loader resolves variant backdrop and seeks/disposes real glass
   await openPreview(page);
   await page.evaluate((path) => window.akari.runtime.mount({overlays:[{id:'glass',start:0,duration:6,html:'/pack/'+path}]}),fragmentPath);
   await page.waitForFunction(() => { window.akari.runtime.tick(1.5); return window.akari.glassRuntime?.inspect(document.querySelector('[data-overlay-id]')).status === 'ready'; });
+  await page.evaluate(() => window.akari.runtime.tick(1.5));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const before = await page.screenshot();
   await page.evaluate(() => window.akari.runtime.tick(2.8));
   const after = await page.screenshot();
   assert.notDeepEqual(before,after);
   await page.evaluate(() => window.akari.runtime.tick(1.5));
-  assert.deepEqual(before,await page.screenshot());
+  await page.evaluate(() => window.akari.runtime.tick(1.5));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  assert.deepEqual(before, await page.screenshot());
   const runtimeUrl = browserManifest().runtimes.find(entry=>entry.id==='glass').scripts[0].url;
   assert.equal(requests.filter(path=>path===runtimeUrl).length,1);
   assert.ok(requests.includes('/runtimes.json'));

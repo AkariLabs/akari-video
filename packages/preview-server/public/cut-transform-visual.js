@@ -11,11 +11,13 @@ export function composeCutVisualStyle({
   const x = finiteOr(transform?.x, 0);
   const y = finiteOr(transform?.y, 0);
   const scale = positiveOr(transform?.scale, 1);
+  const scaleX = positiveOr(transform?.scaleX, scale);
+  const scaleY = positiveOr(transform?.scaleY, scale);
   const rotate = finiteOr(transform?.rotate, 0);
   const normalizedOpacity = boundedOr(opacity, 1, 0, 1);
   const xPercent = outputWidth > 0 ? (x / outputWidth) * 100 : 0;
   const yPercent = outputHeight > 0 ? (y / outputHeight) * 100 : 0;
-  const needsCenterWrap = scale !== 1 || rotate !== 0;
+  const needsCenterWrap = scaleX !== 1 || scaleY !== 1 || rotate !== 0;
   const needsXY = x !== 0 || y !== 0;
   const hasFraming = framingVisual !== null;
   const parts = [];
@@ -23,7 +25,8 @@ export function composeCutVisualStyle({
   if (needsXY) parts.push(`translate(${formatNumber(xPercent)}%, ${formatNumber(yPercent)}%)`);
   if (needsCenterWrap) parts.push('translate(50%, 50%)');
   if (rotate !== 0) parts.push(`rotate(${formatNumber(rotate)}deg)`);
-  if (scale !== 1) parts.push(`scale(${formatNumber(scale)})`);
+  if (scaleX !== 1 || scaleY !== 1) parts.push(scaleX === scaleY
+    ? `scale(${formatNumber(scaleX)})` : `scale(${formatNumber(scaleX)}, ${formatNumber(scaleY)})`);
   if (needsCenterWrap) parts.push('translate(-50%, -50%)');
   if (hasFraming) parts.push(framingVisual.transform);
 

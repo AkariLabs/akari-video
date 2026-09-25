@@ -239,6 +239,8 @@ function createOverlayRuntime(options = {}) {
       window.akari.textSplit?.applyAll(container);
 
       fragment.appendChild(container);
+      const motionDriven = Array.isArray(overlay.keyframes) || overlay.motion || overlay.motionSource;
+      if (motionDriven) container.dataset.akariMotionDriven = 'true';
       const mountedOverlay = {
         container,
         hasAxisTransform: hasAxisTransform(overlay),
@@ -249,8 +251,12 @@ function createOverlayRuntime(options = {}) {
         // getAnimations({ subtree: true }) の 250ms キャッシュ（tick() 参照）
         animations: undefined,
         animationsAt: 0,
-        ...(Array.isArray(overlay.keyframes) ? {
+        ...(motionDriven ? {
           keyframes: overlay.keyframes,
+          motion: overlay.motion,
+          keyframeUnit: overlay.keyframeUnit,
+          motionSource: overlay.motionSource,
+          motionParents: overlay.motionParents,
           fps: finiteNumber(summary?.output?.fps, 30),
           statics: {
             x: isBackground ? 0 : finiteNumber(transform.x, 0),
@@ -357,22 +363,24 @@ function createOverlayRuntime(options = {}) {
       if (!visible) continue;
 
       const localTimeMs = Math.max(0, (timelineTime - overlay.start) * 1000);
-      if (Array.isArray(overlay.keyframes)) {
-        const interpolate = window.akari.keyframes?.interpolateKeyframes;
-        if (typeof interpolate !== "function") {
-          throw new Error("item keyframes runtime is not loaded");
+      if (Array.isArray(overlay.keyframes) || overlay.motion || overlay.motionSource) {
+        const evaluate = window.akari.itemMotion?.evaluateOverlayMotion;
+        if (typeof evaluate !== "function") {
+          throw new Error("item motion runtime is not loaded");
         }
-        const state = interpolate(overlay.keyframes, localTimeMs * overlay.fps / 1000, {
-          statics: overlay.statics,
-        });
-        overlay.container.style.setProperty("--x", overlay.isBackground ? "0px" : `${state.x}px`);
-        overlay.container.style.setProperty("--y", overlay.isBackground ? "0px" : `${state.y}px`);
+        const state = evaluate({ ...overlay, transform: overlay.statics,
+          opacity: overlay.statics.opacity }, timelineTime, overlay.fps);
+        if (overlay.container.dataset.akariMotionDragging !== 'true') {
+          overlay.container.style.setProperty("--x", overlay.isBackground ? "0px" : `${state.x}px`);
+          overlay.container.style.setProperty("--y", overlay.isBackground ? "0px" : `${state.y}px`);
+        }
         overlay.container.style.setProperty("--scale", overlay.isBackground ? "1" : String(state.scale));
         for (const [key, css] of [["scaleX", "--scale-x"], ["scaleY", "--scale-y"]]) {
           if (state[key] !== undefined) overlay.container.style.setProperty(css, overlay.isBackground ? "1" : String(state[key]));
         }
         overlay.container.style.setProperty("--rotate", overlay.isBackground ? "0deg" : `${state.rotate}deg`);
         overlay.container.style.setProperty("opacity", String(state.opacity));
+        overlay.container.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
       }
       // getAnimations({ subtree: true }) のコストは「ドキュメント全体に現存する CSS animation の
       // 総数」にほぼ比例する（上の注記）。断片のアニメは `[data-akari-active]` ゲートで宣言する

@@ -7,7 +7,10 @@ import { layerSections, itemSections, cutSections, overlaySections, visualSnapsh
 import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.js';
 import { keyframeRowPropertyOf, keyframeValueAt } from '../lib/browser/timeline/timeline-keyframe-rows.js';
 
-test('media layer / item は映像タブに要約、動きタブに開いた12行を表示する', () => {
+const motionRows = sections => ['in', 'out', 'loop'].flatMap(slot =>
+  sections.find(section => section.id === `motion:${slot}`).fields);
+
+test('media layer / item は映像タブに要約、動きタブに3段を表示する', () => {
   for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
     const snapshot = visualSnapshot(kind);
     const sections = factory(snapshot, async () => ({ ok: true }));
@@ -16,15 +19,24 @@ test('media layer / item は映像タブに要約、動きタブに開いた12�
     assert.ok(summary > 0);
     assert.equal(video[summary - 1].id, 'perspective');
     assert.equal(video[summary].fields[1].actionLabel, '動きタブで開く');
-    const motion = sections.find(section => section.id === 'motion');
+    const motion = sections.find(section => section.id === 'motion:in');
     assert.equal(assignSectionToTab(kind, motion.id), 'motion');
     assert.equal(motion.collapsedByDefault, undefined);
-    assert.deepEqual(motion.fields.map(field => field.label), [
-      '入り', '入りの尺', '入りのイージング', '入りの量',
-      '抜き', '抜きの尺', '抜きのイージング', '抜きの量',
-      'ループ', '周期', 'ループのイージング', 'ループの量'
+    assert.deepEqual(sections.filter(section => ['motion:in', 'motion:loop', 'motion:out'].includes(section.id))
+      .map(section => section.label), ['登場', '強調', '退場']);
+    const entrance = sections.find(section => section.id === 'motion:in').fields[0].options;
+    const emphasis = sections.find(section => section.id === 'motion:loop').fields[0].options;
+    const exit = sections.find(section => section.id === 'motion:out').fields[0].options;
+    assert.ok(entrance.includes('ポップ') && exit.includes('ポップ'));
+    assert.ok(emphasis.includes('点滅') && emphasis.includes('小刻みな動き'));
+    assert.equal(entrance.includes('点滅'), false);
+    assert.equal(emphasis.includes('ズーム'), false);
+    assert.deepEqual(motionRows(sections).map(field => field.label), [
+      '登場', '登場の尺', '登場のイージング', '登場の量',
+      '退場', '退場の尺', '退場のイージング', '退場の量',
+      '強調', '周期', '強調のイージング', '強調の量'
     ]);
-    assert.deepEqual(motion.fields.map(field => field.inputKind),
+    assert.deepEqual(motionRows(sections).map(field => field.inputKind),
       Array(3).fill(['select', 'scrub-number', 'select', 'scrub-number']).flat());
   }
 });
@@ -40,29 +52,30 @@ test('cut / overlay も映像の要約と動きタブの 12 行を同じ motion 
     const sections = factory(snapshot, async request => { writes.push(request); return { ok: true }; });
     const summary = sections.find(section => section.id === 'motion-summary');
     assert.equal(assignSectionToTab(kind, summary.id), 'video');
-    assert.equal(summary.fields[0].getValue(), '入り: フェード');
-    const motion = sections.find(section => section.id === 'motion');
+    assert.equal(summary.fields[0].getValue(), '登場: フェード');
+    const motion = sections.find(section => section.id === 'motion:in');
     assert.equal(assignSectionToTab(kind, motion.id), 'motion');
     assert.equal(motion.collapsedByDefault, undefined);
-    assert.equal(motion.fields.length, 12);
+    assert.equal(motionRows(sections).length, 12);
     await motion.fields[0].write(snapshot, 'なし');
     assert.deepEqual(writes, [{ kind: 'item-field', id: kind === 'cut' ? 'cut-1' : 'overlay-1',
       path: 'motion', value: null }]);
   }
 });
 
-test('HTML item / layer には動きセクションを出さない', () => {
+test('HTML item / layer にも動きの3段を出す', () => {
   for (const factory of [itemSections, layerSections]) {
     const snapshot = visualSnapshot('item', { sourceKind: 'html', itemKind: 'part' });
-    assert.equal(factory(snapshot, () => {}).some(section => section.id === 'motion'), false);
+    assert.deepEqual(factory(snapshot, () => {}).filter(section =>
+      ['motion:in', 'motion:loop', 'motion:out'].includes(section.id)).map(section => section.label),
+    ['登場', '強調', '退場']);
   }
 });
 
 test('motion 未選択席の尺・ease・量は disabled、fade / wipe の量には理由を表示する', async () => {
   for (const [kind, factory] of [['layer', layerSections], ['item', itemSections]]) {
     const snapshot = visualSnapshot(kind);
-    const fields = factory(snapshot, async () => assert.fail('未選択席には書かない'))
-      .find(section => section.id === 'motion').fields;
+    const fields = motionRows(factory(snapshot, async () => assert.fail('未選択席には書かない')));
     for (const offset of [0, 4, 8]) {
       assert.equal(fields[offset].disabled, false);
       assert.equal(fields[offset].options[0], 'なし');
@@ -78,7 +91,7 @@ test('motion 未選択席の尺・ease・量は disabled、fade / wipe の量に
     }
     for (const preset of ['fade', 'wipe']) {
       const current = { ...snapshot, motion: { in: { preset, duration: 12 } } };
-      const row = factory(current, async () => assert.fail('量を書かない')).find(section => section.id === 'motion').fields[3];
+      const row = motionRows(factory(current, async () => assert.fail('量を書かない')))[3];
       assert.equal(row.disabled, true);
       assert.equal(row.title, 'このプリセットに量はありません');
       assert.equal((await row.write(current, '20')).ok, false);
@@ -251,7 +264,7 @@ test('cut 選択の節は timing → audio → info の順に並ぶ', () => {
   const factory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
   const sections = [...factory.matchAll(/id: '([^']+)'/gu)].map(match => ({ id: match[1] }));
   assert.deepEqual(composeInspectorSections(sections).map(section => section.id), [
-    'time', 'transform', 'motion', 'framing', 'freeze', 'appearance', 'timing', 'audio', 'edit-photo', 'info'
+    'time', 'transform', 'framing', 'freeze', 'appearance', 'timing', 'audio', 'edit-photo', 'info'
   ]);
 });
 

@@ -204,7 +204,8 @@ const BASELINE_SECTION_FIELDS = {
     ['adjust:lut', 3], ['adjust:wheels', 0], ['appearance', 5], ['audio', 2],
     ['audio-av-link', 3], ['audio-ducking', 2], ['audio-enhancement', 2], ['audio-fades', 2],
     ['audio-pitch-time', 2], ['audio-volume', 2], ['audio:master', 4], ['crop', 4],
-    ['info', 5], ['motion', 12], ['perspective', 9], ['time', 2], ['transform', 4]
+    ['info', 5], ['motion:draw', 1], ['motion:in', 4], ['motion:loop', 4],
+    ['motion:out', 4], ['perspective', 9], ['time', 2], ['transform', 4]
   ]
 };
 for (const kind of ['cut', 'layer']) {

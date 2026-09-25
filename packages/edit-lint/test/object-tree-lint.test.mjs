@@ -29,10 +29,10 @@ test("unknown motion presets warn once per seat with the complete nested item pa
     assert.deepEqual(await warningsFor({ in: { preset: "pulse", duration: 12 },
       out: { preset: "future", duration: 12 }, loop: { preset: "fade", period: 30 } }),
     [warning("in"), warning("loop"), warning("out")]);
-    for (const preset of ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe"]) {
+    for (const preset of ["fade", "slide-up", "slide-down", "slide-left", "slide-right", "scale", "wipe", "pop", "zoom", "twirl"]) {
       assert.deepEqual(await warningsFor({ in: { preset, duration: 12 }, out: { preset, duration: 12 } }), []);
     }
-    for (const preset of ["pulse", "float", "spin"]) {
+    for (const preset of ["pulse", "float", "spin", "blink", "jiggle"]) {
       assert.deepEqual(await warningsFor({ loop: { preset, period: 30 } }), []);
     }
   } finally {

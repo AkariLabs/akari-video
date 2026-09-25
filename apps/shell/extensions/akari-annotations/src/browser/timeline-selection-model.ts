@@ -344,7 +344,7 @@ type InspectorWriteOperation =
             | InspectorAdjustPath
             | 'opacity' | 'blend' | 'perspective' | 'mask' | 'maskFeather' | 'regions' | 'photo-mask' | 'photo-query' | 'photo-adopt' | 'photo-select-toggle' | 'photo-brush-toggle' | 'photo-crop-open' | 'flip.h' | 'flip.v' | 'erase'
             | 'frame.stroke.width' | 'frame.stroke.color' | 'frame.cornerRadius'
-            | 'motion' | 'animator' | 'name' | 'duration'
+            | 'motion' | 'motion-draw' | 'animator' | 'name' | 'duration'
             | 'source.canvas.intent' | 'source.canvas.background' | `source.vars.${string}` | 'source.params' | `source.params.${string}`
             | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
         value: InspectorAdjustValue | Record<string, unknown> | readonly unknown[] | { corners: [number, number][] } | string | boolean | null;

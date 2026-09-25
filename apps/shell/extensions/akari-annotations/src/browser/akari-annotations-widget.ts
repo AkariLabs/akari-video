@@ -4574,9 +4574,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     if (raw.source?.kind !== 'media') throw new Error('写真を選んでください');
                     patch = { erase: request.value };
                     label = '消しゴムの線を変更';
+                } else if (request.path === 'motion-draw') {
+                    if (!this.location?.editUri) throw new Error('編集中の動画がありません');
+                    if (raw.source?.kind === 'caption' || raw.source?.kind === 'captions') {
+                        throw new Error('字幕には動きを描けません');
+                    }
+                    window.dispatchEvent(new CustomEvent('akari.motion.draw', { detail: {
+                        editUri: this.location.editUri.toString(), itemId
+                    } }));
+                    return { ok: true };
                 } else if (request.path === 'motion') {
                     const value = request.value;
-                    if (raw.source?.kind === 'html') throw new Error('HTML 部品の動きはパラメータから変更してください。');
                     validateInspectorMotion(value, raw.duration);
                     patch = { motion: value };
                     label = 'クリップの動きを変更';

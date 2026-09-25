@@ -85,7 +85,7 @@ function hitContext(idle = true, clock = undefined) {
     const window = { akari: { frameEngineClock: clock, interaction: { stageLocalPoint: (x, y) => ({ x, y }) } } };
     const context = { frameEngineMediaIdle: idle, window, summary: { output },
         previewPhotoSourcePointFn: previewPhotoSourcePoint, frontmostPreviewHitFn: frontmostPreviewHit,
-        layerTransformNow: () => transform, layerCropNow: () => crop,
+        layerTransformNow: () => transform, layerVisualTransformNow: () => transform, layerCropNow: () => crop,
         layerAlphaAtPoint: () => 255, layerAlphaAtSourcePoint: () => 255,
         layerEntries: layers, video, stillImage: {}, segments: [{ kind: 'src', track: 'V1' }], activeSegmentIndex: 0,
         allTracksHiddenByScope: { cuts: false }, hiddenTracksByScope: { cuts: new Set() } };
@@ -120,6 +120,17 @@ test('engine hit passes through erased photo pixels to the next visible photo', 
     assert.equal(find({ clientX: 600, clientY: 225 }), context.layerEntries[0].video);
     front.akariPhotoHitAlpha[center.y * output.width + center.x] = 255;
     assert.equal(find({ clientX: 600, clientY: 225 }), front);
+});
+
+test('engine layer hit uses the visible motion pose rather than the keyframe base', () => {
+    const context = hitContext(true);
+    context.layerTransformNow = () => ({ x: 0, y: 0, scale: .25, rotate: 0 });
+    context.layerVisualTransformNow = () => ({ x: 0, y: 100, scale: .25, rotate: 0 });
+    context.layerCropNow = () => ({ x: 0, y: 0, w: 1, h: 1 });
+    context.layerGeometryHitAt = extract('layerGeometryHitAt', context);
+    const find = extract('findVisualMediaHitAt', context);
+    assert.equal(find({ clientX: 500, clientY: 350 }), context.layerEntries[1].video);
+    assert.equal(find({ clientX: 500, clientY: 250 }), context.video);
 });
 
 test('legacy elementsFromPoint and alpha hit selection remain authoritative', () => {

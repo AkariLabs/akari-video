@@ -31,6 +31,7 @@ const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 // 1 実装をページへ読み込み、静的スプライトと DOM 層の両方で source.params を適用する（issue #32）。
 const SLOT_PARAMS_RUNTIME = join(PACKAGE_ROOT, "..", "overlay-runtime", "src", "slot-params.js");
 const ITEM_KEYFRAMES_RUNTIME = join(PACKAGE_ROOT, "..", "overlay-runtime", "src", "keyframes.mjs");
+const ITEM_MOTION_RUNTIME = join(PACKAGE_ROOT, "..", "overlay-runtime", "src", "item-motion.js");
 
 export function buildGpuPage({
   edit,
@@ -51,6 +52,7 @@ export function buildGpuPage({
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   slotParamsRuntime = readFileSync(SLOT_PARAMS_RUNTIME, "utf8"),
   itemKeyframesRuntime = readFileSync(ITEM_KEYFRAMES_RUNTIME, "utf8"),
+  itemMotionRuntime = readFileSync(ITEM_MOTION_RUNTIME, "utf8"),
 } = {}) {
   // 直接呼びで段が分からない場合は、暗黙字幕トラックの既定どおり最前面へ置く。
   const captionZ = Number.isInteger(captionTrackZ) && captionTrackZ >= 0
@@ -87,21 +89,33 @@ export function buildGpuPage({
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words ?? [] : captions?.emphasis_words ?? edit.emphasis_words ?? [],
     forceDegraded,
   });
-  const classifications = new Map(resultEligibility.entries
+  const motionIds = new Set(enabledOverlays.filter(overlay => overlay.motion || overlay.motionSource)
+    .map(overlay => String(overlay.id)));
+  const motionEntries = resultEligibility.entries.map(entry => entry.kind === 'overlay'
+    && entry.classification === 'same' && motionIds.has(String(entry.id))
+    ? { ...entry, classification: 'dom', reason: 'item-motion',
+      conditions: [...(entry.conditions ?? []), 'item-motion'] } : entry);
+  const motionCount = motionEntries.filter((entry, index) => entry !== resultEligibility.entries[index]).length;
+  const effectiveEligibility = motionCount ? { ...resultEligibility, entries: motionEntries,
+    summary: { ...resultEligibility.summary, same: resultEligibility.summary.same - motionCount,
+      dom: resultEligibility.summary.dom + motionCount } } : resultEligibility;
+  const classifications = new Map(effectiveEligibility.entries
     .filter((entry) => entry.kind === "overlay")
     .map((entry) => [entry.id, entry.classification]));
-  const overlayEligibility = new Map(resultEligibility.entries
+  const overlayEligibility = new Map(effectiveEligibility.entries
     .filter((entry) => entry.kind === "overlay")
     .map((entry) => [entry.id, entry]));
   const indexedOverlays = enabledOverlays.map((overlay, index) => ({ overlay, index }));
   const statics = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "same");
   const three = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "three");
   const vgpu = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "vgpu");
-  const compositeIds = new Set(resultEligibility.entries
+  const compositeIds = new Set(effectiveEligibility.entries
     .filter((entry) => entry.kind === "overlay" && entry.reason === "three-scene-sampled-composite")
     .map((entry) => entry.id));
   const dom = buildDomRuns(indexedOverlays, classifications, compositeIds);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
+  const hasItemMotion = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes)
+    || overlay.motion || overlay.motionSource);
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
   const resolvedEmphasisWords = Array.isArray(captions)
@@ -197,7 +211,7 @@ export function buildGpuPage({
     look: lookDeclaration,
     adjustLutCubeTexts,
     spriteManifest,
-    eligibility: resultEligibility,
+    eligibility: effectiveEligibility,
   };
   const iframe = three.length + vgpu.length > 0
     ? '<iframe id="akari-overlays" src="/overlay-sheet.html" title="AKARI 3D overlays"></iframe>'
@@ -233,7 +247,7 @@ export function buildGpuPage({
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};</script>
   <script>${inlineScript(frameEngineBundle)}</script>${textSlotOverlayCount > 0 ? `
   <script>${inlineScript(slotParamsRuntime)}</script>` : ""}
-  ${hasItemKeyframes ? `<script>${inlineScript(itemKeyframesRuntime.replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>\n  ` : ""}<script>${inlineScript(pageRuntime)}</script>
+  ${hasItemKeyframes ? `<script>${inlineScript(itemKeyframesRuntime.replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>\n  ` : ""}${hasItemMotion ? `<script>${inlineScript(itemMotionRuntime)}</script>\n  ` : ""}<script>${inlineScript(pageRuntime)}</script>
 </body>
 </html>
 `;
@@ -242,7 +256,7 @@ export function buildGpuPage({
     overlaySheetHtml,
     spriteManifest,
     edit: projectedEdit,
-    eligibility: resultEligibility,
+    eligibility: effectiveEligibility,
     manifest: {
       version: 1,
       dimensions: { width, height },

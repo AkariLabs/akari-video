@@ -21,7 +21,9 @@ import type { ParsedCubeLut } from '../look/cube.js';
 import { bakeItemAdjustLut, isItemAdjustIdentity } from '../adjust/bake.js';
 import { normalizeAdjustFx, type ResolvedAdjustFx } from '../adjust/fx.js';
 import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.js';
-import { motionVisualAt, type MotionV0, type MotionVisual } from './item-motion.js';
+import type { MotionV0 } from './item-motion.js';
+import itemMotion, { type MotionItem } from '../../../overlay-runtime/src/item-motion.js';
+const { evaluateItemMotion } = itemMotion;
 import type { StillMaskStroke } from '../mask/compose-still-mask.js';
 
 function regionMaskSource(sources: TimelineSourceRegistry, reference: string):
@@ -65,6 +67,8 @@ export interface FrameEngineCut extends Omit<EditCut, 'transitionOut' | 'adjust'
   crop?: { x: number; y: number; w: number; h: number; rotate?: number };
   keyframes?: readonly LayerKeyframe[];
   motion?: MotionV0;
+  motionSource?: MotionItem;
+  motionParents?: readonly MotionItem[];
   perspective?: { corners: readonly (readonly [number, number])[] };
   adjust?: FrameEngineAdjust;
 }
@@ -92,6 +96,8 @@ export interface FrameEngineLayer {
   perspective?: { corners: readonly (readonly [number, number])[] };
   keyframes?: readonly LayerKeyframe[];
   motion?: MotionV0;
+  motionSource?: MotionItem;
+  motionParents?: readonly MotionItem[];
   opacity?: number;
   blend?: ResolvedLayerBlendMode;
   adjust?: FrameEngineAdjust;
@@ -103,12 +109,12 @@ export interface FrameEngineLayer {
 
 const KNOWN_CUT_KEY_LIST = [
   'in', 'out', 'src', 'transform', 'opacity', 'speed', 'transitionOut', 'at', 'track',
-  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion', 'animator', 'audio', 'mute'
+  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective', 'adjust', 'motion', 'motionSource', 'motionParents', 'animator', 'audio', 'mute'
 ] as const;
 
 const KNOWN_LAYER_KEY_LIST = [
   'id', 't', 'duration', 'kind', 'src', 'mask', 'maskFeather', 'regions', 'erase', 'flip', 'frame', 'transform', 'crop', 'perspective',
-  'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'animator', 'track', 'in', 'speed'
+  'keyframes', 'opacity', 'blend', 'filter', 'adjust', 'motion', 'motionSource', 'motionParents', 'animator', 'track', 'in', 'speed'
 ] as const;
 
 const KNOWN_KEYFRAME_KEY_LIST = [
@@ -225,8 +231,8 @@ function usableKeyframeCount(keyframes: FrameEngineCut['keyframes']): number {
  * Transform-only keyframes keep the unkeyed fit geometry; crop/perspective/wipe use the source-sized
  * crop-local box. The shell preview applies the same cut-only decision.
  */
-export function hasCutLayerStyleVisual(cut: Pick<FrameEngineCut, 'crop' | 'perspective' | 'keyframes' | 'motion'>): boolean {
-  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2
+export function hasCutLayerStyleVisual(cut: Pick<FrameEngineCut, 'crop' | 'perspective' | 'keyframes' | 'motion' | 'motionSource'>): boolean {
+  return Boolean(cut.motionSource) || isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2
     || cut.motion?.in?.preset === 'wipe' || cut.motion?.out?.preset === 'wipe';
 }
 
@@ -435,8 +441,21 @@ function interpolateFraming(
  * layer-style（issue #39）: keyframes を出力ローカル秒で評価し、宣言のある property だけ静的値
  * （cut.crop / cut.transform / cut.opacity）へ上書きする。perspective は読まない（build 時に warn 済み）。
  */
-function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): ResolvedCutVisual {
+function hasAxisScale(item: { transform?: { scaleX?: number; scaleY?: number }; keyframes?: readonly LayerKeyframe[]; motionSource?: MotionItem; motionParents?: readonly MotionItem[] }): boolean {
+  return item.transform?.scaleX !== undefined || item.transform?.scaleY !== undefined
+    || (item.keyframes ?? []).some(point => point.transform?.scaleX !== undefined || point.transform?.scaleY !== undefined)
+    || item.motionSource?.transform?.scaleX !== undefined || item.motionSource?.transform?.scaleY !== undefined
+    || (item.motionParents ?? []).some(parent => parent.transform?.scaleX !== undefined || parent.transform?.scaleY !== undefined);
+}
+
+function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number, outputSeconds: number, fps: number): ResolvedCutVisual {
   const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds, cut.transform, true);
+  const composed = cut.motionSource
+    ? evaluateItemMotion({ ...cut.motionSource, fps }, outputSeconds,
+      (cut.motionParents ?? []).map(parent => ({ ...parent, fps })))
+    : cut.keyframes || cut.motion ? evaluateItemMotion({ at: 0, duration: (cut.out - cut.in) /
+        (finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1), fps, keyframeUnit: 'seconds',
+        transform: cut.transform, opacity: cut.opacity, keyframes: cut.keyframes, motion: cut.motion }, localSeconds) : null;
   const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
   const crop = animated?.crop ?? {
     x: finite(staticCrop.x, 0),
@@ -446,7 +465,9 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
   };
   const width = clamp(crop.width, Number.EPSILON, 1);
   const height = clamp(crop.height, Number.EPSILON, 1);
-  const transform = animated?.transform ?? {
+  const transform = composed ? { x: composed.x, y: composed.y, scale: composed.scale,
+    ...(hasAxisScale(cut) ? { scaleX: composed.scaleX, scaleY: composed.scaleY } : {}),
+    rotateDegrees: composed.rotate } : animated?.transform ?? {
     x: finite(cut.transform?.x, 0),
     y: finite(cut.transform?.y, 0),
     scale: finite(cut.transform?.scale, 1),
@@ -464,29 +485,23 @@ function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): Resolved
       ...(transform.scaleY !== undefined ? { scaleY: transform.scaleY } : {}),
       rotateDegrees: transform.rotateDegrees
     },
-    opacity: clamp(animated?.opacity ?? finite(cut.opacity, 1), 0, 1),
+    opacity: composed?.reveal && (composed.reveal.w === 0 || composed.reveal.h === 0)
+      ? 0 : clamp(composed?.opacity ?? animated?.opacity ?? finite(cut.opacity, 1), 0, 1),
     // Transform-only keyframes retain the canvas-fit path used by an unkeyed cut.
     ...(cut.crop || animated?.crop || cut.perspective || animated?.perspective
       || cut.motion?.in?.preset === 'wipe' || cut.motion?.out?.preset === 'wipe'
-      ? { layerStyle: { crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height },
+      ? { layerStyle: { crop: composed?.reveal
+        ? motionCrop({ x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height }, composed.reveal)
+        : { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height },
           ...(finite(cut.crop?.rotate, 0) !== 0 ? { cropRotate: finite(cut.crop?.rotate, 0) } : {}) } }
       : {})
-  };
-}
-
-function motionTransform(transform: ResolvedCutVisual['transform'], motion: MotionVisual): ResolvedCutVisual['transform'] {
-  return {
-    x: transform.x + motion.dx, y: transform.y + motion.dy,
-    ...(transform.scaleX !== undefined ? { scaleX: transform.scaleX * motion.scale } : {}),
-    ...(transform.scaleY !== undefined ? { scaleY: transform.scaleY * motion.scale } : {}),
-    scale: transform.scale * motion.scale, rotateDegrees: transform.rotateDegrees + motion.rotate
   };
 }
 
 /** Reveal coordinates are relative to the already resolved crop window. */
 function motionCrop(
   crop: { x: number; y: number; width: number; height: number },
-  reveal: NonNullable<MotionVisual['reveal']>
+  reveal: { x: number; y: number; w: number; h: number }
 ): typeof crop {
   return {
     x: crop.x + crop.width * reveal.x, y: crop.y + crop.height * reveal.y,
@@ -496,34 +511,18 @@ function motionCrop(
   };
 }
 
-function motionOpacity(opacity: number, motion: MotionVisual): number {
-  // Geometry consumers may clamp a zero crop to epsilon. A closed wipe must remain fully transparent.
-  return motion.reveal && (motion.reveal.w === 0 || motion.reveal.h === 0) ? 0 : opacity * motion.opacity;
-}
-
-function cutMotionVisual(visual: ResolvedCutVisual, motion: MotionVisual | null): ResolvedCutVisual {
-  if (!motion) return visual;
-  return {
-    ...visual,
-    transform: motionTransform(visual.transform, motion),
-    opacity: motionOpacity(visual.opacity, motion),
-    ...(visual.layerStyle && motion.reveal
-      ? { layerStyle: { ...visual.layerStyle, crop: motionCrop(visual.layerStyle.crop, motion.reveal) } } : {})
-  };
-}
-
 function visualAt(
   cut: FrameEngineCut,
   playbackSeconds: number,
   localSeconds: number,
+  outputSeconds: number,
   fps: number,
   adjustLut?: ParsedCubeLut,
   adjustFx?: ResolvedAdjustFx[]
 ): ResolvedCutVisual {
   const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
-  const motion = motionVisualAt(cut.motion, localSeconds, (cut.out - cut.in) / speed, fps);
   if (hasCutLayerStyleVisual(cut)) {
-    const visual = cutMotionVisual(layerStyleVisualAt(cut, localSeconds), motion);
+    const visual = layerStyleVisualAt(cut, localSeconds, outputSeconds, fps);
     return { ...visual, ...(adjustLut ? { adjustLut } : {}), ...(adjustFx ? { adjustFx } : {}) };
   }
   let framing = DEFAULT_VISUAL.framing;
@@ -565,7 +564,12 @@ function visualAt(
     },
     opacity: clamp(finite(cut.opacity, 1), 0, 1)
   };
-  const composed = cutMotionVisual(visual, motion);
+  const state = cut.motion ? evaluateItemMotion({ at: 0, duration: (cut.out - cut.in) / speed,
+    fps, transform: cut.transform, opacity: cut.opacity, motion: cut.motion }, localSeconds) : null;
+  const composed = state ? { ...visual, transform: {
+    x: state.x, y: state.y, scale: state.scale,
+    ...(hasAxisScale(cut) ? { scaleX: state.scaleX, scaleY: state.scaleY } : {}),
+    rotateDegrees: state.rotate }, opacity: state.opacity } : visual;
   return { ...composed, ...(adjustLut ? { adjustLut } : {}), ...(adjustFx ? { adjustFx } : {}) };
 }
 
@@ -582,7 +586,7 @@ function layerFromPlacement(
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   // 出力ローカル秒: freeze で絵が止まっている間も進む（layer-style keyframes の時計）。
   const localSeconds = Math.max(0, outputSeconds - placement.at);
-  const visual = visualAt(cut, playbackSeconds, localSeconds, fps, placement.adjustLut, placement.adjustFx);
+  const visual = visualAt(cut, playbackSeconds, localSeconds, outputSeconds, fps, placement.adjustLut, placement.adjustFx);
   const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
@@ -731,12 +735,19 @@ function resolvedCompositeLayers(
     visual.crop.height = clamp(visual.crop.height, Number.EPSILON, 1);
     visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
-    const motion = motionVisualAt(layer.motion, localSeconds, layer.duration, timeline.fps);
-    let opacity = clamp(animated?.opacity ?? finite(layer.opacity, 1), 0, 1);
-    if (motion) {
-      visual.transform = motionTransform(visual.transform, motion);
-      if (motion.reveal) visual.crop = motionCrop(visual.crop, motion.reveal);
-      opacity = motionOpacity(opacity, motion);
+    const inherited = layer.motionSource
+      ? evaluateItemMotion({ ...layer.motionSource, fps: timeline.fps }, seconds,
+        (layer.motionParents ?? []).map(parent => ({ ...parent, fps: timeline.fps })))
+      : layer.keyframes || layer.motion ? evaluateItemMotion({ at: 0, duration: layer.duration,
+        fps: timeline.fps, keyframeUnit: 'seconds', transform: layer.transform,
+        opacity: layer.opacity, keyframes: layer.keyframes, motion: layer.motion }, localSeconds) : null;
+    if (inherited) visual.transform = { x: inherited.x, y: inherited.y, scale: inherited.scale,
+      ...(hasAxisScale(layer) ? { scaleX: inherited.scaleX, scaleY: inherited.scaleY } : {}),
+      rotateDegrees: inherited.rotate };
+    let opacity = clamp(inherited?.opacity ?? animated?.opacity ?? finite(layer.opacity, 1), 0, 1);
+    if (inherited?.reveal) {
+      visual.crop = motionCrop(visual.crop, inherited.reveal);
+      if (inherited.reveal.w === 0 || inherited.reveal.h === 0) opacity = 0;
     }
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
     const adjustLut = timeline.layerAdjustLuts[index];

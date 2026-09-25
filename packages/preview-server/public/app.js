@@ -309,6 +309,10 @@ async function init() {
     if (summary?.overlays?.some(o => Array.isArray(o?.keyframes))) {
       await ensureItemKeyframesRuntime();
     }
+    if ([...(summary?.overlays ?? []), ...(summary?.layers ?? []), ...(summary?.cuts ?? [])]
+      .some(o => Array.isArray(o?.keyframes) || o?.motion || o?.motionSource)) {
+      await ensureItemMotionRuntime();
+    }
     if (frameEngineEnabled) previewStage.dataset.frameEngineActive = 'true';
 
     buildSegments();
@@ -650,6 +654,10 @@ function buildSegments() {
         freeze: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].freeze : undefined,
         transform: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].transform : undefined,
         opacity: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].opacity : undefined,
+        keyframes: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].keyframes : undefined,
+        motion: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].motion : undefined,
+        motionSource: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].motionSource : undefined,
+        motionParents: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].motionParents : undefined,
         adjust: summary.cuts[s.cutIndex] ? summary.cuts[s.cutIndex].adjust : undefined,
       });
   // HTML-only compositions still have a clock: clamping to the empty cut map freezes all keyframes.
@@ -1110,6 +1118,19 @@ function syncLayers(t) {
             );
           }
         }
+      }
+      if (l.motion || l.motionSource || Array.isArray(l.keyframes)) {
+        const state = window.akari.itemMotion.evaluateOverlayMotion({ ...l, start: l.t,
+          keyframeUnit: 'seconds' }, t, fps);
+        lv.el.dataset.layerX = String(state.x);
+        lv.el.dataset.layerY = String(state.y);
+        lv.el.dataset.layerScale = String(state.scale);
+        lv.el.dataset.layerScaleX = String(state.scaleX);
+        lv.el.dataset.layerScaleY = String(state.scaleY);
+        lv.el.dataset.layerRotate = String(state.rotate);
+        lv.el.style.opacity = String(state.opacity);
+        lv.el.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
+        applyLayerLayout(lv.el, state.x, state.y, state.scale, state.rotate);
       }
       // 再生中は下地と同じデッドバンドを使う。複数・高負荷のレイヤーほど小刻みな補正が
       // デコードを圧迫するため、フレーム精度よりシーク完了を優先する。一時停止中は目標が
@@ -2677,10 +2698,15 @@ function applyCutFramingVisual() {
   const cut = seg && !seg.isGap ? seg : null;
   const framingVisual = computeCutFramingVisual(cut ? cut.framing : null, playedCutLocalSeconds(seg));
   const os = outputSizePx();
+  const motionState = cut && (cut.motion || cut.motionSource || Array.isArray(cut.keyframes))
+    ? window.akari.itemMotion.evaluateOverlayMotion({ ...cut, start: cut.outStart,
+      duration: cut.durationSec, keyframeUnit: 'seconds' }, outputTime, fps) : null;
   const composed = composeCutVisualStyle({
     framingVisual,
-    transform: cut ? cut.transform : null,
-    opacity: cut ? cut.opacity : null,
+    transform: motionState ? { x: motionState.x, y: motionState.y, scale: motionState.scale,
+      scaleX: motionState.scaleX, scaleY: motionState.scaleY, rotate: motionState.rotate }
+      : cut ? cut.transform : null,
+    opacity: motionState ? motionState.opacity : cut ? cut.opacity : null,
     outputWidth: os.width,
     outputHeight: os.height,
   });
@@ -2690,6 +2716,7 @@ function applyCutFramingVisual() {
     el.style.transformOrigin = composed.transformOrigin;
     el.style.transform = composed.transform;
     el.style.opacity = composed.opacity;
+    el.style.clipPath = motionState ? window.akari.itemMotion.motionRevealCss(motionState) : '';
     clearAdjustBaseFilter(el);
     setAdjustBaseFilter(el, cut?.adjust);
   }
@@ -3162,6 +3189,10 @@ async function applySoftReload() {
   fps = timelineData.fps || 30;
   if (summary?.overlays?.some(o => Array.isArray(o?.keyframes))) {
     await ensureItemKeyframesRuntime();
+  }
+  if ([...(summary?.overlays ?? []), ...(summary?.layers ?? []), ...(summary?.cuts ?? [])]
+    .some(o => Array.isArray(o?.keyframes) || o?.motion || o?.motionSource)) {
+    await ensureItemMotionRuntime();
   }
 
   if (frameEngineEnabled) {
@@ -3774,6 +3805,18 @@ function ensureItemKeyframesRuntime() {
   }
   return itemKeyframesRuntimeReady;
 }
+let itemMotionRuntimeReady;
+function ensureItemMotionRuntime() {
+  if (!itemMotionRuntimeReady) {
+    itemMotionRuntimeReady = import('/item-motion.js').then(() => {
+      if (typeof window.akari?.itemMotion?.evaluateOverlayMotion !== 'function') {
+        throw new Error('item motion runtime did not initialize');
+      }
+      return true;
+    });
+  }
+  return itemMotionRuntimeReady;
+}
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
@@ -3882,8 +3925,12 @@ function createOverlayRuntime() {
           ? new URL(resolveMediaUrl(rawHtml), document.baseURI).href
           : o.htmlPath ? new URL(resolveMediaUrl(o.htmlPath), document.baseURI).href : null,
         hitPolicyPending: false,
-        ...(Array.isArray(o.keyframes) ? {
+        ...((Array.isArray(o.keyframes) || o.motion || o.motionSource) ? {
           keyframes: o.keyframes,
+          motion: o.motion,
+          motionSource: o.motionSource,
+          motionParents: o.motionParents,
+          keyframeUnit: o.keyframeUnit,
           fps: Number(s?.output?.fps) || fps || 30,
           statics: {
             x: isBackground ? 0 : Number(t.x ?? 0),
@@ -3950,7 +3997,18 @@ function createOverlayRuntime() {
       }
       if (!v) continue;
       const ms = Math.max(0, (t - o.start) * 1000);
-      if (Array.isArray(o.keyframes)) {
+      if (o.motion || o.motionSource || Array.isArray(o.keyframes)) {
+        const state = window.akari.itemMotion.evaluateOverlayMotion({ ...o, transform: o.statics,
+          opacity: o.statics.opacity }, t, o.fps);
+        o.el.style.setProperty('--x', o.isBackground ? '0px' : `${state.x}px`);
+        o.el.style.setProperty('--y', o.isBackground ? '0px' : `${state.y}px`);
+        o.el.style.setProperty('--scale', o.isBackground ? '1' : String(state.scale));
+        o.el.style.setProperty('--scale-x', o.isBackground ? '1' : String(state.scaleX));
+        o.el.style.setProperty('--scale-y', o.isBackground ? '1' : String(state.scaleY));
+        o.el.style.setProperty('--rotate', o.isBackground ? '0deg' : `${state.rotate}deg`);
+        o.el.style.setProperty('opacity', String(state.opacity));
+        o.el.style.clipPath = window.akari.itemMotion.motionRevealCss(state);
+      } else if (Array.isArray(o.keyframes)) {
         const state = window.akari.keyframes.interpolateKeyframes(o.keyframes, ms * o.fps / 1000, {
           statics: o.statics,
         });
@@ -4038,8 +4096,12 @@ function createOverlayRuntime() {
       else delete entry.el.dataset.role;
       entry.start = o.start;
       entry.duration = o.duration;
-      if (Array.isArray(o.keyframes)) {
+      if (Array.isArray(o.keyframes) || o.motion || o.motionSource) {
         entry.keyframes = o.keyframes;
+        entry.motion = o.motion;
+        entry.motionSource = o.motionSource;
+        entry.motionParents = o.motionParents;
+        entry.keyframeUnit = o.keyframeUnit;
         entry.fps = Number(s?.output?.fps) || fps || 30;
         entry.statics = {
           x: isBackground ? 0 : Number(t.x ?? 0),
@@ -4053,6 +4115,10 @@ function createOverlayRuntime() {
         entry.isBackground = isBackground;
       } else {
         delete entry.keyframes;
+        delete entry.motion;
+        delete entry.motionSource;
+        delete entry.motionParents;
+        delete entry.keyframeUnit;
         delete entry.fps;
         delete entry.statics;
         delete entry.isBackground;

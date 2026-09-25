@@ -68,7 +68,7 @@ test('engine 面の当たり判定は実寸とクロップ窓を使う トラッ
     const engineBranch = findHit.slice(0, findHit.indexOf('return document.elementsFromPoint'));
     assert.match(engineBranch, /for \(const entry of layerEntries\)/u);
     assert.match(engineBranch, /\(entry\.video\.videoWidth \|\| entry\.video\.naturalWidth\) > 0[\s\S]*?\(entry\.video\.videoHeight \|\| entry\.video\.naturalHeight\) > 0/u);
-    assert.match(engineBranch, /sourcePoint\(size, summary\.output, layerTransformNow\(entry\), layerCropNow\(entry\), stagePoint/u);
+    assert.match(engineBranch, /sourcePoint\(size, summary\.output, layerVisualTransformNow\(entry\), layerCropNow\(entry\), stagePoint/u);
     assert.match(engineBranch, /if \(!pixel\) continue;/u);
     assert.match(engineBranch, /layerGeometryHitAt\(entry, event\.clientX, event\.clientY, hasSourceSize \? undefined : size\)/u);
     assert.doesNotMatch(engineBranch, /layerAlphaAtPoint|\.filter\(|entry\.video\.getBoundingClientRect/u);
