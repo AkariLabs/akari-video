@@ -35,6 +35,7 @@ import { CommandRegistry, CommandService, Disposable, MessageService } from '@th
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { isOSX } from '@theia/core/lib/common/os';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
+import { shouldShowTimelineGhost } from '../common/timeline-visibility';
 import { ContextKeyService } from '@theia/core/lib/browser/context-key-service';
 import { KeybindingRegistry } from '@theia/core/lib/browser/keybinding';
 import { AKARI_SHORTCUTS } from './akari-shortcuts';
@@ -7426,7 +7427,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
     }
 
+    protected materialGhostAllowed(): boolean {
+        return shouldShowTimelineGhost(document.documentElement.dataset.akariTimelineHidden === 'true',
+            this.isAttached, this.isVisible);
+    }
+
     protected updateMaterialGhost(clientX: number, clientY: number): void {
+        if (this.materialGhostAllowed?.() === false) {
+            this.hideMaterialGhost();
+            return;
+        }
         const payload = this.materialDragPayload;
         if (!payload) {
             this.hideMaterialGhost();
@@ -17953,7 +17963,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     canHandlePlaybackTick(editUri: string | undefined): boolean {
-        if (!this.isAttached || !this.location?.editUri || !editUri) {
+        if (!this.location?.editUri || !editUri) {
             return false;
         }
         return this.normalizeUri(this.location.editUri.toString()) === this.normalizeUri(editUri);

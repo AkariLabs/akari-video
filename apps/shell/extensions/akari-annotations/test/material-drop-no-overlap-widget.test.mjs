@@ -12,13 +12,16 @@ import { topVisualTarget } from '../lib/browser/preview-material-placement.js';
 import { probePreviewMediaDimensions } from '../lib/browser/preview-media-dimensions.js';
 import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
 import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from '../lib/browser/timeline/canvas-row-drop.js';
+import { shouldShowTimelineGhost } from '../lib/common/timeline-visibility.js';
+
+globalThis.document = { documentElement: { dataset: { akariTimelineHidden: 'false' } } };
 
 // 既存 library-asset-placement と同じく実メソッドを実行し、DOM と I/O だけを差し替える。
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariAnnotationsWidget');
 const names = ['addMaterialAt', 'addMaterialAtPlayhead', 'addMaterialAtPoint', 'addMaterialAtOutputPoint', 'placeMaterialAtTarget',
     'resolveMaterialDropTarget', 'timelineTrackDropLayouts', 'materialDropTargetWithoutOverlap',
-    'materialGhostDurationSeconds', 'updateMaterialGhost', 'hideMaterialGhost', 'handleMaterialDragOver',
+    'materialGhostDurationSeconds', 'materialGhostAllowed', 'updateMaterialGhost', 'hideMaterialGhost', 'handleMaterialDragOver',
     'positionInsertionGhost', 'showTrackInsertIndicatorAt', 'hideTrackInsertIndicator', 'handleMaterialDrop', 'setGhostRejected'];
 const methods = names.map(name => widget.members.find(member => member.name?.getText(source) === name).getText(source));
 const parser = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'parseMaterialDragPayload').getText(source);
@@ -34,6 +37,7 @@ const bindings = {
     probePreviewMediaDimensions: options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }),
     computeMaterialGhostRange,
     materialGhostVisibility, materialGhostRejectLabel, hitTestTimelineTrackDrop, libraryAssetGhostPayload,
+    shouldShowTimelineGhost,
     timelineApplyTarget,
     lockedTrackMessage: id => `locked: ${id}`,
     PLACE_TEXT_COMMAND_ID: 'akari.caption.placeText',
@@ -55,6 +59,7 @@ function fixture(tracks = [track('v1', 'visual', [item('base-clip')]), track('v2
     const history = [], errors = [], writes = [];
     const uri = { toString: () => 'file:///project/edit.json', path: { fsPath: () => '/project' } };
     const handler = Object.assign(new Handler(), {
+        isAttached: true, isVisible: true,
         location: { root: { resolve: () => uri, toString: () => 'file:///project', path: uri.path }, editUri: uri }, fps: 30, playheadT: 3,
         refreshReferenceMediaUris: async () => {},
         frameAt: t => Math.round(t * 30), resolveEditMediaUri: () => uri,
@@ -102,6 +107,17 @@ function drag(f, kind, t, id) {
     f.handler.handleMaterialDragOver(event);
     return event;
 }
+
+test('タイムラインを隠すと素材の仮クリップを描かない', () => {
+    const f = fixture();
+    document.documentElement.dataset.akariTimelineHidden = 'true';
+    try {
+        drag(f, 'image', 3, 'v2');
+        assert.equal(f.handler.materialGhost.style.display, 'none');
+    } finally {
+        document.documentElement.dataset.akariTimelineHidden = 'false';
+    }
+});
 
 async function assertOneUndo(f) {
     assert.deepEqual(f.errors, []);

@@ -364,19 +364,18 @@ export class PreviewLibraryDrop {
         this.closePrompt?.();
         this.prompt = prompt;
         document.body.appendChild(prompt);
-        let timer: number | undefined;
         const onOutside = (event: PointerEvent): void => {
             if (!prompt.contains(event.target as Node)) close();
         };
         const close = (): void => {
-            if (timer !== undefined) window.clearTimeout(timer);
+            window.clearTimeout(timer);
             document.removeEventListener('pointerdown', onOutside, true);
             prompt.remove();
             if (this.prompt === prompt) { this.prompt = undefined; this.closePrompt = undefined; }
         };
         this.closePrompt = close;
         document.addEventListener('pointerdown', onOutside, true);
-        timer = window.setTimeout(close, 4500);
+        const timer = window.setTimeout(close, 4500);
     }
 
     private clear(): void {

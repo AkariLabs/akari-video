@@ -1,0 +1,20 @@
+{
+ "hiddenFlag": "true",
+ "bottomPanel": {
+  "x": 0,
+  "y": 0,
+  "w": 0,
+  "h": 0
+ },
+ "mainPanel": {
+  "x": 221,
+  "y": 3,
+  "w": 843,
+  "h": 640
+ },
+ "preview": null,
+ "button": null,
+ "timelineVisible": false,
+ "label": "再起動直後",
+ "at": "2026-09-25T11:20:25.647Z"
+}

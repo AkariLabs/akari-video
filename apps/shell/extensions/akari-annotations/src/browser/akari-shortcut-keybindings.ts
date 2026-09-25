@@ -77,7 +77,7 @@ export class AkariShortcutKeybindings {
 
     registerCommands(commands: CommandRegistry): void {
         for (const shortcut of AKARI_SHORTCUTS) {
-            if (shortcut.command.id === PLACE_TEXT.id) continue;
+            if (shortcut.command.id === PLACE_TEXT.id || shortcut.command.id === 'akari.timeline.toggleVisibility') continue;
             commands.registerCommand(shortcut.command, {
                 isEnabled: () => this.shortcutEnabled(shortcut),
                 execute: () => this.executeShortcut(shortcut)

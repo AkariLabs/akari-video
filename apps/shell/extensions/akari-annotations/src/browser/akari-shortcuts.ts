@@ -16,6 +16,9 @@ const copy = `${timeline} && (akariTimelineFocus || (!akariFocusOutsideTimeline 
 const command = (id: string, label: string, category = 'タイムライン'): Command => ({ id, label, category });
 
 export const AKARI_SHORTCUTS: readonly AkariShortcut[] = [
+    { command: command('akari.timeline.toggleVisibility', 'タイムラインを隠す / 出す'),
+        keys: ['ctrlcmd+shift+l'], when: '!akariModalOpen && !akariEditableFocus && !akariImeComposing',
+        key: 'l', modifier: true, shift: true },
     { command: command('akari.timeline.undo', '元に戻す', '編集'), keys: ['ctrlcmd+z'], when: '!akariHistoryEditableFocus', key: 'z', modifier: true },
     { command: command('akari.timeline.redo', 'やり直す', '編集'), keys: ['ctrlcmd+shift+z'], when: '!akariHistoryEditableFocus', key: 'z', modifier: true, shift: true },
     { command: command('akari.timeline.selectTool', '選択ツール'), keys: ['v', 'a'], when: timeline, key: 'v' },

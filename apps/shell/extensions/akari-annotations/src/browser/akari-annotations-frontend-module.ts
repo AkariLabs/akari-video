@@ -1,5 +1,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
+import { TabBarToolbarContribution } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import {
     FrontendApplicationContribution,
     WebSocketConnectionProvider,
@@ -69,6 +70,7 @@ export default new ContainerModule(bind => {
     bind(AkariAnnotationsContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariAnnotationsContribution);
     bind(MenuContribution).toService(AkariAnnotationsContribution);
+    bind(TabBarToolbarContribution).toService(AkariAnnotationsContribution);
     bind(FrontendApplicationContribution).toService(AkariAnnotationsContribution);
     bind(AkariTimelineFocusContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariTimelineFocusContribution);
