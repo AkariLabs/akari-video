@@ -8,18 +8,23 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { placeTextCaption, nextDaihonCaptionId } from '../lib/common/place-text.js';
 import { centeredPreviewTextPlacement } from '../lib/common/preview-text-placement.js';
+import { canvasAtFrame, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
+import { placeTreeV2CaptionIntoCanvas } from '../lib/common/edit-v2-mutations.js';
+import { insertCaptionLine } from '../lib/common/caption-store.js';
 import { placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
     supportedMyStyleAttachPart } from '../lib/browser/my-style-look.js';
 import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-service.js';
-import { parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds } from '@akari-video/edit-store';
+import { composeTransforms, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
+    resolveItemAnchors } from '@akari-video/edit-store';
 
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
 const declaration = source.statements.find(item => ts.isClassDeclaration(item) && item.name.text === 'AkariAnnotationsWidget');
 const code = ts.transpileModule(`class Widget { ${['placeText', 'withHistory', 'recordMyStyleUsage'].map(name => declaration.members.find(item => item.name?.getText(source) === name).getText(source)).join('\n')} }`, { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-const Widget = new Function('placeTextCaption', 'centeredPreviewTextPlacement', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'supportedMyStyleAttachPart', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
+const Widget = new Function('placeTextCaption', 'centeredPreviewTextPlacement', 'parseCaptions', 'readInternalEdit', 'toAnchorCaptions', 'timelineDurationSeconds', 'placedMyStyleTextStyle', 'placedMyStyleMotion', 'appliedMyStyleKinds', 'myStyleApplyNotice', 'appendMyStyleUsage', 'supportedMyStyleAttachPart', 'canvasAtFrame', 'canvasDropTargets', 'placeTreeV2CaptionIntoCanvas', 'resolveItemAnchors', 'insertCaptionLine', 'BinaryBuffer', 'window', 'CustomEvent', `${code}; return Widget;`)(
     placeTextCaption, centeredPreviewTextPlacement, parseCaptions, readInternalEdit, toAnchorCaptions, timelineDurationSeconds,
     placedMyStyleTextStyle, placedMyStyleMotion, appliedMyStyleKinds, myStyleApplyNotice, appendMyStyleUsage,
-    supportedMyStyleAttachPart,
+    supportedMyStyleAttachPart, canvasAtFrame, canvasDropTargets, placeTreeV2CaptionIntoCanvas,
+    resolveItemAnchors, insertCaptionLine,
     { fromString: value => value },
     { dispatchEvent() {} }, class { constructor(type, options) { this.type = type; this.detail = options.detail; } });
 
@@ -47,7 +52,8 @@ async function fixture(t, captions) {
     const service = new Service(), history = [], notices = [], warnings = [], selection = [], seeks = [], previewSelection = [];
     const widget = Object.assign(new Widget(), {
         location: { root: uri(root), editUri: uri(editPath), captionsUri: uri(captionsPath) },
-        annotationsService: service, playheadT: 2, playhead: { style: {} },
+        annotationsService: service, playheadT: 2, playhead: { style: {} }, fps: 30,
+        frameAt: seconds => Math.round(seconds * 30),
         fileService: {
             readFile: async path => ({ value: await readFile(fileURLToPath(path.toString())) }),
             exists: async path => { try { await access(fileURLToPath(path.toString())); return true; } catch { return false; } },
@@ -111,6 +117,94 @@ test('プレビュー中心指定は保存時に左端 x と mc アンカーへ�
     assert.equal(caption.text_style.text_anchor, 'mc');
     assert.deepEqual(caption.text_style.position, { x: (640 - (7 * 56 + 32) / 2) / 1280, y: .4 });
     assert.equal(caption.style_preset, 'subtitle-news');
+    assert.equal(f.history.length, 1);
+});
+
+test('置いた文字はキャンバスの子と除外へ一緒に書き、終端で切って Undo 1 回で戻る', async t => {
+    const f = await fixture(t);
+    await writeFile(f.editPath, JSON.stringify({ ...edit, tracks: [
+        { id: 'v', lane: 'visual', items: [{ id: 'g', at: 300, duration: 150,
+            transform: { x: 40, y: -20, scale: 2 },
+            source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] }] },
+        { id: 'later', lane: 'visual', items: [{ id: 'later', at: 450, duration: 150,
+            source: { kind: 'html', path: 'later.html' } }] },
+        { id: 'v-empty', lane: 'visual', name: 'V empty', items: [] },
+        { id: 'a1', lane: 'audio', name: 'A1', items: [] }
+    ] }));
+    const before = await readFile(f.editPath, 'utf8');
+    const id = await f.widget.placeText({ start: 14, center: { x: .6, y: .4 },
+        stylePreset: 'title-impact', canvasAware: true });
+    assert.equal(id, 'c-0001', f.warnings.join(' / '));
+    const saved = JSON.parse(await readFile(f.editPath, 'utf8'));
+    assert.deepEqual(saved.tracks.filter(row => row.id === 'v-empty' || row.id === 'a1')
+        .map(row => [row.id, row.name, row.items]), [['v-empty', 'V empty', []], ['a1', 'A1', []]]);
+    const canvas = saved.tracks.flatMap(row => row.items).find(row => row.id === 'g');
+    assert.deepEqual(canvas.items.map(row => [row.at, row.duration, row.source.id]), [[120, 30, id]]);
+    const combined = composeTransforms(canvas.transform, canvas.items[0].transform);
+    assert.ok(Math.abs(combined.x ?? 0) < 1e-6);
+    assert.ok(Math.abs(combined.y ?? 0) < 1e-6);
+    assert.ok(Math.abs((combined.scale ?? 1) - 1) < 1e-6);
+    const caption = JSON.parse(await readFile(f.captionsPath, 'utf8')).captions[0];
+    assert.deepEqual(caption.text_style.position,
+        centeredPreviewTextPlacement({ point: { x: .6, y: .4 }, output: edit.output,
+            stylePreset: 'title-impact' }).position);
+    const internal = readInternalEdit(JSON.stringify(saved), {
+        hasCaptions: true, captions: toAnchorCaptions({ captions: [caption] })
+    });
+    const projected = internal.tracks.flatMap(row => row.items)
+        .find(row => row.id === 'g').children.find(row => row.source.kind === 'caption');
+    assert.ok(Math.abs(projected.declaration.transform?.x ?? 0) < 1e-6);
+    assert.ok(Math.abs(projected.declaration.transform?.y ?? 0) < 1e-6);
+    assert.ok(Math.abs((projected.declaration.transform?.scale ?? 1) - 1) < 1e-6);
+    assert.equal(saved.tracks.flatMap(row => row.items).find(row => row.source.kind === 'captions').source.exclude[0], id);
+    assert.equal(JSON.parse(await readFile(f.captionsPath, 'utf8')).captions[0].end, 15);
+    assert.equal(f.history.length, 1);
+    await f.history[0].undo();
+    assert.equal(await readFile(f.editPath, 'utf8'), before);
+    await assert.rejects(readFile(f.captionsPath), { code: 'ENOENT' });
+});
+
+test('⌥ で置いた文字はキャンバスの外へ置く', async t => {
+    const f = await fixture(t);
+    await writeFile(f.editPath, JSON.stringify({ ...edit, tracks: [{ id: 'v', lane: 'visual', items: [
+        { id: 'g', at: 0, duration: 150,
+            source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] }
+    ] }] }));
+    const id = await f.widget.placeText({ start: 2, outsideCanvas: true });
+    assert.equal(id, 'c-0001', f.warnings.join(' / '));
+    const saved = JSON.parse(await readFile(f.editPath, 'utf8'));
+    assert.deepEqual(saved.tracks[0].items[0].items, []);
+    assert.equal(f.history.length, 1);
+});
+
+test('指定なしの文字追加はキャンバスの区間内でも外に置く', async t => {
+    const f = await fixture(t);
+    await writeFile(f.editPath, JSON.stringify({ ...edit, tracks: [{ id: 'v', lane: 'visual', items: [
+        { id: 'g', at: 0, duration: 150,
+            source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] }
+    ] }] }));
+    const id = await f.widget.placeText({ start: 2 });
+    assert.equal(id, 'c-0001', f.warnings.join(' / '));
+    const saved = JSON.parse(await readFile(f.editPath, 'utf8'));
+    assert.deepEqual(saved.tracks[0].items[0].items, []);
+    assert.equal(saved.tracks.flatMap(row => row.items).some(row => row.source.kind === 'captions'), false);
+    assert.equal(f.history.length, 1);
+});
+
+test('文字をキャンバス行へ落とす指定はその子へ入れ、区間外の時刻を端に寄せる', async t => {
+    const f = await fixture(t);
+    await writeFile(f.editPath, JSON.stringify({ ...edit, tracks: [
+        { id: 'v', lane: 'visual', items: [{ id: 'g', at: 300, duration: 150,
+            source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] }] },
+        { id: 'later', lane: 'visual', items: [{ id: 'later', at: 450, duration: 300,
+            source: { kind: 'html', path: 'later.html' } }] }
+    ] }));
+    const id = await f.widget.placeText({ start: 30, canvasId: 'g' });
+    assert.equal(id, 'c-0001', f.warnings.join(' / '));
+    const saved = JSON.parse(await readFile(f.editPath, 'utf8'));
+    const child = saved.tracks.flatMap(row => row.items).find(row => row.id === 'g').items[0];
+    assert.equal(child.at, 149);
+    assert.equal(child.duration, 1);
     assert.equal(f.history.length, 1);
 });
 

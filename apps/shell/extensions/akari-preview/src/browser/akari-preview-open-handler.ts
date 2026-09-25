@@ -5,6 +5,7 @@ import { captionControlScale } from '../common/caption-control-scale';
 import { composePreviewTransforms, previewTransformAxes } from '../common/preview-transform';
 import { projectCanvasCaptionRows } from '../common/canvas-caption-projection';
 import { canvasCaptionZPlan } from '../common/canvas-caption-z';
+import { canvasDropTargets } from '../common/canvas-drop-target';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
 import { installPreviewFrameCapture } from '../common/preview-frame-controller';
 import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
@@ -5736,6 +5737,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(rawVersion === 2 ? { editVersion: 2 } : {}),
                     overlays,
                     tree,
+                    ...(rawVersion === 2 ? { canvasDropTargets: canvasDropTargets(
+                        (rawEdit as { tracks?: Record<string, unknown>[] }).tracks ?? []) } : {}),
                     layers,
                     filters,
                     cuts,
@@ -11554,7 +11557,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 } catch (_error) { /* 内側の枠が読めない場合は外側と同じ原点を使う。 */ }
                 window.akari.reportLibraryDropGeometry({ requestId: request.requestId,
                     rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-                    viewport: { width: window.innerWidth, height: window.innerHeight }, contentFrame, time: outputTime });
+                    viewport: { width: window.innerWidth, height: window.innerHeight }, contentFrame, time: outputTime,
+                    fps: initial.summary?.output?.fps, canvasDropTargets: initial.summary?.canvasDropTargets || [] });
             });
             let loopRange = null;
             let isPlaying = false;

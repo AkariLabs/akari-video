@@ -81,22 +81,46 @@ test('ジオメトリが未取得でも層を即表示し、応答後に仮枠�
         for (const receive of [...receivers]) receive({
             type: 'akari-preview-library-drop-geometry', requestId: messages.at(-1).requestId,
             rect: { x: 150.9, y: 16, width: 478.2, height: 269 },
-            viewport: { width: 780, height: 359 }, time: 12
+            viewport: { width: 780, height: 359 }, time: 12, fps: 30,
+            canvasDropTargets: [{ id: 'g', name: '導入', at: 300, duration: 150, trackIndex: 0, itemIndex: 0 }]
         });
         await new Promise(resolve => setImmediate(resolve));
         assert.equal(ghost.style.display, 'block');
-        assert.match(ghost.children.at(-1).textContent, /0:12\.0 → 0:17\.0/);
+        assert.match(ghost.children.at(-1).textContent, /0:12\.0 → 0:15\.0/);
+        assert.equal(ghost.children.at(-1).dataset.akariCanvasDropHint, 'true');
+        assert.match(ghost.children.at(-1).textContent, /導入 に入ります/);
+        layer.listeners.get('dragover')({ ...over, altKey: true });
+        assert.equal(ghost.children.at(-1).dataset.akariCanvasDropHint, 'false');
         window.setTimeout = (callback, delay) => setTimeout(callback, delay === 2500 ? 0 : delay);
-        layer.listeners.get('drop')({ clientX: 670, clientY: 190,
+        layer.listeners.get('drop')({ clientX: 670, clientY: 190, altKey: true,
             dataTransfer: { getData: () => JSON.stringify({ kind: 'asset', key: 'still/photo', category: 'still' }) },
             preventDefault() {}, stopPropagation() {} });
         await new Promise(resolve => setTimeout(resolve, 20));
         assert.equal(commandCalls.at(-2)[0], 'akari.timeline.addMaterialAtOutputPoint',
             '再問い合わせが未回答でも直前の枠を使って置く');
         assert.equal(commandCalls.at(-2)[1].t, 12);
+        assert.equal(commandCalls.at(-2)[1].outsideCanvas, true);
+        assert.equal(commandCalls.at(-2)[1].canvasAware, undefined);
         assert.deepEqual(commandCalls.at(-1), ['akari.preview.seekOutput',
             { editUri: 'edit.json', time: 12, waitForReady: true }]);
         assert.equal(previewTime, 12, '追加時の再読込で 0 秒に戻っても配置時刻へ復帰する');
+        windowListeners.get('akari.library.dragStart')({ detail: {
+            kind: 'asset', key: 'still/photo', category: 'still', title: '写真'
+        } });
+        const nextLayer = node.children.at(-1);
+        nextLayer.listeners.get('dragover')({ ...over, altKey: false });
+        for (const receive of [...receivers]) receive({
+            type: 'akari-preview-library-drop-geometry', requestId: messages.at(-1).requestId,
+            rect: { x: 150.9, y: 16, width: 478.2, height: 269 },
+            viewport: { width: 780, height: 359 }, time: 12, fps: 30,
+            canvasDropTargets: [{ id: 'g', name: '導入', at: 300, duration: 150, trackIndex: 0, itemIndex: 0, depth: 0 }]
+        });
+        nextLayer.listeners.get('drop')({ clientX: 670, clientY: 190, altKey: false,
+            dataTransfer: { getData: () => JSON.stringify({ kind: 'asset', key: 'still/photo', category: 'still' }) },
+            preventDefault() {}, stopPropagation() {} });
+        await new Promise(resolve => setTimeout(resolve, 20));
+        assert.equal(commandCalls.at(-2)[1].canvasAware, true);
+        assert.equal(commandCalls.at(-2)[1].outsideCanvas, false);
         dispose();
         assert.equal(layer.removed, true);
         assert.equal(windowListeners.has('akari.library.dragStart'), false);

@@ -1,0 +1,237 @@
+{
+ "cardSpec": "css:[data-akari-library-primary-tile=text]",
+ "dropSpec": "stage:0.3,0.3",
+ "at": "2026-09-25T07:17:37.018Z",
+ "card": {
+  "x": 89,
+  "y": 157,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283.0390625,
+   "y": 39,
+   "w": 779.953125,
+   "h": 358.515625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 780,
+   "h": 359
+  },
+  "inner": {
+   "x": 150.890625,
+   "y": 16.00390625,
+   "w": 478.21875,
+   "h": 268.9921875,
+   "offsetW": 478,
+   "offsetH": 269,
+   "transform": "matrix(1, 0, 0, 1, -239.109, -134.496)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 433.9296875,
+   "y": 55.00390625,
+   "w": 478.21875,
+   "h": 268.9921875
+  }
+ },
+ "drop": {
+  "x": 577,
+  "y": 136,
+  "outputPx": {
+   "x": 382.9419068156571,
+   "y": 216.79881502134702
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 447,
+     "w": 622,
+     "h": 24
+    },
+    "border": "dashed rgb(77, 208, 200) 1px",
+    "text": ""
+   }
+  ],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "text"
+ },
+ "alt": false,
+ "duringDrag": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "rect": {
+     "x": 482,
+     "y": 113,
+     "w": 190,
+     "h": 46
+    },
+    "border": "dashed rgb(251, 146, 60) 2px",
+    "text": "テキスト0:12.0 → 0:15.0 · キャンバス 1 "
+   },
+   {
+    "tag": "DIV",
+    "cls": "",
+    "rect": {
+     "x": 426,
+     "y": 447,
+     "w": 622,
+     "h": 24
+    },
+    "border": "dashed rgb(77, 208, 200) 1px",
+    "text": ""
+   }
+  ],
+  "times": [
+   {
+    "text": "0:12.0 → 0:15.0 · キャンバス 1 に入ります",
+    "rect": {
+     "x": 447.3,
+     "y": 157,
+     "w": 259.3,
+     "h": 25.5
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 503,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v-canvas",
+   "trackIndex": 2,
+   "trackName": "V1",
+   "lane": "visual",
+   "parent": "g-1",
+   "parentName": "キャンバス 1",
+   "id": "cap-c-0005",
+   "at": 60,
+   "absAt": 360,
+   "duration": 90,
+   "source": {
+    "kind": "caption",
+    "path": "captions.json",
+    "id": "c-0005"
+   }
+  }
+ ],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v-canvas",
+   "name": "V1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 3,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "captionsChanged": true,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 12,
+   "end": 15,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "text_style": {
+    "text_anchor": "mc",
+    "position": {
+     "x": 0.18283530800955106,
+     "y": 0.30159666353465453
+    }
+   }
+  }
+ ],
+ "audioAfter": null,
+ "newSources": [],
+ "notices": [
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）使う開くだけ",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）"
+ ]
+}

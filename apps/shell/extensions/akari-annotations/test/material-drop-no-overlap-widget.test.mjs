@@ -9,6 +9,8 @@ import { hitTestTimelineTrackDrop } from '../lib/common/timeline-track-drop.js';
 import { libraryAssetGhostPayload } from '../lib/browser/library-drop-model.js';
 import { topVisualTarget } from '../lib/browser/preview-material-placement.js';
 import { probePreviewMediaDimensions } from '../lib/browser/preview-media-dimensions.js';
+import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from '../lib/browser/canvas-drop-target.js';
+import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from '../lib/browser/timeline/canvas-row-drop.js';
 
 // 既存 library-asset-placement と同じく実メソッドを実行し、DOM と I/O だけを差し替える。
 const source = ts.createSourceFile('widget.ts', readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
@@ -25,10 +27,17 @@ const bindings = {
     insertAudioSfxPreferV2: mutations.insertAudioSfxPreferV2,
     insertV2Track: mutations.insertTrack, insertV2Item: mutations.insertItem,
     updateV2Item: mutations.updateItem, materialOverlapInsertIndex, topVisualTarget,
+    canvasAtFrame, canvasDropDuration, canvasDropTargets,
+    canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY, SUBROW_GAP: 2,
+    insertTreeV2ItemIntoCanvas: mutations.insertTreeV2ItemIntoCanvas,
     probePreviewMediaDimensions: options => probePreviewMediaDimensions({ ...options, maxWaitMs: 0 }),
     computeMaterialGhostRange,
     materialGhostVisibility, materialGhostRejectLabel, hitTestTimelineTrackDrop, libraryAssetGhostPayload,
     lockedTrackMessage: id => `locked: ${id}`,
+    PLACE_TEXT_COMMAND_ID: 'akari.caption.placeText',
+    textStyleDropStart: () => 13,
+    textStylePlaceOptions: (_payload, start) => ({ start }),
+    textPlaceOptions: start => ({ start }),
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS: 5, MATERIAL_INSERT_FALLBACK_DURATION_SECONDS: 3,
     SUBROW_STRIDE: 32, LANE_GAP: 4, LIBRARY_DRAG_MIME: 'application/x-akari-library-item'
 };
@@ -224,6 +233,161 @@ test('プレビューの音は位置を持たず指定時刻へ置く', async ()
     assert.equal(saved.t ?? saved.at / 30, 4);
     assert.equal('transform' in saved, false);
     await assertOneUndo(f);
+});
+
+test('プレビューの画像はキャンバスの子になり、終端・相対時刻・見た目・Undo 1 手を守る', async () => {
+    const canvas = { id: 'g', name: '導入', at: 300, duration: 150,
+        transform: { x: 40, y: -20, scale: 2, rotate: 30 },
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] };
+    const f = fixture([track('base', 'visual', [item('base-clip')]),
+        { id: 'v-empty', lane: 'visual', name: 'V empty', items: [] },
+        track('canvas', 'visual', [canvas]),
+        { id: 'a1', lane: 'audio', name: 'A1', items: [] }]);
+    await f.handler.addMaterialAtOutputPoint('assets/new.png', 'image', 12, { x: 430, y: -220 }, false, true);
+    const saved = f.doc();
+    assert.deepEqual(saved.tracks.filter(row => row.id === 'v-empty' || row.id === 'a1')
+        .map(row => [row.id, row.name, row.items]), [['v-empty', 'V empty', []], ['a1', 'A1', []]]);
+    const child = saved.tracks.flatMap(row => row.items).find(row => row.id === 'g').items[0];
+    assert.equal(child.at, 60);
+    assert.equal(child.duration, 90);
+    assert.equal(child.source.out, 3);
+    const { composeTransforms } = await import('@akari-video/edit-store');
+    const world = composeTransforms(canvas.transform, child.transform);
+    assert.ok(Math.abs(world.x - 430) < 1e-6);
+    assert.ok(Math.abs(world.y + 220) < 1e-6);
+    assert.ok(Math.abs(world.scale - .12) < 1e-6);
+    assert.ok(Math.abs(world.rotate ?? 0) < 1e-6);
+    await assertOneUndo(f);
+});
+
+test('⌥ とキャンバスの区間外は段直下へ置く', async () => {
+    const canvas = { id: 'g', at: 300, duration: 150,
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] };
+    for (const [time, outside] of [[12, true], [15, false]]) {
+        const f = fixture([track('canvas', 'visual', [structuredClone(canvas)])]);
+        await f.handler.addMaterialAtOutputPoint('assets/new.png', 'image', time, { x: 0, y: 0 }, outside, true);
+        assert.equal(f.doc().tracks.flatMap(row => row.items).find(row => row.id === 'g').items.length, 0);
+        assert.equal(f.doc().tracks.flatMap(row => row.items).some(row => row.id.startsWith('image-')), true);
+        await assertOneUndo(f);
+    }
+});
+
+test('指定なしの素材追加と非キャンバス行への落下は区間内でも段直下', async () => {
+    const canvas = { id: 'g', at: 300, duration: 150,
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] };
+    for (const place of [
+        f => f.handler.addMaterialAt('assets/new.png', 'image', 13, 0),
+        f => f.handler.placeMaterialAtTarget({ kind: 'image', relativePath: 'assets/new.png' },
+            { zone: 'layers', track: 0, top: 0, height: 32, rejected: false, targetTrackId: 'base' },
+            130, 'strip')
+    ]) {
+        const f = fixture([track('base', 'visual'), track('canvas', 'visual', [structuredClone(canvas)])]);
+        await place(f);
+        const top = f.doc().tracks.flatMap(row => row.items);
+        assert.deepEqual(top.find(row => row.id === 'g').items, []);
+        assert.equal(top.some(row => row.id.startsWith('image-')), true);
+        await assertOneUndo(f);
+    }
+});
+
+test('タイムラインのキャンバス行へ落とすと中へ入り、時刻が外なら区間へ収める', async () => {
+    const canvas = { id: 'g', at: 300, duration: 150,
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] };
+    const f = fixture([track('canvas', 'visual', [canvas]),
+        { id: 'v-empty', lane: 'visual', name: 'V empty', items: [] },
+        { id: 'a1', lane: 'audio', name: 'A1', items: [] }]);
+    await f.handler.placeMaterialAtTarget({ kind: 'image', relativePath: 'assets/new.png' },
+        { zone: 'layers', track: 0, top: 0, height: 32, rejected: false, targetTrackId: 'canvas' },
+        200, 'strip', 'g');
+    const child = f.doc().tracks.flatMap(row => row.items).find(row => row.id === 'g').items[0];
+    assert.deepEqual(f.doc().tracks.filter(row => row.id === 'v-empty' || row.id === 'a1')
+        .map(row => [row.id, row.name, row.items]), [['v-empty', 'V empty', []], ['a1', 'A1', []]]);
+    assert.equal(child.at, 149);
+    assert.equal(child.duration, 1);
+    await assertOneUndo(f);
+});
+
+test('タイムラインのキャンバス行の drop は行 id を配置経路へ渡す', () => {
+    const canvas = { id: 'g', at: 300, duration: 150,
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] };
+    const f = fixture([track('canvas', 'visual', [canvas])]);
+    const h = f.handler;
+    const payload = { kind: 'image', relativePath: 'assets/new.png' };
+    h.timelineTreeRows = [{ id: 'g', sourceKind: 'group' }];
+    h.materialPanelDropPoint = (x, y) => ({ x, y, zone: 'header-column' });
+    h.rawV2Item = id => id === 'g' ? canvas : undefined;
+    h.readLibraryAssetDropPayload = () => undefined;
+    h.readMaterialDropPayload = () => payload;
+    h.stopMaterialDragAutoScroll = () => {};
+    let received;
+    h.placeMaterialAtTarget = (...args) => { received = args; };
+    h.handleMaterialDrop({ clientX: 120, clientY: 16,
+        target: { closest: () => ({ dataset: { akariTreeRowId: 'g' } }) },
+        dataTransfer: {}, preventDefault() {}, stopPropagation() {} });
+    assert.equal(received[4], 'g');
+});
+
+test('文字の drop はキャンバス行だけ canvasId を渡す', () => {
+    const canvas = { id: 'g', at: 300, duration: 150,
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] };
+    const f = fixture([track('base', 'visual'), track('canvas', 'visual', [canvas])]);
+    const h = f.handler;
+    h.timelineTreeRows = [{ id: 'base', sourceKind: 'media' },
+        { id: 'g', sourceKind: 'group' }, { id: 'child', sourceKind: 'media', parentId: 'g' }];
+    h.materialPanelDropPoint = (x, y) => ({ x, y, zone: 'header-column' });
+    h.rawV2Item = id => id === 'g' ? canvas : undefined;
+    h.readLibraryTextStyleDropPayload = () => ({ kind: 'text' });
+    h.stopMaterialDragAutoScroll = () => {};
+    h.clearLibraryTransitionDragState = () => {};
+    h.visibleDuration = () => 30;
+    const calls = [];
+    h.commands = { executeCommand: (...args) => { calls.push(args); return Promise.resolve(); } };
+    for (const rowId of ['base', 'g', 'child']) {
+        h.handleMaterialDrop({ clientX: 130, clientY: 16, altKey: false,
+            target: { closest: () => ({ dataset: { akariTreeRowId: rowId } }) },
+            dataTransfer: { types: [] }, preventDefault() {}, stopPropagation() {} });
+    }
+    assert.equal(calls[0][1].canvasId, undefined);
+    assert.equal(calls[1][1].canvasId, 'g');
+    assert.equal(calls[2][1].canvasId, 'g');
+});
+
+test('縦スクロール中のストリップの素の DIV でも素材・文字 drop がキャンバスを選ぶ', () => {
+    const canvas = { id: 'g', at: 300, duration: 150,
+        source: { kind: 'group', canvas: { origin: 'user', durationMode: 'fixed' } }, items: [] };
+    const f = fixture([track('canvas', 'visual', [canvas])]);
+    const h = f.handler;
+    const row = { id: 'g', trackId: 'canvas', sourceKind: 'group' };
+    h.timelineTreeRows = [row];
+    h.treeRowsByTrack = new Map([['canvas', [row]]]);
+    h.overlayRows = new Map([['g', 1]]);
+    h.timelineRowStride = () => 32;
+    h.strip.getBoundingClientRect = () => ({ top: 444 });
+    h.stripScroll.scrollTop = 44;
+    h.trackHeaders = { querySelectorAll: () => [{ dataset: { akariTreeRowId: 'g' },
+        getBoundingClientRect: () => ({ top: 520, bottom: 568 }) }] };
+    h.resolveMaterialDropTarget = () => ({ zone: 'layers', track: 0, top: 0, height: 64,
+        rejected: false, targetTrackId: 'canvas' });
+    h.rawV2Item = id => id === 'g' ? canvas : undefined;
+    h.readLibraryAssetDropPayload = () => undefined;
+    h.readMaterialDropPayload = () => ({ kind: 'image', relativePath: 'assets/new.png' });
+    h.stopMaterialDragAutoScroll = h.clearLibraryTransitionDragState = () => {};
+    const placed = [], commands = [];
+    h.placeMaterialAtTarget = (...args) => { placed.push(args); };
+    h.commands = { executeCommand: (...args) => { commands.push(args); return Promise.resolve(); } };
+    h.visibleDuration = () => 30;
+    const drop = y => h.handleMaterialDrop({ clientX: 130, clientY: y,
+        target: { closest: () => null }, dataTransfer: { types: [] },
+        preventDefault() {}, stopPropagation() {} });
+    drop(543);
+    drop(500);
+    assert.equal(placed[0][4], 'g');
+    assert.equal(placed[1].length, 4);
+    h.readLibraryTextStyleDropPayload = () => ({ kind: 'text' });
+    drop(543);
+    drop(500);
+    assert.equal(commands[0][1].canvasId, 'g');
+    assert.equal(commands[1][1].canvasId, undefined);
 });
 
 test('実尺が端で接する配置ではトラックを増やさない', async () => {

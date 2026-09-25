@@ -1,0 +1,60 @@
+[
+ {
+  "id": "v-main",
+  "name": "Base",
+  "items": [
+   {
+    "id": "cut-base",
+    "at": 0,
+    "duration": 900,
+    "kind": "media",
+    "children": []
+   }
+  ]
+ },
+ {
+  "id": "v-captions",
+  "name": "字幕",
+  "items": [
+   {
+    "id": "captions",
+    "name": "字幕",
+    "at": 0,
+    "duration": 900,
+    "kind": "captions",
+    "children": []
+   }
+  ]
+ },
+ {
+  "id": "v-canvas",
+  "name": "V1",
+  "items": [
+   {
+    "id": "g-1",
+    "name": "キャンバス 1",
+    "at": 300,
+    "duration": 150,
+    "kind": "group",
+    "children": []
+   }
+  ]
+ },
+ {
+  "id": "v1",
+  "items": [
+   {
+    "id": "image-1",
+    "at": 360,
+    "duration": 150,
+    "kind": "media",
+    "children": []
+   }
+  ]
+ },
+ {
+  "id": "a1",
+  "name": "A1",
+  "items": []
+ }
+]

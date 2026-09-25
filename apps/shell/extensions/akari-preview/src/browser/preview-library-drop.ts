@@ -1,6 +1,7 @@
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { hostToOutput, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
+import { canvasAtFrame, canvasDropLabel, type CanvasDropTarget } from '../common/canvas-drop-target';
 
 const MIME = 'application/x-akari-library-item';
 const START = 'akari.library.dragStart';
@@ -8,7 +9,8 @@ const END = 'akari.library.dragEnd';
 type Payload = { kind: string; key?: string; id?: string; category?: string; title?: string;
     width?: number; height?: number; thumb?: string; durationSeconds?: number; locked?: boolean;
     style?: unknown };
-type Geometry = { rect: DropRect; time: number; output: { width: number; height: number } };
+type Geometry = { rect: DropRect; time: number; fps: number; canvases: CanvasDropTarget[];
+    output: { width: number; height: number } };
 
 function readPayload(value: unknown): Payload | undefined {
     try {
@@ -30,6 +32,7 @@ export class PreviewLibraryDrop {
     private readonly pendingGeometryRequests = new Set<{ dispose(): void }>();
     private lastGeometryRequestAt = 0;
     private lastPointer?: { x: number; y: number };
+    private outside = false;
     private dragSerial = 0;
     private requestId = 0;
     private readonly subscriptions: Array<{ dispose(): void }> = [];
@@ -47,6 +50,11 @@ export class PreviewLibraryDrop {
             void this.queryGeometry();
         };
         const clear = (): void => this.clear();
+        const keyChanged = (event: KeyboardEvent): void => {
+            if (!this.layer) return;
+            this.outside = event.altKey;
+            if (this.lastPointer) this.drawGhost(this.lastPointer.x, this.lastPointer.y);
+        };
         const useFrameDragImage = (event: DragEvent): void => {
             if (!event.dataTransfer?.types.includes(MIME)) return;
             const image = document.createElement('canvas');
@@ -60,11 +68,15 @@ export class PreviewLibraryDrop {
         window.addEventListener(START, start);
         window.addEventListener(END, clear);
         window.addEventListener('blur', clear);
+        window.addEventListener('keydown', keyChanged);
+        window.addEventListener('keyup', keyChanged);
         this.subscriptions.push({ dispose: () => {
             window.removeEventListener('dragstart', useFrameDragImage);
             window.removeEventListener(START, start);
             window.removeEventListener(END, clear);
             window.removeEventListener('blur', clear);
+            window.removeEventListener('keydown', keyChanged);
+            window.removeEventListener('keyup', keyChanged);
         } });
         this.widget.onDidDispose(() => this.dispose());
     }
@@ -102,7 +114,10 @@ export class PreviewLibraryDrop {
                     clientLeft: iframe.clientLeft, clientTop: iframe.clientTop }, message.rect, false,
                 message.contentFrame ? { rect: message.contentFrame, viewport: message.viewport } : undefined);
                 if (!rect || !(message.viewport.width > 0) || !(message.viewport.height > 0)) { finish(); return; }
-                const geometry = { rect, time: Number.isFinite(message.time) ? Math.max(0, message.time) : 0, output: size };
+                const geometry = { rect, time: Number.isFinite(message.time) ? Math.max(0, message.time) : 0,
+                    fps: Number(message.fps) > 0 ? Number(message.fps) : 30,
+                    canvases: Array.isArray(message.canvasDropTargets) ? message.canvasDropTargets as CanvasDropTarget[] : [],
+                    output: size };
                 if (serial === this.dragSerial) {
                     this.geometry = geometry;
                     if (this.lastPointer && this.active) this.drawGhost(this.lastPointer.x, this.lastPointer.y);
@@ -140,6 +155,7 @@ export class PreviewLibraryDrop {
         event.stopPropagation();
         if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
         this.lastPointer = { x: event.clientX, y: event.clientY };
+        this.outside = event.altKey;
         if (!this.geometry && Date.now() - this.lastGeometryRequestAt >= 250) void this.queryGeometry();
         this.drawGhost(event.clientX, event.clientY);
     }
@@ -182,7 +198,15 @@ export class PreviewLibraryDrop {
                 : text ? 3 : 5;
             const label = document.createElement('div');
             label.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);white-space:nowrap;padding:3px 7px;border-radius:4px;background:var(--theia-editorHoverWidget-background,#242424)';
-            label.textContent = `${stamp(geometry.time)} → ${duration ? stamp(geometry.time + duration) : '実尺'}`;
+            const target = !audio && canvasAtFrame(geometry.canvases,
+                Math.round(geometry.time * geometry.fps), this.outside);
+            const hint = target ? `${canvasDropLabel(geometry.canvases, target)} に入ります` : '';
+            const end = duration && target
+                ? Math.min(geometry.time + duration, (target.at + target.duration) / geometry.fps)
+                : geometry.time + (duration || 0);
+            label.dataset.akariCanvasDropHint = hint ? 'true' : 'false';
+            label.textContent = `${stamp(geometry.time)} → ${duration ? stamp(end) : '実尺'}`
+                + (hint ? ` · ${hint}` : '');
             ghost.appendChild(label);
         }
     }
@@ -215,7 +239,9 @@ export class PreviewLibraryDrop {
                 start: geometry.time, center: { x: point.x / geometry.output.width,
                     y: point.y / geometry.output.height },
                 ...(payload.kind === 'textstyle' ? { stylePreset: payload.id } : {}),
-                ...(payload.kind === 'mystyle' ? { myStyle: payload.style } : {})
+                ...(payload.kind === 'mystyle' ? { myStyle: payload.style } : {}),
+                ...(!event.altKey ? { canvasAware: true } : {}),
+                outsideCanvas: event.altKey
             }, editUri);
             return;
         }
@@ -226,7 +252,8 @@ export class PreviewLibraryDrop {
         await this.commands.executeCommand('akari.timeline.addMaterialAtOutputPoint', {
             relativePath: resolved.relativePath, kind: resolved.kind, t: geometry.time,
             ...(resolved.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
-            editUri
+            editUri, outsideCanvas: event.altKey,
+            ...(!event.altKey ? { canvasAware: true } : {})
         });
         try {
             await this.commands.executeCommand('akari.preview.seekOutput', {
@@ -247,6 +274,7 @@ export class PreviewLibraryDrop {
         this.geometry = undefined;
         this.lastGeometryRequestAt = 0;
         this.lastPointer = undefined;
+        this.outside = false;
     }
     private dispose(): void { this.clear(); for (const item of this.subscriptions) item.dispose(); }
 }

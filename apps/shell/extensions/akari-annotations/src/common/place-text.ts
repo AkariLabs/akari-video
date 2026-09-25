@@ -10,6 +10,9 @@ export interface PlaceTextOptions {
     center?: { x: number; y: number };
     textAnchor?: 'mc';
     stylePreset?: string;
+    canvasAware?: boolean;
+    canvasId?: string;
+    outsideCanvas?: boolean;
 }
 
 /** 出力時刻のまま扱い、表示用タイムラインの余白は総尺に含めない。 */

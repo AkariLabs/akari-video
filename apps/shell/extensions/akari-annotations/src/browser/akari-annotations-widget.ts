@@ -1,6 +1,8 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
 import { topVisualTarget } from './preview-material-placement';
+import { canvasAtFrame, canvasDropDuration, canvasDropTargets } from './canvas-drop-target';
+import { canvasForTimelineRow, timelineRowAtClientY, timelineRowAtY } from './timeline/canvas-row-drop';
 import { probePreviewMediaDimensions } from './preview-media-dimensions';
 import { duplicatePreviewItem, type PreviewDuplicateRequest } from '../common/preview-duplicate';
 import { writePreviewCaptionWrap, duplicatePreviewCaption, type PreviewCaptionWrapRequest } from '../common/preview-caption-wrap';
@@ -69,7 +71,7 @@ import {
     removeStyleAttachedItems,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
-import type { InternalTrack, TransitionType } from '@akari-video/edit-store';
+import type { InternalTrack, ProjectItemV2, TransitionType } from '@akari-video/edit-store';
 import { scanHtmlParts } from 'akari-preview/lib/common/preview-parts';
 import {
     AkariAnnotationsService,
@@ -190,12 +192,14 @@ import {
     indexEditV2Items,
     insertAudioSfxPreferV2,
     insertItem as insertV2Item,
+    insertTreeV2ItemIntoCanvas,
     insertTrack as insertV2Track,
     detachTreeV2Item,
     createTreeV2Canvas,
     groupTreeV2Items,
     putTreeV2ItemsIntoCanvas,
     putTreeV2PlacedCaptionIntoCanvas,
+    placeTreeV2CaptionIntoCanvas,
     takeTreeV2ItemsOutOfCanvas,
     moveAudioSfxPreferV2,
     moveItemToNewTrack as moveV2ItemToNewTrack,
@@ -4833,8 +4837,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     stylePreset: options.stylePreset,
                     myStyleLook: options.myStyle?.parts.find(part => part.kind === 'look')?.text_style,
                     defaultStyle: parsedCaptions.defaultTextStyle }) : undefined;
-            const caption = placeTextCaption(placement ? { ...options, ...placement } : options,
-                this.playheadT, duration, captions.map(item => item.id));
+            const parsedEdit = JSON.parse(editSource) as EditV2Document;
+            const targets = Array.isArray(parsedEdit.tracks)
+                ? canvasDropTargets(parsedEdit.tracks as Record<string, unknown>[]) : [];
+            const rowCanvas = !options.outsideCanvas && options.canvasId
+                ? targets.find(target => target.id === options.canvasId) : undefined;
+            const requestedStart = options.start ?? this.playheadT;
+            const rowStart = rowCanvas
+                ? Math.max(rowCanvas.at, Math.min(this.frameAt(requestedStart), rowCanvas.at + rowCanvas.duration - 1)) / this.fps
+                : undefined;
+            const placedOptions = placement ? { ...options, ...placement } : options;
+            const caption = placeTextCaption(rowStart === undefined ? placedOptions : {
+                ...placedOptions, start: rowStart,
+                ...(options.end === undefined ? {} : { end: rowStart + options.end - requestedStart })
+            }, this.playheadT, duration, captions.map(item => item.id));
+            const canvas = options.outsideCanvas ? undefined : options.canvasId
+                ? rowCanvas : options.canvasAware ? canvasAtFrame(targets, this.frameAt(caption.start)) : undefined;
+            if (canvas) caption.end = Math.min(caption.end, (canvas.at + canvas.duration) / this.fps);
             const look = options.myStyle?.parts.find(part => part.kind === 'look');
             const motion = options.myStyle?.parts.find(part => part.kind === 'motion');
             if (look) {
@@ -4852,7 +4871,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 await this.resolveMyStyleAsset(asset.category, asset.id, file);
             }
             await this.withHistory('文字を置く', async () => {
-                if (attachedParts.length && options.myStyle?.uid) {
+                if (canvas) {
+                    const captionsSource = insertCaptionLine(source, caption);
+                    const withParts = attachedParts.length && options.myStyle?.uid
+                        ? applyMyStyleAttachedParts(parsedEdit as unknown as Parameters<typeof applyMyStyleAttachedParts>[0],
+                            toAnchorCaptions(JSON.parse(captionsSource)),
+                            [caption.id], options.myStyle.uid, attachedParts) : parsedEdit;
+                    const anchored = resolveItemAnchors(withParts as unknown as EditV2,
+                        toAnchorCaptions(JSON.parse(captionsSource))).edit;
+                    const editAfter = placeTreeV2CaptionIntoCanvas(anchored as unknown as EditV2Document,
+                        { id: caption.id, at: this.frameAt(caption.start),
+                            duration: Math.max(1, this.frameAt(caption.end - caption.start)) }, canvas.id).document;
+                    await this.annotationsService.writeEditSnapshot({
+                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
+                        captionsUri: location.captionsUri.toString(), captionsSource,
+                        editSource: `${JSON.stringify(editAfter, null, 2)}\n`
+                    });
+                } else if (attachedParts.length && options.myStyle?.uid) {
                     const captionsSource = insertCaptionLine(source, caption);
                     const next = applyMyStyleAttachedParts(JSON.parse(editSource), toAnchorCaptions(JSON.parse(captionsSource)),
                         [caption.id], options.myStyle.uid, attachedParts);
@@ -4869,7 +4904,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                 }
             });
-            if (attachedParts.length) await this.reloadEdit();
+            if (attachedParts.length || canvas) await this.reloadEdit();
             await this.reloadCaptions();
             this.selectCaptions(location.editUri.toString(), [caption.id]);
             this.playheadT = caption.start;
@@ -6090,7 +6125,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     async addMaterialAtOutputPoint(relativePath: string, kind: string, t: number,
-        transform?: { x: number; y: number }): Promise<void> {
+        transform?: { x: number; y: number }, outsideCanvas = false, canvasAware = false): Promise<void> {
         if (!Number.isFinite(t)) {
             this.messages.warn('素材を追加できません（ドロップ位置が不正です）。');
             return;
@@ -6116,13 +6151,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const sourceWidth = dimensions?.width;
         if (!(sourceWidth && sourceWidth > 0)) {
             await this.addMaterialAt(relativePath, kind, t, 0, {
-                transform: { ...transform, scale: 1 }, placeOnTop: true
+                transform: { ...transform, scale: 1 }, placeOnTop: true,
+                ...(outsideCanvas ? { outsideCanvas: true } : {}),
+                ...(canvasAware ? { canvasAware: true } : {})
             });
             this.messages.warn('素材の大きさを取得できなかったため、既定の大きさで置きました。');
             return;
         }
         await this.addMaterialAt(relativePath, kind, t, 0, {
-            transform: { ...transform, scale: outputWidth / (4 * sourceWidth) }, placeOnTop: true
+            transform: { ...transform, scale: outputWidth / (4 * sourceWidth) }, placeOnTop: true,
+            ...(outsideCanvas ? { outsideCanvas: true } : {}),
+            ...(canvasAware ? { canvasAware: true } : {})
         });
     }
 
@@ -6153,6 +6192,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             durationSeconds?: number; insertTrack?: number; insertIndex?: number;
             zone?: MaterialDropZone; createAudioTrack?: boolean; targetTrackId?: string;
             transform?: { x: number; y: number; scale: number }; placeOnTop?: boolean;
+            outsideCanvas?: boolean; canvasAware?: boolean; canvasId?: string;
         }
     ): Promise<void> {
         if (this.materialSwap) await this.finishMaterialSwap(false);
@@ -6369,9 +6409,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 duration,
                 source: { kind: 'media', src: source.id, in: 0, out: Math.max(1 / this.fps, durationSeconds) }
             };
+            const canvas = !options?.outsideCanvas
+                ? options?.canvasId
+                    ? canvasDropTargets(value.tracks as Record<string, unknown>[]).find(candidate => candidate.id === options.canvasId)
+                    : options?.canvasAware
+                        ? canvasAtFrame(canvasDropTargets(value.tracks as Record<string, unknown>[]), item.at as number)
+                        : undefined
+                : undefined;
+            if (canvas && options?.canvasId) {
+                item.at = Math.max(canvas.at, Math.min(item.at as number, canvas.at + canvas.duration - 1));
+            }
+            if (canvas && (item.at as number) >= canvas.at && (item.at as number) < canvas.at + canvas.duration) {
+                item.duration = canvasDropDuration(item.at as number, duration, canvas);
+                (item.source as Record<string, unknown>).out = (item.duration as number) / this.fps;
+            }
             if (options?.transform) item.transform = options.transform;
             const lane = 'visual';
-            if (options?.insertIndex !== undefined) {
+            if (canvas) {
+                value = insertTreeV2ItemIntoCanvas(value, item as unknown as ProjectItemV2, canvas.id).document;
+            } else if (options?.insertIndex !== undefined) {
                 value = insertV2Track(value, { index: options.insertIndex, lane });
                 const created = (value.tracks as Array<Record<string, unknown>>)[options.insertIndex];
                 value = insertV2Item(value, String(created.id), item);
@@ -6634,6 +6690,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         event.preventDefault();
         event.stopPropagation();
+        const rowElement = (event.target as HTMLElement | null)?.closest?.<HTMLElement>('[data-akari-tree-row-id]');
+        const visibleRows = [...(this.treeRowsByTrack?.values() ?? [])].flat();
+        const stripHeaders = point.zone === 'strip'
+            ? Array.from(this.trackHeaders?.querySelectorAll<HTMLElement>('[data-akari-tree-row-id]') ?? []) : [];
+        const stripRow = point.zone !== 'strip' ? undefined : stripHeaders.length > 0
+            ? timelineRowAtClientY(event.clientY, this.timelineTreeRows ?? visibleRows, stripHeaders.map(element => {
+                const rect = element.getBoundingClientRect();
+                return { id: element.dataset.akariTreeRowId ?? '', top: rect.top, bottom: rect.bottom };
+            }))
+            : visibleRows.length > 0 ? timelineRowAtY(
+                event.clientY - this.strip.getBoundingClientRect().top,
+                visibleRows, this.laneLayout.tracks, this.overlayRows,
+                trackId => this.timelineRowStride(trackId), SUBROW_GAP
+            ) : undefined;
+        const droppedRow = point.zone === 'strip' ? stripRow
+            : this.timelineTreeRows?.find(row => row.id === rowElement?.dataset.akariTreeRowId);
+        const canvasId = droppedRow ? canvasForTimelineRow(droppedRow, this.timelineTreeRows ?? [],
+            id => !!this.rawV2Item(id)?.source?.canvas) : undefined;
         const rawLibrary = event.dataTransfer?.types?.includes(LIBRARY_DRAG_MIME)
             ? event.dataTransfer.getData(LIBRARY_DRAG_MIME) : undefined;
         let lockedKey: string | undefined;
@@ -6672,7 +6746,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const options = textPayload.kind === 'textstyle' ? textStylePlaceOptions(textPayload, start)
                 : textPayload.kind === 'mystyle' ? { ...textPlaceOptions(start), myStyle: textPayload.style }
                     : textPlaceOptions(start);
-            void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID, options, this.location.editUri.toString());
+            void this.commands.executeCommand(PLACE_TEXT_COMMAND_ID,
+                event.altKey ? { ...options, outsideCanvas: true }
+                    : canvasId ? { ...options, canvasId } : options, this.location.editUri.toString());
             return;
         }
         const libraryAsset = this.readLibraryAssetDropPayload(event.dataTransfer);
@@ -6697,10 +6773,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.messages.warn(this.footer.textContent);
                 return;
             }
-            void this.placeLibraryAssetAtTarget(libraryAsset, target, point.x, point.zone);
+            if (canvasId) void this.placeLibraryAssetAtTarget(libraryAsset, target, point.x, point.zone, canvasId);
+            else void this.placeLibraryAssetAtTarget(libraryAsset, target, point.x, point.zone);
             return;
         }
-        void this.placeMaterialAtTarget(payload, target, point.x, point.zone);
+        if (canvasId) void this.placeMaterialAtTarget(payload, target, point.x, point.zone, canvasId);
+        else void this.placeMaterialAtTarget(payload, target, point.x, point.zone);
     }
 
     /**
@@ -6716,7 +6794,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         payload: MaterialDragPayload,
         target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
         clientX: number,
-        panelZone: TimelinePanelDropZone = 'strip'
+        panelZone: TimelinePanelDropZone = 'strip',
+        canvasId?: string
     ): Promise<void> {
         if (target.rejected) {
             this.footer.textContent = target.reason || '素材をここには置けません。';
@@ -6739,7 +6818,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(target.insertTrack !== undefined ? { insertTrack: target.insertTrack } : {}),
                 ...(target.insertIndex !== undefined ? { insertIndex: target.insertIndex } : {}),
                 ...(target.targetTrackId !== undefined ? { targetTrackId: target.targetTrackId } : {}),
-                ...(target.createAudioTrack ? { createAudioTrack: true } : {})
+                ...(target.createAudioTrack ? { createAudioTrack: true } : {}),
+                ...(canvasId && payload.kind !== 'audio' ? { canvasId } : {})
             }
         );
         if (panelZone === 'header-column') {
@@ -6881,7 +6961,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         asset: LibraryAssetDragPayload,
         target: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']>,
         clientX: number,
-        panelZone: TimelinePanelDropZone
+        panelZone: TimelinePanelDropZone,
+        canvasId?: string
     ): Promise<void> {
         const editUri = this.location?.editUri?.toString();
         try {
@@ -6901,7 +6982,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showLockedTrack(target.targetTrackId);
                 return;
             }
-            await this.placeMaterialAtTarget(payload, target, clientX, panelZone);
+            if (canvasId) await this.placeMaterialAtTarget(payload, target, clientX, panelZone, canvasId);
+            else await this.placeMaterialAtTarget(payload, target, clientX, panelZone);
         } catch (error) {
             this.messages.error(`素材を追加できません: ${this.errorMessage(error)}`);
         }

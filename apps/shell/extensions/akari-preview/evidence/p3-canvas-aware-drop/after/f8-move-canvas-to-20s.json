@@ -1,0 +1,38 @@
+{
+ "id": "g-1",
+ "toSec": 20,
+ "geo": {
+  "x0": 426.0390625,
+  "pxPerSec": 18.846875
+ },
+ "chip": {
+  "x": 614.5078125,
+  "y": 487.515625,
+  "width": 94.234375,
+  "height": 48
+ },
+ "before": {
+  "at": 300,
+  "duration": 150,
+  "children": [
+   {
+    "id": "image-1",
+    "at": 60,
+    "duration": 90,
+    "absAt": 360
+   }
+  ]
+ },
+ "after": {
+  "at": 599,
+  "duration": 150,
+  "children": [
+   {
+    "id": "image-1",
+    "at": 60,
+    "duration": 90,
+    "absAt": 659
+   }
+  ]
+ }
+}

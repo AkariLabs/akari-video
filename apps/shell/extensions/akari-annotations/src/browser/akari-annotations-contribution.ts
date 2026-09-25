@@ -495,12 +495,13 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand({ id: 'akari.timeline.addMaterialAtOutputPoint' }, {
             execute: async (request: { relativePath?: string; kind?: string; t?: number;
-                transform?: { x: number; y: number }; editUri?: string }) => {
+                transform?: { x: number; y: number }; editUri?: string;
+                outsideCanvas?: boolean; canvasAware?: boolean }) => {
                 const location = (await this.locateAll()).find(item => item.editUri?.toString() === request?.editUri);
                 if (!location) return this.messages.warn('プロジェクトを特定できません。');
                 const widget = await this.configureQuietTimeline(location);
                 await widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
-                    request?.transform);
+                    request?.transform, request?.outsideCanvas === true, request?.canvasAware === true);
             }
         });
         const onPlaybackTick = (event: Event): void => {
