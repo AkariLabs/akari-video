@@ -3,6 +3,7 @@ import {
     CHANNEL_UPDATER_CHECK,
     CHANNEL_UPDATER_EVENT,
     CHANNEL_UPDATER_GET_STATE,
+    CHANNEL_UPDATER_GET_CAPABILITIES,
     CHANNEL_UPDATER_RESTART,
     ElectronAkariUpdaterApi,
     ShellUpdaterCheckRequest,
@@ -10,6 +11,7 @@ import {
 } from '../electron-common/electron-api';
 
 const api: ElectronAkariUpdaterApi = {
+    getCapabilities: () => ipcRenderer.invoke(CHANNEL_UPDATER_GET_CAPABILITIES),
     getLastEvent: (): Promise<ShellUpdaterEvent | undefined> => ipcRenderer.invoke(CHANNEL_UPDATER_GET_STATE),
     onEvent: (listener: (event: ShellUpdaterEvent) => void): () => void => {
         const handler = (_event: unknown, payload: ShellUpdaterEvent): void => listener(payload);

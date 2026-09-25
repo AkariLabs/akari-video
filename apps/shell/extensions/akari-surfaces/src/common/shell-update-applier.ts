@@ -23,6 +23,11 @@ export function shouldApplyFeedUrlFallback(isPackaged: boolean, appUpdateYmlExis
     return isPackaged && !appUpdateYmlExists;
 }
 
+/** 開発版は明示的な更新フィードがある場合だけ更新 UI を有効にする。 */
+export function resolveUpdateUiEnabled(options: { isPackaged: boolean; feedUrlOverridden: boolean; testFeedUrlSet: boolean }): boolean {
+    return options.isPackaged || options.feedUrlOverridden || options.testFeedUrlSet;
+}
+
 /**
  * electron-builder が app-update.yml に書く updaterCacheDirName（package name の '/' 除去 + '-updater'。
  * `scripts/release/gen-app-update-yml.mjs` の deriveUpdaterCacheDirName と同じ導出・テストで drift を固定）。
@@ -218,8 +223,8 @@ export function applyImmediateUpdaterFallback(state: ShellUpdaterUiState, reason
 }
 
 /** error が明示クリックから始まったものかを副作用前に判定する。 */
-export function shouldOpenUpdaterBrowserFallback(state: ShellUpdaterUiState, event: ShellUpdaterEvent): boolean {
-    return event.kind === 'error' && state.checkRequestedByUser === true && !state.downloaded;
+export function shouldOpenUpdaterBrowserFallback(state: ShellUpdaterUiState, event: ShellUpdaterEvent, updateUiEnabled = true): boolean {
+    return updateUiEnabled && event.kind === 'error' && state.checkRequestedByUser === true && !state.downloaded;
 }
 
 /** 明示クリック起点の縮退時だけ出す 1 行。バックグラウンド失敗では空文字。 */

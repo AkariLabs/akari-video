@@ -2,6 +2,7 @@ import { ShellUpdaterEvent } from '../common/shell-update-applier';
 
 export const CHANNEL_UPDATER_EVENT = 'AkariShellUpdaterEvent';
 export const CHANNEL_UPDATER_GET_STATE = 'AkariShellUpdaterGetState';
+export const CHANNEL_UPDATER_GET_CAPABILITIES = 'AkariShellUpdaterGetCapabilities';
 export const CHANNEL_UPDATER_RESTART = 'AkariShellUpdaterRestartAndInstall';
 export const CHANNEL_UPDATER_CHECK = 'AkariShellUpdaterCheckNow';
 export const UPDATER_CANCEL_REQUEST_FILENAME = 'updater-cancel-request.json';
@@ -68,6 +69,8 @@ export interface ShellUpdaterCheckRequest {
 }
 
 export interface ElectronAkariUpdaterApi {
+    /** main プロセスのビルド種別と更新 UI の利用可否。 */
+    getCapabilities(): Promise<{ isPackaged: boolean; updateUiEnabled: boolean }>;
     /** main プロセスが直近に観測したイベント。ホーム widget が後から生成された場合の初期同期用（無ければ undefined）。 */
     getLastEvent(): Promise<ShellUpdaterEvent | undefined>;
     /** イベント購読。戻り値の関数を呼ぶと解除する。 */

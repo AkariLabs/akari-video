@@ -399,6 +399,7 @@ export class AkariHomeWidget extends ReactWidget {
     // 再起動待ちの状態。U2 のリモートフィード比較（updateStatus）とは独立した
     // 別 SSOT（main プロセスの IPC イベントだけで決まる — shell-update-applier.ts 参照）。
     protected updaterUiState: ShellUpdaterUiState = INITIAL_SHELL_UPDATER_UI_STATE;
+    protected updateUiEnabled = true;
     protected updaterUnsubscribe: (() => void) | undefined;
 
     @postConstruct()
@@ -1606,6 +1607,14 @@ export class AkariHomeWidget extends ReactWidget {
      * ここが「起動をブロックしない」の核）。
      */
     protected async loadUpdateStatus(): Promise<void> {
+        const updaterApi = this.resolveElectronUpdaterApi();
+        if (updaterApi) {
+            this.updateUiEnabled = (await updaterApi.getCapabilities().catch(() => ({ updateUiEnabled: false }))).updateUiEnabled;
+        }
+        if (!this.updateUiEnabled) {
+            this.syncUpdateToast();
+            return;
+        }
         try {
             const cacheUri = await this.resolveUpdateCacheUri();
             this.updateCacheUri = cacheUri;
@@ -1711,6 +1720,7 @@ export class AkariHomeWidget extends ReactWidget {
      * updater API が使えない場合だけ、理由を一行表示して外部ブラウザへ縮退する。
      */
     protected downloadUpdate = (): void => {
+        if (!this.updateUiEnabled) { return; }
         const api = this.resolveElectronUpdaterApi();
         const action = resolveUpdateButtonAction(this.updaterUiState, api !== undefined);
         if (action === 'check' && api) {
@@ -1746,6 +1756,7 @@ export class AkariHomeWidget extends ReactWidget {
      * バイナリ配布物のダウンロードが実ブラウザのダウンロードマネージャを経由しない。
      */
     protected openUpdateDownloadInBrowser(): void {
+        if (!this.updateUiEnabled) { return; }
         const url = this.updateStatus.downloadUrl ?? resolveUpdateDownloadUrl(this.updateRawCache?.feed, this.resolveShellPlatformKey());
         if (url) {
             this.windowService.openNewWindow(url, { external: true });
@@ -1789,7 +1800,7 @@ export class AkariHomeWidget extends ReactWidget {
 
     protected applyUpdaterEvent(event: ShellUpdaterEvent): void {
         const resolvedEvent = reconcileVisibleUpdateEvent(this.updaterUiState, event, this.updateStatus.latestVersion);
-        const shouldOpenFallback = shouldOpenUpdaterBrowserFallback(this.updaterUiState, resolvedEvent);
+        const shouldOpenFallback = shouldOpenUpdaterBrowserFallback(this.updaterUiState, resolvedEvent, this.updateUiEnabled);
         this.updaterUiState = applyShellUpdaterEvent(this.updaterUiState, resolvedEvent);
         this.syncUpdateToast();
         if (shouldOpenFallback) {
@@ -1811,6 +1822,10 @@ export class AkariHomeWidget extends ReactWidget {
 
     /** Theia notifications do not support the app icon and version-specific actions; the owned toast follows this widget's existing update state. */
     protected syncUpdateToast(): void {
+        if (!this.updateUiEnabled) {
+            this.updateToast.setState(undefined);
+            return;
+        }
         const stage = noticeStage(this.updateStatus.available || !!this.updateStatus.dismissed, !!this.updaterUiState.downloading, this.updaterUiState.downloaded);
         const version = this.updaterUiState.downloadedVersion ?? this.updaterUiState.downloadingVersion ?? this.updateStatus.latestVersion;
         const notesUrl = this.updateStatus.notesUrl ?? this.updateRawCache?.feed?.notes_url;

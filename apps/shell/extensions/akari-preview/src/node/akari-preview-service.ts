@@ -335,6 +335,7 @@ interface OverlayRuntimeSources {
     runtime: Buffer;
     interaction: Buffer;
     interactionCss: string;
+    motionVocabCss: string;
     webviewKernel: Buffer;
     captionFont: Buffer;
 }
@@ -426,6 +427,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 }`, 'utf8'),
                 interaction: Buffer.from(`${readText('handle-geometry.js')}\n${readText('interaction.js')}`, 'utf8'),
                 interactionCss: readText('interaction.css'),
+                motionVocabCss: readText('motion-vocab.css'),
                 webviewKernel: readFileSync(this.findWebviewKernelBundle()),
                 captionFont: readFileSync(this.findCaptionFontPath())
             };
@@ -452,6 +454,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 runtimeJavaScript: sources.runtime.toString('utf8'),
                 interactionJavaScript: sources.interaction.toString('utf8'),
                 interactionCss: sources.interactionCss,
+                motionVocabCss: sources.motionVocabCss,
                 webviewKernelJavaScript: sources.webviewKernel.toString('utf8'),
                 captionFontDataUri: this.readCaptionFontDataUri()
             };
@@ -489,6 +492,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             runtimeJavaScriptUrl: url('overlay-runtime.js', sources.runtime, javascript),
             interactionJavaScriptUrl: url('interaction.js', sources.interaction, javascript),
             interactionCss: sources.interactionCss,
+            motionVocabCss: sources.motionVocabCss,
             webviewKernelJavaScriptUrl: url('webview-kernel.js', sources.webviewKernel, javascript),
             ...(frameEngine ? { frameEngineJavaScriptUrl: url('frame-engine.js', frameEngine, javascript) } : {}),
             ...(previewAudioWorklet ? {

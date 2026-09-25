@@ -12,6 +12,7 @@ export interface OverlayRuntimeAssets {
     runtimeJavaScript: string;
     interactionJavaScript: string;
     interactionCss: string;
+    motionVocabCss: string;
     // 共有カーネル（packages/edit-store/src/webview-kernel.ts — timeline-map 等）。
     // webview は sandbox 制約で import できないため、IIFE バンドル
     // （edit-store lib/webview-kernel.js、global: AkariEditKernel）をインライン注入する。
@@ -50,6 +51,7 @@ export interface OverlayRuntimeAssetUrls {
     runtimeJavaScriptUrl: string;
     interactionJavaScriptUrl: string;
     interactionCss: string;
+    motionVocabCss: string;
     webviewKernelJavaScriptUrl: string;
     /** includeFrameEngine 指定時のみ。バンドルが無い（legacy 明示）時は undefined。 */
     frameEngineJavaScriptUrl?: string;

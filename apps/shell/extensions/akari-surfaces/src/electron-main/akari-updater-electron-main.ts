@@ -13,10 +13,11 @@ import {
     resolveUpdaterCheckChannel,
     resolveUpdateChannel,
     resolveShellUpdaterErrorReason,
+    resolveUpdateUiEnabled,
     ShellUpdaterEvent,
     shouldApplyFeedUrlFallback
 } from '../common/shell-update-applier';
-import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_RESTART,
+import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_GET_CAPABILITIES, CHANNEL_UPDATER_RESTART,
     isUpdaterCancelRequest, isUpdaterTemporaryFileName, UPDATER_CANCEL_REQUEST_FILENAME, UpdaterRequestTracker } from '../electron-common/electron-api';
 
 /** U2 のフロントエンド/CLI と共有するキャッシュファイル名（update-feed.ts の同名定数と同じ値 — 複製の経緯は同ファイル冒頭コメント参照）。 */
@@ -53,6 +54,14 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
     protected requestTrackingInstalled = false;
 
     onStart(_application: ElectronMainApplication): void {
+        ipcMain.handle(CHANNEL_UPDATER_GET_CAPABILITIES, async () => ({
+            isPackaged: app.isPackaged,
+            updateUiEnabled: resolveUpdateUiEnabled({
+                isPackaged: app.isPackaged,
+                feedUrlOverridden: !!process.env.AKARI_UPDATE_FEED_URL,
+                testFeedUrlSet: !!process.env.AKARI_UPDATER_TEST_FEED_URL
+            })
+        }));
         ipcMain.handle(CHANNEL_UPDATER_GET_STATE, async (): Promise<ShellUpdaterEvent | undefined> => this.lastEvent);
         ipcMain.handle(CHANNEL_UPDATER_RESTART, async (): Promise<void> => {
             // quitAndInstall はアプリを終了させる副作用を持つため await しない（呼び出し元の

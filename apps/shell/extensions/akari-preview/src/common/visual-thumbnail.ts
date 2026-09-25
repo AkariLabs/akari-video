@@ -53,7 +53,8 @@ export function visualThumbnailPage(
     const scripts = [assets.threeJavaScriptUrl, assets.threeTextJavaScriptUrl,
         assets.threeRuntimeJavaScriptUrl, assets.runtimeJavaScriptUrl];
     return { width, height, sampleTimes, html: `<!doctype html><html><head><meta charset="utf-8">
-<style>@font-face{font-family:AkariCaption;src:url("${attr(assets.captionFontUrl)}")}
+<style>${assets.motionVocabCss}
+@font-face{font-family:AkariCaption;src:url("${attr(assets.captionFontUrl)}")}
 html,body{margin:0;overflow:hidden;background:transparent;font-family:AkariCaption,sans-serif}
 #overlay-stage{position:absolute;width:${output.width}px;height:${output.height}px;transform-origin:0 0;transform:scale(${scale});overflow:hidden}
 </style></head><body><div id="overlay-stage"></div>
