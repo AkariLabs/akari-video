@@ -14,6 +14,28 @@ test('still mask strokes are repeatable and ordered; restore respects the origin
   assert.equal(base[5], 200);
 });
 
+test('maximum side and size-one stroke compose deterministically within safe integer bounds', () => {
+  const stroke = { mode: 'erase', points: [[0, 0.5], [1, 0.5]], size: 1, hardness: 1 };
+  const first = composeStillMask(null, 65_536, 2, [stroke]);
+  assert.deepEqual(first, composeStillMask(null, 65_536, 2, [stroke]));
+  assert.equal(first.length, 131_072);
+  assert.equal(first[0], 0);
+  assert.equal(first[65_535], 0);
+});
+
+test('size-one soft brush on a 4000px short side has stable mask bytes', () => {
+  const stroke = { mode: 'erase', points: [[0, 0]], size: 1, hardness: 0 };
+  const first = composeStillMask(null, 4000, 4000, [stroke]);
+  assert.deepEqual(first, composeStillMask(null, 4000, 4000, [stroke]));
+  assert.deepEqual([first[0], first[1000], first[1500], first[1999], first[1000 * 4000 + 1000]],
+    [1, 64, 144, 255, 128]);
+});
+
+test('sides above the safe bound throw RangeError before allocating mask pixels', () => {
+  assert.throws(() => composeStillMask(null, 65_537, 1, []), RangeError);
+  assert.throws(() => composeStillMask(null, 1, 65_537, []), RangeError);
+});
+
 test('a still mask, crop, and flip stay in source coordinates', () => {
   const image = { load: async () => ({ width: 4, height: 2, bitmap: {} }) };
   const mask = { load: async () => ({ width: 4, height: 2, bitmap: {} }) };

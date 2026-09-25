@@ -13,14 +13,16 @@ export function composeStillMask(
   strokes: readonly StillMaskStroke[],
   originalAlpha?: Uint8Array,
 ): Uint8Array {
-  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width * height > 268_435_456) {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1
+    || width > 65_536 || height > 65_536 || width * height > 268_435_456) {
     throw new RangeError('invalid mask dimensions');
   }
   const length = width * height;
   if (basePixels && basePixels.length !== length) throw new RangeError('base mask size mismatch');
   if (originalAlpha && originalAlpha.length !== length) throw new RangeError('original alpha size mismatch');
   const output = basePixels ? new Uint8Array(basePixels) : new Uint8Array(length).fill(255);
-  const unit = 4096;
+  // Sides <= 2^16 and unit = 2^6 bound deltas to 2^23, squared sums to 2^47, and coverage products below 2^50 (< 2^53).
+  const unit = 64;
   for (const stroke of strokes) {
     if ((stroke.mode !== 'erase' && stroke.mode !== 'restore') || !Number.isFinite(stroke.size) || stroke.size <= 0 || stroke.size > 1
       || !Number.isFinite(stroke.hardness) || stroke.hardness < 0 || stroke.hardness > 1 || stroke.points.length === 0) {
