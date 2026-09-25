@@ -30,10 +30,10 @@ async function project(raw, readText = async path => {
     return expandBagOverlays(internal, path => htmlByPath.get(path) ?? path);
 }
 
-test('inline keyframes を summary の整数ローカルフレームとして写す', async () => {
+test('inline keyframes を summary のローカル秒として写す', async () => {
     const overlays = await project(fixtureEdit());
     const fields = buildItemKeyframeSummaryFields(overlays.find(value => value.id === 'plain'));
-    assert.deepEqual(fields.keyframes.map(point => point.t), [0, 120]);
+    assert.deepEqual(fields.keyframes.map(point => point.t), [0, 4]);
     assert.deepEqual(fields.keyframes[1].transform, { x: 400 });
 });
 
@@ -76,7 +76,7 @@ test('motion 袋参照を item id で解決し count 不一致は無視する', 
     });
     const overlays = expandBagOverlays(internal, path => htmlByPath.get(path) ?? path);
     const fields = buildItemKeyframeSummaryFields(overlays.find(value => value.id === 's01.B'));
-    assert.deepEqual(fields.keyframes.map(point => point.t), [0, 60, 120]);
+    assert.deepEqual(fields.keyframes.map(point => point.t), [0, 2, 4]);
     assert.deepEqual(references, ['motion/s01.json']);
 });
 
@@ -103,10 +103,10 @@ test('motion 袋の形が違う場合も warning に留めて静的値で残す'
     assert.match(warnings[0], /motion bag motion\/s01\.json has no items object/);
 });
 
-test('純グループの子の inline keyframes と opacity を整数フレームのまま写す', async () => {
+test('純グループの子の inline keyframes と opacity を秒で写す', async () => {
     const overlays = await project(fixtureEdit());
     const child = overlays.find(value => value.id === 'g1.first');
     const fields = buildItemKeyframeSummaryFields(child);
-    assert.deepEqual(fields.keyframes.map(point => point.t), [0, 120]);
+    assert.deepEqual(fields.keyframes.map(point => point.t), [0, 4]);
     assert.deepEqual(fields.keyframes.map(point => point.opacity), [0, 1]);
 });

@@ -227,9 +227,11 @@ import {
     moveV2Keyframe,
     prepareV2KeyframeDistribution,
     removeV2Keyframe,
+    removeV2KeyframePoint,
     setV2Keyframe,
     activateV2ItemTransformKeyframe,
     writeV2ItemTransformAt,
+    writeV2ItemOpacityAt,
     setV2SegmentEasing,
     ungroupTreeV2Item,
     updateAudioSfxPreferV2,
@@ -4783,7 +4785,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 audioPatch = true;
                 label = '音声クリップの設定を変更';
             }
-            await this.commitEditMutation(label, doc => audioEnvelopeRole === 'narration'
+            const keyframeField = request.kind === 'item-field' && request.path.startsWith('transform.')
+                ? request.path.slice('transform.'.length) as TransformField
+                : ({ 'cut-transform-x': 'x', 'cut-transform-y': 'y', 'cut-scale': 'scale', 'cut-rotate': 'rotate',
+                    'layer-transform-x': 'x', 'layer-transform-y': 'y', 'layer-scale': 'scale',
+                    'layer-rotate': 'rotate' } as Record<string, TransformField>)[request.kind];
+            const keyframeOpacity = request.kind === 'cut-opacity' || request.kind === 'layer-opacity'
+                || (request.kind === 'item-field' && request.path === 'opacity');
+            const numericValue = 'value' in request && typeof request.value === 'number' ? request.value : undefined;
+            const keyframeWrite = numericValue !== undefined && (keyframeField || keyframeOpacity);
+            const rawKeyframe = keyframeWrite ? this.rawKeyframeItem?.(itemId) : undefined;
+            const itemStart = keyframeWrite ? this.expandedTimelineTreeRows?.find(row => row.id === itemId)?.at
+                ?? (rawKeyframe?.at ?? 0) / this.fps : 0;
+            const itemDuration = rawKeyframe?.duration ?? 0;
+            const itemFrame = keyframeWrite ? Math.max(0, Math.min(itemDuration,
+                Math.round(((this.playheadT ?? itemStart) - itemStart) * this.fps))) : 0;
+            await this.commitEditMutation(label, doc => keyframeField && numericValue !== undefined
+                ? writeV2ItemTransformAt(doc, { itemId, t: itemFrame, patch: { [keyframeField]: numericValue } })
+                : keyframeOpacity && numericValue !== undefined
+                    ? writeV2ItemOpacityAt(doc, { itemId, t: itemFrame, opacity: numericValue })
+                : audioEnvelopeRole === 'narration'
                 ? updateAudioNarrationPreferV2(doc, {
                     narrationId: itemId, itemPatch: patch, legacyPatch: patch
                 })
@@ -9942,7 +9963,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const raw = this.rawKeyframeItem(row.id);
                 if (!raw) continue;
                 const requested = new Set<KeyframeProperty>([
-                    'transform.x', 'transform.y', 'transform.scale', 'transform.rotate', 'opacity',
+                    'transform.x', 'transform.scale', 'transform.rotate', 'opacity',
                     ...(this.extraKeyframeProperties.get(row.id) ?? [])
                 ]);
                 this.keyframeRowsByItem.set(row.id, deriveTimelineKeyframeRows({
@@ -12187,7 +12208,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         };
     }
 
-    protected async removeSelectedKeyframes(): Promise<void> {
+    protected async removeSelectedKeyframes(wholePoint = true): Promise<void> {
         const selected = this.selectionModel.keyframeSelection;
         if (!selected) return;
         const lockedTrackId = this.trackIdOfItem(selected.itemId);
@@ -12197,10 +12218,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const hydratedPoints = this.hydratedKeyframes(selected.itemId);
         await this.commitEditMutation('キーフレームを削除', doc => selected.times.reduce(
-            (current, t) => removeV2Keyframe(current, {
-                itemId: selected.itemId, property: selected.property, t,
-                ...(hydratedPoints ? { hydratedPoints } : {})
-            }), doc
+            (current, t, index) => wholePoint
+                ? removeV2KeyframePoint(current, {
+                    itemId: selected.itemId, t,
+                    ...(index === 0 && hydratedPoints ? { hydratedPoints } : {})
+                })
+                : removeV2Keyframe(current, {
+                    itemId: selected.itemId, property: selected.property, t,
+                    ...(index === 0 && hydratedPoints ? { hydratedPoints } : {})
+                }), doc
         ));
         this.selectionModel.keyframeSelection = undefined;
     }
@@ -12227,10 +12253,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (!point) continue;
                 const duration = typeof raw.duration === 'number' ? raw.duration : proposedToT;
                 const toT = Math.max(0, Math.min(duration, proposedToT));
-                for (const property of this.keyframePropertiesAt(point)) {
+                for (const [index, property] of this.keyframePropertiesAt(point).entries()) {
                     current = moveV2Keyframe(current, {
                         itemId, property, fromT, toT,
-                        ...(hydrated.get(itemId) ? { hydratedPoints: hydrated.get(itemId)! } : {})
+                        ...(index === 0 && hydrated.get(itemId) ? { hydratedPoints: hydrated.get(itemId)! } : {})
                     });
                 }
             }
@@ -12242,7 +12268,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const result: KeyframeProperty[] = [];
         const transform = point.transform && typeof point.transform === 'object' && !Array.isArray(point.transform)
             ? point.transform as Record<string, unknown> : {};
-        for (const key of ['x', 'y', 'scale', 'rotate']) if (key in transform) result.push(`transform.${key}` as KeyframeProperty);
+        if ('x' in transform || 'y' in transform) result.push('transform.x');
+        if ('scale' in transform || 'scaleX' in transform || 'scaleY' in transform) result.push('transform.scale');
+        if ('rotate' in transform) result.push('transform.rotate');
         for (const key of ['opacity', 'crop', 'perspective'] as const) if (key in point) result.push(key);
         return result;
     }
@@ -12399,7 +12427,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     kind: 'keyframe', itemId, property, times: [t],
                     easing: this.segmentEasingAt(itemId, property, t)
                 };
-                await this.removeSelectedKeyframes();
+                await this.removeSelectedKeyframes(false);
             } else {
                 if (property.startsWith('transform.')) {
                     await this.commitEditMutation('キーフレームを打つ', doc => activateV2ItemTransformKeyframe(doc, {

@@ -100,7 +100,15 @@ export function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
       return isFiniteNumber(value) ? value : fallback;
     }, t);
     const scaleRaw = leaf('scale', 1);
-    transform = { x: leaf('x', 0), y: leaf('y', 0), scale: scaleRaw > 0 ? scaleRaw : 1, rotate: leaf('rotate', 0) };
+    const hasAxes = transformDeclaring.some((point) => point.transform?.scaleX !== undefined
+      || point.transform?.scaleY !== undefined);
+    const axis = (name) => piecewiseValueAt(transformDeclaring, (point) => {
+      const value = point.transform?.[name] ?? point.transform?.scale;
+      return isFiniteNumber(value) ? value : 1;
+    }, t);
+    transform = { x: leaf('x', 0), y: leaf('y', 0), scale: scaleRaw > 0 ? scaleRaw : 1,
+      ...(hasAxes ? { scaleX: Math.max(Number.EPSILON, axis('scaleX')),
+        scaleY: Math.max(Number.EPSILON, axis('scaleY')) } : {}), rotate: leaf('rotate', 0) };
   }
 
   const cropDeclaring = points.filter((point) => isUsableCrop(point.crop));
@@ -120,5 +128,8 @@ export function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
     perspective = { corners };
   }
 
-  return { transform, crop, perspective };
+  const opacityPoints = points.filter((point) => isFiniteNumber(point.opacity));
+  const opacity = opacityPoints.length > 0
+    ? piecewiseValueAt(opacityPoints, (point) => point.opacity, t) : null;
+  return { transform, crop, perspective, opacity };
 }

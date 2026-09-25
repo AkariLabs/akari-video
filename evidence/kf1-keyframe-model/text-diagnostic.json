@@ -1,0 +1,187 @@
+{
+  "label": "text-diagnostic",
+  "port": 9571,
+  "kinds": [
+    "shape-1",
+    "image-1",
+    "text-kf1",
+    "title-01"
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "fields": [],
+  "results": {
+    "text-kf1": {
+      "initial": {
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        },
+        "keyframes": null
+      },
+      "last": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "keyframes": [
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 124
+          }
+        ]
+      },
+      "first": {
+        "before": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "after": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "moves": [],
+        "selectedMove": null,
+        "release": {
+          "synthetic": false,
+          "events": [
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 26.4765625,
+              "y": 15.234375
+            }
+          ]
+        },
+        "notice": "ic-bezier(0.42,0,0.58,1)\nhold\nlinear\nease-in-out\nin-quad\nout-quad\nin-out-quad\nin-cubic\nout-cubic\nin-out-cubic\nin-quart\nout-quart\nin-out-quart\nin-expo\nout-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:10.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nYキーフレーム\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\nryoma\n0\n0\nCPU 30% · GPU 24% · メモリ 13.5 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 124
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "middle": {
+        "before": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "after": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "moves": [],
+        "selectedMove": null,
+        "release": {
+          "synthetic": false,
+          "events": []
+        },
+        "notice": "ic-bezier(0.42,0,0.58,1)\nhold\nlinear\nease-in-out\nin-quad\nout-quad\nin-out-quad\nin-cubic\nout-cubic\nin-out-cubic\nin-quart\nout-quart\nin-out-quart\nin-expo\nout-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:10.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nYキーフレーム\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\nryoma\n0\n0\nCPU 25% · GPU 20% · メモリ 13.4 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 124
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "noPoint": {
+        "changed": {
+          "found": true
+        },
+        "keyframes": [
+          {
+            "t": 90,
+            "transform": {
+              "x": 25,
+              "y": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "removed": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "keyframes": [
+          {
+            "t": 90,
+            "transform": {
+              "x": 25,
+              "y": 0
+            }
+          },
+          {
+            "t": 91
+          }
+        ]
+      },
+      "afterDeleteAt70": {
+        "x": -1168.19,
+        "y": -870.36
+      }
+    }
+  },
+  "consoleErrors": []
+}

@@ -1,0 +1,1504 @@
+{
+  "label": "before",
+  "port": 9571,
+  "kinds": [
+    "shape-1",
+    "image-1",
+    "text-kf1",
+    "title-01"
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "fields": [],
+  "results": {
+    "shape-1": {
+      "initial": {
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        },
+        "keyframes": null
+      },
+      "last": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ]
+      },
+      "first": {
+        "before": {
+          "x": -468,
+          "y": -216
+        },
+        "after": {
+          "x": -462.9,
+          "y": -108
+        },
+        "moves": [
+          {
+            "x": 99.5703125,
+            "y": 99.1875,
+            "w": 25,
+            "h": 25,
+            "display": "grid"
+          }
+        ],
+        "selectedMove": {
+          "x": 99.5703125,
+          "y": 99.1875,
+          "w": 25,
+          "h": 25,
+          "display": "grid"
+        },
+        "release": {
+          "synthetic": true,
+          "events": [
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.5703125,
+              "y": 156.3125
+            },
+            {
+              "type": "pointerdown",
+              "id": 1,
+              "x": 135.5703125,
+              "y": 156.3125
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 137.4375,
+              "y": 157.2421875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 139.3125,
+              "y": 158.1796875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 141.1875,
+              "y": 159.1171875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 143.0625,
+              "y": 160.0546875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 144.9296875,
+              "y": 160.9921875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 146.8046875,
+              "y": 161.9296875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 148.6796875,
+              "y": 162.8671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 150.5546875,
+              "y": 163.8046875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 152.4296875,
+              "y": 164.7421875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 154.296875,
+              "y": 165.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 156.171875,
+              "y": 166.609375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 158.046875,
+              "y": 167.546875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 162.046875,
+              "y": 171.546875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 162.046875,
+              "y": 171.546875
+            }
+          ]
+        },
+        "notice": "ut-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:00.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nYキーフレーム\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\n塗り\n色\nなし\n塗りの色\n枠\n色\nなし\n枠の色\n枠の太さ\n吹き出し\n形の種類\n楕円\n角丸\n四角\nギザギザ\n爆発\nもくもく\n震え\n山やトゲの数\n深さ\nばらつき\n枠の線種\n実線\n破線\n点線\nしっぽ\nとがった\n小さな丸\nなし\nしっぽの向き\nしっぽの長さ\nしっぽの太さ\nしっぽの曲がり\n形の変化\n別の形にする\nryoma\n0\n0\nCPU 61% · GPU 36% · メモリ 13.8 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.117469879518,
+              "y": 108.00001764871979
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "middle": {
+        "before": {
+          "x": -435.52,
+          "y": -108
+        },
+        "after": {
+          "x": -435.52,
+          "y": -108
+        },
+        "moves": [
+          {
+            "x": 105.1875,
+            "y": 117.8671875,
+            "w": 25,
+            "h": 25,
+            "display": "grid"
+          }
+        ],
+        "selectedMove": {
+          "x": 105.1875,
+          "y": 117.8671875,
+          "w": 25,
+          "h": 25,
+          "display": "grid"
+        },
+        "release": {
+          "synthetic": true,
+          "events": [
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 137.7265625,
+              "y": 178.8828125
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 137.7265625,
+              "y": 178.8828125
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 136.5703125,
+              "y": 180.1796875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 136.5703125,
+              "y": 180.1796875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.421875,
+              "y": 181.4765625
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.421875,
+              "y": 181.4765625
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 134.265625,
+              "y": 182.7734375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 134.265625,
+              "y": 182.7734375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 133.1171875,
+              "y": 184.0703125
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 133.1171875,
+              "y": 184.0703125
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.9609375,
+              "y": 185.3671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.9609375,
+              "y": 185.3671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 130.8125,
+              "y": 186.6640625
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 130.8125,
+              "y": 186.6640625
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 129.65625,
+              "y": 187.9609375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 129.65625,
+              "y": 187.9609375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 128.5,
+              "y": 189.2578125
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 128.5,
+              "y": 189.2578125
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 127.3515625,
+              "y": 190.5546875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 127.3515625,
+              "y": 190.5546875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.3515625,
+              "y": 194.5546875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.3515625,
+              "y": 194.5546875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 131.3515625,
+              "y": 194.5546875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 131.3515625,
+              "y": 194.5546875
+            }
+          ]
+        },
+        "notice": "ut-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:00.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nYキーフレーム\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\n塗り\n色\nなし\n塗りの色\n枠\n色\nなし\n枠の色\n枠の太さ\n吹き出し\n形の種類\n楕円\n角丸\n四角\nギザギザ\n爆発\nもくもく\n震え\n山やトゲの数\n深さ\nばらつき\n枠の線種\n実線\n破線\n点線\nしっぽ\nとがった\n小さな丸\nなし\nしっぽの向き\nしっぽの長さ\nしっぽの太さ\nしっぽの曲がり\n形の変化\n別の形にする\nryoma\n0\n0\nCPU 61% · GPU 36% · メモリ 13.8 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.117469879518,
+              "y": 108.00001764871979
+            }
+          },
+          {
+            "t": 70,
+            "transform": {
+              "x": -24.40306681270544,
+              "y": 215.99999117563993
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "noPoint": {
+        "changed": {
+          "found": true
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.117469879518,
+              "y": 108.00001764871979
+            }
+          },
+          {
+            "t": 70,
+            "transform": {
+              "x": -24.40306681270544,
+              "y": 215.99999117563993
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "removed": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.117469879518,
+              "y": 108.00001764871979
+            }
+          },
+          {
+            "t": 70,
+            "transform": {
+              "x": -24.40306681270544,
+              "y": 215.99999117563993
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25
+            }
+          }
+        ]
+      },
+      "afterDeleteAt70": {
+        "x": -435.52,
+        "y": -108
+      }
+    },
+    "image-1": {
+      "initial": {
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.3,
+          "rotate": 0
+        },
+        "keyframes": null
+      },
+      "last": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          }
+        ]
+      },
+      "first": {
+        "before": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "after": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "moves": [],
+        "selectedMove": null,
+        "release": {
+          "synthetic": false,
+          "events": []
+        },
+        "notice": "\nなし\nディゾルブ\nクロスフェード\n黒フェード\n白フェード\nモノクロフェード\nワイプ（左へ）\nワイプ（右へ）\nワイプ（上へ）\nワイプ（下へ）\n時計ワイプ\nスライド（左へ）\nスライド（右へ）\nスライド（上へ）\nスライド（下へ）\nカバー（左へ）\nカバー（右へ）\nカバー（上へ）\nカバー（下へ）\nリビール（左へ）\nリビール（右へ）\n上からリビール\n下からリビール\nサークル（開く）\nサークル（閉じる）\nズームイン\nスクイーズ（縦つぶし）\nスクイーズ（横つぶし）\nブラー\nピクセレート\nトランジション尺\ns\n変形\nX\npx\nY\npx\n拡縮\n%\n回転\n°\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\nフレーミング\n左\n%\n上\n%\n幅\n%\n高さ\n%\n追加\n＋ ズーム KF を追加\nフリーズ\n静止時刻\n秒\n静止尺\n秒\n外観\n不透明度\n%\n再生\nspeed\n埋め込み音声\n音量\ndB\nミュート\nON\nOFF\nryoma\n0\n0\nCPU 22% · GPU 20% · メモリ 13.2 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.3,
+          "rotate": 0
+        }
+      },
+      "middle": {
+        "before": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "after": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "moves": [],
+        "selectedMove": null,
+        "release": {
+          "synthetic": false,
+          "events": []
+        },
+        "notice": "\nなし\nディゾルブ\nクロスフェード\n黒フェード\n白フェード\nモノクロフェード\nワイプ（左へ）\nワイプ（右へ）\nワイプ（上へ）\nワイプ（下へ）\n時計ワイプ\nスライド（左へ）\nスライド（右へ）\nスライド（上へ）\nスライド（下へ）\nカバー（左へ）\nカバー（右へ）\nカバー（上へ）\nカバー（下へ）\nリビール（左へ）\nリビール（右へ）\n上からリビール\n下からリビール\nサークル（開く）\nサークル（閉じる）\nズームイン\nスクイーズ（縦つぶし）\nスクイーズ（横つぶし）\nブラー\nピクセレート\nトランジション尺\ns\n変形\nX\npx\nY\npx\n拡縮\n%\n回転\n°\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\nフレーミング\n左\n%\n上\n%\n幅\n%\n高さ\n%\n追加\n＋ ズーム KF を追加\nフリーズ\n静止時刻\n秒\n静止尺\n秒\n外観\n不透明度\n%\n再生\nspeed\n埋め込み音声\n音量\ndB\nミュート\nON\nOFF\nryoma\n0\n0\nCPU 27% · GPU 21% · メモリ 13.3 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.3,
+          "rotate": 0
+        }
+      },
+      "noPoint": {
+        "changed": {
+          "found": true
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.3,
+          "rotate": 0
+        }
+      },
+      "removed": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25,
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "y": 0,
+              "scale": 0.3,
+              "rotate": 0
+            }
+          }
+        ]
+      },
+      "afterDeleteAt70": {
+        "x": -1168.19,
+        "y": -870.36
+      }
+    },
+    "text-kf1": {
+      "initial": {
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        },
+        "keyframes": null
+      },
+      "last": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ]
+      },
+      "first": {
+        "before": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "after": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "moves": [],
+        "selectedMove": null,
+        "release": {
+          "synthetic": false,
+          "events": [
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 26.4765625,
+              "y": 15.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 26.4765625,
+              "y": 15.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 26.4765625,
+              "y": 15.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 26.4765625,
+              "y": 15.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 26.4765625,
+              "y": 15.234375
+            }
+          ]
+        },
+        "notice": "ic\ncubic-bezier(0.42,0,0.58,1)\nhold\nlinear\nease-in-out\nin-quad\nout-quad\nin-out-quad\nin-cubic\nout-cubic\nin-out-cubic\nin-quart\nout-quart\nin-out-quart\nin-expo\nout-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:10.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nY\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\nryoma\n0\n0\nCPU 27% · GPU 21% · メモリ 13.3 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "middle": {
+        "before": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "after": {
+          "x": -1168.19,
+          "y": -870.36
+        },
+        "moves": [],
+        "selectedMove": null,
+        "release": {
+          "synthetic": false,
+          "events": []
+        },
+        "notice": "ic\ncubic-bezier(0.42,0,0.58,1)\nhold\nlinear\nease-in-out\nin-quad\nout-quad\nin-out-quad\nin-cubic\nout-cubic\nin-out-cubic\nin-quart\nout-quart\nin-out-quart\nin-expo\nout-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:10.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nY\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\nryoma\n0\n0\nCPU 27% · GPU 21% · メモリ 13.3 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "noPoint": {
+        "changed": {
+          "found": true
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "removed": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25
+            }
+          }
+        ]
+      },
+      "afterDeleteAt70": {
+        "x": -1168.19,
+        "y": -870.36
+      }
+    },
+    "title-01": {
+      "initial": {
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        },
+        "keyframes": null
+      },
+      "last": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "false",
+          "title": "現在時刻にキーフレームを打つ"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ]
+      },
+      "first": {
+        "before": {
+          "x": 0,
+          "y": 0
+        },
+        "after": {
+          "x": 5.1,
+          "y": 88.1
+        },
+        "moves": [
+          {
+            "x": 72.734375,
+            "y": 46.3125,
+            "w": 25,
+            "h": 25,
+            "display": "grid"
+          }
+        ],
+        "selectedMove": {
+          "x": 72.734375,
+          "y": 46.3125,
+          "w": 25,
+          "h": 25,
+          "display": "grid"
+        },
+        "release": {
+          "synthetic": true,
+          "events": [
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 129.3359375,
+              "y": 113.734375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 129.3359375,
+              "y": 113.734375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 129.3359375,
+              "y": 113.734375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.2109375,
+              "y": 114.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.2109375,
+              "y": 114.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.2109375,
+              "y": 114.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.2109375,
+              "y": 114.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.2109375,
+              "y": 114.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.2109375,
+              "y": 114.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 131.2109375,
+              "y": 114.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 135.2109375,
+              "y": 118.671875
+            }
+          ]
+        },
+        "notice": "ic-bezier(0.42,0,0.58,1)\nhold\nlinear\nease-in-out\nin-quad\nout-quad\nin-out-quad\nin-cubic\nout-cubic\nin-out-cubic\nin-quart\nout-quart\nin-out-quart\nin-expo\nout-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:15.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nYキーフレーム\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\nryoma\n0\n0\nCPU 27% · GPU 21% · メモリ 13.3 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.11746987951807,
+              "y": 88.10240963855426
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "middle": {
+        "before": {
+          "x": 32.48,
+          "y": 88.1
+        },
+        "after": {
+          "x": 32.48,
+          "y": 88.1
+        },
+        "moves": [
+          {
+            "x": 78.3515625,
+            "y": 61.546875,
+            "w": 25,
+            "h": 25,
+            "display": "grid"
+          }
+        ],
+        "selectedMove": {
+          "x": 78.3515625,
+          "y": 61.546875,
+          "w": 25,
+          "h": 25,
+          "display": "grid"
+        },
+        "release": {
+          "synthetic": true,
+          "events": [
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 100.515625,
+              "y": 134.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointermove",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            },
+            {
+              "type": "pointerup",
+              "id": 1,
+              "x": 104.515625,
+              "y": 138.234375
+            }
+          ]
+        },
+        "notice": "ic-bezier(0.42,0,0.58,1)\nhold\nlinear\nease-in-out\nin-quad\nout-quad\nin-out-quad\nin-cubic\nout-cubic\nin-out-cubic\nin-quart\nout-quart\nin-out-quart\nin-expo\nout-expo\nin-out-expo\nin-back\nout-back\nin-out-back\nout-bounce\nout-elastic\ncubic-bezier(0.42,0,0.58,1)\nhold\nベジェ\n時間\n出力位置\n00:00:15.000\n尺\n5.00 秒\n変形\nXキーフレーム\npx\nYキーフレーム\npx\n拡縮\n%\n幅\n%\n高さ\n%\n回転\n°\nクロップ\n左\n%\n上\n%\n幅\n%\n高さ\n%\nパース（4 隅）\n動き\n現在の動き\nなし\n詳しい設定\n動きタブで開く\n外観\n不透明度\n%\nryoma\n0\n0\nCPU 27% · GPU 21% · メモリ 13.3 GB · 実行中 0",
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.11746987951807,
+              "y": 88.10240963855426
+            }
+          },
+          {
+            "t": 70,
+            "transform": {
+              "x": -24.40306681270539,
+              "y": 201.2349397590362
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "noPoint": {
+        "changed": {
+          "found": true
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.11746987951807,
+              "y": 88.10240963855426
+            }
+          },
+          {
+            "t": 70,
+            "transform": {
+              "x": -24.40306681270539,
+              "y": 201.2349397590362
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25
+            }
+          },
+          {
+            "t": 123,
+            "transform": {
+              "x": 0
+            }
+          }
+        ],
+        "staticTransform": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        }
+      },
+      "removed": {
+        "focus": {
+          "ok": true,
+          "value": true
+        },
+        "pressed": {
+          "found": true,
+          "old": "true",
+          "title": "現在時刻のキーフレームを消す"
+        },
+        "keyframes": [
+          {
+            "t": 0,
+            "transform": {
+              "x": 0
+            }
+          },
+          {
+            "t": 11,
+            "transform": {
+              "x": 153.11746987951807,
+              "y": 88.10240963855426
+            }
+          },
+          {
+            "t": 70,
+            "transform": {
+              "x": -24.40306681270539,
+              "y": 201.2349397590362
+            }
+          },
+          {
+            "t": 90,
+            "transform": {
+              "x": 25
+            }
+          }
+        ]
+      },
+      "afterDeleteAt70": {
+        "x": 32.48,
+        "y": 88.1
+      }
+    },
+    "d": [
+      {
+        "frame": 0,
+        "editing": {
+          "x": -468,
+          "y": -108
+        }
+      },
+      {
+        "frame": 11,
+        "editing": {
+          "x": -462.9,
+          "y": -108
+        }
+      },
+      {
+        "frame": 22,
+        "editing": {
+          "x": -457.79,
+          "y": -108
+        }
+      },
+      {
+        "frame": 70,
+        "editing": {
+          "x": -435.52,
+          "y": -108
+        }
+      },
+      {
+        "frame": 123,
+        "editing": {
+          "x": -410.93,
+          "y": -108
+        }
+      },
+      {
+        "frame": 126,
+        "editing": {
+          "x": -409.54,
+          "y": -108
+        }
+      }
+    ]
+  },
+  "consoleErrors": []
+}

@@ -36,6 +36,6 @@ test('inline and sidecar keyframe transforms survive summary serialization witho
       readText: async () => JSON.stringify({ items: { leaf: points } }),
     });
     const fields = JSON.parse(JSON.stringify(buildItemKeyframeSummaryFields(item.declaration)));
-    assert.deepEqual(fields.keyframes, [{ t: 0, transform: { scale: 1 } }, { t: 60, transform: { scaleX: 2, scaleY: 0.5 } }]);
+    assert.deepEqual(fields.keyframes, [{ t: 0, transform: { scale: 1 } }, { t: 2, transform: { scaleX: 2, scaleY: 0.5 } }]);
   }
 });

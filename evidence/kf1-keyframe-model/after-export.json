@@ -1,0 +1,170 @@
+{
+  "label": "after",
+  "commandExit": 0,
+  "stdout": "PROGRESS timing name=electron_ready ms=71\nPROGRESS timing name=page_build ms=116\nPROGRESS timing name=window_create ms=119\nPROGRESS timing name=server_start ms=125\nPROGRESS timing name=gpu_info ms=191\nPROGRESS timing name=load_url ms=291\nPROGRESS timing name=viewport_settle ms=37\nPROGRESS timing name=first_frame ms=36\nPROGRESS frame=1 total=150\nPROGRESS frame=2 total=150\nPROGRESS frame=3 total=150\nPROGRESS frame=4 total=150\nPROGRESS frame=5 total=150\nPROGRESS frame=6 total=150\nPROGRESS frame=7 total=150\nPROGRESS frame=8 total=150\nPROGRESS frame=9 total=150\nPROGRESS frame=10 total=150\nPROGRESS frame=11 total=150\nPROGRESS frame=12 total=150\nPROGRESS frame=13 total=150\nPROGRESS frame=14 total=150\nPROGRESS frame=15 total=150\nPROGRESS frame=16 total=150\nPROGRESS frame=17 total=150\nPROGRESS frame=18 total=150\nPROGRESS frame=19 total=150\nPROGRESS frame=20 total=150\nPROGRESS frame=21 total=150\nPROGRESS frame=22 total=150\nPROGRESS frame=23 total=150\nPROGRESS frame=24 total=150\nPROGRESS frame=25 total=150\nPROGRESS frame=26 total=150\nPROGRESS frame=27 total=150\nPROGRESS frame=28 total=150\nPROGRESS frame=29 total=150\nPROGRESS frame=30 total=150\nPROGRESS frame=31 total=150\nPROGRESS frame=32 total=150\nPROGRESS frame=33 total=150\nPROGRESS frame=34 total=150\nPROGRESS frame=35 total=150\nPROGRESS frame=36 total=150\nPROGRESS frame=37 total=150\nPROGRESS frame=38 total=150\nPROGRESS frame=39 total=150\nPROGRESS frame=40 total=150\nPROGRESS frame=41 total=150\nPROGRESS frame=42 total=150\nPROGRESS frame=43 total=150\nPROGRESS frame=44 total=150\nPROGRESS frame=45 total=150\nPROGRESS frame=46 total=150\nPROGRESS frame=47 total=150\nPROGRESS frame=48 total=150\nPROGRESS frame=49 total=150\nPROGRESS frame=50 total=150\nPROGRESS frame=51 total=150\nPROGRESS frame=52 total=150\nPROGRESS frame=53 total=150\nPROGRESS frame=54 total=150\nPROGRESS frame=55 total=150\nPROGRESS frame=56 total=150\nPROGRESS frame=57 total=150\nPROGRESS frame=58 total=150\nPROGRESS frame=59 total=150\nPROGRESS frame=60 total=150\nPROGRESS frame=61 total=150\nPROGRESS frame=62 total=150\nPROGRESS frame=63 total=150\nPROGRESS frame=64 total=150\nPROGRESS frame=65 total=150\nPROGRESS frame=66 total=150\nPROGRESS frame=67 total=150\nPROGRESS frame=68 total=150\nPROGRESS frame=69 total=150\nPROGRESS frame=70 total=150\nPROGRESS frame=71 total=150\nPROGRESS frame=72 total=150\nPROGRESS frame=73 total=150\nPROGRESS frame=74 total=150\nPROGRESS frame=75 total=150\nPROGRESS frame=76 total=150\nPROGRESS frame=77 total=150\nPROGRESS frame=78 total=150\nPROGRESS frame=79 total=150\nPROGRESS frame=80 total=150\nPROGRESS frame=81 total=150\nPROGRESS frame=82 total=150\nPROGRESS frame=83 total=150\nPROGRESS frame=84 total=150\nPROGRESS frame=85 total=150\nPROGRESS frame=86 total=150\nPROGRESS frame=87 total=150\nPROGRESS frame=88 total=150\nPROGRESS frame=89 total=150\nPROGRESS frame=90 total=150\nPROGRESS frame=91 total=150\nPROGRESS frame=92 total=150\nPROGRESS frame=93 total=150\nPROGRESS frame=94 total=150\nPROGRESS frame=95 total=150\nPROGRESS frame=96 total=150\nPROGRESS frame=97 total=150\nPROGRESS frame=98 total=150\nPROGRESS frame=99 total=150\nPROGRESS frame=100 total=150\nPROGRESS frame=101 total=150\nPROGRESS frame=102 total=150\nPROGRESS frame=103 total=150\nPROGRESS frame=104 total=150\nPROGRESS frame=105 total=150\nPROGRESS frame=106 total=150\nPROGRESS frame=107 total=150\nPROGRESS frame=108 total=150\nPROGRESS frame=109 total=150\nPROGRESS frame=110 total=150\nPROGRESS frame=111 total=150\nPROGRESS frame=112 total=150\nPROGRESS frame=113 total=150\nPROGRESS frame=114 total=150\nPROGRESS frame=115 total=150\nPROGRESS frame=116 total=150\nPROGRESS frame=117 total=150\nPROGRESS frame=118 total=150\nPROGRESS frame=119 total=150\nPROGRESS frame=120 total=150\nPROGRESS frame=121 total=150\nPROGRESS frame=122 total=150\nPROGRESS frame=123 total=150\nPROGRESS frame=124 total=150\nPROGRESS frame=125 total=150\nPROGRESS frame=126 total=150\nPROGRESS frame=127 total=150\nPROGRESS frame=128 total=150\nPROGRESS frame=129 total=150\nPROGRESS frame=130 total=150\nPROGRESS frame=131 total=150\nPROGRESS frame=132 total=150\nPROGRESS frame=133 total=150\nPROGRESS frame=134 total=150\nPROGRESS frame=135 total=150\nPROGRESS frame=136 total=150\nPROGRESS frame=137 total=150\nPROGRESS frame=138 total=150\nPROGRESS frame=139 total=150\nPROGRESS frame=140 total=150\nPROGRESS frame=141 total=150\nPROGRESS frame=142 total=150\nPROGRESS frame=143 total=150\nPROGRESS frame=144 total=150\nPROGRESS frame=145 total=150\nPROGRESS frame=146 total=150\nPROGRESS frame=147 total=150\nPROGRESS frame=148 total=150\nPROGRESS frame=149 total=150\nPROGRESS frame=150 total=150\nPROGRESS timing name=encoder_flush ms=16\nPROGRESS timing name=osr_ffprobe ms=50\nPROGRESS timing name=window_destroy ms=6\nPROGRESS timing name=child_run_json ms=2\nPROGRESS timing name=window_destroy_to_exit ms=3\nWARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）\nPASS: exports/shape-osr.mp4\n",
+  "stderr": "",
+  "frames": [
+    {
+      "frame": 0,
+      "preview": {
+        "x": 215,
+        "y": 139,
+        "box": {
+          "x": 182,
+          "y": 111,
+          "w": 67,
+          "h": 57
+        }
+      },
+      "rendered": {
+        "x": 214.5,
+        "y": 138,
+        "box": {
+          "x": 181,
+          "y": 110,
+          "w": 68,
+          "h": 57
+        }
+      },
+      "delta": {
+        "x": -0.5,
+        "y": -1
+      }
+    },
+    {
+      "frame": 11,
+      "preview": {
+        "x": 215,
+        "y": 139,
+        "box": {
+          "x": 182,
+          "y": 111,
+          "w": 67,
+          "h": 57
+        }
+      },
+      "rendered": {
+        "x": 214.5,
+        "y": 138,
+        "box": {
+          "x": 181,
+          "y": 110,
+          "w": 68,
+          "h": 57
+        }
+      },
+      "delta": {
+        "x": -0.5,
+        "y": -1
+      }
+    },
+    {
+      "frame": 22,
+      "preview": {
+        "x": 206.5,
+        "y": 141.5,
+        "box": {
+          "x": 173,
+          "y": 114,
+          "w": 68,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 206,
+        "y": 142,
+        "box": {
+          "x": 173,
+          "y": 114,
+          "w": 67,
+          "h": 57
+        }
+      },
+      "delta": {
+        "x": -0.5,
+        "y": 0.5
+      }
+    },
+    {
+      "frame": 70,
+      "preview": {
+        "x": 169,
+        "y": 157,
+        "box": {
+          "x": 136,
+          "y": 130,
+          "w": 67,
+          "h": 55
+        }
+      },
+      "rendered": {
+        "x": 168.5,
+        "y": 157,
+        "box": {
+          "x": 135,
+          "y": 129,
+          "w": 68,
+          "h": 57
+        }
+      },
+      "delta": {
+        "x": -0.5,
+        "y": 0
+      }
+    },
+    {
+      "frame": 123,
+      "preview": {
+        "x": 172,
+        "y": 136.5,
+        "box": {
+          "x": 139,
+          "y": 109,
+          "w": 67,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 171.5,
+        "y": 136.5,
+        "box": {
+          "x": 138,
+          "y": 108,
+          "w": 68,
+          "h": 58
+        }
+      },
+      "delta": {
+        "x": -0.5,
+        "y": 0
+      }
+    },
+    {
+      "frame": 126,
+      "preview": {
+        "x": 172,
+        "y": 136.5,
+        "box": {
+          "x": 139,
+          "y": 109,
+          "w": 67,
+          "h": 56
+        }
+      },
+      "rendered": {
+        "x": 171.5,
+        "y": 136.5,
+        "box": {
+          "x": 138,
+          "y": 108,
+          "w": 68,
+          "h": 58
+        }
+      },
+      "delta": {
+        "x": -0.5,
+        "y": 0
+      }
+    }
+  ]
+}

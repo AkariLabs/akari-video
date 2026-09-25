@@ -1,0 +1,256 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "still-src-1",
+      "path": "assets/generated/still-1790353959489-vvGwaI.png"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "kf1",
+      "lane": "visual",
+      "name": "KF 1",
+      "items": [
+        {
+          "id": "shape-1",
+          "at": 0,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 11,
+              "transform": {
+                "x": 153.117469879518,
+                "y": 108.00001764871979
+              }
+            },
+            {
+              "t": 70,
+              "transform": {
+                "x": 15.574844018932879,
+                "y": 164.23968132925117
+              }
+            },
+            {
+              "t": 90,
+              "transform": {
+                "x": 25,
+                "y": 102.26244309179789
+              }
+            }
+          ],
+          "source": {
+            "kind": "shape",
+            "shape": "bubble",
+            "params": {
+              "fill": "#ffffff",
+              "stroke": "#000000",
+              "strokeWidth": 5,
+              "style": "rect",
+              "count": 16,
+              "depth": 40,
+              "jitter": 25,
+              "seed": 1,
+              "tail": "point",
+              "tailAngle": 195,
+              "tailLength": 42,
+              "tailWidth": 26,
+              "tailCurve": 0,
+              "dash": "solid",
+              "preset": "manga-rect-tail",
+              "width": 360,
+              "height": 360
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "kf2",
+      "lane": "visual",
+      "name": "KF 2",
+      "items": [
+        {
+          "id": "image-1",
+          "at": 150,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.3,
+            "rotate": 0
+          },
+          "crop": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1
+          },
+          "perspective": {
+            "corners": [
+              [
+                0.433046875,
+                0
+              ],
+              [
+                0.6359375,
+                0.0128515625
+              ],
+              [
+                0,
+                1
+              ],
+              [
+                1,
+                1
+              ]
+            ]
+          },
+          "keyframes": [
+            {
+              "t": 11,
+              "transform": {
+                "x": 153.11746987951807,
+                "y": 88.10240963855422,
+                "scale": 0.3,
+                "rotate": 0
+              }
+            },
+            {
+              "t": 70,
+              "transform": {
+                "x": 1.7053025658242404e-13,
+                "y": 162,
+                "scale": 0.3,
+                "rotate": 0
+              }
+            },
+            {
+              "t": 90,
+              "transform": {
+                "x": 25,
+                "y": 100.86792452830188,
+                "scale": 0.3,
+                "rotate": 0
+              }
+            },
+            {
+              "t": 123,
+              "transform": {
+                "scale": 0.3,
+                "rotate": 0
+              }
+            }
+          ],
+          "source": {
+            "kind": "media",
+            "src": "still-src-1",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "kf3",
+      "lane": "visual",
+      "name": "KF 3",
+      "items": [
+        {
+          "id": "text-kf1",
+          "at": 300,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 11,
+              "transform": {
+                "x": 153.117469879518,
+                "y": 88.10240963855426
+              }
+            },
+            {
+              "t": 70,
+              "transform": {
+                "x": 15.620024741824352,
+                "y": 154.8238489672978
+              }
+            },
+            {
+              "t": 90,
+              "transform": {
+                "x": 25,
+                "y": 96.3997550173741
+              }
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1-text.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "kf4",
+      "lane": "visual",
+      "name": "KF 4",
+      "items": [
+        {
+          "id": "title-01",
+          "at": 450,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 11,
+              "transform": {
+                "x": 153.11746987951807,
+                "y": 88.10240963855426
+              }
+            },
+            {
+              "t": 70,
+              "transform": {
+                "x": 15.574844018932936,
+                "y": 154.8238489672978
+              }
+            },
+            {
+              "t": 90,
+              "transform": {
+                "x": 25,
+                "y": 96.3997550173741
+              }
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/title.html"
+          }
+        }
+      ]
+    }
+  ]
+}

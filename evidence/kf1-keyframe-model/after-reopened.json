@@ -1,0 +1,397 @@
+{
+  "label": "after",
+  "port": 9571,
+  "kinds": [
+    "shape-1",
+    "image-1",
+    "text-kf1",
+    "title-01"
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "results": {
+    "reopened": [
+      {
+        "frame": 0,
+        "reopened": {
+          "x": -314.88,
+          "y": -108
+        },
+        "diagnostic": {
+          "seek": 0,
+          "mode": "true",
+          "style": "position: absolute; inset: 0px; pointer-events: none !important; visibility: visible; --x: 153.117469879518px; --y: 108.00001764871979px; --scale: 0.6; --rotate: 0deg; transform: translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))); z-index: 0; mix-blend-mode: normal; --scale-x: 0.6; --scale-y: 0.6; opacity: 1;",
+          "computed": "matrix(0.6, 0, 0, 0.6, 153.117, 108)",
+          "tree": null,
+          "spec": {
+            "id": "shape-1",
+            "start": 0,
+            "duration": 5,
+            "keyframes": [
+              {
+                "t": 0.36666666666666664,
+                "transform": {
+                  "x": 153.117469879518,
+                  "y": 108.00001764871979
+                }
+              },
+              {
+                "t": 2.3333333333333335,
+                "transform": {
+                  "x": 15.574844018932879,
+                  "y": 164.23968132925117
+                }
+              },
+              {
+                "t": 3,
+                "transform": {
+                  "x": 25,
+                  "y": 102.26244309179789
+                }
+              }
+            ],
+            "keyframeUnit": "seconds",
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.6,
+              "rotate": 0
+            }
+          },
+          "summaryKeys": [
+            "output",
+            "editVersion",
+            "overlays",
+            "tree",
+            "canvasDropTargets",
+            "layers",
+            "filters",
+            "cuts",
+            "indicators",
+            "audio",
+            "tracks",
+            "timelineTracks"
+          ]
+        }
+      },
+      {
+        "frame": 11,
+        "reopened": {
+          "x": -314.88,
+          "y": -108
+        },
+        "diagnostic": {
+          "seek": 0.367,
+          "mode": "true",
+          "style": "position: absolute; inset: 0px; pointer-events: none !important; visibility: visible; --x: 153.117469879518px; --y: 108.00001764871979px; --scale: 0.6; --rotate: 0deg; transform: translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))); z-index: 0; mix-blend-mode: normal; --scale-x: 0.6; --scale-y: 0.6; opacity: 1;",
+          "computed": "matrix(0.6, 0, 0, 0.6, 153.117, 108)",
+          "tree": null,
+          "spec": {
+            "id": "shape-1",
+            "start": 0,
+            "duration": 5,
+            "keyframes": [
+              {
+                "t": 0.36666666666666664,
+                "transform": {
+                  "x": 153.117469879518,
+                  "y": 108.00001764871979
+                }
+              },
+              {
+                "t": 2.3333333333333335,
+                "transform": {
+                  "x": 15.574844018932879,
+                  "y": 164.23968132925117
+                }
+              },
+              {
+                "t": 3,
+                "transform": {
+                  "x": 25,
+                  "y": 102.26244309179789
+                }
+              }
+            ],
+            "keyframeUnit": "seconds",
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.6,
+              "rotate": 0
+            }
+          },
+          "summaryKeys": [
+            "output",
+            "editVersion",
+            "overlays",
+            "tree",
+            "canvasDropTargets",
+            "layers",
+            "filters",
+            "cuts",
+            "indicators",
+            "audio",
+            "tracks",
+            "timelineTracks"
+          ]
+        }
+      },
+      {
+        "frame": 22,
+        "reopened": {
+          "x": -340.53,
+          "y": -97.51
+        },
+        "diagnostic": {
+          "seek": 0.733,
+          "mode": "true",
+          "style": "position: absolute; inset: 0px; pointer-events: none !important; visibility: visible; --x: 127.47392946483265px; --y: 118.48537867390361px; --scale: 0.6; --rotate: 0deg; transform: translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))); z-index: 0; mix-blend-mode: normal; --scale-x: 0.6; --scale-y: 0.6; opacity: 1;",
+          "computed": "matrix(0.6, 0, 0, 0.6, 127.474, 118.485)",
+          "tree": null,
+          "spec": {
+            "id": "shape-1",
+            "start": 0,
+            "duration": 5,
+            "keyframes": [
+              {
+                "t": 0.36666666666666664,
+                "transform": {
+                  "x": 153.117469879518,
+                  "y": 108.00001764871979
+                }
+              },
+              {
+                "t": 2.3333333333333335,
+                "transform": {
+                  "x": 15.574844018932879,
+                  "y": 164.23968132925117
+                }
+              },
+              {
+                "t": 3,
+                "transform": {
+                  "x": 25,
+                  "y": 102.26244309179789
+                }
+              }
+            ],
+            "keyframeUnit": "seconds",
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.6,
+              "rotate": 0
+            }
+          },
+          "summaryKeys": [
+            "output",
+            "editVersion",
+            "overlays",
+            "tree",
+            "canvasDropTargets",
+            "layers",
+            "filters",
+            "cuts",
+            "indicators",
+            "audio",
+            "tracks",
+            "timelineTracks"
+          ]
+        }
+      },
+      {
+        "frame": 70,
+        "reopened": {
+          "x": -452.43,
+          "y": -51.76
+        },
+        "diagnostic": {
+          "seek": 2.333,
+          "mode": "true",
+          "style": "position: absolute; inset: 0px; pointer-events: none !important; visibility: visible; --x: 15.574844018932879px; --y: 164.23968132925117px; --scale: 0.6; --rotate: 0deg; transform: translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))); z-index: 0; mix-blend-mode: normal; --scale-x: 0.6; --scale-y: 0.6; opacity: 1;",
+          "computed": "matrix(0.6, 0, 0, 0.6, 15.5748, 164.24)",
+          "tree": null,
+          "spec": {
+            "id": "shape-1",
+            "start": 0,
+            "duration": 5,
+            "keyframes": [
+              {
+                "t": 0.36666666666666664,
+                "transform": {
+                  "x": 153.117469879518,
+                  "y": 108.00001764871979
+                }
+              },
+              {
+                "t": 2.3333333333333335,
+                "transform": {
+                  "x": 15.574844018932879,
+                  "y": 164.23968132925117
+                }
+              },
+              {
+                "t": 3,
+                "transform": {
+                  "x": 25,
+                  "y": 102.26244309179789
+                }
+              }
+            ],
+            "keyframeUnit": "seconds",
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.6,
+              "rotate": 0
+            }
+          },
+          "summaryKeys": [
+            "output",
+            "editVersion",
+            "overlays",
+            "tree",
+            "canvasDropTargets",
+            "layers",
+            "filters",
+            "cuts",
+            "indicators",
+            "audio",
+            "tracks",
+            "timelineTracks"
+          ]
+        }
+      },
+      {
+        "frame": 123,
+        "reopened": {
+          "x": -443,
+          "y": -113.74
+        },
+        "diagnostic": {
+          "seek": 4.1,
+          "mode": "true",
+          "style": "position: absolute; inset: 0px; pointer-events: none !important; visibility: visible; --x: 25px; --y: 102.26244309179789px; --scale: 0.6; --rotate: 0deg; transform: translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))); z-index: 0; mix-blend-mode: normal; --scale-x: 0.6; --scale-y: 0.6; opacity: 1;",
+          "computed": "matrix(0.6, 0, 0, 0.6, 25, 102.262)",
+          "tree": null,
+          "spec": {
+            "id": "shape-1",
+            "start": 0,
+            "duration": 5,
+            "keyframes": [
+              {
+                "t": 0.36666666666666664,
+                "transform": {
+                  "x": 153.117469879518,
+                  "y": 108.00001764871979
+                }
+              },
+              {
+                "t": 2.3333333333333335,
+                "transform": {
+                  "x": 15.574844018932879,
+                  "y": 164.23968132925117
+                }
+              },
+              {
+                "t": 3,
+                "transform": {
+                  "x": 25,
+                  "y": 102.26244309179789
+                }
+              }
+            ],
+            "keyframeUnit": "seconds",
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.6,
+              "rotate": 0
+            }
+          },
+          "summaryKeys": [
+            "output",
+            "editVersion",
+            "overlays",
+            "tree",
+            "canvasDropTargets",
+            "layers",
+            "filters",
+            "cuts",
+            "indicators",
+            "audio",
+            "tracks",
+            "timelineTracks"
+          ]
+        }
+      },
+      {
+        "frame": 126,
+        "reopened": {
+          "x": -443,
+          "y": -113.74
+        },
+        "diagnostic": {
+          "seek": 4.2,
+          "mode": "true",
+          "style": "position: absolute; inset: 0px; pointer-events: none !important; visibility: visible; --x: 25px; --y: 102.26244309179789px; --scale: 0.6; --rotate: 0deg; transform: translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(--scale,1))); z-index: 0; mix-blend-mode: normal; --scale-x: 0.6; --scale-y: 0.6; opacity: 1;",
+          "computed": "matrix(0.6, 0, 0, 0.6, 25, 102.262)",
+          "tree": null,
+          "spec": {
+            "id": "shape-1",
+            "start": 0,
+            "duration": 5,
+            "keyframes": [
+              {
+                "t": 0.36666666666666664,
+                "transform": {
+                  "x": 153.117469879518,
+                  "y": 108.00001764871979
+                }
+              },
+              {
+                "t": 2.3333333333333335,
+                "transform": {
+                  "x": 15.574844018932879,
+                  "y": 164.23968132925117
+                }
+              },
+              {
+                "t": 3,
+                "transform": {
+                  "x": 25,
+                  "y": 102.26244309179789
+                }
+              }
+            ],
+            "keyframeUnit": "seconds",
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.6,
+              "rotate": 0
+            }
+          },
+          "summaryKeys": [
+            "output",
+            "editVersion",
+            "overlays",
+            "tree",
+            "canvasDropTargets",
+            "layers",
+            "filters",
+            "cuts",
+            "indicators",
+            "audio",
+            "tracks",
+            "timelineTracks"
+          ]
+        }
+      }
+    ]
+  },
+  "consoleErrors": []
+}
