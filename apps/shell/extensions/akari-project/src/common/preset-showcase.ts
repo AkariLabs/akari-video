@@ -19,6 +19,13 @@ export interface PresetShowcase {
     textstyle: PresetShowcaseItem[];
 }
 
+export function presetApplyPayload(item: PresetShowcaseItem): { kind: PresetShowcaseKind; id: string;
+    style?: Record<string, unknown>; slot?: string } {
+    if (item.kind === 'lut') return { kind: 'lut', id: item.id };
+    if (item.kind === 'textanim') return { kind: 'textanim', id: item.id, slot: item.tags[0] };
+    return { kind: 'textstyle', id: item.id, style: item.style };
+}
+
 export interface PresetShowcaseChip {
     category: `preset:${PresetShowcaseKind}`;
     label: string;

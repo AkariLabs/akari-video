@@ -3777,6 +3777,30 @@ function marqueeHits(candidates, rect) {
   window.addEventListener('blur', () => { clearMarquee(); flushNudge(); hideHover(); lastClick = null; });
   document.addEventListener('pointerleave', hideHover);
 
+  function libraryApplyHitTest(x, y, fallbackCut, requestedKind) {
+    const contains = rect => rect.width > 0 && rect.height > 0 && x >= rect.left && x <= rect.right
+      && y >= rect.top && y <= rect.bottom;
+    const visible = element => {
+      const style = getComputedStyle(element);
+      return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0;
+    };
+    const captions = [...document.querySelectorAll('.caption-row-plate[data-caption-key]')].reverse();
+    for (const plate of requestedKind === 'lut' ? [] : captions) {
+      if (!visible(plate)) continue;
+      const face = plate.querySelector('.akari-caption__plate') || plate;
+      const rect = face.getBoundingClientRect();
+      if (contains(rect)) return { kind: 'caption', id: plate.dataset.captionKey, rect };
+    }
+    const layers = [...document.querySelectorAll('[data-akari-layer-id]')]
+      .filter(visible).sort((a, b) => Number(b.style.zIndex || 0) - Number(a.style.zIndex || 0));
+    for (const layer of layers) {
+      const rect = layer.getBoundingClientRect();
+      if (contains(rect)) return { kind: 'layer', id: layer.dataset.akariLayerId, rect };
+    }
+    if (fallbackCut?.id && contains(fallbackCut.rect)) return fallbackCut;
+    return null;
+  }
+
   return {
     get selectedId() { return selectedId; },
     get selectedIds() { return [...selectedIds]; },
@@ -3785,6 +3809,7 @@ function marqueeHits(candidates, rect) {
     get floorScopeId() { return floorScopeId; },
     get activeEdit() { return Boolean(activeEdit); },
     get hasSelectionTree() { return selectionTree().length > 0; },
+    libraryApplyHitTest,
     selectFromTimeline,
     setSelectionFloor,
     selftest,

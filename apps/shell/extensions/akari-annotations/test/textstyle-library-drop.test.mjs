@@ -2,6 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseLibraryDragPayload, textStyleDropBandLayout, textStyleDropStart, textStyleGhostEnd, textStylePlaceOptions } from '../lib/browser/library-drop-model.js';
 
+test('字幕チップにかける動き・フォント・LUT の payload を読む', () => {
+  for (const payload of [
+    { kind: 'textanim', id: 'fade', slot: 'in' },
+    { kind: 'font', id: 'zen', fontFamily: 'Zen Kaku' },
+    { kind: 'lut', id: 'warm' },
+    { kind: 'textstyle', id: 'news', style: { color: '#ffffff' } }
+  ]) assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);
+  assert.equal(parseLibraryDragPayload({ kind: 'font', id: '' }), undefined);
+});
+
 test('textstyle payload だけを検証し、stylePreset と start に変換する', () => {
   const payload = { kind: 'textstyle', id: 'telop-title' };
   assert.deepEqual(parseLibraryDragPayload(JSON.stringify(payload)), payload);

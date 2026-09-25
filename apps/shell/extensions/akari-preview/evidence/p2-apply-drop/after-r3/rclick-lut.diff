@@ -1,0 +1,18 @@
+diff --git a/edit.json b/edit.json
+index acd4b03..26d1626 100644
+--- a/edit.json
++++ b/edit.json
+@@ -10,11 +10,10 @@
+       { "id": "cut-base", "at": 0, "duration": 360, "source": { "kind": "media", "src": "a", "in": 0, "out": 12, "speed": 1 } }
+     ] },
+     { "id": "v1", "lane": "visual", "items": [
+-      { "id": "image-1", "at": 90, "duration": 150, "transform": { "x": 321.16940233314244, "y": 143.93891359324323, "scale": 0.19138755980861244 }, "source": { "kind": "media", "src": "src-1", "in": 0, "out": 5 } }
++      { "id": "image-1", "at": 90, "duration": 150, "transform": { "x": 321.16940233314244, "y": 143.93891359324323, "scale": 0.19138755980861244 }, "source": { "kind": "media", "src": "src-1", "in": 0, "out": 5 }, "adjust": { "lut": { "lut": "mono" } } }
+     ] },
+     { "id": "v-captions", "lane": "visual", "name": "字幕", "items": [
+       { "id": "captions", "name": "字幕", "at": 0, "duration": 360, "source": { "kind": "captions", "path": "captions.json" }, "items": [] }
+-    ] },
+-    { "id": "a1", "lane": "audio", "name": "A1", "items": [] }
++    ] }
+   ]
+ }

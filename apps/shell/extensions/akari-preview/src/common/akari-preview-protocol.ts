@@ -58,6 +58,7 @@ export interface OverlayRuntimeAssetUrls {
     /** 出力プレビューのスクラブ音バンドル。生成物が無い場合だけ undefined。 */
     scrubAudioJavaScriptUrl?: string;
     captionFontUrl: string;
+    bundledCaptionFontFaces: Array<{ id: string; family: string; file: string; weight: string; url: string }>;
 }
 
 export interface ReadVideoFxLutRequest {

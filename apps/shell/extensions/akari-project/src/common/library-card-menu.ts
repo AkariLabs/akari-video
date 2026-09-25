@@ -70,7 +70,7 @@ export function libraryCardMenuEntries(target: LibraryMenuTarget, favorite: bool
             { id: 'place-text', label: '新しい文字として置く', icon: 'add' }, favoriteEntry(favorite, true), INFO];
     }
     if (target.kind === 'textanim') return [{ id: 'apply', label: '選択中の文字に当てる', icon: 'check' }, favoriteEntry(favorite, true), INFO];
-    // LUT・トランジションはこの棚での適用経路がない。
+    if (target.kind === 'lut') return [{ id: 'apply', label: '選択中の映像に当てる', icon: 'check' }, favoriteEntry(favorite, true), INFO];
     return [favoriteEntry(favorite), INFO];
 }
 

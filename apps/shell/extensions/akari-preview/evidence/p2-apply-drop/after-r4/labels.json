@@ -1,0 +1,7 @@
+{
+ "note": "r4 の実機確認（Electron 開発ビルド）: プレビューの文字（c-0005）へ当てた直後と Cmd+Z 1 回の後のタイムライン足元の表示。マイスタイルは棚が空だったため同じ当てるコマンド akari.timeline.applyLibraryItem を style.json で直接呼んだ",
+ "textanim fade-in-out": { "applied": "動きを当てました。", "undo": "動きを当てるを元に戻しました。" },
+ "textstyle subtitle-news": { "applied": "スタイルを当てました。", "undo": "スタイルを当てるを元に戻しました。" },
+ "font dela-gothic-one": { "applied": "フォントを変えました。", "undo": "フォントを変えるを元に戻しました。" },
+ "mystyle green-pop（コマンド直呼び）": { "applied": "マイスタイルを当てました。", "undo": "マイスタイルを当てるを元に戻しました。" }
+}

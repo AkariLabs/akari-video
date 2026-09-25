@@ -1,0 +1,108 @@
+{
+ "cardSpec": "css:[data-akari-catalog-preset-item=\"lut/cinematic\"]",
+ "dropSpec": "stage:0.75,0.7",
+ "at": "2026-09-25T05:42:35.128Z",
+ "card": {
+  "x": 161,
+  "y": 184,
+  "draggable": null
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283.0390625,
+   "y": 39,
+   "w": 779.953125,
+   "h": 358.515625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 780,
+   "h": 359
+  },
+  "inner": {
+   "x": 150.890625,
+   "y": 16.00390625,
+   "w": 478.21875,
+   "h": 268.9921875,
+   "offsetW": 478,
+   "offsetH": 269,
+   "transform": "matrix(1, 0, 0, 1, -239.109, -134.496)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 433.9296875,
+   "y": 55.00390625,
+   "w": 478.21875,
+   "h": 268.9921875
+  }
+ },
+ "drop": {
+  "x": 793,
+  "y": 243,
+  "outputPx": {
+   "x": 961.0873684898386,
+   "y": 503.201184978653
+  }
+ },
+ "dragIntercepted": false,
+ "atDragStart": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 20664,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": false,
+ "newItems": [],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 3,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioAfter": null,
+ "newSources": [],
+ "notices": [
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）使う開くだけ",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）",
+  "このフォルダを AKARI Video プロジェクトとして使いますか？（フォルダ構成の作成と、作業の節目の記録を始めます）"
+ ]
+}

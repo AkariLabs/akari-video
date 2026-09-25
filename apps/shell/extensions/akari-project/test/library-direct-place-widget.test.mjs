@@ -105,6 +105,16 @@ test('カードのドラッグは同じ payload を MIME とミラーへ送り�
     assert.equal(handler.canDragCatalogAsset(item), false);
 });
 
+test('フォントはかける payload でドラッグでき、未購入は促しの印を保つ', () => {
+    const { handler } = fixture();
+    let raw;
+    const event = { dataTransfer: { setData: (_mime, value) => { raw = value; } }, preventDefault: () => assert.fail('フォントはドラッグできる') };
+    handler.handleCatalogAssetDragStart(event, { ...item, key: 'font/zen', category: 'font', id: 'zen', title: 'Zen Kaku（日本語）' });
+    assert.deepEqual(JSON.parse(raw), { kind: 'font', id: 'zen', fontFamily: 'Zen Kaku', key: 'font/zen' });
+    handler.handleCatalogAssetDragStart(event, { ...item, key: 'font/zen', category: 'font', id: 'zen', title: 'Zen Kaku', state: 'locked' });
+    assert.equal(JSON.parse(raw).locked, true);
+});
+
 for (const sourceKind of ['own', 'site', 'lab']) {
     for (const operation of ['resolveCatalogMaterial', 'useAssetCatalogItem']) {
         test(`${operation}: ${sourceKind} の置き場素材を対応する配置経路へ渡す`, async () => {

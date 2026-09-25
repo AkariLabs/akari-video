@@ -21,7 +21,7 @@ test('マイスタイルの＋は見た目込みの placeText を一度だけ呼
   assert.doesNotMatch(body, /akari\.mystyle\.apply/);
 });
 
-test('grid と list のテキストスタイルカードはドラッグでき、プレイヘッドに置くは右クリックと情報カードへ畳む', () => {
+test('grid と list のかけるカードはドラッグでき、文字の新規配置は右クリックと情報カードへ畳む', () => {
   const start = widget.indexOf('protected renderPresetLibraryCard(');
   const end = widget.indexOf('\n    protected ', start + 1);
   const body = widget.slice(start, end);
@@ -29,7 +29,7 @@ test('grid と list のテキストスタイルカードはドラッグでき、
     assert.match(widget, new RegExp(`protected ${method}\\(item: PresetShowcaseItem\\): React\\.ReactNode \\{\\n\\s+return this\\.renderPresetLibraryCard\\(item, '(grid|list)'\\);`));
   }
   assert.match(body, /'data-akari-catalog-item': textstyle \? `textstyle\/\$\{item\.id\}` : undefined/);
-  assert.match(body, /draggable=\{textstyle \? true : undefined\}/);
+  assert.match(body, /\n\s+draggable\n/);
   assert.match(body, /handleTextStyleDragStart/);
   assert.match(body, /draggable=\{false\}/);
   assert.match(body, /openLibraryMenuAt\(event, target\)/);

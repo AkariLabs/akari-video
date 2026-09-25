@@ -48,11 +48,13 @@ export function playTextAnimationSample(card: HTMLElement, id: string, slot: 'in
 }
 
 export function FontShelfCard(props: { item: AssetCatalogViewItem; layout: 'grid' | 'list'; favorite: boolean;
-    onApply(): void; onContextMenu(event: React.MouseEvent<HTMLElement>): void; onInfo(anchor: HTMLElement): void }): React.ReactElement {
+    onApply(): void; onDragStart(event: React.DragEvent<HTMLElement>): void; onDragEnd(): void;
+    onContextMenu(event: React.MouseEvent<HTMLElement>): void; onInfo(anchor: HTMLElement): void }): React.ReactElement {
     const { item } = props;
     return <LibrarySimpleCard cardKey={item.key} name={item.title} layout={props.layout} infoOpen={false}
         favorite={props.favorite} attributes={{ 'data-akari-font-card': item.id, 'data-akari-catalog-item': item.key,
             'data-akari-font-preview-path': fontPreviewPath(item.id) }}
+        draggable onDragStart={props.onDragStart} onDragEnd={props.onDragEnd}
         onClick={props.onApply} onContextMenu={props.onContextMenu} onInfo={props.onInfo}
         face={item.previewUrl
             ? <img src={item.previewUrl} alt={`${item.title} の見本`} draggable={false}

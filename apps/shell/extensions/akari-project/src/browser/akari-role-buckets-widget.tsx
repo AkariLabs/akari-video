@@ -98,9 +98,8 @@ import { classifyMaterialKind, MaterialKind, resolveAssetGroupMedia } from '../c
 import { materialCardLayout } from '../common/material-card-layout';
 import { AKARI_MATERIAL_SELECTED_EVENT } from '../common/material-selected-event';
 import { CatalogPack } from '../common/catalog-packs';
-import { filterPresetShowcaseItems, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
+import { filterPresetShowcaseItems, presetApplyPayload, presetShowcaseBottomPadding, textStylePlaceOptions } from '../common/preset-showcase';
 import { defaultMyStyleParts, myStylePartLabel, myStyleSamplePresentation, type MyStyle } from '../common/my-style';
-import { planFontApply, selectedFontStyleFromCaptions } from '../common/library-font-shelf';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
 import { LibraryTextLookPage, LibraryTextLookRow } from './library-text-look-view';
@@ -2527,11 +2526,19 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected handleCatalogAssetDragStart(event: React.DragEvent<HTMLElement>, item: AssetCatalogViewItem): void {
-        if (!this.canDragCatalogAsset(item)) {
+        if (item.category !== 'font' && !this.canDragCatalogAsset(item)) {
             event.preventDefault();
             return;
         }
         const { key, id, category, title } = item;
+        if (category === 'font') {
+            const payload = { kind: 'font', id, fontFamily: title.replace(/（.*$/, '').trim(), key,
+                ...(isPremiumLocked(item) || item.state === 'locked' ? { locked: true } : {}) };
+            event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
+            event.dataTransfer.effectAllowed = 'copy';
+            window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
+            return;
+        }
         const size = item as AssetCatalogViewItem & { width?: number; height?: number; durationSeconds?: number; locked?: boolean };
         const payload = { kind: 'asset', key, id, category, title,
             ...(typeof size.width === 'number' ? { width: size.width } : {}),
@@ -4110,6 +4117,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (item.category === 'font' && !this.generationPick.request) {
             return <FontShelfCard key={item.key} item={item} layout={this.catalogViewMode}
                 favorite={this.libraryFavorites.has(item.key)} onApply={() => { void this.applyFontItem(item); }}
+                onDragStart={event => this.handleCatalogAssetDragStart(event, item)}
+                onDragEnd={() => this.handleLibraryTransitionDragEnd()}
                 onContextMenu={event => this.openLibraryMenuAt(event, { kind: 'asset', item })}
                 onInfo={anchor => this.openLibraryInfo({ kind: 'asset', item }, anchor)} />;
         }
@@ -4124,31 +4133,22 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected async applyFontItem(item: AssetCatalogViewItem): Promise<void> {
-        const selection = this.selectedLibraryCaption();
-        let previousStyle: Record<string, unknown> = {};
-        if (selection && this.workflow.workspaceRoot) {
-            try {
-                const source = (await this.files.readFile(this.workflow.workspaceRoot.resolve('captions.json'))).value.toString();
-                previousStyle = selectedFontStyleFromCaptions(source, selection.id, this.presetShowcase.textstyle);
-            } catch { /* 適用側が字幕の存在を検査して知らせる */ }
-        }
-        const plan = planFontApply(item, selection, previousStyle);
-        if (plan.ok === false) { this.messages.info(plan.message); return; }
-        window.dispatchEvent(new CustomEvent('akari.mystyle.apply', { detail: plan.detail }));
+        if (isPremiumLocked(item) || item.state === 'locked') { this.showPremiumPrompt(item.key); return; }
+        await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
+            payload: { kind: 'font', id: item.id, fontFamily: item.title.replace(/（.*$/, '').trim() },
+            editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
+        });
     }
 
-    protected applyPresetToSelectedCaption(item: PresetShowcaseItem): void {
-        const selection = this.selectedLibraryCaption();
-        if (!selection) { this.messages.info('先に文字を選んでください。'); return; }
-        const part = item.kind === 'textstyle' && item.style
-            ? { kind: 'look', text_style: item.style }
-            : item.kind === 'textanim'
-                ? { kind: 'motion', animation: { [item.tags[0] || 'in']: { id: item.id, duration_sec: 0.6 } } }
-                : undefined;
-        if (!part) return;
-        window.dispatchEvent(new CustomEvent('akari.mystyle.apply', { detail: {
-            ids: [selection.id], selectedParts: [part.kind], style: { parts: [part] }
-        } }));
+    protected async applyPresetToSelectedCaption(item: PresetShowcaseItem): Promise<void> {
+        try {
+            await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
+                payload: presetApplyPayload(item),
+                editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
+            });
+        } catch (error) {
+            this.messages.warn(`当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     // --- ライブラリのカード: 右クリック = 操作のメニュー / ⋯ = 情報カード / ★ / 促しのシート ----------
@@ -4156,7 +4156,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected libraryMenuTargetItem(target: LibraryMenuTarget): { preset?: PresetShowcaseItem; style?: MyStyle } {
         if (target.kind === 'textstyle' || target.kind === 'textanim' || target.kind === 'lut') {
             const id = target.key.slice(target.kind.length + 1);
-            return { preset: this.presetShowcase[target.kind].find(item => item.id === id) };
+            return { preset: this.presetShowcase[target.kind]?.find(item => item.id === id) };
         }
         if (target.kind === 'mystyle') return { style: this.myStyles.find(style => `mystyle/${style.id}` === target.key) };
         return {};
@@ -4232,10 +4232,22 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             return;
         }
         const { preset, style } = this.libraryMenuTargetItem(target);
-        if (preset && id === 'apply') this.applyPresetToSelectedCaption(preset);
+        if (target.kind === 'lut' && id === 'apply') {
+            const lutId = target.key.startsWith('lut/') ? target.key.slice('lut/'.length) : '';
+            if (!lutId) { this.messages.info('LUT が見つかりません。'); return; }
+            await this.applyPresetToSelectedCaption(preset ?? { kind: 'lut', id: lutId, name: lutId, tags: [] });
+            return;
+        }
+        if (preset && id === 'apply') await this.applyPresetToSelectedCaption(preset);
+        else if (!preset && id === 'apply' && (target.kind === 'textstyle' || target.kind === 'textanim')) {
+            this.messages.info('カードを読み取れませんでした。');
+        }
         if (preset && id === 'place-text') await this.addTextStyleAtPlayhead(preset);
         if (style) {
-            if (id === 'apply') this.openMyStyleApply(style, anchor ?? this.node);
+            if (id === 'apply') void this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
+                payload: { kind: 'mystyle', style },
+                editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
+            });
             else if (id === 'place-text') await this.addMyStyleAtPlayhead(style);
             else if (id === 'rename') await this.renameMyStyle(style);
             else if (id === 'delete') await this.deleteMyStyle(style);
@@ -4554,8 +4566,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected handleTextStyleDragStart(event: React.DragEvent<HTMLElement>, item: PresetShowcaseItem): void {
-        if (!textStylePlaceOptions(item)) { event.preventDefault(); return; }
-        const payload = { kind: 'textstyle', id: item.id };
+        const payload = { kind: item.kind, id: item.id, style: item.style, slot: item.tags[0] };
         event.dataTransfer.setData(LIBRARY_DRAG_MIME, JSON.stringify(payload));
         event.dataTransfer.effectAllowed = 'copy';
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
@@ -4594,9 +4605,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 'data-akari-catalog-item': textstyle ? `textstyle/${item.id}` : undefined,
                 'data-akari-catalog-preset-list-row': layout === 'list' ? true : undefined
             }}
-            draggable={textstyle ? true : undefined}
-            onDragStart={textstyle ? event => this.handleTextStyleDragStart(event, item) : undefined}
-            onDragEnd={textstyle ? () => this.handleLibraryTransitionDragEnd() : undefined}
+            draggable
+            onDragStart={event => this.handleTextStyleDragStart(event, item)}
+            onDragEnd={() => this.handleLibraryTransitionDragEnd()}
             onMouseEnter={item.kind === 'textanim' ? event => playTextAnimationSample(event.currentTarget, item.id,
                 item.tags[0] === 'out' ? 'out' : item.tags[0] === 'loop' ? 'loop' : 'in') : undefined}
             onContextMenu={event => this.openLibraryMenuAt(event, target)}

@@ -1,0 +1,158 @@
+{
+ "cardSpec": "css:[data-akari-catalog-preset-item=\"lut/mono\"]",
+ "dropSpec": "host:817,731",
+ "at": "2026-09-25T08:46:41.443Z",
+ "card": {
+  "x": 90,
+  "y": 254,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283.0390625,
+   "y": 39,
+   "w": 1099.953125,
+   "h": 501.890625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 1100,
+   "h": 502
+  },
+  "inner": {
+   "x": 183.78125,
+   "y": 16.00390625,
+   "w": 732.4375,
+   "h": 411.9921875,
+   "offsetW": 732,
+   "offsetH": 412,
+   "transform": "matrix(1, 0, 0, 1, -366.219, -205.996)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 466.8203125,
+   "y": 55.00390625,
+   "w": 732.4375,
+   "h": 411.9921875
+  }
+ },
+ "drop": {
+  "x": 817,
+  "y": 731,
+  "outputPx": {
+   "x": 611.9703046335012,
+   "y": 1181.3747985209063
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1100,
+     "h": 501.9
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "applyTargets": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "lut",
+  "id": "mono",
+  "slot": "lut"
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1100,
+     "h": 501.9
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "applyTargets": [
+   {
+    "id": "image-1",
+    "kind": "layer",
+    "value": "",
+    "rect": {
+     "x": 640.1,
+     "y": 706.9,
+     "w": 356.8,
+     "h": 48
+    },
+    "outline": "solid rgb(249, 115, 22)"
+   }
+  ],
+  "timelineGhost": []
+ },
+ "waitMs": 508,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "applyTargets": [],
+  "timelineGhost": []
+ },
+ "editChanged": true,
+ "newItems": [],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioAfter": null,
+ "newSources": [],
+ "notices": []
+}

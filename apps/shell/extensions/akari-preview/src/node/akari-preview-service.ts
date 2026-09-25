@@ -66,6 +66,7 @@ import { ReviewSessionWriter } from './review-session-writer';
 import { writePreviewFrame } from './preview-frame-writer';
 import { prepareVisualThumbnailPage } from './visual-thumbnail-page';
 import { VisualThumbnailPage, VisualThumbnailRequest } from '../common/visual-thumbnail';
+import { BUNDLED_CAPTION_FONT_FACES } from '../common/bundled-caption-fonts';
 
 interface ReferenceModule {
     resolveProjectAssetPath(project: string, declared: string): Promise<string | null>;
@@ -348,6 +349,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // 資産の生バイト（プロセス寿命でメモ化）。getOverlayRuntimeAssets() の文字列形と
     // getOverlayRuntimeAssetUrls() の URL 配信が同じ読み出しを共有する。
     protected overlayRuntimeSources: OverlayRuntimeSources | undefined;
+    protected bundledCaptionFontBuffers?: Map<string, Buffer>;
     protected frameEngineSource: Buffer | null | undefined;
     protected previewAudioWorkletSource: Buffer | null | undefined;
     protected scrubAudioSource: Buffer | null | undefined;
@@ -473,6 +475,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const javascript = 'text/javascript; charset=utf-8';
         const url = (name: string, body: Buffer, mimeType: string): string =>
             `${origin}${this.registerStaticAsset(name, body, mimeType)}`;
+        const fontBuffers = this.loadBundledCaptionFontBuffers();
         return {
             origin,
             threeJavaScriptUrl: url('three-bundle.js', sources.three, javascript),
@@ -490,8 +493,21 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             ...(scrubAudio ? {
                 scrubAudioJavaScriptUrl: url('scrub-audio.js', scrubAudio, javascript)
             } : {}),
-            captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf')
+            captionFontUrl: url('caption-font.ttf', sources.captionFont, 'font/ttf'),
+            bundledCaptionFontFaces: BUNDLED_CAPTION_FONT_FACES.map(face => ({ ...face,
+                url: url(`caption-font-${face.id}-${face.weight.replace(' ', '-')}.ttf`,
+                    fontBuffers.get(`${face.id}/${face.file}`)!, 'font/ttf') }))
         };
+    }
+
+    protected loadBundledCaptionFontBuffers(): Map<string, Buffer> {
+        if (!this.bundledCaptionFontBuffers) {
+            this.bundledCaptionFontBuffers = new Map(BUNDLED_CAPTION_FONT_FACES.map(face => {
+                const key = `${face.id}/${face.file}`;
+                return [key, readFileSync(this.findFontAssetPath(join('assets', 'font', face.id, face.file)))] as const;
+            }));
+        }
+        return this.bundledCaptionFontBuffers;
     }
 
     protected registerStaticAsset(name: string, body: Buffer, mimeType: string): string {
@@ -540,7 +556,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     protected findCaptionFontPath(): string {
-        const relativePath = join('assets', 'font', 'noto-sans-jp', 'NotoSansJP-Variable.ttf');
+        return this.findFontAssetPath(join('assets', 'font', 'noto-sans-jp', 'NotoSansJP-Variable.ttf'));
+    }
+
+    protected findFontAssetPath(relativePath: string): string {
         const candidates: string[] = [];
 
         // パッケージ済みアプリ: apps/shell/package.json の extraResources で assets/font/** を

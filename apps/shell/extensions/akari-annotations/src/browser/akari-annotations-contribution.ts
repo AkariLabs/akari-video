@@ -503,6 +503,24 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                     request?.transform);
             }
         });
+        commands.registerCommand({ id: 'akari.timeline.applyLibraryItem' }, {
+            execute: async (request: { payload?: import('./library-apply-plan').ApplyPayload;
+                target?: import('./library-apply-plan').ApplyTarget; editUri?: string }) => {
+                if (!request?.payload) { this.messages.info('当てるものを読み取れませんでした。'); return false; }
+                try {
+                    const location = request.editUri
+                        ? (await this.locateAll()).find(item => item.editUri?.toString() === request.editUri) : undefined;
+                    if (request.editUri && !location) { this.messages.warn('プロジェクトを特定できません。'); return false; }
+                    const widget = request.editUri ? await this.configureQuietTimeline(location!)
+                        : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
+                    if (!widget) { this.messages.info('タイムラインを開いてから当ててください。'); return false; }
+                    return await widget.applyLibraryItem(request.payload, request.target);
+                } catch (error) {
+                    this.messages.warn(`当てられませんでした: ${error instanceof Error ? error.message : String(error)}`);
+                    return false;
+                }
+            }
+        });
         const onPlaybackTick = (event: Event): void => {
             const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
             if (request && this.timelineWidget?.canHandlePlaybackTick(request.videoUri)) {
