@@ -1,6 +1,7 @@
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { CommandService, MessageService } from '@theia/core/lib/common';
 import { hostToOutput, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
+import { previewOverlayKind } from '../common/preview-overlay-drop';
 
 const MIME = 'application/x-akari-library-item';
 const START = 'akari.library.dragStart';
@@ -157,7 +158,8 @@ export class PreviewLibraryDrop {
         const audio = payload.kind === 'asset' && payload.category === 'audio';
         const text = payload.kind === 'text' || payload.kind === 'textstyle' || payload.kind === 'mystyle';
         const transition = payload.kind === 'transition';
-        const outputBox = previewDropBox(geometry.output, { width: payload.width, height: payload.height });
+        const overlay = previewOverlayKind(payload) === 'overlay';
+        const outputBox = previewDropBox(geometry.output, { width: payload.width, height: payload.height }, overlay ? 0.4 : 0.25);
         const width = audio ? 160 : text ? 190 : transition ? 230
             : outputBox ? outputBox.width * geometry.rect.width / geometry.output.width : 0;
         const height = audio || text || transition ? 46
@@ -210,6 +212,21 @@ export class PreviewLibraryDrop {
         }
         const editUri = this.editUri();
         if (!editUri) return;
+        const overlayKind = previewOverlayKind(payload);
+        if (overlayKind === 'scene3d') {
+            this.messages.info('3D は近日対応します。');
+            return;
+        }
+        if (overlayKind === 'overlay') {
+            const placed = await this.commands.executeCommand<string | undefined>('akari.timeline.addOverlayAtOutputPoint', {
+                key: payload.key, t: geometry.time, center: point, editUri
+            });
+            if (!placed) return;
+            await this.commands.executeCommand('akari.preview.seekOutput', {
+                editUri, time: geometry.time, waitForReady: true
+            });
+            return;
+        }
         if (payload.kind === 'text' || payload.kind === 'textstyle' || payload.kind === 'mystyle') {
             await this.commands.executeCommand('akari.caption.placeText', {
                 start: geometry.time, center: { x: point.x / geometry.output.width,

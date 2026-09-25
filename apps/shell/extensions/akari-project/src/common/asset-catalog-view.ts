@@ -28,6 +28,8 @@ export interface ResolverRawCatalogItem {
     addedAt?: string;
     libraryDir?: string;
     mediaFile?: string | null;
+    width?: number;
+    height?: number;
     machineTags?: string[];
     preview?: string | null;
     license?: { spdx?: string; scope?: string; attribution_required?: boolean };
@@ -76,6 +78,8 @@ export function toResolverAssetCatalogViewItem(item: ResolverRawCatalogItem, pre
         addedAt: item.addedAt,
         libraryDir: item.libraryDir,
         mediaFile: item.mediaFile,
+        ...(Number.isFinite(item.width) && item.width! > 0 ? { width: item.width } : {}),
+        ...(Number.isFinite(item.height) && item.height! > 0 ? { height: item.height } : {}),
         machineTags: item.machineTags,
         licenseSpdx: item.license?.spdx,
         ...(typeof item.license?.scope === 'string' && item.license.scope ? { licenseScope: item.license.scope } : {}),

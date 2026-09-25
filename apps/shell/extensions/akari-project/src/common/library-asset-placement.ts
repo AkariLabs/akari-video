@@ -9,6 +9,14 @@ export function canPlaceLibraryAsset(item: Pick<AssetCatalogViewItem, 'origin' |
     return item.origin !== 'local' && item.state !== 'locked' && ['audio', 'broll', 'still'].includes(item.category);
 }
 
+export function libraryDragKind(item: Pick<AssetCatalogViewItem, 'category'>): 'asset' | 'overlay' | 'scene3d' {
+    return item.category === 'overlay' ? 'overlay' : item.category === 'scene3d' ? 'scene3d' : 'asset';
+}
+
+export function canPlaceOverlay(item: Pick<AssetCatalogViewItem, 'origin' | 'category' | 'state'>): boolean {
+    return item.origin === 'resolver' && item.category === 'overlay' && item.state !== 'locked';
+}
+
 /** 複数テイクの音源は試聴したファイルを選ぶ。meta.json 付きパックは一意解決のみ。 */
 export function resolveLibraryAssetMedia(
     item: Pick<AssetCatalogViewItem, 'category' | 'mediaUrl'>,

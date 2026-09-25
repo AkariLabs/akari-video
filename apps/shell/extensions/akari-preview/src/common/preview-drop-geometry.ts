@@ -43,11 +43,11 @@ export function outputOffset(point: DropPoint, output: { width: number; height: 
     return { x: point.x - output.width / 2, y: point.y - output.height / 2 };
 }
 
-export function previewDropBox(output: { width: number; height: number }, source?: { width?: number; height?: number }): {
+export function previewDropBox(output: { width: number; height: number }, source?: { width?: number; height?: number }, fraction = 1 / 4): {
     width: number; height: number
 } | undefined {
     if (!(output.width > 0) || !(output.height > 0)) return undefined;
-    const width = output.width / 4;
+    const width = output.width * fraction;
     const aspect = source?.width && source?.height && source.width > 0 && source.height > 0
         ? source.width / source.height : 16 / 9;
     return { width, height: width / aspect };

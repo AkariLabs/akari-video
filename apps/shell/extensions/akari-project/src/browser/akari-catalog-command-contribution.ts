@@ -124,6 +124,20 @@ export class AkariCatalogCommandContribution implements CommandContribution {
                 return widget.resolveCatalogMaterial(key, options);
             }
         });
+        registry.registerCommand({ id: 'akari.catalog.resolveOverlay' }, {
+            execute: async (key: string) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                return widget.resolveCatalogOverlay(key);
+            }
+        });
+        registry.registerCommand({ id: 'akari.catalog.readOverlayMeta' }, {
+            execute: async (key: string) => {
+                const widget = await this.widgetManager.getOrCreateWidget<AkariRoleBucketsWidget>(AkariRoleBucketsWidget.ID);
+                if (!widget.assetCatalogLoaded()) await widget.loadAssetCatalogView();
+                return widget.readCatalogOverlayMeta(key);
+            }
+        });
         // 未購入のプレミアムを使おうとした時点の促しのシート。プレビュー・タイムラインの受け口からも呼ぶ。
         registry.registerCommand(AkariCatalogCommands.SHOW_PREMIUM_PROMPT, {
             execute: async (args?: { key?: string } | string): Promise<boolean> => {

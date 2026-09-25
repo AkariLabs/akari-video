@@ -6,7 +6,7 @@
  * 呼び出し側（ウィジェット）が id ごとに実処理へ振り分ける。
  */
 import type { AssetCatalogViewItem } from './akari-project-protocol';
-import { canPlaceLibraryAsset } from './library-asset-placement';
+import { canPlaceLibraryAsset, canPlaceOverlay } from './library-asset-placement';
 import { isPremiumLocked, libraryItemPrice } from './library-filter';
 import { LAB_PREMIUM_SPDX, LibraryLicenseSheet, libraryLicenseSheet } from './library-license';
 import { libraryItemSource, LibrarySourceFilter } from './library-source-view';
@@ -41,7 +41,8 @@ export function formatYen(price: number | undefined): string {
 
 /** 未購入のプレミアムでも「置く」操作の見た目は同じ（押すと促しのシート）。置ける種類かどうかだけを見る。 */
 export function isPlaceableLibraryCategory(item: Pick<AssetCatalogViewItem, 'origin' | 'category'>): boolean {
-    return canPlaceLibraryAsset({ origin: item.origin, category: item.category, state: 'available' });
+    return canPlaceLibraryAsset({ origin: item.origin, category: item.category, state: 'available' })
+        || canPlaceOverlay({ origin: item.origin, category: item.category, state: 'available' });
 }
 
 function favoriteEntry(favorite: boolean, separator = false): LibraryMenuEntry {
@@ -88,7 +89,7 @@ function assetMenuEntries(item: AssetCatalogViewItem, favorite: boolean): Librar
         entries.push(favoriteEntry(favorite, true), INFO);
         return entries;
     }
-    if (canPlaceLibraryAsset(item)) {
+    if (canPlaceLibraryAsset(item) || canPlaceOverlay(item)) {
         entries.push({ id: 'place', label: 'プレイヘッドに置く', icon: 'add' });
         entries.push({ id: 'import', label: '取り込むだけ（置かない）', icon: 'cloud-download' });
     } else {

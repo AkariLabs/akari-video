@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [
+    { "id": "a", "path": "assets/base.mp4" }
+  ],
+  "tracks": [
+    { "id": "v-main", "lane": "visual", "name": "Base", "items": [
+      { "id": "cut-base", "at": 0, "duration": 360, "source": { "kind": "media", "src": "a", "in": 0, "out": 12, "speed": 1 } }
+    ] },
+    { "id": "v1", "lane": "visual", "items": [
+      { "id": "overlay-1", "at": 90, "duration": 150, "transform": { "x": -257.05809318434297, "y": -107.06630652609567, "scale": 0.4 }, "source": { "kind": "html", "path": "assets/overlay/browser-mock/fragment.html", "vars": { "--window-width": "1560px", "--window-height": "900px", "--corner-radius": "1.4", "--chrome-scale": "1", "--window-align": "center", "--window-justify": "center", "--screen-src": "none", "--screen-fit": "cover", "--show-placeholder": "1", "--screen-color": "#ffffff", "--chrome-color": "#eef0f2", "--toolbar-color": "#fbfcfd", "--chrome-border": "#d3d6db", "--url-color": "#eceef1", "--chrome-text-color": "#4b525b", "--chrome-icon-color": "#7a828c", "--accent-color": "#3b82f6", "--ui-font-family": "\"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif", "--anim": "1" } } }
+    ] },
+    { "id": "v2", "lane": "visual", "items": [
+      { "id": "overlay-2", "at": 150, "duration": 150, "transform": { "x": 0, "y": 0, "scale": 0.4 }, "source": { "kind": "html", "path": "assets/overlay/chalkboard-jp/fragment.html", "vars": { "--board-width": "1520px", "--board-height": "860px", "--frame-thickness": "3.2", "--corner-radius": "0.9", "--slot-padding": "5.6", "--tray-height": "5.6", "--show-tray": "1", "--board-align": "center", "--board-justify": "center", "--slot-justify": "center", "--board-color": "#2d4a3e", "--board-edge-shade": "0.5", "--dust": "0.55", "--frame-color": "#6f4a2c", "--tray-color": "#7d5433", "--chalk-color": "#f3f4ec", "--accent-chalk-color": "#ffd76e", "--font-family": "\"Hiragino Maru Gothic ProN\", \"M PLUS Rounded 1c\", \"Hiragino Sans\", \"Noto Sans JP\", \"Yu Gothic\", system-ui, sans-serif", "--title-size": "8.2", "--body-size": "4.6", "--line-gap": "2.4", "--anim": "1", "--reveal-stagger": "0.16s" } } }
+    ] },
+    { "id": "v-captions", "lane": "visual", "name": "字幕", "items": [
+      { "id": "captions", "name": "字幕", "at": 0, "duration": 360, "source": { "kind": "captions", "path": "captions.json" }, "items": [] }
+    ] },
+    { "id": "a1", "lane": "audio", "name": "A1", "items": [] }
+  ]
+}

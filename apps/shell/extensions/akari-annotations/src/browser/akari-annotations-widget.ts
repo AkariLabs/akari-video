@@ -1,6 +1,8 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
 import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
 import { topVisualTarget } from './preview-material-placement';
+import { buildOverlayItem, insertOverlayItem, isUsableOverlayBox, nextOverlayItemId, overlayDefaultVars,
+    parseOverlayPlaceRequest, resolveThenWriteOverlay } from '../common/overlay-place';
 import { probePreviewMediaDimensions } from './preview-media-dimensions';
 import { duplicatePreviewItem, type PreviewDuplicateRequest } from '../common/preview-duplicate';
 import { writePreviewCaptionWrap, duplicatePreviewCaption, type PreviewCaptionWrapRequest } from '../common/preview-caption-wrap';
@@ -6124,6 +6126,52 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.addMaterialAt(relativePath, kind, t, 0, {
             transform: { ...transform, scale: outputWidth / (4 * sourceWidth) }, placeOnTop: true
         });
+    }
+
+    async addOverlayAtOutputPoint(request: unknown): Promise<string | undefined> {
+        const options = parseOverlayPlaceRequest(request);
+        if (!options || !this.location?.editUri) {
+            this.messages.warn('オーバーレイを置けません。');
+            return undefined;
+        }
+        const editUri = this.location.editUri.toString();
+        if (options.editUri && options.editUri !== editUri) return undefined;
+        try {
+            const t = options.t ?? (Number.isFinite(this.playheadT) ? this.playheadT : 0);
+            let placedId: string | undefined;
+            const placed = await resolveThenWriteOverlay(
+                () => this.commands.executeCommand<{ relativePath: string; meta: unknown; fragment: string } | undefined>(
+                    'akari.catalog.resolveOverlay', options.key),
+                async resolved => {
+                    if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
+                    const vars = overlayDefaultVars(resolved.meta, resolved.fragment);
+                    let box: { x: number; y: number; width: number; height: number } | undefined;
+                    try {
+                        box = await this.commands.executeCommand('akari.preview.measureOverlayBox', {
+                            editUri, fragment: resolved.fragment, relativePath: resolved.relativePath, vars });
+                    } catch { /* 測れないときは出力全体を配置の枠とする。 */ }
+                    if (!isUsableOverlayBox(box)) console.warn('[akari-annotations] オーバーレイの枠を測れず、出力全体の枠で置きます。');
+                    if (this.location?.editUri?.toString() !== editUri) throw new Error('プロジェクトが切り替わりました');
+                    await this.commitEditMutation('オーバーレイを置く', doc => {
+                        const output = doc.output as { width?: number; height?: number } | undefined;
+                        const width = Number(output?.width) || 1920;
+                        const height = Number(output?.height) || 1080;
+                        placedId = nextOverlayItemId(doc);
+                        const item = buildOverlayItem({ id: placedId, at: this.frameAt(t),
+                            duration: this.frameAt(5), path: resolved.relativePath,
+                            output: { width, height }, center: options.center,
+                            vars, box });
+                        return insertOverlayItem(doc, item);
+                    });
+                });
+            if (!placed || !placedId) return undefined;
+            await this.focusTimelineItem(placedId, { seek: false });
+            this.footer.textContent = 'オーバーレイを置きました。';
+            return placedId;
+        } catch (error) {
+            this.messages.warn(`オーバーレイを置けませんでした: ${this.errorMessage(error)}`);
+            return undefined;
+        }
     }
 
     /**

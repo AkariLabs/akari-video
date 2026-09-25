@@ -503,6 +503,18 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                     request?.transform);
             }
         });
+        commands.registerCommand({ id: 'akari.timeline.addOverlayAtOutputPoint' }, {
+            execute: async (request: { editUri?: string } | undefined) => {
+                const location = request?.editUri
+                    ? (await this.locateAll()).find(item => item.editUri?.toString() === request.editUri)
+                    : undefined;
+                const widget = request?.editUri
+                    ? (location ? await this.configureQuietTimeline(location) : undefined)
+                    : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
+                if (!widget) { this.messages.warn('プロジェクトを特定できません。'); return undefined; }
+                return widget.addOverlayAtOutputPoint(request);
+            }
+        });
         const onPlaybackTick = (event: Event): void => {
             const request = (event as CustomEvent<PreviewPlaybackTick>).detail;
             if (request && this.timelineWidget?.canHandlePlaybackTick(request.videoUri)) {
