@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "base",
+      "path": "assets/base.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "main",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 300,
+          "source": {
+            "kind": "media",
+            "src": "base",
+            "in": 0,
+            "out": 10
+          }
+        }
+      ]
+    }
+  ]
+}

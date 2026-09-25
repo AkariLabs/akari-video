@@ -1,0 +1,246 @@
+{
+  "label": "after-other",
+  "port": 9563,
+  "project": "b1-other",
+  "theme": "dark",
+  "pid": 80518,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 0,
+  "results": {
+    "pasteOther": {
+      "clipboardKind": "akari-video/edit-item",
+      "clipboardItemId": "photo-1",
+      "selectedBefore": null,
+      "pasted": {
+        "id": "photo-1",
+        "at": 30,
+        "duration": 300,
+        "transform": {
+          "x": 1200,
+          "y": 580,
+          "scale": 0.35
+        },
+        "source": {
+          "kind": "media",
+          "src": "photo",
+          "in": 0,
+          "out": 10
+        }
+      },
+      "sources": [
+        {
+          "id": "base",
+          "path": "assets/base.mp4"
+        },
+        {
+          "id": "photo",
+          "path": "assets/photo.png"
+        }
+      ],
+      "shot": "after-other-20-paste-other-project.png",
+      "chrome": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "items": [
+            {
+              "key": "edit",
+              "label": "編集",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "replace",
+              "label": "置き換え",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "cutout",
+              "label": "背景透過",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "eraser",
+              "label": "消しゴム",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "photoColor",
+              "label": "写真の色",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "border",
+              "label": "枠線",
+              "disabled": true,
+              "pressed": null
+            },
+            {
+              "key": "photoRadius",
+              "label": "角の丸み",
+              "disabled": true,
+              "pressed": null
+            },
+            {
+              "key": "crop",
+              "label": "切り抜き",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "flip",
+              "label": "反転",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "opacity",
+              "label": "不透明度",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "anim",
+              "label": "アニメーション",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "arrange",
+              "label": "配置",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "style",
+              "label": "スタイルをコピー",
+              "disabled": false,
+              "pressed": null
+            }
+          ],
+          "bg": "rgb(20, 20, 20)",
+          "radius": "12px"
+        },
+        "menu": null,
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "photo-100:01.0 – 00:11.0 · 素材映像色音声AI情報時間出力位置00:00:01.000尺10.00 秒変形XpxYpx拡縮%幅%高さ%回転°左右反転するしない上下反転するしないクロップ左%上%幅%高さ%パース（4 隅）左上 X%左上 Y%右上 X%右上 Y%左下 X%左下 Y%右下 X%右下 Y%解除解除動き入りなしフェードスライド（上へ）スライド（下へ）スライド（左へ）スライド（右へ）拡縮ワイプ入りの尺f入りのイージングlinearease-in-outin-quadout-quadin-out-quadin-cubicout-cubicin-out-cubicin-quartout-quartin-out-quartin-expoout-expoin-out-expoin-backout-backin-out-backout-bounceout-elastic"
+      }
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "after-other-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "main",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 30,
+            "duration": 300,
+            "transform": {
+              "x": 1200,
+              "y": 580,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at O0c (<file>)\n    at async aLn.reloadResolvedCaptionDisplay (<file>)\n    at async M0c (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

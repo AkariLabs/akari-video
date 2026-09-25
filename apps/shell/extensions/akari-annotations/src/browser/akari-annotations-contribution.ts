@@ -41,7 +41,10 @@ import { AkariVoiceCloneDialog } from './voice-clone/akari-voice-clone-dialog';
 import { voiceDefaultAvatar } from '../common/voice-clone-model';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
-import { inject, injectable } from '@theia/core/shared/inversify';
+import { inject, injectable, optional } from '@theia/core/shared/inversify';
+import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
+import { TimelineSelectionModel } from './timeline-selection-model';
+import { ContextBarController } from './context-bar-controller';
 import {
     PLACE_TEXT,
     READ_ALOUD,
@@ -178,7 +181,22 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     @inject(AkariAnnotationsService)
     protected readonly annotationsService!: AkariAnnotationsService;
 
+    @inject(TimelineSelectionModel)
+    protected readonly selectionModel!: TimelineSelectionModel;
+
+    @inject(ClipboardService) @optional()
+    protected readonly clipboard?: ClipboardService;
+
     protected shortcutKeybindings?: AkariShortcutKeybindings;
+    protected contextBar?: ContextBarController;
+
+    /** 出力プレビューの上のバー・小さなメニュー（B-1）の書き込み口。 */
+    protected getContextBar(): ContextBarController {
+        return this.contextBar ??= new ContextBarController({
+            widget: () => this.getShortcutKeybindings().shortcutTimelineWidget(),
+            selectionModel: this.selectionModel, commands: this.commands, messages: this.messages, clipboard: this.clipboard
+        });
+    }
 
     protected getShortcutKeybindings(): AkariShortcutKeybindings {
         return this.shortcutKeybindings ??= new AkariShortcutKeybindings({
@@ -271,6 +289,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             });
         }));
         this.toDispose.push(this.getShortcutKeybindings().start());
+        this.toDispose.push(this.getContextBar().start());
         this.registerKeybindings(this.keybindings);
         installRightPanelTabStyle(this.shell.rightPanelHandler.tabBar);
         this.toDispose.push(this.shell.onDidChangeCurrentWidget(({ newValue }) => {
@@ -434,6 +453,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             execute: () => this.setTimelineHidden(!this.timelineHidden),
             isToggled: () => this.timelineHidden
         });
+        this.getContextBar().registerCommands(commands);
         commands.registerCommand(CREATE_TIMELINE_CANVAS, {
             execute: async (options?: { at?: number; duration?: number }) => {
                 const widget = this.timelineWidget ?? await this.attach();

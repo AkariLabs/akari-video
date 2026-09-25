@@ -394,6 +394,7 @@ import {
 import { objectKeyframeValue } from './timeline/object-keyframe-value';
 import { createAkariNoticeBanner } from './akari-notice-banner';
 import { matchesPreviewZOrderSelection, NudgeCommitSession, planZOrderMove, ZOrderOperation } from './inspector/keyboard-shortcuts';
+import type { ContextBarSource } from './context-bar-controller';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { validateInspectorPerspective } from './inspector/perspective-fields';
@@ -5334,6 +5335,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             : selection && 'id' in selection ? selection.id : undefined;
         if (!matchesPreviewZOrderSelection(id, selectedIds, this.multiSelection.length > 0)) return;
         this.moveSelectedZOrder(id, op, '重なり順を変更');
+    }
+
+    // ---- 出力プレビューの上のバー・要素の上の小さなメニューへの窓口（中身は context-bar-controller / context-bar-edit） ----
+    contextBarSource(): ContextBarSource | undefined {
+        const editUri = this.location?.editUri?.toString();
+        if (!editUri || !this.editDocument || this.editDocument.version !== 2) return undefined;
+        const selection = this.multiSelection.length === 0 ? this.selection : undefined;
+        const selectedId = selection?.kind === 'cut' ? this.cutItemId(selection.index)
+            : selection && 'id' in selection && selection.kind !== 'caption' ? selection.id : undefined;
+        return { editUri, doc: this.editDocument, selectedId, multi: this.multiSelection.length, fps: this.fps,
+            playhead: this.playheadT, sourcePath: id => this.sourceMap.get(id)?.path };
+    }
+
+    commitContextBarEdit(label: string, mutate: (doc: EditV2Document) => EditV2Document): Promise<void> {
+        return this.commitEditMutation(label, mutate).then(() => undefined);
+    }
+
+    annotateContextBarItem(itemId: string): Promise<void> {
+        const selection = this.selection;
+        const current = selection?.kind === 'cut' ? this.cutItemId(selection.index) : selection && 'id' in selection ? selection.id : undefined;
+        return selection && current === itemId ? this.requestClipAnnotation(selection, 0, this.playheadT) : Promise.resolve();
+    }
+
+    contextBarFooter(message: string): void {
+        this.footer.textContent = message;
     }
 
     protected moveSelectedZOrder(id: string, op: ZOrderOperation, label: string): void {
@@ -18708,11 +18734,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected async requestClipAnnotation(item: TimelineSelectionItem, clientX: number): Promise<void> {
+    protected async requestClipAnnotation(item: TimelineSelectionItem, clientX: number, outputT?: number): Promise<void> {
         if (item.kind === 'world-stop' || item.kind === 'world-edge') return;
         const location = this.location;
         if (!location) return;
-        const sourceT = this.outputToSource(this.timeAtClientX(clientX));
+        const sourceT = this.outputToSource(outputT ?? this.timeAtClientX(clientX));
         const itemId = item.kind === 'cut' ? this.cutItemIds[item.index] : item.id;
         const resolved = resolveTimelineAnnotationTarget({
             kind: item.kind,

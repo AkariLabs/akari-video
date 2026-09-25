@@ -1,4 +1,6 @@
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
+import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
+import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { cutResizeCorners, cutResizeScale } from '../common/cut-resize-anchor';
 import { captionControlScale } from '../common/caption-control-scale';
@@ -3367,6 +3369,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.photo.highlight', onPhotoHighlight);
         disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.highlight', onPhotoHighlight)));
+        // 上のバー・選んだものの上の小さなメニュー（中身は preview-context-bar.ts）
+        const contextBar = kind === 'output' ? new PreviewContextBar({
+            node: widget.node, sendMessage: message => widget.sendMessage(message),
+            editUri: () => widget.akariPreviewEditUri?.toString()
+        }, this.commandRegistry) : undefined;
+        if (contextBar) {
+            widget.node.dataset.akariOutputPreview = 'true';
+            disposables.push(contextBar.start());
+        }
         let lastAudioMeterFrame: AudioMeterFrame | undefined;
         widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
             type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
@@ -3376,6 +3387,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let collapsedBagSummary: EditSummary | undefined;
         let projectedBagSummary: EditSummary | undefined;
         disposables.push(widget.onMessage(message => {
+            if (message?.type === PREVIEW_CONTEXT_BOX_MESSAGE) {
+                contextBar?.receive(message);
+                return;
+            }
             if (message?.type === 'akari-preview-photo-stroke' && kind === 'output'
                 && typeof message.itemId === 'string' && message.stroke) {
                 window.dispatchEvent(new CustomEvent('akari.photo.stroke', { detail: {
@@ -8192,7 +8207,7 @@ ${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
 ${this.externalScriptTag(assets.interactionJavaScriptUrl)}
 ${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
 ${assets.scrubAudioJavaScriptUrl ? `${this.externalScriptTag(assets.scrubAudioJavaScriptUrl)}\n` : ''}<script>${this.previewBootstrapScript()}</script>
-${kind === 'raw' ? `<script>
+${kind === 'output' ? `<script>${previewContextBarPageScript}</script>\n` : ''}${kind === 'raw' ? `<script>
 (() => {
     try {
         let attempts = 0;
@@ -9534,6 +9549,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 vscode.postMessage({ type: 'akari-preview-generation-request' });
             };
             window.akari.reportGesture = phase => {
+                if (phase === 'begin' || phase === 'end') {
+                    // H-1 の media/crop ジェスチャーを B-1 のバーと小さなメニューの非表示にも使う。
+                    document.body.classList.toggle('akari-selection-gesture-active', phase === 'begin');
+                }
                 vscode.postMessage({ type: 'akari-preview-gesture', phase });
             };
             let bagExpansionRequest = 0;
@@ -9595,6 +9614,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 vscode.postMessage({ type: 'akari-preview-run-style-omitted', notice });
             };
             window.akari.reportAltAll = on => vscode.postMessage({ type: 'akari-preview-alt-all', on });
+            window.akari.reportContextBox = message => vscode.postMessage({ ...message, type: 'akari-preview-context-box' });
             if (outputPreviewLink && initial.relatedEditUri) {
                 outputPreviewLink.addEventListener('click', () => {
                     vscode.postMessage({ type: 'akari-preview-open-output-request' });
@@ -13658,6 +13678,9 @@ body { display: grid; place-items: center; padding: 32px; }
             // CF-write: 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
             const beginMediaTransformDrag = (target, startEvent, computeTransform) => {
                 if (selectionDragActive) return;
+                // ロック中（edit.json の locked）は動かさない（preview-context-bar-page.ts が id を持つ）
+                if (target.kind === 'layer' ? window.akari.lockedIds?.has(String(target.entry?.spec?.id))
+                    : window.akari.contextSelectedLocked) return;
                 if (isPlaying) togglePlayback();
                 startEvent.preventDefault();
                 startEvent.stopPropagation();

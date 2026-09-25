@@ -821,8 +821,13 @@ function marqueeHits(candidates, rect) {
     return Boolean(container?.dataset?.role === "background");
   }
 
+  // edit.json の locked も「選べるが動かせない」（シェルは window.akari.lockedIds に id を置く）。
+  function isLockedItem(container) {
+    return isBackgroundRole(container) || Boolean(window.akari.lockedIds?.has?.(container?.dataset?.overlayId));
+  }
+
   function isMovable(container) {
-    return isSelectable(container) && !isBackgroundRole(container);
+    return isSelectable(container) && !isLockedItem(container);
   }
 
   function cssVariableText(container, name) {
@@ -928,10 +933,10 @@ function marqueeHits(candidates, rect) {
       document.body.appendChild(selectionFrame);
     }
 
-    // 背景は動かせない選択であることを視覚でも伝える（拡縮ハンドルを消し、枠を破線にする。
-    // interaction.css の .is-locked）。isMovable ではなく isBackgroundRole を見るのは、
+    // 背景・ロック中は動かせない選択であることを視覚でも伝える（拡縮ハンドルを消し、枠を破線にする。
+    // interaction.css の .is-locked）。isMovable ではなく isLockedItem を見るのは、
     // 選択自体は許すが移動系操作だけを塞ぐという役割分担を CSS 側にも一致させるため。
-    selectionFrame.classList.toggle("is-locked", isBackgroundRole(selectedOverlay));
+    selectionFrame.classList.toggle("is-locked", isLockedItem(selectedOverlay));
     selectionFrame.classList.toggle('is-busy', Boolean(activeDrag || activeResize || activeRotate || activeLine));
     selectionFrame.classList.toggle('is-moving', Boolean(activeDrag || activeRotate));
     selectionFrame.classList.toggle('is-text', selectedOverlay.dataset.role === 'text');

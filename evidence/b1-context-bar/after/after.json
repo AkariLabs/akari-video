@@ -1,0 +1,984 @@
+{
+  "label": "after",
+  "port": 9563,
+  "project": "b1",
+  "theme": "dark",
+  "pid": 28100,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 3,
+  "results": {
+    "shape": {
+      "barKeys": [
+        "fill",
+        "stroke",
+        "weight",
+        "radius",
+        "opacity",
+        "anim",
+        "arrange"
+      ],
+      "bar": {
+        "rect": {
+          "left": 255.4,
+          "top": 47,
+          "width": 337,
+          "height": 40
+        },
+        "items": [
+          {
+            "key": "fill",
+            "label": "塗りの色",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "stroke",
+            "label": "枠の色",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "weight",
+            "label": "枠線の太さ",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "radius",
+            "label": "角の丸み",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "opacity",
+            "label": "不透明度",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "anim",
+            "label": "アニメーション",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "arrange",
+            "label": "配置",
+            "disabled": false,
+            "pressed": "false"
+          }
+        ],
+        "bg": "rgb(20, 20, 20)",
+        "radius": "12px"
+      },
+      "menu": {
+        "rect": {
+          "left": 245.7,
+          "top": 214,
+          "width": 156,
+          "height": 36
+        },
+        "items": [
+          {
+            "key": "annotate",
+            "label": "注釈を付ける（この要素に紐づくメモ）",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "lock",
+            "label": "ロック（動かない・変形しない・消えない）",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "duplicate",
+            "label": "複製（⌘D）",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "delete",
+            "label": "削除",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "more",
+            "label": "その他",
+            "disabled": false,
+            "pressed": "false"
+          }
+        ]
+      },
+      "shot": "after-01-shape-bar.png",
+      "panelOpen": true,
+      "dot": {
+        "x": 787.421875,
+        "y": 467,
+        "title": "#4C7A8C",
+        "background": "linear-gradient(rgb(76, 122, 140), rgb(76, 122, 140)), repeating-conic-gradient(rgb(212, 212, 212) 0deg, rgb(212, 212, 212) 25%, rgb(242, 242, 242) 0deg, rgb(242, 242, 242) 50%) 0px 0px / 8px 8px"
+      },
+      "fillInEdit": "#4C7A8C",
+      "barDot": "rgb(76, 122, 140)",
+      "previewFill": "rgb(76, 122, 140)",
+      "shot2": "after-02-shape-fill-changed.png",
+      "window": "after-03-shape-fill-window.png",
+      "inspectorColorPanel": false
+    },
+    "opacity": {
+      "window": {
+        "rect": {
+          "left": 282.4,
+          "top": 93,
+          "width": 272,
+          "height": 50
+        },
+        "kind": "opacity",
+        "text": "不透明度%"
+      },
+      "opacityInEdit": 0.6,
+      "previewOpacity": "1",
+      "inspectorShows60": true,
+      "shot": "after-04-opacity-window.png"
+    },
+    "arrange": {
+      "window": {
+        "rect": {
+          "left": 319.9,
+          "top": 93,
+          "width": 300,
+          "height": 303
+        },
+        "kind": "arrange",
+        "text": "重なり順最前面へ前面へ背面へ最背面へレイヤー画面・前面が上ライン（line）0:00.0–0:10.0図形（shape-b）0:00.0–0:10.0図形（shape-a）0:00.0–0:10.0写真（photo-1）0:00.0–0:10.0素材（cut-1）0:00.0–0:10.0画面に揃える画面に合わせる位置と大きさ幅px高さpx比率を保つXpxYpx回転°"
+      },
+      "rows": [
+        {
+          "id": "line",
+          "text": "ライン（line）0:00.0–0:10.0",
+          "selected": false
+        },
+        {
+          "id": "shape-b",
+          "text": "図形（shape-b）0:00.0–0:10.0",
+          "selected": false
+        },
+        {
+          "id": "shape-a",
+          "text": "図形（shape-a）0:00.0–0:10.0",
+          "selected": true
+        },
+        {
+          "id": "photo-1",
+          "text": "写真（photo-1）0:00.0–0:10.0",
+          "selected": false
+        },
+        {
+          "id": "cut-1",
+          "text": "素材（cut-1）0:00.0–0:10.0",
+          "selected": false
+        }
+      ],
+      "beforeOrder": [
+        "cut-1",
+        "photo-1",
+        "shape-a",
+        "shape-b",
+        "line"
+      ],
+      "afterOrder": [
+        "cut-1",
+        "photo-1",
+        "shape-b",
+        "line",
+        "shape-a"
+      ],
+      "rowsAfter": [
+        "shape-a",
+        "line",
+        "shape-b",
+        "photo-1",
+        "cut-1"
+      ],
+      "windowStillOpen": "arrange",
+      "selectedRow": "shape-b",
+      "x": 640,
+      "inspectorX": 1,
+      "beforeZ": [
+        "cut-1",
+        "photo-1",
+        "shape-b",
+        "line",
+        "shape-a"
+      ],
+      "afterZ": [
+        "cut-1",
+        "shape-b",
+        "photo-1",
+        "line",
+        "shape-a"
+      ],
+      "shot": "after-05-arrange-window.png",
+      "shot2": "after-06-arrange-reordered.png"
+    },
+    "line": {
+      "barKeys": [
+        "stroke",
+        "weight",
+        "dash",
+        "ends",
+        "opacity",
+        "anim",
+        "arrange"
+      ],
+      "bar": {
+        "rect": {
+          "left": 256.4,
+          "top": 47,
+          "width": 335,
+          "height": 40
+        },
+        "items": [
+          {
+            "key": "stroke",
+            "label": "線の色",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "weight",
+            "label": "太さ",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "dash",
+            "label": "線の種類",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "ends",
+            "label": "始点と終点",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "opacity",
+            "label": "不透明度",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "anim",
+            "label": "アニメーション",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "arrange",
+            "label": "配置",
+            "disabled": false,
+            "pressed": "false"
+          }
+        ],
+        "bg": "rgb(20, 20, 20)",
+        "radius": "12px"
+      },
+      "dash": "dash",
+      "startCap": "triangle",
+      "endCap": "none",
+      "shot": "after-07-line-bar.png",
+      "shotWindow": "after-08-line-dash-window.png"
+    },
+    "photo": {
+      "barKeys": [
+        "edit",
+        "replace",
+        "cutout",
+        "eraser",
+        "photoColor",
+        "border",
+        "photoRadius",
+        "crop",
+        "flip",
+        "opacity",
+        "anim",
+        "arrange",
+        "style"
+      ],
+      "bar": {
+        "rect": {
+          "left": 229.9,
+          "top": 47,
+          "width": 388,
+          "height": 104
+        },
+        "items": [
+          {
+            "key": "edit",
+            "label": "編集",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "replace",
+            "label": "置き換え",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "cutout",
+            "label": "背景透過",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "eraser",
+            "label": "消しゴム",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "photoColor",
+            "label": "写真の色",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "border",
+            "label": "枠線",
+            "disabled": true,
+            "pressed": null
+          },
+          {
+            "key": "photoRadius",
+            "label": "角の丸み",
+            "disabled": true,
+            "pressed": null
+          },
+          {
+            "key": "crop",
+            "label": "切り抜き",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "flip",
+            "label": "反転",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "opacity",
+            "label": "不透明度",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "anim",
+            "label": "アニメーション",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "arrange",
+            "label": "配置",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "style",
+            "label": "スタイルをコピー",
+            "disabled": false,
+            "pressed": null
+          }
+        ],
+        "bg": "rgb(20, 20, 20)",
+        "radius": "12px"
+      },
+      "menu": {
+        "rect": {
+          "left": 465.9,
+          "top": 226.5,
+          "width": 156,
+          "height": 36
+        },
+        "items": [
+          {
+            "key": "annotate",
+            "label": "注釈を付ける（この要素に紐づくメモ）",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "lock",
+            "label": "ロック（動かない・変形しない・消えない）",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "duplicate",
+            "label": "複製（⌘D）",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "delete",
+            "label": "削除",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "more",
+            "label": "その他",
+            "disabled": false,
+            "pressed": "false"
+          }
+        ]
+      },
+      "shot": "after-09-photo-bar.png"
+    },
+    "lock": {
+      "menuBefore": {
+        "rect": {
+          "left": 245.7,
+          "top": 214,
+          "width": 156,
+          "height": 36
+        },
+        "items": [
+          {
+            "key": "annotate",
+            "label": "注釈を付ける（この要素に紐づくメモ）",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "lock",
+            "label": "ロック（動かない・変形しない・消えない）",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "duplicate",
+            "label": "複製（⌘D）",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "delete",
+            "label": "削除",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "more",
+            "label": "その他",
+            "disabled": false,
+            "pressed": "false"
+          }
+        ]
+      },
+      "locked": true,
+      "deleteDisabled": true,
+      "lockPressed": "true",
+      "handles": {
+        "frame": {
+          "cls": "akari-interaction-selection-frame is-locked"
+        },
+        "handles": []
+      },
+      "frameLocked": true,
+      "movedWhileLocked": false,
+      "stillThere": true,
+      "duplicated": {
+        "id": "shape-a-copy-1",
+        "at": 0,
+        "duration": 300,
+        "transform": {
+          "x": 220,
+          "y": 160
+        },
+        "opacity": 0.6,
+        "source": {
+          "kind": "shape",
+          "shape": "path",
+          "params": {
+            "fill": "#4C7A8C",
+            "stroke": "none",
+            "strokeWidth": 0,
+            "preset": "basic-square",
+            "path": {
+              "d": "M3 3L97 3L97 97L3 97Z",
+              "vb": [
+                100,
+                100
+              ]
+            },
+            "width": 360,
+            "height": 240
+          }
+        }
+      },
+      "more": {
+        "rect": {
+          "left": 227.9,
+          "top": 230,
+          "width": 236,
+          "height": 164
+        },
+        "items": [
+          {
+            "key": "copy",
+            "label": "コピー⌘C",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "copyStyle",
+            "label": "スタイルをコピー⌥⌘C",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "paste",
+            "label": "貼り付け⌘V",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "duplicate",
+            "label": "複製⌘D",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "delete",
+            "label": "削除DELETE",
+            "disabled": true,
+            "pressed": null
+          }
+        ]
+      },
+      "unlocked": true,
+      "shot": "after-10-locked.png",
+      "shotMore": "after-11-more-menu.png"
+    },
+    "copyPaste": {
+      "clipboardKind": "akari-video/edit-item",
+      "clipboardItem": {
+        "id": "shape-b",
+        "at": 0,
+        "duration": 300,
+        "transform": {
+          "x": 640,
+          "y": 140,
+          "scale": 1
+        },
+        "source": {
+          "kind": "shape",
+          "shape": "path",
+          "params": {
+            "fill": "#a6a6a6",
+            "stroke": "none",
+            "strokeWidth": 0,
+            "preset": "basic-circle",
+            "path": {
+              "d": "M97 50C97 75.96 75.96 97 50 97C24.04 97 3 75.96 3 50C3 24.04 24.04 3 50 3C75.96 3 97 24.04 97 50Z",
+              "vb": [
+                100,
+                100
+              ]
+            },
+            "width": 260,
+            "height": 260
+          }
+        }
+      },
+      "clipboardSources": [],
+      "pastedId": "shape-b-copy-1",
+      "offset": {
+        "dx": 20,
+        "dy": 20
+      },
+      "sameLook": true,
+      "shot": "after-12-pasted.png"
+    },
+    "styleCopy": {
+      "hint": "スタイルをコピーしました。当てたいものを押してくださいやめる（Esc）",
+      "target": "shape-b-copy-1",
+      "from": {
+        "fill": "#4C7A8C",
+        "stroke": "#000000",
+        "strokeWidth": 12
+      },
+      "to": {
+        "fill": "#4C7A8C",
+        "stroke": "#000000",
+        "strokeWidth": 12,
+        "preset": "basic-circle"
+      },
+      "armedByShortcut": "line",
+      "afterEsc": null,
+      "shotHint": "after-13-style-copy-hint.png",
+      "shot": "after-14-style-applied.png"
+    },
+    "busy": {
+      "during": {
+        "busy": true,
+        "barVisibility": "hidden"
+      },
+      "barVisibilityAfter": "visible",
+      "shot": "after-15-busy.png"
+    },
+    "picks": [
+      {
+        "id": "shape-a",
+        "by": "preview"
+      },
+      {
+        "id": "shape-a",
+        "by": "preview"
+      },
+      {
+        "id": "shape-a",
+        "by": "preview"
+      },
+      {
+        "id": "line",
+        "by": "preview"
+      },
+      {
+        "id": "photo-1",
+        "by": "timeline"
+      },
+      {
+        "id": "shape-a",
+        "by": "preview"
+      },
+      {
+        "id": "shape-a",
+        "by": "preview"
+      },
+      {
+        "id": "shape-a",
+        "by": "preview"
+      },
+      {
+        "id": "shape-a",
+        "by": "preview"
+      },
+      {
+        "id": "shape-b",
+        "by": "preview"
+      },
+      {
+        "id": "shape-a",
+        "by": "timeline"
+      },
+      {
+        "id": "shape-a",
+        "by": "timeline"
+      },
+      {
+        "id": "line",
+        "by": "timeline"
+      },
+      {
+        "id": "shape-b",
+        "by": "timeline"
+      },
+      {
+        "id": "photo-1",
+        "by": "timeline"
+      }
+    ],
+    "copyForOther": {
+      "kind": "akari-video/edit-item",
+      "itemId": "photo-1",
+      "sources": [
+        {
+          "id": "photo",
+          "path": "assets/photo.png"
+        }
+      ]
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "after-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "main",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "items": [
+          {
+            "id": "shape-b",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 640,
+              "y": 140,
+              "scale": 1
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#a6a6a6",
+                "stroke": "none",
+                "strokeWidth": 0,
+                "preset": "basic-circle",
+                "path": {
+                  "d": "M97 50C97 75.96 75.96 97 50 97C24.04 97 3 75.96 3 50C3 24.04 24.04 3 50 3C75.96 3 97 24.04 97 50Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 260,
+                "height": 260
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1180,
+              "y": 560,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-line",
+        "lane": "visual",
+        "name": "line",
+        "items": [
+          {
+            "id": "line",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 620
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "line",
+              "params": {
+                "fill": "none",
+                "stroke": "#000000",
+                "strokeWidth": 4,
+                "dash": "dash",
+                "startCap": "triangle",
+                "endCap": "none",
+                "lineCap": "butt",
+                "startCapFilled": true,
+                "endCapFilled": true,
+                "preset": "line-solid-none-tri",
+                "width": 520,
+                "height": 40
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 140
+            },
+            "opacity": 0.6,
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#4C7A8C",
+                "stroke": "#000000",
+                "strokeWidth": 12,
+                "preset": "basic-square",
+                "path": {
+                  "d": "M3 3L97 3L97 97L3 97Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 360,
+                "height": 240
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "items": [
+          {
+            "id": "shape-a-copy-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 220,
+              "y": 160
+            },
+            "opacity": 0.6,
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#4C7A8C",
+                "stroke": "none",
+                "strokeWidth": 0,
+                "preset": "basic-square",
+                "path": {
+                  "d": "M3 3L97 3L97 97L3 97Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 360,
+                "height": 240
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v4",
+        "lane": "visual",
+        "items": [
+          {
+            "id": "shape-b-copy-1",
+            "at": 30,
+            "duration": 300,
+            "transform": {
+              "x": 660,
+              "y": 160,
+              "scale": 1
+            },
+            "opacity": 0.6,
+            "source": {
+              "kind": "shape",
+              "shape": "path",
+              "params": {
+                "fill": "#4C7A8C",
+                "stroke": "#000000",
+                "strokeWidth": 12,
+                "preset": "basic-circle",
+                "path": {
+                  "d": "M97 50C97 75.96 75.96 97 50 97C24.04 97 3 75.96 3 50C3 24.04 24.04 3 50 3C75.96 3 97 24.04 97 50Z",
+                  "vb": [
+                    100,
+                    100
+                  ]
+                },
+                "width": 260,
+                "height": 260
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at O0c (<file>)\n    at async aLn.reloadResolvedCaptionDisplay (<file>)\n    at async M0c (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}
