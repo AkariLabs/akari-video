@@ -103,7 +103,7 @@ import {
     resolveThreeSceneDescriptorAssets,
     threeSceneDeclarations
 } from '../common/three-scene-assets';
-import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
+import { resolvePreviewCaptionTrackOrder, resolvePreviewItemStackOrder } from '../common/caption-track-order';
 import { previewContentEnd } from '../common/preview-content-end';
 import { captionRunSelectionRange, captionRunToolbarPlacement } from '../common/caption-run-selection';
 import { captionRunOmittedNotice } from '../common/caption-run-style-notice';
@@ -699,6 +699,8 @@ interface EditSummary {
     audio?: EditSummaryAudio;
     tracks?: EditSummaryTracks;
     timelineTracks?: EditSummaryTimelineTrack[];
+    itemStackZ?: Record<string, number>;
+    trackStackZ?: Record<string, number>;
     captionTrackId?: string;
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
@@ -5623,6 +5625,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             );
             const timelineTracks: EditSummaryTimelineTrack[] = captionTrackOrder.tracks;
             const captionTrackId = captionTrackOrder.captionTrackId;
+            const itemStackOrder = resolvePreviewItemStackOrder(internal.tracks);
             const audio = await this.resolveAudioAssets(
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
                 previewAudioKeepProbes, previewAudioPendingRequests, sidecarRequests,
@@ -5720,6 +5723,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     } : {}),
                     ...(tracks ? { tracks } : {}),
                     timelineTracks,
+                    ...(itemStackOrder ?? {}),
                     ...(captionTrackId ? { captionTrackId } : {}),
                     ...(captions.length > 0 || hasInlineCaptions(internal) ? { hasCaptions: true } : {}),
                     ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {}),
@@ -11933,8 +11937,13 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             rebuildVisualTrackZ();
             const zForTrack = trackId => {
+                if (Number.isInteger(summary.trackStackZ?.[trackId])) {
+                    return summary.trackStackZ[trackId];
+                }
                 return resolveInternalTrackZFn(resolvedTracks, trackId);
             };
+            const zForItem = (itemId, trackZ) => Number.isInteger(summary.itemStackZ?.[itemId])
+                ? summary.itemStackZ[itemId] : trackZ;
             const applyCutsZIndex = segment => {
                 if (segment && segment.kind === 'src') {
                     const z = zForTrack(segment.trackId);
@@ -12119,7 +12128,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     label.className = 'akari-deferred-telop-placeholder__label';
                     label.textContent = 'テロップ（ATF）は退役しました。Lab の HTML 素材版へ差し替えてください。';
                     deferredPlaceholder.appendChild(label);
-                    deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
+                    deferredPlaceholder.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                     layersStage.appendChild(deferredPlaceholder);
                 }
                 if (layerIsImage) {
@@ -12165,7 +12174,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 setAdjustBaseFilter(layerVideo, layer);
-                layerVideo.style.zIndex = String(zForTrack(layer.trackId));
+                layerVideo.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                 const transform = layer.transform || {};
                 const x = Number.isFinite(transform.x) ? transform.x : 0;
                 const y = Number.isFinite(transform.y) ? transform.y : 0;
@@ -12369,7 +12378,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const filterEntries = (Array.isArray(summary.filters) ? summary.filters : []).map(filter => {
                 const element = document.createElement('div');
                 element.dataset.akariFilterId = String(filter.id);
-                element.style.zIndex = String(zForTrack(filter.trackId));
+                element.style.zIndex = String(zForItem(filter.id, zForTrack(filter.trackId)));
                 element.style.backdropFilter = cssFilterFor(filter.filter);
                 element.style.webkitBackdropFilter = cssFilterFor(filter.filter);
                 setAdjustBaseFilter(element, filter);
@@ -12407,9 +12416,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 clearAdjustBaseFilter(layerVideo);
                 setAdjustBaseFilter(layerVideo, layer);
-                layerVideo.style.zIndex = String(zForTrack(layer.trackId));
+                layerVideo.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                 if (entry.deferredPlaceholder) {
-                    entry.deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
+                    entry.deferredPlaceholder.style.zIndex = String(zForItem(layer.id, zForTrack(layer.trackId)));
                 }
                 const transform = layer.transform || {};
                 layerVideo.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
@@ -15249,7 +15258,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     const overlay = summary.overlays.find(candidate => String(candidate.id) === id);
                     const track = Number.isInteger(overlay?.track) && overlay.track >= 0 ? overlay.track : 0;
                     container.setAttribute('data-akari-track', String(track));
-                    container.style.zIndex = String(zForTrack(overlay?.trackId));
+                    container.style.zIndex = String(zForItem(overlay?.id, zForTrack(overlay?.trackId)));
                     // Blend the whole HTML item against lower items and the preview image.
                     container.style.mixBlendMode = overlay?.blend || 'normal';
                     if (!Array.isArray(overlay?.keyframes)) {
@@ -15259,7 +15268,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const captionZ = typeof summary.captionTrackId === 'string' && summary.captionTrackId
                     ? zForTrack(summary.captionTrackId) : -1;
-                captionLayer.style.zIndex = captionZ >= 0 ? String(captionZ) : '';
+                captionLayer.style.zIndex = summary.itemStackZ ? '' : captionZ >= 0 ? String(captionZ) : '';
             };
             // source↔output 写像の正本は packages/edit-store/src/timeline-map.ts。webview は
             // sandbox 制約で import できないため、共有カーネル webview-kernel.js（IIFE バンドル、
@@ -16546,7 +16555,11 @@ body { display: grid; place-items: center; padding: 32px; }
                                 && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
                     row.styledCaptionActive = Boolean(caption);
                     captionPlate.classList.toggle('akari-caption-host--styled', row.styledCaptionActive);
-                    if (caption?.timeDomain === 'output') captionPlate.dataset.outputCaption = '';
+                    // caption item は書き出しと同じ全幅プレートを使う。通常の出力字幕だけ
+                    // 既存の 92% 幅・右端 auto の配置規則を適用する。
+                    if (caption?.timeDomain === 'output' && !caption.captionItemProjection) {
+                        captionPlate.dataset.outputCaption = '';
+                    }
                     else delete captionPlate.dataset.outputCaption;
                     if (caption) {
                         const usesWords = hasCaptionWords
@@ -16608,7 +16621,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 // All preview cues are normalized to output time by the host.
                 const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime);
                 const activeTrackId = active.find(caption => caption.groupTrackId)?.groupTrackId;
-                if ((activeTrackId || renderCaption.groupZApplied) && captionLayer?.style
+                const itemStack = typeof summary !== 'undefined' && summary.itemStackZ ? summary : null;
+                if (itemStack && captionLayer?.style) {
+                    // 一枚の字幕面を段 z で固定すると、同じ段の写真が後から DOM に追加された
+                    // 場合に子の順が失われる。面は透明にし、各字幕行を item 順で重ねる。
+                    captionLayer.style.zIndex = '';
+                    renderCaption.groupZApplied = false;
+                } else if ((activeTrackId || renderCaption.groupZApplied) && captionLayer?.style
                     && typeof summary !== 'undefined' && Array.isArray(summary.timelineTracks)) {
                     const targetId = activeTrackId || summary.captionTrackId;
                     const captionZ = summary.timelineTracks.findIndex(track => track?.id === targetId);
@@ -16630,6 +16649,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         captionRows.set(caption.id, row);
                     }
                     row.caption = caption;
+                    if (itemStack && row.plate?.style) {
+                        const itemZ = itemStack.itemStackZ[caption.groupItemId || caption.id];
+                        const rowZ = Number.isInteger(itemZ) ? itemZ
+                            : itemStack.trackStackZ?.[caption.groupTrackId || itemStack.captionTrackId];
+                        row.plate.style.zIndex = Number.isInteger(rowZ) ? String(rowZ) : '';
+                    }
                     // Reconcile order without moving a focused editor or captured pointer.
                     const index = active.indexOf(caption);
                     if (captionLayer.children[index] !== row.plate) {
@@ -18479,13 +18504,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyCutVisual(activeSegment);
                 applyCutsZIndex(activeSegment);
                 for (const entry of layerEntries) {
-                    entry.video.style.zIndex = String(zForTrack(entry.spec.trackId));
+                    entry.video.style.zIndex = String(zForItem(entry.spec.id, zForTrack(entry.spec.trackId)));
                 }
                 for (const [index, entry] of filterEntries.entries()) {
                     const filter = summary.filters[index];
                     clearAdjustBaseFilter(entry.element);
                     setAdjustBaseFilter(entry.element, filter);
-                    entry.element.style.zIndex = String(zForTrack(entry.spec.trackId));
+                    entry.element.style.zIndex = String(zForItem(entry.spec.id, zForTrack(entry.spec.trackId)));
                 }
                 applyOverlayTracks();
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();

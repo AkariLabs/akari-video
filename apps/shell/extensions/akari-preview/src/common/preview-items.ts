@@ -95,7 +95,8 @@ export function projectDetachedCaptionItems<T extends { id?: string; start: numb
     internal: InternalEdit,
     rows: readonly T[]
 ): Array<T & { sourceCueId: string; clockDomain: 'output'; timeDomain: 'output';
-    resolvedTimeline: false; groupTransform?: Record<string, number>; groupOpacity?: number; groupTrackId?: string;
+    resolvedTimeline: false; captionItemProjection: true; groupItemId: string;
+    groupTransform?: Record<string, number>; groupOpacity?: number; groupTrackId?: string;
     groupBag?: boolean }> {
     const byId = new Map(rows.filter(row => typeof row.id === 'string').map(row => [row.id as string, row]));
     return flattenGroupDescendants(internal).flatMap(({ item, track, descendant }) => {
@@ -109,6 +110,7 @@ export function projectDetachedCaptionItems<T extends { id?: string; start: numb
             const row = byId.get(item.source.id);
             if (!row) return [];
             return [{ ...row, id: item.id, sourceCueId: row.id as string, resolvedTimeline: false as const,
+                captionItemProjection: true as const, groupItemId: item.id,
                 start: item.atFrames / internal.output.fps,
                 end: (item.atFrames + item.durationFrames) / internal.output.fps, ...appearance }];
         }
@@ -120,6 +122,7 @@ export function projectDetachedCaptionItems<T extends { id?: string; start: numb
             const end = Math.min(item.at + item.duration, item.at + row.end);
             return end > start ? [{ ...row, id: `${item.id}::${row.id}`, sourceCueId: row.id,
                 resolvedTimeline: false as const,
+                captionItemProjection: true as const, groupItemId: item.id,
                 start, end, ...appearance, groupBag: true }] : [];
         });
     });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { readInternalEdit } from '@akari-video/edit-store';
 import { collectItems, groupedCaptionBagSourceIds, projectDetachedCaptionItems, projectPreviewCaptionRows } from '../lib/common/preview-items.js';
 import { resolvePreviewCaptionTrackOrder } from '../lib/common/caption-track-order.js';
@@ -45,7 +46,9 @@ test('detached caption uses its own output interval once and inherits group appe
   assert.equal(projected[0].groupTransform.rotate, 20);
   assert.equal(projected[0].groupOpacity, 0.5);
   assert.equal(projected[0].resolvedTimeline, false);
+  assert.equal(projected[0].captionItemProjection, true);
   assert.equal(projected[0].groupTrackId, 'v');
+  assert.equal(projected[0].groupItemId, 'line-item');
   assert.equal(Object.hasOwn(projected[0], 'groupFontFamily'), false);
   const z = resolvePreviewCaptionTrackOrder(internal.tracks, true);
   assert.equal(z.captionTrackId, 'v');
@@ -67,7 +70,9 @@ test('caption bag nested in a group projects source rows into the parent interva
   assert.equal(projected[0].start, 2.4);
   assert.equal(projected[0].end, 3);
   assert.equal(projected[0].groupOpacity, 0.5);
+  assert.equal(projected[0].captionItemProjection, true);
   assert.equal(projected[0].groupTrackId, 'v');
+  assert.equal(projected[0].groupItemId, 'bag');
   assert.equal(resolvePreviewCaptionTrackOrder(bagInternal.tracks, true).captionTrackId, 'v');
   assert.deepEqual([...groupedCaptionBagSourceIds(bagInternal, [{ id: 'c-0001' }])], ['c-0001']);
 });
@@ -80,6 +85,45 @@ test('excluded bag row and grouped caption item draw the source cue once', () =>
   assert.deepEqual(cues.map(cue => cue.id), ['caption-line']);
   assert.equal(cues.filter(cue => (cue.sourceCueId ?? cue.id) === 'c-0001').length, 1);
 });
+
+test('webview places a grouped caption row between its media and HTML siblings', () => {
+  const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
+  const start = source.indexOf('            const renderCaption = () => {');
+  const end = source.indexOf("            window.addEventListener('akari-frame-engine-seek'", start);
+  assert.ok(start >= 0 && end > start);
+  const caption = { id: 'caption-line', groupTrackId: 'visual' };
+  const captionLayer = { style: { zIndex: '1' }, children: [],
+    insertBefore(plate, before) {
+      const index = before ? this.children.indexOf(before) : this.children.length;
+      this.children.splice(index, 0, plate);
+    } };
+  const context = {
+    window: { AkariEditKernel: { findActiveCaptions: () => [caption] } },
+    captions: [caption], outputTime: 2, captionLayer, captionRows: new Map(),
+    summary: { itemStackZ: { photo: 2, 'caption-line': 3, 'html-card': 4 },
+      trackStackZ: { visual: 1 }, captionTrackId: 'visual' },
+    document: { createElement: () => ({ style: {}, dataset: {} }) },
+    renderCaptionRow() {}, requestedCutId: undefined, selectedCaptionId: null,
+    selectedCaptionIds: new Set()
+  };
+  const renderCaption = vm.runInNewContext(`${source.slice(start, end)} renderCaption`, context);
+  renderCaption();
+  assert.equal(captionLayer.style.zIndex, '');
+  const rowZ = Number(captionRowsZ(context.captionRows, 'caption-line'));
+  assert.ok(context.summary.itemStackZ.photo < rowZ);
+  assert.ok(rowZ < context.summary.itemStackZ['html-card']);
+
+  const directLayer = { ...captionLayer, style: { zIndex: '7' }, children: [] };
+  const directContext = { ...context, captionLayer: directLayer, captionRows: new Map(),
+    summary: { timelineTracks: [{ id: 'visual' }], captionTrackId: 'visual' },
+    window: { AkariEditKernel: { findActiveCaptions: () => [{ id: 'direct' }] } } };
+  vm.runInNewContext(`${source.slice(start, end)} renderCaption`, directContext)();
+  assert.equal(directLayer.style.zIndex, '7', 'direct-only caption keeps its previous lane z');
+});
+
+function captionRowsZ(rows, id) {
+  return rows.get(id)?.plate.style.zIndex;
+}
 
 // b76f1275 preview-items.ts: only direct track.items were classified and sorted.
 function baselineCollectItems(internal, bucket) {

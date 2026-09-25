@@ -2,7 +2,7 @@
 // Usage: node evidence/c0a-group-media-render/run.mjs before|after
 // Heavy slot must be held by the caller. All scratch paths are task-specific.
 import { spawn, spawnSync } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -49,6 +49,9 @@ try {
   result.electronPreflight = run(electronBinary, ['--version'], shell);
   if (result.electronPreflight.code !== 0) {
     throw new Error(`Electron preflight failed: ${result.electronPreflight.signal ?? result.electronPreflight.code}`);
+  }
+  for (const name of await readdir(output)) {
+    if (name.endsWith('.png')) await rm(join(output, name));
   }
   await cp(join(evidence, 'fixture'), workspace, { recursive: true });
   await mkdir(join(workspace, '.akari'), { recursive: true });
@@ -142,9 +145,13 @@ try {
             cx: r.x + r.width / 2, cy: r.y + r.height / 2 }; };
         const row = document.querySelector('.caption-row-plate');
         const line = row?.querySelector('.akari-caption__line');
+        const plate = row?.querySelector('.akari-caption__plate');
         return { row: box(row), line: box(line),
           rowOrigin: row ? getComputedStyle(row).transformOrigin : null,
-          lineFont: line ? getComputedStyle(line).fontFamily : null };
+          lineFont: line ? getComputedStyle(line).fontFamily : null,
+          outputFitApplied: row ? row.hasAttribute('data-output-caption') : null,
+          plateLayout: plate ? { width: getComputedStyle(plate).width,
+            left: getComputedStyle(plate).left, right: getComputedStyle(plate).right } : null };
       })(),
       htmlOpacity: (() => { const el = document.querySelector('[data-overlay-id="html-card"]');
         return el ? getComputedStyle(el).opacity : null; })(),
@@ -153,6 +160,18 @@ try {
       summaryLayers: window.akari?.state?.summary?.layers?.map(x => ({
         id: x.id, t: x.t, duration: x.duration, transform: x.transform, opacity: x.opacity
       })) ?? [],
+      stack: (() => {
+        const entry = el => el ? { z: getComputedStyle(el).zIndex,
+          visibility: getComputedStyle(el).visibility,
+          parent: el.parentElement?.id ?? null } : null;
+        return { frameEngineActive: document.getElementById('preview-stage')?.dataset.frameEngineActive,
+          frameEngine: entry(document.getElementById('frame-engine-preview')),
+          photo: entry(document.querySelector('[data-akari-layer-id="photo"]')),
+          captionLayer: entry(document.getElementById('caption-plate')),
+          captionRow: entry(document.querySelector('.caption-row-plate')),
+          html: entry(document.querySelector('[data-overlay-id="html-card"]')),
+          itemOrder: window.akari?.state?.summary?.itemStackZ ?? null };
+      })(),
       stage: (() => { const r = document.querySelector('#preview-stage')?.getBoundingClientRect(); return r ? { width: r.width, height: r.height } : null; })()
     }))()`, preview.contextId, preview.sessionId);
     const clip = await evaluate(cdp, `(() => { const r = document.getElementById('preview-stage').getBoundingClientRect();
@@ -195,7 +214,9 @@ try {
     const cli = join(repo, `packages/${engine}-export/bin/akari-${engine}-export.mjs`);
     const invocation = run(process.execPath, [cli, workspace, '--out', mp4, '--duration', '4', '--frames', '106',
       '--width', '640', '--height', '360', '--fps', '30', '--soft']);
-    result.export[engine] = invocation;
+    result.export[engine] = { ...invocation,
+      ...(invocation.stderr.match(/GPU eligibility failed:[^\n]*/u)?.[0]
+        ? { refusal: invocation.stderr.match(/GPU eligibility failed:[^\n]*/u)[0] } : {}) };
     if (invocation.code !== 0) continue;
     for (const second of times) {
       const key = String(second).replace('.', '_');
@@ -207,7 +228,38 @@ try {
   for (const second of previewOnly ? [] : times) {
     const key = String(second).replace('.', '_');
     const a = join(output, `gpu-${key}.png`), b = join(output, `osr-${key}.png`);
-    if (await stat(a).catch(() => false) && await stat(b).catch(() => false)) result.comparisons[`gpu-osr-${key}`] = compare(a, b);
+    if (result.export.gpu?.code === 0 && result.export.osr?.code === 0
+      && result.export[`gpu-${key}`]?.code === 0 && result.export[`osr-${key}`]?.code === 0
+      && await stat(a).catch(() => false) && await stat(b).catch(() => false)) {
+      result.comparisons[`gpu-osr-${key}`] = compare(a, b);
+    }
+  }
+  if (phase === 'after' && !previewOnly) {
+    const noCaption = join(scratch, 'workspace-no-caption');
+    await cp(join(evidence, 'fixture'), noCaption, { recursive: true });
+    const editPath = join(noCaption, 'edit.json');
+    const edit = JSON.parse(await readFile(editPath, 'utf8'));
+    const group = edit.tracks.flatMap(track => track.items).find(item => item.id === 'canvas');
+    if (!group || !Array.isArray(group.items)) throw new Error('no-caption group missing');
+    const initialCount = group.items.length;
+    group.items = group.items.filter(item => item.id !== 'caption-line');
+    if (group.items.length !== initialCount - 1) throw new Error('caption-line removal was not unique');
+    await writeFile(editPath, JSON.stringify(edit, null, 2) + '\n');
+    result.noCaption = { removedItemId: 'caption-line', export: {} };
+    for (const engine of ['gpu', 'osr']) {
+      const mp4 = join(scratch, `${engine}-no-caption.mp4`);
+      const cli = join(repo, `packages/${engine}-export/bin/akari-${engine}-export.mjs`);
+      const invocation = run(process.execPath, [cli, noCaption, '--out', mp4, '--duration', '4', '--frames', '106',
+        '--width', '640', '--height', '360', '--fps', '30', '--soft']);
+      result.noCaption.export[engine] = invocation;
+      if (invocation.code !== 0) continue;
+      const png = join(output, `${engine}-no-caption-2.png`);
+      result.noCaption.export[`${engine}-2`] = extract(mp4, 2, png);
+    }
+    if (result.noCaption.export['gpu-2']?.code === 0 && result.noCaption.export['osr-2']?.code === 0) {
+      result.noCaption.gpuOsrDifference = compare(join(output, 'gpu-no-caption-2.png'),
+        join(output, 'osr-no-caption-2.png'));
+    }
   }
 } catch (error) { result.errors.push(clean(error?.stack ?? error)); }
 finally {
