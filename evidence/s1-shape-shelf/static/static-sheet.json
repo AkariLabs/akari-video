@@ -1,0 +1,151 @@
+{
+  "dark": [
+    {
+      "label": "最近使用した項目",
+      "tiles": 4
+    },
+    {
+      "label": "ライン",
+      "tiles": 15
+    },
+    {
+      "label": "基本の図形",
+      "tiles": 14
+    },
+    {
+      "label": "多角形",
+      "tiles": 9
+    },
+    {
+      "label": "スター",
+      "tiles": 12
+    },
+    {
+      "label": "矢印",
+      "tiles": 14
+    },
+    {
+      "label": "フローチャート",
+      "tiles": 14
+    },
+    {
+      "label": "吹き出し",
+      "tiles": 10
+    },
+    {
+      "label": "雲",
+      "tiles": 6
+    },
+    {
+      "label": "ハート",
+      "tiles": 12
+    },
+    {
+      "label": "横断幕・垂れ幕",
+      "tiles": 9
+    },
+    {
+      "label": "雫",
+      "tiles": 4
+    },
+    {
+      "label": "歯車",
+      "tiles": 8
+    },
+    {
+      "label": "四角い星・アスタリスク",
+      "tiles": 8
+    },
+    {
+      "label": "有機的",
+      "tiles": 14
+    },
+    {
+      "label": "波線",
+      "tiles": 6
+    },
+    {
+      "label": "抽象的",
+      "tiles": 14
+    },
+    {
+      "label": "漫画の吹き出し",
+      "tiles": 12
+    }
+  ],
+  "light": [
+    {
+      "label": "最近使用した項目",
+      "tiles": 4
+    },
+    {
+      "label": "ライン",
+      "tiles": 15
+    },
+    {
+      "label": "基本の図形",
+      "tiles": 14
+    },
+    {
+      "label": "多角形",
+      "tiles": 9
+    },
+    {
+      "label": "スター",
+      "tiles": 12
+    },
+    {
+      "label": "矢印",
+      "tiles": 14
+    },
+    {
+      "label": "フローチャート",
+      "tiles": 14
+    },
+    {
+      "label": "吹き出し",
+      "tiles": 10
+    },
+    {
+      "label": "雲",
+      "tiles": 6
+    },
+    {
+      "label": "ハート",
+      "tiles": 12
+    },
+    {
+      "label": "横断幕・垂れ幕",
+      "tiles": 9
+    },
+    {
+      "label": "雫",
+      "tiles": 4
+    },
+    {
+      "label": "歯車",
+      "tiles": 8
+    },
+    {
+      "label": "四角い星・アスタリスク",
+      "tiles": 8
+    },
+    {
+      "label": "有機的",
+      "tiles": 14
+    },
+    {
+      "label": "波線",
+      "tiles": 6
+    },
+    {
+      "label": "抽象的",
+      "tiles": 14
+    },
+    {
+      "label": "漫画の吹き出し",
+      "tiles": 12
+    }
+  ],
+  "linesAll": 45
+}

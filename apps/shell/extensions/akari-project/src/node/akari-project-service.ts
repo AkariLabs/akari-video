@@ -71,6 +71,7 @@ import { resolveResolverCatalogUrls } from './resolver-preview-url';
 import { parsePresetShowcaseJsonl } from '../common/preset-showcase';
 import { shelfPreviewPath } from '../common/library-shelf-visuals';
 import { MY_STYLE_ID, MyStyle, parseMyStyle } from '../common/my-style';
+import { parseShapeShelfJsonl, ShapeShelfPreset } from '../common/shape-shelf';
 import {
     pollDeviceConnection,
     readCredentials,
@@ -402,6 +403,15 @@ export class AkariProjectServiceImpl implements AkariProjectService {
             } catch { /* 次の配置を試す */ }
         }
         return {};
+    }
+
+    async getShapeShelf(): Promise<ShapeShelfPreset[]> {
+        for (const candidate of presetShowcaseIndexCandidates(__dirname, process.cwd(), 'shapes', this.resourcesPath())) {
+            try {
+                return parseShapeShelfJsonl(await fs.readFile(candidate, 'utf8'));
+            } catch { /* 次の開発配置 / パッケージ配置を試す */ }
+        }
+        return [];
     }
 
     /** The library resolver is the single source of the writable root. */

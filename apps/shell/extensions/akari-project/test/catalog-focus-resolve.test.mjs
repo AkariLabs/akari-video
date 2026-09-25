@@ -12,7 +12,7 @@ test('resolveOpenableLibraryCategory returns all live category keys', () => {
 });
 
 test('resolveOpenableLibraryCategory ignores all soon category keys', () => {
-    for (const key of ['fav', 'brandkit', 'mypresets', 'shapes', 'stamps', 'fx', 'motion', 'template']) {
+    for (const key of ['fav', 'brandkit', 'mypresets', 'stamps', 'fx', 'motion', 'template']) {
         assert.equal(resolveOpenableLibraryCategory(key), undefined, key);
     }
 });

@@ -2,6 +2,7 @@ import { LibraryImportPlan, LibraryImportResult } from './library-import';
 import { CatalogPack } from './catalog-packs';
 import { PresetShowcase } from './preset-showcase';
 import type { MyStyle } from './my-style';
+import type { ShapeShelfPreset } from './shape-shelf';
 export type { MyStyle } from './my-style';
 export { PresetShowcase, PresetShowcaseItem, PresetShowcaseKind } from './preset-showcase';
 
@@ -367,6 +368,8 @@ export interface AkariProjectService {
     /** テロップ / LUT の参照表を、素材カタログとは別系統の読み取り専用棚として返す。 */
     getPresetShowcase(): Promise<PresetShowcase>;
     getTransitionPreviewUrls(): Promise<Record<string, { preview: string; strip: string }>>;
+    /** 図形の棚（presets/shapes/index.jsonl）。読めなければ空配列。 */
+    getShapeShelf(): Promise<ShapeShelfPreset[]>;
     listMyStyles(): Promise<MyStyle[]>;
     saveMyStyle(style: MyStyle): Promise<void>;
     renameMyStyle(id: string, name: string): Promise<void>;

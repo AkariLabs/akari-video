@@ -1,5 +1,6 @@
 import { catalogItemCategoryChipKey, CatalogSearchable, filterCatalogItems } from './catalog-reader';
 import { filterPresetShowcaseItems, PresetShowcase } from './preset-showcase';
+import { searchShapeShelf, ShapeShelfPreset } from './shape-shelf';
 
 export type LibraryCategoryStatus = 'live' | 'soon';
 
@@ -47,7 +48,7 @@ export const LIBRARY_GROUPS = [
             { key: 'textstyle', label: 'テキストスタイル', icon: '字', hint: '選んだ文字に当てる・新しい文字として置く', status: 'live', chipKey: 'preset:textstyle' },
             { key: 'textanim', label: 'テキストアニメ', icon: '動', hint: '選んだ文字に当てる・ホバーで見本を再生', status: 'live', chipKey: 'preset:textanim' },
             { key: 'font', label: 'フォント', icon: 'Aa', hint: '選んだ文字に書体を当てる', status: 'live', chipKey: 'font' },
-            { key: 'shapes', label: '図形', icon: '◇', hint: '図形素材は近日利用できるようになります', status: 'soon' },
+            { key: 'shapes', label: '図形', icon: '◇', hint: '押すと中央に置く・ドラッグで落とした位置に置く', status: 'live' },
             { key: 'stamps', label: 'イラスト', icon: '✶', hint: 'イラスト素材は近日利用できるようになります', status: 'soon' }
         ]
     },
@@ -82,7 +83,7 @@ export interface LibraryPrimaryTile {
 /** ホームの最上段。text はカテゴリ一覧を持たない配置アクション。 */
 export const LIBRARY_PRIMARY_TILES = [
     { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すかドラッグで置く', status: 'live' },
-    { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '近日', status: 'soon' },
+    { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '棚から選ぶ', status: 'live' },
     { key: 'stamps', kind: 'make', label: 'イラスト', icon: '◇', hint: '近日', status: 'soon' },
     { key: 'image', kind: 'pick', label: '画像', icon: '▦', hint: '一覧から選ぶ', status: 'live' },
     { key: 'broll', kind: 'pick', label: 'B-roll', icon: '▶', hint: '一覧から選ぶ', status: 'live' },
@@ -136,13 +137,15 @@ export interface LibraryTransitionSearchItem {
 export interface LibrarySearchHit {
     readonly categoryKey: LibraryCategoryKey;
     readonly label: string;
-    readonly kind: 'catalog' | 'preset' | 'transition';
+    readonly kind: 'catalog' | 'preset' | 'transition' | 'shape';
 }
 
 export interface LibrarySearchSources {
     readonly catalogItems: readonly CatalogSearchable[];
     readonly presetShowcase: PresetShowcase;
     readonly transitions: readonly LibraryTransitionSearchItem[];
+    /** 図形の棚。名前で引く（名前はタイルに出さず、検索とツールチップだけに使う）。 */
+    readonly shapes?: readonly ShapeShelfPreset[];
 }
 
 const CATALOG_CATEGORY_TO_LIBRARY: Readonly<Record<string, LibraryCategoryKey>> = {
@@ -155,7 +158,7 @@ const CATALOG_CATEGORY_TO_LIBRARY: Readonly<Record<string, LibraryCategoryKey>> 
     font: 'font'
 };
 
-/** ホーム検索用。カタログ・プリセット・トランジションを同じ小文字包含で横断する。 */
+/** ホーム検索用。カタログ・プリセット・トランジション・図形を同じ小文字包含で横断する。 */
 export function searchLibraryHome(query: string, sources: LibrarySearchSources): LibrarySearchHit[] {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) {
@@ -176,5 +179,7 @@ export function searchLibraryHome(query: string, sources: LibrarySearchSources):
     const transitionHits = sources.transitions
         .filter(item => [item.labelJa, item.id, item.category].join(' ').toLowerCase().includes(normalizedQuery))
         .map(item => ({ categoryKey: 'transition' as const, label: item.labelJa, kind: 'transition' as const }));
-    return [...catalogHits, ...presetHits, ...transitionHits];
+    const shapeHits = searchShapeShelf(sources.shapes ?? [], normalizedQuery)
+        .map(item => ({ categoryKey: 'shapes' as const, label: item.name, kind: 'shape' as const }));
+    return [...catalogHits, ...presetHits, ...transitionHits, ...shapeHits];
 }

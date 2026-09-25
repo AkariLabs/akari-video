@@ -325,6 +325,7 @@ import {
     LibraryTextStyleDragPayload,
     LibraryMyStyleDragPayload,
     LibraryTextDragPayload,
+    LibraryShapeDragPayload,
     parseLibraryDragPayload,
     libraryAssetGhostPayload,
     textStyleDropStart,
@@ -338,6 +339,10 @@ import {
 import { TimelineCollapsedState } from './timeline/timeline-collapsed-state';
 import { canvasChipDropPatch, canvasRangeFrames } from './timeline/canvas-chip-drop';
 import { canvasOperationReason } from '../common/canvas-operation-reason';
+import {
+    buildShapeItem, insertShapeItem, nextShapeItemId, parseShapePlaceRequest, SHAPE_PLACE_DEFAULT_DURATION_SECONDS
+} from '../common/shape-place';
+import type { ShapePresetV1 } from '@akari-video/edit-store';
 import {
     applyTimelineCollapsedRows,
     buildTimelineTreeRows,
@@ -706,6 +711,9 @@ const MATERIAL_DRAG_END_EVENT = 'akari.material.dragEnd';
 // ライブラリ D&D は送信側 extension と依存を結ばず、素材 D&D と同じ文字列ミラー契約で受ける。
 const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
 const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
+// 図形の棚（akari-project の ShapeShelfService）: 形を id で引く内部コマンドと、置いた直後に投げる「最近使用」の通知。
+const SHAPE_PRESET_COMMAND_ID = 'akari.library.shapePreset';
+const SHAPE_PLACED_EVENT = 'akari.library.shapePlaced';
 const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
 /**
  * フッターの既定文言（task 2026-09-08-timeline-file-drop 指示13）。トラックが 1 本でもあるときは
@@ -1197,6 +1205,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected libraryLockedDragKey: string | undefined;
     protected libraryTextStyleDragPayload: LibraryTextStyleDragPayload | LibraryTextDragPayload | LibraryMyStyleDragPayload | undefined;
     protected libraryTextStyleOutputDuration = 0;
+    protected libraryShapeDragPayload: LibraryShapeDragPayload | undefined;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
     protected materialDragAutoScrollPointerY: number | undefined;
@@ -2839,17 +2848,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.renderStrip();
                 return;
             }
+            if (payload?.kind === 'shape') {
+                this.libraryShapeDragPayload = payload;
+                return;
+            }
             if (!payload) return;
             this.libraryDragPayload = payload;
             this.renderStrip();
         };
         const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
         const onWindowLibraryDrop = (): void => {
-            if (this.libraryDragPayload || this.libraryAssetDragPayload || this.libraryTextStyleDragPayload || this.libraryLockedDragKey) queueMicrotask(() => this.clearLibraryTransitionDragState());
+            if (this.libraryDragPayload || this.libraryAssetDragPayload || this.libraryTextStyleDragPayload
+                || this.libraryLockedDragKey || this.libraryShapeDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
         };
         const onWindowLibraryDragLeave = (event: DragEvent): void => {
             if ((!this.libraryDragPayload && !this.libraryAssetDragPayload && !this.libraryTextStyleDragPayload
-                && !this.libraryLockedDragKey) || event.relatedTarget !== null) return;
+                && !this.libraryLockedDragKey && !this.libraryShapeDragPayload) || event.relatedTarget !== null) return;
             const outsideViewport = event.clientX <= 0 || event.clientY <= 0
                 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
             if (outsideViewport) this.clearLibraryTransitionDragState();
@@ -6446,7 +6460,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         return !!transfer && (transfer.types.includes(MATERIAL_DRAG_MIME)
             || (transfer.types.includes(LIBRARY_DRAG_MIME)
-                && (this.readLibraryAssetDropPayload(transfer) !== undefined || this.readLibraryTextStyleDropPayload?.(transfer) !== undefined)));
+                && (this.readLibraryAssetDropPayload(transfer) !== undefined || this.readLibraryTextStyleDropPayload?.(transfer) !== undefined
+                    || this.readLibraryShapeDropPayload?.(transfer) !== undefined)));
     }
 
     protected materialPanelDropPoint(pointerX: number, pointerY: number): TimelinePanelDropPoint {
@@ -6548,6 +6563,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateTextStyleDropGhost(point.x);
             return;
         }
+        if (this.readLibraryShapeDropPayload?.(event.dataTransfer)) {
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            this.updateShapeDropGhost(point.x);
+            return;
+        }
         const payload = this.materialDragPayload;
         const target = payload ? this.resolveMaterialDropTarget(payload.kind, point.y) : undefined;
         const locked = this.isTrackLocked(target?.targetTrackId);
@@ -6603,6 +6623,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.hideMaterialGhost();
             void this.commands.executeCommand('akari.library.showPremiumPrompt', { key: lockedKey })
                 .catch(() => this.messages.warn('この素材を使うには購入が必要です。'));
+            return;
+        }
+        const shapePayload = this.readLibraryShapeDropPayload?.(event.dataTransfer);
+        if (shapePayload) {
+            // タイムラインへ落とす = 落とした時刻・出力の中央（プレイヘッドの位置は使わない）。
+            this.hideMaterialGhost();
+            this.clearLibraryTransitionDragState();
+            const rect = this.strip.getBoundingClientRect();
+            const t = point.zone === 'header-column'
+                ? Math.max(0, this.playheadT)
+                : textStyleDropStart(point.x, rect.left, rect.width, this.viewStart, this.visibleDuration());
+            void this.addShapeAt({ preset: shapePayload.preset, t });
             return;
         }
         const textPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
@@ -6725,6 +6757,81 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return payload?.kind === 'textstyle' || payload?.kind === 'text' || payload?.kind === 'mystyle' ? payload : undefined;
     }
 
+    protected readLibraryShapeDropPayload(transfer: DataTransfer | null): LibraryShapeDragPayload | undefined {
+        if (!transfer?.types.includes(LIBRARY_DRAG_MIME)) return undefined;
+        const raw = transfer.getData(LIBRARY_DRAG_MIME);
+        const payload = raw ? parseLibraryDragPayload(raw) : this.libraryShapeDragPayload;
+        return payload?.kind === 'shape' ? payload : undefined;
+    }
+
+    /** 図形は映像のいちばん上の段の上に 5 秒のゴーストを出す（置く段の選び方は shape-place.ts）。 */
+    protected updateShapeDropGhost(clientX: number): void {
+        const rect = this.strip.getBoundingClientRect();
+        const start = textStyleDropStart(clientX, rect.left, rect.width, this.viewStart, this.visibleDuration());
+        const rows = [...this.laneLayout.overlayTracks, ...this.laneLayout.layerTracks, ...this.laneLayout.cutTracks];
+        const top = rows.length ? Math.min(...rows.map(row => row.top)) : this.laneLayout.captions.top;
+        this.setGhostRange(this.materialGhost, start, start + SHAPE_PLACE_DEFAULT_DURATION_SECONDS);
+        this.materialGhost.textContent = '';
+        this.materialGhost.style.top = `${this.rulerRowHeightPx() + top - this.stripScroll.scrollTop}px`;
+        this.materialGhost.style.height = `${SUBROW_STRIDE}px`;
+        this.materialGhost.style.display = 'block';
+    }
+
+    /**
+     * `akari.timeline.addShapeAt` の受け側。棚の 1 行を id で引き直して値で写し、プレイヘッド（または t）の時刻・
+     * 出力の中央（または center）に 5 秒の図形を置く。undo 1 回・置いたものを選択・最近使用へ通知。
+     */
+    async addShapeAt(request: unknown): Promise<string | undefined> {
+        const options = parseShapePlaceRequest(request);
+        if (!options) {
+            this.messages.warn('図形を置けません（図形の指定が不正です）。');
+            return undefined;
+        }
+        if (!this.location) {
+            this.messages.warn('プロジェクトを開いてから図形を置いてください。');
+            return undefined;
+        }
+        try {
+            if (!this.location.editUri && !await this.ensureTimelineEdit()) return undefined;
+            const resolved = await this.commands.executeCommand<{ preset?: ShapePresetV1; base?: ShapePresetV1 }>(
+                SHAPE_PRESET_COMMAND_ID, options.preset);
+            if (!resolved?.preset) {
+                this.messages.warn('この図形は棚に見つかりません。');
+                return undefined;
+            }
+            const t = Math.max(0, options.t ?? (Number.isFinite(this.playheadT) ? this.playheadT : 0));
+            const placement: { placed?: { id: string; createdTrack: boolean } } = {};
+            await this.commitEditMutation('図形を置く', doc => {
+                const output = doc.output as { width?: unknown; height?: unknown } | undefined;
+                const id = nextShapeItemId(doc);
+                const item = buildShapeItem({
+                    preset: resolved.preset!, base: resolved.base, id,
+                    at: this.frameAt(t), duration: this.frameAt(SHAPE_PLACE_DEFAULT_DURATION_SECONDS),
+                    output: { width: Number(output?.width) || 1920, height: Number(output?.height) || 1080 },
+                    center: options.center, transform: options.transform
+                });
+                const tracks = Array.isArray(doc.tracks) ? doc.tracks as Array<{ id?: unknown }> : [];
+                const locked = new Set(tracks.map(track => String(track.id)).filter(trackId => this.isTrackLocked(trackId)));
+                const inserted = insertShapeItem(doc, item, locked);
+                placement.placed = { id, createdTrack: inserted.createdTrack };
+                return inserted.doc;
+            });
+            const placed = placement.placed;
+            if (!placed) return undefined;
+            window.dispatchEvent(new CustomEvent(SHAPE_PLACED_EVENT, { detail: { preset: options.preset, id: placed.id } }));
+            await this.focusTimelineItem(placed.id, { seek: true });
+            this.hideNotice();
+            this.footer.textContent = placed.createdTrack ? '図形を置きました（新しいトラックに置きました）。' : '図形を置きました。';
+            this.revealOutputPreview();
+            return placed.id;
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`図形を置けません: ${detail}`);
+            this.messages.error(`図形を置けません: ${detail}`);
+            return undefined;
+        }
+    }
+
     protected updateTextStyleDropGhost(clientX: number): void {
         const band = this.textStyleDropBandLayout();
         const rect = this.strip.getBoundingClientRect();
@@ -6779,7 +6886,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected isLibraryTransitionDragTransfer(transfer: DataTransfer | null): boolean {
         return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME)
-            && !this.readLibraryAssetDropPayload(transfer) && !this.readLibraryTextStyleDropPayload?.(transfer);
+            && !this.readLibraryAssetDropPayload(transfer) && !this.readLibraryTextStyleDropPayload?.(transfer)
+            && !this.readLibraryShapeDropPayload?.(transfer);
     }
 
     protected handleLibraryTransitionDragEnter(event: DragEvent): void {
@@ -6887,6 +6995,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected clearLibraryTransitionDragState(): void {
         this.libraryLockedDragKey = undefined;
         const hadTextStyle = this.libraryTextStyleDragPayload !== undefined;
+        if (this.libraryShapeDragPayload) {
+            this.libraryShapeDragPayload = undefined;
+            this.hideMaterialGhost();
+        }
         if (this.libraryTextStyleDragPayload) {
             this.libraryTextStyleDragPayload = undefined;
             this.libraryTextStyleOutputDuration = 0;

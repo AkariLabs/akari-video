@@ -10,7 +10,7 @@ test('最上段はモックどおり 3×3 の 9 タイルで、作る/選ぶを�
         'make', 'make', 'make', 'pick', 'pick', 'pick', 'pick', 'pick', 'pick'
     ]);
     assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.status), [
-        'live', 'soon', 'soon', 'live', 'live', 'live', 'live', 'live', 'live'
+        'live', 'live', 'soon', 'live', 'live', 'live', 'live', 'live', 'live'
     ]);
     assert.equal(LIBRARY_PRIMARY_TILES[0].hint, '押すかドラッグで置く');
 });
@@ -29,7 +29,7 @@ test('詳細は残りの 12 カテゴリだけで、全カテゴリの外部解�
     assert.equal(resolveOpenableLibraryCategory('bgm'), 'bgm');
     assert.equal(resolveOpenableLibraryCategory('textstyle'), 'textstyle');
     assert.equal(resolveOpenableLibraryCategory('text'), undefined);
-    assert.equal(resolveOpenableLibraryCategory('shapes'), undefined);
+    assert.equal(resolveOpenableLibraryCategory('shapes'), 'shapes');
 });
 
 test('LIBRARY_GROUPS: 5 グループとカテゴリ語彙を宣言順で保持する', () => {
@@ -50,7 +50,7 @@ test('LIBRARY_GROUPS: ラベル・soon・chipKey 対応を固定する', () => {
     assert.deepEqual(
         ['fav', 'brandkit', 'mypresets', 'shapes', 'stamps', 'fx', 'motion', 'template']
             .filter(key => categories[key].status === 'soon'),
-        ['fav', 'brandkit', 'mypresets', 'shapes', 'stamps', 'fx', 'motion', 'template']
+        ['fav', 'brandkit', 'mypresets', 'stamps', 'fx', 'motion', 'template']
     );
     assert.deepEqual(
         Object.fromEntries(['bgm', 'sfx', 'broll', 'image', 'overlay', 'scene3d', 'textstyle', 'textanim', 'font', 'lut']
