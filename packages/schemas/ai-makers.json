@@ -1,0 +1,98 @@
+{
+  "openai": {
+    "name": "OpenAI",
+    "initials": "O",
+    "background": "#111827",
+    "color": "#ffffff"
+  },
+  "google": {
+    "name": "Google",
+    "initials": "G",
+    "background": "#4285F4",
+    "color": "#ffffff"
+  },
+  "xai": {
+    "name": "xAI",
+    "initials": "x",
+    "background": "#111111",
+    "color": "#ffffff"
+  },
+  "minimax": {
+    "name": "MiniMax",
+    "initials": "M",
+    "background": "#e65a42",
+    "color": "#ffffff"
+  },
+  "kling": {
+    "name": "Kling AI",
+    "initials": "K",
+    "background": "#202842",
+    "color": "#ffffff"
+  },
+  "bytedance": {
+    "name": "ByteDance",
+    "initials": "B",
+    "background": "#24223c",
+    "color": "#ffffff"
+  },
+  "alibaba": {
+    "name": "Alibaba",
+    "initials": "A",
+    "background": "#ff6a00",
+    "color": "#ffffff"
+  },
+  "vidu": {
+    "name": "Vidu",
+    "initials": "V",
+    "background": "#6257d9",
+    "color": "#ffffff"
+  },
+  "voicevox": {
+    "name": "VOICEVOX",
+    "initials": "V",
+    "background": "#3aab7d",
+    "color": "#ffffff"
+  },
+  "elevenlabs": {
+    "name": "ElevenLabs",
+    "initials": "E",
+    "background": "#151515",
+    "color": "#ffffff"
+  },
+  "qwen": {
+    "name": "Qwen",
+    "initials": "Q",
+    "background": "#6f4bbe",
+    "color": "#ffffff"
+  },
+  "resemble": {
+    "name": "Resemble AI",
+    "initials": "R",
+    "background": "#7958d9",
+    "color": "#ffffff"
+  },
+  "fish": {
+    "name": "Fish Audio",
+    "initials": "F",
+    "background": "#2473ab",
+    "color": "#ffffff"
+  },
+  "bilibili": {
+    "name": "bilibili",
+    "initials": "b",
+    "background": "#fb7299",
+    "color": "#111111"
+  },
+  "local": {
+    "name": "Local",
+    "initials": "L",
+    "background": "#506074",
+    "color": "#ffffff"
+  },
+  "groq": {
+    "name": "Groq",
+    "initials": "G",
+    "background": "#f16529",
+    "color": "#ffffff"
+  }
+}

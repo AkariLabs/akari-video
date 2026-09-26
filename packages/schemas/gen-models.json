@@ -264,7 +264,7 @@
       "aspects": ["auto"],
       "audio_out": true,
       "seed": false,
-      "price": null,
+      "price": { "unit": "usd_per_second", "by_resolution": { "480p": 0.2205, "720p": 0.473 }, "audio_multiplier": null },
       "as_of": "2026-09-12",
       "source_url": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=bytedance/seedance-2.5/image-to-video",
       "price_url": "https://fal.ai/models/bytedance/seedance-2.5/image-to-video",
