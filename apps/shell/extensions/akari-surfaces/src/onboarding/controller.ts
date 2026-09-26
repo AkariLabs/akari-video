@@ -140,6 +140,7 @@ export class OnboardingController {
         this.root?.remove();
         this.root = undefined;
         document.body.classList.remove('akari-onboarding-active');
+        document.body.classList.remove('akari-onboarding-chat-active');
         document.removeEventListener('click', this.handleExternalClick, true);
         document.removeEventListener('drop', this.handleDrop, true);
         document.removeEventListener('dragover', this.handleDragOver, true);
@@ -162,6 +163,7 @@ export class OnboardingController {
         this.hideDragHint();
         if (this.tourTimer) window.clearTimeout(this.tourTimer);
         const old = this.state.step;
+        if (old !== step) window.dispatchEvent(new Event('akari.onboarding.clearPreviewSelection'));
         if (step === 'drag' && this.state.exampleActive && !this.state.workCompleted && this.state.projectUri && this.sample) {
             await this.service.resetTourExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments);
             this.state = { ...this.state, exampleActive: false };
@@ -317,6 +319,8 @@ export class OnboardingController {
         const takeover = ['welcome', 'first', 'invite', 'done'].includes(this.state.step);
         const spec = this.coach();
         this.root.setAttribute('data-akari-onboarding-step', this.state.step);
+        document.body.classList.toggle('akari-onboarding-chat-active',
+            this.state.step.startsWith('tour') || ['prompt', 'work', 'play', 'caption'].includes(this.state.step));
         const takeHost = this.root.querySelector<HTMLElement>('.ao-takeover-host')!;
         if (takeover) {
             const intro = this.state.step !== 'done';
@@ -753,6 +757,7 @@ export class OnboardingController {
                 if (entry.count === 0) {
                     await this.service.writeExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments, 0, false);
                     window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
+                    await this.seekOutput(this.state.projectUri, 1).catch(() => undefined);
                 }
                 if (entry.t === 4500) {
                     for (let count = 1; count <= 7; count++) {

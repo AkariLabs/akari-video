@@ -101,7 +101,8 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-takeover.out { opacity:0; }
 #akari-onboarding-v1 .ao-takeover-inner { width:min(820px,calc(100vw - 32px)); border:0; box-shadow:none; background:transparent; overflow:visible; }
 #akari-onboarding-v1 .ao-hero { height:min(42vh,330px); transition:height .7s cubic-bezier(.2,.7,.2,1); animation:ao-hero-in 1.2s ease both; }
-#akari-onboarding-v1 .ao-hero.small { height:min(27vh,200px); }
+#akari-onboarding-v1 .ao-hero { width:min(100%,74.67vh,586px); height:auto; aspect-ratio:16/9; margin-inline:auto; }
+#akari-onboarding-v1 .ao-hero.small { width:min(100%,48vh,355px); height:auto; }
 #akari-onboarding-v1 .ao-text.in > * { animation:ao-rise 1.1s cubic-bezier(.2,.7,.2,1) both; }
 #akari-onboarding-v1 .ao-text.in > :nth-child(1) { animation-delay:.1s; }
 #akari-onboarding-v1 .ao-text.in > :nth-child(2) { animation-delay:.35s; }
@@ -129,11 +130,12 @@ export const ONBOARDING_CSS = `
 #akari-onboarding-v1 .ao-streamer path { stroke-dasharray:1; stroke-dashoffset:1; }
 #akari-onboarding-v1 .ao-example-preview { position:absolute; overflow:hidden; background:#000; border-radius:5px; }
 #akari-onboarding-v1 .ao-example-preview video { width:100%; height:100%; object-fit:contain; }
-#akari-onboarding-v1 .ao-example-title { position:absolute; right:4%; top:5%; background:#241a16d9; padding:8px 12px; font-size:clamp(11px,1.35vw,23px); font-weight:800; }
+#akari-onboarding-v1 .ao-example-title { position:absolute; right:4%; top:5%; background:#241a16d9; padding:8px 12px; font-size:clamp(10px,1.1vw,18px); font-weight:800; white-space:nowrap; }
 #akari-onboarding-v1 .ao-example-caption { position:absolute; bottom:8%; left:7%; right:7%; text-align:center; color:#fff; font-size:clamp(12px,1.2vw,21px); font-weight:800; text-shadow:0 2px 3px #000,2px 0 2px #000,-2px 0 2px #000; }
 #akari-onboarding-v1 .ao-example-tag { position:absolute; top:5%; left:3%; background:#241a16d9; color:#fdba74; border:1px solid #fb923c; padding:4px 8px; border-radius:999px; }
 #akari-onboarding-v1 .ao-chat { right:52px; top:42px; bottom:22px; width:min(360px,30vw); border:1px solid #39312a; background:#111; }
 #akari-onboarding-v1 .ao-chat h3 { color:#e5e5e5; }
+body.akari-onboarding-chat-active [data-akari-onboarding-target="partner"] { visibility:hidden; }
 #akari-onboarding-v1 .ao-hint svg { position:absolute; inset:0; overflow:visible; }
 #akari-onboarding-v1 .ao-hint-path { animation:ao-dash .5s linear infinite; }
 #akari-onboarding-v1 .ao-hint-label { fill:#fb923c; font:bold 15px system-ui; }

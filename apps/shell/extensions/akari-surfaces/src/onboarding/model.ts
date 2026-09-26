@@ -114,8 +114,11 @@ export function createOnboardingCaptions(segments: readonly TranscriptSegment[],
     if (withTitle) captions.push({
         id: 'c-0008', start: 0, end: 37.6,
         text: 'AI と話すだけで、動画編集', speaker: null, sourceRef: null,
+        // The display comma preserves the reading while avoiding the renderer's
+        // unconditional line break after the Japanese punctuation code point.
+        display_text: 'AI と話すだけで，動画編集', runs: [],
         edited: true, time_domain: 'output', style_preset: 'title-impact',
-        text_style: { zone: 'top-right', size_px: 38, color: '#FFFFFF',
+        text_style: { zone: 'top-right', size_px: 32, max_characters: 40, color: '#FFFFFF',
             background: { color: '#1C1B18', opacity: 0.78, padding_px: 14, radius_px: 8 } }
     });
     return { captions };

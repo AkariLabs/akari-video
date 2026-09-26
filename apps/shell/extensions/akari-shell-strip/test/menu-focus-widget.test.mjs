@@ -93,5 +93,7 @@ const baselineExportSection = `protected renderExportSection(): React.ReactNode 
     }`;
 
 test('renderExportSection exactly matches 29e959c4', () => {
-    assert.equal(method('renderExportSection').getText(ast), baselineExportSection);
+    const current = method('renderExportSection').getText(ast);
+    assert.match(current, /data-akari-onboarding-target='export-button'/);
+    assert.equal(current.replace("                    data-akari-onboarding-target='export-button'\n", ''), baselineExportSection);
 });

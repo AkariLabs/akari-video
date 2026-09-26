@@ -4042,6 +4042,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         disposables.push({
             dispose: () => window.removeEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite)
         });
+        const clearOnboardingSelection = (): void => {
+            if (kind === 'output' && !widget.isDisposed) {
+                widget.sendMessage({ type: 'akari-preview-onboarding-clear-selection' });
+            }
+        };
+        window.addEventListener('akari.onboarding.clearPreviewSelection', clearOnboardingSelection);
+        disposables.push({ dispose: () => window.removeEventListener('akari.onboarding.clearPreviewSelection', clearOnboardingSelection) });
         for (const root of await this.workspaceService.roots) {
             disposables.push(await this.fileService.watch(root.resource, { recursive: true, excludes: [] }));
         }
@@ -4964,6 +4971,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
         }
         const reloadNotice = widget.akariPreviewModelSnapshot !== undefined;
+        const onboardingReplayWrite = typeof document !== 'undefined'
+            && document.body?.classList?.contains('akari-onboarding-chat-active')
+            && !!document.querySelector('#akari-onboarding-v1[data-akari-onboarding-step="work"]');
         const frameEngineMetricsEnabled = frameEngineEnabled
             && this.preferences.get<boolean>('akari.developerMode', false);
         const [
@@ -5011,7 +5021,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             imageSourceUrlById,
             primaryIsStillImage,
             kind,
-            reloadNotice,
+            reloadNotice && !onboardingReplayWrite,
             frameEngineEnabled,
             frameEngineMetricsEnabled,
             originalSourceUrlById,
@@ -21023,6 +21033,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (message && message.type === 'akari-preview-caption-zone-hover') {
                     updateCaptionZoneHighlight(typeof message.zone === 'string' ? message.zone : null);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-onboarding-clear-selection') {
+                    deselectCaption();
+                    captionPalette.hidden = true;
+                    captionRunMenu.hidden = true;
                     return;
                 }
                 if (message && message.type === 'akari-preview-select-caption-run') {

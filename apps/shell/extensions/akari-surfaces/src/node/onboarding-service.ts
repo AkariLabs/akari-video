@@ -133,10 +133,15 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         if (!Number.isInteger(count) || count < 0 || count > 7 || segments.length !== 7) throw new Error('字幕の数が不正です');
         const project = fileURLToPath(projectUri);
         const samplePath = `assets/${SAMPLE_NAME}`;
-        const candidates: Record<string, string> = {
+        const desired: Record<string, string> = {
             'edit.json': `${JSON.stringify(createOnboardingEdit(samplePath, count > 0 || title), null, 2)}\n`,
             'captions.json': `${JSON.stringify(createOnboardingCaptions(segments, count, title), null, 2)}\n`
         };
+        const candidates: Record<string, string> = {};
+        for (const [name, content] of Object.entries(desired)) {
+            if (await fs.readFile(join(project, name), 'utf8').catch(() => '') !== content) candidates[name] = content;
+        }
+        if (!Object.keys(candidates).length) return;
         // Windows のプレビュー／監視が置換先を短時間開いている場合は rename が EPERM になる。
         // 既存の atomic 保存口を保ったまま同じ候補一式を再試行する。
         for (let attempt = 0; attempt < 8; attempt++) {

@@ -1,0 +1,48 @@
+{
+  "shots": [
+    "r3-01-welcome-short",
+    "r3-01-welcome",
+    "r3-02-first",
+    "r3-03-invite",
+    "r3-04-tour0-fog",
+    "r3-05-tour0-clear",
+    "r3-06-tour1-transition",
+    "r3-07-tour1",
+    "r3-08-tour2-preview",
+    "r3-09-tour2-timeline",
+    "r3-10-tour3",
+    "r3-11-bridge",
+    "r3-12-drag-empty",
+    "r3-13-drag-hint"
+  ],
+  "startedAt": "2026-09-26T22:49:51.732Z",
+  "shortHero": {
+    "width": 388.28125,
+    "height": 218.40625,
+    "ratio": 1.7777936757762198
+  },
+  "welcomeHero": {
+    "width": 537.609375,
+    "height": 302.390625,
+    "ratio": 1.7778638970702216
+  },
+  "tour": {
+    "partnerHidden": true,
+    "chatVisible": true,
+    "titleLines": 1,
+    "titleHeight": 36
+  },
+  "example": {
+    "card": true,
+    "preview": true,
+    "chat": "AI パートナー（完成例）",
+    "subtitle": "こんにちは。今日はですね、あかりビデオっていう動画編集ツールを試してみてます。",
+    "timeline": true
+  },
+  "empty": {
+    "card": false,
+    "examplePreview": false,
+    "transcript": false
+  },
+  "finishedAt": "2026-09-26T22:50:31.471Z"
+}

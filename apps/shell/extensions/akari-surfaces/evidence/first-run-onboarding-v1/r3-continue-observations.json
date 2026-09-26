@@ -1,0 +1,58 @@
+{
+  "shots": [
+    "r3-14-back-tour3-example",
+    "r3-15-bridge-again",
+    "r3-16-drag-empty-again",
+    "r3-17-matpreview-card",
+    "r3-18-matpreview-open",
+    "r3-19-back-imported",
+    "r3-20-ask-icons",
+    "r3-21-prompt",
+    "r3-22-work-mid",
+    "r3-23-play-before",
+    "r3-24-back-work-completed",
+    "r3-25-work-replay-mid",
+    "r3-26-play-running",
+    "r3-27-caption-before",
+    "r3-28-caption-selected",
+    "r3-29-caption-adjusted",
+    "r3-30-daihon-before",
+    "r3-31-daihon-after",
+    "r3-31-daihon-seek",
+    "r3-32-export-menu-target",
+    "r3-33-export-open",
+    "r3-34-export-dialog",
+    "r3-35-export-progress",
+    "r3-36-export-result",
+    "r3-37-done-celebration",
+    "r3-37-done-settled",
+    "r3-38-connect"
+  ],
+  "startedAt": "2026-09-26T22:51:01.221Z",
+  "resumeStep": "drag",
+  "workMid": {
+    "partnerHidden": true,
+    "reloadToast": false,
+    "videoState": {
+      "readyState": 0,
+      "width": 0,
+      "time": 0,
+      "captions": 1
+    }
+  },
+  "workChat": "お手本（AI なし）",
+  "workDurationMs": 18286,
+  "replayDurationMs": 19570,
+  "daihon": {
+    "rows": 7,
+    "error": 0,
+    "captionChrome": {
+      "selected": false,
+      "paletteOpen": false,
+      "runMenuOpen": false
+    }
+  },
+  "exportDurationMs": 16448,
+  "uiExportCompleted": true,
+  "finishedAt": "2026-09-26T22:52:39.122Z"
+}

@@ -576,7 +576,7 @@ export class AkariHomeWidget extends ReactWidget {
             async () => { await this.shell.revealWidget('akari-role-buckets-widget'); },
             async (uri, time) => {
                 const editUri = new URI(uri).resolve('edit.json').toString();
-                await this.commands.executeCommand('akari.preview.seekOutput', { editUri, time });
+                await this.commands.executeCommand('akari.preview.seekOutput', { editUri, time, waitForReady: true });
             },
             async () => { await this.openProjectLauncher(); }
         );

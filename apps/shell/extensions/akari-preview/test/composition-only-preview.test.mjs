@@ -46,7 +46,7 @@ function harness({ source, empty = false, frameEngine = true, inside = true } = 
         overlayUris: [], assetUris: [], assetStreamIds: ['audio-stream'], captions: []
     };
     const calls = { videos: [], assets: [], probes: [], cards: [], disposed: [] };
-    const widget = { title: {}, setContentOptions() {}, setHTML(html) { this.html = html; } };
+    const widget = { title: {}, node: { setAttribute() {} }, setContentOptions() {}, setHTML(html) { this.html = html; } };
     const host = {
         noteSwapReload, playbackPageSequence: 0,
         stopPreviewAudioPolling() {}, resolveFrameEngineEnabled: async () => frameEngine,

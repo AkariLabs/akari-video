@@ -1018,7 +1018,10 @@ export class AkariDaihonWidget extends BaseWidget {
             if (event.changes.some(change => this.editUri?.parent.resolve('.akari').isEqualOrParent(change.resource))) {
                 void this.refreshCaptionsButton().catch(error => console.warn('[akari-daihon]', error));
             }
-            if (relevant) this.queueReload();
+            // The guide creates edit.json after this widget has already configured itself.
+            // Discover the new project on that first file event as well as later edits.
+            if (relevant || (!this.editUri && event.changes.some(change =>
+                change.resource.path.base === 'edit.json' && this.rootUri?.isEqualOrParent(change.resource)))) this.queueReload();
         }));
         try {
             this.toDispose.push(await this.fileService.watch(root, { recursive: true, excludes: [] }));
@@ -1140,6 +1143,7 @@ export class AkariDaihonWidget extends BaseWidget {
 
     protected async reload(): Promise<void> {
         if (this.wordDrag) { this.reloadPendingAfterDrag = true; return; }
+        if (!this.editUri && this.rootUri) await this.locateProject(this.rootUri);
         this.closeCutRangeEditor();
         this.cutsButton.textContent = cutsJumpButtonLabel(null);
         this.editSources = await this.captionSources().catch(() => []);
@@ -1193,6 +1197,7 @@ export class AkariDaihonWidget extends BaseWidget {
             this.renderRows(next);
             for (const [id, elements] of this.elements) elements.root.style.borderLeft = this.handEditedCaptionIds.has(id) ? '3px solid #6fa8ff' : '';
             this.refreshDockLook();
+            if (this.footer.textContent?.startsWith('台本を読み取れません:')) this.notify('');
             if (parsed.warnings.length) this.notify(parsed.warnings[0]);
         } catch (error) {
             this.notify(`台本を読み取れません: ${this.errorMessage(error)}`);
