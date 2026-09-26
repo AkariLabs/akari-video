@@ -1,5 +1,5 @@
 export const ONBOARDING_STEPS = [
-    'welcome', 'first', 'invite', 'tour', 'drag', 'matpreview', 'ask',
+    'welcome', 'first', 'invite', 'tour0', 'tour1', 'tour2', 'tour3', 'drag', 'matpreview', 'ask',
     'prompt', 'work', 'play', 'caption', 'daihon', 'export', 'done'
 ] as const;
 export type OnboardingStep = typeof ONBOARDING_STEPS[number];
@@ -13,6 +13,10 @@ export interface OnboardingState {
     projectUri?: string;
     samplePath?: string;
     imported?: boolean;
+    exampleActive?: boolean;
+    workCompleted?: boolean;
+    materialOpened?: boolean;
+    played?: boolean;
     completed?: boolean;
 }
 
@@ -29,12 +33,37 @@ export function parseOnboardingState(value: unknown): OnboardingState | undefine
         answer: raw.answer as AiAnswer | undefined,
         projectUri: typeof raw.projectUri === 'string' ? raw.projectUri : undefined,
         samplePath: typeof raw.samplePath === 'string' ? raw.samplePath : undefined,
-        imported: raw.imported === true, completed: raw.completed === true
+        imported: raw.imported === true, exampleActive: raw.exampleActive === true,
+        workCompleted: raw.workCompleted === true, materialOpened: raw.materialOpened === true,
+        played: raw.played === true, completed: raw.completed === true
     };
 }
 
 export function nextOnboardingState(state: OnboardingState, step: OnboardingStep, sub = 0): OnboardingState {
     return { ...state, step, sub, completed: step === 'done' };
+}
+
+export const COUNTED_ONBOARDING_STEPS = ONBOARDING_STEPS.filter(step =>
+    !['welcome', 'first', 'invite', 'tour0', 'tour1', 'tour2', 'tour3', 'done'].includes(step));
+
+export function onboardingCount(step: OnboardingStep): { current: number; total: number } | undefined {
+    const index = COUNTED_ONBOARDING_STEPS.indexOf(step);
+    return index < 0 ? undefined : { current: index + 1, total: COUNTED_ONBOARDING_STEPS.length };
+}
+
+export function previousOnboardingStep(step: OnboardingStep): OnboardingStep | undefined {
+    if (step === 'tour0' || step === 'tour1' || step === 'work' || step === 'welcome'
+        || step === 'first' || step === 'invite' || step === 'done') return undefined;
+    if (step === 'play') return 'prompt';
+    const index = ONBOARDING_STEPS.indexOf(step);
+    return index > 0 ? ONBOARDING_STEPS[index - 1] : undefined;
+}
+
+export function onboardingRevisit(state: OnboardingState): 'imported' | 'previewed' | 'completed' | undefined {
+    if (state.step === 'drag' && state.imported) return 'imported';
+    if (state.step === 'matpreview' && state.materialOpened) return 'previewed';
+    if (state.step === 'prompt' && state.workCompleted) return 'completed';
+    return undefined;
 }
 
 export function shouldResumeOnboarding(state: OnboardingState | undefined, openProjectUri?: string): boolean {

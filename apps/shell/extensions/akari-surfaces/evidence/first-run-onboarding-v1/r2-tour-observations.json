@@ -1,0 +1,31 @@
+{
+  "shots": [
+    "r2-01-welcome",
+    "r2-02-first",
+    "r2-03-invite",
+    "r2-04-tour0-fog",
+    "r2-05-tour0-clear",
+    "r2-06-tour1-transition",
+    "r2-07-tour1",
+    "r2-08-tour2-preview",
+    "r2-09-tour2-timeline",
+    "r2-10-tour3",
+    "r2-11-bridge",
+    "r2-12-drag-empty",
+    "r2-13-drag-hint"
+  ],
+  "startedAt": "2026-09-26T22:03:54.658Z",
+  "example": {
+    "card": true,
+    "preview": true,
+    "chat": "AI パートナー（完成例）",
+    "subtitle": "こんにちは。今日はですね、あかりビデオっていう動画編集ツールを試してみてます。",
+    "timeline": true
+  },
+  "empty": {
+    "card": false,
+    "examplePreview": false,
+    "transcript": false
+  },
+  "finishedAt": "2026-09-26T22:04:26.455Z"
+}

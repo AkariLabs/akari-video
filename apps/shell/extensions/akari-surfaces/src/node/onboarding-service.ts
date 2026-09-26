@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join, relative, resolve, sep } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { createHash } from 'crypto';
 import { runEditLint, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { AkariNewProjectService } from '../common/akari-new-project-protocol';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
@@ -127,7 +128,7 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
 
     async writeExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[], count: number, title: boolean): Promise<void> {
         const current = await this.load();
-        if (current?.projectUri !== projectUri || !current.imported || basename(sourcePath) !== 'clip.mp4')
+        if (current?.projectUri !== projectUri || (!current.imported && !current.exampleActive) || basename(sourcePath) !== 'clip.mp4')
             throw new Error('素材を先に取り込んでください');
         if (!Number.isInteger(count) || count < 0 || count > 7 || segments.length !== 7) throw new Error('字幕の数が不正です');
         const project = fileURLToPath(projectUri);
@@ -147,6 +148,35 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
                 if (!['EPERM', 'EACCES', 'EBUSY'].includes(code ?? '') || attempt === 7) throw error;
                 await new Promise(resolveDelay => setTimeout(resolveDelay, 100 * (attempt + 1)));
             }
+        }
+    }
+
+    async resetTourExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[]): Promise<void> {
+        const current = await this.load();
+        if (current?.projectUri !== projectUri || !current.exampleActive || basename(sourcePath) !== 'clip.mp4')
+            throw new Error('完成例の状態が違います');
+        if (current.workCompleted) return;
+        const project = fileURLToPath(projectUri);
+        const sample = join(project, 'assets', SAMPLE_NAME);
+        const editPath = join(project, 'edit.json');
+        const captionPath = join(project, 'captions.json');
+        const expectedEdit = `${JSON.stringify(createOnboardingEdit(`assets/${SAMPLE_NAME}`, true), null, 2)}\n`;
+        const expectedCaptions = `${JSON.stringify(createOnboardingCaptions(segments, 7, true), null, 2)}\n`;
+        const [edit, captions] = await Promise.all([fs.readFile(editPath, 'utf8'), fs.readFile(captionPath, 'utf8')]);
+        if (edit !== expectedEdit || captions !== expectedCaptions)
+            throw new Error('完成例を利用者が変更したため、空の編集へ戻せません');
+        if (!current.imported) {
+            const [original, copied] = await Promise.all([fs.readFile(sourcePath), fs.readFile(sample)]);
+            const digest = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
+            if (digest(original) !== digest(copied)) throw new Error('サンプル動画が変更されたため削除できません');
+        }
+        await writeProjectFilesGuarded(project, {
+            'edit.json': `${JSON.stringify(createEmptyOnboardingEdit(), null, 2)}\n`
+        });
+        await fs.rm(captionPath);
+        if (!current.imported) {
+            await fs.rm(sample);
+            await fs.rm(join(project, '.akari', 'sidecars', `assets/${SAMPLE_NAME}.analysis`), { recursive: true, force: true });
         }
     }
 

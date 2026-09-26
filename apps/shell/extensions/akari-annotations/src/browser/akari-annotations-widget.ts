@@ -8048,6 +8048,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         await this.updateTimelineTabCaption();
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
+        // The onboarding example is written by its backend service, outside this widget's
+        // file service. Let it request a read after each staged write on file systems
+        // whose watcher does not report those writes promptly (notably Windows drives).
+        const refreshOnboardingTimeline = (): void => { void this.reloadEdit().then(() => this.reloadCaptions()); };
+        window.addEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline);
+        this.toDispose.push({ dispose: () => window.removeEventListener('akari.onboarding.refreshTimeline', refreshOnboardingTimeline) });
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
             this.recentWrites.set(uri, Date.now());
             if (uri === this.location?.editUri?.toString() && this.newerVersionAtLoad) {

@@ -16,6 +16,7 @@ export class AkariExportDialog extends ReactDialog<void> {
     constructor(protected readonly session: AkariExportSessionService) {
         super({ title: '書き出し', maxWidth: 880 });
         this.addClass('akari-export-dialog-host');
+        this.node.setAttribute('data-akari-onboarding-target', 'export-dialog');
         ensureExportDialogStyle();
         this.toDispose.push(this.session.onDidChange(() => this.update()));
         this.toDispose.push(this.visibilityEmitter);

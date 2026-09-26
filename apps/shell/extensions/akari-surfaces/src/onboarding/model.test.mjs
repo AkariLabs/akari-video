@@ -9,7 +9,8 @@ import { lintProject } from '../../../../../../packages/edit-lint/src/edit-lint.
 const require = createRequire(import.meta.url);
 const {
     INITIAL_ONBOARDING_STATE, ONBOARDING_STEPS, parseOnboardingState,
-    nextOnboardingState, shouldResumeOnboarding, partnerToConnect,
+    COUNTED_ONBOARDING_STEPS, nextOnboardingState, shouldResumeOnboarding, partnerToConnect,
+    onboardingCount, previousOnboardingStep, onboardingRevisit,
     createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions
 } = require('../../lib/onboarding/model.js');
 const segments = [
@@ -22,8 +23,13 @@ const segments = [
     { start: 6.3, end: 7.1, text: 'できました。' }
 ];
 
-test('ガイドは14段で、初回状態から順に進む', () => {
-    assert.equal(ONBOARDING_STEPS.length, 14);
+test('案内は17段で、実演の9段だけを数える', () => {
+    assert.equal(ONBOARDING_STEPS.length, 17);
+    assert.equal(COUNTED_ONBOARDING_STEPS.length, 9);
+    for (const step of ['welcome', 'first', 'invite', 'tour0', 'tour1', 'tour2', 'tour3', 'done'])
+        assert.equal(onboardingCount(step), undefined);
+    assert.deepEqual(onboardingCount('drag'), { current: 1, total: 9 });
+    assert.deepEqual(onboardingCount('export'), { current: 9, total: 9 });
     let state = INITIAL_ONBOARDING_STATE;
     for (const step of ONBOARDING_STEPS.slice(1)) state = nextOnboardingState(state, step);
     assert.equal(state.step, 'done');
@@ -33,9 +39,29 @@ test('ガイドは14段で、初回状態から順に進む', () => {
     });
 });
 
+test('戻るの順序と再訪は完了済みの成果を維持する', () => {
+    assert.equal(previousOnboardingStep('tour0'), undefined);
+    assert.equal(previousOnboardingStep('tour1'), undefined);
+    assert.equal(previousOnboardingStep('tour2'), 'tour1');
+    assert.equal(previousOnboardingStep('drag'), 'tour3');
+    assert.equal(previousOnboardingStep('play'), 'prompt');
+    assert.equal(previousOnboardingStep('work'), undefined);
+    const completed = { ...INITIAL_ONBOARDING_STATE, imported: true, materialOpened: true, workCompleted: true };
+    assert.equal(onboardingRevisit({ ...completed, step: 'drag' }), 'imported');
+    assert.equal(onboardingRevisit({ ...completed, step: 'matpreview' }), 'previewed');
+    assert.equal(onboardingRevisit({ ...completed, step: 'prompt' }), 'completed');
+    const backward = nextOnboardingState(completed, 'prompt');
+    assert.equal(backward.imported, true);
+    assert.equal(backward.workCompleted, true);
+    assert.equal(shouldResumeOnboarding({ ...backward, projectUri: 'file:///project' }, 'file:///project'), true);
+});
+
 test('保存形式を検査し、同じプロジェクトでのみ中断段から再開する', () => {
     const state = { schema: 1, step: 'caption', sub: 2, answer: 'chatgpt', projectUri: 'file:///project', imported: true };
-    assert.deepEqual(parseOnboardingState(JSON.parse(JSON.stringify(state))), { ...state, samplePath: undefined, completed: false });
+    assert.deepEqual(parseOnboardingState(JSON.parse(JSON.stringify(state))), {
+        ...state, samplePath: undefined, exampleActive: false, workCompleted: false,
+        materialOpened: false, played: false, completed: false
+    });
     assert.equal(shouldResumeOnboarding(parseOnboardingState(state), 'file:///project'), true);
     assert.equal(shouldResumeOnboarding({ ...state, projectUri: 'file:///C:/Project/First' }, 'file:///c%3A/project/first'), true);
     assert.equal(shouldResumeOnboarding(parseOnboardingState(state)), true);

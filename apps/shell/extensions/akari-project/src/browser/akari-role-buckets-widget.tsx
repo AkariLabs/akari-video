@@ -779,9 +779,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const clearDropOverlay = (): void => this.setDragActive(false);
         window.addEventListener('drop', clearDropOverlay, true);
         window.addEventListener('dragend', clearDropOverlay, true);
+        const refreshOnboardingProject = (): void => this.refresh();
+        window.addEventListener('akari.onboarding.refreshProject', refreshOnboardingProject);
         this.toDispose.push({ dispose: () => {
             window.removeEventListener('drop', clearDropOverlay, true);
             window.removeEventListener('dragend', clearDropOverlay, true);
+            window.removeEventListener('akari.onboarding.refreshProject', refreshOnboardingProject);
         } });
         this.toDispose.push(this.workflow.onDidChange(() => {
             if (this.materialSwap && this.materialSwap.root !== this.workflow.workspaceRoot?.toString()) this.closeMaterialSwap();

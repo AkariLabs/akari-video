@@ -107,6 +107,7 @@ export class AkariMenuWidget extends ReactWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariMenuWidget.ID;
+        this.node.setAttribute('data-akari-onboarding-target', 'menu-panel');
         this.title.label = 'メニュー';
         this.title.caption = 'メニュー';
         this.title.iconClass = 'codicon codicon-menu';

@@ -16,6 +16,7 @@ export interface AkariOnboardingService {
     returnToHome(): Promise<void>;
     prepare(): Promise<{ projectUri: string; sample: SampleInformation }>;
     importSample(projectUri: string, sourcePath: string): Promise<string>;
+    resetTourExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[]): Promise<void>;
     writeExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[], count: number, title: boolean): Promise<void>;
     lintExample(projectUri: string): Promise<number>;
     hasExport(projectUri: string): Promise<boolean>;
