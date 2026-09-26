@@ -121,7 +121,7 @@ test('widget: ふつうの動画 cut は編集が押せ、動画タイルは理�
   assert.equal(panel(instance.body), undefined);
 }));
 
-test('widget: 静止画の別案一覧から動画タイル → 専用パネル → ← 編集', () => withDom(() => {
+test('widget: 静止画の別案一覧から動画タイル → 専用パネル → ← ホーム', () => withDom(() => {
   const instance = fixture();
   instance.render();
   assert.deepEqual(instance.body.children.flatMap(node => node.className === 'akari-inspector-ai-list'
@@ -129,7 +129,7 @@ test('widget: 静止画の別案一覧から動画タイル → 専用パネル 
   assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'true');
   assert.equal(find(instance.body, byClass('akari-inspector-ai-reason')).textContent, '声の入った音声か動画で使えます');
   aiTile(instance.body).click();
-  assert.equal(find(instance.body, byClass('akari-inspector-ai-back')).textContent, '← 編集');
+  assert.equal(find(instance.body, byClass('akari-inspector-ai-back')).textContent, '← ホーム');
   assert.ok(panel(instance.body));
   find(instance.body, byClass('akari-inspector-ai-back')).click();
   assert.ok(aiTile(instance.body));

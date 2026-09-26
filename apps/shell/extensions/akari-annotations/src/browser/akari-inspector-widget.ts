@@ -50,7 +50,8 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
-import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState, type StillAspect } from './inspector/ai-still-panel';
+import { frameAspectTransform, frameDimensions } from './inspector/frame-geometry';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { appendImageAiPanel, type ImageAiPanelState } from './inspector/image-ai-panel';
@@ -3299,6 +3300,10 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-label { display: grid; gap: 5px; font-size: 12px; font-weight: 600; }
 .akari-inspector-ai-still-prompt { box-sizing: border-box; width: 100%; min-height: 104px; padding: 8px; resize: vertical; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; font: inherit; font-weight: 400; }
 .akari-inspector-ai-still-aspects { display: flex; gap: 6px; }
+.akari-inspector-ai-still-aspect { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; justify-content: end; gap: 4px; height: 60px; }
+.akari-inspector-ai-still-aspect-picture { display: block; box-sizing: border-box; height: auto; max-width: 38px; max-height: 30px; width: 100%; border: 2px solid currentColor; border-radius: 2px; }
+.akari-inspector-ai-still-aspect[data-akari-inspector-ai-aspect="9:16"] .akari-inspector-ai-still-aspect-picture { width: 17px; }
+.akari-inspector-ai-still-aspect[data-akari-inspector-ai-aspect="1:1"] .akari-inspector-ai-still-aspect-picture { width: 28px; }
 .akari-inspector-widget button.akari-inspector-ai-still-aspect,
 .akari-inspector-widget button.akari-inspector-ai-still-secondary { padding: 5px 9px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-still-aspect[aria-pressed="true"] { border-color: var(--akari-accent); color: var(--akari-accent); }
@@ -5169,11 +5174,6 @@ export class AkariInspectorWidget extends BaseWidget {
                         importLut: () => this.importAdjustLut(rowSnapshot)
                     }).forEach(section => this.appendSection(section, rowSnapshot, sectionKind, correctionBody, true));
                 }
-            } else if (showEditCorrection) {
-                this.appendSection({ id: 'edit-correction', label: '補正', fields: [{
-                    name: 'edit-correction-unavailable', label: '補正',
-                    getValue: () => 'この要素で使える補正はまだありません'
-                }] }, rowSnapshot, sectionKind);
             }
             if (!this.aiCatalogLoaded) {
                 appendAiTiles(this.body, [], () => undefined, false, '別案を読み込んでいます…');
@@ -6248,14 +6248,21 @@ export class AkariInspectorWidget extends BaseWidget {
     protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
         let state = this.aiStillStates.get(identity.key);
         if (!state) {
-            const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string } } | undefined;
-            state = { prompt: meta?.inputs?.prompt ?? '', aspect: '16:9', routeId: savedStillRoute(), probing: true, running: false };
+            const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string }; output?: { aspect?: StillAspect; resolution?: string } } | undefined;
+            const [cardWidth, cardHeight] = String(meta?.output?.resolution ?? '').split('x').map(Number);
+            const initialAspect = meta?.output?.aspect ?? (cardWidth > 0 && cardHeight > 0
+                ? nearestStillAspect(cardWidth, cardHeight) : '16:9');
+            state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true, running: false };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
                 void this.fileService.read(root.resolve('edit.json')).then(file => {
                     const output = JSON.parse(file.value.toString()).output;
-                    if (this.aiStillStates.get(identity.key) === state && output?.width && output?.height) {
+                    if (this.aiStillStates.get(identity.key) === state && output?.width > 0 && output?.height > 0) {
+                        state!.canvas = { width: output.width, height: output.height };
+                    }
+                    if (this.aiStillStates.get(identity.key) === state && state!.aspect === initialAspect
+                        && !meta?.output?.aspect && !(cardWidth > 0 && cardHeight > 0) && output?.width && output?.height) {
                         state!.aspect = nearestStillAspect(output.width, output.height);
                         if (this.aiView === 'still') this.render();
                     }
@@ -6264,11 +6271,83 @@ export class AkariInspectorWidget extends BaseWidget {
             void Promise.resolve().then(() => this.probeStillRoute(identity.key));
         }
         appendAiStillPanel(this.body, state, {
-            change: () => this.render(),
+            change: aspect => { if (aspect && (this.generationStates.get(identity.key) === 'planned'
+                || (this.generationTabMeta.get(identity.key) as { status?: string } | undefined)?.status === 'planned')) {
+                void this.setEmptyFrameAspect(identity, aspect);
+            } this.render(); },
             probe: () => { void this.probeStillRoute(identity.key); },
             generate: () => { void this.startStillGeneration(identity); },
             cancel: () => { void this.cancelStillGeneration(identity); }
         });
+    }
+
+    protected async setEmptyFrameAspect(identity: { key: string; itemId: string; sourcePath: string }, aspect: StillAspect): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const state = this.aiStillStates.get(identity.key);
+        if (!root || !state) return;
+        const revision = state.liveAspectRevision = (state.liveAspectRevision ?? 0) + 1;
+        const snapshot = this.model.snapshot;
+        const target = snapshot?.kind === 'cut' && snapshot.itemId === identity.itemId
+            ? { kind: 'cut' as const, index: snapshot.index }
+            : (snapshot?.kind === 'layer' || snapshot?.kind === 'item') && snapshot.id === identity.itemId
+                ? { kind: 'item' as const, id: identity.itemId } : undefined;
+        const resolution = (this.generationTabMeta.get(identity.key) as { output?: { resolution?: string } } | undefined)
+            ?.output?.resolution;
+        const [cardWidth, cardHeight] = String(resolution ?? '').split('x').map(Number);
+        const oldSize = cardWidth > 0 && cardHeight > 0 ? { width: cardWidth, height: cardHeight } : state.canvas;
+        const canvas = state.canvas ?? oldSize;
+        const previous = snapshot?.kind === 'cut' || snapshot?.kind === 'layer' || snapshot?.kind === 'item'
+            ? snapshot.transform : undefined;
+        let liveScale: number | undefined;
+        if (target && oldSize && canvas) {
+            const nextSize = frameDimensions(aspect, canvas);
+            liveScale = frameAspectTransform(oldSize, nextSize, previous)?.scale ?? 1;
+            this.model.requestLivePreview?.({ target, field: 'scaleX', value: nextSize.width * liveScale / oldSize.width });
+            this.model.requestLivePreview?.({ target, field: 'scaleY', value: nextSize.height * liveScale / oldSize.height });
+        }
+        const clearLive = (): void => {
+            if (!target || liveScale === undefined || state.liveAspectRevision !== revision) return;
+            this.model.requestLivePreview?.({ target, field: 'scaleX', value: previous?.scaleX ?? previous?.scale ?? 1, clear: true });
+            this.model.requestLivePreview?.({ target, field: 'scaleY', value: previous?.scaleY ?? previous?.scale ?? 1, clear: true });
+        };
+        let committed = false;
+        try {
+            const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
+            const result = await this.layerAudioService.setEmptyFrameAspect({ projectRootUri: root.toString(),
+                itemId: identity.itemId, aspect });
+            if (state.aspect !== aspect || this.generationIdentity(this.model.snapshot)?.sourcePath !== identity.sourcePath) return;
+            const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+                const location = (widget as unknown as { location?: { root?: URI } }).location;
+                return !widget.isDisposed && location?.root?.toString() === root.toString();
+            }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
+            if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
+            await timeline.commitEditMutation('空の枠の画角を変更', doc => {
+                replaceStillInEdit(doc, identity.itemId, result.relativePath);
+                const item = doc.tracks.flatMap((track: any) => track.items ?? []).find((row: any) => row.id === identity.itemId);
+                if (result.transform) item.transform = result.transform;
+                return doc;
+            });
+            committed = true;
+            if (Number.isFinite(playhead) && playhead >= 0) {
+                const editUri = root.resolve('edit.json').normalizePath().toString();
+                await this.commandRegistry.executeCommand('akari.preview.seekOutput', {
+                    editUri, time: playhead, waitForReady: true
+                });
+                const restored = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
+                if (!Number.isFinite(restored) || Math.abs(restored - playhead) > 1e-3) {
+                    await this.commandRegistry.executeCommand('akari.timeline.seek', { seconds: playhead });
+                }
+            }
+            this.generationTabMeta.delete(identity.key);
+            this.generationStates.delete(identity.key);
+            const current = this.generationIdentity(this.model.snapshot);
+            if (current) void this.loadGeneration(current);
+        } catch (error) {
+            state.error = error instanceof Error ? error.message : String(error);
+            this.render();
+        } finally {
+            if (!committed) clearLive();
+        }
     }
 
     protected async probeStillRoute(key: string): Promise<void> {

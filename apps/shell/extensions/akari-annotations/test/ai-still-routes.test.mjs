@@ -229,7 +229,8 @@ test('キャンセルは公開ファイルを作らない', async () => {
 
 test('パネルは手段ごとの確認中と unknown の案内・作成可否を表示する', () => {
   class Node {
-    constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.value = ''; }
+    constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.value = ''; this.style = {}; }
+    append(...nodes) { this.children.push(...nodes); }
     appendChild(node) { this.children.push(node); return node; }
     setAttribute(name, value) { this.attributes.set(name, value); }
     addEventListener(name, callback) { this.listeners.set(name, callback); }

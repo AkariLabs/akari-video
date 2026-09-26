@@ -1,0 +1,2271 @@
+{
+  "phase": "after",
+  "status": "PASS",
+  "step": "cleanup",
+  "checks": [
+    {
+      "name": "V1 の上に描いた空の枠が幅 50%・中央（edit.json の変形）",
+      "pass": true,
+      "measured": {
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.25,
+            "y": 0.25,
+            "w": 0.5,
+            "h": 0.5,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.25,
+            "y": 0.25,
+            "w": 0.5,
+            "h": 0.5,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 0.25
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/02e001aa34b691c5fa29328741d68fa3019ec627f6c3b249ccee9b1c3c2ae185.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "0.5",
+            "scaleX": "0.5",
+            "scaleY": "0.5"
+          }
+        },
+        "item": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5
+          },
+          "sourcePath": "assets/generated/frame-1790439443406-YDyrpp.png"
+        }
+      }
+    },
+    {
+      "name": "9:16 を押すと 0.5 秒以内にプレビューの枠が 9:16 の形になる",
+      "pass": true,
+      "measured": {
+        "aspect": "9:16",
+        "playheadBefore": 1.5,
+        "playheadAfter": 1.5,
+        "transitions": [
+          {
+            "ms": 82,
+            "shape": "0.563 0.281x0.889"
+          }
+        ],
+        "pointerdownEpochMs": 1790439453649.5999,
+        "layerShapeChangedMs": 82,
+        "selectBoxShapeChangedMs": 2450,
+        "samples": 2353,
+        "before": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5
+          },
+          "sourcePath": "assets/generated/frame-1790439443406-YDyrpp.png"
+        },
+        "after": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8885233166386386
+          },
+          "sourcePath": "assets/generated/frame-1790439453713-U6Tic3.png"
+        },
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.3593180093420557,
+            "y": 0.05574000919040746,
+            "w": 0.28136393535568055,
+            "h": 0.8885198999121486,
+            "cx": 0.499999977019896,
+            "cy": 0.49999995914648176,
+            "aspect": 0.5629615631488828,
+            "area": 0.2499974556811175
+          },
+          "selectBox": {
+            "x": 0.35930440512048195,
+            "y": 0.05572289156626506,
+            "w": 0.2813441265060241,
+            "h": 0.8885123828647925,
+            "cx": 0.49997646837349397,
+            "cy": 0.49997908299866134,
+            "aspect": 0.5629266914638166,
+            "area": 0.2499777402468811
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/5e0094713af717752501e99b5b4febb69ef27bf43bdcda00ecf8c0fbb2159a59.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "0.8885233166386386",
+            "scaleX": "0.8885233166386386",
+            "scaleY": "0.8885233166386386"
+          }
+        },
+        "panelAspects": [
+          {
+            "aspect": "16:9",
+            "text": "16:9",
+            "pressed": "false",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 38,
+                "h": 21.4
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 26.1,
+                "h": 15
+              }
+            ]
+          },
+          {
+            "aspect": "9:16",
+            "text": "9:16",
+            "pressed": "true",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 17,
+                "h": 30
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 26.1,
+                "h": 15
+              }
+            ]
+          },
+          {
+            "aspect": "1:1",
+            "text": "1:1",
+            "pressed": "false",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 28,
+                "h": 28
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 15.7,
+                "h": 15
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "画角を押しても再生位置が変わらない",
+      "pass": true,
+      "measured": {
+        "before": 1.5,
+        "after": 1.5
+      }
+    },
+    {
+      "name": "9:16 でも面積 1/4・中央を保つ",
+      "pass": true,
+      "measured": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.3593180093420557,
+          "y": 0.05574000919040746,
+          "w": 0.28136393535568055,
+          "h": 0.8885198999121486,
+          "cx": 0.499999977019896,
+          "cy": 0.49999995914648176,
+          "aspect": 0.5629615631488828,
+          "area": 0.2499974556811175
+        },
+        "selectBox": {
+          "x": 0.35930440512048195,
+          "y": 0.05572289156626506,
+          "w": 0.2813441265060241,
+          "h": 0.8885123828647925,
+          "cx": 0.49997646837349397,
+          "cy": 0.49997908299866134,
+          "aspect": 0.5629266914638166,
+          "area": 0.2499777402468811
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/5e0094713af717752501e99b5b4febb69ef27bf43bdcda00ecf8c0fbb2159a59.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.8885233166386386",
+          "scaleX": "0.8885233166386386",
+          "scaleY": "0.8885233166386386"
+        }
+      }
+    },
+    {
+      "name": "専用パネルの戻るが「← ホーム」",
+      "pass": true,
+      "measured": {
+        "text": "← ホーム",
+        "title": null,
+        "aria": null
+      }
+    },
+    {
+      "name": "画角のボタンが比率どおりの図 + 数字（16:9 は横長・9:16 は縦長・1:1 は正方形）",
+      "pass": true,
+      "measured": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "shape": {
+            "tag": "span",
+            "cls": "akari-inspector-ai-still-aspect-picture",
+            "w": 38,
+            "h": 21.4
+          }
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "shape": {
+            "tag": "span",
+            "cls": "akari-inspector-ai-still-aspect-picture",
+            "w": 17,
+            "h": 30
+          }
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "shape": {
+            "tag": "span",
+            "cls": "akari-inspector-ai-still-aspect-picture",
+            "w": 28,
+            "h": 28
+          }
+        }
+      ]
+    },
+    {
+      "name": "1:1 を押すと 0.5 秒以内にプレビューの枠がその形になる",
+      "pass": true,
+      "measured": {
+        "aspect": "1:1",
+        "playheadBefore": 1.5,
+        "playheadAfter": 1.5,
+        "transitions": [
+          {
+            "ms": 99,
+            "shape": "1.000 0.375x0.667"
+          }
+        ],
+        "pointerdownEpochMs": 1790439458550.3,
+        "layerShapeChangedMs": 99,
+        "selectBoxShapeChangedMs": 2602,
+        "samples": 2334,
+        "before": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8885233166386386
+          },
+          "sourcePath": "assets/generated/frame-1790439453713-U6Tic3.png"
+        },
+        "after": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6666666666666667
+          },
+          "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+        },
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.3125,
+            "y": 0.16666666666666666,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.3125,
+            "y": 0.16666666666666666,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/07c786cc0e4f454fb7b92fa4a3b88a7b00c0e22ef4af57d5ccc99337993cc9ca.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "0.6666666666666667",
+            "scaleX": "0.6666666666666667",
+            "scaleY": "0.6666666666666667"
+          }
+        },
+        "panelAspects": [
+          {
+            "aspect": "16:9",
+            "text": "16:9",
+            "pressed": "false",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 38,
+                "h": 21.4
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 26.1,
+                "h": 15
+              }
+            ]
+          },
+          {
+            "aspect": "9:16",
+            "text": "9:16",
+            "pressed": "false",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 17,
+                "h": 30
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 26.1,
+                "h": 15
+              }
+            ]
+          },
+          {
+            "aspect": "1:1",
+            "text": "1:1",
+            "pressed": "true",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 28,
+                "h": 28
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 15.7,
+                "h": 15
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "1:1 を押しても再生位置が変わらない",
+      "pass": true,
+      "measured": {
+        "before": 1.5,
+        "after": 1.5
+      }
+    },
+    {
+      "name": "1:1 でも面積 1/4・中央を保つ",
+      "pass": true,
+      "measured": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "selectBox": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/07c786cc0e4f454fb7b92fa4a3b88a7b00c0e22ef4af57d5ccc99337993cc9ca.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.6666666666666667",
+          "scaleX": "0.6666666666666667",
+          "scaleY": "0.6666666666666667"
+        }
+      }
+    },
+    {
+      "name": "16:9 を押すと 0.5 秒以内にプレビューの枠がその形になる",
+      "pass": true,
+      "measured": {
+        "aspect": "16:9",
+        "playheadBefore": 1.5,
+        "playheadAfter": 1.5,
+        "transitions": [
+          {
+            "ms": 116,
+            "shape": "1.000 0.375x0.667"
+          },
+          {
+            "ms": 146,
+            "shape": "1.778 0.500x0.500"
+          }
+        ],
+        "pointerdownEpochMs": 1790439463336.8,
+        "layerShapeChangedMs": 146,
+        "selectBoxShapeChangedMs": 3117,
+        "samples": 2270,
+        "before": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6666666666666667
+          },
+          "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+        },
+        "after": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5
+          },
+          "sourcePath": "assets/generated/frame-1790439463470-eTzD9O.png"
+        },
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.25,
+            "y": 0.25,
+            "w": 0.5,
+            "h": 0.5,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.25,
+            "y": 0.25,
+            "w": 0.5,
+            "h": 0.5,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 0.25
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/5b4b3d2f3c786f00c4fd5a55bfd381f8273d577d86a80ef422054c1e19c5e075.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "0.5",
+            "scaleX": "0.5",
+            "scaleY": "0.5"
+          }
+        },
+        "panelAspects": [
+          {
+            "aspect": "16:9",
+            "text": "16:9",
+            "pressed": "true",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 38,
+                "h": 21.4
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 26.1,
+                "h": 15
+              }
+            ]
+          },
+          {
+            "aspect": "9:16",
+            "text": "9:16",
+            "pressed": "false",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 17,
+                "h": 30
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 26.1,
+                "h": 15
+              }
+            ]
+          },
+          {
+            "aspect": "1:1",
+            "text": "1:1",
+            "pressed": "false",
+            "label": null,
+            "w": 130,
+            "h": 60,
+            "shapes": [
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-picture",
+                "w": 28,
+                "h": 28
+              },
+              {
+                "tag": "span",
+                "cls": "akari-inspector-ai-still-aspect-label",
+                "w": 15.7,
+                "h": 15
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "16:9 を押しても再生位置が変わらない",
+      "pass": true,
+      "measured": {
+        "before": 1.5,
+        "after": 1.5
+      }
+    },
+    {
+      "name": "16:9 でも面積 1/4・中央を保つ",
+      "pass": true,
+      "measured": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.25,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "selectBox": {
+          "x": 0.25,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/5b4b3d2f3c786f00c4fd5a55bfd381f8273d577d86a80ef422054c1e19c5e075.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.5",
+          "scaleX": "0.5",
+          "scaleY": "0.5"
+        }
+      }
+    },
+    {
+      "name": "undo 1 回で 1 つ前の画角（1:1）に戻る（edit.json とプレビュー）",
+      "pass": true,
+      "measured": {
+        "beforeUndo": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5
+          },
+          "sourcePath": "assets/generated/frame-1790439463470-eTzD9O.png"
+        },
+        "undone": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6666666666666667
+          },
+          "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+        },
+        "expected": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6666666666666667
+          },
+          "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+        },
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.3125,
+            "y": 0.16666666666666666,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.3125,
+            "y": 0.16666666666666666,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/c77e14bd01631fb3b0619b4d9df718151be679bd210f3f6863787ab5c3efeeb8.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "0.6666666666666667",
+            "scaleX": "0.6666666666666667",
+            "scaleY": "0.6666666666666667"
+          }
+        },
+        "playheadBeforeUndo": 1.5,
+        "playheadAfterUndo": 0,
+        "undoNeededReseek": true
+      }
+    },
+    {
+      "name": "プレビューで枠をドラッグで動かせる（edit.json の位置が変わる）",
+      "pass": true,
+      "measured": {
+        "offset": {
+          "x": 221.9140625,
+          "y": 39,
+          "outer": {
+            "w": 404,
+            "h": 359,
+            "ax": 0,
+            "ay": 0
+          },
+          "host": {
+            "x": 221.9140625,
+            "y": 39,
+            "w": 404,
+            "h": 359
+          }
+        },
+        "canvasRect": {
+          "x": 36,
+          "y": 57.125,
+          "w": 332,
+          "h": 186.75
+        },
+        "start": {
+          "x": 423.9140625,
+          "y": 189.5
+        },
+        "end": {
+          "x": 357.5140625,
+          "y": 161.4875
+        },
+        "before": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6666666666666667
+          },
+          "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+        },
+        "geometryBefore": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.3125,
+            "y": 0.16666666666666666,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.3125,
+            "y": 0.16666666666666666,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/c77e14bd01631fb3b0619b4d9df718151be679bd210f3f6863787ab5c3efeeb8.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "0.6666666666666667",
+            "scaleX": "0.6666666666666667",
+            "scaleY": "0.6666666666666667"
+          }
+        },
+        "after": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": -359.99999999999994,
+            "y": -179.99999999999991,
+            "scale": 0.6666666666666667
+          },
+          "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+        },
+        "geometryAfter": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.125,
+            "y": 0,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.3125,
+            "cy": 0.3333333333333333,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.125,
+            "y": 0,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.3125,
+            "cy": 0.3333333333333333,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/c77e14bd01631fb3b0619b4d9df718151be679bd210f3f6863787ab5c3efeeb8.png",
+          "data": {
+            "x": "-359.99999999999994",
+            "y": "-179.99999999999991",
+            "scale": "0.6666666666666667",
+            "scaleX": "0.6666666666666667",
+            "scaleY": "0.6666666666666667"
+          }
+        }
+      }
+    },
+    {
+      "name": "動かした後に画角を変えても中央の位置と面積 1/4 が保たれる",
+      "pass": true,
+      "measured": {
+        "moved": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.125,
+            "y": 0,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.3125,
+            "cy": 0.3333333333333333,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.125,
+            "y": 0,
+            "w": 0.375,
+            "h": 0.6666666666666666,
+            "cx": 0.3125,
+            "cy": 0.3333333333333333,
+            "aspect": 1,
+            "area": 0.25
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/c77e14bd01631fb3b0619b4d9df718151be679bd210f3f6863787ab5c3efeeb8.png",
+          "data": {
+            "x": "-359.99999999999994",
+            "y": "-179.99999999999991",
+            "scale": "0.6666666666666667",
+            "scaleX": "0.6666666666666667",
+            "scaleY": "0.6666666666666667"
+          }
+        },
+        "after": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.17181803232215972,
+            "y": -0.1109266574762592,
+            "w": 0.2813639123755765,
+            "h": 0.8885198999121486,
+            "cx": 0.312499988509948,
+            "cy": 0.3333332924798151,
+            "aspect": 0.5629615171695882,
+            "area": 0.2499974352628378
+          },
+          "selectBox": {
+            "x": 0.17180440512048192,
+            "y": -0.11090194109772424,
+            "w": 0.2813441265060241,
+            "h": 0.8885123828647925,
+            "cx": 0.31247646837349397,
+            "cy": 0.33335425033467203,
+            "aspect": 0.5629266914638166,
+            "area": 0.2499777402468811
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:63053/asset/0d43e4ee255e278f09ba948d94462d5e63fd90ff6c36d8171dfedf3482c7eb9e.png",
+          "data": {
+            "x": "-359.99999999999994",
+            "y": "-179.99999999999991",
+            "scale": "0.8885233166386387",
+            "scaleX": "0.8885233166386387",
+            "scaleY": "0.8885233166386387"
+          }
+        }
+      }
+    },
+    {
+      "name": "動かした後（undo の後）に画角を押しても 0.5 秒以内に形が変わる",
+      "pass": false,
+      "measured": {
+        "ms": 2103,
+        "transitions": [
+          {
+            "ms": 55,
+            "shape": "0.317 0.211x1.185"
+          },
+          {
+            "ms": 2103,
+            "shape": "0.563 0.281x0.889"
+          }
+        ]
+      }
+    },
+    {
+      "name": "after: 下に何も無い一番下のトラックの空の枠は全画面",
+      "pass": true,
+      "measured": {
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": null,
+          "selectBox": null,
+          "cut": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 1
+          },
+          "cutSelectBox": null,
+          "src": null,
+          "data": null
+        },
+        "item": {
+          "id": "frame-2",
+          "trackId": "visual-main",
+          "trackIndex": 0,
+          "at": 105,
+          "duration": 30,
+          "transform": null,
+          "sourcePath": "assets/generated/frame-1790439487575-tTbscY.png"
+        }
+      }
+    },
+    {
+      "name": "映像タブを保存していても空の枠（V1・V2 とも）はホームで開く",
+      "pass": true,
+      "measured": {
+        "v1": {
+          "activeTab": "edit",
+          "header": "frame-1790439487575-tTbscY.png"
+        },
+        "v2": {
+          "activeTab": "edit",
+          "header": "frame-1790439481697-n6vuug.png"
+        }
+      }
+    },
+    {
+      "name": "after: 映像タブを保存した後のふつうの写真は映像タブで開く（今どおり）",
+      "pass": true,
+      "measured": {
+        "activeTab": "video",
+        "header": "photo.png"
+      }
+    },
+    {
+      "name": "ふつうの動画のホームに「まだありません」の補正の節が出ない",
+      "pass": true,
+      "measured": {
+        "sections": [
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "notYet": 0,
+        "correctionSection": false
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 19504,
+    "previewOpen": "\"opened\"",
+    "v2Frame": {
+      "id": "frame-1",
+      "trackId": "v1",
+      "trackIndex": 1,
+      "at": 15,
+      "duration": 75,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.5
+      },
+      "sourcePath": "assets/generated/frame-1790439443406-YDyrpp.png"
+    },
+    "previewReconnects": 7,
+    "v2FrameInitial": {
+      "canvas": {
+        "w": 332,
+        "h": 186.75
+      },
+      "layer": {
+        "x": 0.25,
+        "y": 0.25,
+        "w": 0.5,
+        "h": 0.5,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 0.25
+      },
+      "selectBox": {
+        "x": 0.25,
+        "y": 0.25,
+        "w": 0.5,
+        "h": 0.5,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 0.25
+      },
+      "cut": null,
+      "cutSelectBox": null,
+      "src": "http://127.0.0.1:63053/asset/02e001aa34b691c5fa29328741d68fa3019ec627f6c3b249ccee9b1c3c2ae185.png",
+      "data": {
+        "x": "0",
+        "y": "0",
+        "scale": "0.5",
+        "scaleX": "0.5",
+        "scaleY": "0.5"
+      }
+    },
+    "stillPanel": {
+      "tabs": [
+        {
+          "id": "edit",
+          "label": "ホーム",
+          "active": true
+        },
+        {
+          "id": "video",
+          "label": "映像",
+          "active": false
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false
+        }
+      ],
+      "activeTab": "edit",
+      "header": "frame-1790439443406-YDyrpp.png",
+      "sections": [],
+      "stillPanel": true,
+      "backText": "← ホーム",
+      "backTitle": null,
+      "backAria": null,
+      "notYet": 0,
+      "correctionSection": false,
+      "aspects": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "pressed": "true",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 38,
+              "h": 21.4
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 17,
+              "h": 30
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 15.7,
+              "h": 15
+            }
+          ]
+        }
+      ]
+    },
+    "press916": {
+      "aspect": "9:16",
+      "playheadBefore": 1.5,
+      "playheadAfter": 1.5,
+      "transitions": [
+        {
+          "ms": 82,
+          "shape": "0.563 0.281x0.889"
+        }
+      ],
+      "pointerdownEpochMs": 1790439453649.5999,
+      "layerShapeChangedMs": 82,
+      "selectBoxShapeChangedMs": 2450,
+      "samples": 2353,
+      "before": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.5
+        },
+        "sourcePath": "assets/generated/frame-1790439443406-YDyrpp.png"
+      },
+      "after": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.8885233166386386
+        },
+        "sourcePath": "assets/generated/frame-1790439453713-U6Tic3.png"
+      },
+      "geometry": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.3593180093420557,
+          "y": 0.05574000919040746,
+          "w": 0.28136393535568055,
+          "h": 0.8885198999121486,
+          "cx": 0.499999977019896,
+          "cy": 0.49999995914648176,
+          "aspect": 0.5629615631488828,
+          "area": 0.2499974556811175
+        },
+        "selectBox": {
+          "x": 0.35930440512048195,
+          "y": 0.05572289156626506,
+          "w": 0.2813441265060241,
+          "h": 0.8885123828647925,
+          "cx": 0.49997646837349397,
+          "cy": 0.49997908299866134,
+          "aspect": 0.5629266914638166,
+          "area": 0.2499777402468811
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/5e0094713af717752501e99b5b4febb69ef27bf43bdcda00ecf8c0fbb2159a59.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.8885233166386386",
+          "scaleX": "0.8885233166386386",
+          "scaleY": "0.8885233166386386"
+        }
+      },
+      "panelAspects": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 38,
+              "h": 21.4
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "pressed": "true",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 17,
+              "h": 30
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 15.7,
+              "h": 15
+            }
+          ]
+        }
+      ]
+    },
+    "backLabel": {
+      "text": "← ホーム",
+      "title": null,
+      "aria": null
+    },
+    "aspectShapes": [
+      {
+        "aspect": "16:9",
+        "text": "16:9",
+        "shape": {
+          "tag": "span",
+          "cls": "akari-inspector-ai-still-aspect-picture",
+          "w": 38,
+          "h": 21.4
+        }
+      },
+      {
+        "aspect": "9:16",
+        "text": "9:16",
+        "shape": {
+          "tag": "span",
+          "cls": "akari-inspector-ai-still-aspect-picture",
+          "w": 17,
+          "h": 30
+        }
+      },
+      {
+        "aspect": "1:1",
+        "text": "1:1",
+        "shape": {
+          "tag": "span",
+          "cls": "akari-inspector-ai-still-aspect-picture",
+          "w": 28,
+          "h": 28
+        }
+      }
+    ],
+    "press11": {
+      "aspect": "1:1",
+      "playheadBefore": 1.5,
+      "playheadAfter": 1.5,
+      "transitions": [
+        {
+          "ms": 99,
+          "shape": "1.000 0.375x0.667"
+        }
+      ],
+      "pointerdownEpochMs": 1790439458550.3,
+      "layerShapeChangedMs": 99,
+      "selectBoxShapeChangedMs": 2602,
+      "samples": 2334,
+      "before": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.8885233166386386
+        },
+        "sourcePath": "assets/generated/frame-1790439453713-U6Tic3.png"
+      },
+      "after": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6666666666666667
+        },
+        "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+      },
+      "geometry": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "selectBox": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/07c786cc0e4f454fb7b92fa4a3b88a7b00c0e22ef4af57d5ccc99337993cc9ca.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.6666666666666667",
+          "scaleX": "0.6666666666666667",
+          "scaleY": "0.6666666666666667"
+        }
+      },
+      "panelAspects": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 38,
+              "h": 21.4
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 17,
+              "h": 30
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "pressed": "true",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 15.7,
+              "h": 15
+            }
+          ]
+        }
+      ]
+    },
+    "press169": {
+      "aspect": "16:9",
+      "playheadBefore": 1.5,
+      "playheadAfter": 1.5,
+      "transitions": [
+        {
+          "ms": 116,
+          "shape": "1.000 0.375x0.667"
+        },
+        {
+          "ms": 146,
+          "shape": "1.778 0.500x0.500"
+        }
+      ],
+      "pointerdownEpochMs": 1790439463336.8,
+      "layerShapeChangedMs": 146,
+      "selectBoxShapeChangedMs": 3117,
+      "samples": 2270,
+      "before": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6666666666666667
+        },
+        "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+      },
+      "after": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.5
+        },
+        "sourcePath": "assets/generated/frame-1790439463470-eTzD9O.png"
+      },
+      "geometry": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.25,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "selectBox": {
+          "x": 0.25,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/5b4b3d2f3c786f00c4fd5a55bfd381f8273d577d86a80ef422054c1e19c5e075.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.5",
+          "scaleX": "0.5",
+          "scaleY": "0.5"
+        }
+      },
+      "panelAspects": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "pressed": "true",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 38,
+              "h": 21.4
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 17,
+              "h": 30
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 15.7,
+              "h": 15
+            }
+          ]
+        }
+      ]
+    },
+    "shapeChangeMs": [
+      {
+        "aspect": "9:16",
+        "layerMs": 82,
+        "selectBoxMs": 2450
+      },
+      {
+        "aspect": "1:1",
+        "layerMs": 99,
+        "selectBoxMs": 2602
+      },
+      {
+        "aspect": "16:9",
+        "layerMs": 146,
+        "selectBoxMs": 3117
+      }
+    ],
+    "undo": {
+      "beforeUndo": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.5
+        },
+        "sourcePath": "assets/generated/frame-1790439463470-eTzD9O.png"
+      },
+      "undone": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6666666666666667
+        },
+        "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+      },
+      "expected": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6666666666666667
+        },
+        "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+      },
+      "geometry": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "selectBox": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/c77e14bd01631fb3b0619b4d9df718151be679bd210f3f6863787ab5c3efeeb8.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.6666666666666667",
+          "scaleX": "0.6666666666666667",
+          "scaleY": "0.6666666666666667"
+        }
+      },
+      "playheadBeforeUndo": 1.5,
+      "playheadAfterUndo": 0,
+      "undoNeededReseek": true
+    },
+    "drag": {
+      "offset": {
+        "x": 221.9140625,
+        "y": 39,
+        "outer": {
+          "w": 404,
+          "h": 359,
+          "ax": 0,
+          "ay": 0
+        },
+        "host": {
+          "x": 221.9140625,
+          "y": 39,
+          "w": 404,
+          "h": 359
+        }
+      },
+      "canvasRect": {
+        "x": 36,
+        "y": 57.125,
+        "w": 332,
+        "h": 186.75
+      },
+      "start": {
+        "x": 423.9140625,
+        "y": 189.5
+      },
+      "end": {
+        "x": 357.5140625,
+        "y": 161.4875
+      },
+      "before": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6666666666666667
+        },
+        "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+      },
+      "geometryBefore": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "selectBox": {
+          "x": 0.3125,
+          "y": 0.16666666666666666,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/c77e14bd01631fb3b0619b4d9df718151be679bd210f3f6863787ab5c3efeeb8.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "0.6666666666666667",
+          "scaleX": "0.6666666666666667",
+          "scaleY": "0.6666666666666667"
+        }
+      },
+      "after": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": -359.99999999999994,
+          "y": -179.99999999999991,
+          "scale": 0.6666666666666667
+        },
+        "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+      },
+      "geometryAfter": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.125,
+          "y": 0,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.3125,
+          "cy": 0.3333333333333333,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "selectBox": {
+          "x": 0.125,
+          "y": 0,
+          "w": 0.375,
+          "h": 0.6666666666666666,
+          "cx": 0.3125,
+          "cy": 0.3333333333333333,
+          "aspect": 1,
+          "area": 0.25
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/c77e14bd01631fb3b0619b4d9df718151be679bd210f3f6863787ab5c3efeeb8.png",
+        "data": {
+          "x": "-359.99999999999994",
+          "y": "-179.99999999999991",
+          "scale": "0.6666666666666667",
+          "scaleX": "0.6666666666666667",
+          "scaleY": "0.6666666666666667"
+        }
+      }
+    },
+    "movedPress916": {
+      "aspect": "9:16",
+      "playheadBefore": 1.5,
+      "playheadAfter": 1.5,
+      "transitions": [
+        {
+          "ms": 55,
+          "shape": "0.317 0.211x1.185"
+        },
+        {
+          "ms": 2103,
+          "shape": "0.563 0.281x0.889"
+        }
+      ],
+      "pointerdownEpochMs": 1790439481650.5999,
+      "layerShapeChangedMs": 2103,
+      "selectBoxShapeChangedMs": 2103,
+      "samples": 6838,
+      "before": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": -359.99999999999994,
+          "y": -179.99999999999991,
+          "scale": 0.6666666666666667
+        },
+        "sourcePath": "assets/generated/frame-1790439458656-TR4Wkt.png"
+      },
+      "after": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": -359.99999999999994,
+          "y": -179.99999999999991,
+          "scale": 0.8885233166386387
+        },
+        "sourcePath": "assets/generated/frame-1790439481697-n6vuug.png"
+      },
+      "geometry": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0.17181803232215972,
+          "y": -0.1109266574762592,
+          "w": 0.2813639123755765,
+          "h": 0.8885198999121486,
+          "cx": 0.312499988509948,
+          "cy": 0.3333332924798151,
+          "aspect": 0.5629615171695882,
+          "area": 0.2499974352628378
+        },
+        "selectBox": {
+          "x": 0.17180440512048192,
+          "y": -0.11090194109772424,
+          "w": 0.2813441265060241,
+          "h": 0.8885123828647925,
+          "cx": 0.31247646837349397,
+          "cy": 0.33335425033467203,
+          "aspect": 0.5629266914638166,
+          "area": 0.2499777402468811
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:63053/asset/0d43e4ee255e278f09ba948d94462d5e63fd90ff6c36d8171dfedf3482c7eb9e.png",
+        "data": {
+          "x": "-359.99999999999994",
+          "y": "-179.99999999999991",
+          "scale": "0.8885233166386387",
+          "scaleX": "0.8885233166386387",
+          "scaleY": "0.8885233166386387"
+        }
+      },
+      "panelAspects": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 38,
+              "h": 21.4
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "pressed": "true",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 17,
+              "h": 30
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 26.1,
+              "h": 15
+            }
+          ]
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "pressed": "false",
+          "label": null,
+          "w": 130,
+          "h": 60,
+          "shapes": [
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-picture",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "tag": "span",
+              "cls": "akari-inspector-ai-still-aspect-label",
+              "w": 15.7,
+              "h": 15
+            }
+          ]
+        }
+      ]
+    },
+    "v1Frame": {
+      "id": "frame-2",
+      "trackId": "visual-main",
+      "trackIndex": 0,
+      "at": 105,
+      "duration": 30,
+      "transform": null,
+      "sourcePath": "assets/generated/frame-1790439487575-tTbscY.png"
+    },
+    "v1FrameGeometry": {
+      "canvas": {
+        "w": 332,
+        "h": 186.75
+      },
+      "layer": null,
+      "selectBox": null,
+      "cut": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 1
+      },
+      "cutSelectBox": null,
+      "src": null,
+      "data": null
+    },
+    "tabForV1FrameAfterVideoTab": {
+      "activeTab": "edit",
+      "header": "frame-1790439487575-tTbscY.png"
+    },
+    "tabForPhotoAfterVideoTab": {
+      "activeTab": "video",
+      "header": "photo.png"
+    },
+    "tabForV2FrameAfterVideoTab": {
+      "activeTab": "edit",
+      "header": "frame-1790439481697-n6vuug.png"
+    },
+    "videoHome": {
+      "sections": [
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ],
+      "notYet": 0,
+      "correctionSection": false
+    }
+  },
+  "clicks": [
+    {
+      "name": "draw V2 frame",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "draw V1 gap frame",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open video tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-2",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-photo",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-1",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open video tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-1",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open edit tab",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-after-v2-frame-preview.png",
+      "bytes": 454525
+    },
+    {
+      "name": "02-after-pressed-9x16-preview.png",
+      "bytes": 344302
+    },
+    {
+      "name": "04-after-still-panel-back-and-aspects.png",
+      "bytes": 344302
+    },
+    {
+      "name": "07b-after-aspect-1x1.png",
+      "bytes": 339835
+    },
+    {
+      "name": "07c-after-aspect-16x9.png",
+      "bytes": 337964
+    },
+    {
+      "name": "07a-after-aspect-9x16.png",
+      "copyOf": "02-after-pressed-9x16-preview.png"
+    },
+    {
+      "name": "07d-after-one-undo.png",
+      "bytes": 331447
+    },
+    {
+      "name": "08a-after-moved-frame.png",
+      "bytes": 341132
+    },
+    {
+      "name": "08b-after-moved-then-9x16.png",
+      "bytes": 337103
+    },
+    {
+      "name": "06-after-bottom-track-frame-fullscreen.png",
+      "bytes": 446713
+    },
+    {
+      "name": "03-after-empty-frame-tab-video-tab-saved.png",
+      "bytes": 445648
+    },
+    {
+      "name": "05-after-video-home.png",
+      "bytes": 405043
+    }
+  ]
+}

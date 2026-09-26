@@ -17,10 +17,11 @@ export function rememberStillRoute(route: StillRoute): void {
 export interface AiStillState {
     prompt: string; aspect: StillAspect; routeId?: StillRoute; routes?: ImageRouteState[]; route?: ImageRouteState; probing: boolean;
     probingRoutes?: Set<StillRoute>;
+    canvas?: { width: number; height: number }; liveAspectRevision?: number;
     running: boolean; startedAt?: number; error?: string; mismatch?: string;
 }
 export interface AiStillActions {
-    change(): void; probe(): void; generate(): void; cancel(): void;
+    change(aspect?: StillAspect): void; probe(): void; generate(): void; cancel(): void;
 }
 
 export function nearestStillAspect(width: number, height: number): StillAspect {
@@ -107,11 +108,14 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     panel.appendChild(make('div', 'akari-inspector-ai-still-label', '画角'));
     const aspects = make('div', 'akari-inspector-ai-still-aspects');
     for (const aspect of ['16:9', '9:16', '1:1'] as const) {
-        const button = make('button', 'akari-inspector-ai-still-aspect', aspect);
+        const button = make('button', 'akari-inspector-ai-still-aspect');
         button.type = 'button';
         button.setAttribute('data-akari-inspector-ai-aspect', aspect);
         button.setAttribute('aria-pressed', String(state.aspect === aspect));
-        button.addEventListener('click', () => { state.aspect = aspect; actions.change(); });
+        const picture = make('span', 'akari-inspector-ai-still-aspect-picture');
+        picture.style.aspectRatio = aspect.replace(':', ' / ');
+        button.append(picture, make('span', 'akari-inspector-ai-still-aspect-label', aspect));
+        button.addEventListener('click', () => { state.aspect = aspect; actions.change(aspect); });
         aspects.appendChild(button);
     }
     panel.appendChild(aspects);

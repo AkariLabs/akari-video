@@ -114,7 +114,7 @@ export function appendAiBack(parent: HTMLElement, title: string, back: () => voi
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'akari-inspector-ai-back';
-    button.textContent = '← 編集';
+    button.textContent = '← ホーム';
     button.addEventListener('click', back);
     const heading = document.createElement('h3');
     heading.className = 'akari-inspector-ai-panel-title';

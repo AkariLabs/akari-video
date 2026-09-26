@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { insertTrack, insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
+import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
 
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
 const start = source.indexOf('    async commitEmptyFrame(');
 const end = source.indexOf('    onStripPointerDown(', start);
-const Widget = new Function('edit_v2_mutations_1', 'akari_annotations_commands_2',
+const Widget = new Function('edit_v2_mutations_1', 'akari_annotations_commands_2', 'frame_geometry_1',
   `return class { ${source.slice(start, end)} }`)(
-  { insertTrack, insertItem, indexEditV2Items }, { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' });
+  { insertTrack, insertItem, indexEditV2Items }, { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' }, { emptyFrameTransform });
 
 function fixture(service) {
   let doc = { version: 2, output: { fps: 30 }, sources: [], tracks: [

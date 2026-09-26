@@ -10,12 +10,13 @@ import { plannedStillMeta, withNextVideoDraft } from '../../../../../packages/ge
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 import { insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
 import { timelineGapAt } from '../lib/common/timeline-gap.js';
+import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
 import { describeNextDraft } from '@akari-video/edit-store';
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
 const from = source.indexOf('    gapSnapshot('), to = source.indexOf('    async commitEmptyFrame(', from);
-const Widget = new Function('timeline_gap_1', 'edit_v2_mutations_1', 'buffer_1', 'akari_annotations_commands_2',
+const Widget = new Function('timeline_gap_1', 'edit_v2_mutations_1', 'buffer_1', 'akari_annotations_commands_2', 'frame_geometry_1',
   `return class { ${source.slice(from, to)} }`)({ timelineGapAt }, { insertItem, indexEditV2Items },
-  { BinaryBuffer: { fromString: s => s } }, { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' });
+  { BinaryBuffer: { fromString: s => s } }, { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' }, { emptyFrameTransform });
 function fixture(fail) {
   let doc = { version: 2, output: { fps: 30 }, sources: [{ id: 'a', path: 'assets/a.mp4' }, { id: 'b', path: 'assets/b.mp4' }],
     tracks: [{ id: 'v', lane: 'visual', items: [

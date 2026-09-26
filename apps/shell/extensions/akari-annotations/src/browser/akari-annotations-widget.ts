@@ -201,6 +201,7 @@ import {
     timelineDurationSeconds
 } from '../common/edit-store';
 import { materialOverlapInsertIndex } from '../common/material-drop-overlap';
+import { emptyFrameTransform } from './inspector/frame-geometry';
 import {
     EditV2Document,
     ItemLocation,
@@ -18168,8 +18169,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 itemId = `gap-${serial}`;
                 const sourceId = `gap-src-${serial}`;
                 sources.push({ id: sourceId, path: image.relativePath });
+                const transform = emptyFrameTransform(doc.tracks as Array<any>, gap.trackId,
+                    gap.startFrames, gap.endFrames - gap.startFrames);
                 return insertV2Item({ ...doc, sources }, gap.trackId, { id: itemId, name: 'あいだを生成',
                     at: gap.startFrames, duration: gap.endFrames - gap.startFrames,
+                    ...(transform ? { transform } : {}),
                     source: { kind: 'media', src: sourceId, in: 0, out: duration } });
             });
             const index = this.cutItemIds.indexOf(itemId);
@@ -18223,10 +18227,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 itemId = `frame-${serial}`;
                 const sourceId = `frame-src-${serial}`;
                 sources.push({ id: sourceId, path: image.relativePath });
+                const transform = emptyFrameTransform(next.tracks as Array<any>, trackId, range.at, range.duration);
                 return insertV2Item({ ...next, sources }, trackId, {
                     id: itemId, name: destination.lane === 'audio' ? '空の枠（音）' : '空の枠',
                     ...(destination.lane === 'audio' ? { role: 'narration' } : {}),
                     at: range.at, duration: range.duration,
+                    ...(transform ? { transform } : {}),
                     source: { kind: 'media', src: sourceId, in: 0, out: range.duration / fps }
                 });
             });

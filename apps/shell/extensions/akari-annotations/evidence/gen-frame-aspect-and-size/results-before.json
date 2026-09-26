@@ -1,0 +1,867 @@
+{
+  "phase": "before",
+  "status": "PASS",
+  "step": "cleanup",
+  "checks": [
+    {
+      "name": "BEFORE: V1 の上の空の枠がキャンバス全面（再現）",
+      "pass": true,
+      "measured": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 1
+        },
+        "selectBox": {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 1
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:62854/asset/732fe30e3048fc927abaa8c8444124581ef07c64bd7c047f08ef4326aacaccb7.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "1",
+          "scaleX": "1",
+          "scaleY": "1"
+        }
+      }
+    },
+    {
+      "name": "BEFORE: 9:16 を押してもプレビューの枠は変わらない（再現）",
+      "pass": true,
+      "measured": {
+        "aspect": "9:16",
+        "playheadBefore": 1.5,
+        "playheadAfter": 1.5,
+        "transitions": [
+          {
+            "ms": 151,
+            "shape": "1.778 1.000x1.000"
+          }
+        ],
+        "pointerdownEpochMs": 1790439387673.2,
+        "layerShapeChangedMs": null,
+        "selectBoxShapeChangedMs": null,
+        "samples": 3459,
+        "before": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": null,
+          "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+        },
+        "after": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": null,
+          "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+        },
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 1
+          },
+          "selectBox": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 1
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:62854/asset/732fe30e3048fc927abaa8c8444124581ef07c64bd7c047f08ef4326aacaccb7.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "1",
+            "scaleX": "1",
+            "scaleY": "1"
+          }
+        },
+        "panelAspects": [
+          {
+            "aspect": "16:9",
+            "text": "16:9",
+            "pressed": "false",
+            "label": null,
+            "w": 46,
+            "h": 27,
+            "shapes": []
+          },
+          {
+            "aspect": "9:16",
+            "text": "9:16",
+            "pressed": "true",
+            "label": null,
+            "w": 46,
+            "h": 27,
+            "shapes": []
+          },
+          {
+            "aspect": "1:1",
+            "text": "1:1",
+            "pressed": "false",
+            "label": null,
+            "w": 36,
+            "h": 27,
+            "shapes": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "BEFORE: 戻るの文言は「← 編集」（再現）",
+      "pass": true,
+      "measured": {
+        "text": "← 編集",
+        "title": null,
+        "aria": null
+      }
+    },
+    {
+      "name": "before: 下に何も無い一番下のトラックの空の枠は全画面",
+      "pass": true,
+      "measured": {
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": null,
+          "selectBox": null,
+          "cut": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 1
+          },
+          "cutSelectBox": null,
+          "src": null,
+          "data": null
+        },
+        "item": {
+          "id": "frame-2",
+          "trackId": "visual-main",
+          "trackIndex": 0,
+          "at": 105,
+          "duration": 30,
+          "transform": null,
+          "sourcePath": "assets/generated/frame-1790439394155-8dL8GW.png"
+        }
+      }
+    },
+    {
+      "name": "BEFORE: 映像タブを使った後は空の枠でも映像タブで開く（再現）",
+      "pass": true,
+      "measured": {
+        "electronPid": 9810,
+        "previewOpen": "\"opened\"",
+        "v2Frame": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": null,
+          "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+        },
+        "previewReconnects": 2,
+        "v2FrameInitial": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 1
+          },
+          "selectBox": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 1
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:62854/asset/732fe30e3048fc927abaa8c8444124581ef07c64bd7c047f08ef4326aacaccb7.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "1",
+            "scaleX": "1",
+            "scaleY": "1"
+          }
+        },
+        "stillPanel": {
+          "tabs": [
+            {
+              "id": "edit",
+              "label": "ホーム",
+              "active": true
+            },
+            {
+              "id": "video",
+              "label": "映像",
+              "active": false
+            },
+            {
+              "id": "adjust",
+              "label": "色",
+              "active": false
+            },
+            {
+              "id": "audio",
+              "label": "音声",
+              "active": false
+            },
+            {
+              "id": "motion",
+              "label": "動き",
+              "active": false
+            },
+            {
+              "id": "info",
+              "label": "情報",
+              "active": false
+            }
+          ],
+          "activeTab": "edit",
+          "header": "frame-1790439372448-beYexF.png",
+          "sections": [],
+          "stillPanel": true,
+          "backText": "← 編集",
+          "backTitle": null,
+          "backAria": null,
+          "notYet": 0,
+          "correctionSection": false,
+          "aspects": [
+            {
+              "aspect": "16:9",
+              "text": "16:9",
+              "pressed": "true",
+              "label": null,
+              "w": 46,
+              "h": 27,
+              "shapes": []
+            },
+            {
+              "aspect": "9:16",
+              "text": "9:16",
+              "pressed": "false",
+              "label": null,
+              "w": 46,
+              "h": 27,
+              "shapes": []
+            },
+            {
+              "aspect": "1:1",
+              "text": "1:1",
+              "pressed": "false",
+              "label": null,
+              "w": 36,
+              "h": 27,
+              "shapes": []
+            }
+          ]
+        },
+        "press916": {
+          "aspect": "9:16",
+          "playheadBefore": 1.5,
+          "playheadAfter": 1.5,
+          "transitions": [
+            {
+              "ms": 151,
+              "shape": "1.778 1.000x1.000"
+            }
+          ],
+          "pointerdownEpochMs": 1790439387673.2,
+          "layerShapeChangedMs": null,
+          "selectBoxShapeChangedMs": null,
+          "samples": 3459,
+          "before": {
+            "id": "frame-1",
+            "trackId": "v1",
+            "trackIndex": 1,
+            "at": 15,
+            "duration": 75,
+            "transform": null,
+            "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+          },
+          "after": {
+            "id": "frame-1",
+            "trackId": "v1",
+            "trackIndex": 1,
+            "at": 15,
+            "duration": 75,
+            "transform": null,
+            "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+          },
+          "geometry": {
+            "canvas": {
+              "w": 332,
+              "h": 186.75
+            },
+            "layer": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1,
+              "cx": 0.5,
+              "cy": 0.5,
+              "aspect": 1.7777777777777777,
+              "area": 1
+            },
+            "selectBox": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1,
+              "cx": 0.5,
+              "cy": 0.5,
+              "aspect": 1.7777777777777777,
+              "area": 1
+            },
+            "cut": null,
+            "cutSelectBox": null,
+            "src": "http://127.0.0.1:62854/asset/732fe30e3048fc927abaa8c8444124581ef07c64bd7c047f08ef4326aacaccb7.png",
+            "data": {
+              "x": "0",
+              "y": "0",
+              "scale": "1",
+              "scaleX": "1",
+              "scaleY": "1"
+            }
+          },
+          "panelAspects": [
+            {
+              "aspect": "16:9",
+              "text": "16:9",
+              "pressed": "false",
+              "label": null,
+              "w": 46,
+              "h": 27,
+              "shapes": []
+            },
+            {
+              "aspect": "9:16",
+              "text": "9:16",
+              "pressed": "true",
+              "label": null,
+              "w": 46,
+              "h": 27,
+              "shapes": []
+            },
+            {
+              "aspect": "1:1",
+              "text": "1:1",
+              "pressed": "false",
+              "label": null,
+              "w": 36,
+              "h": 27,
+              "shapes": []
+            }
+          ]
+        },
+        "backLabel": {
+          "text": "← 編集",
+          "title": null,
+          "aria": null
+        },
+        "v1Frame": {
+          "id": "frame-2",
+          "trackId": "visual-main",
+          "trackIndex": 0,
+          "at": 105,
+          "duration": 30,
+          "transform": null,
+          "sourcePath": "assets/generated/frame-1790439394155-8dL8GW.png"
+        },
+        "v1FrameGeometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": null,
+          "selectBox": null,
+          "cut": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 1
+          },
+          "cutSelectBox": null,
+          "src": null,
+          "data": null
+        },
+        "tabForV1FrameAfterVideoTab": {
+          "activeTab": "video",
+          "header": "frame-1790439394155-8dL8GW.png"
+        },
+        "tabForPhotoAfterVideoTab": {
+          "activeTab": "video",
+          "header": "photo.png"
+        },
+        "tabForV2FrameAfterVideoTab": {
+          "activeTab": "video",
+          "header": "frame-1790439372448-beYexF.png"
+        },
+        "videoHome": {
+          "sections": [
+            "edit-correction",
+            "edit-alternatives",
+            "edit-refine",
+            "home-tune"
+          ],
+          "notYet": 1,
+          "correctionSection": true
+        }
+      }
+    },
+    {
+      "name": "before: 映像タブを保存した後のふつうの写真は映像タブで開く（今どおり）",
+      "pass": true,
+      "measured": {
+        "activeTab": "video",
+        "header": "photo.png"
+      }
+    },
+    {
+      "name": "BEFORE: ふつうの動画のホームに「まだありません」の補正の節が出る（再現）",
+      "pass": true,
+      "measured": {
+        "sections": [
+          "edit-correction",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "notYet": 1,
+        "correctionSection": true
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 9810,
+    "previewOpen": "\"opened\"",
+    "v2Frame": {
+      "id": "frame-1",
+      "trackId": "v1",
+      "trackIndex": 1,
+      "at": 15,
+      "duration": 75,
+      "transform": null,
+      "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+    },
+    "previewReconnects": 2,
+    "v2FrameInitial": {
+      "canvas": {
+        "w": 332,
+        "h": 186.75
+      },
+      "layer": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 1
+      },
+      "selectBox": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 1
+      },
+      "cut": null,
+      "cutSelectBox": null,
+      "src": "http://127.0.0.1:62854/asset/732fe30e3048fc927abaa8c8444124581ef07c64bd7c047f08ef4326aacaccb7.png",
+      "data": {
+        "x": "0",
+        "y": "0",
+        "scale": "1",
+        "scaleX": "1",
+        "scaleY": "1"
+      }
+    },
+    "stillPanel": {
+      "tabs": [
+        {
+          "id": "edit",
+          "label": "ホーム",
+          "active": true
+        },
+        {
+          "id": "video",
+          "label": "映像",
+          "active": false
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false
+        }
+      ],
+      "activeTab": "edit",
+      "header": "frame-1790439372448-beYexF.png",
+      "sections": [],
+      "stillPanel": true,
+      "backText": "← 編集",
+      "backTitle": null,
+      "backAria": null,
+      "notYet": 0,
+      "correctionSection": false,
+      "aspects": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "pressed": "true",
+          "label": null,
+          "w": 46,
+          "h": 27,
+          "shapes": []
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "pressed": "false",
+          "label": null,
+          "w": 46,
+          "h": 27,
+          "shapes": []
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "pressed": "false",
+          "label": null,
+          "w": 36,
+          "h": 27,
+          "shapes": []
+        }
+      ]
+    },
+    "press916": {
+      "aspect": "9:16",
+      "playheadBefore": 1.5,
+      "playheadAfter": 1.5,
+      "transitions": [
+        {
+          "ms": 151,
+          "shape": "1.778 1.000x1.000"
+        }
+      ],
+      "pointerdownEpochMs": 1790439387673.2,
+      "layerShapeChangedMs": null,
+      "selectBoxShapeChangedMs": null,
+      "samples": 3459,
+      "before": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": null,
+        "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+      },
+      "after": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": null,
+        "sourcePath": "assets/generated/frame-1790439372448-beYexF.png"
+      },
+      "geometry": {
+        "canvas": {
+          "w": 332,
+          "h": 186.75
+        },
+        "layer": {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 1
+        },
+        "selectBox": {
+          "x": 0,
+          "y": 0,
+          "w": 1,
+          "h": 1,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 1
+        },
+        "cut": null,
+        "cutSelectBox": null,
+        "src": "http://127.0.0.1:62854/asset/732fe30e3048fc927abaa8c8444124581ef07c64bd7c047f08ef4326aacaccb7.png",
+        "data": {
+          "x": "0",
+          "y": "0",
+          "scale": "1",
+          "scaleX": "1",
+          "scaleY": "1"
+        }
+      },
+      "panelAspects": [
+        {
+          "aspect": "16:9",
+          "text": "16:9",
+          "pressed": "false",
+          "label": null,
+          "w": 46,
+          "h": 27,
+          "shapes": []
+        },
+        {
+          "aspect": "9:16",
+          "text": "9:16",
+          "pressed": "true",
+          "label": null,
+          "w": 46,
+          "h": 27,
+          "shapes": []
+        },
+        {
+          "aspect": "1:1",
+          "text": "1:1",
+          "pressed": "false",
+          "label": null,
+          "w": 36,
+          "h": 27,
+          "shapes": []
+        }
+      ]
+    },
+    "backLabel": {
+      "text": "← 編集",
+      "title": null,
+      "aria": null
+    },
+    "v1Frame": {
+      "id": "frame-2",
+      "trackId": "visual-main",
+      "trackIndex": 0,
+      "at": 105,
+      "duration": 30,
+      "transform": null,
+      "sourcePath": "assets/generated/frame-1790439394155-8dL8GW.png"
+    },
+    "v1FrameGeometry": {
+      "canvas": {
+        "w": 332,
+        "h": 186.75
+      },
+      "layer": null,
+      "selectBox": null,
+      "cut": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 1
+      },
+      "cutSelectBox": null,
+      "src": null,
+      "data": null
+    },
+    "tabForV1FrameAfterVideoTab": {
+      "activeTab": "video",
+      "header": "frame-1790439394155-8dL8GW.png"
+    },
+    "tabForPhotoAfterVideoTab": {
+      "activeTab": "video",
+      "header": "photo.png"
+    },
+    "tabForV2FrameAfterVideoTab": {
+      "activeTab": "video",
+      "header": "frame-1790439372448-beYexF.png"
+    },
+    "videoHome": {
+      "sections": [
+        "edit-correction",
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ],
+      "notYet": 1,
+      "correctionSection": true
+    }
+  },
+  "clicks": [
+    {
+      "name": "draw V2 frame",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "draw V1 gap frame",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open video tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-2",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-photo",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-1",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open video tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select frame-1",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select clip-video",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open edit tab",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-before-v2-frame-preview.png",
+      "bytes": 400748
+    },
+    {
+      "name": "02-before-pressed-9x16-preview.png",
+      "bytes": 283245
+    },
+    {
+      "name": "04-before-still-panel-back-and-aspects.png",
+      "bytes": 283245
+    },
+    {
+      "name": "06-before-bottom-track-frame-fullscreen.png",
+      "bytes": 408639
+    },
+    {
+      "name": "03-before-empty-frame-tab-video-tab-saved.png",
+      "bytes": 279337
+    },
+    {
+      "name": "05-before-video-home.png",
+      "bytes": 367331
+    }
+  ]
+}

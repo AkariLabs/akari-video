@@ -907,6 +907,9 @@ export interface AkariAnnotationsService {
     createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
         relativePath: string; sha256: string; width: number; height: number; renderer: string;
     }>;
+    setEmptyFrameAspect(request: { projectRootUri: string; itemId: string; aspect: '16:9' | '9:16' | '1:1' }): Promise<{
+        relativePath: string; width: number; height: number; transform?: { x?: number; y?: number; scale?: number; [key: string]: unknown };
+    }>;
     createEmptyAudioFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
         relativePath: string; sha256: string; durationSeconds: number;
     }>;

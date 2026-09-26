@@ -44,6 +44,22 @@ test('RPC creates a real canvas PNG and valid planned empty meta, with unique pa
   assert.equal(await readFile(join(f.root, 'edit.json'), 'utf8'), f.before);
   assert.equal((await readdir(join(f.root, 'assets/generated'))).length, 4);
 });
+test('RPC makes a planned 9:16 card with matching PNG dimensions and aspect metadata', async t => {
+  const f = await fixture(t), service = new AkariAnnotationsServiceImpl();
+  const cardUrl = new URL('../../../../../packages/generate/src/cli/text-card.mjs', import.meta.url).href;
+  await cardModule(service, f.root, `import { renderTextCard as render } from ${JSON.stringify(cardUrl)};
+    export const renderTextCard = options => render({...options, loadPuppeteer: async()=>null,
+      resolveBinary:()=>{throw new Error('no ffmpeg')}, logRenderer:()=>{}});`);
+  const result = await service.createEmptyGenerationFrame({ ...f.request, aspect: '9:16' });
+  assert.deepEqual([result.width, result.height], [203, 360]);
+  const png = await readFile(join(f.root, result.relativePath));
+  assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [203, 360]);
+  const meta = JSON.parse(await readFile(join(f.root, `${result.relativePath}.meta.json`), 'utf8'));
+  assert.equal(meta.status, 'planned');
+  assert.equal(meta.output.aspect, '9:16');
+  assert.equal(meta.output.resolution, '203x360');
+  assert.deepEqual(validateGenerationMeta(meta), { ok: true, errors: [] });
+});
 for (const body of [
   `export async function renderTextCard(){ throw new Error('PNG unavailable'); }`,
   `import {writeFile} from 'node:fs/promises'; export async function renderTextCard(o){await writeFile(o.outPath,'broken');return {path:o.outPath,renderer:'broken'};}`

@@ -130,3 +130,10 @@ test('widget: 写真のタイル一覧では補正が先に閉じて出て、専
   assert.equal(instance.sections.some(section => section.id === 'edit-correction'), false);
   assert.equal(instance.sections.some(section => section.id === 'edit-material-choice'), false);
 }));
+
+test('widget: 動画のホームに空の補正節を出さない', () => withDom(() => {
+  const instance = fixture({ identity: false });
+  instance.model.snapshot = cutSnapshot({ itemId: 'video-1', sourcePath: 'video.mp4', src: 'video.mp4' });
+  instance.render();
+  assert.equal(instance.sections.some(section => section.id === 'edit-correction'), false);
+}));

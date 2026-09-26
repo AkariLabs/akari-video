@@ -225,7 +225,7 @@ for (const [label, sourcePath, editAdjustIds] of [
     assert.equal(isInspectorStillImage(widget.model.snapshot.sourcePath), label === '写真');
     widget.explicitTabId = 'edit';
     widget.render();
-    assert.ok(widget.sections.some(([id]) => id === 'edit-correction'));
+    assert.equal(widget.sections.some(([id]) => id === 'edit-correction'), label === '写真');
     assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), editAdjustIds);
     widget.sections = [];
     widget.explicitTabId = 'adjust';
@@ -249,7 +249,7 @@ const INITIAL_TAB_CASES = [
   ['別クリップで生成なし', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation', generationAvailable: false }, 'adjust'],
   ['同じクリップ再描画', { generationTodo: true, previousClipKey: 'clip', currentTab: 'adjust' }, 'adjust'],
   ['同じクリップ完了後', { previousClipKey: 'clip', currentTab: 'generation' }, 'edit'],
-  ['別クリップでも保存した色タブ', { generationTodo: true, persisted: 'adjust', previousClipKey: 'other', currentTab: 'info' }, 'adjust']
+  ['別クリップの生成予定は保存した色タブよりホーム', { generationTodo: true, persisted: 'adjust', previousClipKey: 'other', currentTab: 'info' }, 'edit']
 ];
 for (const kind of ['cut', 'layer']) {
   for (const [label, options, expected] of INITIAL_TAB_CASES) {
