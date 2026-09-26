@@ -110,7 +110,7 @@ const panel = root => find(root, byData('data-akari-ui', 'section:inspector-gene
 test('widget: ふつうの動画 cut は編集が押せ、動画タイルは理由付き disabled でクリックしても戻らない', () => withDom(() => {
   const instance = fixture({ sourcePath: 'ordinary.mp4' });
   instance.render();
-  assert.equal(aiTab(instance.body).textContent, '編集');
+  assert.equal(aiTab(instance.body).textContent, 'ホーム');
   assert.equal(aiTab(instance.body).disabled, false);
   const tile = aiTile(instance.body);
   assert.match(tile.className, /akari-inspector-ai-disabled/u);
@@ -125,7 +125,7 @@ test('widget: 静止画の別案一覧から動画タイル → 専用パネル 
   const instance = fixture();
   instance.render();
   assert.deepEqual(instance.body.children.flatMap(node => node.className === 'akari-inspector-ai-list'
-    ? node.children.map(group => group.children[0].textContent) : []), ['別案を生成']);
+    ? node.children.map(group => group.children[0].textContent) : []), ['作る', '直す']);
   assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'true');
   assert.equal(find(instance.body, byClass('akari-inspector-ai-reason')).textContent, '声の入った音声か動画で使えます');
   aiTile(instance.body).click();
@@ -220,24 +220,25 @@ test('widget: catalog 読込失敗は同じ workspace で 1 回だけ通知す�
   assert.equal(instance.aiCatalogFailed, true);
 }));
 
-test('編集タブは読込中も補正 → 別案 → 素材の選択の順で出る', () => withDom(() => {
+test('ホームは読込中も補正 → 別案の順で出し、近日の素材の選択を描かない', () => withDom(() => {
   const instance = fixture();
   instance.aiCatalogLoaded = false;
   instance.render();
   assert.deepEqual(instance.body.children.filter(node => node.tag === 'section' || node.className === 'akari-inspector-ai-list')
     .map(node => node.attributes.get('data-akari-ui') ?? node.children[0].attributes.get('data-akari-ui')),
-  ['section:inspector-edit-correction', 'section:inspector-edit-alternatives', 'section:inspector-edit-material-choice']);
+  ['section:inspector-edit-correction', 'section:inspector-edit-alternatives']);
+  assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-material-choice')), undefined);
   assert.ok(find(instance.body, node => node.textContent === '別案を読み込んでいます…'));
 }));
 
-test('図形の編集タブも空にならず、別案なしと素材の選択を示す', () => withDom(() => {
+test('図形のホームも空にならず、別案なしを示して近日の素材の選択を描かない', () => withDom(() => {
   const instance = fixture();
   instance.model.snapshot = { kind: 'item', id: 'shape-1', itemKind: 'item', sourceKind: 'shape',
     outputStart: 0, duration: 5, durationFrames: 150, trackName: '図形', clipName: '四角' };
   instance.loadAiCatalog = async () => {};
   instance.explicitTabId = 'edit';
   instance.render();
-  assert.ok(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-material-choice')));
+  assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-material-choice')), undefined);
   assert.ok(find(instance.body, node => node.textContent === 'この要素で使える別案はまだありません'));
 }));
 
@@ -292,7 +293,7 @@ test('写真の背景透過と選択エリアは編集 > 補正に一度ずつ�
   }
 }));
 
-test('高画質化と背景生成は別案を生成の中に入り、別の見出しを作らない', () => withDom(() => {
+test('高画質化は直すに入り、背景生成（近日）は描かない', () => withDom(() => {
   const instance = fixture();
   instance.model.snapshot = { kind: 'item', id: 'photo-1', itemKind: 'media', sourceKind: 'media',
     src: 's2', sourcePath: 'assets/photo.png', outputStart: 0, duration: 5, durationFrames: 150 };
@@ -302,9 +303,11 @@ test('高画質化と背景生成は別案を生成の中に入り、別の見�
   instance.explicitTabId = 'edit';
   instance.render();
   const alternatives = find(instance.body, byData('data-akari-ui', 'section:inspector-edit-alternatives'));
+  const refine = find(instance.body, byData('data-akari-ui', 'section:inspector-edit-refine'));
   assert.ok(alternatives);
-  assert.ok(find(alternatives, byData('data-akari-image-ai-panel', 'photo-1')));
+  assert.ok(refine);
+  assert.ok(find(refine, byData('data-akari-image-ai-panel', 'photo-1')));
   assert.equal(find(instance.body, node => node.textContent === '写真を直す'), undefined);
-  assert.ok(find(alternatives, node => node.textContent === '高画質化'));
-  assert.ok(find(alternatives, node => node.textContent === '背景生成（近日）'));
+  assert.ok(find(refine, node => node.textContent === '高画質化'));
+  assert.equal(find(instance.body, node => node.textContent === '背景生成（近日）'), undefined);
 }));

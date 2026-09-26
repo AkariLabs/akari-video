@@ -1,0 +1,40 @@
+## shape wait=300
+t1-after-drag {"t":1,"cap":null,"layer":null,"cut":false,"ov":"shape-a","ix":"shape-a","tl":["shape-a"],"reports":["reportOverlaySelection[\"shape-a\"]","reportOverlaySelection[\"shape-a\"]","reportOverlaySelection[null]"]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+## shape wait=3500
+t1-after-drag {"t":1,"cap":null,"layer":null,"cut":false,"ov":"shape-a","ix":"shape-a","tl":["shape-a"],"reports":["reportOverlaySelection[null]"]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+## photo wait=300
+t1-after-drag {"t":1,"cap":null,"layer":"photo-a-item","cut":false,"ov":null,"ix":null,"tl":["photo-a-item"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportLayerSelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportLayerSelection[null]"]}
+## photo wait=3500
+t1-after-drag {"t":1,"cap":null,"layer":"photo-a-item","cut":false,"ov":null,"ix":null,"tl":["photo-a-item"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportLayerSelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportLayerSelection[null]"]}
+## html wait=300
+t1-after-drag {"t":1,"cap":null,"layer":null,"cut":false,"ov":"html-a-item","ix":"html-a-item","tl":["html-a-item"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+## html wait=3500
+t1-after-drag {"t":1,"cap":null,"layer":null,"cut":false,"ov":"html-a-item","ix":"html-a-item","tl":["html-a-item"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":"undefined","ix":null,"tl":[],"reports":["reportOverlaySelection[null]","reportOverlaySelection[null]"]}
+## caption wait=300
+t1-after-drag {"t":1,"cap":"c-0001","layer":null,"cut":false,"ov":null,"ix":null,"tl":["c-0001"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}
+## caption wait=3500
+t1-after-drag {"t":1,"cap":"c-0001","layer":null,"cut":false,"ov":null,"ix":null,"tl":["c-0001"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}
+## placed wait=300
+t1-after-drag {"t":1,"cap":"c-0003","layer":null,"cut":false,"ov":null,"ix":null,"tl":["c-0003"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}
+## placed wait=3500
+t1-after-drag {"t":1,"cap":"c-0003","layer":null,"cut":false,"ov":null,"ix":null,"tl":["c-0003"],"reports":[]}
+t6-a {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}
+t6-after-seek {"t":6,"cap":null,"layer":null,"cut":false,"ov":null,"ix":null,"tl":[],"reports":["reportCaptionSelection[null]"]}

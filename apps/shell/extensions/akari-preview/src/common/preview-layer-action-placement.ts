@@ -8,7 +8,7 @@ export interface PreviewLayerActionPlacement {
     move: PreviewActionRect;
 }
 
-/** Keep both 25px controls inside the stage and clear of the host's floating menu. */
+/** Keep both 25px controls inside the visible pane and clear of the host's floating menu. */
 export function placePreviewLayerActions(
     stage: PreviewActionRect, selection: PreviewActionRect, menu: PreviewActionRect | null, scale = 1
 ): PreviewLayerActionPlacement | null {
@@ -25,15 +25,15 @@ export function placePreviewLayerActions(
         Math.min(centerX, right(stage) - halfPair - 2));
     const safeY = Math.max(stage.top + radius + 2,
         Math.min(centerY, bottom(stage) - radius - 2));
-    const sideRight = Math.max(right(selection), menu ? right(menu) : right(selection)) + halfPair + 4;
-    const sideLeft = Math.min(selection.left, menu ? menu.left : selection.left) - halfPair - 4;
+    const sideRight = right(selection) + halfPair + 4;
+    const sideLeft = selection.left - halfPair - 4;
     const candidates: Array<{ placement: PreviewLayerActionPlacement['placement']; x: number; y: number }> = [
         { placement: 'below', x: safeX, y: bottom(selection) + 25 * scale },
-        { placement: 'inside-bottom', x: safeX, y: bottom(selection) - radius },
-        { placement: 'inside-top', x: safeX, y: selection.top + radius },
         { placement: 'side-right', x: sideRight, y: safeY },
         { placement: 'side-left', x: sideLeft, y: safeY },
-        { placement: 'above', x: safeX, y: selection.top - 25 * scale }
+        { placement: 'above', x: safeX, y: selection.top - 25 * scale },
+        { placement: 'inside-bottom', x: safeX, y: bottom(selection) - radius },
+        { placement: 'inside-top', x: safeX, y: selection.top + radius }
     ];
     for (const candidate of candidates) {
         const rotate = { left: candidate.x - pairOffset - radius, top: candidate.y - radius,
@@ -51,5 +51,12 @@ export function placePreviewLayerActions(
             rotate, move
         };
     }
-    return null;
+    const rotate = { left: safeX - pairOffset - radius, top: safeY - radius,
+        width: radius * 2, height: radius * 2 };
+    const move = { left: safeX + pairOffset - radius, top: safeY - radius,
+        width: radius * 2, height: radius * 2 };
+    return {
+        placement: 'inside-top', top: safeY - selection.top, offsetX: safeX - centerX,
+        rotate, move
+    };
 }

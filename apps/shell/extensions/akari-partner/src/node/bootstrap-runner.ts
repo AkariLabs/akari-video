@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /**
  * This function is deliberately self-contained. The backend serializes it with
- * `toString()` and passes it to the bundled Electron executable via `node -e`.
+ * `toString()` and passes it to the bundled Electron executable via stdin.
  * That keeps packaged execution independent of both user PATH and extension
  * source/layout paths inside app.asar.
  */
-export function bootstrapRunner(): void {
+export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-candidates').partnerCliCandidates): void {
     const fs = require('fs').promises as typeof import('fs').promises;
     const os = require('os') as typeof import('os');
     const path = require('path') as typeof import('path');
@@ -72,21 +72,11 @@ export function bootstrapRunner(): void {
     }
 
     function claudeCandidates(): string[] {
-        const claude = process.platform === 'win32' ? 'claude.exe' : 'claude';
-        return [
-            path.join(os.homedir(), '.local', 'bin', claude),
-            path.join(os.homedir(), '.claude', 'bin', claude),
-            path.join(os.homedir(), '.claude', 'local', claude)
-        ];
+        return candidatePaths('claude', { homeDir: os.homedir(), platform: process.platform, env: process.env, includePath: false, nativeOnly: true });
     }
 
     function codexCandidates(): string[] {
-        const executableName = process.platform === 'win32' ? 'codex.exe' : 'codex';
-        const candidates = [path.join(os.homedir(), '.local', 'bin', executableName)];
-        if (process.platform === 'win32') {
-            candidates.push(path.join(codexManagedRoot(), 'current', 'bin', executableName));
-        }
-        return candidates;
+        return candidatePaths('codex', { homeDir: os.homedir(), platform: process.platform, env: process.env, includePath: false, nativeOnly: true });
     }
 
     function codexManagedRoot(): string {
@@ -126,21 +116,9 @@ export function bootstrapRunner(): void {
         return candidates;
     }
 
-    function npmAgentCandidates(executableName: 'command-code' | 'pi'): string[] {
-        // npm の global --prefix は POSIX では <prefix>/bin、Windows では
-        // <prefix> 直下へ shim を置く。フル名は両 OS 共通で、Windows の予約済み
-        // `cmd` とも衝突しない。
-        const extraCandidates = process.platform === 'win32'
-            ? [
-                path.join(os.homedir(), '.local', executableName),
-                path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'npm', executableName)
-            ]
-            : [
-                `/opt/homebrew/bin/${executableName}`,
-                `/usr/local/bin/${executableName}`,
-                `/usr/bin/${executableName}`
-            ];
-        return scriptInstallCandidates(executableName, extraCandidates);
+    function npmAgentCandidates(agent: 'commandcode' | 'pi'): string[] {
+        return candidatePaths(agent,
+            { homeDir: os.homedir(), platform: process.platform, env: process.env });
     }
 
     function npmCandidates(): string[] {
@@ -431,7 +409,6 @@ export function bootstrapRunner(): void {
 
     interface ScriptInstallAgentConfig {
         agent: ScriptInstallAgent;
-        executableName: string;
         installUrlEnvVar: string;
         defaultInstallUrl: string;
         defaultInstallUrlWin32?: string;
@@ -439,7 +416,6 @@ export function bootstrapRunner(): void {
         // GitHub リリースの単一 exe 入り zip を ~/.local/bin へ展開する（codex と同方式）。
         // installUrlEnvVar が指定されているときはスクリプト方式の env 上書きを優先する。
         win32ZipUrlByArch?: Record<string, string>;
-        extraCandidatePaths: string[];
         manualInstallCommand: string;
         // win32 で manualInstallCommand が実行不能（curl | bash 等）な CLI はこちらを案内する。
         manualInstallCommandWin32?: string;
@@ -450,7 +426,6 @@ export function bootstrapRunner(): void {
     const scriptInstallAgentConfigs: Record<ScriptInstallAgent, ScriptInstallAgentConfig> = {
         opencode: {
             agent: 'opencode',
-            executableName: 'opencode',
             installUrlEnvVar: 'AKARI_PARTNER_OPENCODE_INSTALL_URL',
             defaultInstallUrl: 'https://opencode.ai/install',
             // opencode.ai/install.ps1 は 404（2026-08-24 実測）。win32 は GitHub リリースの
@@ -460,13 +435,11 @@ export function bootstrapRunner(): void {
                 x64: 'https://github.com/sst/opencode/releases/latest/download/opencode-windows-x64.zip',
                 arm64: 'https://github.com/sst/opencode/releases/latest/download/opencode-windows-arm64.zip'
             },
-            extraCandidatePaths: [path.join(os.homedir(), '.opencode', 'bin', 'opencode')],
             manualInstallCommand: 'curl -fsSL https://opencode.ai/install | bash（または npm install -g opencode-ai）',
             manualInstallCommandWin32: 'npm install -g opencode-ai'
         },
         copilot: {
             agent: 'copilot',
-            executableName: 'copilot',
             installUrlEnvVar: 'AKARI_PARTNER_COPILOT_INSTALL_URL',
             defaultInstallUrl: 'https://gh.io/copilot-install',
             // gh.io/copilot-install は bash 専用（win32 分岐は winget 呼び出しのみ）。win32 は
@@ -475,25 +448,21 @@ export function bootstrapRunner(): void {
                 x64: 'https://github.com/github/copilot-cli/releases/latest/download/copilot-win32-x64.zip',
                 arm64: 'https://github.com/github/copilot-cli/releases/latest/download/copilot-win32-arm64.zip'
             },
-            extraCandidatePaths: [],
             manualInstallCommand: 'npm install -g @github/copilot',
             manualInstallCommandWin32: 'winget install GitHub.Copilot（または npm install -g @github/copilot）'
         },
         cursor: {
             agent: 'cursor',
-            executableName: 'cursor-agent',
             installUrlEnvVar: 'AKARI_PARTNER_CURSOR_INSTALL_URL',
             defaultInstallUrl: 'https://cursor.com/install',
             // cursor.com/install は linux/darwin のみ対応で、install.ps1 はサイトの HTML を返す
             // 偽エンドポイント（2026-08-24 実測）。Windows ネイティブ配布が存在しないため
             // win32 は自動インストール不可 — 手動誘導のみ（WSL 内での公式スクリプト実行）。
-            extraCandidatePaths: [],
             manualInstallCommand: 'curl https://cursor.com/install -fsS | bash',
             manualInstallCommandWin32: 'Cursor CLI は Windows ネイティブ未対応です。WSL 内で curl https://cursor.com/install -fsS | bash を実行してください'
         },
         antigravity: {
             agent: 'antigravity',
-            executableName: 'agy',
             installUrlEnvVar: 'AKARI_PARTNER_ANTIGRAVITY_INSTALL_URL',
             defaultInstallUrl: 'https://antigravity.google/cli/install.sh',
             defaultInstallUrlWin32: 'https://antigravity.google/cli/install.ps1',
@@ -502,21 +471,14 @@ export function bootstrapRunner(): void {
             // 探索で構造的に見つからない。grok と同型
             // (task/2026-08-17-partner-grok-install-detection)。POSIX 側は ~/.local/bin に
             // 入るため追加不要。
-            extraCandidatePaths: process.platform === 'win32'
-                ? [path.join(windowsLocalAppData, 'agy', 'bin', 'agy')]
-                : [],
             manualInstallCommand: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
             manualInstallCommandWin32: 'powershell -c "irm https://antigravity.google/cli/install.ps1 | iex"'
         },
         devin: {
             agent: 'devin',
-            executableName: 'devin',
             installUrlEnvVar: 'AKARI_PARTNER_DEVIN_INSTALL_URL',
             defaultInstallUrl: 'https://cli.devin.ai/install.sh',
             defaultInstallUrlWin32: 'https://static.devin.ai/cli/setup.ps1',
-            extraCandidatePaths: process.platform === 'win32'
-                ? [path.join(windowsLocalAppData, 'devin', 'cli', 'bin', 'devin')]
-                : [],
             manualInstallCommand: 'curl -fsSL https://cli.devin.ai/install.sh | bash',
             manualInstallCommandWin32: 'irm https://static.devin.ai/cli/setup.ps1 | iex',
             posixInterpreter: '/bin/bash',
@@ -524,7 +486,6 @@ export function bootstrapRunner(): void {
         },
         grok: {
             agent: 'grok',
-            executableName: 'grok',
             installUrlEnvVar: 'AKARI_PARTNER_GROK_INSTALL_URL',
             defaultInstallUrl: 'https://x.ai/cli/install.sh',
             defaultInstallUrlWin32: 'https://x.ai/cli/install.ps1',
@@ -532,7 +493,6 @@ export function bootstrapRunner(): void {
             // outside both ~/.local/bin and the minimal launchd PATH inherited by
             // the GUI-launched Electron backend. Without this, a successful grok
             // install is structurally undetectable (task/2026-08-17-partner-grok-install-detection).
-            extraCandidatePaths: [path.join(os.homedir(), '.grok', 'bin', 'grok')],
             manualInstallCommand: 'curl -fsSL https://x.ai/cli/install.sh | bash（または npm install -g @xai-official/grok）',
             manualInstallCommandWin32: 'powershell -c "irm https://x.ai/cli/install.ps1 | iex"（または npm install -g @xai-official/grok）'
         }
@@ -679,15 +639,15 @@ export function bootstrapRunner(): void {
 
     type NpmAgent = 'commandcode' | 'pi';
     const npmAgentConfigs: Record<NpmAgent, {
-        label: string; executableName: 'command-code' | 'pi'; packageName: string;
+        label: string; packageName: string;
         manualInstall: string; marker: string; minimumNode: [number, number];
     }> = {
         commandcode: {
-            label: 'Command Code', executableName: 'command-code', packageName: 'command-code',
+            label: 'Command Code', packageName: 'command-code',
             manualInstall: commandCodeManualInstall, marker: 'command-code-installed', minimumNode: [22, 0]
         },
         pi: {
-            label: 'Pi', executableName: 'pi', packageName: '@earendil-works/pi-coding-agent',
+            label: 'Pi', packageName: '@earendil-works/pi-coding-agent',
             manualInstall: 'npm install -g @earendil-works/pi-coding-agent（Node.js 22.19 以上が必要）',
             marker: 'pi-installed', minimumNode: [22, 19]
         }
@@ -705,7 +665,7 @@ export function bootstrapRunner(): void {
 
     async function installNpmAgent(agent: NpmAgent): Promise<BootstrapOutcome> {
         const config = npmAgentConfigs[agent];
-        const candidates = npmAgentCandidates(config.executableName);
+        const candidates = npmAgentCandidates(agent);
         const runtimePurpose = { purposeLabel: config.label, manualInstall: config.manualInstall, minimumNode: config.minimumNode };
         const privateMarker = path.join(privateNodeDir(), config.marker);
         if (!forceReinstall) {
@@ -770,7 +730,7 @@ export function bootstrapRunner(): void {
     }
 
     async function runScriptInstaller(config: ScriptInstallAgentConfig): Promise<BootstrapOutcome> {
-        const candidates = scriptInstallCandidates(config.executableName, config.extraCandidatePaths);
+        const candidates = candidatePaths(config.agent, { homeDir: os.homedir(), platform: process.platform, env: process.env });
         if (!forceReinstall) {
             const existing = await firstExecutable(candidates);
             if (existing) {
@@ -830,10 +790,9 @@ export function bootstrapRunner(): void {
             const executable = await firstExecutable(candidates);
             if (!executable) {
                 console.log(`探索した実行ファイル候補: ${candidates.join(', ')}`);
-                const searchedDirectories = [...new Set([
-                    path.join(os.homedir(), '.local', 'bin'),
-                    ...config.extraCandidatePaths.map(candidate => path.dirname(candidate))
-                ])];
+                const searchedDirectories = [...new Set(candidatePaths(config.agent, {
+                    homeDir: os.homedir(), platform: process.platform, env: process.env, includePath: false
+                }).map(candidate => path.dirname(candidate)))];
                 throw new Error(`インストールスクリプト後に実行ファイルが見つかりませんでした（探索先: ${searchedDirectories.join(', ')}）。手動でインストールしてください: ${manualCommand}${installerErrorLine ? ` (${installerErrorLine})` : ''}`);
             }
             if (installerError) {
@@ -867,8 +826,9 @@ export function bootstrapRunner(): void {
         } catch (error) {
             throw new Error(`${config.agent} のダウンロードに失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
         }
-        const binary = extractSingleZipFile(archive, new RegExp(`^${config.executableName}\\.exe$`, 'i'));
-        const executable = path.join(os.homedir(), '.local', 'bin', `${config.executableName}.exe`);
+        const executable = candidatePaths(config.agent, { homeDir: os.homedir(), platform: process.platform,
+            env: process.env, includePath: false, nativeOnly: true })[0];
+        const binary = extractSingleZipFile(archive, new RegExp(`^${path.basename(executable).replace('.', '\\.')}$`, 'i'));
         await fs.mkdir(path.dirname(executable), { recursive: true });
         const temporary = `${executable}.akari-download`;
         // Windows の fs.chmod は POSIX 実行属性を持たないため mode 指定は不要（codex 同様）。

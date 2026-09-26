@@ -20,7 +20,7 @@ test('all visual media share one stacking context and full-frame boxes pass hit 
     assert.match(overlayStageCss, /pointer-events: none;/);
     assert.doesNotMatch(overlayStageCss, /z-index:/);
     assert.doesNotMatch(captionPlateCss, /z-index:/);
-    assert.doesNotMatch(compiled, /2147483647/);
+    assert.match(compiled, /#preview-chrome-layer \{ position: fixed; z-index: 2147483647;/);
     assert.match(compiled, /layersStage\.addEventListener\('pointerdown'/);
     assert.match(compiled, /layerAlphaAtPoint\(candidateEntry, event\.clientX, event\.clientY\) > 16/);
 });

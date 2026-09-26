@@ -74,7 +74,7 @@ import { AkariNewVideoDialog } from './akari-new-video-dialog';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
 import { AkariUpdateToast } from './home/update-toast';
 import { buildHomeStats, hasPreviewContent, HomeStats, noticeStage, validateChannelName } from './home/home-model';
-import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
+import { filterProjects, HOME_PROJECT_PAGE_SIZE, formatProjectUpdatedAt, projectEditStatus, ProjectDetails, PROJECT_PAGE_SIZE, PROJECT_SORT_ICON, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, shouldLoadMoreProjects, sortProjects } from '../common/project-browser';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
@@ -89,9 +89,7 @@ import {
     AKARI_RADIUS,
     AKARI_SURFACE
 } from 'akari-project/lib/common/akari-surface-tokens';
-import {
-    storeReconnectRequired
-} from '../common/store-entitlements-visibility';
+import { resolveStorePlanBadge, StorePlanProduct } from '../common/store-plan-badge';
 
 // ホーム v4（裁定 R1〜R3・notes-2026-08-02-home-v4-minimal）: dashboard の
 // 構成要素を 3 つだけに削る — ①説明（2 動作） ②過去プロジェクト一覧
@@ -323,6 +321,8 @@ export class AkariHomeWidget extends ReactWidget {
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
     protected storeEntitlementsStatus: AssetEntitlementsStatus = 'no_credentials';
+    /** ホーム右上のバッジが「Lifetime かどうか」を見るために保つ（拡張キット模型と同じ取得結果）。 */
+    protected storeEntitledProducts: StorePlanProduct[] = [];
     protected kitCard: KitCardModel = { kind: 'hidden' };
 
     // --- D&D 復活: 素材の取り込み（v3 home dropzone から再利用） ---
@@ -358,6 +358,8 @@ export class AkariHomeWidget extends ReactWidget {
     protected newChannelError = '';
     protected creatingChannel = false;
     protected voiceRequirement = '';
+    /** 直近に描いた一覧の全件数。スクロール追い読み（{@link handleHomeScroll}）が参照する。 */
+    protected projectRowsTotal = 0;
     protected currentFrames: string[] = [];
     protected currentStats: HomeStats = {};
     protected currentCanPreview = false;
@@ -838,6 +840,7 @@ export class AkariHomeWidget extends ReactWidget {
         this.connected = connected;
         this.storeEmail = storeEmail;
         this.storeEntitlementsStatus = storeCatalog.entitlementsStatus;
+        this.storeEntitledProducts = storeCatalog.entitledProducts;
         this.kitCard = buildKitCardModel({
             connected: storeEmail !== null,
             entitledProducts: storeCatalog.entitledProducts,
@@ -1882,8 +1885,7 @@ export class AkariHomeWidget extends ReactWidget {
             frames={this.currentFrames} stats={this.currentStats} canPreview={this.currentCanPreview}
             onPreview={() => void this.openOutputPreview(true)} onReveal={() => void this.commands.executeCommand(REVEAL_IN_FILE_MANAGER_COMMAND, this.currentProjectUri)}
             onStart={() => { this.voiceRequirement = ''; this.homeDialog = 'start'; this.update(); }}
-            onEdit={() => void this.openEditData()} onExport={() => void this.openExportDialog()}
-            onSwitch={() => void this.openChannelSwitcher()} onJoin={() => void this.joinChannel()} onLauncher={() => void this.openProjectLauncher()} />;
+            onSwitch={() => void this.openChannelSwitcher()} onJoin={() => void this.joinChannel()} />;
     }
 
     protected async openExportDialog(): Promise<void> {
@@ -2514,17 +2516,19 @@ export class AkariHomeWidget extends ReactWidget {
                 onDragOver={this.handleDragOver}
                 onDragLeave={this.handleDragLeave}
                 onDrop={this.handleDrop}
+                onScroll={this.handleHomeScroll}
                 style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box', position: 'relative', containerType: 'inline-size' }}
             >
                 <style>{homePanelCss}</style>
+                {this.renderHomeTopBar()}
                 {this.renderDashboardHeader()}
                 {this.importedNotice && this.renderImportedNotice()}
                 {this.renderProjectList()}
                 {this.renderHomeDialog()}
-                {this.renderStoreCard()}
-                {/* render を DI 無しで実行する既存テスト（src/common/home-init.test.mjs）は
-                    レンダー関数を名前でスタブするため、未提供のときは描かない。 */}
-                {this.renderKitCard && this.renderKitCard()}
+                {/* 2026-09-26 オーナー指摘（ホームの認知負荷を下げる）: AKARI Store の
+                    接続状態は面の右上（{@link renderHomeTopBar}）へ移し、拡張キットの
+                    棚卸しはホームから外した。{@link renderKitCard} は描画から外れただけで、
+                    戻す判断が出たときのために実装は残してある（kitCard の算出も同様）。 */}
                 {this.intakeFormOpen && this.renderIntakeForm()}
                 {this.dragActive && this.renderDropOverlay()}
             </div>
@@ -2540,6 +2544,8 @@ export class AkariHomeWidget extends ReactWidget {
                 data-akari-home-ready={this.homeReady ? 'true' : 'false'}
                 style={homeFlowStyles.welcomeSurface}
             >
+                <style>{homePanelCss}</style>
+                <div style={homeFlowStyles.welcomeTopBar}>{this.renderHomeTopBar()}</div>
                 <div style={homeFlowStyles.welcomeStack}>
                     {this.renderWelcomeCard()}
                 </div>
@@ -2668,22 +2674,34 @@ export class AkariHomeWidget extends ReactWidget {
         const rows = sortProjects(filterProjects(allRows, this.projectQuery), this.projectSort);
         const list = this.projectView === 'list';
         const iconStyle: React.CSSProperties = { minWidth: 32, width: 32, height: 32, margin: 0, padding: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+        this.projectRowsTotal = rows.length;
         return <div data-akari-project-browser={this.projectView}>
-            <div className='akari-home-project-toolbar' data-akari-project-toolbar='true'>
-                {!this.welcomeMode && <>
-                    <h3>このチャンネルのプロジェクト</h3>
-                    {this.renderNewProjectItem()}
-                    <button type='button' className='theia-button secondary akari-home-toolbar-button'
-                        data-akari-open-folder='true' onClick={() => void this.chooseFolder()}>開く…</button>
-                </>}
+            {/* 1 段目 = 見出しと「作る / 開く」。2 段目 = 絞り込みと表示の操作
+                （2026-09-26 オーナー指摘「検索から右は 1 行下の段へ」）。 */}
+            {!this.welcomeMode && <div className='akari-home-project-toolbar' data-akari-project-toolbar='true'>
+                {/* 一覧はもともとチャンネル横断（listCreatorRootProjects が全チャンネルを歩く）。
+                    見出しが「このチャンネルの」だったのは実態と合っていなかったうえ、
+                    幅が狭いと真っ先に "…" で潰れる長さだった。 */}
+                <h3>最近のプロジェクト</h3>
+                {this.renderNewProjectItem()}
+                <button type='button' className='theia-button secondary' style={iconStyle}
+                    title='プロジェクトを開く…' aria-label='プロジェクトを開く…'
+                    data-akari-open-folder='true' onClick={() => void this.chooseFolder()}>
+                    <span className='codicon codicon-folder-opened' aria-hidden='true' />
+                </button>
+            </div>}
+            <div className='akari-home-project-filters' data-akari-project-filters='true'>
                 <input type='search' className='theia-input' aria-label='プロジェクトを検索'
                     placeholder='名前・チャンネルで検索' value={this.projectQuery}
-                    style={{ flex: '1 0 140px', minWidth: 120, maxWidth: 220 }}
+                    style={{ flex: '1 1 160px', minWidth: 120, maxWidth: 260 }}
                     onChange={event => { this.projectQuery = event.currentTarget.value; this.projectVisibleCount = HOME_PROJECT_PAGE_SIZE; this.update(); }} />
-                <select className='theia-select' aria-label='プロジェクトの並べ替え' value={this.projectSort}
-                    onChange={event => { this.projectSort = event.currentTarget.value as ProjectSortOrder; saveProjectSort(this.projectSort, 'home'); this.projectVisibleCount = HOME_PROJECT_PAGE_SIZE; this.update(); }}>
-                    {Object.entries(PROJECT_SORT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
+                <button type='button' className='theia-button secondary' style={iconStyle}
+                    data-akari-project-sort={this.projectSort}
+                    title={`並べ替え: ${PROJECT_SORT_LABELS[this.projectSort]}`}
+                    aria-label={`並べ替え: ${PROJECT_SORT_LABELS[this.projectSort]}`}
+                    onClick={() => void this.pickProjectSort()}>
+                    <span className={`codicon ${PROJECT_SORT_ICON}`} aria-hidden='true' />
+                </button>
                 {(['cards', 'list'] as const).map(mode => <button key={mode} type='button' className='theia-button secondary'
                     style={{ ...iconStyle, ...(this.projectView === mode ? { boxShadow: 'inset 0 0 0 1px var(--theia-focusBorder)' } : {}) }}
                     title={mode === 'cards' ? 'カード表示' : 'リスト表示'} aria-label={mode === 'cards' ? 'カード表示' : 'リスト表示'}
@@ -2694,8 +2712,8 @@ export class AkariHomeWidget extends ReactWidget {
                     disabled={this.projectRefreshing} onClick={() => void this.refreshProjectBrowser()}>
                     <span className={`codicon codicon-refresh${this.projectRefreshing ? ' codicon-modifier-spin' : ''}`} aria-hidden='true' />
                 </button>
+                <small role='status' style={{ marginLeft: 'auto', color: 'var(--theia-descriptionForeground)' }}>{rows.length} 件</small>
             </div>
-            <small role='status' style={{ color: 'var(--theia-descriptionForeground)' }}>{rows.length} 件</small>
             <div style={{ overflowX: 'auto', marginTop: 8 }}>
                 {list && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 100px 150px 110px 40px', gap: 12, minWidth: 680, padding: '8px 12px', boxSizing: 'border-box', color: 'var(--theia-descriptionForeground)' }}>
                     <span>プロジェクト / 保存場所</span><span>チャンネル</span><span>最終更新</span><span>編集データ</span><span />
@@ -2728,8 +2746,13 @@ export class AkariHomeWidget extends ReactWidget {
                 </div>
                 {rows.length === 0 && <p>{this.projectQuery ? '一致するプロジェクトがありません。' : 'まだプロジェクトがありません。'}</p>}
             </div>
+            {/* 通常はスクロールで自動的に足りる（{@link handleHomeScroll}）。この控えは
+                「12 件が画面に収まってスクロールが生まれない」大きな窓のための最後の 1 手。 */}
             {rows.length > this.projectVisibleCount && <button type='button' className='theia-button secondary' style={{ marginTop: 12 }}
-                onClick={() => { this.projectVisibleCount += HOME_PROJECT_PAGE_SIZE; this.update(); }}>もっと読み込む</button>}
+                data-akari-project-load-more='true'
+                onClick={() => { this.projectVisibleCount += HOME_PROJECT_PAGE_SIZE; this.update(); }}>
+                もっと見る（残り {rows.length - this.projectVisibleCount} 件）
+            </button>}
         </div>;
     }
 
@@ -2792,6 +2815,43 @@ export class AkariHomeWidget extends ReactWidget {
         return rows;
     }
 
+    /**
+     * 一覧の下端に近づいたら次のページを足す（2026-09-26 オーナー指摘
+     * 「もっと読み込むを押さなくても読めないか」）。
+     *
+     * 追加コストはサムネ生成だけで、それは 2 レーンの直列キュー
+     * （{@link enqueueProjectCardWork}）に並び、生成済みはディスクキャッシュから即返る。
+     * 判定は純関数 {@link shouldLoadMoreProjects} に置き、ここは実測値を渡すだけ。
+     */
+    protected handleHomeScroll = (event: React.UIEvent<HTMLDivElement>): void => {
+        const node = event.currentTarget;
+        if (!shouldLoadMoreProjects(node.scrollTop, node.clientHeight, node.scrollHeight,
+            this.projectVisibleCount, this.projectRowsTotal)) {
+            return;
+        }
+        this.projectVisibleCount = Math.min(this.projectRowsTotal, this.projectVisibleCount + HOME_PROJECT_PAGE_SIZE);
+        this.update();
+    };
+
+    /**
+     * 並べ替えの選択（2026-09-26 オーナー指摘「select ではなくアイコンに」）。
+     * ツールバーに幅を食う `<select>` を置く代わりに、アイコン 1 個 + シェル標準の
+     * QuickPick で選ばせる（{@link pickChannel} と同じ流儀）。
+     */
+    protected async pickProjectSort(): Promise<void> {
+        const picked = await this.quickInputService.showQuickPick(
+            Object.entries(PROJECT_SORT_LABELS).map(([value, label]) => ({
+                label, value, description: value === this.projectSort ? '現在の並び' : undefined
+            })),
+            { placeholder: 'プロジェクトの並べ替え' }
+        );
+        if (!picked) { return; }
+        this.projectSort = picked.value as ProjectSortOrder;
+        saveProjectSort(this.projectSort, 'home');
+        this.projectVisibleCount = HOME_PROJECT_PAGE_SIZE;
+        this.update();
+    }
+
     /** プロジェクト一覧見出しの隣に置く、幅を取らない新規作成ボタン。 */
     protected renderNewProjectItem(): React.ReactNode {
         return (
@@ -2809,18 +2869,33 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
-     * AKARI Store カード（ホーム v4 の 3 要素へのオーナー承認済み追加・2026-08-03）。
-     * 未接続 = 内蔵デバイスフローの進行表示と接続ボタン。
-     * 接続済み = メール表示 + マイページを外部ブラウザで開く。
+     * ホーム面の右上に常設する AKARI Store の在席表示
+     * （2026-09-26 オーナー指摘: 「パネルの右上ではなくホームの中へ。製品名ではなく
+     * 今の状態 = メールアドレスを出す」）。旧 `renderStoreCard`（帯の下の
+     * 「AKARI Store · 接続中」ボタン）の置き換え。
+     *
+     * 押すと従来と同じ接続設定（設定面の connections セクション）を開く。
+     * `data-akari-store-connection` は旧カードと同じ語彙のまま残してあるので、
+     * 既存の L1 / evidence の掴みどころは変わらない。
      */
-    protected renderStoreCard(): React.ReactNode {
-        const connected = this.storeEmail !== null;
-        const reconnect = storeReconnectRequired(connected, this.storeEntitlementsStatus);
-        return <button type='button' className='theia-button secondary' style={{ marginTop: 4 }}
-            data-akari-store-connection={reconnect ? 'reconnect-required' : connected ? 'connected' : 'disconnected'}
-            onClick={() => void this.openStoreSettings()}>
-            AKARI Store · {reconnect ? '再接続が必要' : connected ? '接続中' : '未接続'}
-        </button>;
+    protected renderHomeTopBar(): React.ReactNode {
+        const badge = resolveStorePlanBadge({
+            email: this.storeEmail,
+            entitlementsStatus: this.storeEntitlementsStatus,
+            entitledProducts: this.storeEntitledProducts
+        });
+        return <div className='akari-home-topbar'>
+            <button type='button' className='akari-store-badge'
+                data-akari-store-connection={badge.state}
+                data-akari-plan-tone={badge.tone}
+                data-akari-plan-lifetime={badge.lifetime ? 'true' : undefined}
+                title={badge.tooltip} aria-label={badge.tooltip}
+                onClick={() => void this.openStoreSettings()}>
+                <span className={`codicon ${badge.icon}`} aria-hidden='true' />
+                {badge.plan && <span className='plan'>{badge.plan}</span>}
+                <span className='who'>{badge.label}</span>
+            </button>
+        </div>;
     }
 
     protected renderKitCard(): React.ReactNode {
@@ -3135,9 +3210,12 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     // F11 ウェルカム面（状態 0・task 2026-08-05-welcome-screen）。見た目の正は
     // shell-home-mock.html の `.w-card` 系（幅 min(480px,92%) の中央カード）。
     welcomeSurface: {
+        position: 'relative',
         height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
     },
+    // ウェルカム面は中央寄せなので、右上の在席表示だけは面の幅いっぱいで右へ寄せる。
+    welcomeTopBar: { position: 'absolute', top: 14, right: 18, left: 18, display: 'flex', justifyContent: 'flex-end' },
     welcomeStack: { width: 'min(480px, 92%)', display: 'flex', flexDirection: 'column', gap: 14 },
     // ウェルカムは「カード面の上に置く 1 枚のパネル」。外殻カードと同じ 12px にすると
     // 二重の 12px が入れ子になって見えるので、内側のパネル階層 = 8px に揃える。

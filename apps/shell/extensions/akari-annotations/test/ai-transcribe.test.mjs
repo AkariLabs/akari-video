@@ -42,10 +42,10 @@ test('静止画クリップの AI タブは作るに静止画・動画にする�
   });
 });
 
-test('音声のタブは音声・編集・情報、既定は音声', () => {
+test('音声のタブはホーム・音声・情報、既定はホーム', () => {
   const tabs = tabsForKind('audio');
-  assert.deepEqual(tabs.map(tab => [tab.id, tab.label]), [['audio', '音声'], ['edit', '編集'], ['info', '情報']]);
-  assert.equal(initialTabFor({ kind: 'audio', tabs, generationTodo: false }), 'audio');
+  assert.deepEqual(tabs.map(tab => [tab.id, tab.label]), [['edit', 'ホーム'], ['audio', '音声'], ['info', '情報']]);
+  assert.equal(initialTabFor({ kind: 'audio', tabs, generationTodo: false }), 'edit');
   assert.equal(initialTabFor({ kind: 'audio', tabs, generationTodo: false, persisted: 'audio' }), 'audio');
 });
 

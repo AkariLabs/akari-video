@@ -1,0 +1,46 @@
+{
+  "base": "16f9c37b6 (task/2026-09-26-osr-track-z-order: OSR already in track order)",
+  "output": "1280x720 30fps",
+  "gpuLauncherTier": "2 for every GPU export (AKARI_EXPORT_ALLOW_DESKTOP=0); OSR launcher_tier 2",
+  "videoFrameMd5": {
+    "note": "md5 of ffmpeg framemd5 (video stream, all frames), first 8 hex",
+    "osr": { "c": "ebc18e03", "d": "36b0fc22", "d-top": "b7de82e7", "e-gpu": "099714b4", "g": "d0cb537e" },
+    "gpuBefore": { "c": "a5331c05", "d": "4744ad97", "d-top": "4744ad97", "e-gpu": "565c286c", "g": "5649be82" },
+    "gpuAfter": { "c": "976a8117", "d": "60e7e5e5", "d-top": "de9a377a", "e-gpu": "565c286c", "g": "ebdaf05e" },
+    "gpuBlendBefore": { "d-screen": "dbf33950", "d-top-screen": "dbf33950", "d-softlight": "c3d3b163", "d-top-softlight": "c3d3b163" },
+    "gpuBlendAfter": {
+      "d-screen": "070a22eb", "d-top-screen": "d9270ccb", "d-add": "76d79ff6", "d-top-add": "4e086b80",
+      "d-difference": "61b039d8", "d-top-difference": "41f07e8c", "d-darken": "bcb2faf7", "d-top-darken": "dd598bef",
+      "d-lighten": "aa59763b", "d-top-lighten": "91a348d5", "d-overlay": "71462c3c", "d-top-overlay": "f745eaa4",
+      "d-hardlight": "21145bce", "d-top-hardlight": "376e6d79", "d-softlight": "06392c6c", "d-top-softlight": "32f78f42"
+    }
+  },
+  "psnrOsrVsGpuAt2s_dB": {
+    "before": { "c": 25.83, "d": 11.14, "d-top": 11.56, "e-gpu": 47.64, "g": 50.08 },
+    "after": { "c": 52.55, "d": 48.75, "d-top": 47.83, "e-gpu": 47.64, "g": 50.08 },
+    "gAt0.5s": { "before": 43.27, "after": 50.31 },
+    "blendAfter": {
+      "d-screen": 48.06, "d-top-screen": 47.15, "d-add": 48.19, "d-top-add": 47.74, "d-difference": 47.88, "d-top-difference": 45.25,
+      "d-darken": 49.92, "d-top-darken": 49.60, "d-lighten": 47.94, "d-top-lighten": 46.83, "d-overlay": 48.36, "d-top-overlay": 47.81,
+      "d-hardlight": 47.73, "d-top-hardlight": 46.32, "d-softlight": 48.41, "d-top-softlight": 47.61
+    }
+  },
+  "singleBandPageHtml": { "e-gpu": "identical to base apart from the inlined page-runtime and tree paths (scripts/page-html.mjs)" },
+  "timingSecondsInterleaved": {
+    "note": "render-cut wall clock, base tree and this branch alternated; load average 13-19",
+    "e-gpu-single-band": {
+      "round1": { "base": [4.72, 3.82, 3.87], "after": [3.78, 3.77, 3.87], "meanDeltaPercent": -8.0 },
+      "final": { "base": [4.49, 3.94, 4.05], "after": [4.57, 4.21, 4.12], "meanDeltaPercent": 3.4 }
+    },
+    "g-multi-band-200-cues": {
+      "round1": { "base": [16.53, 15.12, 14.39], "after": [15.4, 14.44, 14.37], "meanDeltaPercent": -4.0 },
+      "final": { "base": [14.87, 14.31, 14.25], "after": [14.78, 14.94, 14.44], "meanDeltaPercent": 1.7 }
+    }
+  },
+  "gpuRefusalUnchanged": {
+    "a": "overlay:shape-z:absolute-external-url",
+    "b": "overlay:cap-c-0002:absolute-external-url, font-face-external-resource, animation-timing",
+    "e": "overlay:shape-z:absolute-external-url"
+  },
+  "tests": { "gpu-export": "479/479 (base 468 + 11 new)", "assert-zero-readback": "pass", "render-cut": "624/654; the 30 failures are a subset of the 33 failing on the base tree (audio real-render / static hash, environment)" }
+}

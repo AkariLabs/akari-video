@@ -1,0 +1,43 @@
+# L0 実測（AFTER・codex 第 2 往復後）
+
+npm run build:ext → exit 0
+
+## npm test: akari-surfaces
+ℹ tests 360
+ℹ pass 360
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+
+## npm test: akari-partner
+ℹ tests 176
+ℹ pass 176
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+
+## npm test: akari-project
+ℹ tests 665
+ℹ pass 665
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+
+## npm test: scaffold
+ℹ tests 18
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+
+## 追加したテスト（該当行）
+✔ scaffold の fallback workflow は全スキルリンク置き場を隠す
+✔ 設定の CLI 行はカタログの 10 件と順序・表示名が一致する
+✔ Command Code は PATH 外の正式名で検出し、専用 Node の bin で版を取得する
+✔ PATH 外の CLI が --version に失敗してもインストール済みとし、エラーを版にしない
+✔ 3 か所の fallback hidden がスキルリンク置き場を含み、既存 workflow は和集合で読み込む
+✔ 設定と bootstrap に渡す候補関数は Command Code の正式名と既定配置を共有する
+
+## npm run lint → exit 1（どちらも origin/main に既存。HEAD 版の bootstrap-runner.ts を eslint --stdin にかけても同じ no-control-regex が出る）
+  293:30  warning  '_ignored' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  1158:22  error  Unexpected control character(s) in regular expression: \x1b  no-control-regex

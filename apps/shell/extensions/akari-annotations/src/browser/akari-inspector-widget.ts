@@ -37,6 +37,9 @@ import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
+import { editCorrectionVisible } from './inspector/edit-correction-visibility';
+import { viewAfterHomeTabClick } from './inspector/home-tab';
+import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
@@ -192,7 +195,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     getEditValue?: (snapshot: TSnapshot) => string;
     /** フィールドの値型に対応した入力 UI。 */
     inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'slider-number'
-        | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'caption-weight' | 'number' | 'color' | 'text' | 'media';
+        | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'caption-weight' | 'caption-text' | 'number' | 'color' | 'text' | 'media';
     options?: readonly string[];
     optionTitles?: Readonly<Record<string, string>>;
     scrubStep?: number;
@@ -1365,7 +1368,7 @@ function CAPTION_SECTIONS(
             id: 'content', label: '内容',
             fields: [
                 {
-                    name: 'caption-text', label: 'テキスト',
+                    name: 'caption-text', label: 'テキスト', inputKind: 'caption-text',
                     getValue: () => snapshot.text,
                     write: async (_snapshot, nextValue) => {
                         if (!nextValue.trim()) {
@@ -2136,9 +2139,6 @@ function AUDIO_CLIP_FX_SECTIONS(
             inputKind: 'scrub-number', min: 0, max: 400, scrubStep: 5,
             reset: () => write('lowcut_hz', null),
             write: async (_rowSnapshot, value) => write('lowcut_hz', value)
-        }, {
-            name: 'audio-voice-isolation', label: 'ボイス分離',
-            getValue: () => '近日', disabled: true
         }]
     });
     return sections;
@@ -3039,7 +3039,7 @@ export class AkariInspectorWidget extends BaseWidget {
     @postConstruct()
     protected init(): void {
         this.id = AkariInspectorWidget.FACTORY_ID;
-        this.title.label = 'インスペクター';
+        this.title.label = '編集パネル';
         this.title.caption = 'タイムラインで選択した項目の詳細（安全なフィールドは編集可能）';
         this.title.iconClass = 'akari-rail-icon akari-rail-icon-inspector';
         this.title.closable = true;
@@ -3066,7 +3066,7 @@ export class AkariInspectorWidget extends BaseWidget {
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.photo.brush-end', onPhotoBrushEnd) });
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:inspector');
-        this.node.setAttribute('data-akari-ui-label', 'インスペクター');
+        this.node.setAttribute('data-akari-ui-label', '編集パネル');
         Object.assign(this.node.style, {
             height: '100%',
             overflowX: 'hidden',
@@ -3409,6 +3409,14 @@ export class AkariInspectorWidget extends BaseWidget {
         border-radius: 2px;
         width: 100%;
         box-sizing: border-box;
+    }
+    .akari-inspector-widget textarea.akari-inspector-row-input {
+        min-height: calc(2 * 1.4em + 6px);
+        max-height: calc(6 * 1.4em + 6px);
+        line-height: 1.4;
+        resize: none;
+        overflow-y: auto;
+        white-space: pre-wrap;
     }
     .akari-inspector-widget .akari-caption-slider-number {
         display: flex;
@@ -4938,17 +4946,37 @@ export class AkariInspectorWidget extends BaseWidget {
             ? undefined : rowSnapshot.kind === 'cut' ? { kind: 'cut', index: rowSnapshot.index }
                 : { kind: 'item', id: rowSnapshot.id };
         this.syncAdjustCompare(compareTarget, activeTab);
-        this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo);
+        this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo, aiGroups.flatMap(group => group.tiles)
+            .filter(tile => tile.enabled).map(tile => tile.id as AiTabView));
 
         if (activeTab === 'edit') {
+            if (this.aiCatalogLoaded) {
+                if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
+                this.aiView = aiTabViewFor({
+                    clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
+                    generationState, generationDone, forcePanel: aiAvailability.forcePanel
+                });
+                if (opensGapFrame && gapAiOpening) {
+                    this.aiView = gapAiOpening.view;
+                    this.gapAiOpening = undefined;
+                }
+                this.aiViewClipKey = clipKey;
+            }
+            // Older render harnesses extract this method without its imported visibility helper.
+            const showEditCorrection = typeof editCorrectionVisible !== 'function' || editCorrectionVisible({
+                aiView: this.aiCatalogLoaded ? this.aiView! : 'tiles',
+                targetKind: aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
+                    audio: sectionKind === 'audio', audioPlanned: this.audioPlanned }),
+                generationState
+            });
             const imageSource = rowSnapshot.kind === 'cut' ? rowSnapshot.sourcePath
                 : rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
                     ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
             const imageSelected = isInspectorStillImage(imageSource);
-            if (imageSelected) {
+            if (showEditCorrection && imageSelected) {
                 const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
                     ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
-                const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', fields: [
+                const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', collapsedByDefault: true, fields: [
                     ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields),
                     ...photoFields.filter(field => field.name === 'photo-cutout-panel'), {
                         name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
@@ -4967,33 +4995,17 @@ export class AkariInspectorWidget extends BaseWidget {
                         importLut: () => this.importAdjustLut(rowSnapshot)
                     }).forEach(section => this.appendSection(section, rowSnapshot, sectionKind, correctionBody, true));
                 }
-            } else {
+            } else if (showEditCorrection) {
                 this.appendSection({ id: 'edit-correction', label: '補正', fields: [{
                     name: 'edit-correction-unavailable', label: '補正',
                     getValue: () => 'この要素で使える補正はまだありません'
                 }] }, rowSnapshot, sectionKind);
             }
-            const appendMaterialChoice = (): void => {
-                this.appendSection({ id: 'edit-material-choice', label: '素材の選択', fields: [{
-                    name: 'edit-replace-subject', label: '被写体を別の要素にする', getValue: () => '近日'
-                }] }, rowSnapshot, sectionKind);
-            };
             if (!this.aiCatalogLoaded) {
                 appendAiTiles(this.body, [], () => undefined, false, '別案を読み込んでいます…');
-                appendMaterialChoice();
                 this.appendSoloBanner();
                 return;
             }
-            if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
-            this.aiView = aiTabViewFor({
-                clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
-                generationState, generationDone, forcePanel: aiAvailability.forcePanel
-            });
-            if (opensGapFrame && gapAiOpening) {
-                this.aiView = gapAiOpening.view;
-                this.gapAiOpening = undefined;
-            }
-            this.aiViewClipKey = clipKey;
             if (this.aiView === 'tiles') {
                 if (stillNotice) appendAiStillNotice(this.body, stillNotice);
                 if (this.narrationPlacementNotice?.clipKey === clipKey
@@ -5013,7 +5025,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     }
                     this.render();
                 }, this.transcribeSummary.state === 'done', imageItemId ? '' : undefined);
-                if (imageItemId && this.imageAiPanels) {
+                if (imageItemId && this.imageAiPanels && showEditCorrection) {
                     const root = this.workspaceService.tryGetRoots()[0]?.resource;
                     if (root) {
                         const key = `${root.toString()}:${imageItemId}`;
@@ -5033,7 +5045,12 @@ export class AkariInspectorWidget extends BaseWidget {
                         this.imageAiPanelOpen = { ...panel, itemId: imageItemId };
                     }
                 }
-                appendMaterialChoice();
+                // Older extracted render harnesses do not inject the home tile helpers.
+                if (typeof homeTuneTiles === 'function' && typeof appendHomeTuneTiles === 'function') {
+                    appendHomeTuneTiles(this.body, homeTuneTiles(sectionKind, tabs), target => {
+                        void this.commandRegistry.executeCommand('akari.inspector.open', target);
+                    });
+                }
                 this.appendSoloBanner();
                 return;
             }
@@ -5161,18 +5178,13 @@ export class AkariInspectorWidget extends BaseWidget {
             })
                 .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
                 .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
-            if (!this.solo) {
-                ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
-            }
+            if (!this.solo) ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
             this.appendSoloBanner();
             return;
         }
         if (activeTab === 'audio' && sectionKind !== 'audio') {
-            if (!this.solo) {
-                AUDIO_PREVIEW_SECTIONS.forEach(section =>
-                    this.appendAdjustPreviewSection(section, sectionKind, 'audio')
-                );
-            }
+            if (!this.solo) AUDIO_PREVIEW_SECTIONS.forEach(section =>
+                this.appendAdjustPreviewSection(section, sectionKind, 'audio'));
             this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
             this.appendSoloBanner();
             return;
@@ -5196,11 +5208,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 this.appendSection(section, rowSnapshot, sectionKind);
             });
         if (activeTab === 'audio' && sectionKind === 'audio') {
-            if (!this.solo) {
-                AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
-                    this.appendAdjustPreviewSection(section, sectionKind, 'audio-item')
-                );
-            }
+            if (!this.solo) AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
+                this.appendAdjustPreviewSection(section, sectionKind, 'audio-item'));
             this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
         }
         this.appendSoloBanner();
@@ -5321,12 +5330,13 @@ export class AkariInspectorWidget extends BaseWidget {
         kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item' | 'world',
         tabs: readonly InspectorTabDef[],
         activeTab: string,
-        generationTodo = false
+        generationTodo = false,
+        enabledTileViews: readonly AiTabView[] = []
     ): void {
         const strip = document.createElement('div');
         strip.className = 'akari-inspector-tab-strip';
         strip.setAttribute('role', 'tablist');
-        strip.setAttribute('aria-label', 'インスペクター');
+        strip.setAttribute('aria-label', '編集パネル');
         strip.setAttribute('data-akari-ui', 'tabs:inspector');
         for (const tab of tabs) {
             const button = document.createElement('button');
@@ -5339,7 +5349,7 @@ export class AkariInspectorWidget extends BaseWidget {
             button.setAttribute('aria-disabled', String(!tab.enabled));
             button.setAttribute('data-akari-ui', `tab:inspector-${tab.id}`);
             if (tab.id === activeTab) button.classList.add('is-active');
-            if (!tab.enabled) button.title = tab.disabledTitle ?? '近日';
+            if (!tab.enabled) button.title = tab.disabledTitle ?? 'この要素では使えません';
             if (tab.id === 'edit' && generationTodo) {
                 const todo = document.createElement('span');
                 todo.setAttribute('data-akari-generation-todo', 'true');
@@ -5347,7 +5357,13 @@ export class AkariInspectorWidget extends BaseWidget {
                 button.appendChild(todo);
             }
             button.addEventListener('click', () => {
-                if (!tab.enabled || tab.id === activeTab) return;
+                if (!tab.enabled) return;
+                if (tab.id === 'edit') {
+                    // Extracted widget test harnesses may not inject this pure helper.
+                    this.aiView = typeof viewAfterHomeTabClick === 'function'
+                        ? viewAfterHomeTabClick({ currentView: this.aiView ?? 'tiles', enabledTileCount: enabledTileViews.length,
+                            soleTileView: enabledTileViews[0] }) : 'tiles';
+                } else if (tab.id === activeTab) return;
                 this.explicitTabId = tab.id;
                 this.tabState.setActiveTab(kind, tab.id);
                 this.render();
@@ -5362,35 +5378,9 @@ export class AkariInspectorWidget extends BaseWidget {
         kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item',
         previewKind: 'adjust' | 'audio' | 'audio-item' = 'adjust'
     ): void {
-        const container = document.createElement('section');
-        container.className = 'akari-inspector-section akari-inspector-section-soon';
-        container.setAttribute('data-akari-ui', `section:inspector-${previewKind}-${section.id}`);
-        const header = document.createElement('div');
-        header.className = 'akari-inspector-section-header';
-        const stateId = `${previewKind}:${section.id}`;
-        const collapsed = this.sectionState.isCollapsed(kind, { id: stateId });
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'akari-inspector-section-toggle akari-inspector-section-soon-title';
-        toggle.textContent = section.label;
-        toggle.appendChild(createInspectorIcon('down'));
-        toggle.setAttribute('aria-expanded', String(!collapsed));
-        const chip = document.createElement('span');
-        chip.className = 'akari-inspector-section-soon-chip';
-        chip.textContent = '近日';
-        const body = document.createElement('div');
-        body.className = 'akari-inspector-section-body';
-        body.hidden = collapsed;
-        body.appendChild(section.build());
-        toggle.addEventListener('click', () => {
-            const next = !body.hidden;
-            body.hidden = next;
-            toggle.setAttribute('aria-expanded', String(!next));
-            this.sectionState.setCollapsed(kind, stateId, next);
-        });
-        header.append(toggle, chip);
-        container.append(header, body);
-        this.body.appendChild(container);
+        // Placeholder-only sections have no working controls. Keep this method as the
+        // extension point for older render harnesses, but draw nothing in the panel.
+        void section; void kind; void previewKind;
     }
 
     protected overlayKnobs(snapshot: TimelineOverlaySelection): readonly InspectorKnob[] {
@@ -7565,7 +7555,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
 
-        let input: HTMLInputElement | HTMLSelectElement;
+        let input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
         if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
             const select = document.createElement('select');
             select.className = 'akari-inspector-row-input';
@@ -7594,6 +7584,18 @@ export class AkariInspectorWidget extends BaseWidget {
                 ? (editValue === 'true' ? 'true' : 'false')
                 : editValue;
             input = select;
+        } else if (field.inputKind === 'caption-text') {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'akari-inspector-row-input';
+            textarea.rows = 2;
+            textarea.value = editValue;
+            const fit = (): void => {
+                textarea.style.height = 'auto';
+                textarea.style.height = `${textarea.scrollHeight}px`;
+            };
+            textarea.addEventListener('input', fit);
+            requestAnimationFrame(fit);
+            input = textarea;
         } else {
             const textInput = document.createElement('input');
             // seed は空欄 = 未設定を保つため、空を 0 に変換する scrub-number を通さない。
@@ -7624,6 +7626,19 @@ export class AkariInspectorWidget extends BaseWidget {
             });
             input.addEventListener('keydown', event => {
                 const key = (event as KeyboardEvent).key;
+                if (field.inputKind === 'caption-text') {
+                    const keyboard = event as KeyboardEvent;
+                    if (keyboard.isComposing || keyboard.keyCode === 229) return;
+                    if (key === 'Enter' && (navigator.platform.includes('Mac') ? keyboard.metaKey : keyboard.ctrlKey)) {
+                        event.preventDefault();
+                        input.blur();
+                    } else if (key === 'Escape') {
+                        event.preventDefault();
+                        input.value = editValue;
+                        input.blur();
+                    }
+                    return;
+                }
                 if (key === 'Enter') {
                     event.preventDefault();
                     (input as HTMLInputElement).blur();
@@ -7952,5 +7967,5 @@ if (typeof window !== 'undefined') window.addEventListener(AKARI_MATERIAL_SELECT
             await shell.revealWidget(widget.id);
         }
         if (sequence === latestMaterialEvent) widget.selectMaterial(selection);
-    })().catch(error => console.error('素材のインスペクターを開けませんでした。', error));
+    })().catch(error => console.error('素材の編集パネルを開けませんでした。', error));
 });

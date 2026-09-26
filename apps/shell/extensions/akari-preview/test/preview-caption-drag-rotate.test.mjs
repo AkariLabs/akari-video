@@ -16,7 +16,7 @@ test('handle baselines read the displayed CSS variables instead of the stale cap
 });
 
 test('body drag sends only the top-level cuePosition accepted by the host', () => {
-  const body = handler.slice(handler.indexOf('const captionPlate = event.target.closest', handler.indexOf('const beginCaptionHandleDrag =')), handler.indexOf('new ResizeObserver(() => updateCaptionSelectBox())'));
+  const body = handler.slice(handler.indexOf('const onCaptionPointerDown = event =>'), handler.indexOf('new ResizeObserver(() => updateCaptionSelectBox())'));
   assert.match(body, /captionWrite\(cueId,\s*\{\s*cuePosition\s*\}\)/u);
   assert.doesNotMatch(body, /caption\.textStyle\?\.(?:scale|rotate)/u);
   assert.match(handler, /: 'cuePosition' in request\.patch\s*\? await persistCaptionCuePosition/u);

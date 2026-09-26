@@ -20,6 +20,12 @@ export interface AkariWorkflow {
     };
 }
 
+/** プロジェクト固有の hidden は残し、スキルリンク置き場だけを常に追加する。 */
+export const SKILL_ADAPTER_HIDDEN = ['.agents', '.codex', '.cursor', '.opencode', '.devin'];
+export function withSkillAdapterHidden(hidden: string[]): string[] {
+    return [...new Set([...hidden, ...SKILL_ADAPTER_HIDDEN])];
+}
+
 const DEFAULT_WORKFLOW: AkariWorkflow = {
     version: 1,
     roles: [
@@ -28,7 +34,7 @@ const DEFAULT_WORKFLOW: AkariWorkflow = {
         { path: 'exports', label: '書き出し', kind: 'exports' }
     ],
     tree: {
-        hidden: ['.claude', '.agents', '.codex', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
+        hidden: ['.claude', '.agents', '.codex', '.cursor', '.opencode', '.devin', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
         sidecarSuffixes: ['.meta.json', '.decisions.json', '.analysis.json'],
         developerModePreference: 'akari.developerMode'
     }
@@ -62,7 +68,7 @@ export class AkariWorkflowService {
                 version: typeof parsed.version === 'number' ? parsed.version : 1,
                 roles: Array.isArray(parsed.roles) ? parsed.roles : DEFAULT_WORKFLOW.roles,
                 tree: {
-                    hidden: parsed.tree?.hidden ?? DEFAULT_WORKFLOW.tree.hidden,
+                    hidden: withSkillAdapterHidden(parsed.tree?.hidden ?? DEFAULT_WORKFLOW.tree.hidden),
                     sidecarSuffixes: parsed.tree?.sidecarSuffixes ?? DEFAULT_WORKFLOW.tree.sidecarSuffixes,
                     developerModePreference: parsed.tree?.developerModePreference ?? 'akari.developerMode'
                 }

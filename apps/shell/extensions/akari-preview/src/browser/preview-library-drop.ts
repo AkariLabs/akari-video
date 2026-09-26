@@ -1,16 +1,20 @@
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { CommandService, MessageService } from '@theia/core/lib/common';
-import { hostToOutput, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
+import { explorerMaterial, nearestOutputPoint, outputOffset, outputRectInHost, previewDropBox, type DropRect } from '../common/preview-drop-geometry';
 import { canvasAtFrame, canvasDropLabel, type CanvasDropTarget } from '../common/canvas-drop-target';
 import { claimScene3dDrop, previewOverlayKind } from '../common/preview-overlay-drop';
 import { previewShapeDropBox, previewShapePayload } from '../common/preview-shape-drop';
 
 const MIME = 'application/x-akari-library-item';
+const MATERIAL_MIME = 'application/x-akari-material';
 const START = 'akari.library.dragStart';
 const END = 'akari.library.dragEnd';
+const MATERIAL_START = 'akari.material.dragStart';
+const MATERIAL_END = 'akari.material.dragEnd';
 type Payload = { kind: string; key?: string; id?: string; category?: string; title?: string;
     width?: number; height?: number; thumb?: string; durationSeconds?: number; locked?: boolean;
-    style?: unknown; slot?: string; fontFamily?: string; preset?: string; name?: string; vb?: [number, number] };
+    style?: unknown; slot?: string; fontFamily?: string; preset?: string; name?: string; vb?: [number, number];
+    source?: 'material' | 'explorer'; relativePath?: string; outsideProject?: boolean };
 type Geometry = { rect: DropRect; time: number; fps: number; canvases: CanvasDropTarget[];
     output: { width: number; height: number } };
 type ApplyHit = { kind: 'caption' | 'cut' | 'layer' | 'item'; id: string };
@@ -24,12 +28,38 @@ function readPayload(value: unknown): Payload | undefined {
     } catch { return undefined; }
 }
 
+function readMaterialPayload(value: unknown): Payload | undefined {
+    const data = readPayload(value);
+    if (!data || !['video', 'image', 'audio'].includes(data.kind)
+        || typeof data.relativePath !== 'string' || !data.relativePath
+        || data.relativePath.startsWith('/') || data.relativePath.split('/').includes('..')) return undefined;
+    return { ...data, source: 'material', category: data.kind };
+}
+
+function readExplorerPayload(transfer: DataTransfer | null | undefined, editUri?: string): Payload | undefined {
+    if (!transfer || !editUri) return undefined;
+    const values = [transfer.getData('tree-node'), transfer.getData('text/uri-list'), transfer.getData('text/plain')];
+    try {
+        const selected = JSON.parse(transfer.getData('selected-tree-nodes'));
+        if (Array.isArray(selected)) values.unshift(...selected.filter((value): value is string => typeof value === 'string'));
+    } catch { /* A single tree-node does not carry selected-tree-nodes. */ }
+    for (const value of values) for (const line of value.split(/\r?\n/)) {
+        if (!line.startsWith('file:')) continue;
+        const material = explorerMaterial(line, editUri);
+        if (material === 'outside') return { kind: 'external', source: 'explorer', outsideProject: true };
+        if (material) return { ...material, category: material.kind, source: 'explorer' };
+    }
+    return undefined;
+}
+
 function stamp(seconds: number): string {
     const rounded = Math.max(0, Math.round(seconds * 10) / 10);
     return `${Math.floor(rounded / 60)}:${(rounded % 60).toFixed(1).padStart(4, '0')}`;
 }
 
 export class PreviewLibraryDrop {
+    private static readonly instances = new Set<PreviewLibraryDrop>();
+    private static dragSample?: { owner: PreviewLibraryDrop; element: HTMLDivElement };
     private layer?: HTMLDivElement;
     private ghost?: HTMLDivElement;
     private active?: Payload;
@@ -53,13 +83,17 @@ export class PreviewLibraryDrop {
         private readonly editUri: () => string | undefined,
         private readonly output: () => { width: number; height: number } | undefined,
         private readonly fullscreen: () => boolean) {
+        PreviewLibraryDrop.instances.add(this);
         const start = (event: Event): void => {
             this.closePrompt?.();
             this.clear();
-            this.active = readPayload((event as CustomEvent<unknown>).detail);
+            this.active = event.type === MATERIAL_START
+                ? readMaterialPayload((event as CustomEvent<unknown>).detail)
+                : readPayload((event as CustomEvent<unknown>).detail);
             this.dragSession = this.active;
             if (!this.active || !this.canShow()) return;
             this.show();
+            this.loadThumbnailAspect(this.active);
             void this.queryGeometry();
         };
         const clear = (): void => this.clear();
@@ -68,30 +102,118 @@ export class PreviewLibraryDrop {
             this.outside = event.altKey;
             if (this.lastPointer) this.drawGhost(this.lastPointer.x, this.lastPointer.y);
         };
-        const useFrameDragImage = (event: DragEvent): void => {
-            if (!event.dataTransfer?.types.includes(MIME)) return;
+        const useSampleDragImage = (event: DragEvent): void => {
+            const transfer = event.dataTransfer;
+            if (!transfer) return;
+            if (!this.active && (transfer.types.includes('tree-node') || transfer.types.includes('text/uri-list'))) {
+                this.active = readExplorerPayload(transfer, this.editUri());
+                this.dragSession = this.active;
+                if (this.active && this.canShow()) {
+                    this.show();
+                    this.loadThumbnailAspect(this.active);
+                    void this.queryGeometry();
+                }
+            }
+            if (!transfer.types.includes(MIME) && !transfer.types.includes(MATERIAL_MIME)) return;
+            const payload = transfer.types.includes(MATERIAL_MIME)
+                ? readMaterialPayload(transfer.getData(MATERIAL_MIME)) ?? this.active
+                : readPayload(transfer.getData(MIME)) ?? this.active;
+            if (!payload || PreviewLibraryDrop.dragSample) return;
             const image = document.createElement('canvas');
             image.width = image.height = 1;
             image.style.cssText = 'position:fixed;left:0;top:0;opacity:0;pointer-events:none';
             document.body.appendChild(image);
-            event.dataTransfer.setDragImage(image, 0, 0);
+            transfer.setDragImage(image, 0, 0);
             requestAnimationFrame(() => image.remove());
+            const card = document.createElement('div');
+            card.dataset.akariDragSample = 'true';
+            card.style.cssText = 'position:fixed;z-index:2147483647;display:flex;align-items:center;gap:6px;max-width:180px;padding:5px 8px;border-radius:5px;background:#282828;color:white;font:12px sans-serif;box-shadow:0 2px 8px #0008;pointer-events:none';
+            if (payload.thumb) {
+                const image = document.createElement('img');
+                image.src = payload.thumb;
+                image.style.cssText = 'width:32px;height:28px;object-fit:cover';
+                card.appendChild(image);
+            } else {
+                const icon = document.createElement('span');
+                icon.textContent = payload.category === 'audio' || payload.kind === 'audio' ? '♫'
+                    : payload.kind === 'text' || payload.kind === 'textstyle' ? 'T'
+                        : payload.kind === 'shape' ? '◇' : '▣';
+                card.appendChild(icon);
+            }
+            const defaultName = payload.kind === 'text' ? 'テキスト'
+                : payload.kind === 'textstyle' || payload.kind === 'mystyle' ? 'テキストスタイル'
+                    : payload.kind === 'shape' ? '図形' : '素材';
+            card.appendChild(document.createTextNode(payload.relativePath?.split('/').pop()
+                || payload.title || payload.name || defaultName));
+            document.body.appendChild(card);
+            PreviewLibraryDrop.dragSample = { owner: this, element: card };
+            this.followSample(event);
         };
-        window.addEventListener('dragstart', useFrameDragImage);
+        const followSample = (event: DragEvent): void => this.followSample(event);
+        const removeSample = (): void => PreviewLibraryDrop.removeDragSample();
+        window.addEventListener('dragstart', useSampleDragImage);
+        window.addEventListener('dragover', followSample, true);
+        window.addEventListener('drag', followSample, true);
+        window.addEventListener('drop', removeSample, true);
         window.addEventListener(START, start);
         window.addEventListener(END, clear);
+        window.addEventListener(MATERIAL_START, start);
+        window.addEventListener(MATERIAL_END, clear);
+        window.addEventListener('dragend', clear);
         window.addEventListener('blur', clear);
         window.addEventListener('keydown', keyChanged);
         window.addEventListener('keyup', keyChanged);
         this.subscriptions.push({ dispose: () => {
-            window.removeEventListener('dragstart', useFrameDragImage);
+            window.removeEventListener('dragstart', useSampleDragImage);
+            window.removeEventListener('dragover', followSample, true);
+            window.removeEventListener('drag', followSample, true);
+            window.removeEventListener('drop', removeSample, true);
             window.removeEventListener(START, start);
             window.removeEventListener(END, clear);
+            window.removeEventListener(MATERIAL_START, start);
+            window.removeEventListener(MATERIAL_END, clear);
+            window.removeEventListener('dragend', clear);
             window.removeEventListener('blur', clear);
             window.removeEventListener('keydown', keyChanged);
             window.removeEventListener('keyup', keyChanged);
         } });
         this.widget.onDidDispose(() => this.dispose());
+    }
+
+    private static removeDragSample(): void {
+        PreviewLibraryDrop.dragSample?.element.remove();
+        PreviewLibraryDrop.dragSample = undefined;
+    }
+
+    private loadThumbnailAspect(payload: Payload): void {
+        if ((payload.source !== 'material' && payload.source !== 'explorer')
+            || (payload.kind !== 'video' && payload.kind !== 'image') || !payload.thumb
+            || payload.width && payload.height) return;
+        const serial = this.dragSerial;
+        const thumbnail = new Image();
+        thumbnail.onload = () => {
+            if (serial !== this.dragSerial || this.active !== payload) return;
+            if (!(thumbnail.naturalWidth > 0) || !(thumbnail.naturalHeight > 0)) return;
+            this.active = { ...payload, width: thumbnail.naturalWidth, height: thumbnail.naturalHeight };
+            if (this.lastPointer) this.drawGhost(this.lastPointer.x, this.lastPointer.y);
+        };
+        thumbnail.src = payload.thumb;
+    }
+
+    private followSample(event: DragEvent): void {
+        const sample = PreviewLibraryDrop.dragSample;
+        if (!sample || sample.owner !== this || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
+        sample.element.style.left = `${event.clientX + 14}px`;
+        sample.element.style.top = `${event.clientY + 14}px`;
+        const overPreview = [...PreviewLibraryDrop.instances].some(instance => {
+            if (!instance.canShow()) return false;
+            const bounds = instance.widget.node.getBoundingClientRect();
+            const left = bounds.left ?? bounds.x;
+            const top = bounds.top ?? bounds.y;
+            return event.clientX >= left && event.clientX <= left + bounds.width
+                && event.clientY >= top && event.clientY <= top + bounds.height;
+        });
+        sample.element.style.display = overPreview ? 'none' : 'flex';
     }
 
     private canShow(): boolean {
@@ -162,6 +284,7 @@ export class PreviewLibraryDrop {
         layer.addEventListener('dragleave', event => {
             if (!layer.contains(event.relatedTarget as Node)) {
                 ghost.style.display = 'none';
+                this.lastPointer = undefined;
                 if (this.active && APPLY_KINDS.has(this.active.kind)) this.clearHoverHit();
             }
         });
@@ -219,7 +342,7 @@ export class PreviewLibraryDrop {
         this.drawGhost(event.clientX, event.clientY);
         if (this.active && APPLY_KINDS.has(this.active.kind) && this.geometry
             && Date.now() - this.hitRequestAt > 90) {
-            const point = hostToOutput({ x: event.clientX, y: event.clientY }, this.geometry.rect, this.geometry.output);
+            const point = nearestOutputPoint({ x: event.clientX, y: event.clientY }, this.geometry.rect, this.geometry.output);
             if (point) {
                 this.hitRequestAt = Date.now();
                 void this.queryHit(point, this.geometry, this.active, true);
@@ -230,8 +353,13 @@ export class PreviewLibraryDrop {
     private drawGhost(clientX: number, clientY: number): void {
         const geometry = this.geometry;
         const payload = this.active;
-        const point = geometry && hostToOutput({ x: clientX, y: clientY }, geometry.rect, geometry.output);
-        if (!geometry || !payload || !point || this.fullscreen() || !this.ghost) {
+        const point = geometry && nearestOutputPoint({ x: clientX, y: clientY }, geometry.rect, geometry.output);
+        const bounds = this.widget.node.getBoundingClientRect();
+        const left = bounds.left ?? bounds.x;
+        const top = bounds.top ?? bounds.y;
+        if (!geometry || !payload || !point || this.fullscreen() || !this.ghost
+            || clientX < left || clientY < top
+            || clientX > left + bounds.width || clientY > top + bounds.height) {
             if (this.ghost) this.ghost.style.display = 'none';
             return;
         }
@@ -243,9 +371,10 @@ export class PreviewLibraryDrop {
             this.ghost.style.display = 'none';
             return;
         }
-        const local = this.widget.node.getBoundingClientRect();
+        const centerX = geometry.rect.x + point.x * geometry.rect.width / geometry.output.width;
+        const centerY = geometry.rect.y + point.y * geometry.rect.height / geometry.output.height;
         const ghost = this.ghost;
-        const audio = payload.kind === 'asset' && payload.category === 'audio';
+        const audio = payload.category === 'audio';
         const text = placeable || applying;
         const transition = payload.kind === 'transition';
         const overlay = previewOverlayKind(payload) === 'overlay';
@@ -261,8 +390,8 @@ export class PreviewLibraryDrop {
         ghost.style.height = `${height}px`;
         ghost.style.borderStyle = audio ? 'solid' : 'dashed';
         ghost.style.borderRadius = audio ? '999px' : 'var(--theia-borderRadius, 6px)';
-        ghost.style.left = `${clientX - local.left - width / 2}px`;
-        ghost.style.top = `${clientY - local.top - height / 2}px`;
+        ghost.style.left = `${centerX - left - width / 2}px`;
+        ghost.style.top = `${centerY - top - height / 2}px`;
         ghost.replaceChildren();
         if (audio) {
             const note = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -272,9 +401,11 @@ export class PreviewLibraryDrop {
         } else ghost.append(document.createTextNode(applying
             ? (payload.kind === 'lut' ? '画面に当てます' : '文字に当てます')
             : transition ? 'カットの境目に置いてください' : text ? 'テキストを置く'
-                : shape ? shape.name ?? '図形' : payload.title ?? '素材'));
+                : shape ? shape.name ?? '図形' : payload.title ?? payload.name ?? '素材'));
         if (!transition && !applying) {
-            const duration = audio || payload.category === 'broll' ? payload.durationSeconds
+            const duration = audio || payload.category === 'broll'
+                || (payload.source === 'material' || payload.source === 'explorer') && payload.kind === 'video'
+                ? payload.durationSeconds
                 : text ? 3 : 5;
             const label = document.createElement('div');
             label.style.cssText = 'position:absolute;top:100%;left:50%;transform:translateX(-50%);white-space:nowrap;padding:3px 7px;border-radius:4px;background:var(--theia-editorHoverWidget-background,#242424)';
@@ -294,15 +425,28 @@ export class PreviewLibraryDrop {
     private async drop(event: DragEvent): Promise<void> {
         event.preventDefault();
         event.stopPropagation();
-        const payload = readPayload(event.dataTransfer?.getData(MIME)) ?? this.active;
+        const transfer = event.dataTransfer;
+        const payload = readMaterialPayload(transfer?.getData(MATERIAL_MIME))
+            ?? readPayload(transfer?.getData(MIME))
+            ?? readExplorerPayload(transfer, this.editUri()) ?? this.active;
         const dragSession = this.active ?? this.dragSession;
         const position = { x: event.clientX, y: event.clientY };
         const latest = this.geometry;
         if (!payload || this.fullscreen()) { this.clear(); return; }
         const fresh = this.queryGeometry(2500);
         const geometry = await fresh ?? latest;
-        const point = geometry && hostToOutput(position, geometry.rect, geometry.output);
-        if (!geometry || !point) { this.clear(); return; }
+        const bounds = this.widget?.node.getBoundingClientRect();
+        const left = bounds && (bounds.left ?? bounds.x);
+        const top = bounds && (bounds.top ?? bounds.y);
+        const insideWidget = !bounds || position.x >= left! && position.y >= top!
+            && position.x <= left! + bounds.width && position.y <= top! + bounds.height;
+        const point = geometry && nearestOutputPoint(position, geometry.rect, geometry.output);
+        if (!geometry || !point || !insideWidget) { this.clear(); return; }
+        if (payload.outsideProject) {
+            this.clear();
+            this.messages.warn('プロジェクトの中のファイルだけ置けます');
+            return;
+        }
         if (payload.locked) {
             this.clear();
             try { await this.commands.executeCommand('akari.library.showPremiumPrompt', { key: payload.key }); }
@@ -331,6 +475,19 @@ export class PreviewLibraryDrop {
         }
         const editUri = this.editUri();
         if (!editUri) return;
+        if (payload.source === 'material' || payload.source === 'explorer') {
+            if (!payload.relativePath) return;
+            await this.commands.executeCommand('akari.timeline.addMaterialAtOutputPoint', {
+                relativePath: payload.relativePath, kind: payload.kind, t: geometry.time,
+                ...(payload.kind === 'audio' ? {} : { transform: outputOffset(point, geometry.output) }),
+                editUri, outsideCanvas: event.altKey,
+                ...(!event.altKey ? { canvasAware: true } : {})
+            });
+            await this.commands.executeCommand('akari.preview.seekOutput', {
+                editUri, time: geometry.time, waitForReady: true
+            });
+            return;
+        }
         if (payload.kind === 'shape') {
             const shape = previewShapePayload(payload);
             if (!shape) return;
@@ -418,6 +575,7 @@ export class PreviewLibraryDrop {
     }
 
     private clear(): void {
+        if (PreviewLibraryDrop.dragSample?.owner === this) PreviewLibraryDrop.removeDragSample();
         if (this.active && APPLY_KINDS.has(this.active.kind)) {
             this.widget.sendMessage({ type: 'akari-preview-hit-test-clear' });
         }
@@ -435,5 +593,10 @@ export class PreviewLibraryDrop {
         this.hitRequestAt = 0;
         this.hoverRequestId = 0;
     }
-    private dispose(): void { this.clear(); this.closePrompt?.(); for (const item of this.subscriptions) item.dispose(); }
+    private dispose(): void {
+        this.clear();
+        PreviewLibraryDrop.instances.delete(this);
+        this.closePrompt?.();
+        for (const item of this.subscriptions) item.dispose();
+    }
 }

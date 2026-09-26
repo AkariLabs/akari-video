@@ -50,9 +50,9 @@ export const AKARI_SHORTCUTS: readonly AkariShortcut[] = [
     { command: command('akari.timeline.nextSecond', '1 秒進む', '再生'), keys: ['shift+right'], when: timeline, key: 'ArrowRight', shift: true },
     { command: command('akari.daihon.selectAllRows', '行をすべて選ぶ', '台本'), keys: ['ctrlcmd+a'], when: 'akariDaihonRowsFocus && !akariEditableFocus && !akariImeComposing', key: 'a', modifier: true },
     { command: command('akari.daihon.clearRowSelection', '行の選択を外す', '台本'), keys: ['escape'], when: 'akariDaihonRowsFocus && !akariEditableFocus && !akariImeComposing', key: 'Escape' },
-    { command: command('akari.inspector.clearSolo', 'インスペクターのソロを外す', 'インスペクター'), keys: ['escape'], when: 'akariInspectorFocus && akariInspectorSolo && !akariEditableFocus && !akariImeComposing', key: 'Escape' },
+    { command: command('akari.inspector.clearSolo', 'インスペクターのソロを外す', '編集パネル'), keys: ['escape'], when: 'akariInspectorFocus && akariInspectorSolo && !akariEditableFocus && !akariImeComposing', key: 'Escape' },
     ...(['up', 'down'] as const).flatMap((direction): AkariShortcut[] => [
-        { command: command(`akari.inspector.step${direction}`, `数値を 1 ずつ増減（${direction === 'up' ? '増' : '減'}）`, 'インスペクター'), keys: [direction], when: 'akariNumberFieldFocus && !akariImeComposing', key: `Arrow${direction[0].toUpperCase()}${direction.slice(1)}` },
-        { command: command(`akari.inspector.step10${direction}`, `数値を 10 ずつ増減（${direction === 'up' ? '増' : '減'}）`, 'インスペクター'), keys: [`shift+${direction}`], when: 'akariNumberFieldFocus && !akariImeComposing', key: `Arrow${direction[0].toUpperCase()}${direction.slice(1)}`, shift: true }
+        { command: command(`akari.inspector.step${direction}`, `数値を 1 ずつ増減（${direction === 'up' ? '増' : '減'}）`, '編集パネル'), keys: [direction], when: 'akariNumberFieldFocus && !akariImeComposing', key: `Arrow${direction[0].toUpperCase()}${direction.slice(1)}` },
+        { command: command(`akari.inspector.step10${direction}`, `数値を 10 ずつ増減（${direction === 'up' ? '増' : '減'}）`, '編集パネル'), keys: [`shift+${direction}`], when: 'akariNumberFieldFocus && !akariImeComposing', key: `Arrow${direction[0].toUpperCase()}${direction.slice(1)}`, shift: true }
     ])
 ];

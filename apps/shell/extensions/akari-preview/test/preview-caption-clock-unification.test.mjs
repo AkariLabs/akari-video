@@ -107,7 +107,7 @@ test('render, caption selection, and styled animation consume outputTime only', 
     assert.match(renderCaption, /clamp\(outputTime, caption\.start, caption\.end\)/u);
     assert.doesNotMatch(renderCaption, /const time = video\.currentTime|activeSegment &&|resolvedTimeline \?/u);
 
-    const pointerStart = compiled.indexOf("captionLayer.addEventListener('pointerdown'");
+    const pointerStart = compiled.indexOf('const onCaptionPointerDown = event =>');
     const pointerEnd = compiled.indexOf("wrapper.addEventListener('click'", pointerStart);
     const pointerHandler = compiled.slice(pointerStart, pointerEnd);
     assert.match(pointerHandler, /captionForEvent\(event\)/u);

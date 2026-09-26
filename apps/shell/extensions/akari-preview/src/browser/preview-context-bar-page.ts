@@ -66,6 +66,11 @@ export const previewContextBarPageScript = `(() => {
   };
   let last = '';
   let ready = false;
+  let pointerHeld = false;
+  window.addEventListener('pointerdown', () => { pointerHeld = true; }, true);
+  window.addEventListener('pointerup', () => { pointerHeld = false; }, true);
+  window.addEventListener('pointercancel', () => { pointerHeld = false; }, true);
+  window.addEventListener('blur', () => { pointerHeld = false; });
   const tick = () => {
     requestAnimationFrame(tick);
     if (typeof akari.reportContextBox !== 'function') return;
@@ -76,9 +81,11 @@ export const previewContextBarPageScript = `(() => {
     const body = document.body.classList;
     const busy = !!frame && (frame.classList.contains('is-busy') || frame.classList.contains('is-moving'))
       || body.contains('akari-selection-gesture-active') || body.contains('akari-media-transforming')
-      || body.contains('akari-caption-moving') || body.contains('akari-caption-rotating');
+      || body.contains('akari-caption-moving') || body.contains('akari-caption-transforming')
+      || body.contains('akari-caption-rotating');
     const stage = document.getElementById('preview-layers');
-    const next = { box: frame ? rect(frame) : null, busy, stage: stage && shown(stage) ? rect(stage) : null };
+    const next = { box: frame ? rect(frame) : null, busy, pointerHeld,
+      stage: stage && shown(stage) ? rect(stage) : null };
     const text = JSON.stringify(next);
     if (text === last) return;
     last = text;

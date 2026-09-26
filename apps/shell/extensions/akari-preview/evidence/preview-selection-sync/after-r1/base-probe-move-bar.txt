@@ -1,0 +1,8 @@
+moved-photo-a@1 {"t":1,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}
+seek0.5 {"t":0.5,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}
+click-photo-a {"t":0.5,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}
+click@(450,420) {"t":0.5,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}
+click-photo-a {"t":0.5,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}
+click@(220,420) {"t":0.5,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}
+click-photo-a {"t":0.5,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}
+click@(120,480) {"t":0.5,"layer":"photo-a-item","cut":false,"ov":null,"tl":["photo-a-item"],"miniBar":[[52,408,469,505]]}

@@ -1,0 +1,1471 @@
+{
+  "label": "before",
+  "port": 9628,
+  "project": "portrait",
+  "aspect": "portrait",
+  "theme": "dark",
+  "pid": 22888,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 1,
+  "results": {
+    "none": {
+      "m": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "shot": "before-portrait-none-fit.png"
+    },
+    "select-caption": {
+      "picked": {
+        "cx": 195.94705963134766,
+        "cy": 244.02936553955078
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "before-portrait-caption-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "before-portrait-caption-100.png",
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 272.6,
+          "y": -79.5,
+          "width": 302.63,
+          "height": 538
+        },
+        "stageTop": -79.5,
+        "gapBarToStage": -198.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 50.69,
+            "y": -118.5,
+            "width": 302.63,
+            "height": 538
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "before-portrait-caption-200.png",
+      "afterReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "select-photo": {
+      "picked": {
+        "cx": 166.97396087646484,
+        "cy": 66.43749618530273,
+        "width": 34.32551574707031,
+        "height": 22.55677032470703
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 311.2,
+            "top": 168.5,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 204.5
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -96,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "before-portrait-photo-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 311.2,
+            "top": 168.5,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 204.5
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -96,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "before-portrait-photo-100.png",
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 275.7,
+            "top": 96,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 132
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 272.6,
+          "y": -79.5,
+          "width": 302.63,
+          "height": 538
+        },
+        "stageTop": -79.5,
+        "gapBarToStage": -230.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 50.69,
+            "y": -118.5,
+            "width": 302.63,
+            "height": 538
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "before-portrait-photo-200.png",
+      "afterReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 311.2,
+            "top": 168.5,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 204.5
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -96,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "select-shape": {
+      "picked": {
+        "left": 217.4114532470703,
+        "top": 191.1302032470703,
+        "width": 42.03123474121094,
+        "height": 28.020828247070312,
+        "cx": 238.42707061767578,
+        "cy": 205.14061737060547
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 382.4,
+            "top": 184,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 220
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -32,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "before-portrait-shape-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 382.4,
+            "top": 184,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 220
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -32,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "before-portrait-shape-100.png",
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 418.9,
+            "top": 225,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 261
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 272.6,
+          "y": -79.5,
+          "width": 302.63,
+          "height": 538
+        },
+        "stageTop": -79.5,
+        "gapBarToStage": -166.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 50.69,
+            "y": -118.5,
+            "width": 302.63,
+            "height": 538
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "before-portrait-shape-200.png",
+      "afterReset": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 382.4,
+            "top": 184,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 220
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -32,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "wheel": {
+      "at": {
+        "x": 260.1140625,
+        "y": 204.55
+      },
+      "base": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollDown60": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollDownShot": "before-portrait-wheel-scroll-down.png",
+      "scrollUp120": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollUpShot": "before-portrait-wheel-scroll-up.png",
+      "scrollRight50": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "afterFitReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 272.6,
+          "y": -79.5,
+          "width": 302.63,
+          "height": 538
+        },
+        "stageTop": -79.5,
+        "gapBarToStage": -198.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 50.69,
+            "y": -118.5,
+            "width": 302.63,
+            "height": 538
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Scrolled": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 272.6,
+          "y": -79.5,
+          "width": 302.63,
+          "height": 538
+        },
+        "stageTop": -79.5,
+        "gapBarToStage": -198.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 50.69,
+            "y": -118.5,
+            "width": 302.63,
+            "height": 538
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200ScrolledShot": "before-portrait-wheel-zoom200-scrolled.png",
+      "afterFitReset2": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": -64,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "afterFitReset2Shot": "before-portrait-wheel-after-fit-reset.png"
+    },
+    "pinch": {
+      "at": {
+        "x": 386.0775,
+        "y": 135.7
+      },
+      "base": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "outputUnderCursorBefore": {
+        "x": 270,
+        "y": 576
+      },
+      "beforeShot": "before-portrait-pinch-before.png",
+      "after": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 255.53,
+          "y": -109.84,
+          "width": 336.75,
+          "height": 598.67
+        },
+        "stageTop": -109.84,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 33.62,
+            "y": -148.84,
+            "width": 336.75,
+            "height": 598.67
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2.22554)",
+          "zoomValue": "223%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "outputUnderCursorAfter": {
+        "x": 418.68,
+        "y": 787.47
+      },
+      "afterShot": "before-portrait-pinch-after.png",
+      "afterFitReset": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "before-portrait-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -250,
+              "y": -600,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 650,
+              "y": 1250
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Pkc (<file>)\n    at async a3n.reloadResolvedCaptionDisplay (<file>)\n    at async Ikc (<file>)",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

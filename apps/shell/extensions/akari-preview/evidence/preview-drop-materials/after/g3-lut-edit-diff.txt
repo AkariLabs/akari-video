@@ -1,0 +1,83 @@
+diff --git a/edit.json b/edit.json
+index d7ae0e6..a3e10a9 100644
+--- a/edit.json
++++ b/edit.json
+@@ -1,59 +1,26 @@
+ {
+   "version": 2,
+-  "output": {
+-    "width": 1280,
+-    "height": 720,
+-    "fps": 30
+-  },
++  "output": { "width": 1280, "height": 720, "fps": 30 },
+   "sources": [
+-    {
+-      "id": "a",
+-      "path": "assets/base.mp4"
+-    }
++    { "id": "a", "path": "assets/base.mp4" },
++    { "id": "src-1", "path": "assets/photo-orange.png" },
++    { "id": "src-2", "path": "assets/still/bg-aurora-mesh/bg.png" }
+   ],
+   "tracks": [
+-    {
+-      "id": "v-main",
+-      "lane": "visual",
+-      "name": "Base",
+-      "items": [
+-        {
+-          "id": "cut-base",
+-          "at": 0,
+-          "duration": 360,
+-          "source": {
+-            "kind": "media",
+-            "src": "a",
+-            "in": 0,
+-            "out": 12,
+-            "speed": 1
+-          }
+-        }
+-      ]
+-    },
+-    {
+-      "id": "v-captions",
+-      "lane": "visual",
+-      "name": "字幕",
+-      "items": [
+-        {
+-          "id": "captions",
+-          "name": "字幕",
+-          "at": 0,
+-          "duration": 360,
+-          "source": {
+-            "kind": "captions",
+-            "path": "captions.json"
+-          },
+-          "items": []
+-        }
+-      ]
+-    },
+-    {
+-      "id": "a1",
+-      "lane": "audio",
+-      "name": "A1",
+-      "items": []
+-    }
++    { "id": "v-main", "lane": "visual", "name": "Base", "items": [
++      { "id": "cut-base", "at": 0, "duration": 360, "source": { "kind": "media", "src": "a", "in": 0, "out": 12, "speed": 1 }, "adjust": { "lut": { "lut": "cinematic" } } }
++    ] },
++    { "id": "v1", "lane": "visual", "items": [
++      { "id": "image-1", "at": 30, "duration": 150, "transform": { "x": 256.9271569908184, "y": 143.93891359324323, "scale": 0.4 }, "source": { "kind": "media", "src": "src-1", "in": 0, "out": 5 } }
++    ] },
++    { "id": "v2", "lane": "visual", "items": [
++      { "id": "image-2", "at": 0, "duration": 150, "transform": { "x": 321.0873684898386, "y": -180.67439226278645, "scale": 0.19138755980861244 }, "source": { "kind": "media", "src": "src-2", "in": 0, "out": 5 } }
++    ] },
++    { "id": "v-captions", "lane": "visual", "name": "字幕", "items": [
++      { "id": "captions", "name": "字幕", "at": 0, "duration": 360, "source": { "kind": "captions", "path": "captions.json" }, "items": [] }
++    ] },
++    { "id": "v3", "lane": "visual", "items": [
++      { "id": "shape-1", "at": 0, "duration": 150, "transform": { "x": 262.94, "y": 389.2 }, "source": { "kind": "shape", "shape": "path", "params": { "fill": "#a6a6a6", "stroke": "none", "strokeWidth": 0, "preset": "star-5", "path": { "d": "M50 3L61.57 36.28L96.79 36.99L68.72 58.28L78.92 92L50 71.88L21.08 92L31.28 58.28L3.21 36.99L38.43 36.28Z", "vb": [100, 95] }, "width": 240, "height": 228 } } }
++    ] }
+   ]
+ }

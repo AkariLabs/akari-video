@@ -1,0 +1,466 @@
+{
+ "cardSpec": "material:assets/clip-yellow.mp4",
+ "dropSpec": "stage:0.75,0.25",
+ "mode": "mouse",
+ "at": "2026-09-26T13:06:32.403Z",
+ "card": {
+  "x": 217,
+  "y": 118,
+  "w": 107,
+  "h": 107,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 511.70703125,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 964,
+  "y": 140,
+  "outputPx": {
+   "x": 960.62638545002,
+   "y": 180.52683736258672
+  },
+  "clampedOutputPx": {
+   "x": 960.62638545002,
+   "y": 180.52683736258672
+  }
+ },
+ "atHold": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "clip-yellow.mp4",
+    "img": "file://<work>/ws-a/.akari/cache/thumbnails/0258b"
+   }
+  ]
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 888.7,
+     "y": 97.6,
+     "w": 150.7,
+     "h": 84.8
+    },
+    "text": "clip-yellow.mp40:03.0 → 実尺",
+    "border": "dashed"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "clip-yellow.mp4",
+    "img": "file://<work>/ws-a/.akari/cache/thumbnails/0258b"
+   }
+  ]
+ },
+ "waitMs": 508,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 217,
+   "y": 118,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 223,
+   "y": 124,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 5,
+   "x": 223,
+   "y": 124,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 253,
+   "y": 154,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 253,
+   "y": 154,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 259,
+   "y": 160,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 265,
+   "y": 166,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 265,
+   "y": 166,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 311,
+   "y": 138,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 311,
+   "y": 138,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 18,
+   "x": 318,
+   "y": 167,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 964,
+   "y": 140,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 964,
+   "y": 140,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.timeline.addMaterialAtOutputPoint",
+   "args": [
+    {
+     "relativePath": "assets/clip-yellow.mp4",
+     "kind": "video",
+     "t": 3,
+     "transform": {
+      "x": 320.69034589784485,
+      "y": -179.6492249367962
+     },
+     "editUri": "file://<work>/ws-a/edit.json",
+     "outsideCanvas": false,
+     "canvasAware": true
+    }
+   ],
+   "result": "undefined"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-a/edit.json",
+     "time": 3,
+     "waitForReady": true
+    }
+   ],
+   "result": "seeked"
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v1",
+   "trackIndex": 1,
+   "lane": "visual",
+   "id": "clip-1",
+   "at": 90,
+   "duration": 120,
+   "source": {
+    "kind": "media",
+    "src": "src-1",
+    "in": 0,
+    "out": 4
+   },
+   "transform": {
+    "x": 320.69034589784485,
+    "y": -179.6492249367962,
+    "scale": 0.5
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": null,
+ "audioAfter": null,
+ "newSources": [
+  {
+   "id": "src-1",
+   "path": "assets/clip-yellow.mp4"
+  }
+ ],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "material:assets/clip-yellow.mp4",
+  "drop": "stage:0.75,0.25",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 888.7,
+     "y": 97.6,
+     "w": 150.7,
+     "h": 84.8
+    },
+    "text": "clip-yellow.mp40:03.0 → 実尺",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.timeline.addMaterialAtOutputPoint",
+    "result": "\"undefined\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "\"seeked\""
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "clip-1",
+    "track": "v1",
+    "at": 90,
+    "duration": 120,
+    "transform": {
+     "x": 320.69034589784485,
+     "y": -179.6492249367962,
+     "scale": 0.5
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}

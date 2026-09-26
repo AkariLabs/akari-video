@@ -31,7 +31,7 @@ test('caption shares the six pixel overlay snap range', () => {
 });
 
 test('caption drag bypasses snapping with the current Command modifier', () => {
-    const drag = preview.slice(preview.indexOf("captionLayer.addEventListener('pointerdown', event =>"),
+    const drag = preview.slice(preview.indexOf("const onCaptionPointerDown = event =>"),
         preview.indexOf('new ResizeObserver(() => updateCaptionSelectBox())'));
     assert.match(drag, /!captionSnapEnabled \|\| moveEvent\.metaKey \|\| moveEvent\.ctrlKey[\s\S]*?\|\| !window\.akari\.interaction\?\.computeSnapCorrection/);
     assert.match(drag, /dragSnap = \{ x: null, y: null \};\s*window\.akari\.interaction\?\.hideSnapGuides/);

@@ -22,6 +22,7 @@ test('actual drag listeners share snapping, preserve placed anchors, and write t
             const context = {
                 document: { body: { classList: { add() {}, remove() {} } } },
                 captionLayer: { addEventListener: (_type, listener) => { pointerdown = listener; } },
+                captionSelectBox: { addEventListener() {}, contains: () => false },
                 captionGroupToolEnabled: false, captionSnapEnabled: true,
                 selectedCaptionIds: new Set(['placed']), captions: [caption],
                 activeCaptionEdit: null, captionForEvent: () => caption,
@@ -49,7 +50,7 @@ test('actual drag listeners share snapping, preserve placed anchors, and write t
                         engine: { captionWrite: async (...args) => writes.push(args) }, showWriteError: error => { throw error; } }
                 }, console
             };
-            vm.runInNewContext(section("captionLayer.addEventListener('pointerdown', event =>", '            new ResizeObserver(() => updateCaptionSelectBox())'), context);
+            vm.runInNewContext(section("const onCaptionPointerDown = event =>", '            new ResizeObserver(() => updateCaptionSelectBox())'), context);
             pointerdown({ button: 0, target: { closest: selector => selector === '.caption-row-plate' ? plate : null },
                 pointerId: 1, clientX: 200, clientY: 150, altKey: false, preventDefault() {}, stopPropagation() {} });
             listeners.get('pointermove')({ pointerId: 1, clientX: 200 + dx, clientY: 150 + dy });

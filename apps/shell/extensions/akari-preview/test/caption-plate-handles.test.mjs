@@ -146,13 +146,13 @@ test('persist does not write a lint-rejected candidate', async () => {
   assert.equal(writes, 0);
 });
 
-test('webview wiring contains five selected-only handles and local CSS variable updates', () => {
+test('webview wiring puts selected handles above media and keeps local style updates', () => {
   assert.match(handlerSource, /querySelectorAll\('\.akari-caption-handle-box, \.akari-caption-handle'\)[\s\S]*\.forEach\(handle => handle\.remove\(\)\)/u);
-  assert.match(handlerSource, /if \(!captionPlate\.hasAttribute\('data-selected'\)\) return/u);
+  assert.match(handlerSource, /const caption = captions\.find\(candidate => selectedCaptionIds\.has\([\s\S]*if \(!caption\) return/u);
   assert.match(handlerSource, /const handleBox = document\.createElement\('div'\)/u);
   assert.match(handlerSource, /handleBox\.className = 'akari-caption-handle-box'/u);
   assert.match(handlerSource, /handleBox\.appendChild\(handle\)/u);
-  assert.match(handlerSource, /captionPlate\.appendChild\(handleBox\)/u);
+  assert.match(handlerSource, /captionSelectBox\.appendChild\(handleBox\)/u);
   for (const kind of ['nw', 'ne', 'sw', 'se', 'rot']) {
     assert.match(handlerSource, new RegExp(`data-h="${kind}"`));
   }
@@ -161,30 +161,24 @@ test('webview wiring contains five selected-only handles and local CSS variable 
   assert.match(handlerSource, /plateTransform: \{ captionIds: targets, \.\.\.patch \}/u);
 });
 
-test('selected captions create bottom controls and deselection removes all handles', () => {
+test('selected captions create controls in chrome and deselection removes them', () => {
   const view = harness({
     cues: [{ id: 'c1', start: 0, end: 2, text: '字幕' }],
     selectedIds: ['c1'],
   });
   view.tick(1);
-  assert.equal(view.plate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle').length, 7);
-  assert.equal(view.plate.querySelectorAll('.akari-caption-handle').length, 6);
-  view.run('selectedCaptionIds = new Set(); applyCaptionSelectionAttrs();');
+  view.run("selectedCaptionId = 'c1'; applyCaptionSelectionAttrs();");
+  assert.equal(view.run('captionSelectBox.children.flatMap(box => box.children).length'), 6);
   assert.equal(view.plate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle').length, 0);
-  assert.equal(view.plate.querySelectorAll('.akari-caption-handle').length, 0);
+  view.run('selectedCaptionId = null; selectedCaptionIds = new Set(); applyCaptionSelectionAttrs();');
+  assert.equal(view.run('captionSelectBox.children.length'), 0);
 });
 
-test('handle box follows the text bounds for styled captions and fills a plain plate', () => {
-  assert.match(handlerSource, /const syncCaptionHandleBox = \(captionPlate = selectedCaptionPlate\(\)\) => \{/u);
-  assert.match(handlerSource, /querySelector\('\.akari-caption-handle-box'\)/u);
-  assert.match(handlerSource, /if \(!captionPlate\.classList\.contains\('akari-caption-host--styled'\)\) \{[\s\S]*box\.style\.inset = '0'[\s\S]*return;/u);
-  assert.match(handlerSource, /const hostRect = captionPlate\.getBoundingClientRect\(\)/u);
-  assert.match(handlerSource, /captionPlate\.offsetWidth > 0 \? hostRect\.width \/ captionPlate\.offsetWidth : 1/u);
-  assert.match(handlerSource, /captionPlate\.offsetHeight > 0 \? hostRect\.height \/ captionPlate\.offsetHeight : 1/u);
-  assert.match(handlerSource, /box\.style\.left = \(\(ink\.left - hostRect\.left\) \/ scaleX\) \+ 'px'/u);
-  assert.match(handlerSource, /box\.style\.top = \(\(ink\.top - hostRect\.top\) \/ scaleY\) \+ 'px'/u);
-  assert.match(handlerSource, /box\.style\.width = Math\.max\(0, \(ink\.right - ink\.left\) \/ scaleX\) \+ 'px'/u);
-  assert.match(handlerSource, /box\.style\.height = Math\.max\(0, \(ink\.bottom - ink\.top\) \/ scaleY\) \+ 'px'/u);
+test('handle box shares the selected frame and compensates for stage zoom', () => {
+  assert.match(handlerSource, /const syncCaptionHandleBox = \(\) => \{/u);
+  assert.match(handlerSource, /captionSelectBox\.querySelector\('\.akari-caption-handle-box'\)/u);
+  assert.match(handlerSource, /captionControlScaleFn\(previewStage\.offsetWidth, display\.width,/u);
+  assert.match(handlerSource, /captionSelectBox\.style\.transform = 'rotate\('/u);
   assert.match(handlerSource, /updateCaptionSelectBoxForRect = rect => \{\s*syncCaptionHandleBox\(\)/u);
   assert.match(handlerSource, /updateCaptionSelectBox = \(\) => \{\s*syncCaptionHandleBox\(\)/u);
 });

@@ -1,0 +1,1369 @@
+{
+  "label": "before",
+  "port": 9628,
+  "project": "landscape",
+  "aspect": "landscape",
+  "theme": "dark",
+  "pid": 30077,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 1,
+  "results": {
+    "none": {
+      "m": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "shot": "before-landscape-none-fit.png"
+    },
+    "select-caption": {
+      "picked": {
+        "cx": 188.7191925048828,
+        "cy": 225.61337280273438
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "before-landscape-caption-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "before-landscape-caption-100.png",
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 91.91,
+          "y": 2.75,
+          "width": 664,
+          "height": 373.5
+        },
+        "stageTop": 2.75,
+        "gapBarToStage": -116.25,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": -130,
+            "y": -36.25,
+            "width": 664,
+            "height": 373.5
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "before-landscape-caption-200.png",
+      "afterReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "select-photo": {
+      "picked": {
+        "cx": 112.08333587646484,
+        "cy": 105.54166412353516,
+        "width": 42.36457824707031,
+        "height": 27.839584350585938
+      },
+      "fit": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "before-landscape-photo-fit.png",
+      "zoom100": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "before-landscape-photo-100.png",
+      "zoom200": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 91.91,
+          "y": 2.75,
+          "width": 664,
+          "height": 373.5
+        },
+        "stageTop": 2.75,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": -130,
+            "y": -36.25,
+            "width": 664,
+            "height": 373.5
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "before-landscape-photo-200.png",
+      "afterReset": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "select-shape": {
+      "picked": {
+        "left": 260.79168701171875,
+        "top": 83.0625,
+        "width": 51.874969482421875,
+        "height": 34.58332824707031,
+        "cx": 286.7291717529297,
+        "cy": 100.35416412353516
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 430.9,
+            "top": 208.5,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 244.5
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": 9.13,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "before-landscape-shape-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 430.9,
+            "top": 208.5,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 244.5
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": 9.13,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "before-landscape-shape-100.png",
+      "zoom200": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 91.91,
+          "y": 2.75,
+          "width": 664,
+          "height": 373.5
+        },
+        "stageTop": 2.75,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": -130,
+            "y": -36.25,
+            "width": 664,
+            "height": 373.5
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "before-landscape-shape-200.png",
+      "afterReset": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "wheel": {
+      "at": {
+        "x": 260.1140625,
+        "y": 204.55
+      },
+      "base": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollDown60": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollDownShot": "before-landscape-wheel-scroll-down.png",
+      "scrollUp120": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollUpShot": "before-landscape-wheel-scroll-up.png",
+      "scrollRight50": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "afterFitReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 91.91,
+          "y": 2.75,
+          "width": 664,
+          "height": 373.5
+        },
+        "stageTop": 2.75,
+        "gapBarToStage": -116.25,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": -130,
+            "y": -36.25,
+            "width": 664,
+            "height": 373.5
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Scrolled": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 91.91,
+          "y": 2.75,
+          "width": 664,
+          "height": 373.5
+        },
+        "stageTop": 2.75,
+        "gapBarToStage": -116.25,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": -130,
+            "y": -36.25,
+            "width": 664,
+            "height": 373.5
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200ScrolledShot": "before-landscape-wheel-zoom200-scrolled.png",
+      "afterFitReset2": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": -22.87,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "afterFitReset2Shot": "before-landscape-wheel-after-fit-reset.png"
+    },
+    "pinch": {
+      "at": {
+        "x": 340.91,
+        "y": 152.155
+      },
+      "base": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "outputUnderCursorBefore": {
+        "x": 480,
+        "y": 324
+      },
+      "beforeShot": "before-landscape-pinch-before.png",
+      "after": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 54.47,
+          "y": -18.31,
+          "width": 738.88,
+          "height": 415.62
+        },
+        "stageTop": -18.31,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": -167.44,
+            "y": -57.31,
+            "width": 738.88,
+            "height": 415.62
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2.22554)",
+          "zoomValue": "223%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      },
+      "outputUnderCursorAfter": {
+        "x": 744.32,
+        "y": 442.96
+      },
+      "afterShot": "before-landscape-pinch-after.png",
+      "afterFitReset": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 257.91,
+          "y": 96.13,
+          "width": 332,
+          "height": 186.75
+        },
+        "stageTop": 96.13,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 36,
+            "y": 57.13,
+            "width": 332,
+            "height": 186.75
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -166, -93.375)",
+            "transition": "all",
+            "gutterTop": null
+          },
+          "playing": "再生"
+        }
+      }
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "before-landscape-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 490.01506024096386,
+              "y": -290,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1300,
+              "y": 150
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Pkc (<file>)\n    at async a3n.reloadResolvedCaptionDisplay (<file>)\n    at async Ikc (<file>)",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

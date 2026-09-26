@@ -1,0 +1,636 @@
+{
+ "cardSpec": "asset:still/bg-aurora-mesh",
+ "dropSpec": "stage:0.75,0.25",
+ "mode": "mouse",
+ "at": "2026-09-26T13:13:36.046Z",
+ "card": {
+  "x": 220,
+  "y": 197,
+  "w": 58,
+  "h": 60,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 433.9296875,
+   "y": 55.00390625,
+   "w": 478.21875,
+   "h": 268.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 793,
+  "y": 122,
+  "outputPx": {
+   "x": 961.0873684898386,
+   "y": 179.32560773721355
+  },
+  "clampedOutputPx": {
+   "x": 961.0873684898386,
+   "y": 179.32560773721355
+  }
+ },
+ "atHold": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "visible": false,
+    "cursor": "copy"
+   },
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 359
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [],
+  "sample": [
+   {
+    "rect": {
+     "x": 204,
+     "y": 271,
+     "w": 173.5,
+     "h": 38
+    },
+    "display": "flex",
+    "text": "オーロラメッシュ背景",
+    "img": "https://akari.video/assets/still/bg-aurora-mesh/v1/preview.png"
+   }
+  ]
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "visible": false,
+    "cursor": "copy"
+   },
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 359
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 733.2,
+     "y": 88.4,
+     "w": 119.6,
+     "h": 67.2
+    },
+    "text": "オーロラメッシュ背景0:00.0 → 0:05.0",
+    "border": "dashed"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "オーロラメッシュ背景",
+    "img": "https://akari.video/assets/still/bg-aurora-mesh/v1/preview.png"
+   }
+  ]
+ },
+ "waitMs": 12722,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 220,
+   "y": 197,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 226,
+   "y": 203,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 226,
+   "y": 203,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 232,
+   "y": 209,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 232,
+   "y": 209,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 238,
+   "y": 215,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 244,
+   "y": 221,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 244,
+   "y": 221,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 250,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 250,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 256,
+   "y": 233,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 262,
+   "y": 239,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 262,
+   "y": 239,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 268,
+   "y": 245,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 190,
+   "y": 257,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 190,
+   "y": 257,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 306,
+   "y": 238,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 306,
+   "y": 238,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 17,
+   "x": 345,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 793,
+   "y": 122,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 793,
+   "y": 122,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.catalog.resolveMaterial",
+   "args": [
+    "still/bg-aurora-mesh"
+   ],
+   "result": {
+    "relativePath": "assets/still/bg-aurora-mesh/bg.png",
+    "kind": "image"
+   }
+  },
+  {
+   "id": "akari.library.isMoving",
+   "args": [],
+   "result": false
+  },
+  {
+   "id": "akari.timeline.addMaterialAtOutputPoint",
+   "args": [
+    {
+     "relativePath": "assets/still/bg-aurora-mesh/bg.png",
+     "kind": "image",
+     "t": 0,
+     "transform": {
+      "x": 321.0873684898386,
+      "y": -180.67439226278645
+     },
+     "editUri": "file://<work>/ws-d/edit.json",
+     "outsideCanvas": false,
+     "canvasAware": true
+    }
+   ],
+   "result": "undefined"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-d/edit.json",
+     "time": 0,
+     "waitForReady": true
+    }
+   ]
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v2",
+   "trackIndex": 2,
+   "lane": "visual",
+   "id": "image-2",
+   "at": 0,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-2",
+    "in": 0,
+    "out": 5
+   },
+   "transform": {
+    "x": 321.0873684898386,
+    "y": -180.67439226278645,
+    "scale": 0.19138755980861244
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": null,
+ "audioAfter": null,
+ "newSources": [
+  {
+   "id": "src-2",
+   "path": "assets/still/bg-aurora-mesh/bg.png"
+  }
+ ],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "asset:still/bg-aurora-mesh",
+  "drop": "stage:0.75,0.25",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 733.2,
+     "y": 88.4,
+     "w": 119.6,
+     "h": 67.2
+    },
+    "text": "オーロラメッシュ背景0:00.0 → 0:05.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.catalog.resolveMaterial",
+    "result": "{\"relativePath\":\"assets/still/bg-aurora-mesh/bg.png\",\"kind\":\"image\"}"
+   },
+   {
+    "id": "akari.library.isMoving",
+    "result": "false"
+   },
+   {
+    "id": "akari.timeline.addMaterialAtOutputPoint",
+    "result": "\"undefined\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "null"
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "image-2",
+    "track": "v2",
+    "at": 0,
+    "duration": 150,
+    "transform": {
+     "x": 321.0873684898386,
+     "y": -180.67439226278645,
+     "scale": 0.19138755980861244
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}

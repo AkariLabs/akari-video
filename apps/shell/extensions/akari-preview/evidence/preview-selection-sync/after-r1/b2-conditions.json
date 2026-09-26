@@ -1,0 +1,119 @@
+[
+ {
+  "name": "1-in-range-shape-a@1",
+  "time": 1,
+  "tl": [
+   "shape-a"
+  ],
+  "cap": null,
+  "ov": "shape-a",
+  "layer": null,
+  "frames": 1,
+  "captionBox": false,
+  "layerBox": false
+ },
+ {
+  "name": "2-out-of-range-photo-a@6",
+  "time": 0,
+  "tl": [
+   "photo-a-item"
+  ],
+  "cap": null,
+  "ov": null,
+  "layer": "photo-a-item",
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": true
+ },
+ {
+  "name": "3-shift-add-shape-a@6",
+  "time": 6,
+  "tl": [
+   "shape-a",
+   "shape-b"
+  ],
+  "cap": null,
+  "ov": "undefined",
+  "layer": null,
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": false
+ },
+ {
+  "name": "3-cmd-add-shape-a@6",
+  "time": 6,
+  "tl": [
+   "shape-a",
+   "shape-b"
+  ],
+  "cap": null,
+  "ov": "undefined",
+  "layer": null,
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": false
+ },
+ {
+  "name": "4-playing-select-c-0001",
+  "time": 9.133,
+  "tl": [
+   "c-0001"
+  ],
+  "cap": "c-0001",
+  "ov": null,
+  "layer": null,
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": false,
+  "timeBeforeSelect": 6.767
+ },
+ {
+  "name": "4-paused-after",
+  "time": 9.133,
+  "tl": [
+   "c-0001"
+  ],
+  "cap": "c-0001",
+  "ov": null,
+  "layer": null,
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": false
+ },
+ {
+  "name": "5-marquee-photo-a@6",
+  "time": 6,
+  "tl": [
+   "photo-a-item"
+  ],
+  "cap": null,
+  "ov": null,
+  "layer": "photo-a-item",
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": false
+ },
+ {
+  "name": "6-before-undo@6",
+  "time": 6,
+  "tl": [],
+  "cap": null,
+  "ov": "undefined",
+  "layer": null,
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": false
+ },
+ {
+  "name": "6-after-undo@6",
+  "time": 6,
+  "tl": [],
+  "cap": null,
+  "ov": "undefined",
+  "layer": null,
+  "frames": 0,
+  "captionBox": false,
+  "layerBox": false,
+  "undoButton": "元に戻す (⌘Z)"
+ }
+]

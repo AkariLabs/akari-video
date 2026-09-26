@@ -31,6 +31,7 @@ interface Rect { left: number; top: number; width: number; height: number }
 export interface PreviewContextBoxReport {
     box: Rect | null;
     busy: boolean;
+    pointerHeld?: boolean;
     stage: Rect | null;
 }
 
@@ -107,6 +108,7 @@ export class PreviewContextBar implements Disposable {
     protected popSignature = '';
     protected menuSignature = '';
     protected menuRectSignature = '';
+    protected barRectSignature = '';
     protected popPointerActive = false;
     protected keepRatio = true;
     protected layerDrag: { id: string; pointerId: number; over?: string } | undefined;
@@ -147,15 +149,7 @@ export class PreviewContextBar implements Disposable {
         document.addEventListener('mousedown', onDown, true);
         this.toDispose.push(Disposable.create(() => document.removeEventListener('mousedown', onDown, true)));
         // 離したあとも「動かしている最中」の報告が残ったままなら（作り直しで枠が消えたときなど）、隠すのをやめる
-        const onUp = (): void => {
-            const reports = this.reportCount;
-            window.setTimeout(() => {
-                if (!this.report.busy || this.reportCount !== reports) return;
-                this.report = { ...this.report, busy: false };
-                this.root.removeAttribute('data-busy');
-                this.position();
-            }, 1500);
-        };
+        const onUp = (): void => this.scheduleBusyRelease();
         document.addEventListener('mouseup', onUp, true);
         this.toDispose.push(Disposable.create(() => document.removeEventListener('mouseup', onUp, true)));
         this.root.addEventListener('keydown', event => {
@@ -197,6 +191,8 @@ export class PreviewContextBar implements Disposable {
     receive(message: Record<string, unknown>): void {
         if (message.ready === true) {
             this.sendLock();
+            this.barRectSignature = '';
+            this.position();
             return;
         }
         if (message.escape === true) {
@@ -226,9 +222,22 @@ export class PreviewContextBar implements Disposable {
         this.reportCount++;
         const busy = message.busy === true;
         const wasBusy = this.report.busy;
-        this.report = { box: rect(message.box), busy, stage: rect(message.stage) };
+        const wasHeld = this.report.pointerHeld === true;
+        this.report = { box: rect(message.box), busy, pointerHeld: message.pointerHeld === true,
+            stage: rect(message.stage) };
         if (busy !== wasBusy) this.root.toggleAttribute('data-busy', busy);
         this.position();
+        if (wasHeld && !this.report.pointerHeld && busy) this.scheduleBusyRelease();
+    }
+
+    protected scheduleBusyRelease(): void {
+        const reports = this.reportCount;
+        window.setTimeout(() => {
+            if (!this.report.busy || this.report.pointerHeld || this.reportCount !== reports) return;
+            this.report = { ...this.report, busy: false };
+            this.root.removeAttribute('data-busy');
+            this.position();
+        }, 1500);
     }
 
     protected setState(value: unknown): void {
@@ -537,6 +546,14 @@ export class PreviewContextBar implements Disposable {
         }
         this.more.classList.toggle('is-placed', showMenu || captionMoreShown);
         const menuBox = showMenu ? this.menu.getBoundingClientRect() : null;
+        const visibleBar = !this.bar.hidden && !this.report.busy ? this.bar.getBoundingClientRect() : null;
+        const barRectInFrame = visibleBar ? { left: visibleBar.left - area.left, top: visibleBar.top - area.top,
+            width: visibleBar.width, height: visibleBar.height } : null;
+        const barSignature = JSON.stringify(barRectInFrame);
+        if (barSignature !== this.barRectSignature) {
+            this.barRectSignature = barSignature;
+            this.host.sendMessage({ type: 'akari-preview-context-bar-rect', rect: barRectInFrame });
+        }
         const menuRect = menuBox ? { left: menuBox.left - area.left, top: menuBox.top - area.top,
             width: menuBox.width, height: menuBox.height } : null;
         const signature = JSON.stringify(menuRect);

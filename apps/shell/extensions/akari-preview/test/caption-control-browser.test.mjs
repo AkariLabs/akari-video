@@ -6,7 +6,7 @@ import { captionControlScale } from '../lib/common/caption-control-scale.js';
 import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-handles-style.js';
 
 const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
-const from = handler.indexOf('.caption-row-plate .akari-caption-handle-box {');
+const from = handler.indexOf('#caption-select-box .akari-caption-handle-box {');
 const to = handler.indexOf('.caption-row-plate.akari-caption-host--editing,', from);
 assert.ok(from >= 0 && to > from);
 const baseCss = handler.slice(from, to);
@@ -21,7 +21,7 @@ test('caption handles stay at display sizes when the output stage is scaled to 3
     await page.setViewport({ width: 640, height: 360 });
     await page.setContent(`<style>${baseCss}${previewSelectionHandlesStyle}</style>
       <div style="position:absolute;left:20px;top:20px;width:1920px;height:1080px;transform-origin:0 0;transform:scale(${widthScale},${heightScale})">
-        <div class="caption-row-plate" style="position:absolute;left:100px;top:100px;width:500px;height:200px">
+        <div id="caption-select-box" class="caption-row-plate" style="position:absolute;left:100px;top:100px;width:500px;height:200px">
           <div class="akari-caption-handle-box" style="position:absolute;left:0;top:0;width:400px;height:100px;${declarations}">
             <i class="akari-caption-handle" data-h="nw"></i>
             <i class="akari-caption-handle" data-h="e"></i>

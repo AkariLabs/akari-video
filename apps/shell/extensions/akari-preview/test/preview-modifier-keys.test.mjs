@@ -43,19 +43,23 @@ test('caption rotation previews and persists the same 45-degree patch; Alt targe
   assert.match(drag, /const\s+altAll\s*=\s*event\.altKey\s*\|\|\s*captionAltAll\s*;\s*setCaptionGroupMode\s*\(\s*altAll\s*\)\s*;\s*const\s+targets\s*=\s*captionHandleTargets\s*\(\s*\[\s*\.\.\.selectedCaptionIds\s*\]\s*,\s*cueId\s*,\s*captions\.map\s*\(\s*candidate\s*=>\s*candidate\.sourceCueId\s*\|\|\s*candidate\.id\s*\)\s*,\s*altAll\s*\)\s*;/);
 });
 
-test('caption Escape cancels without writes or deselection, ignores IME; Enter and active blur save', () => {
+test('caption Escape cancels, Enter inserts a line break, and shortcut or blur saves', () => {
   const edit = between(source, /const\s+restoreCaptionEditAttribute\s*=/, /const\s+beginCaptionHandleDrag\s*=/);
   const cancel = between(edit, /const\s+cancelCaptionEdit\s*=\s*\(\s*\)\s*=>\s*\{/, /\}\s*;\s*const\s+commitCaptionEdit\s*=/);
   assert.match(cancel, /^\s*if\s*\(\s*!activeCaptionEdit\s*\)\s*return\s*;\s*const\s+edit\s*=\s*activeCaptionEdit\s*;\s*activeCaptionEdit\s*=\s*null\s*;\s*window\.akari\.reportCaptionEditFocus\?\.\(false\)\s*;\s*window\.akari\.syncRunSelection\?\.\(\)\s*;\s*restoreCaptionEditElement\s*\(\s*edit\s*\)\s*;\s*rerenderCaptionAfterEdit\s*\(\s*\)\s*;\s*$/);
   assert.doesNotMatch(cancel, /captionWrite|deselectCaption/);
 
   const keydown = between(edit, /captionLayer\.addEventListener\s*\(\s*'keydown'\s*,\s*event\s*=>\s*\{/, /\}\s*\)\s*;/);
-  assert.match(keydown, /^\s*if\s*\(\s*!activeCaptionEdit\s*\|\|\s*event\.target\s*!==\s*activeCaptionEdit\.element\s*\|\|\s*event\.isComposing\s*\)\s*return\s*;/);
-  const escape = between(keydown, /if\s*\(\s*event\.key\s*===\s*'Escape'\s*\)\s*\{/, /\}/);
+  assert.match(keydown, /^\s*if\s*\(\s*!activeCaptionEdit\s*\|\|\s*event\.target\s*!==\s*activeCaptionEdit\.element\s*\)\s*return\s*;/);
+  assert.match(keydown, /captionEditKeyActionFn\(event, \/Mac\|iPhone\|iPad\|iPod\/\.test\(window\.navigator\?\.platform\)\)/);
+  const escape = between(keydown, /if\s*\(\s*action\s*===\s*'cancel'\s*\)\s*\{/, /\}/);
   assert.match(escape, /\bcancelCaptionEdit\s*\(\s*\)\s*;/);
   assert.doesNotMatch(escape, /commitCaptionEdit/);
-  const enter = between(keydown, /if\s*\(\s*event\.key\s*===\s*'Enter'\s*\)\s*\{/, /\}/);
-  assert.match(enter, /\bcommitCaptionEdit\s*\(\s*\)\s*;/);
+  const enter = between(keydown, /if\s*\(\s*action\s*===\s*'line-break'\s*\)\s*\{/, /\}/);
+  assert.match(enter, /document\.execCommand\('insertLineBreak'\)/);
+  assert.doesNotMatch(enter, /commitCaptionEdit/);
+  const shortcut = between(keydown, /if\s*\(\s*action\s*===\s*'commit'\s*\)\s*\{/, /\}/);
+  assert.match(shortcut, /commitCaptionEdit\(\)/);
 
   const blur = between(edit, /captionLayer\.addEventListener\s*\(\s*'blur'\s*,\s*event\s*=>\s*\{/, /\}\s*,\s*true\s*\)\s*;/);
   assert.match(blur, /^\s*if\s*\(\s*activeCaptionEdit\s*&&\s*event\.target\s*===\s*activeCaptionEdit\.element\s*\)\s*\{\s*void\s+commitCaptionEdit\s*\(\s*\)\s*;\s*\}\s*$/);

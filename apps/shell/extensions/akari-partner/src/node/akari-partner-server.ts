@@ -1,5 +1,5 @@
 import { injectable } from '@theia/core/shared/inversify';
-import { spawn, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { existsSync, promises as fs } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +16,8 @@ import {
 } from '../common/akari-partner-protocol';
 import { buildPartnerConnectionMarker } from '../common/partner-connection-marker';
 import { bootstrapRunner } from './bootstrap-runner';
+import { spawnBootstrapProcess } from './bootstrap-process';
+import { partnerCliCandidates } from './partner-cli-candidates';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 
@@ -51,7 +53,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
     async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
-        const runnerSource = `(${bootstrapRunner.toString()})()`;
+        const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`;
         const workspaceRootFsPath = workspaceRootUri ? this.toFsPath(workspaceRootUri) : undefined;
         const env = {
             ...process.env,
@@ -63,10 +65,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
         };
 
         const output = await new Promise<string>((resolve, reject) => {
-            const child = spawn(runtimePath, ['-e', runnerSource, agent], {
-                env,
-                stdio: ['ignore', 'pipe', 'pipe']
-            });
+            const child = spawnBootstrapProcess(runtimePath, runnerSource, agent, env);
             let stdout = '';
             let stderr = '';
             const timer = setTimeout(() => {

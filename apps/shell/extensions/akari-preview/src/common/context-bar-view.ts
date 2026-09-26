@@ -20,6 +20,13 @@ export interface ContextBarState {
     styleCopy: ContextBarKind | null;
     output: { width: number; height: number };
     lockedIds: string[];
+    /** Resolved from generation sidecars by the output preview before showing photo tools. */
+    photoToolsAvailable?: boolean;
+}
+
+export function photoToolsAvailableFor(options: { emptyFrame?: boolean; generationState?: string }): boolean {
+    return options.emptyFrame !== true
+        && !['planned', 'generating', 'stale', 'failed'].includes(options.generationState ?? '');
 }
 
 /** 配置の窓のレイヤー一覧（akari-annotations の layerListAt の形を複製）。 */
@@ -55,7 +62,8 @@ export function parseContextBarState(value: unknown): ContextBarState | undefine
         multi: Number(state.multi) || 0,
         styleCopy: typeof state.styleCopy === 'string' ? state.styleCopy : null,
         output: { width: Number(state.output?.width) || 1920, height: Number(state.output?.height) || 1080 },
-        lockedIds: Array.isArray(state.lockedIds) ? state.lockedIds.filter((id): id is string => typeof id === 'string') : []
+        lockedIds: Array.isArray(state.lockedIds) ? state.lockedIds.filter((id): id is string => typeof id === 'string') : [],
+        photoToolsAvailable: state.photoToolsAvailable !== false
     };
 }
 
@@ -137,6 +145,7 @@ export function barItems(state: ContextBarState): BarItem[] {
         ];
     }
     if (state.kind === 'photo') {
+        if (state.photoToolsAvailable === false) return common(true);
         return [
             { key: 'edit', label: '編集', kind: 'inspector', text: true, inspector: { tabId: 'edit', sectionId: 'edit-correction' } },
             SEP,

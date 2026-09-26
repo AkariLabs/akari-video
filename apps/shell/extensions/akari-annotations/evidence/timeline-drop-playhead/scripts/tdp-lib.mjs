@@ -1,0 +1,15 @@
+// 本票（タイムラインへ落とすと再生位置が 0 に戻る）の L1 共通部品（ラッパー作成の検証スクリプト）。
+// 本体ページに記録用のフックを 1 回だけ差し込み、tick・リフレッシュ・再生位置を window.__tdp に積む。
+export const FIND_TIMELINE = `(()=>{const d=window.theia.container._bindingDictionary;const k=[...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.getWidgets==='function'&&typeof k.prototype?.revealWidget==='function');const s=window.theia.container.get(k);for(const a of ['bottom','main','left','right']){for(const w of s.getWidgets(a)){if(typeof w.materialDropTime==='function')return w;}}return null})()`;
+export const INSTALL = `(()=>{if(window.__tdp)return 'already';const log=[];const t0=performance.now();const now=()=>Math.round(performance.now()-t0);window.__tdp={log,t0};
+ window.addEventListener('akari.preview.playbackTick',e=>{log.push({k:'event',at:now(),time:e.detail?.time,playing:e.detail?.playing})});
+ const d=window.theia.container._bindingDictionary;const H=[...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.forwardPlaybackTick==='function');
+ const P=H.prototype;const oF=P.forwardPlaybackTick;P.forwardPlaybackTick=function(w,m){log.push({k:'tick',at:now(),time:m.time,playing:m.playing,positionReady:m.positionReady,pageId:m.pageId,widgetPageId:w.akariPreviewPlaybackPageId,stale:m.pageId!==w.akariPreviewPlaybackPageId});return oF.apply(this,arguments)};
+ const oR=P.refreshPreview;P.refreshPreview=function(w,u,kind,seek,force,src,playing){log.push({k:'refresh',at:now(),seek,force:!!force,playing,pageIdBefore:w.akariPreviewPlaybackPageId,lastKnown:w.akariPreviewLastKnownTime});const r=oR.apply(this,arguments);Promise.resolve(r).then(()=>log.push({k:'refreshDone',at:now(),pageIdAfter:w.akariPreviewPlaybackPageId})).catch(()=>{});return r};
+ const oQ=P.queueRefresh;P.queueRefresh=function(w,u,kind,seek,force){log.push({k:'queue',at:now(),seek,force:!!force,lastKnown:w.akariPreviewLastKnownTime});return oQ.apply(this,arguments)};
+ return 'installed'})()`;
+export const STATE = `(()=>{const w=${FIND_TIMELINE};const disp=[...document.querySelectorAll('*')].filter(e=>e.children.length===0&&/^\\d+:\\d\\d\\s*\\/\\s*\\d+:\\d\\d$/.test(e.textContent.trim())&&e.getBoundingClientRect().width>0).map(e=>e.textContent.trim())[0]||null;
+ const d=window.theia.container._bindingDictionary;const H=[...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.forwardPlaybackTick==='function');const h=window.theia.container.get(H);const tr=h.reviewTransportByEdit?[...h.reviewTransportByEdit.values()][0]:undefined;
+ const pw=[...document.querySelectorAll('.theia-webview, [id*=preview]')].length;
+ let lk;try{const s=window.theia.container.get([...d._map.keys()].find(k=>typeof k==='function'&&typeof k.prototype?.getWidgets==='function'&&typeof k.prototype?.revealWidget==='function'));for(const a of ['main','bottom','right'])for(const x of s.getWidgets(a))if('akariPreviewLastKnownTime' in x){lk={lastKnownTime:x.akariPreviewLastKnownTime,pageId:x.akariPreviewPlaybackPageId}}}catch{}
+ return{playheadT:w?.playheadT,playheadLeft:w?.playhead?.style.left,transport:tr&&{t:tr.timelineT,playing:tr.playing},widget:lk,hostDisplay:disp}})()`;

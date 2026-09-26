@@ -21,6 +21,7 @@ export * from './legacy-audio-view';
 export * from './retime';
 export * from './track-order';
 export * from './track-z';
+export * from './media-planes';
 export * from './track-transition-compatibility';
 export * from './cut-adjacency';
 export * from './transition-vocabulary';

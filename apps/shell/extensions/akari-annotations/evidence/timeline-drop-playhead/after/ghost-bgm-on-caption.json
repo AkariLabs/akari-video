@@ -1,0 +1,195 @@
+{
+ "cardSpec": "asset:audio/bgm-beatslide-124-001",
+ "t": 6,
+ "rowSpec": "track:v-captions",
+ "at": "2026-09-26T14:14:28.785Z",
+ "card": {
+  "x": 87,
+  "y": 197,
+  "draggable": "true"
+ },
+ "geo": {
+  "l": 425.0390625,
+  "t": 311.515625,
+  "w": 624,
+  "h": 286,
+  "viewStart": 0,
+  "vis": 13.2,
+  "rows": [
+   {
+    "text": "字幕",
+    "top": 403.515625,
+    "bottom": 427.515625,
+    "cy": 415.515625
+   },
+   {
+    "text": "Base",
+    "top": 429.515625,
+    "bottom": 477.515625,
+    "cy": 453.515625
+   },
+   {
+    "text": "A1 (空)",
+    "top": 479.515625,
+    "bottom": 507.515625,
+    "cy": 493.515625
+   }
+  ]
+ },
+ "rowsAfterScroll": [
+  {
+   "text": "字幕",
+   "top": 408,
+   "bottom": 424
+  },
+  {
+   "text": "Base",
+   "top": 448,
+   "bottom": 461
+  },
+  {
+   "text": "A1 (空)",
+   "top": 486,
+   "bottom": 502
+  }
+ ],
+ "drop": {
+  "x": 709,
+  "y": 415,
+  "hit": {
+   "inTimeline": true,
+   "cls": "akari-annotations-strip-caption akari-annotations-strip-hit-"
+  }
+ },
+ "stateBefore": {
+  "playheadT": 4,
+  "playheadLeft": "30.303%",
+  "transport": {
+   "t": 4,
+   "playing": false
+  },
+  "widget": {
+   "lastKnownTime": 4,
+   "pageId": "plugin-webview:akari-output-preview-m7pzn4:66"
+  },
+  "hostDisplay": null
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "duringDrag": {
+  "ghosts": [],
+  "footer": null
+ },
+ "webview": {
+  "label": "0:04 / 0:12",
+  "frameEngine": true,
+  "video": {
+   "readyState": 0,
+   "currentTime": 0,
+   "duration": null,
+   "src": false
+  }
+ },
+ "samples": [
+  {
+   "ms": 2,
+   "playheadT": 4,
+   "playheadLeft": "30.303%",
+   "transport": {
+    "t": 4,
+    "playing": false
+   },
+   "widget": {
+    "lastKnownTime": 4,
+    "pageId": "plugin-webview:akari-output-preview-m7pzn4:66"
+   },
+   "hostDisplay": null
+  },
+  {
+   "ms": 157,
+   "playheadT": 4,
+   "playheadLeft": "30.303%",
+   "transport": {
+    "t": 4,
+    "playing": false
+   },
+   "widget": {
+    "lastKnownTime": 4,
+    "pageId": "plugin-webview:akari-output-preview-m7pzn4:66"
+   },
+   "hostDisplay": null
+  }
+ ],
+ "stateAfter": {
+  "ms": 157,
+  "playheadT": 4,
+  "playheadLeft": "30.303%",
+  "transport": {
+   "t": 4,
+   "playing": false
+  },
+  "widget": {
+   "lastKnownTime": 4,
+   "pageId": "plugin-webview:akari-output-preview-m7pzn4:66"
+  },
+  "hostDisplay": null
+ },
+ "log": [],
+ "editChanged": false,
+ "newItems": [],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "newCaptions": [],
+ "newSfx": 0,
+ "notices": [
+  "この素材は直接置けません"
+ ],
+ "summary": {
+  "start": 4,
+  "minPlayhead": 4,
+  "minTransport": 4,
+  "end": 4,
+  "endTransport": 4,
+  "resetToZero": false,
+  "endMoved": false,
+  "staleTicks": 0,
+  "zeroTicks": [],
+  "refreshes": [],
+  "newItems": [],
+  "newCaptions": [],
+  "newSfx": 0,
+  "webview": {
+   "label": "0:04 / 0:12",
+   "frameEngine": true,
+   "video": {
+    "readyState": 0,
+    "currentTime": 0,
+    "duration": null,
+    "src": false
+   }
+  }
+ }
+}

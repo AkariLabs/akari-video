@@ -1,0 +1,1 @@
+T タイルを押す（symlink の editUri で開いたセッション）: ws-d/captions.json の行数 5 -> 6。プレビューへ落とした c-0005 も同じ ws-d/captions.json に入っている

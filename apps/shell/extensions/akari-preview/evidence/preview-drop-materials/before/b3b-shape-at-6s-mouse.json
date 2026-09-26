@@ -1,0 +1,535 @@
+{
+ "cardSpec": "shape:star-5",
+ "dropSpec": "stage:0.75,0.3",
+ "mode": "mouse",
+ "at": "2026-09-26T11:29:42.167Z",
+ "card": {
+  "x": 153,
+  "y": 396,
+  "w": 62,
+  "h": 62,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 508.06640625,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 960,
+  "y": 157,
+  "outputPx": {
+   "x": 959.8631078155586,
+   "y": 216.63386416537992
+  },
+  "clampedOutputPx": {
+   "x": 959.8631078155586,
+   "y": 216.63386416537992
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 275.4,
+     "y": 39,
+     "w": 1067.6,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 903.5,
+     "y": 103.3,
+     "w": 113,
+     "h": 107.4
+    },
+    "text": "5 点の星0:06.0 → 0:11.0",
+    "border": "dashed"
+   }
+  ]
+ },
+ "waitMs": 504,
+ "afterDrop": {
+  "layer": [],
+  "ghost": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 153,
+   "y": 396,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 159,
+   "y": 402,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 4,
+   "x": 159,
+   "y": 402,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 183,
+   "y": 426,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 183,
+   "y": 426,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 189,
+   "y": 432,
+   "target": {
+    "tag": "SECTION",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 189,
+   "y": 432,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 195,
+   "y": 438,
+   "target": {
+    "tag": "SECTION",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 201,
+   "y": 444,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 201,
+   "y": 444,
+   "target": {
+    "tag": "SECTION",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 259,
+   "y": 423,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 259,
+   "y": 423,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 317,
+   "y": 402,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 317,
+   "y": 402,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 16,
+   "x": 375,
+   "y": 382,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 960,
+   "y": 157,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 960,
+   "y": 157,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.timeline.addShapeAt",
+   "args": [
+    {
+     "preset": "star-5",
+     "t": 6,
+     "center": {
+      "x": 960.4164068498513,
+      "y": 216.42816761758604
+     },
+     "editUri": "file://<work>/ws-nfd-%E3%83%86%E3%82%99%E3%82%B5%E3%82%99%E3%82%A4%E3%83%B3/edit.json",
+     "canvasAware": true,
+     "outsideCanvas": false
+    }
+   ],
+   "result": "shape-1"
+  },
+  {
+   "id": "akari.library.shapePreset",
+   "args": [
+    "star-5"
+   ],
+   "result": {
+    "preset": {
+     "id": "star-5",
+     "category": "star",
+     "name": "5 点の星",
+     "d": "M50 3L61.57 36.28L96.79 36.99L68.72 58.28L78.92 92L50 71.88L21.08 92L31.28 58.28L3.21 36.99L38.43 36.28Z",
+     "kind": "fill",
+     "defaults": {
+      "fill": "#a6a6a6",
+      "stroke": "none",
+      "strokeWidth": 0
+     },
+     "vb": [
+      100,
+      95
+     ]
+    }
+   }
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-nfd-%E3%83%86%E3%82%99%E3%82%B5%E3%82%99%E3%82%A4%E3%83%B3/edit.json",
+     "time": 6
+    }
+   ],
+   "result": "seeked"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-nfd-%E3%83%86%E3%82%99%E3%82%B5%E3%82%99%E3%82%A4%E3%83%B3/edit.json",
+     "time": 6,
+     "waitForReady": true
+    }
+   ],
+   "result": "seeked"
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v2",
+   "trackIndex": 3,
+   "lane": "visual",
+   "id": "shape-1",
+   "at": 180,
+   "duration": 150,
+   "source": {
+    "kind": "shape",
+    "shape": "path",
+    "params": {
+     "fill": "#a6a6a6",
+     "stroke": "none",
+     "strokeWidth": 0,
+     "preset": "star-5",
+     "path": {
+      "d": "M50 3L61.57 36.28L96.79 36.99L68.72 58.28L78.92 92L50 71.88L21.08 92L31.28 58.28L3.21 36.99L38.43 36.28Z",
+      "vb": [
+       100,
+       95
+      ]
+     },
+     "width": 240,
+     "height": 228
+    }
+   },
+   "transform": {
+    "x": 840.42,
+    "y": 102.43
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": null,
+ "audioAfter": null,
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "shape:star-5",
+  "drop": "stage:0.75,0.3",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 903.5,
+     "y": 103.3,
+     "w": 113,
+     "h": 107.4
+    },
+    "text": "5 点の星0:06.0 → 0:11.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.timeline.addShapeAt",
+    "result": "\"shape-1\""
+   },
+   {
+    "id": "akari.library.shapePreset",
+    "result": "{\"preset\":{\"id\":\"star-5\",\"category\":\"star\",\"name\":\"5 点の星\",\"d\":\"M50 3L61.57 36.28L96.79 36.99L68.72 58.28L78.92 92L50 71.88L21.08 92L31.28 58.28L3.21 36.99L38.43"
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "\"seeked\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "\"seeked\""
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "shape-1",
+    "track": "v2",
+    "at": 180,
+    "duration": 150,
+    "transform": {
+     "x": 840.42,
+     "y": 102.43
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}

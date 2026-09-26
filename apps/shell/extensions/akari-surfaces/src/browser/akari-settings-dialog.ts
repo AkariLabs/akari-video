@@ -55,6 +55,7 @@ import {
 } from '../common/settings-sections';
 import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AKARI_PARTNER_REOPEN, clampZoom, matchesSettingsSearch, formatShortReleaseDate } from '../common/settings-sections';
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
+import { partnerSettingsCliRows } from '../common/partner-settings-rows';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
 import { parseUpdateCache, resolveUpdateDownloadUrl } from '../common/update-feed';
@@ -520,19 +521,16 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderPartner(section: HTMLElement): void {
-        const ids = ['claude', 'codex', 'opencode', 'commandcode', 'copilot', 'cursor', 'antigravity', 'grok'] as const;
-        const names: Record<typeof ids[number], string> = { claude: 'Claude Code', codex: 'Codex', opencode: 'OpenCode',
-            commandcode: 'Command Code', copilot: 'Copilot', cursor: 'Cursor', antigravity: 'Antigravity', grok: 'Grok' };
-        const rows = ids.map(id => {
+        const rows = partnerSettingsCliRows().map(({ entry, name }) => {
+            const id = entry.agent;
             const detail = this.partnerDetails?.[id];
-            return this.partnerRow(id, names[id], detail?.installed === undefined ? '調べています' : detail.installed ? 'インストール済み' : '未インストール',
+            return this.partnerRow(id, name, detail?.installed === undefined ? '調べています' : detail.installed ? 'インストール済み' : '未インストール',
                 detail?.detail || '—', detail?.installed === false ? '入れ方' : '起動', async () => {
                 this.close();
                 await this.commands.executeCommand('akari.partner.open');
                 if (!detail?.installed) { return; }
                 const widget = this.widgetManager.tryGetWidget('akari-partner-onboarding') as unknown as { begin(entry: typeof PARTNER_CATALOG[number]): Promise<void> } | undefined;
-                const entry = PARTNER_CATALOG.find(candidate => candidate.agent === id && candidate.form === 'cli');
-                if (widget && entry) { await widget.begin(entry); }
+                if (widget) { await widget.begin(entry); }
             });
         });
         const extensions = [

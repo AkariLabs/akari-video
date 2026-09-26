@@ -1,0 +1,406 @@
+{
+ "cardSpec": "material:assets/photo-orange.png",
+ "dropSpec": "stage:0.25,0.75",
+ "mode": "mouse",
+ "at": "2026-09-26T13:06:40.180Z",
+ "card": {
+  "x": 106,
+  "y": 229,
+  "w": 107,
+  "h": 107,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 511.70703125,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 662,
+  "y": 309,
+  "outputPx": {
+   "x": 319.20768462944477,
+   "y": 539.4731626374132
+  },
+  "clampedOutputPx": {
+   "x": 319.20768462944477,
+   "y": 539.4731626374132
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 586.7,
+     "y": 252.5,
+     "w": 150.7,
+     "h": 113.1
+    },
+    "text": "photo-orange.png0:03.0 → 0:08.0",
+    "border": "dashed"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "photo-orange.png",
+    "img": "file://<work>/ws-a/.akari/cache/thumbnails/864b2"
+   }
+  ]
+ },
+ "waitMs": 507,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 106,
+   "y": 229,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 112,
+   "y": 235,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 8,
+   "x": 112,
+   "y": 235,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 191,
+   "y": 283,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 191,
+   "y": 283,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 2,
+   "x": 228,
+   "y": 289,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 303,
+   "y": 301,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 303,
+   "y": 301,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 14,
+   "x": 340,
+   "y": 307,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 662,
+   "y": 309,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 662,
+   "y": 309,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.timeline.addMaterialAtOutputPoint",
+   "args": [
+    {
+     "relativePath": "assets/photo-orange.png",
+     "kind": "image",
+     "t": 3,
+     "transform": {
+      "x": -320.75672080126964,
+      "y": 179.00250104500367
+     },
+     "editUri": "file://<work>/ws-a/edit.json",
+     "outsideCanvas": false,
+     "canvasAware": true
+    }
+   ],
+   "result": "undefined"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-a/edit.json",
+     "time": 3,
+     "waitForReady": true
+    }
+   ],
+   "result": "seeked"
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v2",
+   "trackIndex": 2,
+   "lane": "visual",
+   "id": "image-1",
+   "at": 90,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-2",
+    "in": 0,
+    "out": 5
+   },
+   "transform": {
+    "x": -320.75672080126964,
+    "y": 179.00250104500367,
+    "scale": 0.4
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": null,
+ "audioAfter": null,
+ "newSources": [
+  {
+   "id": "src-2",
+   "path": "assets/photo-orange.png"
+  }
+ ],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "material:assets/photo-orange.png",
+  "drop": "stage:0.25,0.75",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 586.7,
+     "y": 252.5,
+     "w": 150.7,
+     "h": 113.1
+    },
+    "text": "photo-orange.png0:03.0 → 0:08.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.timeline.addMaterialAtOutputPoint",
+    "result": "\"undefined\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "\"seeked\""
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "image-1",
+    "track": "v2",
+    "at": 90,
+    "duration": 150,
+    "transform": {
+     "x": -320.75672080126964,
+     "y": 179.00250104500367,
+     "scale": 0.4
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}

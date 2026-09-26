@@ -1,5 +1,6 @@
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
+import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { previewLiveValues } from '../common/preview-live-values';
@@ -23,7 +24,8 @@ import URI from '@theia/core/lib/common/uri';
 import { partitionPreviewMediaPlanes } from '../common/preview-media-planes';
 import { previewDomOpacity } from '../common/preview-motion-opacity';
 import { withPreviewPosition } from '../common/preview-motion-write';
-import { previewMotionGeometryTransform, previewMotionBoxHitAt } from '../common/preview-motion-geometry';
+import { previewMotionGeometryTransform, previewMotionBoxHitAt, previewMotionLiveItem } from '../common/preview-motion-geometry';
+import { previewChromeMenuOffset, previewChromeLocalPoint, previewChromeRectClear, placePreviewChromeToolbar, refreshPreviewChromeOnGeometryChange } from '../common/preview-chrome-placement';
 import { motionDrawFinishTransition } from '../common/preview-motion-draw-finish';
 import { createMotionDrawPointerOwnership } from '../common/preview-motion-pointer-owner';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
@@ -106,6 +108,7 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssetUrls,
+    ReadGenerationSidecarsResult,
     ReviewStrokeFrame,
     VideoStreamReference,
     VideoStreamRequest
@@ -150,7 +153,7 @@ import {
 import { persistCaptionPlateTransform, captionWrapWidthDrag, captionCornerTransform } from '../common/caption-plate-handles';
 import { captionOrientedFrame, captionWrapAnchorDelta, captionWrapResize, captionEditorLines,
     captionEditorWrapWidth, captionLineCountFromMetrics, captionEditorFitWidth,
-    captionEditorValue, captionEditingNavigationKey } from '../common/caption-edit-geometry';
+    captionEditorValue, captionEditKeyAction, captionEditingNavigationKey } from '../common/caption-edit-geometry';
 import { captionWrapPosition } from '../common/caption-wrap-position';
 import { duplicatePreviewCaptionSource, duplicatePreviewItemSource } from '../common/preview-duplicate-fallback';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
@@ -218,6 +221,7 @@ import {
 } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
+import { computePreviewStageClearance, computePreviewPanLimits, pinchPreviewPan } from '../common/preview-stage-clearance';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
 import {
@@ -237,6 +241,7 @@ import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { previewTrackedResourceSets } from '../common/motion-bag-preview-update';
 import {
     capturePreviewPlaybackTick,
+    shouldCapturePreviewPlaybackTick,
     resolvePreviewRefreshRestore
 } from '../common/preview-refresh-state';
 import { PreviewGestureGuard, reducePreviewGesture } from '../common/preview-gesture-guard';
@@ -1224,6 +1229,7 @@ interface ShowPreviewZoneHintRequest { editUri: string; zones: string[]; duratio
 interface PreviewPlaybackTickRequest {
     type: 'akari-preview-playback-tick';
     pageId?: string;
+    positionReady?: boolean;
     trialToken?: string;
     time: number;
     playing: boolean;
@@ -3408,6 +3414,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             widget.akariPreviewAllTracksMutedScopes = Object.entries(session.allTracksMutedByScope)
                 .filter(([, muted]) => muted).map(([scope]) => scope);
         }
+        // Read photo generation status alongside the initial preview load so the
+        // context bar can render existing photos completely on its first paint.
+        const initialPhotoSidecars = kind === 'output'
+            ? this.currentWorkspaceRoots().then(workspaceRoots => this.previewService.readGenerationSidecars({
+                editUri: identityUri.toString(), workspaceRoots
+            })).catch(() => undefined)
+            : Promise.resolve(undefined);
         await this.refreshPreview(widget, identityUri, kind, initialSeekTime);
         if (kind === 'output') {
             this.pendingOutputInitialSeek.delete(seekKey);
@@ -3468,14 +3481,117 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.photo.highlight', onPhotoHighlight);
         disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.highlight', onPhotoHighlight)));
+        // Seed the bar from the edit's existing sources before its first state read.
+        // Unknown paths (such as a newly drawn frame) stay conservative until checked.
+        const photoToolCache = new Map<string, boolean>();
+        const photoToolReads = new Map<string, Promise<boolean>>();
+        let latestPhotoSelection = '';
+        let photoStateRevision = 0;
+        let photoTableRevision = 0;
+        let onKnownAvailabilityChanged = (): void => undefined;
+        const availabilityForSource = (sourcePath: string, sidecars: ReadGenerationSidecarsResult): boolean => {
+            const direct = sidecars.entries.find(entry => entry.sourcePath === sourcePath);
+            const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
+                sourcePath: entry.sourcePath,
+                meta: entry.meta as GenerationMetaV1 | null,
+                binding: entry.binding
+            })), Date.now()) ?? direct;
+            const state = resolveGenerationState(generation?.meta, Date.now(), generation?.binding);
+            return photoToolsAvailableFor({ emptyFrame: state === 'planned', generationState: state });
+        };
+        const readPhotoSidecars = async (editUri: string): Promise<ReadGenerationSidecarsResult> =>
+            this.previewService.readGenerationSidecars({ editUri, workspaceRoots: await this.currentWorkspaceRoots() });
+        const prewarmPhotoTools = async (prefetched?: ReadGenerationSidecarsResult): Promise<void> => {
+            const editUri = widget.akariPreviewEditUri?.toString();
+            if (!editUri || widget.isDisposed) return;
+            const revision = ++photoTableRevision;
+            try {
+                const sidecars = prefetched && editUri === identityUri.toString()
+                    ? prefetched : await readPhotoSidecars(editUri);
+                if (widget.isDisposed || revision !== photoTableRevision
+                    || editUri !== widget.akariPreviewEditUri?.toString()) return;
+                let changed = false;
+                for (const entry of sidecars.entries) {
+                    const available = availabilityForSource(entry.sourcePath, sidecars);
+                    if (photoToolCache.get(entry.sourcePath) !== available) changed = true;
+                    photoToolCache.set(entry.sourcePath, available);
+                }
+                if (changed) onKnownAvailabilityChanged();
+            } catch {
+                // Preserve the last known value when sidecar reading fails.
+            }
+        };
+        const readPhotoToolsAvailable = async (sourcePath: string, editUri: string): Promise<boolean> =>
+            availabilityForSource(sourcePath, await readPhotoSidecars(editUri));
+        const refreshPhotoToolsAvailable = (sourcePath: string, editUri: string): Promise<boolean> => {
+            const pending = photoToolReads.get(sourcePath);
+            if (pending) return pending;
+            const request = readPhotoToolsAvailable(sourcePath, editUri).finally(() => {
+                if (photoToolReads.get(sourcePath) === request) photoToolReads.delete(sourcePath);
+            });
+            photoToolReads.set(sourcePath, request);
+            return request;
+        };
+        class GenerationAwareContextBar extends PreviewContextBar {
+            refreshKnownAvailability(): void {
+                const state = this.state;
+                if (state?.kind !== 'photo' || !state.sourcePath) return;
+                const available = photoToolCache.get(state.sourcePath);
+                if (available !== undefined && available !== state.photoToolsAvailable) {
+                    super.setState({ ...state, photoToolsAvailable: available });
+                }
+            }
+
+            protected override setState(value: unknown): void {
+                const revision = ++photoStateRevision;
+                const state = value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+                if (!state || state.kind !== 'photo' || typeof state.sourcePath !== 'string'
+                    || state.editUri !== widget.akariPreviewEditUri?.toString()) {
+                    latestPhotoSelection = '';
+                    super.setState(value);
+                    return;
+                }
+                const sourcePath = state.sourcePath;
+                const selection = `${String(state.selectedId ?? '')}:${sourcePath}`;
+                latestPhotoSelection = selection;
+                const cached = photoToolCache.get(sourcePath);
+                super.setState({ ...state, photoToolsAvailable: cached ?? false });
+                void refreshPhotoToolsAvailable(sourcePath, String(state.editUri)).then(available => {
+                    photoToolCache.set(sourcePath, available);
+                    if (revision !== photoStateRevision || selection !== latestPhotoSelection || widget.isDisposed) return;
+                    if ((cached ?? false) !== available) super.setState({ ...state, photoToolsAvailable: available });
+                }).catch(() => undefined); // Keep the last known value when lookup fails.
+            }
+        }
+        if (kind === 'output') await prewarmPhotoTools(await initialPhotoSidecars);
         // 上のバー・選んだものの上の小さなメニュー（中身は preview-context-bar.ts）
-        const contextBar = kind === 'output' ? new PreviewContextBar({
+        const contextBar = kind === 'output' ? new GenerationAwareContextBar({
             node: widget.node, sendMessage: message => widget.sendMessage(message),
             editUri: () => widget.akariPreviewEditUri?.toString()
         }, this.commandRegistry) : undefined;
         if (contextBar) {
+            onKnownAvailabilityChanged = () => contextBar.refreshKnownAvailability();
             widget.node.dataset.akariOutputPreview = 'true';
             disposables.push(contextBar.start());
+            const matchesEdit = (uri: string): boolean => {
+                const editUri = widget.akariPreviewEditUri;
+                if (!editUri) return false;
+                try {
+                    const changed = new URI(uri);
+                    return changed.toString() === editUri.toString()
+                        || this.resourceSuffix(changed) === this.resourceSuffix(editUri);
+                } catch { return false; }
+            };
+            const onEditPhotoSources = (event: Event): void => {
+                const uri = (event as CustomEvent<{ uri?: unknown }>).detail?.uri;
+                if (typeof uri === 'string' && matchesEdit(uri)) void prewarmPhotoTools();
+            };
+            window.addEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditPhotoSources);
+            disposables.push(Disposable.create(() => window.removeEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditPhotoSources)));
+            disposables.push(this.fileService.onDidFilesChange(event => {
+                if (event.changes.some(change => matchesEdit(change.resource.toString())
+                    || change.resource.path.base.endsWith('.meta.json'))) void prewarmPhotoTools();
+            }));
         }
         const onPhotoCropOpen = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; itemId?: string }>).detail;
@@ -3979,6 +4095,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
+        if (!shouldCapturePreviewPlaybackTick(message, widget.akariPreviewPlaybackPageId)) return;
         const editUri = widget.akariPreviewEditUri;
         const normalizedEditUri = editUri?.normalizePath().toString();
         const previous = normalizedEditUri ? this.reviewTransportByEdit.get(normalizedEditUri) : undefined;
@@ -7907,7 +8024,12 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .preview-pane.is-draggable { cursor: grab; touch-action: none; }
 .preview-pane.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
-#preview-stage { --akari-preview-gutter: 16px; position: absolute; left: 50%; top: 50%; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
+#preview-chrome-layer { position: fixed; z-index: 2147483647; transform-origin: 0 0; overflow: visible; pointer-events: none; }
+#preview-chrome-layer > * { pointer-events: none; }
+#preview-stage { --akari-preview-gutter: 16px; --akari-preview-gutter-top: 16px; position: absolute; left: 50%; top: 50%; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
+#preview-stage.akari-clearance-active { top: calc(var(--akari-preview-gutter-top) + (100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) / 2); width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) * ${width} / ${height}))); }
+#preview-stage.akari-clearance-animating { transition: top 150ms ease, width 150ms ease; }
+html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))) !important; transition: none; }
 #preview-video, #standby-video, #transition-video, #transition-still { position: absolute; top: 0; left: 0; object-fit: contain; }
 #standby-video, #transition-video, #transition-still { display: none; pointer-events: none; }
 .akari-video-fx-rail { position: absolute; top: 0; left: 0; max-width: none; max-height: none; }
@@ -7961,10 +8083,10 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .akari-crop-edges-off .akari-crop-edge { display: none; }
 .akari-crop-edges-hide-x .akari-crop-edge-n, .akari-crop-edges-hide-x .akari-crop-edge-s { display: none; }
 .akari-crop-edges-hide-y .akari-crop-edge-e, .akari-crop-edges-hide-y .akari-crop-edge-w { display: none; }
-#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active { pointer-events: auto; }
-#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-crop-edge,
-#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-handle,
-#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-rotate-stem { pointer-events: auto; }
+#preview-chrome-layer[data-frame-engine-active="true"] #layer-select-box.is-active { pointer-events: auto; }
+#preview-chrome-layer[data-frame-engine-active="true"] #layer-select-box.is-active .akari-crop-edge,
+#preview-chrome-layer[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-handle,
+#preview-chrome-layer[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-rotate-stem { pointer-events: auto; }
 /* クロップモード: 移動/リサイズ/回転ハンドルと衝突しないよう select box 側の操作系だけ隠す
    （枠自体は #layer-crop-box が別枠として表示する）。 */
 #layer-select-box.akari-crop-mode-hide-handles .akari-layer-handle,
@@ -8034,8 +8156,8 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-multi-select-boxes { position: absolute; inset: 0; z-index: 1899; pointer-events: none; }
 .caption-multi-select-box { position: absolute; box-sizing: border-box; border: 1px dashed var(--akari-caption-select-color); box-shadow: 0 0 0 1px rgba(0,0,0,.35); pointer-events: none; }
 #caption-select-box[data-alt-all] { border-style: dashed; }
-#caption-select-box .akari-caption-select-tools { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 6px); display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.96); box-shadow: 0 4px 14px #0008; white-space: nowrap; pointer-events: auto; }
-#caption-select-box[data-akari-run-from]:not([data-akari-run-from=""]) .akari-caption-select-tools { width: max-content; max-width: min(88vw, var(--akari-run-toolbar-max, 560px)); flex-wrap: wrap; justify-content: center; }
+#caption-select-box .akari-caption-select-tools { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 6px); display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; width: max-content; gap: 2px; padding: 3px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.96); box-shadow: 0 4px 14px #0008; white-space: nowrap; pointer-events: auto; }
+#caption-select-box[data-akari-run-from]:not([data-akari-run-from=""]) .akari-caption-select-tools { max-width: min(var(--akari-chrome-tools-max, 88vw), var(--akari-run-toolbar-max, 560px)); flex-wrap: wrap; justify-content: center; }
 .akari-caption-tool-separator { width: 1px; height: 18px; margin: 0 3px; background: #333842; }
 #caption-select-box [data-caption-optional-separator] { display: none; }
 #caption-select-box [data-caption-optional-separator]:has(~ [data-akari-run-tool]:not([hidden]), ~ [data-caption-tool="reset"]:not([hidden])) { display: block; }
@@ -8050,10 +8172,10 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-select-box [data-caption-tool]:hover .akari-caption-tool-tip, #caption-select-box [data-caption-tool]:focus-visible .akari-caption-tool-tip { display: block; }
 #caption-select-box [data-caption-tool="reset"][hidden] { display: none; }
 #caption-select-box [data-akari-run-tool][hidden], #caption-select-box [data-akari-run-menu][hidden] { display: none; }
-#caption-select-box [data-akari-run-menu] { position:absolute; left:50%; transform:translateX(-50%); bottom:calc(100% + 43px); min-width:180px; max-height:240px; overflow:auto; padding:6px; border:1px solid #333842; border-radius:7px; background:#181a1f; color:#e6e6e6; pointer-events:auto; }
+#caption-select-box [data-akari-run-menu] { position:absolute; left:50%; transform:translateX(-50%); bottom:calc(100% + 43px); min-width:min(180px, var(--akari-chrome-tools-max, 180px)); max-width:var(--akari-chrome-tools-max, 88vw); max-height:240px; overflow:auto; padding:6px; border:1px solid #333842; border-radius:7px; background:#181a1f; color:#e6e6e6; pointer-events:auto; }
 #caption-select-box [data-akari-run-menu] button { display:block; width:100%; padding:5px 8px; border:0; border-radius:4px; background:transparent; color:inherit; text-align:left; cursor:pointer; }
 #caption-select-box [data-akari-run-menu] button:hover { background:#2b2f38; }
-#caption-select-box [data-caption-palette] { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 43px); width: 214px; padding: 8px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.98); box-shadow: 0 8px 24px #000a; pointer-events: auto; }
+#caption-select-box [data-caption-palette] { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 43px); width: 214px; max-width: var(--akari-chrome-tools-max, 88vw); box-sizing: border-box; padding: 8px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.98); box-shadow: 0 8px 24px #000a; pointer-events: auto; }
 #caption-select-box [data-caption-palette][hidden] { display: none; }
 #caption-select-box .akari-caption-palette-tabs { display: flex; gap: 4px; margin-bottom: 7px; }
 #caption-select-box [data-palette-tab] { flex: 1; border: 1px solid #333842; border-radius: 5px; background: transparent; color: #aab1bd; font: 11px sans-serif; cursor: pointer; }
@@ -8105,30 +8227,32 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
 .caption-row-plate[data-selected] .akari-caption__plate[data-akari-textanim], .caption-row-plate.akari-caption-host--editing .akari-caption__plate[data-akari-textanim] { animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; }
 .caption-row-plate[data-output-caption] .akari-caption__plate { width: var(--caption-width, 92%); right: auto; }
+.caption-row-plate[data-caption-sized-run][data-output-caption] .akari-caption__plate { width: var(--caption-width, max-content); right: var(--caption-right, 0); margin-inline: var(--caption-plate-margin, auto); }
 .caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }
 .caption-row-plate[data-selected], .caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: none; }
-.caption-row-plate .akari-caption-handle-box { position:absolute;pointer-events:none; }
-.caption-row-plate .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:1px solid var(--akari-caption-select-color);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:auto; }
-.caption-row-plate .akari-caption-handle[data-h="nw"] { left:-5px;top:-5px;cursor:nwse-resize; }
-.caption-row-plate .akari-caption-handle[data-h="ne"] { right:-5px;top:-5px;cursor:nesw-resize; }
-.caption-row-plate .akari-caption-handle[data-h="sw"] { left:-5px;bottom:-5px;cursor:nesw-resize; }
-.caption-row-plate .akari-caption-handle[data-h="se"] { right:-5px;bottom:-5px;cursor:nwse-resize; }
-.caption-row-plate .akari-caption-handle[data-h="e"], .caption-row-plate .akari-caption-handle[data-h="w"] { top:50%;width:11px;height:20px;border:0;border-radius:0;background:transparent;box-shadow:none;transform:translateY(-50%);cursor:ew-resize; }
-.caption-row-plate .akari-caption-handle[data-h="e"] { right:-5px; }
-.caption-row-plate .akari-caption-handle[data-h="w"] { left:-5px; }
-.caption-row-plate .akari-caption-handle[data-h="e"]::after, .caption-row-plate .akari-caption-handle[data-h="w"]::after { content:"";position:absolute;left:3px;top:3px;width:5px;height:14px;border-radius:3px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35); }
-.caption-row-plate .akari-caption-handle[data-h="rot"], .caption-row-plate .akari-caption-handle[data-h="move"] { top:calc(100% + 13px);width:25px;height:25px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--akari-caption-select-color);background:var(--theia-editor-background, #252526);color:var(--theia-editor-foreground, #eee);font-size:0;cursor:grab; }
-.caption-row-plate .akari-caption-handle[data-h="rot"] { left:calc(50% - 27px); }
-.caption-row-plate .akari-caption-handle[data-h="move"] { left:calc(50% + 2px);cursor:move; }
-.caption-row-plate .akari-caption-handle[data-h="rot"]::after, .caption-row-plate .akari-caption-handle[data-h="move"]::after { content:"";display:block;width:15px;height:15px;background:currentColor;mask-size:contain;mask-repeat:no-repeat;mask-position:center; }
-.caption-row-plate .akari-caption-handle[data-h="rot"]::after { mask-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath d="M19 7v5h-5M5 17v-5h5M19 12a7 7 0 0 0-12-5M5 12a7 7 0 0 0 12 5" fill="none" stroke="black" stroke-width="2"/%3E%3C/svg%3E'); }
-.caption-row-plate .akari-caption-handle[data-h="move"]::after { mask-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath d="M12 2v20M2 12h20M12 2 9 5m3-3 3 3m-3 17-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3" fill="none" stroke="black" stroke-width="2"/%3E%3C/svg%3E'); }
+#caption-select-box .akari-caption-handle-box { position:absolute;inset:0;pointer-events:none; }
+#caption-select-box .akari-caption-handle { position:absolute;width:11px;height:11px;border-radius:50%;background:#fff;border:1px solid var(--akari-caption-select-color);box-shadow:0 1px 4px rgba(0,0,0,.35);pointer-events:auto; }
+#caption-select-box .akari-caption-handle[data-h="nw"] { left:-5px;top:-5px;cursor:nwse-resize; }
+#caption-select-box .akari-caption-handle[data-h="ne"] { right:-5px;top:-5px;cursor:nesw-resize; }
+#caption-select-box .akari-caption-handle[data-h="sw"] { left:-5px;bottom:-5px;cursor:nesw-resize; }
+#caption-select-box .akari-caption-handle[data-h="se"] { right:-5px;bottom:-5px;cursor:nwse-resize; }
+#caption-select-box .akari-caption-handle[data-h="e"], #caption-select-box .akari-caption-handle[data-h="w"] { top:50%;width:11px;height:20px;border:0;border-radius:0;background:transparent;box-shadow:none;transform:translateY(-50%);cursor:ew-resize; }
+#caption-select-box .akari-caption-handle[data-h="e"] { right:-5px; }
+#caption-select-box .akari-caption-handle[data-h="w"] { left:-5px; }
+#caption-select-box .akari-caption-handle[data-h="e"]::after, #caption-select-box .akari-caption-handle[data-h="w"]::after { content:"";position:absolute;left:3px;top:3px;width:5px;height:14px;border-radius:3px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35); }
+#caption-select-box .akari-caption-handle[data-h="rot"], #caption-select-box .akari-caption-handle[data-h="move"] { top:calc(100% + 13px);width:25px;height:25px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--akari-caption-select-color);background:var(--theia-editor-background, #252526);color:var(--theia-editor-foreground, #eee);font-size:0;cursor:grab; }
+#caption-select-box .akari-caption-handle[data-h="rot"] { left:calc(50% - 27px); }
+#caption-select-box .akari-caption-handle[data-h="move"] { left:calc(50% + 2px);cursor:move; }
+#caption-select-box .akari-caption-handle[data-h="rot"]::after, #caption-select-box .akari-caption-handle[data-h="move"]::after { content:"";display:block;width:15px;height:15px;background:currentColor;mask-size:contain;mask-repeat:no-repeat;mask-position:center; }
+#caption-select-box .akari-caption-handle[data-h="rot"]::after { mask-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath d="M19 7v5h-5M5 17v-5h5M19 12a7 7 0 0 0-12-5M5 12a7 7 0 0 0 12 5" fill="none" stroke="black" stroke-width="2"/%3E%3C/svg%3E'); }
+#caption-select-box .akari-caption-handle[data-h="move"]::after { mask-image:url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath d="M12 2v20M2 12h20M12 2 9 5m3-3 3 3m-3 17-3-3m3 3 3-3M2 12l3-3m-3 3 3 3m17-3-3-3m3 3-3 3" fill="none" stroke="black" stroke-width="2"/%3E%3C/svg%3E'); }
 body.akari-caption-transforming .akari-caption-handle[data-h="rot"], body.akari-caption-transforming .akari-caption-handle[data-h="move"] { display:none; }
-body.akari-caption-transforming #caption-select-box [data-caption-tool] { visibility:hidden; }
+body.akari-caption-transforming #caption-select-box .akari-caption-select-tools { visibility:hidden; }
 .caption-row-plate.akari-caption-host--editing, .caption-row-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
 .caption-row-plate.akari-caption-host--styled .akari-caption__line, .caption-row-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
 .caption-row-plate [data-akari-caption-editing="true"], .caption-row-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: none; caret-color: currentColor; }
 .caption-row-plate.akari-caption-host--editing[data-selected], .caption-row-plate.akari-caption-host--editing[data-selected] .akari-caption__plate { outline: none; }
+html.akari-gen-capturing [data-akari-caption-edit-hint] { display: none !important; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
@@ -8203,6 +8327,7 @@ html.akari-gen-capturing [data-akari-interaction-editing="true"],
 html.akari-gen-capturing [data-akari-caption-editing="true"] { outline: none !important; caret-color: transparent !important; }
 html.akari-gen-capturing #caption-plate .akari-caption-handle-box,
 html.akari-gen-capturing #caption-plate .akari-caption-handle,
+html.akari-gen-capturing #preview-chrome-layer,
 html.akari-gen-capturing #layer-select-box,
 html.akari-gen-capturing #layer-crop-box,
 html.akari-gen-capturing #cut-select-box,
@@ -9704,6 +9829,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 audioMeterTap = null;
             }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
+                window.akari.expirePreviewSelections?.(time);
                 if (Number.isFinite(time)) contextMenuTimelineT = Math.max(0, time);
                 window.akari.updateEmptyCanvasHint?.(time);
                 const now = performance.now();
@@ -9711,6 +9837,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 lastPlaybackTickAt = now;
                 vscode.postMessage({
                     type: 'akari-preview-playback-tick', time, playing, pageId: initial.playbackPageId,
+                    positionReady: window.akari.previewPositionReady === true,
                     trialToken: window.akari.swapTrialPlaybackToken,
                     rate: clampPreviewPlaybackRateFn(window.akari.previewPlaybackRate)
                 });
@@ -11848,6 +11975,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (window.akari.frameEngineClock) window.akari.frameEngineClock.setRate(previewRate);
                 applyInitialPosition();
                 restoreInitialPlayback();
+                tick(true);
             });
             const penToggle = document.getElementById('pen-toggle');
             const rateToggle = document.getElementById('rate-toggle');
@@ -12148,7 +12276,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.reportLibraryDropGeometry({ requestId: request.requestId,
                     rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                     viewport: { width: window.innerWidth, height: window.innerHeight }, contentFrame, time: outputTime,
-                    fps: initial.summary?.output?.fps, canvasDropTargets: initial.summary?.canvasDropTargets || [] });
+                    fps: summary?.output?.fps, canvasDropTargets: summary?.canvasDropTargets || [] });
             });
             let libraryApplyHighlight;
             let libraryMediaHitAt = () => null;
@@ -12193,6 +12321,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let playToggleRenderedIsPlaying = null;
             let pausedForGapEntry = false;
             let initialPositionApplied = false;
+            let initialSeekTarget = initial.initialSeekTime;
             let initialPlaybackRestorePending = initial.initialPlaying === true;
             let restoreInitialPlayback = () => undefined;
             let zoom = 1;
@@ -12752,7 +12881,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 ? summary.itemStackZ[itemId] : trackZ;
             const applyCutsZIndex = segment => {
                 if (segment && segment.kind === 'src') {
-                    const z = zForTrack(segment.trackId);
+                    const z = typeof zForItem === 'function'
+                        ? zForItem(segment.id, zForTrack(segment.trackId)) : zForTrack(segment.trackId);
                     // renderTransitionComposite が同じ tick の前段で確定した zSwap を、
                     // applyCutsMuteState の通常 z 同期で巻き戻さない。合成終了時の reset が
                     // video / stillImage を正準 track z へ戻す。
@@ -13308,6 +13438,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let floatingMenuRect = null;
             const previewMotionGeometryTransformFn = (${previewMotionGeometryTransform.toString()});
             const previewMotionBoxHitAtFn = (${previewMotionBoxHitAt.toString()});
+            const previewMotionLiveItemFn = (${previewMotionLiveItem.toString()});
             const findLayerEntry = id => layerEntries.find(entry => String(entry.spec.id) === String(id));
             const layerTransformNow = entry => {
                 const scale = Number(entry.video.dataset.akariTransformScale) || 1;
@@ -13414,7 +13545,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // 裁定 0（cut と layer の操作系を統一）: 選択枠の幾何計算・角点 / 回転 / 辺バーの
             // ドラッグ・確定書き戻しを 1 組の関数へ寄せ、対象の違いだけをこの記述子で渡す。
             // layer は entry（media 実体 + spec）、cut は #preview-video / #preview-still。
-            const motionAtForSpec = (spec, start, duration) => {
+            const motionAtForSpec = (spec, start, duration, liveTransform) => {
                 if (!spec || !window.akari.itemMotion) return null;
                 const fps = Number(summary.output?.fps) || 30;
                 const item = spec.motionSource ? { ...spec.motionSource, fps }
@@ -13423,10 +13554,12 @@ body { display: grid; place-items: center; padding: 32px; }
                         keyframes: spec.keyframes, motion: spec.motion };
                 const parents = (spec.motionParents ?? []).map(parent => ({ ...parent, fps }));
                 return { item, parents, time: outputTime,
-                    visible: window.akari.itemMotion.evaluateItemMotion(item, outputTime, parents) };
+                    visible: window.akari.itemMotion.evaluateItemMotion(
+                        liveTransform ? previewMotionLiveItemFn(item, liveTransform) : item, outputTime, parents) };
             };
             const layerVisualTransformNow = entry => previewMotionGeometryTransformFn(
-                layerTransformNow(entry), motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible,
+                layerTransformNow(entry), motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration,
+                    layerTransformNow(entry))?.visible,
                 entry.previewVisiblePosition);
             const layerDragTarget = entry => ({
                 kind: 'layer',
@@ -13716,20 +13849,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (typeof previewStage !== 'undefined' && previewStage?.getBoundingClientRect
                     && layerSelectBox.getBoundingClientRect
                     && typeof previewLayerActionsFn === 'function') {
-                    const zoomScale = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
-                    const place = previewLayerActionsFn(previewStage.getBoundingClientRect(),
+                    const zoomScale = previewStage.getBoundingClientRect().width / previewStage.offsetWidth || 1;
+                    const place = previewLayerActionsFn(previewPane.getBoundingClientRect(),
                         layerSelectBox.getBoundingClientRect(), floatingMenuRect, zoomScale);
                     for (const handle of layerHandleElements) {
                         const kind = handle.getAttribute('data-akari-handle');
                         if (kind !== 'rotate' && kind !== 'move') continue;
-                        if (!place || (place.placement === 'below' && place.offsetX === 0)) {
-                            handle.style.top = '';
-                            handle.style.left = '';
-                        } else {
-                            handle.style.top = place.top / zoomScale + 'px';
-                            handle.style.left = 'calc(50% + ' + ((kind === 'rotate' ? -14 : 14)
-                                + place.offsetX / zoomScale) + 'px)';
-                        }
+                        if (!place) continue;
+                        const rect = kind === 'rotate' ? place.rotate : place.move;
+                        const center = previewChromeLocalPointFn(layerSelectBox.getBoundingClientRect(),
+                            { width: layerSelectBox.offsetWidth, height: layerSelectBox.offsetHeight },
+                            transform.rotate, zoomScale,
+                            { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+                        handle.style.top = center.y + 'px';
+                        handle.style.left = center.x + 'px';
                     }
                 }
                 applyCropEdgeVisibility(layerSelectBox, box.width, box.height, true);
@@ -14533,7 +14666,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     const declaredSize = typeof summary === 'undefined' ? null : summary.output;
                     let order = 0;
                     for (const entry of layerEntries) {
-                        if (entry.video.style.display === 'none') continue;
+                        if (entry.video.style.display === 'none' || entry.video.style.visibility === 'hidden'
+                            || (entry.spec && typeof outputTime === 'number' && Number.isFinite(entry.spec.t)
+                                && (outputTime < entry.spec.t || outputTime >= entry.spec.t + entry.spec.duration))
+                            || (entry.spec && (allTracksHiddenByScope.layers
+                                || hiddenTracksByScope.layers?.has(entry.spec.track)
+                                || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(entry.spec.track))))) continue;
+                        const motionOpacity = entry.spec && typeof motionAtForSpec === 'function'
+                            ? motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible?.opacity : undefined;
+                        if ((Number.isFinite(motionOpacity) ? motionOpacity : entry.spec?.opacity ?? 1) <= 0) continue;
                         const hasSourceSize = (entry.video.videoWidth || entry.video.naturalWidth) > 0
                             && (entry.video.videoHeight || entry.video.naturalHeight) > 0;
                         const size = hasSourceSize
@@ -14576,9 +14717,20 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (candidate === video) return true;
                         if (candidate === stillImage) return true;
                         if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
-                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
+                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none'
+                            && candidate.style.visibility !== 'hidden')) return false;
                         const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
                         if (!candidateEntry) return true;
+                        if (candidateEntry.spec && typeof outputTime === 'number' && Number.isFinite(candidateEntry.spec.t)
+                            && (outputTime < candidateEntry.spec.t
+                                || outputTime >= candidateEntry.spec.t + candidateEntry.spec.duration)) return false;
+                        if (candidateEntry.spec && (allTracksHiddenByScope.layers
+                            || hiddenTracksByScope.layers?.has(candidateEntry.spec.track)
+                            || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(candidateEntry.spec.track)))) return false;
+                        const motionOpacity = candidateEntry.spec && typeof motionAtForSpec === 'function'
+                            ? motionAtForSpec(candidateEntry.spec, candidateEntry.spec.t,
+                                candidateEntry.spec.duration)?.visible?.opacity : undefined;
+                        if ((Number.isFinite(motionOpacity) ? motionOpacity : candidateEntry.spec?.opacity ?? 1) <= 0) return false;
                         const size = { width: candidate.videoWidth || candidate.naturalWidth,
                             height: candidate.videoHeight || candidate.naturalHeight };
                         if (!(size.width > 0 && size.height > 0)) {
@@ -14624,10 +14776,6 @@ body { display: grid; place-items: center; padding: 32px; }
             const handleVisualMediaPointerDown = event => {
                 if (typeof motionDraw !== 'undefined' && motionDraw) return;
                 if (window.akari.shouldStartPreviewMarquee?.(event)) return;
-                // A blank click must release captions before selecting the media behind them.
-                // Otherwise selectCut/selectLayer silently clear the local caption first and
-                // pointerup can no longer notify the host that its caption selection ended.
-                if ((selectedCaptionId || activeCaptionEdit) && isSelectionReleaseTarget(event)) return;
                 // ㉔ クロップモード中は移動/選択切り替えと操作が衝突しないよう、選択中レイヤーの
                 // ボディドラッグを含め本編ステージの通常操作を止める（ハンドルは別要素なので
                 // このガードの影響を受けない）。
@@ -14644,8 +14792,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (penModeActive || rectModeActive) return;
                     if (interactiveTarget) {
                         const domItem = target?.closest?.('[data-overlay-id], #caption-plate');
+                        const captionRow = target?.closest?.('.caption-row-plate');
                         const mediaHit = domItem ? findVisualMediaHitAt(event) : null;
-                        if (!mediaHit || Number(mediaHit.style.zIndex) <= Number(domItem.style.zIndex)) return;
+                        const domZ = captionRow
+                            ? Number(captionRow.style.zIndex || captionLayer.style.zIndex)
+                            : Number(domItem?.style.zIndex);
+                        if (!mediaHit || Number(mediaHit.style.zIndex) <= domZ) return;
                         coveredDomHit = mediaHit;
                         event.stopPropagation();
                     }
@@ -14659,9 +14811,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         && !targetIsEngineStage)) return;
                 const hit = coveredDomHit || findVisualMediaHitAt(event);
                 if (!hit) return;
+                if (activeCaptionEdit) void commitCaptionEdit();
+                if (selectedCaptionId) deselectCaption();
                 if (hit === video || hit === stillImage) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
-                    selectCut();
+                    selectCut({ visibleHit: true });
                     const segment = typeof cutInteractionSegment === 'function' ? cutInteractionSegment() : null;
                     const cutImage = segment?.src && (initial.imageSources || {})[segment.src];
                     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -14716,7 +14870,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const entry = findLayerEntry(hit.dataset.akariLayerId);
                 if (!entry) return;
-                selectLayer(entry.spec.id);
+                selectLayer(entry.spec.id, { visibleHit: true });
                 const photo = entry.spec.isImage === true;
                 const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
                 const twice = photo && typeof lastPhotoPointerDown !== 'undefined'
@@ -15093,7 +15247,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '#layer-perspective-panel, .caption-row-plate, [data-overlay-id], [data-akari-interaction], '
                     + 'button, [role="button"], input, textarea, select, a[href]')) return false;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
-                return !!selectedCaptionId || !!activeCaptionEdit || !findVisualMediaHitAt(event);
+                return !!event.target.closest?.('#caption-plate') || !findVisualMediaHitAt(event);
             };
             const releasePreviewSelection = () => {
                 if (activeCaptionEdit) void commitCaptionEdit();
@@ -15211,7 +15365,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const cutVisualTransformNow = () => {
                 const segment = cutInteractionSegment();
                 return previewMotionGeometryTransformFn(cutTransformNow(), motionAtForSpec(segment,
-                    segment?.outStart, Number(segment?.outEnd) - Number(segment?.outStart))?.visible,
+                    segment?.outStart, Number(segment?.outEnd) - Number(segment?.outStart), cutTransformNow())?.visible,
                     cutPreviewVisiblePosition);
             };
             // RAF スロットリング（2026-08-09 raf-throttle）: layer 側と同じ規律。
@@ -15485,6 +15639,21 @@ body { display: grid; place-items: center; padding: 32px; }
                 cutSelectBox.style.height = screenH + 'px';
                 cutSelectBox.style.transform = 'rotate(' + box.rotate + 'deg)';
                 cutSelectBox.classList.add('is-active');
+                const selectionRect = cutSelectBox.getBoundingClientRect();
+                const stageScale = previewStage.getBoundingClientRect().width / previewStage.offsetWidth || 1;
+                const actions = previewLayerActionsFn(previewPane.getBoundingClientRect(),
+                    selectionRect, floatingMenuRect, stageScale);
+                if (actions) for (const handle of cutHandleElements) {
+                    const kind = handle.dataset.akariHandle;
+                    if (kind !== 'rotate' && kind !== 'move') continue;
+                    const rect = kind === 'rotate' ? actions.rotate : actions.move;
+                    const center = previewChromeLocalPointFn(selectionRect,
+                        { width: cutSelectBox.offsetWidth, height: cutSelectBox.offsetHeight },
+                        box.rotate, stageScale,
+                        { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+                    handle.style.left = center.x + 'px';
+                    handle.style.top = center.y + 'px';
+                }
                 applyCropEdgeVisibility(cutSelectBox, screenW, screenH, cutCropEditable());
             };
             const selectCut = options => {
@@ -15714,6 +15883,76 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionMultiSelectBoxes = document.createElement('div');
             captionMultiSelectBoxes.id = 'caption-multi-select-boxes';
             captionSelectBox.parentElement.appendChild(captionMultiSelectBoxes);
+            const previewChrome = document.createElement('div');
+            previewChrome.id = 'preview-chrome-layer';
+            document.body.appendChild(previewChrome);
+            for (const id of ['layer-select-box', 'layer-crop-box', 'photo-crop-controls',
+                'layer-crop-toggle', 'layer-perspective-toggle', 'layer-perspective-panel',
+                'cut-select-box', 'caption-zone-highlight', 'zone-hint-layer', 'caption-row-box',
+                'caption-select-box', 'caption-multi-select-boxes']) {
+                const element = document.getElementById(id);
+                if (element) previewChrome.appendChild(element);
+            }
+            let previousChromeGeometry = null;
+            const chromeRefreshers = {
+                layer: () => updateLayerSelectBox(),
+                cut: () => updateCutSelectBox(),
+                crop: () => updateLayerCropBox(),
+                caption: () => updateCaptionSelectBox()
+            };
+            const syncPreviewChrome = () => {
+                const rect = previewStage.getBoundingClientRect();
+                const scaleX = rect.width / previewStage.offsetWidth || 1;
+                const scaleY = rect.height / previewStage.offsetHeight || 1;
+                previewChrome.style.left = rect.left + 'px';
+                previewChrome.style.top = rect.top + 'px';
+                previewChrome.style.width = previewStage.offsetWidth + 'px';
+                previewChrome.style.height = previewStage.offsetHeight + 'px';
+                previewChrome.style.transform = 'scale(' + scaleX + ',' + scaleY + ')';
+                previewChrome.dataset.frameEngineActive = previewStage.dataset.frameEngineActive || '';
+                const viewport = previewPane.getBoundingClientRect();
+                previousChromeGeometry = refreshPreviewChromeOnGeometryChangeFn(
+                    previousChromeGeometry, rect, viewport, chromeRefreshers);
+                const cropControls = previewChrome.querySelector('#photo-crop-controls');
+                if (cropControls) cropControls.style.maxWidth = Math.max(80, (viewport.width - 8) / scaleX) + 'px';
+                for (const selector of ['#layer-crop-toggle.is-target-active',
+                    '#layer-perspective-toggle.is-target-active', '#layer-perspective-panel.is-open',
+                    '#photo-crop-controls.is-active', '#caption-select-box [data-akari-run-menu]:not([hidden])',
+                    '#caption-select-box [data-caption-palette]:not([hidden])']) {
+                    const control = previewChrome.querySelector(selector);
+                    if (!control) continue;
+                    control.style.translate = '';
+                    const menuRect = control.getBoundingClientRect();
+                    const captionMenu = control.matches('[data-akari-run-menu], [data-caption-palette]');
+                    const offset = captionMenu ? (() => {
+                        const toolbar = captionSelectBox.querySelector('.akari-caption-select-tools');
+                        const actions = [...captionSelectBox.querySelectorAll('.akari-caption-handle[data-h="rot"], .akari-caption-handle[data-h="move"]')]
+                            .map(handle => handle.getBoundingClientRect());
+                        const avoid = [toolbar.getBoundingClientRect(), captionSelectBox.getBoundingClientRect(), ...actions];
+                        if (previewChromeRectClearFn(viewport, menuRect, avoid)) return { x: 0, y: 0 };
+                        const placed = placePreviewChromeToolbarFn(viewport, toolbar.getBoundingClientRect(),
+                            menuRect, [captionSelectBox.getBoundingClientRect(), ...actions]);
+                        return { x: placed.left - menuRect.left, y: placed.top - menuRect.top };
+                    })() : previewChromeMenuOffsetFn(viewport,
+                        control.closest('#layer-select-box')?.getBoundingClientRect()
+                            || previewStage.getBoundingClientRect(), menuRect);
+                    if (captionMenu) {
+                        const angle = (Number.parseFloat(captionSelectBox.style.getPropertyValue('--caption-box-rotate')) || 0)
+                            * Math.PI / 180;
+                        control.style.translate = ((offset.x * Math.cos(angle) + offset.y * Math.sin(angle)) / scaleX)
+                            + 'px ' + ((-offset.x * Math.sin(angle) + offset.y * Math.cos(angle)) / scaleY) + 'px';
+                    } else {
+                        control.style.translate = (offset.x / scaleX) + 'px ' + (offset.y / scaleY) + 'px';
+                    }
+                }
+                requestAnimationFrame(syncPreviewChrome);
+            };
+            requestAnimationFrame(syncPreviewChrome);
+            const previewChromeMenuOffsetFn = (${previewChromeMenuOffset.toString()});
+            const previewChromeLocalPointFn = (${previewChromeLocalPoint.toString()});
+            const previewChromeRectClearFn = (${previewChromeRectClear.toString()});
+            const placePreviewChromeToolbarFn = (${placePreviewChromeToolbar.toString()});
+            const refreshPreviewChromeOnGeometryChangeFn = (${refreshPreviewChromeOnGeometryChange.toString()});
             const captionTool = name => captionSelectBox.querySelector('[data-caption-tool="' + name + '"]');
             const setCaptionToolTip = (name, message) => {
                 captionTool(name).querySelector('.akari-caption-tool-tip').textContent = message;
@@ -15760,6 +15999,32 @@ body { display: grid; place-items: center; padding: 32px; }
                 tools.style.bottom = 'auto';
             };
             window.akari.layoutCaptionRunTools = layoutCaptionRunTools;
+            const fitCaptionSelectTools = () => {
+                const tools = captionSelectBox.querySelector('.akari-caption-select-tools');
+                const viewport = previewPane.getBoundingClientRect();
+                const stageScale = previewStage.getBoundingClientRect().width / previewStage.offsetWidth || 1;
+                captionSelectBox.style.setProperty('--akari-chrome-tools-max',
+                    Math.max(1, (viewport.width - 8) / stageScale) + 'px');
+                if (!currentRunSelection()) {
+                    tools.style.left = '';
+                    tools.style.top = '';
+                    tools.style.bottom = '';
+                }
+                const rect = tools.getBoundingClientRect();
+                const anchor = captionSelectBox.getBoundingClientRect();
+                const actions = [...captionSelectBox.querySelectorAll('.akari-caption-handle[data-h="rot"], .akari-caption-handle[data-h="move"]')]
+                    .map(handle => handle.getBoundingClientRect());
+                const placed = placePreviewChromeToolbarFn(viewport, anchor, rect, actions);
+                const dx = placed.left - rect.left;
+                const dy = placed.top - rect.top;
+                if (dx || dy) {
+                    const angle = (Number.parseFloat(captionSelectBox.style.getPropertyValue('--caption-box-rotate')) || 0)
+                        * Math.PI / 180;
+                    tools.style.left = (tools.offsetLeft + (dx * Math.cos(angle) + dy * Math.sin(angle)) / stageScale) + 'px';
+                    tools.style.top = (tools.offsetTop + (-dx * Math.sin(angle) + dy * Math.cos(angle)) / stageScale) + 'px';
+                    tools.style.bottom = 'auto';
+                }
+            };
             const syncRunSelection = () => {
                 const selected = currentRunSelection();
                 captionSelectBox.dataset.akariRunFrom = selected ? String(selected.from) : '';
@@ -15913,6 +16178,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const block = captionPlate.querySelector('.akari-caption__block');
                 const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
                 const rects = (elements.length > 0 ? elements : [captionPlate])
+                    .concat([...captionPlate.querySelectorAll('.akari-caption__run')])
                     .map(element => element.getBoundingClientRect());
                 const clientRect = {
                     left: Math.min(...rects.map(rect => rect.left)),
@@ -15968,47 +16234,15 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionLineCountFromMetricsFn = (${captionLineCountFromMetrics.toString()});
             const captionEditorFitWidthFn = (${captionEditorFitWidth.toString()});
             const captionEditorValueFn = (${captionEditorValue.toString()});
+            const captionEditKeyActionFn = (${captionEditKeyAction.toString()});
             const captionEditingNavigationKeyFn = (${captionEditingNavigationKey.toString()});
-            const syncCaptionHandleBox = (captionPlate = selectedCaptionPlate()) => {
-                const box = captionPlate.querySelector('.akari-caption-handle-box');
+            const syncCaptionHandleBox = () => {
+                const box = captionSelectBox.querySelector('.akari-caption-handle-box');
                 if (!box) return;
-                const surface = typeof stage !== 'undefined' && stage?.getBoundingClientRect ? stage : captionPlate;
-                const display = surface.getBoundingClientRect?.();
-                const vars = captionControlScaleFn(surface.clientWidth || surface.offsetWidth || 0,
-                    display?.width || 0, surface.clientHeight || surface.offsetHeight || 0,
-                    display?.height || 0);
-                for (const [name, value] of Object.entries(vars)) box.style.setProperty?.(name, value);
-                if (!captionPlate.classList.contains('akari-caption-host--styled')) {
-                    // 非 styled の #caption-plate 自身が文字の箱（shrink-to-fit）。
-                    box.style.inset = '0';
-                    box.style.width = '';
-                    box.style.height = '';
-                    box.style.transform = '';
-                    return;
-                }
-                const layout = captionLayoutRect(captionPlate);
-                const transform = captionTransformValues(captionPlate);
-                const oriented = captionOrientedFrameFn(layout, transform.scale, transform.rotate);
-                const frame = window.akari.computeOutputFrameRect();
-                const frameScale = window.akari.stageScale() || 1;
-                const stageClient = stage.getBoundingClientRect();
-                const ink = {
-                    left: stageClient.left + frame.x + (oriented.center.x - oriented.width / 2) * frameScale,
-                    right: stageClient.left + frame.x + (oriented.center.x + oriented.width / 2) * frameScale,
-                    top: stageClient.top + frame.y + (oriented.center.y - oriented.height / 2) * frameScale,
-                    bottom: stageClient.top + frame.y + (oriented.center.y + oriented.height / 2) * frameScale
-                };
-                const hostRect = captionPlate.getBoundingClientRect();
-                const rawX = captionPlate.offsetWidth > 0 ? hostRect.width / captionPlate.offsetWidth : 1;
-                const rawY = captionPlate.offsetHeight > 0 ? hostRect.height / captionPlate.offsetHeight : 1;
-                const scaleX = Number.isFinite(rawX) && rawX > 0 ? rawX : 1;
-                const scaleY = Number.isFinite(rawY) && rawY > 0 ? rawY : 1;
-                box.style.inset = 'auto';
-                box.style.left = ((ink.left - hostRect.left) / scaleX) + 'px';
-                box.style.top = ((ink.top - hostRect.top) / scaleY) + 'px';
-                box.style.width = Math.max(0, (ink.right - ink.left) / scaleX) + 'px';
-                box.style.height = Math.max(0, (ink.bottom - ink.top) / scaleY) + 'px';
-                box.style.transform = 'rotate(' + transform.rotate + 'deg)';
+                const display = previewStage.getBoundingClientRect();
+                const vars = captionControlScaleFn(previewStage.offsetWidth, display.width,
+                    previewStage.offsetHeight, display.height);
+                for (const [name, value] of Object.entries(vars)) box.style.setProperty(name, value);
             };
             const setRectStyle = (element, rect) => {
                 element.style.left = rect.left + 'px';
@@ -16083,8 +16317,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 captionSelectBox.style.transform = 'rotate(' + captionTransform.rotate + 'deg)';
                 captionSelectBox.style.setProperty('--caption-box-rotate', captionTransform.rotate + 'deg');
                 captionSelectBox.classList.add('is-active');
+                const selectionRect = captionSelectBox.getBoundingClientRect();
+                const stageScale = previewStage.getBoundingClientRect().width / previewStage.offsetWidth || 1;
+                const actions = previewLayerActionsFn(previewPane.getBoundingClientRect(),
+                    selectionRect, null, stageScale);
+                for (const handle of captionSelectBox.querySelectorAll('.akari-caption-handle[data-h="rot"], .akari-caption-handle[data-h="move"]')) {
+                    if (!actions) continue;
+                    const rect = handle.dataset.h === 'rot' ? actions.rotate : actions.move;
+                    const center = previewChromeLocalPointFn(selectionRect,
+                        { width: captionSelectBox.offsetWidth, height: captionSelectBox.offsetHeight },
+                        captionTransform.rotate, stageScale,
+                        { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+                    handle.style.left = center.x + 'px';
+                    handle.style.top = center.y + 'px';
+                }
                 updateCaptionSelectTools();
                 window.akari.layoutCaptionRunTools?.();
+                fitCaptionSelectTools();
                 updateCaptionRowBox();
             };
             const updateCaptionMultiSelectBoxes = () => {
@@ -16465,6 +16714,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 else element.setAttribute(name, value);
             };
             const restoreCaptionEditElement = edit => {
+                edit.hint?.remove();
                 restoreCaptionEditAttribute(edit.element, 'contenteditable', edit.contentEditable);
                 restoreCaptionEditAttribute(edit.element, 'spellcheck', edit.spellcheck);
                 restoreCaptionEditAttribute(edit.element, 'style', edit.style);
@@ -16487,7 +16737,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const commitCaptionEdit = async () => {
                 if (!activeCaptionEdit) return;
                 const edit = activeCaptionEdit;
-                const nextText = captionEditorValueFn(edit.element.innerText || '');
+                const nextText = captionEditorValueFn(edit.element.innerText || '', edit.element.lastChild?.nodeName === 'BR');
                 activeCaptionEdit = null;
                 window.akari.reportCaptionEditFocus?.(false);
                 window.akari.syncRunSelection?.();
@@ -16566,7 +16816,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 // styled 字幕の token/行ラッパーは編集開始時だけプレーンな本文へ畳み、
                 // CSS やアニメーション断片を textContent に混入させない。
                 element.replaceChildren(...captionEditorLinesFn(caption.text || '').flatMap((line, index) =>
-                    index ? [document.createElement('br'), document.createTextNode(line)] : [document.createTextNode(line)]));
+                    index ? line ? [document.createElement('br'), document.createTextNode(line)]
+                        : [document.createElement('br')] : [document.createTextNode(line)]));
                 if (layoutPlate && editorWidth) {
                     element.style.width = editorWidth + 'px';
                     element.style.maxWidth = 'none';
@@ -16582,9 +16833,31 @@ body { display: grid; place-items: center; padding: 32px; }
                 element.style.userSelect = 'text';
                 captionPlate.classList.add('akari-caption-host--editing');
                 element.focus({ preventScroll: true });
+                if (document.body) {
+                    const hint = document.createElement('div');
+                    const mac = /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform);
+                    hint.setAttribute('data-akari-caption-edit-hint', '');
+                    hint.textContent = (mac ? '⌘Enter' : 'Ctrl+Enter') + ' で確定・Esc で取り消し';
+                    const bounds = element.getBoundingClientRect();
+                    Object.assign(hint.style, {
+                        position: 'fixed', left: Math.max(8, bounds.left) + 'px',
+                        top: Math.min(window.innerHeight - 24, bounds.bottom + 44) + 'px',
+                        zIndex: '1000', pointerEvents: 'none', padding: '2px 6px',
+                        borderRadius: '3px', background: 'rgba(0,0,0,.72)', color: '#fff',
+                        font: '11px sans-serif', whiteSpace: 'nowrap'
+                    });
+                    document.body.appendChild(hint);
+                    activeCaptionEdit.hint = hint;
+                }
                 window.akari.reportCaptionEditFocus?.(true);
                 placeCaptionCaretAtEnd(element);
                 window.akari.refreshActiveCaptionRuns?.();
+                if (layoutPlate && editorWidth && caption?.runs?.some(run =>
+                    Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+                    && lineCount(element) > targetLines) {
+                    // offsetWidth rounds away the subpixel width reserved by font-size runs.
+                    element.style.width = Math.max(parseFloat(element.style.width) || 0, editorWidth + 1) + 'px';
+                }
                 window.akari.syncRunSelection?.();
             };
             captionLayer.addEventListener('dblclick', event => {
@@ -16600,13 +16873,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             }, true);
             captionLayer.addEventListener('keydown', event => {
-                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element || event.isComposing) return;
-                if (event.key === 'Enter') {
-                    if (event.shiftKey) return;
+                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
+                const action = captionEditKeyActionFn(event, /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform));
+                if (action === 'line-break') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    document.execCommand('insertLineBreak');
+                } else if (action === 'commit') {
                     event.preventDefault();
                     event.stopPropagation();
                     void commitCaptionEdit();
-                } else if (event.key === 'Escape') {
+                } else if (action === 'cancel') {
                     event.preventDefault();
                     event.stopPropagation();
                     cancelCaptionEdit();
@@ -16615,7 +16892,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             });
             const beginCaptionHandleDrag = (event, handle, caption, cueId) => {
-                const captionPlate = handle.closest('.caption-row-plate');
+                const captionPlate = handle.closest('.caption-row-plate') || selectedCaptionPlate();
                 const kind = handle.getAttribute('data-h');
                 if (!['nw', 'ne', 'sw', 'se', 'rot', 'e', 'w', 'move'].includes(kind)) return false;
                 if (kind === 'move') return false;
@@ -16801,15 +17078,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.addEventListener('keydown', onKeyDown, true);
                 return true;
             };
-            captionLayer.addEventListener('pointerdown', event => {
+            const onCaptionPointerDown = event => {
                 if (activeCaptionEdit) return;
                 if (event.button !== 0) return;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
-                const caption = captionForEvent(event);
+                const handle = event.target.closest?.('.akari-caption-handle');
+                const caption = handle && captionSelectBox.contains(handle)
+                    ? selectedCaption() : captionForEvent(event);
                 if (!caption || !caption.id) return;
                 const cueId = caption.sourceCueId || caption.id;
-                const captionPlate = event.target.closest('.caption-row-plate');
-                const handle = event.target.closest?.('.akari-caption-handle');
+                const captionPlate = handle && captionSelectBox.contains(handle)
+                    ? selectedCaptionPlate() : event.target.closest('.caption-row-plate');
                 if (handle && beginCaptionHandleDrag(event, handle, caption, cueId)) return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -17038,7 +17317,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.addEventListener('pointerup', onUp);
                 window.addEventListener('pointercancel', onCancel);
                 window.addEventListener('keydown', onKeyDown, true);
-            });
+            };
+            captionLayer.addEventListener('pointerdown', onCaptionPointerDown);
+            captionSelectBox.addEventListener('pointerdown', event => {
+                if (event.target.closest?.('.akari-caption-handle')) onCaptionPointerDown(event);
+            }, true);
             new ResizeObserver(() => updateCaptionSelectBox()).observe(wrapper);
 
             const applyTrackVisibility = track => {
@@ -17724,14 +18007,36 @@ body { display: grid; place-items: center; padding: 32px; }
                 // next tick()'s applyCutsMuteState(), which hides whenever there is no active
                 // segment) until the user presses play. Bail out without setting the flag so the
                 // *next* call (once segments is real) can still do the real work.
-                if (initialPositionApplied || segments.length === 0) return;
+                if (initialPositionApplied) return;
+                if (segments.length === 0) {
+                    const emptyOutput = playbackMountReady && initial.kind === 'output' && totalTimelineDuration === 0
+                        && !video.getAttribute('src')
+                        && !(summary.cuts?.length || summary.layers?.length || summary.overlays?.length
+                            || captions.length || summary.audio?.sfx?.length || summary.audio?.narration?.length
+                            || summary.audio?.bgm);
+                    if (!emptyOutput) return;
+                    outputTime = 0;
+                    initialPositionApplied = true;
+                    window.akari.previewPositionReady = true;
+                    return;
+                }
+                if (initial.frameEngineEnabled === true) {
+                    if (!(window.akari.frameEngineClock?.totalDuration > 0)
+                        || document.getElementById('frame-engine-preview')?.dataset.frameEngineReady !== 'true') return;
+                } else if (Number.isFinite(initialSeekTarget) && initialSeekTarget > 0
+                    && !(totalTimelineDuration > 0)) return;
                 initialPositionApplied = true;
-                if (Number.isFinite(initial.initialSeekTime)) {
-                    seekTimelineTime(initial.initialSeekTime);
+                if (Number.isFinite(initialSeekTarget)) {
+                    seekTimelineTime(initialSeekTarget);
                 } else {
                     outputTime = segments[0].outStart;
-                    enterSegment(0);
+                    if (window.akari.frameEngineClock) seekTimelineTime(outputTime);
+                    else enterSegment(0);
                 }
+                if (window.akari.frameEngineClock) {
+                    window.akari.previewSyncedFrameEngineClock = window.akari.frameEngineClock;
+                }
+                window.akari.previewPositionReady = true;
             };
             const zoomToSlider = value => {
                 const logMin = Math.log2(ZOOM_MIN);
@@ -17745,10 +18050,69 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (Math.abs(sliderValue - zoomToSlider(1)) <= SNAP_TOLERANCE) return 1;
                 return Math.pow(2, logMin + (logMax - logMin) * sliderValue);
             };
-            const panLimits = () => ({
-                x: Math.max(0, (previewStage.offsetWidth * zoom - previewPane.clientWidth) / 2),
-                y: Math.max(0, (previewStage.offsetHeight * zoom - previewPane.clientHeight) / 2)
+            const computeStageClearance = (${computePreviewStageClearance.toString()});
+            const computePanLimits = (${computePreviewPanLimits.toString()});
+            const computePinchPan = (${pinchPreviewPan.toString()});
+            let contextBarRect = null;
+            let stageClearance = { top: 16, barHeight: 0, holdUntil: 0, retryAfter: null };
+            let clearanceTimer = 0;
+            let clearanceAnimation = 0;
+            let clearanceTransitionTimer = 0;
+            const refreshStageGeometry = () => {
+                window.akari.updateLayerLayout?.();
+                updateLayerSelectBox();
+                if (cropModeActive) updateLayerCropBox();
+                updateCutSelectBox();
+                updateCaptionSelectBox();
+                renderZoom();
+            };
+            const animateStageGeometry = () => {
+                cancelAnimationFrame(clearanceAnimation);
+                const until = performance.now() + 200;
+                const frame = () => {
+                    refreshStageGeometry();
+                    if (performance.now() < until) clearanceAnimation = requestAnimationFrame(frame);
+                    else clearanceAnimation = 0;
+                };
+                clearanceAnimation = requestAnimationFrame(frame);
+            };
+            previewStage.addEventListener('transitionend', event => {
+                if (event.target === previewStage && (event.propertyName === 'top' || event.propertyName === 'width')) {
+                    refreshStageGeometry();
+                }
             });
+            const applyStageClearance = () => {
+                clearTimeout(clearanceTimer);
+                const next = computeStageClearance(stageClearance, contextBarRect, Date.now(), isPlaying);
+                const layoutChanged = next.top !== stageClearance.top;
+                const changed = layoutChanged || next.barHeight !== stageClearance.barHeight;
+                stageClearance = next;
+                if (changed) {
+                    if (layoutChanged) {
+                        clearTimeout(clearanceTransitionTimer);
+                        previewStage.classList.add('akari-clearance-animating');
+                        // Commit the transition property before changing top/width in this task.
+                        void previewStage.offsetWidth;
+                        previewStage.style.setProperty('--akari-preview-gutter-top', next.top + 'px');
+                        previewStage.classList.toggle('akari-clearance-active', next.top > 16);
+                        animateStageGeometry();
+                        clearanceTransitionTimer = window.setTimeout(() => {
+                            previewStage.classList.remove('akari-clearance-animating');
+                            refreshStageGeometry();
+                        }, 200);
+                    }
+                    pan = clampPan(pan);
+                    renderZoom();
+                }
+                if (next.retryAfter !== null) clearanceTimer = window.setTimeout(applyStageClearance, next.retryAfter);
+            };
+            window.addEventListener('message', event => {
+                if (event.data?.type !== 'akari-preview-context-bar-rect') return;
+                contextBarRect = event.data.rect;
+                applyStageClearance();
+            });
+            const panLimits = () => computePanLimits(previewPane.clientWidth, previewPane.clientHeight,
+                previewStage.offsetWidth, previewStage.offsetHeight, zoom, stageClearance.barHeight);
             const clampPan = value => {
                 const limits = panLimits();
                 return {
@@ -17788,11 +18152,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const setZoom = value => {
                 zoom = clamp(value, ZOOM_MIN, ZOOM_MAX);
-                if (zoom <= 1.05) {
-                    pan = { x: 0, y: 0 };
-                } else {
-                    pan = clampPan(pan);
-                }
+                pan = clampPan(pan);
                 renderZoom();
             };
             new ResizeObserver(() => setZoom(zoom)).observe(previewPane);
@@ -18116,6 +18476,12 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionTextAnimationKeyframesCss = animation => animation
                 ? animation.keyframesCss
                 : '';
+            const captionHasScaledRun = caption => Boolean(caption?.runs?.some(run =>
+                Number.isFinite(run?.style?.scale) && run.style.scale !== 1));
+            const captionSizedRunPlateCss = caption => captionHasScaledRun(caption)
+                ? '.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}'
+                    + '.akari-caption__line,.akari-caption__block{max-width:none;}'
+                : '';
             const renderStyledCaptionFragment = (caption, captionAnimation = null) => {
                 const renderChars = captionCharRenderer(caption.animator);
                 const style = caption.style;
@@ -18179,6 +18545,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
+                    + captionSizedRunPlateCss(caption)
                     + frameFitCss
                     + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;will-change:transform,color;}'
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
@@ -18196,6 +18563,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 const renderChars = captionCharRenderer(caption.animator);
                 const renderText = renderChars || escapeCaptionHtml;
                 if (caption.resolvedTimeline) {
+                    const resolvedRunPlateCss = captionHasScaledRun(caption)
+                        ? '.akari-caption--single-line .akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);max-width:none;}'
+                        : '';
                     const resolvedFrameCss = caption.textStyleVars?.['--caption-plate-fit'] === 'frame'
                         ? '.akari-caption--single-line .akari-caption__plate{left:4%;right:4%;width:auto;box-sizing:border-box;}'
                             + '.akari-caption--single-line .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;background:var(--plate-bg,var(--plate-ext-bg,transparent));border-radius:var(--plate-radius,var(--plate-ext-radius,0));}'
@@ -18218,6 +18588,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         }).join('');
                         return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                            + resolvedRunPlateCss
                             + resolvedFrameCss
                             + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
@@ -18232,6 +18603,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         : renderText(caption.text);
                     return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                        + resolvedRunPlateCss
                         + resolvedFrameCss
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
                         + resolvedMarkup
@@ -18262,6 +18634,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
+                    + captionSizedRunPlateCss(caption)
                     + frameFitCss
                     + captionTextAnimationKeyframesCss(captionAnimation)
                     + '</style><div class="akari-caption__plate"'
@@ -18294,18 +18667,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 else captionPlate.removeAttribute('data-alt-all');
                 captionPlate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle')
                     .forEach(handle => handle.remove());
-                if (!captionPlate.hasAttribute('data-selected')) return;
-                const handleBox = document.createElement('div');
-                handleBox.className = 'akari-caption-handle-box';
-                for (const kind of ['nw', 'ne', 'sw', 'se', 'e', 'w', 'rot', 'move']) {
-                    if ((kind === 'e' || kind === 'w') && caption.timeDomain !== 'output') continue;
-                    const handle = document.createElement('i');
-                    handle.className = 'akari-caption-handle';
-                    handle.setAttribute('data-h', kind);
-                    handleBox.appendChild(handle);
-                }
-                captionPlate.appendChild(handleBox);
-                syncCaptionHandleBox(captionPlate);
             };
             const applyCaptionSelectionAttrs = () => {
                 for (const row of captionRows.values()) {
@@ -18318,6 +18679,22 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (row.plate.hasAttribute('data-selected')) row.captionHitRegionPending = false;
                     }
                 }
+                captionSelectBox.querySelector('.akari-caption-handle-box')?.remove();
+                const caption = captions.find(candidate => selectedCaptionIds.has(candidate.sourceCueId || candidate.id)
+                    && (candidate.sourceCueId || candidate.id) === selectedCaptionId)
+                    || captions.find(candidate => selectedCaptionIds.has(candidate.sourceCueId || candidate.id));
+                if (!caption) return;
+                const handleBox = document.createElement('div');
+                handleBox.className = 'akari-caption-handle-box';
+                for (const kind of ['nw', 'ne', 'sw', 'se', 'e', 'w', 'rot', 'move']) {
+                    if ((kind === 'e' || kind === 'w') && caption.timeDomain !== 'output') continue;
+                    const handle = document.createElement('i');
+                    handle.className = 'akari-caption-handle';
+                    handle.setAttribute('data-h', kind);
+                    handleBox.appendChild(handle);
+                }
+                captionSelectBox.appendChild(handleBox);
+                syncCaptionHandleBox();
             };
             const setCaptionAltAll = on => {
                 if (captionAltAll === on) return;
@@ -18338,6 +18715,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (caption !== row.renderedCaption) {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
+                    if (caption?.runs?.some(run => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)) {
+                        captionPlate.dataset.captionSizedRun = '';
+                        const captionPositionX = caption?.textStyle?.position?.x;
+                        const captionAnchor = caption?.textStyle?.text_anchor;
+                        captionPlate.style?.setProperty?.('--caption-plate-margin',
+                            Number.isFinite(captionPositionX) ? '0'
+                                : captionAnchor?.[1] === 'l' ? '0 auto'
+                                    : captionAnchor?.[1] === 'r' ? 'auto 0' : 'auto');
+                    } else {
+                        delete captionPlate.dataset.captionSizedRun;
+                        captionPlate.style?.removeProperty?.('--caption-plate-margin');
+                    }
                     const groupTransform = caption?.groupTransform;
                     if (captionPlate.style) {
                         captionPlate.style.transform = groupTransform
@@ -18426,9 +18815,74 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             };
+            const previewSelectionLeavesRangeFn = (previousTime, time, start, end, hidden = false) =>
+                Number.isFinite(start) && Number.isFinite(end)
+                && previousTime >= start && previousTime < end
+                && (time < start || time >= end || hidden);
+            let previousPreviewSelectionTime = typeof outputTime !== 'undefined' ? outputTime : 0;
+            const overlaySelectionInRange = (id, time) => {
+                const item = typeof summary !== 'undefined'
+                    ? summary.overlays?.find(candidate => candidate.id === id) : undefined;
+                return !!item && time >= item.start && time < item.start + item.duration;
+            };
+            window.akari.expirePreviewSelections = time => {
+                const previousTime = previousPreviewSelectionTime;
+                previousPreviewSelectionTime = time;
+                const currentCaptionId = typeof selectedCaptionId !== 'undefined' ? selectedCaptionId : null;
+                const currentLayerId = typeof selectedLayerId !== 'undefined' ? selectedLayerId : null;
+                const currentCutId = typeof requestedCutId !== 'undefined' ? requestedCutId : undefined;
+                const selectedLayerEntry = currentLayerId && findLayerEntry(currentLayerId);
+                const selectedLayer = selectedLayerEntry?.spec
+                    || (typeof summary !== 'undefined'
+                        ? summary.layers?.find(item => String(item.id) === String(currentLayerId)) : undefined);
+                const selectedOverlayId = (typeof requestedOverlayId !== 'undefined' && requestedOverlayId)
+                    || window.akari.interaction?.selectedId;
+                const selectedOverlay = selectedOverlayId && typeof summary !== 'undefined'
+                    ? summary.overlays?.find(item => item.id === selectedOverlayId) : undefined;
+                const interactionCut = currentCutId !== undefined ? cutInteractionSegment() : undefined;
+                const selectedCut = currentCutId !== undefined
+                    ? (typeof summary !== 'undefined'
+                        ? summary.cuts?.find(item => String(item.id) === String(currentCutId)) : undefined)
+                        || (interactionCut?.id === currentCutId ? interactionCut : undefined)
+                    : undefined;
+                const leaves = (start, end, hidden) => previewSelectionLeavesRangeFn(
+                    previousTime, time, start, end, hidden);
+                const selectedCaptionCues = currentCaptionId
+                    ? captions.filter(item => (item.sourceCueId || item.id) === currentCaptionId) : [];
+                const releaseCaption = selectedCaptionCues.some(item => previousTime >= item.start && previousTime < item.end)
+                    && (captionLayer?.style?.visibility === 'hidden'
+                        || !selectedCaptionCues.some(item => time >= item.start && time < item.end));
+                const releaseLayer = selectedLayer && leaves(selectedLayer.t, selectedLayer.t + selectedLayer.duration,
+                    (typeof allTracksHiddenByScope !== 'undefined' && allTracksHiddenByScope.layers)
+                    || (typeof hiddenTracksByScope !== 'undefined' && hiddenTracksByScope.layers.has(selectedLayer.track))
+                    || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(selectedLayer.track)));
+                const releaseCut = selectedCut && leaves(selectedCut.outStart, selectedCut.outEnd,
+                    (typeof allTracksHiddenByScope !== 'undefined' && allTracksHiddenByScope.cuts)
+                    || (typeof hiddenTracksByScope !== 'undefined' && hiddenTracksByScope.cuts.has(selectedCut.track))
+                    || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(selectedCut.track)));
+                const releaseOverlay = selectedOverlay && leaves(selectedOverlay.start,
+                    selectedOverlay.start + selectedOverlay.duration,
+                    typeof hiddenTracks !== 'undefined' && hiddenTracks.has(selectedOverlay.track));
+                if (releaseCaption || releaseLayer || releaseCut || releaseOverlay) {
+                    window.akari.reportContextBox?.({ user: 'seek' });
+                }
+                if (releaseCaption) deselectCaption();
+                if (releaseLayer) selectLayer(null);
+                if (releaseCut) {
+                    requestedCutId = undefined;
+                    deselectCut({ report: false });
+                    window.akari.reportCutSelection(null);
+                }
+                if (releaseOverlay) {
+                    requestedOverlayId = undefined;
+                    window.akari.interaction?.clearSelection?.();
+                    window.akari.reportOverlaySelection(null);
+                }
+            };
             const renderCaption = () => {
                 // All preview cues are normalized to output time by the host.
                 const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime);
+                window.akari.expirePreviewSelections?.(outputTime);
                 const activeTrackId = active.find(caption => caption.groupTrackId)?.groupTrackId;
                 const itemStack = typeof summary !== 'undefined' && summary.itemStackZ ? summary : null;
                 if (itemStack && captionLayer?.style) {
@@ -18731,7 +19185,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         video.style.opacity = restoredOpacity;
                     }
                     if (segment && segment.kind === 'src') {
-                        const restoredZ = String(zForTrack(segment.trackId));
+                        const restoredZ = String(typeof zForItem === 'function'
+                            ? zForItem(segment.id, zForTrack(segment.trackId)) : zForTrack(segment.trackId));
                         video.style.zIndex = restoredZ;
                         stillImage.style.zIndex = restoredZ;
                     }
@@ -18813,8 +19268,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     removeTransitionEngineElements();
                     activeTransitionEngine = visual.engine;
                 }
-                const outgoingZ = zForTrack(window.outgoing.trackId);
-                const incomingZ = zForTrack(window.incoming.trackId);
+                const outgoingZ = zForItem(window.outgoing.id, zForTrack(window.outgoing.trackId));
+                const incomingZ = zForItem(window.incoming.id, zForTrack(window.incoming.trackId));
                 const engineZ = Math.max(outgoingZ, incomingZ) + 1;
                 const engineFilters = visual.engine === 'directional-blur'
                     || visual.engine === 'noise-dissolve'
@@ -19236,8 +19691,15 @@ body { display: grid; place-items: center; padding: 32px; }
             const clearLiveOverride = () => liveDom.clear();
             const paintLiveOverride = () => liveDom.paint();
             const tick = (immediatePlaybackTick = false) => {
+                if (typeof applyInitialPosition === 'function' && !initialPositionApplied) applyInitialPosition();
                 const frameEngineClock = window.akari && window.akari.frameEngineClock;
                 if (frameEngineClock) {
+                    if (window.akari.previewPositionReady === true
+                        && window.akari.previewSyncedFrameEngineClock !== frameEngineClock
+                        && frameEngineClock.totalDuration > 0) {
+                        outputTime = frameEngineClock.seek(outputTime, isPlaying);
+                        window.akari.previewSyncedFrameEngineClock = frameEngineClock;
+                    }
                     outputTime = frameEngineClock.tick(outputTime, isPlaying);
                     if (isPlaying && loopRange && outputTime >= loopRange.end) {
                         seekTimelineTime(loopRange.start);
@@ -19661,6 +20123,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (pendingScrubTime === null) return;
                 const target = pendingScrubTime;
                 pendingScrubTime = null;
+                if (!initialPositionApplied) {
+                    initialSeekTarget = target;
+                    return;
+                }
                 seekTimelineTime(target);
                 notifyScrubSeek();
                 // 一時停止中の手動シークも host の位置正本へ必ず到達させる。通常 tick の 50 ms
@@ -19789,9 +20255,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 indicatorToggle.setAttribute('aria-expanded', 'true');
             });
             zoomSlider.addEventListener('input', () => setZoom(sliderToZoom(Number(zoomSlider.value))));
-            zoomSlider.addEventListener('dblclick', () => setZoom(1));
+            zoomSlider.addEventListener('dblclick', () => { pan = { x: 0, y: 0 }; setZoom(1); });
             for (const preset of document.querySelectorAll('.zoom-preset')) {
-                preset.addEventListener('click', () => setZoom(Number(preset.getAttribute('data-zoom'))));
+                preset.addEventListener('click', () => {
+                    const value = Number(preset.getAttribute('data-zoom'));
+                    if (value === 1) pan = { x: 0, y: 0 };
+                    setZoom(value);
+                });
             }
             // capture 段で登録: パン開始の stopPropagation（ズーム中の previewPane pointerdown）に
             // 外側クリック検知が殺されないようにする
@@ -19810,10 +20280,28 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             }, true);
             previewPane.addEventListener('wheel', event => {
-                if (!event.ctrlKey) return;
+                if (event.ctrlKey) {
+                    event.preventDefault();
+                    const factor = Math.exp(-event.deltaY * 0.01);
+                    const nextZoom = clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX);
+                    const bounds = previewPane.getBoundingClientRect();
+                    pan = computePinchPan(pan, { x: event.clientX - bounds.left - bounds.width / 2,
+                        y: event.clientY - bounds.top - bounds.height / 2 }, zoom, nextZoom);
+                    setZoom(nextZoom);
+                    return;
+                }
+                const target = event.target;
+                if (target instanceof Element && target.closest('.transport-controls, #zoom-popup, #rate-popup, #indicator-popup, input, textarea, select, [role="slider"]')) return;
+                for (let node = target instanceof Element ? target : null; node && node !== previewPane; node = node.parentElement) {
+                    if (node.isContentEditable) continue;
+                    const style = getComputedStyle(node);
+                    if ((/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight)
+                        || (/(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth)) return;
+                }
                 event.preventDefault();
-                const factor = Math.exp(-event.deltaY * 0.01);
-                setZoom(clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX));
+                const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? previewPane.clientHeight : 1;
+                pan = clampPan({ x: pan.x - event.deltaX * unit, y: pan.y - event.deltaY * unit });
+                renderZoom();
             }, { passive: false });
             const isDirectManipulationTarget = (target, pointerEvent) => {
                 if (!(target instanceof Element)) return false;
@@ -20638,7 +21126,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message?.type === 'akari-preview-set-zoom') {
-                    if (message.fit === true) setZoom(1);
+                    if (message.fit === true) { pan = { x: 0, y: 0 }; setZoom(1); }
                     else if (Number.isFinite(message.scale)) setZoom(message.scale);
                     return;
                 }
@@ -20707,6 +21195,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-select-overlay'
                     && (typeof message.overlayId === 'string' || message.overlayId === null)) {
                     requestedOverlayId = message.overlayId;
+                    const visible = overlaySelectionInRange(requestedOverlayId, outputTime);
+                    if (requestedOverlayId && !visible) window.akari.interaction?.clearSelection?.();
                     applyRequestedOverlaySelection();
                 }
                 if (message && message.type === 'akari-preview-select-layer'
@@ -20909,17 +21399,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (selectedOverlayId !== lastReportedOverlayId || force === true
                     || selectedOverlayIds.length !== lastReportedOverlayIds.length
                     || selectedOverlayIds.some((id, index) => id !== lastReportedOverlayIds[index])) {
+                    if (!selectedOverlayId && requestedOverlayId
+                        && !overlaySelectionInRange(requestedOverlayId, outputTime)
+                        && !(force && notify)) return;
                     lastReportedOverlayId = selectedOverlayId;
                     lastReportedOverlayIds = [...selectedOverlayIds];
-                    if (!selectedOverlayId && requestedOverlayId) {
-                        const item = summary.overlays.find(candidate => candidate.id === requestedOverlayId);
-                        if (item && (outputTime < item.start || outputTime >= item.start + item.duration)) return;
-                    }
                     if (selectedOverlayId) {
                         requestedCutId = undefined;
                         selectLayer(null, { report: false });
                         deselectCut({ report: false });
-                        deselectCaption({ report: false });
+                        if (selectedCaptionId) deselectCaption();
                     }
                     requestedOverlayId = selectedOverlayId || undefined;
                     if (notify && selectedOverlayId !== applyingOverlaySelection) {
@@ -21165,6 +21654,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyRequestedOverlaySelection();
                 window.akari.reportPrimarySelectionReady();
                 playbackMountReady = true;
+                if (!initialPositionApplied) {
+                    applyInitialPosition();
+                    if (initialPositionApplied) tick(true);
+                }
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
     }

@@ -31,8 +31,8 @@ export function tabsForKind(
     }
     if (kind === 'audio') {
         return [
+            { id: 'edit', label: 'ホーム', enabled: true },
             { id: 'audio', label: '音声', enabled: true },
-            { id: 'edit', label: '編集', enabled: true },
             { ...INFO_TAB }
         ];
     }
@@ -40,10 +40,10 @@ export function tabsForKind(
     const hasMediaSource = typeof snapshotHints.src === 'string' && snapshotHints.src.length > 0;
     const hasMediaPreview = kind === 'cut' || hasMediaSource;
     return [
+        { id: 'edit', label: 'ホーム', enabled: true },
         { ...VIDEO_TAB },
         { id: 'adjust', label: '色', enabled: hasMediaPreview },
         { id: 'audio', label: '音声', enabled: hasMediaPreview },
-        { id: 'edit', label: '編集', enabled: true },
         { id: 'motion', label: '動き', enabled: true },
         { ...INFO_TAB }
     ];

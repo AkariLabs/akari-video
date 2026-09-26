@@ -76,8 +76,6 @@ export function appendImageAiPanel(parent: HTMLElement, options: {
             if (/キーが無効|キーを確認/.test(state.error ?? '')) panel.append(button('設定を開く', options.openSettings));
             panel.append(button('再試行', open));
         }
-        const background = cloudButton('背景生成（近日）', () => undefined);
-        background.disabled = true; panel.append(background);
     };
     const open = (): void => {
         state.phase = 'loading'; state.error = undefined; render();

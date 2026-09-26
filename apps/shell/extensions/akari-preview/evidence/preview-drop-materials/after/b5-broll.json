@@ -1,0 +1,612 @@
+{
+ "cardSpec": "asset:broll/talkinghead-desk-ja-01",
+ "dropSpec": "stage:0.6,0.7",
+ "mode": "mouse",
+ "at": "2026-09-26T13:08:01.810Z",
+ "card": {
+  "x": 161,
+  "y": 197,
+  "w": 63,
+  "h": 63,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 511.70703125,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 873,
+  "y": 292,
+  "outputPx": {
+   "x": 767.3512140107077,
+   "y": 503.3661358346201
+  },
+  "clampedOutputPx": {
+   "x": 767.3512140107077,
+   "y": 503.3661358346201
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 797.7,
+     "y": 249.6,
+     "w": 150.7,
+     "h": 84.8
+    },
+    "text": "自宅デスクのトーキングヘッド（日本語・37.6 秒）0:04.0 → 実尺",
+    "border": "dashed"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "自宅デスクのトーキングヘッド（日本語・37.6 秒）",
+    "img": "https://akari.video/assets/broll/talkinghead-desk-ja-01/v1/preview.png"
+   }
+  ]
+ },
+ "waitMs": 5171,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 161,
+   "y": 197,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 167,
+   "y": 203,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 167,
+   "y": 203,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 173,
+   "y": 209,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 173,
+   "y": 209,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 179,
+   "y": 215,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 185,
+   "y": 221,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 185,
+   "y": 221,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 191,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 191,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 197,
+   "y": 233,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 203,
+   "y": 239,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 203,
+   "y": 239,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 209,
+   "y": 245,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 259,
+   "y": 252,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 259,
+   "y": 252,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 309,
+   "y": 259,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 309,
+   "y": 259,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 16,
+   "x": 360,
+   "y": 266,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 873,
+   "y": 292,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 873,
+   "y": 292,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.catalog.resolveMaterial",
+   "args": [
+    "broll/talkinghead-desk-ja-01"
+   ],
+   "result": {
+    "relativePath": "assets/broll/talkinghead-desk-ja-01/clip.mp4",
+    "kind": "video"
+   }
+  },
+  {
+   "id": "akari.library.isMoving",
+   "args": [],
+   "result": false
+  },
+  {
+   "id": "akari.timeline.addMaterialAtOutputPoint",
+   "args": [
+    {
+     "relativePath": "assets/broll/talkinghead-desk-ja-01/clip.mp4",
+     "kind": "video",
+     "t": 4,
+     "transform": {
+      "x": 127.40662712427059,
+      "y": 142.92510849062143
+     },
+     "editUri": "file://<work>/ws-a/edit.json",
+     "outsideCanvas": false,
+     "canvasAware": true
+    }
+   ],
+   "result": "undefined"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-a/edit.json",
+     "time": 4,
+     "waitForReady": true
+    }
+   ]
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v5",
+   "trackIndex": 6,
+   "lane": "visual",
+   "id": "clip-2",
+   "at": 120,
+   "duration": 1128,
+   "source": {
+    "kind": "media",
+    "src": "src-4",
+    "in": 0,
+    "out": 37.6
+   },
+   "transform": {
+    "x": 127.40662712427059,
+    "y": 142.92510849062143,
+    "scale": 0.25
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   }
+  ]
+ },
+ "audioAfter": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   }
+  ]
+ },
+ "newSources": [
+  {
+   "id": "src-4",
+   "path": "assets/broll/talkinghead-desk-ja-01/clip.mp4"
+  }
+ ],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "asset:broll/talkinghead-desk-ja-01",
+  "drop": "stage:0.6,0.7",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 797.7,
+     "y": 249.6,
+     "w": 150.7,
+     "h": 84.8
+    },
+    "text": "自宅デスクのトーキングヘッド（日本語・37.6 秒）0:04.0 → 実尺",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.catalog.resolveMaterial",
+    "result": "{\"relativePath\":\"assets/broll/talkinghead-desk-ja-01/clip.mp4\",\"kind\":\"video\"}"
+   },
+   {
+    "id": "akari.library.isMoving",
+    "result": "false"
+   },
+   {
+    "id": "akari.timeline.addMaterialAtOutputPoint",
+    "result": "\"undefined\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "null"
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "clip-2",
+    "track": "v5",
+    "at": 120,
+    "duration": 1128,
+    "transform": {
+     "x": 127.40662712427059,
+     "y": 142.92510849062143,
+     "scale": 0.25
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}

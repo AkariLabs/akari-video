@@ -80,9 +80,19 @@ export function captionEditorFitWidth(
     return Math.floor(fitted * 10) / 10;
 }
 
-export function captionEditorValue(innerText: string): string {
-    const normalized = innerText.replace(/\r\n?/g, '\n').normalize('NFC');
+export function captionEditorValue(innerText: string, endsWithBreak = false): string {
+    const text = endsWithBreak && innerText.endsWith('\n\n') ? innerText.slice(0, -1) : innerText;
+    const normalized = text.replace(/\r\n?/g, '\n').normalize('NFC');
     return normalized.trim().length === 0 ? '' : normalized.replace(/^[ \t]+|[ \t]+$/g, '');
+}
+
+export function captionEditKeyAction(event: {
+    key: string; metaKey: boolean; ctrlKey: boolean; isComposing?: boolean; keyCode?: number
+}, isMac: boolean): 'line-break' | 'commit' | 'cancel' | 'none' {
+    if (event.isComposing || event.keyCode === 229) return 'none';
+    if (event.key === 'Escape') return 'cancel';
+    if (event.key !== 'Enter') return 'none';
+    return (isMac ? event.metaKey : event.ctrlKey) ? 'commit' : 'line-break';
 }
 
 export function captionEditingNavigationKey(editing: boolean, key: string): boolean {

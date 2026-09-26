@@ -3,6 +3,7 @@ import type { TranscriptSummary } from '../../common/akari-annotations-protocol'
 import type { AkariMaterialSelection } from '../../common/material-selected-event';
 import { aiActionCatalog, describeAiTiles } from '../../common/ai-action-catalog';
 import { appendAiBack, appendAiTiles, type AiTabView } from './ai-tiles';
+import { viewAfterHomeTabClick } from './home-tab';
 import { appendAiTranscribePanel } from './ai-transcribe-panel';
 
 const kindLabels = { audio: '音声の素材', video: '動画の素材', image: '画像の素材', other: '素材' };
@@ -21,6 +22,11 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     onDialogResult: (result: 'opened' | 'running' | 'cancelled') => void;
 }): void {
     const { selection } = options;
+    const targetKind = `material-${selection.mediaKind}`;
+    const groups = selection.mediaKind === 'other' ? [] : describeAiTiles(
+        aiActionCatalog(selection.mediaKind === 'image' ? [{ id: 'video', kind: 'video' }] : []), targetKind as 'material-audio' | 'material-video' | 'material-image'
+    );
+    const enabledViews = groups.flatMap(group => group.tiles).filter(tile => tile.enabled).map(tile => tile.id as AiTabView);
     const header = document.createElement('header');
     header.className = 'akari-inspector-ai-material-header';
     const name = document.createElement('strong');
@@ -35,8 +41,8 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
     const strip = document.createElement('div');
     strip.className = 'akari-inspector-tab-strip';
     strip.setAttribute('role', 'tablist');
-    strip.setAttribute('aria-label', '素材のインスペクター');
-    for (const tab of [{ id: 'generation', label: '編集' }, { id: 'info', label: '情報' }] as const) {
+    strip.setAttribute('aria-label', '素材の編集パネル');
+    for (const tab of [{ id: 'generation', label: 'ホーム' }, { id: 'info', label: '情報' }] as const) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'akari-inspector-tab';
@@ -45,7 +51,12 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
         button.setAttribute('aria-selected', String(options.tab === tab.id));
         if (options.tab === tab.id) button.className += ' is-active';
         button.setAttribute('data-akari-inspector-ai-tab', tab.id);
-        button.addEventListener('click', () => options.onTab(tab.id));
+        button.addEventListener('click', () => {
+            options.onTab(tab.id);
+            if (tab.id === 'generation') options.onView(viewAfterHomeTabClick({
+                currentView: options.view, enabledTileCount: enabledViews.length, soleTileView: enabledViews[0]
+            }));
+        });
         strip.appendChild(button);
     }
     parent.appendChild(strip);
@@ -83,10 +94,6 @@ export function appendAiMaterialView(parent: HTMLElement, options: {
         }
         return;
     }
-    const targetKind = `material-${selection.mediaKind}`;
-    const groups = selection.mediaKind === 'other' ? [] : describeAiTiles(
-        aiActionCatalog(selection.mediaKind === 'image' ? [{ id: 'video', kind: 'video' }] : []), targetKind as 'material-audio' | 'material-video' | 'material-image'
-    );
     if (!groups.length) {
         const empty = document.createElement('p');
         empty.className = 'akari-inspector-ai-material-empty';

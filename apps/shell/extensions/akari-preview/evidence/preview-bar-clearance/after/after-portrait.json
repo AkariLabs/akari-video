@@ -1,0 +1,2203 @@
+{
+  "label": "after",
+  "port": 9628,
+  "project": "portrait",
+  "aspect": "portrait",
+  "theme": "dark",
+  "pid": 99241,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 1,
+  "results": {
+    "none": {
+      "m": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": "16px",
+            "className": ""
+          },
+          "playing": "再生"
+        }
+      },
+      "shot": "after-portrait-none-fit.png"
+    },
+    "select-caption": {
+      "picked": {
+        "cx": 195.94705963134766,
+        "cy": 244.02936553955078
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "after-portrait-caption-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "after-portrait-caption-100.png",
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 313.1,
+          "y": 64.5,
+          "width": 221.63,
+          "height": 394
+        },
+        "stageTop": 64.5,
+        "gapBarToStage": -54.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 91.19,
+            "y": 25.5,
+            "width": 221.63,
+            "height": 394
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "after-portrait-caption-200.png",
+      "afterReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "select-photo": {
+      "picked": {
+        "cx": 166.97396087646484,
+        "cy": 66.43749618530273,
+        "width": 34.32551574707031,
+        "height": 22.55677032470703
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 324.4,
+            "top": 249,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 285
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 377.5,
+          "y": 159,
+          "width": 92.81,
+          "height": 165
+        },
+        "stageTop": 159,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 155.59,
+            "y": 120,
+            "width": 92.81,
+            "height": 165
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "202.5px",
+            "transform": "matrix(1, 0, 0, 1, -46.4062, -82.5)",
+            "transition": "all",
+            "gutterTop": "120px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "after-portrait-photo-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 324.4,
+            "top": 249,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 285
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 377.5,
+          "y": 159,
+          "width": 92.81,
+          "height": 165
+        },
+        "stageTop": 159,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 155.59,
+            "y": 120,
+            "width": 92.81,
+            "height": 165
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "202.5px",
+            "transform": "matrix(1, 0, 0, 1, -46.4062, -82.5)",
+            "transition": "all",
+            "gutterTop": "120px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "after-portrait-photo-100.png",
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 302.9,
+            "top": 256,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 292
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 331.1,
+          "y": 128.5,
+          "width": 185.63,
+          "height": 330
+        },
+        "stageTop": 128.5,
+        "gapBarToStage": -22.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 109.19,
+            "y": 89.5,
+            "width": 185.63,
+            "height": 330
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "202.5px",
+            "transform": "matrix(1, 0, 0, 1, -46.4062, -82.5)",
+            "transition": "all",
+            "gutterTop": "120px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "after-portrait-photo-200.png",
+      "afterReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "bottom": 151,
+          "items": 13
+        },
+        "menu": {
+          "rect": {
+            "left": 324.4,
+            "top": 249,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 285
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 377.5,
+          "y": 159,
+          "width": 92.81,
+          "height": 165
+        },
+        "stageTop": 159,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 155.59,
+            "y": 120,
+            "width": 92.81,
+            "height": 165
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "202.5px",
+            "transform": "matrix(1, 0, 0, 1, -46.4062, -82.5)",
+            "transition": "all",
+            "gutterTop": "120px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "select-shape": {
+      "picked": {
+        "left": 217.4114532470703,
+        "top": 191.1302032470703,
+        "width": 42.03123474121094,
+        "height": 28.020828247070312,
+        "cx": 238.42707061767578,
+        "cy": 205.14061737060547
+      },
+      "fit": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 376.9,
+            "top": 198,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 234
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 359.5,
+          "y": 95,
+          "width": 128.81,
+          "height": 229
+        },
+        "stageTop": 95,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 137.59,
+            "y": 56,
+            "width": 128.81,
+            "height": 229
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "170.5px",
+            "transform": "matrix(1, 0, 0, 1, -64.4062, -114.5)",
+            "transition": "all",
+            "gutterTop": "56px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "fitShot": "after-portrait-shape-fit.png",
+      "zoom100": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 376.9,
+            "top": 198,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 234
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 359.5,
+          "y": 95,
+          "width": 128.81,
+          "height": 229
+        },
+        "stageTop": 95,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 137.59,
+            "y": 56,
+            "width": 128.81,
+            "height": 229
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "170.5px",
+            "transform": "matrix(1, 0, 0, 1, -64.4062, -114.5)",
+            "transition": "all",
+            "gutterTop": "56px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom100Shot": "after-portrait-shape-100.png",
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 407.7,
+            "top": 252.5,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 288.5
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 295.1,
+          "y": 0.5,
+          "width": 257.63,
+          "height": 458
+        },
+        "stageTop": 0.5,
+        "gapBarToStage": -86.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 73.19,
+            "y": -38.5,
+            "width": 257.63,
+            "height": 458
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "170.5px",
+            "transform": "matrix(1, 0, 0, 1, -64.4062, -114.5)",
+            "transition": "all",
+            "gutterTop": "56px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Shot": "after-portrait-shape-200.png",
+      "afterReset": {
+        "bar": {
+          "rect": {
+            "left": 255.4,
+            "top": 47,
+            "width": 337,
+            "height": 40
+          },
+          "bottom": 87,
+          "items": 7
+        },
+        "menu": {
+          "rect": {
+            "left": 376.9,
+            "top": 198,
+            "width": 156,
+            "height": 36
+          },
+          "bottom": 234
+        },
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 359.5,
+          "y": 95,
+          "width": 128.81,
+          "height": 229
+        },
+        "stageTop": 95,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 137.59,
+            "y": 56,
+            "width": 128.81,
+            "height": 229
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "170.5px",
+            "transform": "matrix(1, 0, 0, 1, -64.4062, -114.5)",
+            "transition": "all",
+            "gutterTop": "56px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "wheel": {
+      "at": {
+        "x": 260.1140625,
+        "y": 204.55
+      },
+      "base": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollDown60": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 67,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 67,
+        "gapBarToStage": -52,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 28,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, -60px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollDownShot": "after-portrait-wheel-scroll-down.png",
+      "scrollUp120": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 187,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 187,
+        "gapBarToStage": 68,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 148,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 60px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "scrollUpShot": "after-portrait-wheel-scroll-up.png",
+      "scrollRight50": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 318.5,
+          "y": 187,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 187,
+        "gapBarToStage": 68,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 96.59,
+            "y": 148,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(-50px, 60px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "afterFitReset": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 313.1,
+          "y": 64.5,
+          "width": 221.63,
+          "height": 394
+        },
+        "stageTop": 64.5,
+        "gapBarToStage": -54.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 91.19,
+            "y": 25.5,
+            "width": 221.63,
+            "height": 394
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200Scrolled": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 273.1,
+          "y": -15.5,
+          "width": 221.63,
+          "height": 394
+        },
+        "stageTop": -15.5,
+        "gapBarToStage": -134.5,
+        "overlapsBar": true,
+        "view": {
+          "stage": {
+            "x": 51.19,
+            "y": -54.5,
+            "width": 221.63,
+            "height": 394
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(-40px, -80px) scale(2)",
+          "zoomValue": "200%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "zoom200ScrolledShot": "after-portrait-wheel-zoom200-scrolled.png",
+      "afterFitReset2": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "afterFitReset2Shot": "after-portrait-wheel-after-fit-reset.png"
+    },
+    "pinch": {
+      "at": {
+        "x": 386.0775,
+        "y": 135.7
+      },
+      "base": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": "16px",
+            "className": ""
+          },
+          "playing": "再生"
+        }
+      },
+      "outputUnderCursorBefore": {
+        "x": 270,
+        "y": 576
+      },
+      "beforeShot": "after-portrait-pinch-before.png",
+      "after": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 302.1,
+          "y": -43.04,
+          "width": 336.75,
+          "height": 598.67
+        },
+        "stageTop": -43.04,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 80.19,
+            "y": -82.04,
+            "width": 336.75,
+            "height": 598.67
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(46.571px, 66.792px) scale(2.22554)",
+          "zoomValue": "223%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": "16px",
+            "className": ""
+          },
+          "playing": "再生"
+        }
+      },
+      "outputUnderCursorAfter": {
+        "x": 269.33,
+        "y": 573.24
+      },
+      "afterShot": "after-portrait-pinch-after.png",
+      "afterFitReset": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": "16px",
+            "className": ""
+          },
+          "playing": "再生"
+        }
+      }
+    },
+    "reselect-timeline": {
+      "idleTop": 55,
+      "mCaption": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "mShape": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "bottom": 119,
+          "items": 10
+        },
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": 8,
+        "overlapsBar": false,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "再生"
+        }
+      },
+      "mDeselected": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": "16px",
+            "className": ""
+          },
+          "playing": "再生"
+        }
+      },
+      "escToFirstSampleMs": 20,
+      "afterCaption": {
+        "first": 127,
+        "last": 127,
+        "distinct": 1,
+        "changes": []
+      },
+      "afterShape": {
+        "first": 127,
+        "last": 127,
+        "distinct": 1,
+        "changes": []
+      },
+      "afterCaption2": {
+        "first": 127,
+        "last": 127,
+        "distinct": 1,
+        "changes": []
+      },
+      "afterDeselect": {
+        "first": 127,
+        "last": 55,
+        "distinct": 6,
+        "changes": [
+          {
+            "t": 369,
+            "top": 118.6
+          },
+          {
+            "t": 401,
+            "top": 85.9
+          },
+          {
+            "t": 433,
+            "top": 65.9
+          },
+          {
+            "t": 467,
+            "top": 57.2
+          },
+          {
+            "t": 499,
+            "top": 55
+          }
+        ]
+      },
+      "rawDeselect": [
+        {
+          "t": 2,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 43,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 75,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 106,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 139,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 172,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 207,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 239,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 272,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 303,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 337,
+          "top": 127,
+          "h": 197
+        },
+        {
+          "t": 369,
+          "top": 118.6,
+          "h": 205.38
+        },
+        {
+          "t": 401,
+          "top": 85.9,
+          "h": 238.11
+        },
+        {
+          "t": 433,
+          "top": 65.9,
+          "h": 258.11
+        },
+        {
+          "t": 467,
+          "top": 57.2,
+          "h": 266.83
+        },
+        {
+          "t": 499,
+          "top": 55,
+          "h": 268.98
+        },
+        {
+          "t": 531,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 564,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 596,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 628,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 660,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 692,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 724,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 757,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 789,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 826,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 858,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 890,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 923,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 955,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 986,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1022,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1054,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1087,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1119,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1152,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1184,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1216,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1248,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1279,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1311,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1348,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1379,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1411,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1445,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1477,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1509,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1540,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1571,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1602,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1634,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1666,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1699,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1730,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1762,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1794,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1825,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1858,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1890,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1922,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1954,
+          "top": 55,
+          "h": 269
+        },
+        {
+          "t": 1986,
+          "top": 55,
+          "h": 269
+        }
+      ]
+    },
+    "playing": {
+      "idleTop": 55,
+      "selectedTop": 127,
+      "selectedGap": 8,
+      "playingLabel": "一時停止",
+      "mPlaying": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 368.5,
+          "y": 127,
+          "width": 110.81,
+          "height": 197
+        },
+        "stageTop": 127,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 146.59,
+            "y": 88,
+            "width": 110.81,
+            "height": 197
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "186.5px",
+            "transform": "matrix(1, 0, 0, 1, -55.4062, -98.5)",
+            "transition": "all",
+            "gutterTop": "88px",
+            "className": "akari-clearance-active"
+          },
+          "playing": "一時停止"
+        }
+      },
+      "mPaused": {
+        "bar": null,
+        "menu": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "stageHost": {
+          "x": 348.25,
+          "y": 55,
+          "width": 151.31,
+          "height": 269
+        },
+        "stageTop": 55,
+        "gapBarToStage": null,
+        "overlapsBar": null,
+        "view": {
+          "stage": {
+            "x": 126.34,
+            "y": 16,
+            "width": 151.31,
+            "height": 269
+          },
+          "pane": {
+            "x": 20,
+            "y": 0,
+            "width": 364,
+            "height": 301
+          },
+          "zoomTransform": "translate(0px, 0px) scale(1)",
+          "zoomValue": "100%",
+          "stageStyle": {
+            "top": "150.5px",
+            "transform": "matrix(1, 0, 0, 1, -75.6562, -134.5)",
+            "transition": "all",
+            "gutterTop": "16px",
+            "className": ""
+          },
+          "playing": "再生"
+        }
+      },
+      "whilePlaying": {
+        "first": 127,
+        "last": 127,
+        "distinct": 1,
+        "changes": []
+      },
+      "afterPause": {
+        "first": 127,
+        "last": 55,
+        "distinct": 3,
+        "changes": [
+          {
+            "t": 104,
+            "top": 102.8
+          },
+          {
+            "t": 332,
+            "top": 55
+          }
+        ]
+      },
+      "shotPaused": "after-portrait-playing-then-paused.png"
+    },
+    "drop": {
+      "card": {
+        "key": "still/bg-asteroid-belt",
+        "x": 77,
+        "y": 213
+      },
+      "clearanceTop": 127,
+      "clearanceGap": 8,
+      "drop": {
+        "x": 452,
+        "y": 176
+      },
+      "stageAtDrop": {
+        "x": 368.5,
+        "y": 127,
+        "width": 110.81,
+        "height": 197
+      },
+      "duringDragStage": {
+        "x": 368.5,
+        "y": 127,
+        "width": 110.81,
+        "height": 197
+      },
+      "dragIntercepted": true,
+      "expectedTransformXY": {
+        "x": 273.83,
+        "y": -482.44
+      },
+      "placed": {
+        "id": "image-1",
+        "transform": {
+          "x": 273.73096446700504,
+          "y": -482.43654822335026,
+          "scale": 0.16148325358851676
+        }
+      },
+      "errorXY": {
+        "x": -0.09,
+        "y": 0
+      },
+      "afterDropStage": {
+        "x": 368.5,
+        "y": 127,
+        "width": 110.81,
+        "height": 197
+      },
+      "settledStage": {
+        "x": 377.5,
+        "y": 159,
+        "width": 92.81,
+        "height": 165
+      },
+      "renderedCenterOutput": null,
+      "renderedErrorXY": null,
+      "layerIds": [
+        "photo-1"
+      ],
+      "settledShot": "after-portrait-drop-after-settled.png"
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "after-portrait-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      },
+      {
+        "id": "src-1",
+        "path": "assets/still/bg-asteroid-belt/bg.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -250,
+              "y": -600,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 650,
+              "y": 1250
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "items": [
+          {
+            "id": "image-1",
+            "at": 119,
+            "duration": 150,
+            "transform": {
+              "x": 273.73096446700504,
+              "y": -482.43654822335026,
+              "scale": 0.16148325358851676
+            },
+            "source": {
+              "kind": "media",
+              "src": "src-1",
+              "in": 0,
+              "out": 5
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Fkc (<file>)\n    at async l3n.reloadResolvedCaptionDisplay (<file>)\n    at async Okc (<file>)",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

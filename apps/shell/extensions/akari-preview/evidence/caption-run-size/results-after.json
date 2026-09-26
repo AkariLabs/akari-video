@@ -1,0 +1,3131 @@
+{
+  "phase": "after",
+  "status": "done",
+  "scenarios": [
+    {
+      "key": "a",
+      "id": "c-0001",
+      "label": "(a) 話した言葉「今日はいい天気」の「いい」",
+      "t": 1.8,
+      "steps": [
+        {
+          "presses": 0,
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 408.24,
+                  "r": 435.31,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 435.31,
+                  "r": 462.39,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 462.39,
+                  "r": 489.46,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 489.46,
+                  "r": 516.54,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 543.61,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 543.61,
+                  "r": 570.69,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 570.69,
+                  "r": 597.76,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 396.87,
+                "r": 609.13,
+                "t": 450.32,
+                "b": 493.09,
+                "w": 212.26,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 47,
+              "r": 959,
+              "t": 450.32,
+              "b": 493.09,
+              "w": 912,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "1280px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "297.906px",
+              "maxWidth": "92%"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 396.87,
+              "r": 609.13,
+              "t": 450.31,
+              "b": 493.08,
+              "w": 212.26,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 1,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.1
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 405.53,
+                  "r": 432.6,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 432.6,
+                  "r": 459.68,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 459.68,
+                  "r": 486.75,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 486.75,
+                  "r": 516.54,
+                  "t": 455.33,
+                  "b": 485.11,
+                  "w": 29.79,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 42,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 546.32,
+                  "t": 455.33,
+                  "b": 485.11,
+                  "w": 29.79,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 42,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 546.32,
+                  "r": 573.4,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 573.4,
+                  "r": 600.47,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 394.16,
+                "r": 611.84,
+                "t": 450.32,
+                "b": 493.09,
+                "w": 217.68,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 394.16,
+              "r": 611.84,
+              "t": 450.32,
+              "b": 493.09,
+              "w": 217.68,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "305.516px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "305.516px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 394.16,
+              "r": 611.84,
+              "t": 450.31,
+              "b": 493.08,
+              "w": 217.68,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 3,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.3
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 400.11,
+                  "r": 427.19,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 427.19,
+                  "r": 454.26,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 454.26,
+                  "r": 481.34,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 481.34,
+                  "r": 516.54,
+                  "t": 450.35,
+                  "b": 485.54,
+                  "w": 35.2,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 49,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 551.74,
+                  "t": 450.35,
+                  "b": 485.54,
+                  "w": 35.2,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 49,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 551.74,
+                  "r": 578.81,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 578.81,
+                  "r": 605.89,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 388.74,
+                "r": 617.26,
+                "t": 448.18,
+                "b": 493.09,
+                "w": 228.51,
+                "h": 44.91
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 388.74,
+              "r": 617.26,
+              "t": 448.18,
+              "b": 493.09,
+              "w": 228.51,
+              "h": 44.91
+            },
+            "plateCss": {
+              "width": "320.719px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "320.719px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 388.74,
+              "r": 617.25,
+              "t": 448.18,
+              "b": 493.09,
+              "w": 228.51,
+              "h": 44.91
+            }
+          }
+        },
+        {
+          "presses": 5,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.5
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 394.7,
+                  "r": 421.77,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 421.77,
+                  "r": 448.85,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 448.85,
+                  "r": 475.92,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 475.92,
+                  "r": 516.54,
+                  "t": 445.36,
+                  "b": 485.97,
+                  "w": 40.61,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 57,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 557.15,
+                  "t": 445.36,
+                  "b": 485.97,
+                  "w": 40.61,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 57,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 557.15,
+                  "r": 584.22,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 584.22,
+                  "r": 611.3,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 383.33,
+                "r": 622.67,
+                "t": 443.19,
+                "b": 493.09,
+                "w": 239.33,
+                "h": 49.9
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 383.33,
+              "r": 622.67,
+              "t": 443.19,
+              "b": 493.09,
+              "w": 239.33,
+              "h": 49.9
+            },
+            "plateCss": {
+              "width": "335.906px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "335.906px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 383.33,
+              "r": 622.66,
+              "t": 443.19,
+              "b": 493.08,
+              "w": 239.33,
+              "h": 49.89
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "c",
+      "id": "c-0002",
+      "label": "(c) 英数字 \"Hello World\" の \"llo\"",
+      "t": 5.8,
+      "steps": [
+        {
+          "presses": 0,
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}Hello World",
+            "selected": true,
+            "chars": [
+              {
+                "text": "H",
+                "line": 0,
+                "box": {
+                  "l": 425.07,
+                  "r": 445.58,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 20.51,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "e",
+                "line": 0,
+                "box": {
+                  "l": 445.57,
+                  "r": 461.3,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 15.73,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 461.3,
+                  "r": 469.82,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 8.53,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 469.82,
+                  "r": 478.35,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 8.53,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 478.35,
+                  "r": 495.3,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 16.95,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": " ",
+                "line": 0,
+                "box": {
+                  "l": 495.29,
+                  "r": 501.44,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 6.15,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "W",
+                "line": 0,
+                "box": {
+                  "l": 501.44,
+                  "r": 526.2,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 24.76,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 526.2,
+                  "r": 543.14,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 16.95,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "r",
+                "line": 0,
+                "box": {
+                  "l": 543.14,
+                  "r": 554.96,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 11.82,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 554.96,
+                  "r": 563.49,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 8.53,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "d",
+                "line": 0,
+                "box": {
+                  "l": 563.48,
+                  "r": 580.93,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 17.45,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              }
+            ],
+            "lines": [
+              {
+                "l": 413.7,
+                "r": 592.3,
+                "t": 450.32,
+                "b": 493.09,
+                "w": 178.59,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 47,
+              "r": 959,
+              "t": 450.32,
+              "b": 493.09,
+              "w": 912,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "1280px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "250.656px",
+              "maxWidth": "92%"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 413.7,
+              "r": 592.29,
+              "t": 450.31,
+              "b": 493.08,
+              "w": 178.59,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 1,
+          "runs": [
+            {
+              "from": 2,
+              "to": 5,
+              "style": {
+                "scale": 1.1
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}Hello World",
+            "selected": true,
+            "chars": [
+              {
+                "text": "H",
+                "line": 0,
+                "box": {
+                  "l": 423.36,
+                  "r": 443.87,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 20.51,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "e",
+                "line": 0,
+                "box": {
+                  "l": 443.86,
+                  "r": 459.59,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 15.73,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 459.59,
+                  "r": 468.97,
+                  "t": 455.33,
+                  "b": 485.11,
+                  "w": 9.38,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 13,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 468.97,
+                  "r": 478.35,
+                  "t": 455.33,
+                  "b": 485.11,
+                  "w": 9.38,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 13,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 478.35,
+                  "r": 496.99,
+                  "t": 455.33,
+                  "b": 485.11,
+                  "w": 18.64,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 26,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": " ",
+                "line": 0,
+                "box": {
+                  "l": 496.99,
+                  "r": 503.14,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 6.15,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "W",
+                "line": 0,
+                "box": {
+                  "l": 503.14,
+                  "r": 527.9,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 24.76,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 527.9,
+                  "r": 544.85,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 16.95,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "r",
+                "line": 0,
+                "box": {
+                  "l": 544.84,
+                  "r": 556.67,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 11.82,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 556.66,
+                  "r": 565.19,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 8.53,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "d",
+                "line": 0,
+                "box": {
+                  "l": 565.18,
+                  "r": 582.63,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 17.45,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              }
+            ],
+            "lines": [
+              {
+                "l": 411.99,
+                "r": 594,
+                "t": 450.32,
+                "b": 493.09,
+                "w": 182,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 411.99,
+              "r": 594,
+              "t": 450.32,
+              "b": 493.09,
+              "w": 182,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "255.445px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "255.445px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 411.99,
+              "r": 593.99,
+              "t": 450.31,
+              "b": 493.08,
+              "w": 182,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 3,
+          "runs": [
+            {
+              "from": 2,
+              "to": 5,
+              "style": {
+                "scale": 1.3
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}Hello World",
+            "selected": true,
+            "chars": [
+              {
+                "text": "H",
+                "line": 0,
+                "box": {
+                  "l": 419.97,
+                  "r": 440.47,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 20.51,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "e",
+                "line": 0,
+                "box": {
+                  "l": 440.47,
+                  "r": 456.2,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 15.73,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 456.2,
+                  "r": 467.28,
+                  "t": 450.35,
+                  "b": 485.54,
+                  "w": 11.08,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 16,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 467.28,
+                  "r": 478.36,
+                  "t": 450.35,
+                  "b": 485.54,
+                  "w": 11.08,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 16,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 478.36,
+                  "r": 500.39,
+                  "t": 450.35,
+                  "b": 485.54,
+                  "w": 22.03,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 31,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": " ",
+                "line": 0,
+                "box": {
+                  "l": 500.39,
+                  "r": 506.54,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 6.15,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "W",
+                "line": 0,
+                "box": {
+                  "l": 506.53,
+                  "r": 531.3,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 24.76,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 531.29,
+                  "r": 548.24,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 16.95,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "r",
+                "line": 0,
+                "box": {
+                  "l": 548.24,
+                  "r": 560.06,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 11.82,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 560.06,
+                  "r": 568.58,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 8.53,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "d",
+                "line": 0,
+                "box": {
+                  "l": 568.58,
+                  "r": 586.03,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 17.45,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 408.6,
+                "r": 597.4,
+                "t": 448.18,
+                "b": 493.09,
+                "w": 188.8,
+                "h": 44.91
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 408.6,
+              "r": 597.4,
+              "t": 448.18,
+              "b": 493.09,
+              "w": 188.8,
+              "h": 44.91
+            },
+            "plateCss": {
+              "width": "264.977px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "264.977px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 408.59,
+              "r": 597.38,
+              "t": 448.18,
+              "b": 493.09,
+              "w": 188.79,
+              "h": 44.91
+            }
+          }
+        },
+        {
+          "presses": 5,
+          "runs": [
+            {
+              "from": 2,
+              "to": 5,
+              "style": {
+                "scale": 1.5
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}Hello World",
+            "selected": true,
+            "chars": [
+              {
+                "text": "H",
+                "line": 0,
+                "box": {
+                  "l": 416.56,
+                  "r": 437.07,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 20.51,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "e",
+                "line": 0,
+                "box": {
+                  "l": 437.07,
+                  "r": 452.8,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 15.73,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 452.8,
+                  "r": 465.59,
+                  "t": 445.36,
+                  "b": 485.97,
+                  "w": 12.79,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 18,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 465.59,
+                  "r": 478.38,
+                  "t": 445.36,
+                  "b": 485.97,
+                  "w": 12.79,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 18,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 478.38,
+                  "r": 503.8,
+                  "t": 445.36,
+                  "b": 485.97,
+                  "w": 25.42,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 36,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": " ",
+                "line": 0,
+                "box": {
+                  "l": 503.8,
+                  "r": 509.95,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 6.15,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "W",
+                "line": 0,
+                "box": {
+                  "l": 509.94,
+                  "r": 534.71,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 24.76,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "o",
+                "line": 0,
+                "box": {
+                  "l": 534.7,
+                  "r": 551.65,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 16.95,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "r",
+                "line": 0,
+                "box": {
+                  "l": 551.64,
+                  "r": 563.47,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 11.82,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "l",
+                "line": 0,
+                "box": {
+                  "l": 563.46,
+                  "r": 571.99,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 8.53,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              },
+              {
+                "text": "d",
+                "line": 0,
+                "box": {
+                  "l": 571.98,
+                  "r": 589.44,
+                  "t": 451.77,
+                  "b": 490.96,
+                  "w": 17.45,
+                  "h": 39.19
+                },
+                "gapFromPrev": -0.01
+              }
+            ],
+            "lines": [
+              {
+                "l": 405.2,
+                "r": 600.8,
+                "t": 443.19,
+                "b": 493.09,
+                "w": 195.6,
+                "h": 49.9
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 405.2,
+              "r": 600.8,
+              "t": 443.19,
+              "b": 493.09,
+              "w": 195.6,
+              "h": 49.9
+            },
+            "plateCss": {
+              "width": "274.531px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "274.531px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 405.2,
+              "r": 600.8,
+              "t": 443.19,
+              "b": 493.08,
+              "w": 195.6,
+              "h": 49.89
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "b1",
+      "id": "c-0101",
+      "label": "(b) 置いた文字・折り返し幅なし の「いい」",
+      "t": 9.8,
+      "steps": [
+        {
+          "presses": 0,
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 408.23,
+                  "r": 435.31,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 435.31,
+                  "r": 462.38,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 462.38,
+                  "r": 489.46,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 489.46,
+                  "r": 516.53,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.53,
+                  "r": 543.61,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 543.61,
+                  "r": 570.68,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 570.68,
+                  "r": 597.76,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 396.87,
+                "r": 609.12,
+                "t": 253.26,
+                "b": 296.03,
+                "w": 212.26,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 83.48,
+              "r": 922.51,
+              "t": 253.26,
+              "b": 296.03,
+              "w": 839.04,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "1177.59px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "297.906px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 396.86,
+              "r": 609.12,
+              "t": 253.26,
+              "b": 296.02,
+              "w": 212.26,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 1,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.1
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 405.53,
+                  "r": 432.6,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 432.6,
+                  "r": 459.68,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 459.68,
+                  "r": 486.75,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 486.75,
+                  "r": 516.54,
+                  "t": 258.28,
+                  "b": 288.06,
+                  "w": 29.79,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 42,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 546.32,
+                  "t": 258.28,
+                  "b": 288.06,
+                  "w": 29.79,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 42,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 546.32,
+                  "r": 573.4,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 573.4,
+                  "r": 600.47,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 394.16,
+                "r": 611.84,
+                "t": 253.26,
+                "b": 296.03,
+                "w": 217.68,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 394.16,
+              "r": 611.84,
+              "t": 253.26,
+              "b": 296.03,
+              "w": 217.68,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "305.516px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "305.516px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 394.16,
+              "r": 611.84,
+              "t": 253.26,
+              "b": 296.02,
+              "w": 217.68,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 3,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.3
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 400.11,
+                  "r": 427.19,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 427.19,
+                  "r": 454.26,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 454.26,
+                  "r": 481.34,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 481.34,
+                  "r": 516.54,
+                  "t": 255.43,
+                  "b": 290.62,
+                  "w": 35.2,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 49,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 551.74,
+                  "t": 255.43,
+                  "b": 290.62,
+                  "w": 35.2,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 49,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 551.74,
+                  "r": 578.81,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 578.81,
+                  "r": 605.89,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 388.74,
+                "r": 617.26,
+                "t": 253.26,
+                "b": 298.17,
+                "w": 228.51,
+                "h": 44.91
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 388.74,
+              "r": 617.26,
+              "t": 253.26,
+              "b": 298.17,
+              "w": 228.51,
+              "h": 44.91
+            },
+            "plateCss": {
+              "width": "320.719px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "320.719px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 388.74,
+              "r": 617.25,
+              "t": 253.26,
+              "b": 298.16,
+              "w": 228.51,
+              "h": 44.91
+            }
+          }
+        },
+        {
+          "presses": 5,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.5
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 394.7,
+                  "r": 421.77,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 421.77,
+                  "r": 448.85,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 448.85,
+                  "r": 475.92,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 475.92,
+                  "r": 516.54,
+                  "t": 255.43,
+                  "b": 296.04,
+                  "w": 40.61,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 57,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 557.15,
+                  "t": 255.43,
+                  "b": 296.04,
+                  "w": 40.61,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 57,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 557.15,
+                  "r": 584.22,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 584.22,
+                  "r": 611.3,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 383.33,
+                "r": 622.67,
+                "t": 253.26,
+                "b": 303.16,
+                "w": 239.33,
+                "h": 49.9
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 383.33,
+              "r": 622.67,
+              "t": 253.26,
+              "b": 303.16,
+              "w": 239.33,
+              "h": 49.9
+            },
+            "plateCss": {
+              "width": "335.906px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "335.906px",
+              "maxWidth": "none"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 383.33,
+              "r": 622.66,
+              "t": 253.26,
+              "b": 303.15,
+              "w": 239.33,
+              "h": 49.89
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "b2",
+      "id": "c-0102",
+      "label": "(b) 置いた文字・折り返し幅 30% の「いい」",
+      "t": 13.8,
+      "steps": [
+        {
+          "presses": 0,
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 125.51,
+                  "r": 152.59,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 152.59,
+                  "r": 179.66,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 179.66,
+                  "r": 206.74,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 206.74,
+                  "r": 233.81,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 233.81,
+                  "r": 260.89,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 260.89,
+                  "r": 287.96,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 287.96,
+                  "r": 315.04,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 83.48,
+                "r": 357.08,
+                "t": 253.26,
+                "b": 296.03,
+                "w": 273.6,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 83.48,
+              "r": 357.08,
+              "t": 253.26,
+              "b": 296.03,
+              "w": 273.6,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "384px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre-wrap",
+              "width": "384px",
+              "maxWidth": "100%"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "30%",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 83.48,
+              "r": 357.07,
+              "t": 253.26,
+              "b": 296.02,
+              "w": 273.59,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 1,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.1
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 405.53,
+                  "r": 432.6,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 432.6,
+                  "r": 459.68,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 459.68,
+                  "r": 486.75,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 486.75,
+                  "r": 516.54,
+                  "t": 258.28,
+                  "b": 288.06,
+                  "w": 29.79,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 42,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 546.32,
+                  "t": 258.28,
+                  "b": 288.06,
+                  "w": 29.79,
+                  "h": 29.78
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "41.8px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 42,
+                  "layoutHeight": 42,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.1em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 546.32,
+                  "r": 573.4,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 573.4,
+                  "r": 600.47,
+                  "t": 254.72,
+                  "b": 293.9,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 366.2,
+                "r": 639.8,
+                "t": 253.26,
+                "b": 296.03,
+                "w": 273.6,
+                "h": 42.77
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 366.2,
+              "r": 639.8,
+              "t": 253.26,
+              "b": 296.03,
+              "w": 273.6,
+              "h": 42.77
+            },
+            "plateCss": {
+              "width": "384px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre-wrap",
+              "width": "384px",
+              "maxWidth": "100%"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "30%",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 366.2,
+              "r": 639.79,
+              "t": 253.26,
+              "b": 296.02,
+              "w": 273.59,
+              "h": 42.77
+            }
+          }
+        },
+        {
+          "presses": 3,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.3
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 400.11,
+                  "r": 427.19,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 427.19,
+                  "r": 454.26,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 454.26,
+                  "r": 481.34,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 481.34,
+                  "r": 516.54,
+                  "t": 255.43,
+                  "b": 290.62,
+                  "w": 35.2,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 49,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 551.74,
+                  "t": 255.43,
+                  "b": 290.62,
+                  "w": 35.2,
+                  "h": 35.2
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "49.4px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 49,
+                  "layoutHeight": 49,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.3em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 551.74,
+                  "r": 578.81,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 578.81,
+                  "r": 605.89,
+                  "t": 256.85,
+                  "b": 296.04,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 366.2,
+                "r": 639.8,
+                "t": 253.26,
+                "b": 298.17,
+                "w": 273.6,
+                "h": 44.91
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 366.2,
+              "r": 639.8,
+              "t": 253.26,
+              "b": 298.17,
+              "w": 273.6,
+              "h": 44.91
+            },
+            "plateCss": {
+              "width": "384px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre-wrap",
+              "width": "384px",
+              "maxWidth": "100%"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "30%",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 366.2,
+              "r": 639.79,
+              "t": 253.26,
+              "b": 298.16,
+              "w": 273.59,
+              "h": 44.91
+            }
+          }
+        },
+        {
+          "presses": 5,
+          "runs": [
+            {
+              "from": 3,
+              "to": 5,
+              "style": {
+                "scale": 1.5
+              }
+            }
+          ],
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}.akari-caption__line,.akari-caption__block{max-width:none;}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 394.7,
+                  "r": 421.77,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.08,
+                  "h": 39.19
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 421.77,
+                  "r": 448.85,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 448.85,
+                  "r": 475.92,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 475.92,
+                  "r": 516.54,
+                  "t": 255.43,
+                  "b": 296.04,
+                  "w": 40.61,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 57,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 516.54,
+                  "r": 557.15,
+                  "t": 255.43,
+                  "b": 296.04,
+                  "w": 40.61,
+                  "h": 40.61
+                },
+                "run": {
+                  "transform": "none",
+                  "fontSize": "57px",
+                  "letterSpacing": "normal",
+                  "layoutWidth": 57,
+                  "layoutHeight": 57,
+                  "style": "display:inline-block;vertical-align:baseline;line-height:1;font-size:1.5em;letter-spacing:var(--caption-letter-spacing,normal);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)))"
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 557.15,
+                  "r": 584.22,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.07,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 584.22,
+                  "r": 611.3,
+                  "t": 261.84,
+                  "b": 301.03,
+                  "w": 27.08,
+                  "h": 39.19
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 366.2,
+                "r": 639.8,
+                "t": 253.26,
+                "b": 303.16,
+                "w": 273.6,
+                "h": 49.9
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": 366.2,
+              "r": 639.8,
+              "t": 253.26,
+              "b": 303.16,
+              "w": 273.6,
+              "h": 49.9
+            },
+            "plateCss": {
+              "width": "384px",
+              "scale": "1",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre-wrap",
+              "width": "384px",
+              "maxWidth": "100%"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "30%",
+              "scale": ""
+            },
+            "selectBox": {
+              "l": 366.2,
+              "r": 639.79,
+              "t": 253.26,
+              "b": 303.15,
+              "w": 273.59,
+              "h": 49.89
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "d",
+      "id": "c-0005",
+      "label": "(d) 字幕全体を 1.5 倍（text_style.scale）",
+      "t": 17.8,
+      "steps": [
+        {
+          "presses": 0,
+          "measure": {
+            "text": ".akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,\"AKARI Noto Sans JP\",\"Noto Sans JP\",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}.akari-caption__line::before{content:\"\";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}今日はいい天気",
+            "selected": true,
+            "chars": [
+              {
+                "text": "今",
+                "line": 0,
+                "box": {
+                  "l": 360.86,
+                  "r": 401.47,
+                  "t": 441.81,
+                  "b": 500.59,
+                  "w": 40.61,
+                  "h": 58.78
+                }
+              },
+              {
+                "text": "日",
+                "line": 0,
+                "box": {
+                  "l": 401.47,
+                  "r": 442.08,
+                  "t": 441.81,
+                  "b": 500.59,
+                  "w": 40.61,
+                  "h": 58.78
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "は",
+                "line": 0,
+                "box": {
+                  "l": 442.08,
+                  "r": 482.69,
+                  "t": 441.81,
+                  "b": 500.59,
+                  "w": 40.61,
+                  "h": 58.78
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 482.69,
+                  "r": 523.31,
+                  "t": 441.81,
+                  "b": 500.59,
+                  "w": 40.61,
+                  "h": 58.78
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "い",
+                "line": 0,
+                "box": {
+                  "l": 523.31,
+                  "r": 563.92,
+                  "t": 441.81,
+                  "b": 500.59,
+                  "w": 40.61,
+                  "h": 58.78
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "天",
+                "line": 0,
+                "box": {
+                  "l": 563.92,
+                  "r": 604.53,
+                  "t": 441.81,
+                  "b": 500.59,
+                  "w": 40.61,
+                  "h": 58.78
+                },
+                "gapFromPrev": 0
+              },
+              {
+                "text": "気",
+                "line": 0,
+                "box": {
+                  "l": 604.53,
+                  "r": 645.14,
+                  "t": 441.81,
+                  "b": 500.59,
+                  "w": 40.61,
+                  "h": 58.78
+                },
+                "gapFromPrev": 0
+              }
+            ],
+            "lines": [
+              {
+                "l": 343.81,
+                "r": 662.19,
+                "t": 439.63,
+                "b": 503.78,
+                "w": 318.39,
+                "h": 64.16
+              }
+            ],
+            "block": null,
+            "plate": {
+              "l": -181,
+              "r": 1187,
+              "t": 439.63,
+              "b": 503.78,
+              "w": 1368,
+              "h": 64.16
+            },
+            "plateCss": {
+              "width": "1280px",
+              "scale": "1.5",
+              "transform": "none",
+              "fontSize": "38px"
+            },
+            "lineCss": {
+              "fontSize": "38px",
+              "letterSpacing": "normal",
+              "lineHeight": "53.96px",
+              "whiteSpace": "pre",
+              "width": "297.906px",
+              "maxWidth": "92%"
+            },
+            "captionVars": {
+              "width": "",
+              "wrap": "",
+              "scale": "1.5"
+            },
+            "selectBox": {
+              "l": 343.8,
+              "r": 662.19,
+              "t": 439.63,
+              "b": 503.78,
+              "w": 318.38,
+              "h": 64.16
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "after-a-x0.png",
+    "after-a-x1.png",
+    "after-a-x3.png",
+    "after-a-x5.png",
+    "after-c-x0.png",
+    "after-c-x1.png",
+    "after-c-x3.png",
+    "after-c-x5.png",
+    "after-b1-x0.png",
+    "after-b1-x1.png",
+    "after-b1-x3.png",
+    "after-b1-x5.png",
+    "after-b2-x0.png",
+    "after-b2-x1.png",
+    "after-b2-x3.png",
+    "after-b2-x5.png",
+    "after-d-x0.png"
+  ],
+  "errors": [],
+  "frame": {
+    "x": 47,
+    "y": 16,
+    "w": 912,
+    "h": 513
+  },
+  "previewFrames": [
+    {
+      "key": "a",
+      "t": 1.8,
+      "selected": false,
+      "pageRect": {
+        "x": 102.08270676691725,
+        "y": 52.21910112359551,
+        "width": 918.8571428571429,
+        "height": 521.6460674157303
+      },
+      "dpr": 2
+    },
+    {
+      "key": "c",
+      "t": 5.8,
+      "selected": false,
+      "pageRect": {
+        "x": 102.08270676691725,
+        "y": 52.21910112359551,
+        "width": 918.8571428571429,
+        "height": 521.6460674157303
+      },
+      "dpr": 2
+    },
+    {
+      "key": "b1",
+      "t": 9.8,
+      "selected": false,
+      "pageRect": {
+        "x": 102.08270676691725,
+        "y": 52.21910112359551,
+        "width": 918.8571428571429,
+        "height": 521.6460674157303
+      },
+      "dpr": 2
+    },
+    {
+      "key": "b2",
+      "t": 13.8,
+      "selected": false,
+      "pageRect": {
+        "x": 102.08270676691725,
+        "y": 52.21910112359551,
+        "width": 918.8571428571429,
+        "height": 521.6460674157303
+      },
+      "dpr": 2
+    },
+    {
+      "key": "d",
+      "t": 17.8,
+      "selected": false,
+      "pageRect": {
+        "x": 102.08270676691725,
+        "y": 52.21910112359551,
+        "width": 918.8571428571429,
+        "height": 521.6460674157303
+      },
+      "dpr": 2
+    }
+  ]
+}

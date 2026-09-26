@@ -90,6 +90,7 @@ export interface MaterialDropTargetLike {
     readonly rejected: boolean;
     readonly insertTrack?: number;
     readonly overlapInsert?: boolean;
+    readonly createAudioTrack?: boolean;
 }
 
 export interface MaterialGhostVisibility {
@@ -117,7 +118,8 @@ export function materialGhostVisibility(
         return { showGhost: true, showInsertIndicator: false, rejected: true };
     }
     return { showGhost: true, rejected: false,
-        showInsertIndicator: target.insertTrack !== undefined && (kind !== 'audio' || target.overlapInsert === true) };
+        showInsertIndicator: target.createAudioTrack === true
+            || (target.insertTrack !== undefined && (kind !== 'audio' || target.overlapInsert === true)) };
 }
 
 /** cuts[] の out - in が 0 になると validate-edit の `out > in` に落ちるため、最小尺を敷く。 */

@@ -369,7 +369,53 @@
   class GpuFrameEngineRuntime {
     constructor(config) {
       this.canvas = document.getElementById("akari-engine");
-      this.compositor = new FE.WebGL2Compositor(this.canvas, { synchronization: "flush", uploadPath: "direct" });
+      const baseCompositor = new FE.WebGL2Compositor(this.canvas, { synchronization: "flush", uploadPath: "direct" });
+      this.mediaPlanes = new Map();
+      this.activeMediaBands = new Set();
+      if (config.mediaPlanes && config.mediaPlanes.bands.length > 1) {
+        this.mediaPlanes = new Map([...document.querySelectorAll(".akari-media-plane")].map(canvas => [Number(canvas.dataset.akariMediaPlane), {
+          canvas,
+          compositor: new FE.WebGL2Compositor(canvas, { synchronization: "flush", uploadPath: "direct", transparent: true }),
+        }]));
+        const planes = this.mediaPlanes;
+        const runtime = this;
+        this.compositor = {
+          kind: "webgl2",
+          get uploadPath() {
+            return [...planes.values()].some(plane => plane.compositor.uploadPath === "copyTo")
+              ? "copyTo" : baseCompositor.uploadPath;
+          },
+          async compose(baseFrames, layerFrames, output, metrics, plan) {
+            const bands = window.__akariPartitionMediaPlanes(plan, config.mediaPlanes.summary);
+            runtime.activeMediaBands = new Set(bands.map(band => band.key));
+            let surface;
+            for (const band of bands) {
+              const bandPlan = { ...plan,
+                base: band.baseIndices.map(index => plan.base[index]),
+                layers: band.entries.map(entry => entry.spec),
+              };
+              const bandBase = band.baseIndices.map(index => baseFrames[index]);
+              const bandLayers = band.entries.map(entry => entry.baseIndex !== undefined
+                ? { color: baseFrames[entry.baseIndex] } : layerFrames[entry.layerIndex]);
+              if (band.key === 0) {
+                surface = await baseCompositor.compose(bandBase, bandLayers, output, metrics, bandPlan);
+              } else {
+                const plane = planes.get(band.key);
+                if (!plane) throw new Error(`media plane ${band.key} is missing`);
+                const upper = await plane.compositor.compose(bandBase, bandLayers, output, metrics, bandPlan);
+                upper.close();
+              }
+            }
+            return surface;
+          },
+          dispose() {
+            baseCompositor.dispose();
+            for (const plane of planes.values()) plane.compositor.dispose();
+          },
+        };
+      } else {
+        this.compositor = baseCompositor;
+      }
       this.metrics = new FE.FrameMetrics();
       const urls = new Map();
       if (Array.isArray(config.edit.sources)) {
@@ -2375,6 +2421,143 @@
     detectPreserve3dOrderConflicts, vgpuDrawState,
   };
 
+  // ブレンドがあるフレームだけ使う WebGL パス。SpriteCompositor の通常描画を区切り、
+  // その時点の背景と当該 overlay を GPU 上で合成してから後続の sprite を描く。
+  class GpuSpriteBlender {
+    constructor(width, height, blendGlsl, blendModes) {
+      this.canvas = document.createElement("canvas");
+      this.canvas.width = width;
+      this.canvas.height = height;
+      const gl = this.canvas.getContext("webgl2", { alpha: false, antialias: false, preserveDrawingBuffer: true });
+      if (!gl) throw new Error("WebGL2 overlay blend composition is unavailable");
+      this.gl = gl;
+      this.modeByName = new Map(blendModes.map((name, index) => [name, index]));
+      const compile = (type, source) => {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+        return shader;
+      };
+      const vertex = compile(gl.VERTEX_SHADER, `#version 300 es
+        const vec2 corners[4] = vec2[4](vec2(-1.,-1.),vec2(1.,-1.),vec2(-1.,1.),vec2(1.,1.));
+        out vec2 uv;
+        void main() { vec2 p = corners[gl_VertexID]; uv = vec2(p.x*.5+.5,.5-p.y*.5); gl_Position = vec4(p,0.,1.); }`);
+      const fragment = compile(gl.FRAGMENT_SHADER, `#version 300 es
+        precision highp float;
+        in vec2 uv;
+        out vec4 color;
+        uniform sampler2D background;
+        uniform sampler2D foreground;
+        uniform mat3 transform;
+        uniform float opacity;
+        uniform int blendMode;
+        ${blendGlsl}
+        void main() {
+          vec3 point = inverse(transform) * vec3(uv.x*2.-1., 1.-uv.y*2., 1.);
+          vec2 sourceUv = vec2(point.x*.5+.5, .5-point.y*.5);
+          vec4 bg = texture(background, uv);
+          vec4 fg = sourceUv.x < 0. || sourceUv.x > 1. || sourceUv.y < 0. || sourceUv.y > 1.
+            ? vec4(0.) : texture(foreground, sourceUv);
+          float alpha = fg.a * opacity;
+          color = vec4(
+            blendChannel(bg.r, fg.r, alpha, blendMode),
+            blendChannel(bg.g, fg.g, alpha, blendMode),
+            blendChannel(bg.b, fg.b, alpha, blendMode), 1.);
+        }`);
+      this.program = gl.createProgram();
+      gl.attachShader(this.program, vertex);
+      gl.attachShader(this.program, fragment);
+      gl.linkProgram(this.program);
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+      if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(this.program));
+      this.background = gl.createTexture();
+      this.foreground = gl.createTexture();
+      for (const texture of [this.background, this.foreground]) {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      }
+      gl.useProgram(this.program);
+      gl.uniform1i(gl.getUniformLocation(this.program, "background"), 0);
+      gl.uniform1i(gl.getUniformLocation(this.program, "foreground"), 1);
+      gl.viewport(0, 0, width, height);
+    }
+
+    blend(background, foreground, draw, mode) {
+      const gl = this.gl;
+      const modeIndex = this.modeByName.get(mode);
+      if (modeIndex === undefined) throw new Error(`unsupported GPU overlay blend: ${mode}`);
+      gl.useProgram(this.program);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+      for (const [index, texture, source] of [[0, this.background, background], [1, this.foreground, foreground]]) {
+        gl.activeTexture(gl.TEXTURE0 + index);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      }
+      gl.uniformMatrix3fv(gl.getUniformLocation(this.program, "transform"), false,
+        FE.spriteTransformMatrix(draw, this.canvas.width, this.canvas.height));
+      gl.uniform1f(gl.getUniformLocation(this.program, "opacity"), FE.normalizeSpriteDraw(draw).opacity);
+      gl.uniform1i(gl.getUniformLocation(this.program, "blendMode"), modeIndex);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.disable(gl.BLEND);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.flush();
+    }
+
+    dispose() {
+      this.gl.deleteTexture(this.background);
+      this.gl.deleteTexture(this.foreground);
+      this.gl.deleteProgram(this.program);
+    }
+  }
+
+  function composeMediaPlanes(spriteCompositor, engine, base, draws, config, spriteSources, blender) {
+    const { bands, spriteZ, spriteBlend } = config.mediaPlanes;
+    const ownerId = id => {
+      if (Object.hasOwn(spriteZ, id) || Object.hasOwn(spriteBlend, id)) return id;
+      return id.endsWith("::b") ? id.slice(0, -3) : id;
+    };
+    const ordered = draws.map(draw => {
+      const owner = ownerId(draw.id);
+      return { ...draw, ownerId: owner,
+        stackZ: Object.hasOwn(spriteZ, owner) ? spriteZ[owner] : draw.z, media: false };
+    });
+    for (const band of bands) {
+      if (band.key === 0 || !engine.activeMediaBands.has(band.key)) continue;
+      const id = `__akari_media_plane_${band.key}`;
+      const canvas = engine.mediaPlanes.get(band.key)?.canvas;
+      if (!canvas) throw new Error(`media plane ${band.key} is missing`);
+      spriteCompositor.updateSprite(id, canvas);
+      ordered.push({ id, z: band.zIndex, stackZ: band.zIndex, index: -1, opacity: 1, media: true });
+    }
+    ordered.sort((a, b) => a.stackZ - b.stackZ || Number(b.media) - Number(a.media) || a.index - b.index);
+    const clean = ({ ownerId, stackZ, media, z, index, ...draw }) => draw;
+    if (!ordered.some(draw => Object.hasOwn(spriteBlend, draw.ownerId ?? draw.id))) {
+      spriteCompositor.compose(base, ordered.map(clean));
+      return;
+    }
+    let currentBase = base;
+    let pending = [];
+    for (const draw of ordered) {
+      const blend = Object.hasOwn(spriteBlend, draw.ownerId ?? draw.id) ? spriteBlend[draw.ownerId ?? draw.id] : null;
+      if (!blend) { pending.push(clean(draw)); continue; }
+      const source = spriteSources.get(draw.id);
+      if (!source) throw new Error(`blend overlay sprite is missing: ${draw.id}`);
+      spriteCompositor.compose(currentBase, pending);
+      blender.blend(spriteCompositor.canvas, source, draw, blend);
+      currentBase = blender.canvas;
+      pending = [];
+    }
+    spriteCompositor.compose(currentBase, pending);
+  }
+
+  window.__akariGpuMediaPlaneInternals = { composeMediaPlanes };
+
   window.__akariGpuRun = async function () {
     if (!FE || !bridge) throw new Error("GPU page dependencies are unavailable");
     const runtimeConfig = await bridge.config();
@@ -2411,6 +2594,23 @@
     if (previewActive && !previewContext) { previewActive = false; previewDisabledReason = "preview-2d-context-unavailable"; }
     if (previewContext) { previewContext.imageSmoothingEnabled = true; previewContext.imageSmoothingQuality = "high"; }
     const spriteCompositor = new FE.SpriteCompositor(finalCanvas, { width: config.width, height: config.height });
+    const spriteSources = new Map();
+    const hasOverlayBlend = Boolean(config.mediaPlanes && Object.keys(config.mediaPlanes.spriteBlend).length);
+    const blender = hasOverlayBlend ? new GpuSpriteBlender(
+      config.width, config.height, config.mediaPlanes.blendGlsl, config.mediaPlanes.blendModes) : null;
+    if (hasOverlayBlend) {
+      for (const method of ["registerSprite", "updateSprite", "releaseSprite"]) {
+        const original = spriteCompositor[method].bind(spriteCompositor);
+        spriteCompositor[method] = (id, source) => {
+          if (method === "releaseSprite") spriteSources.delete(id);
+          else spriteSources.set(id, source);
+          return original(id, source);
+        };
+      }
+    }
+    for (const [key, plane] of engine.mediaPlanes) {
+      spriteCompositor.registerSprite(`__akari_media_plane_${key}`, plane.canvas);
+    }
     const stages = { evaluate: [], three: [], dom: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], preview: [], luma: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
@@ -2822,7 +3022,11 @@
           const orderedDraws = draws
             .sort((left, right) => (left.z - right.z) || (left.index - right.index))
             .map(({ z, index, ...draw }) => draw);
-          spriteCompositor.compose(frame.surface.canvas, orderedDraws);
+          if (config.mediaPlanes) {
+            composeMediaPlanes(spriteCompositor, engine, frame.surface.canvas, draws, config, spriteSources, blender);
+          } else {
+            spriteCompositor.compose(frame.surface.canvas, orderedDraws);
+          }
           stages.composite.push(performance.now() - compositeStarted);
           if (captionUnits.length > 0) stages.captions.push(compositeStarted - captionStarted);
           if (hashFrame) frameHashes.push(await hashFrame(finalCanvas));
@@ -3021,6 +3225,7 @@
       try { lumaReducer?.dispose(); } catch {}
       for (const record of vgpuRecords.values()) vgpuRuntime?.dispose(record.container);
       spriteCompositor.dispose();
+      blender?.dispose();
       engine.dispose();
     }
   };

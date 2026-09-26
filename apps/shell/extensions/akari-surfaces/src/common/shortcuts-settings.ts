@@ -272,7 +272,7 @@ export function shortcutWhen(when?: string): string {
     if (/akari[A-Za-z0-9_]+/.test(when) && parsed && !hasPositiveWhenIdentifier(parsed)) { return ''; }
     if (positive.has('akariKeyframeSelected')) { return 'キーフレームを選んでいるとき'; }
     if (positive.has('akariNumberFieldFocus')) { return '数値の欄'; }
-    if (positive.has('akariInspectorFocus')) { return 'インスペクター'; }
+    if (positive.has('akariInspectorFocus')) { return '編集パネル'; }
     if (positive.has('akariDaihonRowsFocus')) { return '台本の一覧'; }
     if (positive.has('akariTimelineVisible')) { return 'タイムライン'; }
     return when.length > 72 ? `${when.slice(0, 69)}…` : when;

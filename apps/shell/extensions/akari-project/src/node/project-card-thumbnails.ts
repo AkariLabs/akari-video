@@ -181,9 +181,10 @@ export function deriveEditTimelineSamples(edit: unknown, count: number): EditTim
     if (!document) {
         return [];
     }
-    const cuts = Array.isArray(document.cuts) ? document.cuts.filter(isRecord) : [];
     const pathBySourceId = buildSourcePathIndex(document);
-    const segments = resolveEditSegments(cuts);
+    const segments = Array.isArray(document.tracks) && !Array.isArray(document.cuts)
+        ? resolveEditV2Segments(document, pathBySourceId)
+        : resolveEditSegments(Array.isArray(document.cuts) ? document.cuts.filter(isRecord) : [], pathBySourceId);
     const duration = segments.reduce((longest, segment) => Math.max(longest, segment.end), 0);
     if (!(duration > 0)) {
         return [];
@@ -192,33 +193,34 @@ export function deriveEditTimelineSamples(edit: unknown, count: number): EditTim
     for (let index = 0; index < count; index += 1) {
         const outSeconds = (duration * (index + 1)) / (count + 1);
         const winner = selectSegmentAt(segments, outSeconds);
-        if (!winner) {
+        if (!winner?.sourcePath) {
             continue;
         }
-        const sourcePath = resolveCutSourcePath(winner.cut, pathBySourceId);
-        if (!sourcePath) {
-            continue;
-        }
-        const cutIn = numberOr(winner.cut.in, 0);
-        const cutOut = numberOr(winner.cut.out, cutIn);
         const sourceSeconds = Math.min(
-            Math.max(cutIn, cutIn + (outSeconds - winner.start) * segmentSpeed(winner.cut)),
-            Math.max(cutIn, cutOut)
+            Math.max(winner.sourceIn, winner.sourceIn + (outSeconds - winner.start) * winner.speed),
+            Math.max(winner.sourceIn, winner.sourceOut)
         );
-        samples.push({ sourcePath, sourceSeconds: round(sourceSeconds) });
+        samples.push({ sourcePath: winner.sourcePath, sourceSeconds: round(sourceSeconds) });
     }
     return samples;
 }
 
 interface EditSegment {
-    cut: Record<string, unknown>;
+    /** 重なったときの勝者選択に使う z（大きいほうが上）。 */
     track: number;
+    /** 出力タイムライン上の開始・終了（秒）。 */
     start: number;
     end: number;
+    /** そのセグメントが映すファイル（解決できないときは undefined — 尺には数えるが絵には使わない）。 */
+    sourcePath?: string;
+    /** 素材内の使用区間（秒）と再生速度。 */
+    sourceIn: number;
+    sourceOut: number;
+    speed: number;
 }
 
-/** `cuts[]` を出力タイムライン上へ並べる（`resolveCutSegments` の縮小版）。 */
-function resolveEditSegments(cuts: Record<string, unknown>[]): EditSegment[] {
+/** `cuts[]` を出力タイムライン上へ並べる（`resolveCutSegments` の縮小版・v0/v1）。 */
+function resolveEditSegments(cuts: Record<string, unknown>[], pathBySourceId: Map<string, string>): EditSegment[] {
     const cursorByTrack = new Map<number, number>();
     const segments: EditSegment[] = [];
     for (const cut of cuts) {
@@ -232,24 +234,94 @@ function resolveEditSegments(cuts: Record<string, unknown>[]): EditSegment[] {
         const start = typeof at === 'number' && Number.isFinite(at) && at >= 0 ? at : cursor;
         const end = start + duration;
         cursorByTrack.set(track, end);
-        segments.push({ cut, track, start, end });
+        const cutIn = numberOr(cut.in, 0);
+        segments.push({
+            track, start, end,
+            sourcePath: resolveCutSourcePath(cut, pathBySourceId),
+            sourceIn: cutIn, sourceOut: numberOr(cut.out, cutIn), speed: segmentSpeed(cut)
+        });
     }
     return segments;
+}
+
+/**
+ * v2（`tracks[].items[]`）を同じセグメント列へ射影する。
+ *
+ * v2 の出力軸は **整数フレーム**（`item.at` / `item.duration`）で、素材軸は秒
+ * （`source.in` / `source.out`）— edit.schema.json の editV2 $comment どおり。
+ * `tracks` の配列順は画面の下から上 = 合成 z 順なので、配列の添字をそのまま
+ * {@link EditSegment.track} に使う（後ろの track ほど上＝勝つ）。
+ *
+ * ここで採るのは `source.kind === 'media'` のアイテムだけ。html / telop / shape は
+ * ヘッドレス Chrome でのラスタライズが要り、カード生成では焼けないため
+ * （`edit` 段で重ね物が乗らないのと同じ割り切り — ファイル冒頭の origin の説明を参照）。
+ * group は子の `at` が親相対なので、親の開始フレームを足しながら再帰で降りる。
+ */
+function resolveEditV2Segments(document: Record<string, unknown>, pathBySourceId: Map<string, string>): EditSegment[] {
+    const output = isRecord(document.output) ? document.output : undefined;
+    const fps = numberOr(output?.fps, 0) > 0 ? numberOr(output?.fps, 30) : 30;
+    const tracks = Array.isArray(document.tracks) ? document.tracks : [];
+    const segments: EditSegment[] = [];
+    tracks.forEach((track, trackIndex) => {
+        if (!isRecord(track) || track.lane !== 'visual' || track.hidden === true) {
+            return;
+        }
+        collectEditV2Items(track.items, trackIndex, 0, fps, pathBySourceId, segments);
+    });
+    return segments;
+}
+
+function collectEditV2Items(
+    items: unknown, track: number, parentAtFrames: number, fps: number,
+    pathBySourceId: Map<string, string>, segments: EditSegment[]
+): void {
+    if (!Array.isArray(items)) {
+        return;
+    }
+    for (const item of items) {
+        if (!isRecord(item) || item.hidden === true) {
+            continue;
+        }
+        const atFrames = parentAtFrames + numberOr(item.at, NaN);
+        const durationFrames = numberOr(item.duration, NaN);
+        if (!Number.isFinite(atFrames) || !(durationFrames > 0)) {
+            continue;
+        }
+        const source = isRecord(item.source) ? item.source : undefined;
+        if (source?.kind === 'group') {
+            collectEditV2Items(item.items, track, atFrames, fps, pathBySourceId, segments);
+            continue;
+        }
+        if (source?.kind !== 'media') {
+            continue;
+        }
+        const sourceIn = numberOr(source.in, 0);
+        segments.push({
+            track,
+            start: atFrames / fps,
+            end: (atFrames + durationFrames) / fps,
+            sourcePath: pathBySourceId.get(typeof source.src === 'string' ? source.src : ''),
+            sourceIn,
+            sourceOut: numberOr(source.out, sourceIn),
+            speed: segmentSpeed(source)
+        });
+    }
 }
 
 /** その時刻を覆うセグメントのうち、いちばん上のトラック（`computeVideoRuns` の勝者選択と同じ）。 */
 function selectSegmentAt(segments: EditSegment[], seconds: number): EditSegment | undefined {
     let winner: EditSegment | undefined;
     for (const segment of segments) {
-        if (segment.start <= seconds && segment.end > seconds && (!winner || segment.track > winner.track)) {
+        // 同じ track 内で重なったときは後から宣言されたほうが上（v2 の items も配列順が下から上）。
+        if (segment.start <= seconds && segment.end > seconds && (!winner || segment.track >= winner.track)) {
             winner = segment;
         }
     }
     return winner;
 }
 
-function segmentSpeed(cut: Record<string, unknown>): number {
-    const value = cut.speed;
+function segmentSpeed(cut: Record<string, unknown> | undefined): number {
+    const value = cut?.speed;
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 1;
 }
 

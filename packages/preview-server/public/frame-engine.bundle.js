@@ -1527,6 +1527,7 @@ var require_caption_runs = __commonJS({
       const Segmenter = Intl.Segmenter;
       const segment = (value) => Array.from(new Segmenter(void 0, { granularity: "grapheme" }).segment(value), (item) => item.segment);
       const chars = segment(displayText);
+      const defaultStroke = html.includes("akari-caption--single-line") ? "0 transparent" : "0.14em rgba(0,0,0,.9)";
       if (!runs.some((run) => Number.isInteger(run?.from) && Number.isInteger(run?.to) && run.from >= 0 && run.to <= chars.length && run.from < run.to))
         return html;
       const resolved = chars.map((value, index) => ({ text: value, index, style: {}, role: "" }));
@@ -1557,12 +1558,20 @@ var require_caption_runs = __commonJS({
           }
           const style = item.style;
           const css = ["display:inline-block", "vertical-align:baseline", "line-height:1"];
+          const scale = typeof style.scale === "number" && Number.isFinite(style.scale) && style.scale > 0 ? style.scale : 1;
+          if (scale !== 1)
+            css.push(`font-size:${scale}em`);
+          if (typeof style.letter_spacing_em === "number" && Number.isFinite(style.letter_spacing_em)) {
+            css.push(`letter-spacing:${style.letter_spacing_em}em`);
+          } else if (scale !== 1) {
+            css.push("letter-spacing:var(--caption-letter-spacing,normal)");
+          }
+          if (scale !== 1)
+            css.push(`-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,${defaultStroke}))`);
           if (typeof style.color === "string" && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(style.color))
             css.push(`color:${style.color}`);
           if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1e3)
             css.push(`font-weight:${style.font_weight}`);
-          if (typeof style.letter_spacing_em === "number" && Number.isFinite(style.letter_spacing_em))
-            css.push(`letter-spacing:${style.letter_spacing_em}em`);
           if (style.italic === true)
             css.push("font-style:italic");
           if (style.underline === true)
@@ -1573,9 +1582,8 @@ var require_caption_runs = __commonJS({
           }
           const shift = typeof style.baseline_shift_em === "number" && Number.isFinite(style.baseline_shift_em) ? style.baseline_shift_em : 0;
           const rotate = typeof style.rotate_deg === "number" && Number.isFinite(style.rotate_deg) ? style.rotate_deg : 0;
-          const scale = typeof style.scale === "number" && Number.isFinite(style.scale) && style.scale > 0 ? style.scale : 1;
-          if (shift || rotate || scale !== 1)
-            css.push(`transform:translateY(${shift}em) rotate(${rotate}deg) scale(${scale})`);
+          if (shift || rotate)
+            css.push(scale === 1 ? `transform:translateY(${shift}em) rotate(${rotate}deg) scale(1)` : `transform:translateY(${shift / scale}em) rotate(${rotate}deg)`);
           return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ""} style="${css.join(";")}">${escape(character)}</span>`;
         }).join("");
       };
@@ -12054,6 +12062,82 @@ var require_track_z = __commonJS({
   }
 });
 
+// ../edit-store/lib/media-planes.js
+var require_media_planes = __commonJS({
+  "../edit-store/lib/media-planes.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.partitionPreviewMediaPlanes = partitionPreviewMediaPlanes;
+    function partitionPreviewMediaPlanes(plan, summary) {
+      const tracks = Array.isArray(summary.timelineTracks) ? summary.timelineTracks : [];
+      const zOfTrack = (id) => tracks.findIndex((track) => track.id === id);
+      const zOfItem = (id, trackId, renderTrack) => Number.isInteger(summary.itemStackZ?.[String(id)]) ? summary.itemStackZ[String(id)] : Number.isInteger(summary.trackStackZ?.[String(trackId)]) ? summary.trackStackZ[String(trackId)] : Number.isInteger(renderTrack) ? renderTrack : zOfTrack(trackId);
+      const barriers = [...new Set([
+        ...(Array.isArray(summary.overlays) ? summary.overlays : []).map((item) => zOfItem(item.id, item.trackId, item.renderTrack)),
+        zOfItem(void 0, summary.captionTrackId),
+        ...Object.values(summary.itemStackZ ?? {}),
+        ...Array.isArray(summary.barrierZ) ? summary.barrierZ : []
+      ].filter((z3) => z3 >= 0))].sort((a, b) => a - b);
+      const bands = /* @__PURE__ */ new Map();
+      const bandAt = (z3) => {
+        const key = barriers.filter((barrier) => barrier < z3).length;
+        let band = bands.get(key);
+        if (!band) {
+          band = { key, zIndex: z3, baseIndices: [], entries: [] };
+          bands.set(key, band);
+        }
+        band.zIndex = Math.max(band.zIndex, z3);
+        return band;
+      };
+      const cutZ = (id) => {
+        const cut = summary.cutsById?.[id] ?? summary.cuts?.[Number(id.slice("cut-".length))];
+        return zOfItem(cut?.id, cut?.trackId, cut?.renderTrack);
+      };
+      if (plan.base.length) {
+        const baseByBand = /* @__PURE__ */ new Map();
+        plan.base.forEach((cut, index) => {
+          const band = bandAt(cutZ(cut.id));
+          const group = baseByBand.get(band.key) ?? { band, indices: [] };
+          group.indices.push(index);
+          baseByBand.set(band.key, group);
+        });
+        for (const { band, indices } of baseByBand.values()) {
+          if (band.key === 0 || indices.length > 1) {
+            band.baseIndices.push(...indices);
+          } else {
+            const index = indices[0];
+            const cut = plan.base[index];
+            const visual = cut.visual;
+            band.entries.push({ baseIndex: index, spec: {
+              ...cut,
+              kind: cut.kind ?? "video",
+              cutVisual: visual,
+              visual: {
+                crop: visual.layerStyle?.crop ?? { x: 0, y: 0, width: 1, height: 1 },
+                perspective: null,
+                transform: visual.transform
+              },
+              mask: null,
+              blend: "normal",
+              opacity: visual.opacity,
+              ...visual.adjustLut ? { adjustLut: visual.adjustLut } : {},
+              ...visual.adjustFx ? { adjustFx: visual.adjustFx } : {}
+            } });
+          }
+        }
+      }
+      plan.layers.forEach((layer, index) => {
+        const declared = summary.layers?.find((item) => String(item.id) === layer.id);
+        const z3 = layer.cutVisual ? cutZ(layer.id) : zOfItem(declared?.id ?? layer.id, declared?.trackId, declared?.renderTrack);
+        bandAt(z3).entries.push({ layerIndex: index, spec: layer });
+      });
+      if (!bands.has(0))
+        bands.set(0, { key: 0, zIndex: -1, baseIndices: [], entries: [] });
+      return [...bands.values()].sort((a, b) => a.key - b.key);
+    }
+  }
+});
+
 // ../edit-store/lib/track-transition-compatibility.js
 var require_track_transition_compatibility = __commonJS({
   "../edit-store/lib/track-transition-compatibility.js"(exports) {
@@ -14832,6 +14916,7 @@ var require_lib = __commonJS({
     __exportStar(require_retime(), exports);
     __exportStar(require_track_order(), exports);
     __exportStar(require_track_z(), exports);
+    __exportStar(require_media_planes(), exports);
     __exportStar(require_track_transition_compatibility(), exports);
     __exportStar(require_cut_adjacency(), exports);
     __exportStar(require_transition_vocabulary(), exports);

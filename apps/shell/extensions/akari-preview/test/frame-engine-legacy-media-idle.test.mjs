@@ -90,7 +90,8 @@ test('engine 面の pointerdown は previewStage へ一度だけ委譲し操作 
     assert.match(pointerWiring, /handledVisualPointerDownEvents\.has\(event\)[\s\S]*?\.add\(event\)/u);
     assert.match(pointerWiring, /if \(penModeActive \|\| rectModeActive\) return;/u);
     assert.match(pointerWiring, /const domItem = target\?\.closest\?\.\('\[data-overlay-id\], #caption-plate'\);/u);
-    assert.match(pointerWiring, /if \(!mediaHit \|\| Number\(mediaHit\.style\.zIndex\) <= Number\(domItem\.style\.zIndex\)\) return;/u);
+    assert.match(pointerWiring, /const captionRow = target\?\.closest\?\.\('\.caption-row-plate'\);/u);
+    assert.match(pointerWiring, /if \(!mediaHit \|\| Number\(mediaHit\.style\.zIndex\) <= domZ\) return;/u);
     assert.match(pointerWiring, /coveredDomHit = mediaHit;\s*event\.stopPropagation\(\);/u);
     for (const selector of [
         '[data-akari-interaction]', '[data-overlay-id]', '#overlay-stage', '#caption-plate',
@@ -109,11 +110,11 @@ test('engine 面の pointerdown は previewStage へ一度だけ委譲し操作 
 test('engine 面の選択枠はボディもハンドルも操作できる', () => {
     assert.match(
         compiledHandler,
-        /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \{ pointer-events: auto; \}/u
+        /#preview-chrome-layer\[data-frame-engine-active="true"\] #layer-select-box\.is-active \{ pointer-events: auto; \}/u
     );
     assert.match(
         compiledHandler,
-        /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-handle,\s*#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-rotate-stem \{ pointer-events: auto; \}/u
+        /#preview-chrome-layer\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-handle,\s*#preview-chrome-layer\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-rotate-stem \{ pointer-events: auto; \}/u
     );
     assert.match(
         compiledHandler,

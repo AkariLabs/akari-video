@@ -125,7 +125,7 @@ test('injected webview position functions match common for both time domains and
 
 test('injected listener saves single, multi and group drags for plain and transformed speech', async () => {
     const listenerSource = source.slice(
-        source.indexOf("captionLayer.addEventListener('pointerdown', event =>"),
+        source.indexOf("const onCaptionPointerDown = event =>"),
         source.indexOf('            new ResizeObserver(() => updateCaptionSelectBox())')
     );
     assert.match(listenerSource, /captionPositionFromVisualRect\(/);
@@ -152,6 +152,7 @@ test('injected listener saves single, multi and group drags for plain and transf
                 Object.assign(context, {
                     document: { body: { classList: { add() {}, remove() {} } } },
                     captionLayer: { addEventListener: (_name, listener) => { pointerdown = listener; } },
+                    captionSelectBox: { addEventListener() {}, contains: () => false },
                     activeCaptionEdit: null, captionForEvent: () => a,
                     beginCaptionHandleDrag: () => false, selectCaption() {}, setCaptionGroupMode() {},
                     captionGroupToolEnabled: mode === 'group', captionSnapEnabled: false,

@@ -249,7 +249,7 @@ test('Escape leaves existing crop, perspective, drag, and inline edit cancellati
         assert.match(body, /finally \{[\s\S]*endSelectionGesture\(gesture\)/);
         assert.match(body, /const cleanup = \(\) => \{\s*selectionDragActive = false/);
     }
-    const captionDrag = between("captionLayer.addEventListener('pointerdown', event =>", '            new ResizeObserver(() => updateCaptionSelectBox())');
+    const captionDrag = between("const onCaptionPointerDown = event =>", '            new ResizeObserver(() => updateCaptionSelectBox())');
     assert.match(captionDrag, /selectionDragActive = true/);
     assert.match(captionDrag, /const cleanup = \(\) => \{\s*selectionDragActive = false/);
 });
@@ -269,7 +269,13 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
             document: { getElementById: () => ({ getBoundingClientRect: () => ({ width: 800 * zoom, height: 450 * zoom }) }) },
             window: { akari: { stageScale: () => scale } },
             summary: { output: { width: 1280, height: 720 } }, selectedCaptionId: 'c1',
-            captionSelectBox: { style: { setProperty() {} }, classList: { add() {} } }, updateCaptionSelectTools() {}, updateCaptionRowBox() {},
+            captionSelectBox: { style: { setProperty() {} }, classList: { add() {} },
+                querySelector: () => null, querySelectorAll: () => [],
+                getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 40 }),
+                offsetWidth: 100, offsetHeight: 40 },
+            previewPane: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 450 }) },
+            previewLayerActionsFn: () => null, fitCaptionSelectTools() {},
+            updateCaptionSelectTools() {}, updateCaptionRowBox() {},
             captionLayoutRect: () => plate, captionTransformValues: () => ({ scale: 1, rotate: 0 }),
             captionOrientedFrameFn: captionOrientedFrame,
             captionPlate: {
@@ -335,19 +341,20 @@ test('media hits use transformed cut bounds and numeric track order instead of l
 });
 
 for (const editing of [false, true]) {
-    test(`blank caption layer and media background release captions (editing=${editing})`, () => {
+    test(`blank caption layer releases captions without consuming visible media (editing=${editing})`, () => {
         for (const target of [eventTarget('#caption-plate'), eventTarget()]) {
             const { calls, dispatchPointer } = harness({ selectedCaptionId: 'c1', activeCaptionEdit: editing ? {} : null });
             const position = { target, clientX: 400, clientY: 200 };
             dispatchPointer('pointerdown', position);
             dispatchPointer('pointerup', position);
             dispatchPointer('click', position);
-            assert.deepEqual(calls, editing ? ['commit', 'caption'] : ['caption']);
+            assert.deepEqual(calls, target.closest('#caption-plate')
+                ? editing ? ['commit', 'caption'] : ['caption'] : []);
         }
     });
 }
 
-test('blank media pointerdown cannot silently replace a caption before its release notification', () => {
+test('visible media pointerdown releases a caption and selects media in one click', () => {
     for (const editing of [false, true]) {
         const { context, dispatchPointer, calls } = harness({ selectedCaptionId: 'c1', activeCaptionEdit: editing ? {} : null });
         let mediaSelections = 0;
@@ -361,12 +368,13 @@ test('blank media pointerdown cannot silently replace a caption before its relea
         const location = { target, clientX: 400, clientY: 200 };
         dispatchPointer('pointerdown', location);
         context.mediaDown(pointer('pointerdown', target, location));
-        assert.equal(mediaSelections, 0);
+        assert.equal(mediaSelections, 1);
+        assert.deepEqual(calls, editing ? ['commit', 'caption'] : ['caption']);
         dispatchPointer('pointerup', location);
         dispatchPointer('click', location);
         assert.deepEqual(calls, editing ? ['commit', 'caption'] : ['caption']);
         assert.equal(context.selectedCaptionId, null);
         context.mediaDown(pointer('pointerdown', target, location));
-        assert.equal(mediaSelections, 1, 'the next click may select the background media normally');
+        assert.equal(mediaSelections, 2, 'the next click still selects the background media');
     }
 });

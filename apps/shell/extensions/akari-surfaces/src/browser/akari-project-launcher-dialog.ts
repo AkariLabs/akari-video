@@ -4,7 +4,7 @@ import { AbstractDialog, DialogProps } from '@theia/core/lib/browser/dialogs';
 import { Command, CommandContribution, CommandRegistry } from '@theia/core/lib/common';
 import { Widget, WidgetManager } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
-import { filterProjects, formatProjectUpdatedAt, projectEditStatus, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
+import { filterProjects, filterProjectsByChannel, formatProjectUpdatedAt, listProjectChannels, projectEditStatus, PROJECT_PAGE_SIZE, PROJECT_SORT_LABELS, PROJECT_VIEW_ICONS, ProjectSortOrder, ProjectViewMode, readProjectSort, readProjectView, saveProjectSort, saveProjectView, sortProjects } from '../common/project-browser';
 import type { ProjectListRow } from './akari-home-widget';
 import { PROJECT_CARD_BORDER, PROJECT_CARD_RADIUS_PX, PROJECT_CURRENT_STYLE, ProjectCardPreview } from './akari-project-card-preview';
 
@@ -56,6 +56,9 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
     protected sort: ProjectSortOrder = readProjectSort();
     protected query = '';
     protected view: ProjectViewMode = readProjectView();
+    /** チャンネル絞り込み（未選択 = すべて）。2026-09-26: 帯から切り替えをここへ移した。 */
+    protected channel: string | undefined;
+    protected channelSelect: HTMLSelectElement | undefined;
     protected visibleCount = PROJECT_PAGE_SIZE;
     protected readonly viewButtons = new Map<ProjectViewMode, HTMLButtonElement>();
     protected newProjectButton: HTMLButtonElement | undefined;
@@ -148,6 +151,20 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
         Object.assign(search.style, { flex: '1 1 160px', minWidth: '0' });
         search.addEventListener('input', () => { this.query = search.value; this.visibleCount = PROJECT_PAGE_SIZE; this.renderList(); });
         controls.appendChild(search);
+        const channel = document.createElement('select');
+        channel.className = 'theia-select';
+        channel.setAttribute('aria-label', 'チャンネルを切り替える');
+        channel.setAttribute('data-akari-launcher-channel', 'true');
+        channel.title = 'チャンネルを切り替える';
+        Object.assign(channel.style, { height: '32px', maxWidth: '200px' });
+        channel.addEventListener('change', () => {
+            this.channel = channel.value || undefined;
+            this.visibleCount = PROJECT_PAGE_SIZE;
+            this.listSection.scrollTop = 0;
+            this.renderList();
+        });
+        this.channelSelect = channel;
+        controls.appendChild(channel);
         const sort = document.createElement('select');
         sort.className = 'theia-select';
         sort.setAttribute('aria-label', 'プロジェクトの並べ替え');
@@ -200,6 +217,28 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
 
         this.renderList();
         this.renderNewProjectButton();
+    }
+
+    /**
+     * チャンネル選択の選択肢を一覧の実態から作り直す（更新ボタンで行が増減しても追随する）。
+     * 選んでいたチャンネルが消えていたら「すべて」へ戻す。
+     */
+    protected renderChannelOptions(): void {
+        const select = this.channelSelect;
+        if (!select) { return; }
+        const channels = listProjectChannels(this.props.rows);
+        if (this.channel && !channels.includes(this.channel)) { this.channel = undefined; }
+        select.replaceChildren();
+        const all = document.createElement('option');
+        all.value = ''; all.textContent = channels.length > 0 ? 'すべてのチャンネル' : 'チャンネルなし';
+        select.appendChild(all);
+        for (const name of channels) {
+            const option = document.createElement('option');
+            option.value = name; option.textContent = name;
+            select.appendChild(option);
+        }
+        select.value = this.channel ?? '';
+        select.disabled = channels.length === 0;
     }
 
     protected decorateIconButton(button: HTMLButtonElement, label: string, iconClass: string): void {
@@ -268,11 +307,13 @@ export class AkariProjectLauncherDialog extends AbstractDialog<void> {
             button.setAttribute('aria-pressed', String(this.view === mode));
             button.style.boxShadow = this.view === mode ? 'inset 0 0 0 1px var(--theia-focusBorder)' : 'none';
         });
-        const rows = sortProjects(filterProjects(this.props.rows, this.query), this.sort);
+        this.renderChannelOptions();
+        const rows = sortProjects(filterProjects(filterProjectsByChannel(this.props.rows, this.channel), this.query), this.sort);
         if (rows.length === 0) {
             this.listSection.setAttribute('data-akari-launcher-empty', 'true');
             const empty = document.createElement('p');
-            empty.textContent = this.query ? '一致するプロジェクトがありません。' : 'まだプロジェクトがありません。上のボタンから始めましょう。';
+            empty.textContent = this.query || this.channel
+                ? '一致するプロジェクトがありません。' : 'まだプロジェクトがありません。上のボタンから始めましょう。';
             Object.assign(empty.style, {
                 color: 'var(--theia-descriptionForeground)', fontSize: '12.5px', lineHeight: '1.7',
                 textAlign: 'center', margin: '4px 0 0'

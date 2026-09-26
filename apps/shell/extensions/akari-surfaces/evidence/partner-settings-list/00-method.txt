@@ -1,0 +1,34 @@
+# partner-settings-list — 検証方法（L0 + L1・darwin-arm64・2026-09-26）
+
+## L0
+apps/shell: npm run build:ext → 各拡張で npm test（akari-surfaces / akari-partner / akari-project）、packages/project-scaffold で npm test、apps/shell で npm run lint。
+結果は 09-l0.txt。
+
+## partnerDetails() の実出力（01 / 04）
+ビルド済みの extensions/akari-surfaces/lib/node/settings-maintenance-service.js を node から require し、
+new AkariSettingsMaintenanceServiceImpl().partnerDetails() を呼んだ。PATH を 2 通り:
+ (a) /usr/bin:/bin:/usr/sbin:/sbin（Finder から起動した GUI アプリ相当の最小 PATH）
+ (b) 開発者のシェル PATH
+実行ファイルは読むだけ（--version の実行のみ）。インストール・ログインはしていない。
+
+## 実アプリ（02 / 03 / 05〜08）
+apps/shell を npm run build → Electron を直接起動:
+  env -i HOME=<実 HOME（CLI の検出のため・読むだけ）> PATH=/usr/bin:/bin:/usr/sbin:/sbin
+    AKARI_HOME=<一時 dir> THEIA_CONFIG_DIR=<一時 dir>
+    Electron <apps/shell> <一時プロジェクト> --remote-debugging-port=9535 --user-data-dir=<一時 dir> --no-sandbox
+  THEIA_CONFIG_DIR/settings.json に {"akari.partner.reopenLast": false}（前回のパートナーを自動で開かない）
+一時プロジェクトは packages/project-scaffold の createProject(templates/project-default, skillsSourceDir=skills/) で作成
+（.agents .codex .cursor .opencode .devin のスキルリンク置き場が作られる）。
+BEFORE と「既存プロジェクト」は同じ一時プロジェクト（テンプレの workflow.json = hidden に .devin 無し）を使い、
+AFTER の「新規プロジェクト」は変更後の scaffold で別に作成した。
+
+操作は素の CDP（Runtime.evaluate / Page.captureScreenshot）だけ:
+- 設定画面: DI コンテナの CommandService で akari.settings.open {section:'partner'} を実行（結果は await しない）→
+  .akari-set-partner-row の innerText を取得 → ダイアログ部分だけを切り出して撮影。
+  「起動」「入れ方」「開く」ボタン、接続パネルのエントリ、「AI パートナーに接続する」は押していない
+- ファイル一覧: developer mode オフでは左パネルの「素材」は役割バケット表示で、Theia のファイルツリー（files）は
+  アクティビティバーから外されている。フィルタ（AkariFileNavigatorFilter）の実判定を見るため、
+  WidgetManager で files ウィジェットを作ってメイン領域に表示し、ツリーの行を読んで撮影した。
+  あわせて起動中のフィルタの filterItem() を各パスで呼んだ結果を 01 / 04 に記録
+撮影範囲はユーザー名・ローカルパスが写らない部分（ダイアログ・ツリー）だけに限った。
+後片付け: 起動した Electron は自分の PID だけを kill。一時 dir は削除。
