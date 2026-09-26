@@ -14807,7 +14807,13 @@ var require_lib = __commonJS({
       for (var p2 in m2) if (p2 !== "default" && !Object.prototype.hasOwnProperty.call(exports2, p2)) __createBinding(exports2, m2, p2);
     };
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.normalizeTransform = exports.effectiveScale = exports.LegacyEditVersionError = exports.parseEdit = void 0;
+    exports.SAVED_BY_PATH = exports.normalizeTransform = exports.effectiveScale = exports.LegacyEditVersionError = exports.parseEdit = void 0;
+    exports.parseSavedBy = parseSavedBy;
+    exports.newerSavedByVersion = newerSavedByVersion;
+    exports.isUnknownKeyEditError = isUnknownKeyEditError;
+    exports.newerVersionOpenNotice = newerVersionOpenNotice;
+    exports.newerVersionLintPrefix = newerVersionLintPrefix;
+    exports.withNewerVersionLintPrefix = withNewerVersionLintPrefix;
     __exportStar(require_edit_store(), exports);
     __exportStar(require_caption_store(), exports);
     __exportStar(require_caption_style_preset(), exports);
@@ -14859,6 +14865,51 @@ var require_lib = __commonJS({
       return transform_1.normalizeTransform;
     } });
     __exportStar(require_transform_keyframe_edit(), exports);
+    exports.SAVED_BY_PATH = ".akari/saved-by.json";
+    var SAVED_BY_SCHEMA_VERSION = 1;
+    function parseSavedBy(text) {
+      if (!text)
+        return void 0;
+      try {
+        const value = JSON.parse(text);
+        if (!value || typeof value !== "object")
+          return void 0;
+        const stamp = value;
+        return stamp.version === SAVED_BY_SCHEMA_VERSION && stamp.app === "akari-video" && typeof stamp.appVersion === "string" && /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(stamp.appVersion) && typeof stamp.savedAt === "string" && !Number.isNaN(Date.parse(stamp.savedAt)) ? stamp : void 0;
+      } catch {
+        return void 0;
+      }
+    }
+    function compareSavedByVersions(left, right) {
+      const leftParts = left.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+      const rightParts = right.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+      if (!leftParts || !rightParts)
+        return 0;
+      for (let i2 = 1; i2 <= 3; i2++) {
+        const a = Number(leftParts[i2]);
+        const b = Number(rightParts[i2]);
+        if (a !== b)
+          return a < b ? -1 : 1;
+      }
+      return 0;
+    }
+    function newerSavedByVersion(text, currentVersion) {
+      const savedVersion = parseSavedBy(text)?.appVersion;
+      return savedVersion && currentVersion && compareSavedByVersions(savedVersion, currentVersion) > 0 ? savedVersion : void 0;
+    }
+    function isUnknownKeyEditError(error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return /edit\.json[^\n]*未定義キーを使用できません/.test(message);
+    }
+    function newerVersionOpenNotice(savedVersion, currentVersion) {
+      return `\u3053\u306E\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306F\u65B0\u3057\u3044\u7248\u306E AKARI Video\uFF08v${savedVersion}\uFF09\u3067\u4FDD\u5B58\u3055\u308C\u3066\u3044\u307E\u3059\u3002\u3044\u307E\u306E\u7248\uFF08v${currentVersion}\uFF09\u3067\u306F\u958B\u3051\u306A\u3044\u6A5F\u80FD\u304C\u4F7F\u308F\u308C\u3066\u3044\u307E\u3059\u3002AKARI Video \u3092\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002`;
+    }
+    function newerVersionLintPrefix(savedVersion) {
+      return `\u3053\u306E\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u306F\u65B0\u3057\u3044\u7248\uFF08v${savedVersion}\uFF09\u3067\u4FDD\u5B58\u3055\u308C\u3066\u3044\u307E\u3059\u3002\u3044\u307E\u306E\u7248\u306E\u691C\u8A3C\u306F\u65B0\u3057\u3044\u6A5F\u80FD\u3092\u77E5\u3089\u306A\u3044\u305F\u3081\u3001\u8AA4\u3063\u3066\u30A8\u30E9\u30FC\u3092\u51FA\u3059\u3053\u3068\u304C\u3042\u308A\u307E\u3059\u3002`;
+    }
+    function withNewerVersionLintPrefix(message, savedVersion) {
+      return savedVersion ? `${newerVersionLintPrefix(savedVersion)} ${message}` : message;
+    }
   }
 });
 
