@@ -88,6 +88,16 @@ npm run lint                                       # eslint "extensions/*/src/**
 
 ### 既知の地雷（L1）
 
+0. **`ELECTRON_RUN_AS_NODE=1` が環境に残っていると Electron が即死する**（2026-09-27 実測・
+   `library-tile-cards` レーン）。この変数が立っていると Electron は GUI ではなく Node として
+   起動するため、`app` が未定義のまま
+   ```
+   Cannot read properties of undefined (reading 'requestSingleInstanceLock')
+   ```
+   で落ちる。L0 §地雷 3 の「パッケージ版でのパス解決」検証（`ELECTRON_RUN_AS_NODE=1` +
+   `cwd=/`）を先に回した同じシェルで L1 に入ると踏む。起動時に
+   `env -u ELECTRON_RUN_AS_NODE <electron のパス> …` で必ず外すこと。
+
 1. **拡張ディレクトリ内のネスト `node_modules`（この層で最も踏まれている地雷）**: `apps/shell/extensions/<ext>/node_modules/` に `@theia/core` の 2 つ目の実体が入ると、esbuild は realpath 単位でモジュールを束ねるため 1 つの `bundle.js` に `frontend-application-config-provider` が 2 本入る。`src-gen/frontend/index.js` は片方に `set()` し、拡張側はもう片方から `get()` するので、フロントエンドが
    ```
    Failed to start the frontend application.
