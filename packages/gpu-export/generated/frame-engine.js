@@ -12070,6 +12070,82 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/media-planes.js
+  var require_media_planes = __commonJS({
+    "packages/edit-store/lib/media-planes.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.partitionPreviewMediaPlanes = partitionPreviewMediaPlanes;
+      function partitionPreviewMediaPlanes(plan, summary) {
+        const tracks = Array.isArray(summary.timelineTracks) ? summary.timelineTracks : [];
+        const zOfTrack = (id) => tracks.findIndex((track) => track.id === id);
+        const zOfItem = (id, trackId, renderTrack) => Number.isInteger(summary.itemStackZ?.[String(id)]) ? summary.itemStackZ[String(id)] : Number.isInteger(summary.trackStackZ?.[String(trackId)]) ? summary.trackStackZ[String(trackId)] : Number.isInteger(renderTrack) ? renderTrack : zOfTrack(trackId);
+        const barriers = [...new Set([
+          ...(Array.isArray(summary.overlays) ? summary.overlays : []).map((item) => zOfItem(item.id, item.trackId, item.renderTrack)),
+          zOfItem(void 0, summary.captionTrackId),
+          ...Object.values(summary.itemStackZ ?? {}),
+          ...Array.isArray(summary.barrierZ) ? summary.barrierZ : []
+        ].filter((z3) => z3 >= 0))].sort((a, b) => a - b);
+        const bands = /* @__PURE__ */ new Map();
+        const bandAt = (z3) => {
+          const key = barriers.filter((barrier) => barrier < z3).length;
+          let band = bands.get(key);
+          if (!band) {
+            band = { key, zIndex: z3, baseIndices: [], entries: [] };
+            bands.set(key, band);
+          }
+          band.zIndex = Math.max(band.zIndex, z3);
+          return band;
+        };
+        const cutZ = (id) => {
+          const cut = summary.cutsById?.[id] ?? summary.cuts?.[Number(id.slice("cut-".length))];
+          return zOfItem(cut?.id, cut?.trackId, cut?.renderTrack);
+        };
+        if (plan.base.length) {
+          const baseByBand = /* @__PURE__ */ new Map();
+          plan.base.forEach((cut, index) => {
+            const band = bandAt(cutZ(cut.id));
+            const group = baseByBand.get(band.key) ?? { band, indices: [] };
+            group.indices.push(index);
+            baseByBand.set(band.key, group);
+          });
+          for (const { band, indices } of baseByBand.values()) {
+            if (band.key === 0 || indices.length > 1) {
+              band.baseIndices.push(...indices);
+            } else {
+              const index = indices[0];
+              const cut = plan.base[index];
+              const visual = cut.visual;
+              band.entries.push({ baseIndex: index, spec: {
+                ...cut,
+                kind: cut.kind ?? "video",
+                cutVisual: visual,
+                visual: {
+                  crop: visual.layerStyle?.crop ?? { x: 0, y: 0, width: 1, height: 1 },
+                  perspective: null,
+                  transform: visual.transform
+                },
+                mask: null,
+                blend: "normal",
+                opacity: visual.opacity,
+                ...visual.adjustLut ? { adjustLut: visual.adjustLut } : {},
+                ...visual.adjustFx ? { adjustFx: visual.adjustFx } : {}
+              } });
+            }
+          }
+        }
+        plan.layers.forEach((layer, index) => {
+          const declared = summary.layers?.find((item) => String(item.id) === layer.id);
+          const z3 = layer.cutVisual ? cutZ(layer.id) : zOfItem(declared?.id ?? layer.id, declared?.trackId, declared?.renderTrack);
+          bandAt(z3).entries.push({ layerIndex: index, spec: layer });
+        });
+        if (!bands.has(0))
+          bands.set(0, { key: 0, zIndex: -1, baseIndices: [], entries: [] });
+        return [...bands.values()].sort((a, b) => a.key - b.key);
+      }
+    }
+  });
+
   // packages/edit-store/lib/track-transition-compatibility.js
   var require_track_transition_compatibility = __commonJS({
     "packages/edit-store/lib/track-transition-compatibility.js"(exports) {
@@ -14848,6 +14924,7 @@ ${indent}`);
       __exportStar(require_retime(), exports);
       __exportStar(require_track_order(), exports);
       __exportStar(require_track_z(), exports);
+      __exportStar(require_media_planes(), exports);
       __exportStar(require_track_transition_compatibility(), exports);
       __exportStar(require_cut_adjacency(), exports);
       __exportStar(require_transition_vocabulary(), exports);
