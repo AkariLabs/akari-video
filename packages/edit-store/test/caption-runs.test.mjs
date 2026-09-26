@@ -106,7 +106,9 @@ test('HTML decorates only selected graphemes and leaves no-run bytes intact', ()
       baseline_shift_em: -0.1, rotate_deg: 8, letter_spacing_em: 0.05 } }
   ]);
   assert.match(result, /data-role="emphasis"/);
-  assert.match(result, /translateY\(-0.1em\) rotate\(8deg\) scale\(1.3\)/);
+  assert.match(result, /font-size:1.3em/);
+  assert.match(result, /letter-spacing:0.05em/);
+  assert.match(result, /translateY\(-0.07692307692307693em\) rotate\(8deg\)/);
   assert.equal((result.match(/akari-caption__run/g) ?? []).length, 2);
   assert.match(result, /<span class="akari-caption__char"[^>]*><span class="akari-caption__run"/);
 });

@@ -8227,6 +8227,7 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 .caption-row-plate.akari-caption-host--styled { pointer-events: none; inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
 .caption-row-plate[data-selected] .akari-caption__plate[data-akari-textanim], .caption-row-plate.akari-caption-host--editing .akari-caption__plate[data-akari-textanim] { animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; }
 .caption-row-plate[data-output-caption] .akari-caption__plate { width: var(--caption-width, 92%); right: auto; }
+.caption-row-plate[data-caption-sized-run][data-output-caption] .akari-caption__plate { width: var(--caption-width, max-content); right: var(--caption-right, 0); margin-inline: var(--caption-plate-margin, auto); }
 .caption-row-plate[data-output-caption] .akari-caption__line, .caption-row-plate[data-output-caption] .akari-caption__block { max-width: none; flex-shrink: 0; }
 .caption-row-plate[data-selected], .caption-row-plate.akari-caption-host--styled[data-selected] .akari-caption__plate { outline: none; }
 #caption-select-box .akari-caption-handle-box { position:absolute;inset:0;pointer-events:none; }
@@ -16154,6 +16155,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const block = captionPlate.querySelector('.akari-caption__block');
                 const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
                 const rects = (elements.length > 0 ? elements : [captionPlate])
+                    .concat([...captionPlate.querySelectorAll('.akari-caption__run')])
                     .map(element => element.getBoundingClientRect());
                 const clientRect = {
                     left: Math.min(...rects.map(rect => rect.left)),
@@ -16827,6 +16829,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.reportCaptionEditFocus?.(true);
                 placeCaptionCaretAtEnd(element);
                 window.akari.refreshActiveCaptionRuns?.();
+                if (layoutPlate && editorWidth && caption?.runs?.some(run =>
+                    Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+                    && lineCount(element) > targetLines) {
+                    // offsetWidth rounds away the subpixel width reserved by font-size runs.
+                    element.style.width = Math.max(parseFloat(element.style.width) || 0, editorWidth + 1) + 'px';
+                }
                 window.akari.syncRunSelection?.();
             };
             captionLayer.addEventListener('dblclick', event => {
@@ -18445,6 +18453,12 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionTextAnimationKeyframesCss = animation => animation
                 ? animation.keyframesCss
                 : '';
+            const captionHasScaledRun = caption => Boolean(caption?.runs?.some(run =>
+                Number.isFinite(run?.style?.scale) && run.style.scale !== 1));
+            const captionSizedRunPlateCss = caption => captionHasScaledRun(caption)
+                ? '.akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);}'
+                    + '.akari-caption__line,.akari-caption__block{max-width:none;}'
+                : '';
             const renderStyledCaptionFragment = (caption, captionAnimation = null) => {
                 const renderChars = captionCharRenderer(caption.animator);
                 const style = caption.style;
@@ -18508,6 +18522,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
+                    + captionSizedRunPlateCss(caption)
                     + frameFitCss
                     + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;will-change:transform,color;}'
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
@@ -18525,6 +18540,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 const renderChars = captionCharRenderer(caption.animator);
                 const renderText = renderChars || escapeCaptionHtml;
                 if (caption.resolvedTimeline) {
+                    const resolvedRunPlateCss = captionHasScaledRun(caption)
+                        ? '.akari-caption--single-line .akari-caption__plate{width:var(--caption-width,max-content);margin-inline:var(--caption-plate-margin,auto);max-width:none;}'
+                        : '';
                     const resolvedFrameCss = caption.textStyleVars?.['--caption-plate-fit'] === 'frame'
                         ? '.akari-caption--single-line .akari-caption__plate{left:4%;right:4%;width:auto;box-sizing:border-box;}'
                             + '.akari-caption--single-line .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;background:var(--plate-bg,var(--plate-ext-bg,transparent));border-radius:var(--plate-radius,var(--plate-ext-radius,0));}'
@@ -18547,6 +18565,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         }).join('');
                         return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                            + resolvedRunPlateCss
                             + resolvedFrameCss
                             + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
@@ -18561,6 +18580,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         : renderText(caption.text);
                     return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
+                        + resolvedRunPlateCss
                         + resolvedFrameCss
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
                         + resolvedMarkup
@@ -18591,6 +18611,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + '.akari-caption__line::before{content:"";position:absolute;inset:calc(0px - var(--plate-ext-height,0px)) calc(0px - var(--plate-ext-width,0px));z-index:-1;border-radius:var(--plate-ext-radius,10px);background:var(--plate-ext-bg,transparent);transform:translate(var(--plate-offset-x,0px),var(--plate-offset-y,0px));}'
                     + blockCss
+                    + captionSizedRunPlateCss(caption)
                     + frameFitCss
                     + captionTextAnimationKeyframesCss(captionAnimation)
                     + '</style><div class="akari-caption__plate"'
@@ -18671,6 +18692,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (caption !== row.renderedCaption) {
                     row.renderedCaption = caption;
                     applyCaptionStyleVars(caption, captionPlate);
+                    if (caption?.runs?.some(run => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)) {
+                        captionPlate.dataset.captionSizedRun = '';
+                        const captionPositionX = caption?.textStyle?.position?.x;
+                        const captionAnchor = caption?.textStyle?.text_anchor;
+                        captionPlate.style?.setProperty?.('--caption-plate-margin',
+                            Number.isFinite(captionPositionX) ? '0'
+                                : captionAnchor?.[1] === 'l' ? '0 auto'
+                                    : captionAnchor?.[1] === 'r' ? 'auto 0' : 'auto');
+                    } else {
+                        delete captionPlate.dataset.captionSizedRun;
+                        captionPlate.style?.removeProperty?.('--caption-plate-margin');
+                    }
                     const groupTransform = caption?.groupTransform;
                     if (captionPlate.style) {
                         captionPlate.style.transform = groupTransform
