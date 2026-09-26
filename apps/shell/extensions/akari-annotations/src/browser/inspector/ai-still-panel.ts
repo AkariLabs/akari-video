@@ -18,6 +18,7 @@ export interface AiStillState {
     prompt: string; aspect: StillAspect; routeId?: StillRoute; routes?: ImageRouteState[]; route?: ImageRouteState; probing: boolean;
     probingRoutes?: Set<StillRoute>;
     canvas?: { width: number; height: number }; liveAspectRevision?: number;
+    lastAspectPointer?: { aspect: StillAspect; at: number };
     running: boolean; startedAt?: number; error?: string; mismatch?: string;
 }
 export interface AiStillActions {
@@ -115,7 +116,17 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
         const picture = make('span', 'akari-inspector-ai-still-aspect-picture');
         picture.style.aspectRatio = aspect.replace(':', ' / ');
         button.append(picture, make('span', 'akari-inspector-ai-still-aspect-label', aspect));
-        button.addEventListener('click', () => { state.aspect = aspect; actions.change(aspect); });
+        const changeAspect = (): void => { state.aspect = aspect; actions.change(aspect); };
+        button.addEventListener('pointerdown', event => {
+            if (event.button !== 0) return;
+            state.lastAspectPointer = { aspect, at: Date.now() };
+            changeAspect();
+        });
+        button.addEventListener('click', event => {
+            if ((event?.detail ?? 0) > 0 && state.lastAspectPointer?.aspect === aspect
+                && Date.now() - state.lastAspectPointer.at < 1000) return;
+            changeAspect();
+        });
         aspects.appendChild(button);
     }
     panel.appendChild(aspects);

@@ -51,7 +51,7 @@ import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState, type StillAspect } from './inspector/ai-still-panel';
-import { frameAspectTransform, frameDimensions } from './inspector/frame-geometry';
+import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { appendImageAiPanel, type ImageAiPanelState } from './inspector/image-ai-panel';
@@ -3069,6 +3069,11 @@ export class AkariInspectorWidget extends BaseWidget {
     protected currentTab?: string;
     protected explicitTabId?: string;
     protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
+    protected readonly frameAspectLive = new Map<string, FrameAspectLive>();
+    protected readonly frameAspectWrites = new Map<string, Promise<void>>();
+    protected readonly frameAspectTargets = new Map<string, LivePreviewTarget>();
+    protected readonly frameAspectTried = new Map<string, string>();
+    protected readonly frameAspectPlanned = new Map<string, Set<string>>();
     protected readonly generationTabLoads = new Set<string>();
     protected readonly generationTabDrafts = new Map<string, GenerationDraft>();
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
@@ -4890,6 +4895,21 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (this.generationVideoPaths) this.observeGenerationVideo(snapshot);
         const generationIdentity = this.generationIdentity(snapshot);
+        if (generationIdentity && this.frameAspectLive && this.frameAspectTried) {
+            let live = this.frameAspectLive.get(generationIdentity.key);
+            const changed = live?.observeSource(generationIdentity.sourcePath) ?? false;
+            if (!live) this.frameAspectLive.set(generationIdentity.key, live = new FrameAspectLive(generationIdentity.sourcePath));
+            if (changed) {
+                this.generationTabMeta.delete(generationIdentity.key);
+                this.generationLoads.delete(generationIdentity.key);
+                this.generationStates.delete(generationIdentity.key);
+            }
+            if (!live.sourceSize && /^assets\/generated\/[^/]+\.png$/u.test(generationIdentity.sourcePath)
+                && this.frameAspectTried.get(generationIdentity.key) !== generationIdentity.sourcePath) {
+                this.frameAspectTried.set(generationIdentity.key, generationIdentity.sourcePath);
+                void this.ensureFrameSourceSize?.(generationIdentity.key, generationIdentity.sourcePath);
+            }
+        }
         if (!generationIdentity && (snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item' || snapshot.kind === 'audio')) {
             // The existing test harness transpiles render without this new loader method.
             void this.loadAiCatalog?.();
@@ -4915,7 +4935,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     // The generation selector may only return a related video job.
                     const meta = sidecars.entries.find(entry => entry.sourcePath === generationIdentity.sourcePath)?.meta
                         ?? selectGenerationSidecarForSource(generationIdentity.sourcePath, sidecars.entries, Date.now())?.meta;
-                    if (this.generationTabDrafts.get(generationIdentity.key) === generationDraft) {
+                    if (this.generationTabDrafts.get(generationIdentity.key) === generationDraft
+                        && this.generationIdentity(this.model.snapshot)?.sourcePath === generationIdentity.sourcePath) {
                         this.generationTabMeta.set(generationIdentity.key, (meta as { next?: { status?: unknown } } | undefined) ?? {});
                     }
                 } catch (error) {
@@ -6271,10 +6292,21 @@ export class AkariInspectorWidget extends BaseWidget {
             void Promise.resolve().then(() => this.probeStillRoute(identity.key));
         }
         appendAiStillPanel(this.body, state, {
-            change: aspect => { if (aspect && (this.generationStates.get(identity.key) === 'planned'
-                || (this.generationTabMeta.get(identity.key) as { status?: string } | undefined)?.status === 'planned')) {
-                void this.setEmptyFrameAspect(identity, aspect);
-            } this.render(); },
+            change: aspect => {
+                const current = this.generationIdentity ? this.generationIdentity(this.model.snapshot) : identity;
+                const status = this.generationStates.get(identity.key);
+                const metaStatus = (this.generationTabMeta.get(identity.key) as { status?: string } | undefined)?.status;
+                const known = this.frameAspectPlanned?.get(identity.key)?.has(current?.sourcePath ?? '') ?? false;
+                if (aspect && current?.key === identity.key
+                    && (metaStatus === 'planned' || metaStatus === undefined
+                        && (status === 'planned' || status === undefined && known))) {
+                    const planned = this.frameAspectPlanned?.get(identity.key) ?? new Set<string>();
+                    planned.add(current.sourcePath);
+                    this.frameAspectPlanned?.set(identity.key, planned);
+                    void this.setEmptyFrameAspect(current, aspect);
+                }
+                this.render();
+            },
             probe: () => { void this.probeStillRoute(identity.key); },
             generate: () => { void this.startStillGeneration(identity); },
             cancel: () => { void this.cancelStillGeneration(identity); }
@@ -6285,42 +6317,74 @@ export class AkariInspectorWidget extends BaseWidget {
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
         const state = this.aiStillStates.get(identity.key);
         if (!root || !state) return;
-        const revision = state.liveAspectRevision = (state.liveAspectRevision ?? 0) + 1;
+        let live = this.frameAspectLive.get(identity.key);
+        if (!live) this.frameAspectLive.set(identity.key, live = new FrameAspectLive(identity.sourcePath));
+        if (live.observeSource(identity.sourcePath)) {
+            this.generationTabMeta.delete(identity.key);
+            this.generationLoads.delete(identity.key);
+        }
+        const sourceEpoch = live.sourceEpoch;
+        const revision = live.press(aspect, state.canvas, this.model.snapshot?.kind === 'cut'
+            || this.model.snapshot?.kind === 'layer' || this.model.snapshot?.kind === 'item'
+            ? this.model.snapshot.transform : undefined);
         const snapshot = this.model.snapshot;
         const target = snapshot?.kind === 'cut' && snapshot.itemId === identity.itemId
             ? { kind: 'cut' as const, index: snapshot.index }
             : (snapshot?.kind === 'layer' || snapshot?.kind === 'item') && snapshot.id === identity.itemId
                 ? { kind: 'item' as const, id: identity.itemId } : undefined;
-        const resolution = (this.generationTabMeta.get(identity.key) as { output?: { resolution?: string } } | undefined)
-            ?.output?.resolution;
-        const [cardWidth, cardHeight] = String(resolution ?? '').split('x').map(Number);
-        const oldSize = cardWidth > 0 && cardHeight > 0 ? { width: cardWidth, height: cardHeight } : state.canvas;
-        const canvas = state.canvas ?? oldSize;
-        const previous = snapshot?.kind === 'cut' || snapshot?.kind === 'layer' || snapshot?.kind === 'item'
-            ? snapshot.transform : undefined;
-        let liveScale: number | undefined;
-        if (target && oldSize && canvas) {
-            const nextSize = frameDimensions(aspect, canvas);
-            liveScale = frameAspectTransform(oldSize, nextSize, previous)?.scale ?? 1;
-            this.model.requestLivePreview?.({ target, field: 'scaleX', value: nextSize.width * liveScale / oldSize.width });
-            this.model.requestLivePreview?.({ target, field: 'scaleY', value: nextSize.height * liveScale / oldSize.height });
-        }
-        const clearLive = (): void => {
-            if (!target || liveScale === undefined || state.liveAspectRevision !== revision) return;
-            this.model.requestLivePreview?.({ target, field: 'scaleX', value: previous?.scaleX ?? previous?.scale ?? 1, clear: true });
-            this.model.requestLivePreview?.({ target, field: 'scaleY', value: previous?.scaleY ?? previous?.scale ?? 1, clear: true });
+        if (target) this.frameAspectTargets.set(identity.key, target);
+        const sendLive = (): void => {
+            if (live!.revision === revision) this.sendFrameAspectLive(identity.key, live!);
         };
+        sendLive();
+        if (!state.canvas && this.fileService?.readFile) {
+            void this.fileService.readFile(root.resolve('edit.json')).then(file => {
+                const output = JSON.parse(file.value.toString()).output;
+                if (live!.sourceEpoch !== sourceEpoch || this.aiStillStates.get(identity.key) !== state
+                    || !Number.isSafeInteger(output?.width) || !Number.isSafeInteger(output?.height)
+                    || output.width < 1 || output.height < 1) return;
+                state.canvas = { width: output.width, height: output.height };
+                live!.setCanvas(state.canvas);
+                this.sendFrameAspectLive(identity.key, live!);
+            }).catch(() => undefined);
+        }
+        if (!live.sourceSize) void this.ensureFrameSourceSize(identity.key, identity.sourcePath);
+        const clearLive = (): void => {
+            if (live!.revision !== revision) return;
+            const hadLive = !!live!.live();
+            const current = this.model.snapshot;
+            const transform = current?.kind === 'cut' || current?.kind === 'layer' || current?.kind === 'item'
+                ? current.transform : undefined;
+            live!.resetDesired(transform);
+            if (!target || !hadLive || this.generationIdentity(current)?.key !== identity.key) return;
+            this.model.requestLivePreview?.({ target, field: 'scaleX', value: transform?.scaleX ?? transform?.scale ?? 1, clear: true });
+            this.model.requestLivePreview?.({ target, field: 'scaleY', value: transform?.scaleY ?? transform?.scale ?? 1, clear: true });
+        };
+        const previousWrite = this.frameAspectWrites.get(identity.key);
+        let releaseWrite!: () => void;
+        const writeDone = new Promise<void>(resolve => { releaseWrite = resolve; });
+        this.frameAspectWrites.set(identity.key, writeDone);
         let committed = false;
         try {
+            if (previousWrite) await previousWrite;
+            const selectedBefore = this.generationIdentity(this.model.snapshot);
+            if (live.sourceEpoch !== sourceEpoch || selectedBefore?.key !== identity.key
+                || selectedBefore.sourcePath !== live.sourcePath) return;
             const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
             const result = await this.layerAudioService.setEmptyFrameAspect({ projectRootUri: root.toString(),
                 itemId: identity.itemId, aspect });
-            if (state.aspect !== aspect || this.generationIdentity(this.model.snapshot)?.sourcePath !== identity.sourcePath) return;
+            const selectedAfter = this.generationIdentity(this.model.snapshot);
+            if (live.sourceEpoch !== sourceEpoch || selectedAfter?.key !== identity.key
+                || selectedAfter.sourcePath !== live.sourcePath) return;
+            const planned = this.frameAspectPlanned?.get(identity.key) ?? new Set<string>();
+            planned.add(result.relativePath);
+            this.frameAspectPlanned?.set(identity.key, planned);
             const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
                 const location = (widget as unknown as { location?: { root?: URI } }).location;
                 return !widget.isDisposed && location?.root?.toString() === root.toString();
             }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
             if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
+            live.expectSource(result.relativePath, { width: result.width, height: result.height }, result.transform);
             await timeline.commitEditMutation('空の枠の画角を変更', doc => {
                 replaceStillInEdit(doc, identity.itemId, result.relativePath);
                 const item = doc.tracks.flatMap((track: any) => track.items ?? []).find((row: any) => row.id === identity.itemId);
@@ -6328,26 +6392,69 @@ export class AkariInspectorWidget extends BaseWidget {
                 return doc;
             });
             committed = true;
-            if (Number.isFinite(playhead) && playhead >= 0) {
-                const editUri = root.resolve('edit.json').normalizePath().toString();
-                await this.commandRegistry.executeCommand('akari.preview.seekOutput', {
-                    editUri, time: playhead, waitForReady: true
-                });
-                const restored = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
-                if (!Number.isFinite(restored) || Math.abs(restored - playhead) > 1e-3) {
-                    await this.commandRegistry.executeCommand('akari.timeline.seek', { seconds: playhead });
-                }
-            }
             this.generationTabMeta.delete(identity.key);
             this.generationStates.delete(identity.key);
+            try {
+                if (Number.isFinite(playhead) && playhead >= 0) {
+                    const editUri = root.resolve('edit.json').normalizePath().toString();
+                    await this.commandRegistry.executeCommand('akari.preview.seekOutput', {
+                        editUri, time: playhead, waitForReady: true
+                    });
+                    const restored = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
+                    if (!Number.isFinite(restored) || Math.abs(restored - playhead) > 1e-3) {
+                        await this.commandRegistry.executeCommand('akari.timeline.seek', { seconds: playhead });
+                    }
+                }
+            } finally {
+                const current = this.generationIdentity(this.model.snapshot);
+                if (live.sourceEpoch === sourceEpoch && current?.key === identity.key
+                    && current.sourcePath === result.relativePath) {
+                    live.adoptSource(result.relativePath, { width: result.width, height: result.height }, result.transform);
+                    this.sendFrameAspectLive(identity.key, live);
+                }
+            }
             const current = this.generationIdentity(this.model.snapshot);
             if (current) void this.loadGeneration(current);
         } catch (error) {
-            state.error = error instanceof Error ? error.message : String(error);
-            this.render();
+            live.cancelExpectedSource();
+            if (live.revision === revision) {
+                state.error = error instanceof Error ? error.message : String(error);
+                this.render();
+            }
         } finally {
             if (!committed) clearLive();
+            releaseWrite();
+            if (this.frameAspectWrites.get(identity.key) === writeDone) this.frameAspectWrites.delete(identity.key);
         }
+    }
+
+    protected sendFrameAspectLive(key: string, live: FrameAspectLive): void {
+        const current = this.generationIdentity(this.model.snapshot);
+        if (current?.key !== key || current.sourcePath !== live.sourcePath) return;
+        const target = this.frameAspectTargets.get(key);
+        const values = live.live();
+        if (!target || !values) return;
+        this.model.requestLivePreview?.({ target, field: 'scaleX', value: values.scaleX });
+        this.model.requestLivePreview?.({ target, field: 'scaleY', value: values.scaleY });
+    }
+
+    protected async ensureFrameSourceSize(key: string, sourcePath: string): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return;
+        const size = await this.readFrameSourceSize(root, sourcePath);
+        const live = this.frameAspectLive.get(key);
+        if (size && live?.resolveSource(sourcePath, size)) this.sendFrameAspectLive(key, live);
+    }
+
+    protected async readFrameSourceSize(root: URI, sourcePath: string): Promise<FrameSize | undefined> {
+        try {
+            const meta = JSON.parse((await this.fileService.readFile(root.resolve(`${sourcePath}.meta.json`))).value.toString());
+            const size = frameSizeFromResolution(meta?.output?.resolution);
+            if (size) return size;
+        } catch { /* A missing sidecar falls through to the PNG header. */ }
+        try {
+            return frameSizeFromPng((await this.fileService.readFile(root.resolve(sourcePath))).value.buffer);
+        } catch { return undefined; }
     }
 
     protected async probeStillRoute(key: string): Promise<void> {
@@ -6478,6 +6585,11 @@ export class AkariInspectorWidget extends BaseWidget {
             if (!identity.key.startsWith('material:') && selectedId === identity.itemId && selectedPath !== identity.sourcePath) return;
             const normalize = (path: string): string => path.trim().replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
             const sourceMeta = sidecars.entries.find(entry => normalize(entry.sourcePath) === normalize(identity.sourcePath))?.meta;
+            if (sourceMeta?.status === 'planned') {
+                const planned = this.frameAspectPlanned?.get(identity.key) ?? new Set<string>();
+                planned.add(identity.sourcePath);
+                this.frameAspectPlanned?.set(identity.key, planned);
+            } else if (sourceMeta?.status) this.frameAspectPlanned?.get(identity.key)?.delete(identity.sourcePath);
             this.generationTabMeta.set(identity.key, sourceMeta ?? {});
             let draft = generationFields.fromMeta(sourceMeta);
             if (/\.(?:mp4|mov|webm|m4v)$/iu.test(identity.sourcePath)) {

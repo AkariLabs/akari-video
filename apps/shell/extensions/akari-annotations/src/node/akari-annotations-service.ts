@@ -22,6 +22,7 @@ import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { savePhotoMask } from './photo-mask-storage';
 import { frameDimensions, frameAspectTransform } from '../browser/inspector/frame-geometry';
+import { frameSizeFromPng, frameSizeFromResolution } from '../browser/inspector/frame-aspect-live';
 import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, adoptPhotoCandidates } from './photo-segmentation';
 import { NarrationCliManager } from './narration-cli';
 import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../common/generation-sidecar';
@@ -902,10 +903,10 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!source?.path || !/^assets\/generated\/[^/]+\.png$/u.test(source.path)) throw new Error('空の枠がありません。');
         const meta = JSON.parse(await fs.readFile(join(root, `${source.path}.meta.json`), 'utf8'));
         if (meta.status !== 'planned') throw new Error('生成済みの静止画は変更できません。');
-        const [oldWidth, oldHeight] = String(meta.output?.resolution ?? '').split('x').map(Number);
+        const previousSize = frameSizeFromResolution(meta.output?.resolution)
+            ?? frameSizeFromPng(await fs.readFile(join(root, source.path)));
+        if (!previousSize) throw new Error('文字カードの寸法を読み取れませんでした。');
         const canvas = edit.output;
-        const previousSize = Number.isFinite(oldWidth) && Number.isFinite(oldHeight) && oldWidth > 0 && oldHeight > 0
-            ? { width: oldWidth, height: oldHeight } : { width: canvas.width, height: canvas.height };
         const image = await this.createEmptyGenerationFrame({ projectRootUri: request.projectRootUri,
             durationSeconds: item.duration / canvas.fps, aspect: request.aspect });
         if (meta.next || meta.inputs?.prompt) {
