@@ -25,7 +25,7 @@ import { previewDomOpacity } from '../common/preview-motion-opacity';
 import { withPreviewPosition } from '../common/preview-motion-write';
 import { previewMotionGeometryTransform, previewMotionBoxHitAt } from '../common/preview-motion-geometry';
 import { motionDrawFinishTransition } from '../common/preview-motion-draw-finish';
-import { motionDrawWriteGuard } from '../common/motion-draw-write-guard';
+import { createMotionDrawPointerOwnership } from '../common/preview-motion-pointer-owner';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
@@ -20843,22 +20843,14 @@ body { display: grid; place-items: center; padding: 32px; }
 
             let motionDraw = null;
             let motionStroke = null;
-            // 描画中と描画直後の同じ pointerup 処理の間、通常ドラッグの transform 書き込みを捨てる
-            let motionDrawWriteSuppress = false;
             const motionDrawFps = Number(summary.output.fps) || 30;
             const motionDrawFinishTransitionFn = (${motionDrawFinishTransition.toString()});
-            const motionDrawWriteGuardFn = (${motionDrawWriteGuard.toString()});
-            const motionDrawOverlayWrite = window.akari.engine.overlayWrite;
-            window.akari.engine.overlayWrite = (editPath, overlayId, patch) =>
-                (motionDraw || motionDrawWriteSuppress) && motionDrawWriteGuardFn(patch)
-                    ? Promise.resolve() : motionDrawOverlayWrite(editPath, overlayId, patch);
+            const motionDrawPointerOwnershipFn = (${createMotionDrawPointerOwnership.toString()});
+            const motionDrawPointerOwnership = motionDrawPointerOwnershipFn(() => window.akari.interaction);
             let motionDrawFinishState = { pointerId: null, claimed: false };
             const stopMotionDraw = () => {
                 motionDrawFinishState = { pointerId: null, claimed: true };
-                // interaction.js の通常ドラッグは pointerup の capture で先に走り、書き込みを
-                // マイクロタスクへ積む。その 1 回だけを捨てる（次のタスクで解除）。
-                motionDrawWriteSuppress = true;
-                window.setTimeout(() => { motionDrawWriteSuppress = false; }, 0);
+                motionDrawPointerOwnership.stop();
                 if (motionStroke && previewPane.hasPointerCapture?.(motionStroke.pointerId)) {
                     previewPane.releasePointerCapture(motionStroke.pointerId);
                 }
@@ -20942,9 +20934,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 feedback.show(motionDrawRangeText(null, existing));
                 previewPane.style.cursor = 'crosshair';
                 previewPane.title = '道筋を描きます。Esc で終わります';
+                motionDrawPointerOwnership.start();
+            });
+            window.addEventListener('message', event => {
+                const message = event.data;
+                const selected = message?.selection?.id ?? message?.layerId ?? message?.overlayId;
+                if (motionDraw && ['akari-preview-select-primary', 'akari-preview-select-overlay',
+                    'akari-preview-select-layer'].includes(message?.type) && selected && selected !== motionDraw.id) stopMotionDraw();
             });
             window.addEventListener('keydown', event => {
-                if (event.key === 'Escape' && motionDraw) stopMotionDraw();
+                if (event.key === 'Escape' && (motionDraw || motionDrawPointerOwnership.armed)) stopMotionDraw();
             });
             const motionDrawBox = draw => draw.kind === 'layer' ? layerSelectBox
                 : draw.kind === 'cut' ? cutSelectBox
@@ -20972,6 +20971,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     screen: [{ x: event.clientX, y: event.clientY }], started: performance.now() };
                 motionDrawFinishState = { pointerId: event.pointerId, claimed: false };
             };
+            window.addEventListener('pointerdown', () => {
+                if (motionDraw) motionDrawPointerOwnership.start();
+            }, true);
             previewPane.addEventListener('pointerdown', onMotionDrawPointerDown, true);
             const recordMotionDrawPoint = event => {
                 if (!motionStroke || event.pointerId !== motionStroke.pointerId) return;
@@ -21001,10 +21003,18 @@ body { display: grid; place-items: center; padding: 32px; }
                         ...window.akari.itemMotion.invertItemMotionPosition(source,
                             stroke.startTime + sample.ms / 1000, parents, sample.x, sample.y), ms: sample.ms
                     }));
-                    const points = window.akari.motionStroke.strokeToXYKeyframes(samples, {
+                    let points = window.akari.motionStroke.strokeToXYKeyframes(samples, {
                         fps: motionDrawFps, startFrame: Math.round((stroke.startTime - at) * motionDrawFps),
                         durationFrames: Math.round(duration * motionDrawFps), mode: 'speed'
                     });
+                    if (draw.kind === 'layer' && parents.length) {
+                        points = points.map(point => ({ ...point, transform: (() => {
+                            const position = window.akari.itemMotion.evaluateItemMotion({
+                                at, duration, fps: motionDrawFps, transform: point.transform
+                            }, at + point.t / motionDrawFps, parents);
+                            return { x: position.x, y: position.y };
+                        })() }));
+                    }
                     stopMotionDraw();
                     if (points.length < 2) throw new Error('道筋をもう少し長く描いてください。');
                     void (async () => {
@@ -21035,7 +21045,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 recordMotionDrawPoint(event);
             }, true);
             window.addEventListener('pointercancel', () => {
-                if (motionStroke) stopMotionDraw();
+                if (motionDraw) stopMotionDraw();
             }, true);
 
             Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {

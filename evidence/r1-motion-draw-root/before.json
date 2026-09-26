@@ -1,0 +1,3290 @@
+{
+  "label": "before",
+  "port": 9575,
+  "httpPort": 49001,
+  "parent": {
+    "x": 180,
+    "y": -80,
+    "scale": 0.8,
+    "rotate": 15
+  },
+  "drawIds": [
+    "top-photo",
+    "top-text",
+    "top-html",
+    "nested-photo",
+    "nested-text",
+    "nested-html"
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "seats": [],
+  "results": {
+    "draw": {
+      "top-photo": {
+        "id": "top-photo",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 418.73,
+            "y": 186.3
+          },
+          "swingX": 420,
+          "swingY": 140,
+          "box": {
+            "output": {
+              "x": 0,
+              "y": 1.5
+            },
+            "size": {
+              "w": 489,
+              "h": 312
+            },
+            "page": {
+              "x": 423.9140625,
+              "y": 189.759375
+            },
+            "count": 16689,
+            "mean": 225.6
+          }
+        },
+        "writes": 1,
+        "historyAfter": [
+          "2026-09-26T01-24-09-561Z-プレビューで変形を変更"
+        ],
+        "parent": null,
+        "previewPath": [
+          {
+            "frame": 30,
+            "local": {
+              "x": 0,
+              "y": 0
+            },
+            "visible": {
+              "output": {
+                "x": 0,
+                "y": 1.5
+              },
+              "size": {
+                "w": 489,
+                "h": 312
+              },
+              "page": {
+                "x": 423.9140625,
+                "y": 189.759375
+              },
+              "count": 16689,
+              "mean": 225.6
+            }
+          },
+          {
+            "frame": 57,
+            "local": {
+              "x": 420,
+              "y": 118.01204819277109
+            },
+            "visible": {
+              "output": {
+                "x": 420,
+                "y": 115.5
+              },
+              "size": {
+                "w": 489,
+                "h": 324
+              },
+              "page": {
+                "x": 496.5390625,
+                "y": 209.471875
+              },
+              "count": 16837,
+              "mean": 229.24
+            }
+          }
+        ],
+        "expectedWorldDelta": {
+          "x": 420,
+          "y": 118.01204819277109
+        },
+        "observedWorldDelta": {
+          "x": 420,
+          "y": 114
+        },
+        "pathErrorPx": 4.01,
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          41,
+          44,
+          51,
+          57
+        ],
+        "everyPointHasXY": true,
+        "positionGroupAligned": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 93.16265060240971,
+              "y": 43.23795180722891
+            }
+          },
+          {
+            "t": 41,
+            "transform": {
+              "x": 181.4909638554218,
+              "y": 74.09638554216872
+            }
+          },
+          {
+            "t": 44,
+            "transform": {
+              "x": 235.9789156626507,
+              "y": 85.57228915662654
+            }
+          },
+          {
+            "t": 51,
+            "transform": {
+              "x": 355.6626506024097,
+              "y": 99.8042168674699
+            }
+          },
+          {
+            "t": 57,
+            "transform": {
+              "x": 420,
+              "y": 118.01204819277109
+            }
+          }
+        ],
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "top-text": {
+        "id": "top-text",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 417.69,
+            "y": 186.04
+          },
+          "swingX": 420,
+          "swingY": 211.8,
+          "box": {
+            "output": {
+              "x": -6,
+              "y": 0
+            },
+            "size": {
+              "w": 291,
+              "h": 153
+            },
+            "page": {
+              "x": 422.8765625,
+              "y": 189.5
+            },
+            "count": 2953,
+            "mean": 198.32
+          }
+        },
+        "writes": 1,
+        "historyAfter": [
+          "2026-09-26T01-24-09-561Z-プレビューで変形を変更",
+          "2026-09-26T01-24-20-556Z-プレビューで変形を変更"
+        ],
+        "parent": null,
+        "previewPath": [
+          {
+            "frame": 30,
+            "local": {
+              "x": 0,
+              "y": 0
+            },
+            "visible": {
+              "output": {
+                "x": -6,
+                "y": 0
+              },
+              "size": {
+                "w": 291,
+                "h": 153
+              },
+              "page": {
+                "x": 422.8765625,
+                "y": 189.5
+              },
+              "count": 2953,
+              "mean": 198.32
+            }
+          },
+          {
+            "frame": 58,
+            "local": {
+              "x": 420.0000000000001,
+              "y": 189.8042168674699
+            },
+            "visible": {
+              "output": {
+                "x": 412.5,
+                "y": 190.5
+              },
+              "size": {
+                "w": 294,
+                "h": 150
+              },
+              "page": {
+                "x": 495.2421875,
+                "y": 222.440625
+              },
+              "count": 2933,
+              "mean": 199.43
+            }
+          }
+        ],
+        "expectedWorldDelta": {
+          "x": 420.0000000000001,
+          "y": 189.8042168674699
+        },
+        "observedWorldDelta": {
+          "x": 418.5,
+          "y": 190.5
+        },
+        "pathErrorPx": 1.65,
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          40,
+          45,
+          52,
+          58
+        ],
+        "everyPointHasXY": true,
+        "positionGroupAligned": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 93.16265060240971,
+              "y": 56.70180722891564
+            }
+          },
+          {
+            "t": 40,
+            "transform": {
+              "x": 152.8463855421686,
+              "y": 88.05722891566268
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 235.9789156626506,
+              "y": 121.4457831325301
+            }
+          },
+          {
+            "t": 52,
+            "transform": {
+              "x": 355.6626506024096,
+              "y": 158.132530120482
+            }
+          },
+          {
+            "t": 58,
+            "transform": {
+              "x": 420.0000000000001,
+              "y": 189.8042168674699
+            }
+          }
+        ],
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "top-html": {
+        "id": "top-html",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 419.25,
+            "y": 185.52
+          },
+          "swingX": 420,
+          "swingY": 233.39999999999998,
+          "box": {
+            "output": {
+              "x": 3,
+              "y": -3
+            },
+            "size": {
+              "w": 285,
+              "h": 189
+            },
+            "page": {
+              "x": 424.4328125,
+              "y": 188.98125
+            },
+            "count": 4830,
+            "mean": 228.92
+          }
+        },
+        "writes": 1,
+        "historyAfter": [
+          "2026-09-26T01-24-09-561Z-プレビューで変形を変更",
+          "2026-09-26T01-24-20-556Z-プレビューで変形を変更",
+          "2026-09-26T01-24-31-566Z-プレビューで変形を変更"
+        ],
+        "parent": null,
+        "previewPath": [
+          {
+            "frame": 30,
+            "local": {
+              "x": 0,
+              "y": 0
+            },
+            "visible": {
+              "output": {
+                "x": 3,
+                "y": -3
+              },
+              "size": {
+                "w": 285,
+                "h": 189
+              },
+              "page": {
+                "x": 424.4328125,
+                "y": 188.98125
+              },
+              "count": 4830,
+              "mean": 228.92
+            }
+          },
+          {
+            "frame": 57,
+            "local": {
+              "x": 420,
+              "y": 211.40060240963862
+            },
+            "visible": {
+              "output": {
+                "x": 423,
+                "y": 211.5
+              },
+              "size": {
+                "w": 285,
+                "h": 198
+              },
+              "page": {
+                "x": 497.0578125,
+                "y": 226.071875
+              },
+              "count": 4876,
+              "mean": 227.41
+            }
+          }
+        ],
+        "expectedWorldDelta": {
+          "x": 420,
+          "y": 211.40060240963862
+        },
+        "observedWorldDelta": {
+          "x": 420,
+          "y": 214.5
+        },
+        "pathErrorPx": 3.1,
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          40,
+          44,
+          51,
+          57
+        ],
+        "everyPointHasXY": true,
+        "positionGroupAligned": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 93.20783132530119,
+              "y": 60.768072289156635
+            }
+          },
+          {
+            "t": 40,
+            "transform": {
+              "x": 152.84638554216872,
+              "y": 94.83433734939763
+            }
+          },
+          {
+            "t": 44,
+            "transform": {
+              "x": 235.9789156626507,
+              "y": 132.28915662650604
+            }
+          },
+          {
+            "t": 51,
+            "transform": {
+              "x": 355.7078313253012,
+              "y": 175.70783132530119
+            }
+          },
+          {
+            "t": 57,
+            "transform": {
+              "x": 420,
+              "y": 211.40060240963862
+            }
+          }
+        ],
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "nested-photo": {
+        "id": "nested-photo",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 437.92,
+            "y": 173.33
+          },
+          "swingX": 269.6,
+          "swingY": 140,
+          "box": {
+            "output": {
+              "x": 111,
+              "y": -73.5
+            },
+            "size": {
+              "w": 87,
+              "h": 72
+            },
+            "page": {
+              "x": 443.1078125,
+              "y": 176.790625
+            },
+            "count": 392,
+            "mean": 206.78
+          }
+        },
+        "writes": 0,
+        "historyAfter": [
+          "2026-09-26T01-24-09-561Z-プレビューで変形を変更",
+          "2026-09-26T01-24-20-556Z-プレビューで変形を変更",
+          "2026-09-26T01-24-31-566Z-プレビューで変形を変更"
+        ],
+        "parent": {
+          "x": 180,
+          "y": -80,
+          "scale": 0.8,
+          "rotate": 15
+        },
+        "previewPath": [],
+        "expectedWorldDelta": null,
+        "observedWorldDelta": null,
+        "pathErrorPx": null,
+        "keyframesForm": "bag",
+        "pointCount": 0,
+        "pointTimes": [],
+        "everyPointHasXY": false,
+        "positionGroupAligned": false,
+        "firstPoints": [],
+        "undoRestored": null,
+        "redoRestored": null
+      },
+      "nested-text": {
+        "id": "nested-text",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 437.66,
+            "y": 173.07
+          },
+          "swingX": 377.6,
+          "swingY": 211.8,
+          "box": {
+            "output": {
+              "x": 109.5,
+              "y": -75
+            },
+            "size": {
+              "w": 222,
+              "h": 153
+            },
+            "page": {
+              "x": 442.8484375,
+              "y": 176.53125
+            },
+            "count": 1753,
+            "mean": 194.08
+          }
+        },
+        "writes": 1,
+        "historyAfter": [
+          "2026-09-26T01-24-09-561Z-プレビューで変形を変更",
+          "2026-09-26T01-24-20-556Z-プレビューで変形を変更",
+          "2026-09-26T01-24-31-566Z-プレビューで変形を変更",
+          "2026-09-26T01-25-00-685Z-プレビューで変形を変更"
+        ],
+        "parent": {
+          "x": 180,
+          "y": -80,
+          "scale": 0.8,
+          "rotate": 15
+        },
+        "previewPath": [
+          {
+            "frame": 30,
+            "local": {
+              "x": 111.96909003503913,
+              "y": -73.38219905562369
+            },
+            "visible": {
+              "output": {
+                "x": 280.5,
+                "y": -114
+              },
+              "size": {
+                "w": 222,
+                "h": 153
+              },
+              "page": {
+                "x": 472.4171875,
+                "y": 169.7875
+              },
+              "count": 1741,
+              "mean": 194.8
+            }
+          },
+          {
+            "frame": 58,
+            "local": {
+              "x": 489.5895719627498,
+              "y": 116.42201781184622
+            },
+            "visible": {
+              "output": {
+                "x": 532.5,
+                "y": 111
+              },
+              "size": {
+                "w": 222,
+                "h": 153
+              },
+              "page": {
+                "x": 515.9921875,
+                "y": 208.69375
+              },
+              "count": 1752,
+              "mean": 194.44
+            }
+          }
+        ],
+        "expectedWorldDelta": {
+          "x": 252.50274389090384,
+          "y": 224.85773404363533
+        },
+        "observedWorldDelta": {
+          "x": 252,
+          "y": 225
+        },
+        "pathErrorPx": 0.52,
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          40,
+          45,
+          52,
+          58
+        ],
+        "everyPointHasXY": true,
+        "positionGroupAligned": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 111.96909003503913,
+              "y": -73.38219905562369
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 197.22511413142468,
+              "y": -16.68039182670799
+            }
+          },
+          {
+            "t": 40,
+            "transform": {
+              "x": 251.5775237699787,
+              "y": 14.67502986003899
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 326.75824666154506,
+              "y": 48.06358407690641
+            }
+          },
+          {
+            "t": 52,
+            "transform": {
+              "x": 433.20402979407515,
+              "y": 84.7503310648583
+            }
+          },
+          {
+            "t": 58,
+            "transform": {
+              "x": 489.5895719627498,
+              "y": 116.42201781184622
+            }
+          }
+        ],
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "nested-html": {
+        "id": "nested-html",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 438.18,
+            "y": 173.33
+          },
+          "swingX": 372.8,
+          "swingY": 235.2,
+          "box": {
+            "output": {
+              "x": 112.5,
+              "y": -73.5
+            },
+            "size": {
+              "w": 216,
+              "h": 192
+            },
+            "page": {
+              "x": 443.3671875,
+              "y": 176.790625
+            },
+            "count": 2720,
+            "mean": 227.34
+          }
+        },
+        "writes": 1,
+        "historyAfter": [
+          "2026-09-26T01-24-09-561Z-プレビューで変形を変更",
+          "2026-09-26T01-24-20-556Z-プレビューで変形を変更",
+          "2026-09-26T01-24-31-566Z-プレビューで変形を変更",
+          "2026-09-26T01-25-00-685Z-プレビューで変形を変更",
+          "2026-09-26T01-25-12-253Z-プレビューで変形を変更"
+        ],
+        "parent": {
+          "x": 180,
+          "y": -80,
+          "scale": 0.8,
+          "rotate": 15
+        },
+        "previewPath": [
+          {
+            "frame": 30,
+            "local": {
+              "x": 111.96909003503913,
+              "y": -73.38219905562369
+            },
+            "visible": {
+              "output": {
+                "x": 283.5,
+                "y": -112.5
+              },
+              "size": {
+                "w": 216,
+                "h": 192
+              },
+              "page": {
+                "x": 472.9359375,
+                "y": 170.046875
+              },
+              "count": 2716,
+              "mean": 227.62
+            }
+          },
+          {
+            "frame": 58,
+            "local": {
+              "x": 484.7552346133524,
+              "y": 139.8256322696775
+            },
+            "visible": {
+              "output": {
+                "x": 526.5,
+                "y": 130.5
+              },
+              "size": {
+                "w": 216,
+                "h": 192
+              },
+              "page": {
+                "x": 514.9546875,
+                "y": 212.065625
+              },
+              "count": 2714,
+              "mean": 227.84
+            }
+          }
+        ],
+        "expectedWorldDelta": {
+          "x": 243.92121393514367,
+          "y": 241.94168368912094
+        },
+        "observedWorldDelta": {
+          "x": 243,
+          "y": 243
+        },
+        "pathErrorPx": 1.4,
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          40,
+          43,
+          52,
+          58
+        ],
+        "everyPointHasXY": true,
+        "positionGroupAligned": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 111.96909003503913,
+              "y": -73.38219905562369
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 196.2763189507017,
+              "y": -12.252680983334528
+            }
+          },
+          {
+            "t": 40,
+            "transform": {
+              "x": 250.08655991455714,
+              "y": 21.994306968472756
+            }
+          },
+          {
+            "t": 43,
+            "transform": {
+              "x": 300.55342738443676,
+              "y": 48.92201781184622
+            }
+          },
+          {
+            "t": 52,
+            "transform": {
+              "x": 429.27330690250903,
+              "y": 103.77141540220771
+            }
+          },
+          {
+            "t": 58,
+            "transform": {
+              "x": 484.7552346133524,
+              "y": 139.8256322696775
+            }
+          }
+        ],
+        "undoRestored": true,
+        "redoRestored": true
+      }
+    },
+    "regression": {
+      "normal": {
+        "text-drag": {
+          "name": "reg-text-drag",
+          "frame": 20,
+          "seeked": {
+            "actual": 30.667,
+            "actualFrame": 20
+          },
+          "detail": {
+            "select": {
+              "selected": false,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 55.33
+                },
+                "selectedId": "reg-text",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "via": "none",
+              "info": {
+                "layer": false,
+                "cut": false,
+                "tree": true,
+                "overlay": true
+              },
+              "box": {
+                "output": {
+                  "x": -6,
+                  "y": 0
+                },
+                "size": {
+                  "w": 291,
+                  "h": 153
+                },
+                "page": {
+                  "x": 422.8765625,
+                  "y": 189.5
+                },
+                "count": 2953,
+                "mean": 198.32
+              }
+            },
+            "drag": {
+              "start": {
+                "x": 422.8765625,
+                "y": 189.5
+              },
+              "target": {
+                "x": 443.6265625,
+                "y": 201.60416666666666
+              }
+            },
+            "expectedDelta": {
+              "x": 120,
+              "y": 70
+            }
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": -6,
+              "y": 0
+            },
+            "size": {
+              "w": 297,
+              "h": 153
+            },
+            "page": {
+              "x": 422.8765625,
+              "y": 189.5
+            },
+            "count": 3259,
+            "mean": 208.01
+          },
+          "afterVisible": {
+            "output": {
+              "x": 114,
+              "y": 79.5
+            },
+            "size": {
+              "w": 291,
+              "h": 150
+            },
+            "page": {
+              "x": 443.6265625,
+              "y": 203.246875
+            },
+            "count": 2960,
+            "mean": 197.6
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 114,
+              "y": 79.5
+            },
+            "size": {
+              "w": 291,
+              "h": 150
+            },
+            "page": {
+              "x": 443.6265625,
+              "y": 203.246875
+            },
+            "count": 2960,
+            "mean": 197.6
+          },
+          "visibleDelta": {
+            "dx": 120,
+            "dy": 79.5,
+            "dw": -6,
+            "dh": -3
+          },
+          "visibleMovedAsExpected": true,
+          "expectedDelta": {
+            "x": 120,
+            "y": 70
+          },
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 120.00000000000011,
+            "y": 80.00005882906623,
+            "scale": 0.8,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 120.00000000000011,
+            "y": 80.00005882906623,
+            "scale": 0.8,
+            "scaleX": 0.8,
+            "scaleY": 0.8,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        },
+        "text-resize": {
+          "name": "reg-text-resize",
+          "frame": 45,
+          "seeked": {
+            "actual": 31.5,
+            "actualFrame": 45
+          },
+          "detail": {
+            "select": {
+              "selected": false,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 55.33
+                },
+                "selectedId": "reg-text",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "via": "none",
+              "info": {
+                "layer": false,
+                "cut": false,
+                "tree": true,
+                "overlay": true
+              },
+              "box": {
+                "output": {
+                  "x": 114,
+                  "y": 79.5
+                },
+                "size": {
+                  "w": 291,
+                  "h": 150
+                },
+                "page": {
+                  "x": 443.6265625,
+                  "y": 203.246875
+                },
+                "count": 2960,
+                "mean": 197.6
+              }
+            },
+            "handle": "se"
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 114,
+              "y": 79.5
+            },
+            "size": {
+              "w": 291,
+              "h": 150
+            },
+            "page": {
+              "x": 443.6265625,
+              "y": 203.246875
+            },
+            "count": 2960,
+            "mean": 197.6
+          },
+          "afterVisible": {
+            "output": {
+              "x": 156,
+              "y": 102
+            },
+            "size": {
+              "w": 375,
+              "h": 195
+            },
+            "page": {
+              "x": 450.8890625,
+              "y": 207.1375
+            },
+            "count": 4837,
+            "mean": 206.39
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 156,
+              "y": 102
+            },
+            "size": {
+              "w": 375,
+              "h": 195
+            },
+            "page": {
+              "x": 450.8890625,
+              "y": 207.1375
+            },
+            "count": 4837,
+            "mean": 206.39
+          },
+          "visibleDelta": {
+            "dx": 42,
+            "dy": 22.5,
+            "dw": 84,
+            "dh": 45
+          },
+          "visibleMovedAsExpected": null,
+          "expectedDelta": null,
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": 120.00000000000011,
+            "y": 80.00005882906623,
+            "scale": 0.8,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 164.48490282928196,
+            "y": 102.24252251091721,
+            "scale": 1.022424473255709,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 164.48490282928196,
+            "y": 102.24252251091721,
+            "scale": 1.022424473255709,
+            "scaleX": 1.022424473255709,
+            "scaleY": 1.022424473255709,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        },
+        "text-rotate": {
+          "name": "reg-text-rotate",
+          "frame": 70,
+          "seeked": {
+            "actual": 32.333,
+            "actualFrame": 70
+          },
+          "detail": {
+            "select": {
+              "selected": false,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 70.71
+                },
+                "selectedId": "reg-text",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "via": "none",
+              "info": {
+                "layer": false,
+                "cut": false,
+                "tree": true,
+                "overlay": true
+              },
+              "box": {
+                "output": {
+                  "x": 156,
+                  "y": 102
+                },
+                "size": {
+                  "w": 375,
+                  "h": 195
+                },
+                "page": {
+                  "x": 450.8890625,
+                  "y": 207.1375
+                },
+                "count": 4837,
+                "mean": 206.39
+              }
+            },
+            "handle": "rotate"
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 156,
+              "y": 102
+            },
+            "size": {
+              "w": 375,
+              "h": 195
+            },
+            "page": {
+              "x": 450.8890625,
+              "y": 207.1375
+            },
+            "count": 4837,
+            "mean": 206.39
+          },
+          "afterVisible": {
+            "output": {
+              "x": 153,
+              "y": 105
+            },
+            "size": {
+              "w": 381,
+              "h": 315
+            },
+            "page": {
+              "x": 450.3703125,
+              "y": 207.65625
+            },
+            "count": 4882,
+            "mean": 213.54
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 153,
+              "y": 105
+            },
+            "size": {
+              "w": 381,
+              "h": 315
+            },
+            "page": {
+              "x": 450.3703125,
+              "y": 207.65625
+            },
+            "count": 4882,
+            "mean": 213.54
+          },
+          "visibleDelta": {
+            "dx": -3,
+            "dy": 3,
+            "dw": 6,
+            "dh": 120
+          },
+          "visibleMovedAsExpected": null,
+          "expectedDelta": null,
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": 164.48490282928196,
+            "y": 102.24252251091721,
+            "scale": 1.022424473255709,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 164.48485675770698,
+            "y": 102.24252154508285,
+            "scale": 1.022424473255709,
+            "rotate": -29.957042237950077
+          },
+          "evaluatedAtFrame": {
+            "x": 164.48485675770698,
+            "y": 102.24252154508285,
+            "scale": 1.022424473255709,
+            "scaleX": 1.022424473255709,
+            "scaleY": 1.022424473255709,
+            "rotate": -29.957042237950077
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        },
+        "html-drag": {
+          "name": "reg-html-drag",
+          "frame": 20,
+          "seeked": {
+            "actual": 35.667,
+            "actualFrame": 20
+          },
+          "detail": {
+            "select": {
+              "selected": false,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 49.8
+                },
+                "selectedId": "reg-html",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "via": "none",
+              "info": {
+                "layer": false,
+                "cut": false,
+                "tree": true,
+                "overlay": true
+              },
+              "box": {
+                "output": {
+                  "x": 3,
+                  "y": -3
+                },
+                "size": {
+                  "w": 285,
+                  "h": 189
+                },
+                "page": {
+                  "x": 424.4328125,
+                  "y": 188.98125
+                },
+                "count": 4830,
+                "mean": 228.92
+              }
+            },
+            "drag": {
+              "start": {
+                "x": 424.4328125,
+                "y": 188.98125
+              },
+              "target": {
+                "x": 445.1828125,
+                "y": 201.08541666666665
+              }
+            },
+            "expectedDelta": {
+              "x": 120,
+              "y": 70
+            }
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 0,
+              "y": 0
+            },
+            "size": {
+              "w": 291,
+              "h": 195
+            },
+            "page": {
+              "x": 423.9140625,
+              "y": 189.5
+            },
+            "count": 6305,
+            "mean": 238.78
+          },
+          "afterVisible": {
+            "output": {
+              "x": 141,
+              "y": 99
+            },
+            "size": {
+              "w": 285,
+              "h": 189
+            },
+            "page": {
+              "x": 448.2953125,
+              "y": 206.61875
+            },
+            "count": 4827,
+            "mean": 229.27
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 141,
+              "y": 99
+            },
+            "size": {
+              "w": 285,
+              "h": 189
+            },
+            "page": {
+              "x": 448.2953125,
+              "y": 206.61875
+            },
+            "count": 4827,
+            "mean": 229.27
+          },
+          "visibleDelta": {
+            "dx": 141,
+            "dy": 99,
+            "dw": -6,
+            "dh": -6
+          },
+          "visibleMovedAsExpected": false,
+          "expectedDelta": {
+            "x": 120,
+            "y": 70
+          },
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 143.9999647025602,
+            "y": 96.0000352974397,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 143.9999647025602,
+            "y": 96.0000352974397,
+            "scale": 0.6,
+            "scaleX": 0.6,
+            "scaleY": 0.6,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        },
+        "html-resize": {
+          "name": "reg-html-resize",
+          "frame": 45,
+          "seeked": {
+            "actual": 36.5,
+            "actualFrame": 45
+          },
+          "detail": {
+            "select": {
+              "selected": false,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 49.8
+                },
+                "selectedId": "reg-html",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "via": "none",
+              "info": {
+                "layer": false,
+                "cut": false,
+                "tree": true,
+                "overlay": true
+              },
+              "box": {
+                "output": {
+                  "x": 141,
+                  "y": 99
+                },
+                "size": {
+                  "w": 285,
+                  "h": 189
+                },
+                "page": {
+                  "x": 448.2953125,
+                  "y": 206.61875
+                },
+                "count": 4827,
+                "mean": 229.27
+              }
+            },
+            "handle": "se"
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 141,
+              "y": 99
+            },
+            "size": {
+              "w": 285,
+              "h": 189
+            },
+            "page": {
+              "x": 448.2953125,
+              "y": 206.61875
+            },
+            "count": 4827,
+            "mean": 229.27
+          },
+          "afterVisible": {
+            "output": {
+              "x": 187.5,
+              "y": 129
+            },
+            "size": {
+              "w": 378,
+              "h": 249
+            },
+            "page": {
+              "x": 456.3359375,
+              "y": 211.80625
+            },
+            "count": 8829,
+            "mean": 234.46
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 187.5,
+              "y": 129
+            },
+            "size": {
+              "w": 378,
+              "h": 249
+            },
+            "page": {
+              "x": 456.3359375,
+              "y": 211.80625
+            },
+            "count": 8829,
+            "mean": 234.46
+          },
+          "visibleDelta": {
+            "dx": 46.5,
+            "dy": 30,
+            "dw": 93,
+            "dh": 60
+          },
+          "visibleMovedAsExpected": null,
+          "expectedDelta": null,
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": 143.9999647025602,
+            "y": 96.0000352974397,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 186.78746112240125,
+            "y": 124.525050390869,
+            "scale": 0.778281278783176,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 186.78746112240125,
+            "y": 124.525050390869,
+            "scale": 0.778281278783176,
+            "scaleX": 0.778281278783176,
+            "scaleY": 0.778281278783176,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        },
+        "html-rotate": {
+          "name": "reg-html-rotate",
+          "frame": 70,
+          "seeked": {
+            "actual": 37.333,
+            "actualFrame": 70
+          },
+          "detail": {
+            "select": {
+              "selected": false,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 64.59
+                },
+                "selectedId": "reg-html",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "via": "none",
+              "info": {
+                "layer": false,
+                "cut": false,
+                "tree": true,
+                "overlay": true
+              },
+              "box": {
+                "output": {
+                  "x": 187.5,
+                  "y": 129
+                },
+                "size": {
+                  "w": 378,
+                  "h": 249
+                },
+                "page": {
+                  "x": 456.3359375,
+                  "y": 211.80625
+                },
+                "count": 8829,
+                "mean": 234.46
+              }
+            },
+            "handle": "rotate"
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 187.5,
+              "y": 129
+            },
+            "size": {
+              "w": 378,
+              "h": 249
+            },
+            "page": {
+              "x": 456.3359375,
+              "y": 211.80625
+            },
+            "count": 8829,
+            "mean": 234.46
+          },
+          "afterVisible": {
+            "output": {
+              "x": 186,
+              "y": 126
+            },
+            "size": {
+              "w": 411,
+              "h": 369
+            },
+            "page": {
+              "x": 456.0765625,
+              "y": 211.2875
+            },
+            "count": 8963,
+            "mean": 237.9
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 186,
+              "y": 126
+            },
+            "size": {
+              "w": 411,
+              "h": 369
+            },
+            "page": {
+              "x": 456.0765625,
+              "y": 211.2875
+            },
+            "count": 8963,
+            "mean": 237.9
+          },
+          "visibleDelta": {
+            "dx": -1.5,
+            "dy": -3,
+            "dw": 33,
+            "dh": 120
+          },
+          "visibleMovedAsExpected": null,
+          "expectedDelta": null,
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": 186.78746112240125,
+            "y": 124.525050390869,
+            "scale": 0.778281278783176,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 186.78746657137734,
+            "y": 124.52505735316458,
+            "scale": 0.778281278783176,
+            "rotate": -29.5268045853191
+          },
+          "evaluatedAtFrame": {
+            "x": 186.78746657137734,
+            "y": 124.52505735316458,
+            "scale": 0.778281278783176,
+            "scaleX": 0.778281278783176,
+            "scaleY": 0.778281278783176,
+            "rotate": -29.5268045853191
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        },
+        "photo-drag": {
+          "name": "reg-photo-drag",
+          "frame": 20,
+          "seeked": {
+            "actual": 40.667,
+            "actualFrame": 20
+          },
+          "detail": {
+            "select": {
+              "selected": true,
+              "state": {
+                "layer": null,
+                "cut": {
+                  "x": 201.9921875,
+                  "y": 150.49609375,
+                  "w": 100
+                },
+                "layerHostPresent": false,
+                "overlay": false,
+                "frame": null,
+                "selectedId": null,
+                "handles": []
+              },
+              "via": "event",
+              "info": {
+                "layer": false,
+                "cut": true,
+                "tree": false,
+                "overlay": false
+              },
+              "box": {
+                "output": {
+                  "x": 0,
+                  "y": 1.5
+                },
+                "size": {
+                  "w": 489,
+                  "h": 312
+                },
+                "page": {
+                  "x": 423.9140625,
+                  "y": 189.759375
+                },
+                "count": 16699,
+                "mean": 225.72
+              }
+            },
+            "handle": "move",
+            "expectedDelta": {
+              "x": 120,
+              "y": 70
+            }
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 0,
+              "y": 0
+            },
+            "size": {
+              "w": 489,
+              "h": 327
+            },
+            "page": {
+              "x": 423.9140625,
+              "y": 189.5
+            },
+            "count": 17765,
+            "mean": 230.11
+          },
+          "afterVisible": {
+            "output": {
+              "x": 120,
+              "y": 70.5
+            },
+            "size": {
+              "w": 489,
+              "h": 312
+            },
+            "page": {
+              "x": 444.6640625,
+              "y": 201.690625
+            },
+            "count": 16697,
+            "mean": 225.66
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 120,
+              "y": 70.5
+            },
+            "size": {
+              "w": 489,
+              "h": 312
+            },
+            "page": {
+              "x": 444.6640625,
+              "y": 201.690625
+            },
+            "count": 16697,
+            "mean": 225.66
+          },
+          "visibleDelta": {
+            "dx": 120,
+            "dy": 70.5,
+            "dw": 0,
+            "dh": -15
+          },
+          "visibleMovedAsExpected": true,
+          "expectedDelta": {
+            "x": 120,
+            "y": 70
+          },
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.3,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 119.99999999999999,
+            "y": 69.98493975903614,
+            "scale": 0.3,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 119.99999999999999,
+            "y": 69.98493975903614,
+            "scale": 0.3,
+            "scaleX": 0.3,
+            "scaleY": 0.3,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        },
+        "nested-photo-handle": {
+          "name": "reg-nested-photo-handle",
+          "frame": 45,
+          "seeked": {
+            "actual": 46.5,
+            "actualFrame": 45
+          },
+          "detail": {
+            "select": {
+              "selected": true,
+              "state": {
+                "layer": {
+                  "x": 221.35546875,
+                  "y": 137.80078125,
+                  "w": 23
+                },
+                "cut": null,
+                "layerHostPresent": true,
+                "overlay": false,
+                "frame": null,
+                "selectedId": null,
+                "handles": []
+              },
+              "via": "timeline",
+              "info": {
+                "layer": true,
+                "cut": false,
+                "tree": false,
+                "overlay": false
+              },
+              "box": {
+                "output": {
+                  "x": 111,
+                  "y": -73.5
+                },
+                "size": {
+                  "w": 87,
+                  "h": 72
+                },
+                "page": {
+                  "x": 443.1078125,
+                  "y": 176.790625
+                },
+                "count": 392,
+                "mean": 206.78
+              }
+            },
+            "handle": "se"
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 112.5,
+              "y": -73.5
+            },
+            "size": {
+              "w": 132,
+              "h": 108
+            },
+            "page": {
+              "x": 443.3671875,
+              "y": 176.790625
+            },
+            "count": 1032,
+            "mean": 221.91
+          },
+          "afterVisible": {
+            "output": {
+              "x": 142.5,
+              "y": -31.5
+            },
+            "size": {
+              "w": 204,
+              "h": 150
+            },
+            "page": {
+              "x": 448.5546875,
+              "y": 184.053125
+            },
+            "count": 2003,
+            "mean": 220.29
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 142.5,
+              "y": -31.5
+            },
+            "size": {
+              "w": 204,
+              "h": 150
+            },
+            "page": {
+              "x": 448.5546875,
+              "y": 184.053125
+            },
+            "count": 2003,
+            "mean": 220.29
+          },
+          "visibleDelta": {
+            "dx": 30,
+            "dy": 42,
+            "dw": 72,
+            "dh": 42
+          },
+          "visibleMovedAsExpected": null,
+          "expectedDelta": null,
+          "noRevert": true,
+          "pointCreated": false,
+          "pointAtFrame": null,
+          "pointHasX": null,
+          "pointHasY": null,
+          "pointTimes": [],
+          "lastPoint": null,
+          "staticBefore": {
+            "x": -80,
+            "y": 30,
+            "scale": 0.3,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": -25.36852795720965,
+            "y": 66.43643210192953,
+            "scale": 0.5274416655264568,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": -25.36852795720965,
+            "y": 66.43643210192953,
+            "scale": 0.5274416655264568,
+            "scaleX": 0.5274416655264568,
+            "scaleY": 0.5274416655264568,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true,
+          "passed": true,
+          "effect": true
+        }
+      },
+      "photo-selection": {
+        "selected": {
+          "selected": true,
+          "state": {
+            "layer": null,
+            "cut": {
+              "x": 222.7421875,
+              "y": 162.59765625,
+              "w": 100
+            },
+            "layerHostPresent": false,
+            "overlay": false,
+            "frame": null,
+            "selectedId": null,
+            "handles": []
+          },
+          "via": "event",
+          "info": {
+            "layer": false,
+            "cut": true,
+            "tree": false,
+            "overlay": false
+          },
+          "box": {
+            "output": {
+              "x": 120,
+              "y": 70.5
+            },
+            "size": {
+              "w": 489,
+              "h": 312
+            },
+            "page": {
+              "x": 444.6640625,
+              "y": 201.690625
+            },
+            "count": 16697,
+            "mean": 229.71
+          }
+        },
+        "writes": 0,
+        "passed": true
+      },
+      "marquee": {
+        "writes": 0,
+        "hitChain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark"
+        ],
+        "startDecision": {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "allow": true
+        },
+        "live": {
+          "marquee": true,
+          "hits": 1
+        },
+        "selection": {
+          "layer": null,
+          "cut": null,
+          "layerHostPresent": false,
+          "overlay": true,
+          "frame": {
+            "hidden": false,
+            "connected": true,
+            "w": 49.8
+          },
+          "selectedId": "reg-marquee",
+          "handles": []
+        },
+        "events": [
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 46,
+            "y": 63
+          },
+          {
+            "type": "pointerdown",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 46,
+            "y": 63
+          },
+          {
+            "type": "decision",
+            "allow": true,
+            "target": "preview-stage"
+          },
+          {
+            "type": "decision",
+            "allow": true,
+            "target": "preview-stage"
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 72,
+            "y": 77
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 98,
+            "y": 92
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 124,
+            "y": 107
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 150,
+            "y": 121
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 176,
+            "y": 136
+          },
+          {
+            "type": "pointermove",
+            "target": "DIV",
+            "shift": true,
+            "x": 202,
+            "y": 151
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 228,
+            "y": 165
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 254,
+            "y": 180
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 280,
+            "y": 194
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 306,
+            "y": 209
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 332,
+            "y": 224
+          },
+          {
+            "type": "pointermove",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 358,
+            "y": 238
+          },
+          {
+            "type": "pointerup",
+            "target": "preview-stage",
+            "shift": true,
+            "x": 358,
+            "y": 238
+          }
+        ],
+        "passed": true,
+        "sourceLabel": "before-marquee"
+      },
+      "marqueeInitial": {
+        "writes": 0,
+        "hitChain": [
+          "DIV#preview-stage.",
+          "DIV#zoom-layer.",
+          "DIV#preview-wrapper.",
+          "SECTION.preview-pane",
+          "MAIN.workspace",
+          "BODY.vscode-dark"
+        ],
+        "startDecision": {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "allow": true
+        },
+        "live": {
+          "marquee": false,
+          "hits": 0
+        },
+        "selection": {
+          "layer": null,
+          "cut": null,
+          "layerHostPresent": false,
+          "overlay": false,
+          "frame": null,
+          "selectedId": null,
+          "handles": []
+        },
+        "passed": false
+      },
+      "photo-body": {
+        "name": "reg-photo-body-drag",
+        "frame": 20,
+        "seeked": {
+          "actual": 0,
+          "actualFrame": 0
+        },
+        "detail": {
+          "select": {
+            "selected": true,
+            "state": {
+              "layer": null,
+              "cut": {
+                "x": 201.9921875,
+                "y": 150.49609375,
+                "w": 100
+              },
+              "layerHostPresent": false,
+              "overlay": false,
+              "frame": null,
+              "selectedId": null,
+              "handles": []
+            },
+            "via": "timeline",
+            "info": {
+              "layer": false,
+              "cut": true,
+              "tree": false,
+              "overlay": false
+            },
+            "box": {
+              "output": {
+                "x": 0,
+                "y": 1.5
+              },
+              "size": {
+                "w": 489,
+                "h": 312
+              },
+              "page": {
+                "x": 423.9140625,
+                "y": 189.759375
+              },
+              "count": 16689,
+              "mean": 225.6
+            }
+          },
+          "hitChain": [
+            "DIV#preview-stage.",
+            "DIV#zoom-layer.",
+            "DIV#preview-wrapper.",
+            "SECTION.preview-pane",
+            "MAIN.workspace",
+            "BODY.vscode-dark"
+          ],
+          "drag": {
+            "start": {
+              "x": 423.9140625,
+              "y": 189.759375
+            },
+            "target": {
+              "x": 444.6640625,
+              "y": 201.86354166666666
+            }
+          },
+          "expectedDelta": {
+            "x": 120,
+            "y": 70
+          }
+        },
+        "actError": null,
+        "writes": 1,
+        "noWrite": false,
+        "beforeVisible": {
+          "output": {
+            "x": 1.5,
+            "y": 0
+          },
+          "size": {
+            "w": 486,
+            "h": 327
+          },
+          "page": {
+            "x": 424.1734375,
+            "y": 189.5
+          },
+          "count": 17658,
+          "mean": 231.29
+        },
+        "afterVisible": {
+          "output": {
+            "x": 120,
+            "y": 70.5
+          },
+          "size": {
+            "w": 489,
+            "h": 312
+          },
+          "page": {
+            "x": 444.6640625,
+            "y": 201.690625
+          },
+          "count": 16698,
+          "mean": 229.7
+        },
+        "reseekVisible": {
+          "output": {
+            "x": 120,
+            "y": 70.5
+          },
+          "size": {
+            "w": 489,
+            "h": 312
+          },
+          "page": {
+            "x": 444.6640625,
+            "y": 201.690625
+          },
+          "count": 16698,
+          "mean": 229.7
+        },
+        "visibleDelta": {
+          "dx": 118.5,
+          "dy": 70.5,
+          "dw": 3,
+          "dh": -15
+        },
+        "visibleMovedAsExpected": true,
+        "expectedDelta": {
+          "x": 120,
+          "y": 70
+        },
+        "noRevert": true,
+        "pointCreated": false,
+        "pointAtFrame": null,
+        "pointHasX": null,
+        "pointHasY": null,
+        "pointTimes": [],
+        "lastPoint": null,
+        "staticBefore": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.3,
+          "rotate": 0
+        },
+        "staticAfter": {
+          "x": 119.99999999999999,
+          "y": 69.98493975903614,
+          "scale": 0.3,
+          "rotate": 0
+        },
+        "evaluatedAtFrame": {
+          "x": 119.99999999999999,
+          "y": 69.98493975903614,
+          "scale": 0.3,
+          "scaleX": 0.3,
+          "scaleY": 0.3,
+          "rotate": 0
+        },
+        "undoRestored": true,
+        "redoRestored": true,
+        "passed": true,
+        "effect": true,
+        "sourceLabel": "before-photo-body"
+      }
+    },
+    "writeErrors": [],
+    "hookCheck": {
+      "consoleWrapped": true,
+      "engineWrapped": true,
+      "engineType": "function",
+      "errors": 0,
+      "editPath": "file://<scratch>/project/edit.json"
+    },
+    "compare": {
+      "top-photo": [
+        30,
+        33,
+        41,
+        51,
+        54,
+        57
+      ],
+      "top-text": [
+        30,
+        33,
+        40,
+        52,
+        55,
+        58
+      ],
+      "top-html": [
+        30,
+        33,
+        40,
+        51,
+        54,
+        57
+      ],
+      "nested-photo": [
+        10,
+        40,
+        75,
+        110,
+        140
+      ],
+      "nested-text": [
+        30,
+        33,
+        40,
+        52,
+        55,
+        58
+      ],
+      "nested-html": [
+        30,
+        33,
+        40,
+        52,
+        55,
+        58
+      ]
+    },
+    "motionBagPaths": [],
+    "contextLosses": [
+      {
+        "at": "2026-09-26T01:25:25.293Z",
+        "step": "reg-text-drag",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:25:31.407Z",
+        "step": "reg-text-resize",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:25:37.155Z",
+        "step": "reg-text-resize",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:25:43.254Z",
+        "step": "reg-text-rotate",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:25:49.268Z",
+        "step": "reg-text-rotate",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:25:55.364Z",
+        "step": "reg-html-drag",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:26:01.271Z",
+        "step": "reg-html-drag",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:26:07.401Z",
+        "step": "reg-html-resize",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:26:13.137Z",
+        "step": "reg-html-resize",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:26:19.304Z",
+        "step": "reg-html-rotate",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:26:25.387Z",
+        "step": "reg-html-rotate",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T01:26:31.607Z",
+        "step": "reg-photo-drag",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      }
+    ],
+    "targetEvents": [
+      {
+        "event": "changed",
+        "targetId": "461444C606C31351B1AC11F57E70A4D4",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T01:23:27.824Z"
+      },
+      {
+        "event": "created",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "targetId": "103F603924F89EEFC38B3263514B8FBB",
+        "at": "2026-09-26T01:23:27.877Z"
+      },
+      {
+        "event": "changed",
+        "targetId": "461444C606C31351B1AC11F57E70A4D4",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T01:23:30.337Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "103F603924F89EEFC38B3263514B8FBB",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "at": "2026-09-26T01:23:58.480Z"
+      },
+      {
+        "event": "created",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "targetId": "EC2F01610CC5B61BDAD1A5FA820DE0FF",
+        "at": "2026-09-26T01:24:05.710Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "EC2F01610CC5B61BDAD1A5FA820DE0FF",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "at": "2026-09-26T01:24:35.721Z"
+      },
+      {
+        "event": "created",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "targetId": "892F4A748BEDD2F6AFC7EF9E4817F5A5",
+        "at": "2026-09-26T01:24:37.952Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "892F4A748BEDD2F6AFC7EF9E4817F5A5",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "at": "2026-09-26T01:25:07.960Z"
+      },
+      {
+        "event": "created",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "targetId": "8F9AC105EF9856F87BB95764E559E28C",
+        "at": "2026-09-26T01:25:24.011Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "824E7CF9FCFD6E10BFF16937BA09F161",
+        "url": "",
+        "at": "2026-09-26T01:25:24.200Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "3B698208135F5E5ACD1F30869CFDD79B",
+        "url": "",
+        "at": "2026-09-26T01:25:29.119Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "E300E350A0D42053D8265C62FD6CAA01",
+        "url": "",
+        "at": "2026-09-26T01:25:29.894Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "9FF7398FD2E1E81E7C140E2CCBE4047A",
+        "url": "",
+        "at": "2026-09-26T01:25:35.893Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "BD0B85765995BAAD2B272DB9C01E3179",
+        "url": "",
+        "at": "2026-09-26T01:25:40.998Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "6F780222E85456D940A2641D38C138A3",
+        "url": "",
+        "at": "2026-09-26T01:25:41.713Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "B86A70DAF0B28DE1FFB66A815B9D841A",
+        "url": "",
+        "at": "2026-09-26T01:25:48.028Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "3D0F0F64F2D1B39D04D8C6785E51F6D3",
+        "url": "",
+        "at": "2026-09-26T01:25:53.056Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "A1760D3D093D9EAC6F0FED75CA5BC2BA",
+        "url": "",
+        "at": "2026-09-26T01:25:53.897Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "233B719D1C16BF41122688631C4C7E67",
+        "url": "",
+        "at": "2026-09-26T01:25:59.951Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "A6FDB65B247D2F0EB5721CB12AC3EBEA",
+        "url": "",
+        "at": "2026-09-26T01:26:05.332Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "9C615CD072E00A172F1CFC8A6FC5FDB6",
+        "url": "",
+        "at": "2026-09-26T01:26:05.908Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "EC46475AAD4881049DDCF3125C22ADBD",
+        "url": "",
+        "at": "2026-09-26T01:26:11.880Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "3DF295E30DF81955752DD7E222C2F893",
+        "url": "",
+        "at": "2026-09-26T01:26:17.030Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "16A65FC386F6E80C619861BC2D7AD96C",
+        "url": "",
+        "at": "2026-09-26T01:26:17.773Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "459124062373FF1EA83196F488172261",
+        "url": "",
+        "at": "2026-09-26T01:26:24.124Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "CD859F21447F097B51147C91EC517D52",
+        "url": "",
+        "at": "2026-09-26T01:26:29.415Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "E3D077607C0380C3D0C32A4CEC17ED1C",
+        "url": "",
+        "at": "2026-09-26T01:26:30.080Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "8F9AC105EF9856F87BB95764E559E28C",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "at": "2026-09-26T01:27:12.222Z"
+      },
+      {
+        "event": "created",
+        "url": "http://6879160e-a515-5639-812c-7b6fee14bd81.webview.localhost:49001/webview/serv",
+        "targetId": "55EE7048CAA1CA5A1F19B75A7E62FF31",
+        "at": "2026-09-26T01:27:27.377Z"
+      }
+    ]
+  },
+  "writeErrors": [],
+  "consoleErrors": [],
+  "export": {
+    "commandExit": 0,
+    "maxAbsDeltaPx": 1.5,
+    "within2px": true,
+    "items": [
+      {
+        "id": "top-photo",
+        "comparedFrames": 6,
+        "maxAbsDeltaPx": 1
+      },
+      {
+        "id": "top-text",
+        "comparedFrames": 6,
+        "maxAbsDeltaPx": 1
+      },
+      {
+        "id": "top-html",
+        "comparedFrames": 6,
+        "maxAbsDeltaPx": 0.5
+      },
+      {
+        "id": "nested-photo",
+        "comparedFrames": 5,
+        "maxAbsDeltaPx": 0.5
+      },
+      {
+        "id": "nested-text",
+        "comparedFrames": 6,
+        "maxAbsDeltaPx": 1
+      },
+      {
+        "id": "nested-html",
+        "comparedFrames": 6,
+        "maxAbsDeltaPx": 1.5
+      }
+    ]
+  }
+}
