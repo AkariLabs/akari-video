@@ -126,21 +126,21 @@ export function bootstrapRunner(): void {
         return candidates;
     }
 
-    function commandCodeCandidates(): string[] {
+    function npmAgentCandidates(executableName: 'command-code' | 'pi'): string[] {
         // npm の global --prefix は POSIX では <prefix>/bin、Windows では
         // <prefix> 直下へ shim を置く。フル名は両 OS 共通で、Windows の予約済み
         // `cmd` とも衝突しない。
         const extraCandidates = process.platform === 'win32'
             ? [
-                path.join(os.homedir(), '.local', 'command-code'),
-                path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'npm', 'command-code')
+                path.join(os.homedir(), '.local', executableName),
+                path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'npm', executableName)
             ]
             : [
-                '/opt/homebrew/bin/command-code',
-                '/usr/local/bin/command-code',
-                '/usr/bin/command-code'
+                `/opt/homebrew/bin/${executableName}`,
+                `/usr/local/bin/${executableName}`,
+                `/usr/bin/${executableName}`
             ];
-        return scriptInstallCandidates('command-code', extraCandidates);
+        return scriptInstallCandidates(executableName, extraCandidates);
     }
 
     function npmCandidates(): string[] {
@@ -427,7 +427,7 @@ export function bootstrapRunner(): void {
         console.log(`Codex code-mode host: ${result}（${executable} の realpath 隣）`);
     }
 
-    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
+    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok' | 'devin';
 
     interface ScriptInstallAgentConfig {
         agent: ScriptInstallAgent;
@@ -443,6 +443,8 @@ export function bootstrapRunner(): void {
         manualInstallCommand: string;
         // win32 で manualInstallCommand が実行不能（curl | bash 等）な CLI はこちらを案内する。
         manualInstallCommandWin32?: string;
+        posixInterpreter?: '/bin/bash';
+        allowNonzeroIfVersionSucceeds?: boolean;
     }
 
     const scriptInstallAgentConfigs: Record<ScriptInstallAgent, ScriptInstallAgentConfig> = {
@@ -506,6 +508,20 @@ export function bootstrapRunner(): void {
             manualInstallCommand: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
             manualInstallCommandWin32: 'powershell -c "irm https://antigravity.google/cli/install.ps1 | iex"'
         },
+        devin: {
+            agent: 'devin',
+            executableName: 'devin',
+            installUrlEnvVar: 'AKARI_PARTNER_DEVIN_INSTALL_URL',
+            defaultInstallUrl: 'https://cli.devin.ai/install.sh',
+            defaultInstallUrlWin32: 'https://static.devin.ai/cli/setup.ps1',
+            extraCandidatePaths: process.platform === 'win32'
+                ? [path.join(windowsLocalAppData, 'devin', 'cli', 'bin', 'devin')]
+                : [],
+            manualInstallCommand: 'curl -fsSL https://cli.devin.ai/install.sh | bash',
+            manualInstallCommandWin32: 'irm https://static.devin.ai/cli/setup.ps1 | iex',
+            posixInterpreter: '/bin/bash',
+            allowNonzeroIfVersionSucceeds: true
+        },
         grok: {
             agent: 'grok',
             executableName: 'grok',
@@ -535,6 +551,7 @@ export function bootstrapRunner(): void {
     interface NodeRuntimePurpose {
         purposeLabel: string;
         manualInstall: string;
+        minimumNode?: [number, number];
     }
 
     function privateNodeDir(): string {
@@ -571,12 +588,17 @@ export function bootstrapRunner(): void {
         return undefined;
     }
 
-    async function hasSystemNode22(): Promise<boolean> {
+    function acceptableNodeVersion(version: string, minimum: [number, number]): boolean {
+        const [major, minor] = version.split('.').map(Number);
+        return major > minimum[0] || (major === minimum[0] && minor >= minimum[1]);
+    }
+
+    async function hasSystemNode(minimum: [number, number]): Promise<boolean> {
         for (const nodeExecutable of nodeCandidates()) {
             if (!await firstExecutable([nodeExecutable])) { continue; }
             try {
                 const version = (await runCapture(nodeExecutable, ['-p', 'process.versions.node'], nodeRuntimeEnv(path.dirname(nodeExecutable)))).trim();
-                if (Number.parseInt(version.split('.')[0], 10) >= 22) { return true; }
+                if (acceptableNodeVersion(version, minimum)) { return true; }
             } catch {
                 // Continue to the next candidate.
             }
@@ -584,14 +606,14 @@ export function bootstrapRunner(): void {
         return false;
     }
 
-    async function resolveNodeRuntime({ purposeLabel, manualInstall }: NodeRuntimePurpose): Promise<NodeRuntime> {
+    async function resolveNodeRuntime({ purposeLabel, manualInstall, minimumNode = [22, 0] }: NodeRuntimePurpose): Promise<NodeRuntime> {
         if (!ignoreSystemNode) {
             for (const nodeExecutable of nodeCandidates()) {
                 if (!await firstExecutable([nodeExecutable])) { continue; }
                 const binDir = path.dirname(nodeExecutable);
                 try {
                     const version = (await runCapture(nodeExecutable, ['-p', 'process.versions.node'], nodeRuntimeEnv(binDir))).trim();
-                    if (Number.parseInt(version.split('.')[0], 10) < 22) { continue; }
+                    if (!acceptableNodeVersion(version, minimumNode)) { continue; }
                     const npmExecutable = await firstExecutable([
                         path.join(binDir, process.platform === 'win32' ? 'npm.cmd' : 'npm'),
                         ...npmCandidates()
@@ -655,32 +677,51 @@ export function bootstrapRunner(): void {
         }
     }
 
-    async function requireCommandCodeVersion(executable: string, env: NodeJS.ProcessEnv): Promise<string> {
+    type NpmAgent = 'commandcode' | 'pi';
+    const npmAgentConfigs: Record<NpmAgent, {
+        label: string; executableName: 'command-code' | 'pi'; packageName: string;
+        manualInstall: string; marker: string; minimumNode: [number, number];
+    }> = {
+        commandcode: {
+            label: 'Command Code', executableName: 'command-code', packageName: 'command-code',
+            manualInstall: commandCodeManualInstall, marker: 'command-code-installed', minimumNode: [22, 0]
+        },
+        pi: {
+            label: 'Pi', executableName: 'pi', packageName: '@earendil-works/pi-coding-agent',
+            manualInstall: 'npm install -g @earendil-works/pi-coding-agent（Node.js 22.19 以上が必要）',
+            marker: 'pi-installed', minimumNode: [22, 19]
+        }
+    };
+
+    async function requireNpmAgentVersion(executable: string, env: NodeJS.ProcessEnv, config: typeof npmAgentConfigs[NpmAgent]): Promise<string> {
         try {
             return (await runCapture(executable, ['--version'], env)).trim();
         } catch (error) {
-            throw new Error(`Command Code の起動確認に失敗しました。Node.js 22 以上を確認して再インストールしてください: ${commandCodeManualInstall} (${errorMessage(error)})`);
+            const [major, minor] = config.minimumNode;
+            const minimumNode = `${major}${minor ? `.${minor}` : ''}`;
+            throw new Error(`${config.label} の起動確認に失敗しました。Node.js ${minimumNode} 以上を確認して再インストールしてください: ${config.manualInstall} (${errorMessage(error)})`);
         }
     }
 
-    async function installCommandCode(): Promise<BootstrapOutcome> {
-        const candidates = commandCodeCandidates();
-        const runtimePurpose = { purposeLabel: 'Command Code', manualInstall: commandCodeManualInstall };
-        const privateMarker = path.join(privateNodeDir(), 'command-code-installed');
+    async function installNpmAgent(agent: NpmAgent): Promise<BootstrapOutcome> {
+        const config = npmAgentConfigs[agent];
+        const candidates = npmAgentCandidates(config.executableName);
+        const runtimePurpose = { purposeLabel: config.label, manualInstall: config.manualInstall, minimumNode: config.minimumNode };
+        const privateMarker = path.join(privateNodeDir(), config.marker);
         if (!forceReinstall) {
             const existing = await firstExecutable(candidates);
             if (existing) {
                 let privateRuntime = await preparedPrivateNode();
-                if (!privateRuntime && !await hasSystemNode22()) {
+                if (!privateRuntime && !await hasSystemNode(config.minimumNode)) {
                     privateRuntime = await resolveNodeRuntime(runtimePurpose);
                 }
                 const validationPath = [privateRuntime?.binDir, path.dirname(existing), process.env.PATH ?? '', explicitSystemPath]
                     .filter(Boolean)
                     .join(path.delimiter);
-                const version = await requireCommandCodeVersion(existing, { ...process.env, PATH: validationPath });
-                console.log(`既存の commandcode ${version || '(version unknown)'} を検出: ${existing}`);
+                const version = await requireNpmAgentVersion(existing, { ...process.env, PATH: validationPath }, config);
+                console.log(`既存の ${agent} ${version || '(version unknown)'} を検出: ${existing}`);
                 const markerExists = await fs.access(privateMarker).then(() => true, () => false);
-                const usePrivate = Boolean(privateRuntime && (markerExists || !await hasSystemNode22()));
+                const usePrivate = Boolean(privateRuntime && (markerExists || !await hasSystemNode(config.minimumNode)));
                 if (usePrivate) {
                     console.log(`用意済みの AKARI 専用 Node.js を使います: ${privateNodeDir()}`);
                     await fs.writeFile(privateMarker, 'private\n');
@@ -692,11 +733,11 @@ export function bootstrapRunner(): void {
         const installEnv = nodeRuntimeEnv(runtime.binDir);
 
         const prefix = path.join(os.homedir(), '.local');
-        console.log(`Command Code を npm 公式パッケージからユーザー領域へインストールしています: ${prefix}`);
+        console.log(`${config.label} を npm 公式パッケージからユーザー領域へインストールしています: ${prefix}`);
         const npmArgs = [
             'install', '--global', '--prefix', prefix,
             '--no-audit', '--no-fund',
-            'command-code'
+            config.packageName
         ];
         const npmCli = path.join(runtime.binDir, 'node_modules', 'npm', 'bin', 'npm-cli.js');
         const useWindowsNpmCli = process.platform === 'win32'
@@ -705,20 +746,20 @@ export function bootstrapRunner(): void {
             await run(useWindowsNpmCli ? runtime.nodeExecutable : runtime.npmExecutable,
                 useWindowsNpmCli ? [npmCli, ...npmArgs] : npmArgs, installEnv);
         } catch (error) {
-            throw new Error(`commandcode のインストールに失敗しました。手動でインストールしてください: ${commandCodeManualInstall} (${errorMessage(error)})`);
+            throw new Error(`${agent} のインストールに失敗しました。手動でインストールしてください: ${config.manualInstall} (${errorMessage(error)})`);
         }
         const executable = await firstExecutable(candidates);
         if (!executable) {
             console.log(`探索した実行ファイル候補: ${candidates.join(', ')}`);
-            throw new Error(`npm install は完了しましたが Command Code の実行ファイルが見つかりませんでした。手動でインストールしてください: ${commandCodeManualInstall}`);
+            throw new Error(`npm install は完了しましたが ${config.label} の実行ファイルが見つかりませんでした。手動でインストールしてください: ${config.manualInstall}`);
         }
-        const version = await requireCommandCodeVersion(executable, installEnv);
+        const version = await requireNpmAgentVersion(executable, installEnv, config);
         if (runtime.source === 'private') {
             await fs.writeFile(privateMarker, 'private\n');
         } else {
             await fs.rm(privateMarker, { force: true });
         }
-        console.log(`Command Code ${version || '(version unknown)'} を検出: ${executable}`);
+        console.log(`${config.label} ${version || '(version unknown)'} を検出: ${executable}`);
         return { executablePath: executable, reused: false, nodeSource: runtime.source };
     }
 
@@ -759,6 +800,7 @@ export function bootstrapRunner(): void {
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `akari-${config.agent}-`));
         try {
             console.log(`${config.agent} をユーザー領域へインストールしています`);
+            let installerError: unknown;
             try {
                 if (process.platform === 'win32') {
                     const installer = path.join(tempDir, 'install.ps1');
@@ -773,14 +815,18 @@ export function bootstrapRunner(): void {
                 } else {
                     const installer = path.join(tempDir, 'install.sh');
                     await fs.writeFile(installer, script, { mode: 0o700 });
-                    await run('/bin/sh', [installer], {
+                    await run(config.posixInterpreter || '/bin/sh', [installer], {
                         ...process.env,
                         PATH: explicitSystemPath
                     });
                 }
             } catch (error) {
-                throw new Error(`${config.agent} のインストールに失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
+                if (!config.allowNonzeroIfVersionSucceeds) {
+                    throw new Error(`${config.agent} のインストールに失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
+                }
+                installerError = error;
             }
+            const installerErrorLine = installerError ? lastInstallerErrorLine(installerError) : undefined;
             const executable = await firstExecutable(candidates);
             if (!executable) {
                 console.log(`探索した実行ファイル候補: ${candidates.join(', ')}`);
@@ -788,7 +834,15 @@ export function bootstrapRunner(): void {
                     path.join(os.homedir(), '.local', 'bin'),
                     ...config.extraCandidatePaths.map(candidate => path.dirname(candidate))
                 ])];
-                throw new Error(`インストールスクリプトは完了しましたが実行ファイルが見つかりませんでした（探索先: ${searchedDirectories.join(', ')}）。手動でインストールしてください: ${manualCommand}`);
+                throw new Error(`インストールスクリプト後に実行ファイルが見つかりませんでした（探索先: ${searchedDirectories.join(', ')}）。手動でインストールしてください: ${manualCommand}${installerErrorLine ? ` (${installerErrorLine})` : ''}`);
+            }
+            if (installerError) {
+                try {
+                    const version = (await runCapture(executable, ['--version'], { ...process.env, PATH: [path.dirname(executable), process.env.PATH ?? ''].join(path.delimiter) })).trim();
+                    console.log(`${config.agent} installer は非 0 終了しましたが、${executable} --version (${version}) が成功したためインストール済みと判定します: ${installerErrorLine}`);
+                } catch (versionError) {
+                    throw new Error(`${config.agent} のインストールと起動確認に失敗しました。手動でインストールしてください: ${manualCommand} (${installerErrorLine}; ${lastInstallerErrorLine(versionError)})`);
+                }
             }
             return { executablePath: executable, reused: false };
         } finally {
@@ -1137,6 +1191,17 @@ export function bootstrapRunner(): void {
         return error instanceof Error ? error.message : String(error);
     }
 
+    function lastInstallerErrorLine(error: unknown): string {
+        // run() は stderr を既にストリーム出力している。ここでは curl の進捗や ANSI 制御を
+        // 二重表示せず、診断に必要な最後の非空行だけを残す。
+        const lines = errorMessage(error)
+            .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
+            .split(/[\r\n]+/)
+            .map(line => line.trim())
+            .filter(Boolean);
+        return lines[lines.length - 1] || 'installer exited with an error';
+    }
+
     async function firstExecutable(candidates: string[]): Promise<string | undefined> {
         for (const candidate of candidates) {
             try {
@@ -1212,17 +1277,18 @@ export function bootstrapRunner(): void {
     async function main(): Promise<void> {
         const agent = process.argv[process.argv.length - 1];
         if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode'
-            && agent !== 'commandcode' && agent !== 'copilot' && agent !== 'cursor'
+            && agent !== 'commandcode' && agent !== 'pi' && agent !== 'devin'
+            && agent !== 'copilot' && agent !== 'cursor'
             && agent !== 'antigravity' && agent !== 'grok') {
-            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, copilot, cursor, antigravity, or grok');
+            throw new Error('expected bootstrap target: claude, codex, opencode, commandcode, pi, devin, copilot, cursor, antigravity, or grok');
         }
         let outcome: BootstrapOutcome;
         if (agent === 'claude') {
             outcome = await runClaudeInstaller();
         } else if (agent === 'codex') {
             outcome = await installCodexBinary();
-        } else if (agent === 'commandcode') {
-            outcome = await installCommandCode();
+        } else if (agent === 'commandcode' || agent === 'pi') {
+            outcome = await installNpmAgent(agent);
         } else {
             outcome = await runScriptInstaller(scriptInstallAgentConfigs[agent]);
         }

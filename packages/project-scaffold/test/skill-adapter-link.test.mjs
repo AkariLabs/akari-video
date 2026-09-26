@@ -182,10 +182,11 @@ test("installSkillAdapters: on win32 with symlink EPERM, all adapters degrade to
       ".agents/skills/analyze-footage",
       ".codex/skills/analyze-footage",
       ".cursor/skills/analyze-footage",
+      ".devin/skills/analyze-footage",
       ".opencode/skills/analyze-footage"
     ]);
     assert.deepEqual(report.skippedExisting, []);
-    assert.equal(report.degraded.length, 4);
+    assert.equal(report.degraded.length, 5);
     assert.ok(report.degraded.every((entry) => entry.method === "junction"));
   });
 });
@@ -201,6 +202,7 @@ test("installSkillAdapters: real fs on the current platform still creates plain 
       ".agents/skills/analyze-footage",
       ".codex/skills/analyze-footage",
       ".cursor/skills/analyze-footage",
+      ".devin/skills/analyze-footage",
       ".opencode/skills/analyze-footage"
     ]);
     assert.deepEqual(report.degraded, []);

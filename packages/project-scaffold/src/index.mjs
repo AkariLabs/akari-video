@@ -216,7 +216,7 @@ export async function writeFallbackTemplate(destinationDir) {
     return { writtenFiles, skippedExisting };
 }
 
-const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex', '.cursor', '.opencode'];
+const SKILL_ADAPTER_DIRECTORIES = ['.agents', '.codex', '.cursor', '.opencode', '.devin'];
 
 function isPermissionDenied(error) {
     return error && typeof error === 'object' && (error.code === 'EPERM' || error.code === 'EACCES');

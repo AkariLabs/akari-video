@@ -68,6 +68,22 @@
     "recommended": false
   },
   {
+    "id": "earendil/pi-cli",
+    "agent": "pi",
+    "form": "cli",
+    "name": "Pi CLI",
+    "description": "Pi を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
+    "id": "cognition/devin-cli",
+    "agent": "devin",
+    "form": "cli",
+    "name": "Devin CLI",
+    "description": "Devin を PTY タブで直接使います",
+    "recommended": false
+  },
+  {
     "id": "github/copilot-cli",
     "agent": "copilot",
     "form": "cli",

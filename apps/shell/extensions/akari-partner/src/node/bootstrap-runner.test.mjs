@@ -186,13 +186,17 @@ printf '%s\\n' '#!/bin/sh' 'echo 1.45.0' > "$HOME/.local/command-code.cmd"
 /bin/chmod +x "$HOME/.local/command-code.cmd"
 `;
 
-function privateNodeArchive() {
+function privateNodeArchive(agent = 'commandcode') {
+    const npmScript = agent === 'pi'
+        ? fakeNpmScript.replaceAll('command-code', 'pi')
+            .replace('#!/bin/sh\n', '#!/bin/sh\nprintf \'%s\\n\' "$@" > "$HOME/npm-args.txt"\n')
+        : fakeNpmScript;
     return gzipSync(makeTar([
         { name: `${NODE_ROOT}/`, type: '5', mode: 0o755 },
         { name: `${NODE_ROOT}/bin/`, type: '5', mode: 0o755 },
         { name: `${NODE_ROOT}/bin/node`, content: fakeNodeScript, mode: 0o755 },
         { name: `${NODE_ROOT}/lib/node_modules/npm/bin/`, type: '5', mode: 0o755 },
-        { name: `${NODE_ROOT}/lib/node_modules/npm/bin/npm-cli.js`, content: fakeNpmScript, mode: 0o755 },
+        { name: `${NODE_ROOT}/lib/node_modules/npm/bin/npm-cli.js`, content: npmScript, mode: 0o755 },
         { name: `${NODE_ROOT}/bin/npm`, type: '2', linkpath: '../lib/node_modules/npm/bin/npm-cli.js', mode: 0o777 }
     ]));
 }
@@ -256,6 +260,144 @@ test('PATH 上の既存 Command Code を再利用する', async () => {
     } finally {
         await rm(home, { recursive: true, force: true });
         await rm(binDir, { recursive: true, force: true });
+    }
+});
+
+test('Pi は Node 22.18 では専用 Node を使い npm の現行パッケージを導入する', async () => {
+    const home = await makeHome('akari-pi-private-home-');
+    const toolsDir = await makeHome('akari-pi-node2218-tools-');
+    const archive = privateNodeArchive('pi');
+    await writeFile(path.join(toolsDir, 'node'), '#!/bin/sh\necho 22.18.0\n', { mode: 0o755 });
+    await writeFile(path.join(toolsDir, 'npm'), '#!/bin/sh\nexit 99\n', { mode: 0o755 });
+    try {
+        const result = await runBootstrap({
+            home, agent: 'pi', pathEnv: toolsDir,
+            mock: { ...nodeMock(archive), hideWellKnownNode: true },
+            extraEnv: {
+                AKARI_PARTNER_NODE_DIST_BASE_URL: 'http://example.test',
+                AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON: nodeEnv(archive).AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON
+            }
+        });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /"nodeSource":"private"/);
+        assert.equal(await readFile(path.join(home, 'runtime/node', `v${NODE_VERSION}`, 'pi-installed'), 'utf8'), 'private\n');
+        assert.match(result.stdout, /Pi 1\.45\.0 を検出/);
+        assert.match(await readFile(path.join(home, 'npm-args.txt'), 'utf8'), /@earendil-works\/pi-coding-agent\n$/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+        await rm(toolsDir, { recursive: true, force: true });
+    }
+});
+
+test('npm 製エージェントの起動確認エラーは必要な Node.js 版を示す', async () => {
+    for (const [agent, executableName, expectedVersion] of [
+        ['commandcode', 'command-code', '22'],
+        ['pi', 'pi', '22.19']
+    ]) {
+        const home = await makeHome(`akari-${agent}-version-error-home-`);
+        const toolsDir = await makeHome(`akari-${agent}-version-error-tools-`);
+        await writeFile(path.join(toolsDir, 'node'), '#!/bin/sh\necho 24.21.0\n', { mode: 0o755 });
+        await writeFile(path.join(toolsDir, 'npm'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+        await writeFile(path.join(toolsDir, executableName), '#!/bin/sh\necho version failed >&2\nexit 2\n', { mode: 0o755 });
+        try {
+            const result = await runBootstrap({ home, agent, pathEnv: toolsDir, mock: { origin: 'http://example.test' } });
+            assert.notEqual(result.code, 0);
+            assert.match(result.stderr, new RegExp(`Node\\.js ${expectedVersion.replace('.', '\\.') } 以上を確認して再インストールしてください`));
+        } finally {
+            await rm(home, { recursive: true, force: true });
+            await rm(toolsDir, { recursive: true, force: true });
+        }
+    }
+});
+
+const noisyInstallerProgress = `for ((i=0; i<80; i++)); do
+  printf '\\033[32mprogress-%03d: %060d\\033[0m\\r' "$i" "$i" >&2
+done
+echo 'Error: Login canceled' >&2
+`;
+
+test('Devin installer の setup が非 0 でも実体と --version が成功すれば導入済みと判定する', async () => {
+    const home = await makeHome('akari-devin-home-');
+    const script = `#!/usr/bin/env bash
+[[ -n "$HOME" ]] || exit 90
+mkdir -p "$HOME/.local/bin"
+printf '%s\\n' '#!/bin/sh' 'echo "devin 3000.11.3"' > "$HOME/.local/bin/devin"
+chmod +x "$HOME/.local/bin/devin"
+${noisyInstallerProgress}
+exit 1
+`;
+    try {
+        const result = await runBootstrap({
+            home, agent: 'devin',
+            mock: { origin: 'http://example.test', fixtures: { '/devin-install': fixture(script, 200, 'text/plain') } },
+            extraEnv: { AKARI_PARTNER_DEVIN_INSTALL_URL: 'http://example.test/devin-install' }
+        });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /--version \(devin 3000\.11\.3\) が成功/);
+        assert.match(result.stdout, /判定します: Error: Login canceled\n/);
+        assert.doesNotMatch(result.stdout, /progress-/);
+        assert.match(result.stdout, /"reused":false/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Devin installer の非 0 終了は --version 失敗時に成功扱いしない', async () => {
+    const home = await makeHome('akari-devin-broken-home-');
+    const script = `#!/usr/bin/env bash
+mkdir -p "$HOME/.local/bin"
+printf '%s\\n' '#!/bin/sh' 'printf "\\033[31mprogress-999\\033[0m\\rError: version failed\\n" >&2; exit 2' > "$HOME/.local/bin/devin"
+chmod +x "$HOME/.local/bin/devin"
+${noisyInstallerProgress}
+exit 1
+`;
+    try {
+        const result = await runBootstrap({
+            home, agent: 'devin',
+            mock: { origin: 'http://example.test', fixtures: { '/devin-install': fixture(script, 200, 'text/plain') } },
+            extraEnv: { AKARI_PARTNER_DEVIN_INSTALL_URL: 'http://example.test/devin-install' }
+        });
+        assert.notEqual(result.code, 0);
+        assert.match(result.stderr, /インストールと起動確認に失敗/);
+        const summary = result.stderr.trim().split('\n').at(-1);
+        assert.match(summary, /\(Error: Login canceled; Error: version failed\)$/);
+        assert.doesNotMatch(summary, /progress-/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Devin installer が失敗し実行ファイルも無い場合、エラーは最後の 1 行だけを含む', async () => {
+    const home = await makeHome('akari-devin-missing-home-');
+    const script = `#!/usr/bin/env bash\n${noisyInstallerProgress}exit 1\n`;
+    try {
+        const result = await runBootstrap({
+            home, agent: 'devin',
+            mock: { origin: 'http://example.test', fixtures: { '/devin-install': fixture(script, 200, 'text/plain') } },
+            extraEnv: { AKARI_PARTNER_DEVIN_INSTALL_URL: 'http://example.test/devin-install' }
+        });
+        assert.notEqual(result.code, 0);
+        const summary = result.stderr.trim().split('\n').at(-1);
+        assert.match(summary, /実行ファイルが見つかりませんでした.*\(Error: Login canceled\)$/);
+        assert.doesNotMatch(summary, /progress-/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Devin は Windows の LOCALAPPDATA 配下にある既存 exe を検出する', async () => {
+    const home = await makeHome('akari-devin-win-home-');
+    const executable = path.join(home, 'local-app-data', 'devin', 'cli', 'bin', 'devin.exe');
+    await mkdir(path.dirname(executable), { recursive: true });
+    await writeFile(executable, '#!/bin/sh\necho devin 3000.11.3\n', { mode: 0o755 });
+    try {
+        const result = await runBootstrap({ home, agent: 'devin', platform: 'win32',
+            mock: { origin: 'http://example.test' } });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /"reused":true/);
+        assert.match(result.stdout, /devin\.exe/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
     }
 });
 

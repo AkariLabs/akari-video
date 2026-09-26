@@ -218,6 +218,16 @@ test('buildPrivateNodePathEnv: Windows は ; 区切りで専用 Node を前置�
     assert.deepEqual(result, { PATH: `${root};C:\\Akari\\cli;C:\\Windows` });
 });
 
+test('buildPrivateNodePathEnv: Pi は自分のマーカーだけで専用 Node を前置する', () => {
+    const akariHome = '/tmp/akari-pi-node-test';
+    const root = path.join(akariHome, 'runtime/node/v24.21.0');
+    const files = new Set([path.join(root, 'command-code-installed'), path.join(root, 'bin/node'), path.join(root, 'bin/npm')]);
+    const options = { agent: 'pi', akariHome, platform: 'darwin', existingPath: '/usr/bin', exists: file => files.has(file) };
+    assert.deepEqual(buildPrivateNodePathEnv(options), {});
+    files.add(path.join(root, 'pi-installed'));
+    assert.deepEqual(buildPrivateNodePathEnv(options), { PATH: `${path.join(root, 'bin')}:/usr/bin` });
+});
+
 test('起動 PATH の専用 Node 版は bootstrap runner の固定版と一致する', () => {
     const match = /const nodeVersion = '([^']+)'/.exec(bootstrapRunner.toString());
     assert.ok(match, 'runner の固定 Node.js 版を読み取れること');

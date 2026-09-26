@@ -2462,7 +2462,7 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         const skillNames = (await this.fsImpl.readdir(skillsDir, { withFileTypes: true }))
             .filter(entry => entry.isDirectory())
             .map(entry => entry.name);
-        for (const adapter of ['.agents', '.codex']) {
+        for (const adapter of ['.agents', '.codex', '.devin']) {
             const adapterDir = join(root, adapter, 'skills');
             await this.fsImpl.mkdir(adapterDir, { recursive: true });
             for (const name of skillNames) {

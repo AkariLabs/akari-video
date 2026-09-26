@@ -1,0 +1,43 @@
+# partner-pi-devin — 検証方法（L1・darwin-arm64・2026-09-26）
+
+## 手順 0（事実確認）の出典
+- Pi: `npm view @earendil-works/pi-coding-agent` → 0.87.1 / bin pi / engines.node >=22.19.0 / repo github.com/earendil-works/pi。
+  旧 `@mariozechner/pi-coding-agent`（0.73.1）は npm 上 deprecated（"please use @earendil-works/pi-coding-agent instead going forward"）
+  スキル・文脈ファイル: パッケージ同梱 docs/skills.md・docs/configuration.md・docs/security.md（project trust）＋一時 dir での実測
+- Devin CLI: https://docs.devin.ai/cli（install.sh / Homebrew / setup.ps1）・https://docs.devin.ai/cli/extensibility/skills/overview ・
+  https://docs.devin.ai/cli/extensibility/rules ・https://docs.devin.ai/cli/reference/configuration/read-config-from ＋ install.sh / setup.ps1 本文の読解と一時 HOME での実測
+
+## 「システム Node が見えない」状態の作り方（partner-private-node と同じ）
+- 一時 HOME / 一時 AKARI_HOME、PATH=/usr/bin:/bin（macOS の /usr/bin に node は無い）
+- runner の実行体 = apps/shell/node_modules の Electron（ELECTRON_RUN_AS_NODE=1。製品の bootstrap() と同じ electron-as-node）
+- Electron を sandbox-exec で包み、/opt/homebrew と /usr/local の読み取りを拒否
+- テスト用 env（AKARI_PARTNER_IGNORE_SYSTEM_NODE 等）は使っていない
+
+## sandbox プロファイル（deny-system-node.sb）
+(version 1)
+(allow default)
+(deny file-read* file-read-metadata (subpath "/opt/homebrew") (subpath "/usr/local"))
+
+## ドライバー（run-bootstrap.mjs — akari-partner-server.ts の bootstrap() と同じく `(${bootstrapRunner.toString()})()` を -e で渡す。stdio[0]=ignore も製品と同じ）
+// verification driver: runs bootstrapRunner like akari-partner-server.bootstrap() does
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+const [,, libPath, runtime, agent] = process.argv;
+const require = createRequire(import.meta.url);
+const { bootstrapRunner } = require(libPath);
+const src = `(${bootstrapRunner.toString()})()`;
+const t0 = Date.now();
+const child = spawn(runtime, ['-e', src, agent], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'inherit', 'inherit'] });
+child.on('exit', code => { console.log(`[driver] exit=${code} elapsed_ms=${Date.now() - t0}`); process.exitCode = code ?? 1; });
+
+## 起動コマンド
+env -i HOME=<TMP_HOME> AKARI_HOME=<TMP_HOME>/.akari PATH=/usr/bin:/bin TMPDIR=/tmp node run-bootstrap.mjs <REPO>/apps/shell/extensions/akari-partner/lib/node/bootstrap-runner.js <SCRATCH>/sbx-electron.sh <pi|devin>
+
+## スキルリンク（03）
+一時プロジェクトを 2 経路で作成: project-scaffold の createProject(templates/project-default, skillsSourceDir=skills/) と
+akari-project-service の installSkillAdapters（lib をビルドして直接呼ぶ）。その後 L1 で入れた devin / pi に実際にスキルを列挙させた
+（pi は RPC get_commands。プローブ時だけ --approve で project trust を与えた。製品の起動引数には付けていない）
+
+## 画面（04）
+apps/shell を npm run build → Electron を CDP 9533・専用 user-data-dir / THEIA_CONFIG_DIR / AKARI_HOME で起動し、
+右レールの「+」（パートナーを追加）を開いてスクリーンショット。ユーザー名・ローカルパスが写らないようピッカー部分だけ切り出した

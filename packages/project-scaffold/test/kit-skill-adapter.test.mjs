@@ -17,7 +17,7 @@ test('installSkillAdapters: kits の skill を全アダプタへ合成し、重�
     await mkdir(path.join(kitSkills, 'official'), { recursive: true });
 
     const report = await installSkillAdapters(root, { env: { AKARI_HOME: home } });
-    for (const adapter of ['.agents', '.codex', '.cursor', '.opencode']) {
+    for (const adapter of ['.agents', '.codex', '.cursor', '.opencode', '.devin']) {
       const kitLink = path.join(root, adapter, 'skills', 'kit-only');
       assert.equal(
         path.resolve(path.dirname(kitLink), await readlink(kitLink)),
@@ -29,7 +29,7 @@ test('installSkillAdapters: kits の skill を全アダプタへ合成し、重�
         path.join(root, '.claude', 'skills', 'official')
       );
     }
-    assert.equal(report.warnings.length, 4);
+    assert.equal(report.warnings.length, 5);
     assert.ok(report.warnings.every((line) => line.includes('純正スキルを優先')));
   } finally {
     await rm(root, { recursive: true, force: true });

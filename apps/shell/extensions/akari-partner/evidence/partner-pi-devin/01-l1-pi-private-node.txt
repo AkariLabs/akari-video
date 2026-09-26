@@ -1,0 +1,33 @@
+# L1: Pi をシステム Node が見えない状態で bootstrap（専用 Node v24.21.0 経由）
+
+## control: sandboxed Electron (runner runtime) cannot read /opt/homebrew/bin/node
+hidden: EPERM
+## run 1 (fresh temp HOME / AKARI_HOME, PATH=/usr/bin:/bin)
+Pi に必要な Node.js を AKARI 専用の場所に用意しています: <TMP_HOME>/.akari/runtime/node/v24.21.0
+Node.js をダウンロードしています: https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-arm64.tar.gz
+Node.js archive sha256 検証 OK: bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057
+Pi を npm 公式パッケージからユーザー領域へインストールしています: <TMP_HOME>/.local
+
+added 144 packages in 11s
+Pi 0.87.1 を検出: <TMP_HOME>/.local/bin/pi
+{"executablePath":"<TMP_HOME>/.local/bin/pi","reused":false,"nodeSource":"private"}
+[driver] exit=0 elapsed_ms=19033
+## private node marker
+pi-installed
+## pi --version (PATH=<private node bin>:/usr/bin:/bin, system node hidden by sandbox)
+0.87.1
+exit=0
+## node on that PATH
+<TMP_HOME>/.akari/runtime/node/v24.21.0/bin/node
+v24.21.0
+## without private node on PATH (control)
+env: node: No such file or directory
+exit=127
+## launch PATH from buildPrivateNodePathEnv (prepareLaunch と同じ関数)
+pi {"PATH":"<TMP_HOME>/.akari/runtime/node/v24.21.0/bin:/usr/bin:/bin"}
+commandcode {}
+## run 2 (reuse: no re-download)
+既存の pi 0.87.1 を検出: <TMP_HOME>/.local/bin/pi
+用意済みの AKARI 専用 Node.js を使います: <TMP_HOME>/.akari/runtime/node/v24.21.0
+{"executablePath":"<TMP_HOME>/.local/bin/pi","reused":true,"nodeSource":"private"}
+[driver] exit=0 elapsed_ms=292

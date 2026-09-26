@@ -1,0 +1,18 @@
+# L1: 一時プロジェクトの .agents/skills・.devin/skills と、実 CLI からのスキル発見
+
+## temp project skill links (L1)
+## project-scaffold createProject
+.agents/skills: 26 entries; address-review -> ../../.claude/skills/address-review (SKILL.md readable: yes)
+.devin/skills: 26 entries; address-review -> ../../.claude/skills/address-review (SKILL.md readable: yes)
+## akari-project-service installSkillAdapters
+.agents/skills: 26 entries; address-review -> ../../.claude/skills/address-review (SKILL.md readable: yes)
+.devin/skills: 26 entries; address-review -> ../../.claude/skills/address-review (SKILL.md readable: yes)
+## devin skills list in the scaffolded project (L1-installed devin): AKARI skills counted
+26
+## devin skills paths
+Project skills:
+  .devin/skills/<skill-name>/SKILL.md
+  .cognition/skills/<skill-name>/SKILL.md
+  .agents/skills/<skill-name>/SKILL.md
+## pi get_commands in the scaffolded project (L1-installed pi, private node, --approve for this probe only)
+skills: 26 ; e.g. skill:address-review <- <PROJECT>/.agents/skills/address-review/SKILL.md | skill:akari <- <PROJECT>/.agents/skills/akari/SKILL.md

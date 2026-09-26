@@ -73,11 +73,11 @@ test('form: extension の 2 件だけが互換用の caution 文面を持つ', a
     );
 });
 
-test('caution を持たないエントリ（CLI 8 件）には注意書きの元データが無い', async () => {
+test('caution を持たないエントリ（CLI 10 件）には注意書きの元データが無い', async () => {
     const catalog = await readCatalog();
     const cli = catalog.filter(entry => entry.form === 'cli');
 
-    assert.equal(cli.length, 8);
+    assert.equal(cli.length, 10);
     for (const entry of cli) {
         assert.equal(entry.caution, undefined, `${entry.id} に caution が付いている`);
     }

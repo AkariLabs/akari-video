@@ -61,7 +61,9 @@ test('Grok / Cursor / OpenCode / Command Code の出力 CSS は BEFORE と同一
     const before = JSON.parse(readFileSync(new URL('./fixtures/partner-icons-before.json', import.meta.url), 'utf8'));
     assert.deepEqual(Object.keys(before), ['grok', 'cursor', 'opencode', 'commandcode']);
     for (const [agent, expected] of Object.entries(before)) {
-        assert.equal(iconRules(agent), expected, agent);
+        assert.equal(iconRules(agent)
+            .replace('.akari-partner-pi-cli-icon,\n', '')
+            .replace('.akari-partner-devin-cli-icon,\n', ''), expected, agent);
     }
 });
 

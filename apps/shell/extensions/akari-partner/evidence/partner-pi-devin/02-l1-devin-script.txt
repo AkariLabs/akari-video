@@ -1,0 +1,22 @@
+# L1: Devin CLI を公式 install.sh で bootstrap（末尾の devin setup = 対話ログインは stdin 無しで Login canceled / exit 1 → 実体 + --version 成功で導入済み判定）
+# 注: curl の進捗バーは読みやすさのため除去
+
+## run 1 (fresh temp HOME / AKARI_HOME, PATH=/usr/bin:/bin, stdin=ignore like the product)
+devin installer を取得しています: https://cli.devin.ai/install.sh
+devin をユーザー領域へインストールしています
+
+                                                                           0.1%
+✓ Installed devin v3000.11.3 to \~/.local/bin/devin.
+
+Welcome to Devin CLI!
+Error: Login canceled
+devin installer は非 0 終了しましたが、<TMP_HOME>/.local/bin/devin --version (devin 3000.11.3 (9c803229faa4)) が成功したためインストール済みと判定します: Error: Login canceled
+{"executablePath":"<TMP_HOME>/.local/bin/devin","reused":false}
+[driver] exit=0 elapsed_ms=7873
+## devin --version
+devin 3000.11.3 (9c803229faa4)
+exit=0
+## run 2 (reuse)
+既存の devin を検出: <TMP_HOME>/.local/bin/devin
+{"executablePath":"<TMP_HOME>/.local/bin/devin","reused":true}
+[driver] exit=0 elapsed_ms=93

@@ -29,9 +29,9 @@ export function resolvePartnerProcessLaunch(
     env: NodeJS.ProcessEnv = process.env
 ): Pick<PartnerLaunchPlan, 'executablePath' | 'args'> {
     // node-pty は Windows の .cmd/.bat を CreateProcess で直接起動できない。
-    // Command Code は npm パッケージなので、Windows だけ cmd.exe を器にして
-    // 共通名 command-code の shim を実行する。
-    if (platform === 'win32' && agent === 'commandcode' && resolvedExecutablePath
+    // Command Code と Pi は npm パッケージなので、Windows だけ cmd.exe を器にして
+    // .cmd/.bat shim を実行する。
+    if (platform === 'win32' && (agent === 'commandcode' || agent === 'pi') && resolvedExecutablePath
         && /\.(?:cmd|bat)$/i.test(resolvedExecutablePath)) {
         return {
             executablePath: env.ComSpec || path.win32.join(env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'),
@@ -111,7 +111,8 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
     async prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan> {
         const processLaunch = resolvePartnerProcessLaunch(agent, resolvedExecutablePath);
         const cliPathEnv = this.resolveCliPathEnv();
-        const privateNodePathEnv = agent === 'commandcode' ? buildPrivateNodePathEnv({
+        const privateNodePathEnv = agent === 'commandcode' || agent === 'pi' ? buildPrivateNodePathEnv({
+            agent,
             akariHome: resolveAkariHomeDir(),
             platform: process.platform,
             existingPath: cliPathEnv.PATH ?? process.env.PATH

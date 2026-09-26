@@ -30,6 +30,8 @@ const AGENT_LABELS: Record<string, string> = {
     claude: 'Claude Code',
     codex: 'Codex',
     opencode: 'opencode',
+    pi: 'Pi',
+    devin: 'Devin',
     copilot: 'Copilot',
     cursor: 'Cursor',
     antigravity: 'Antigravity',

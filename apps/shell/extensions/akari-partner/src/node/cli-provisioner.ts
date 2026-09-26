@@ -222,16 +222,18 @@ export function buildCliPathEnv(options: BuildCliPathEnvOptions): Record<string,
 }
 
 export interface BuildPrivateNodePathEnvOptions extends BuildCliPathEnvOptions {
+    agent?: 'commandcode' | 'pi';
     /** テストではファイル状態を注入する。 */
     exists?: (filePath: string) => boolean;
 }
 
-/** Command Code を AKARI 専用 Node で導入した場合だけ PTY の PATH に前置する。 */
+/** npm 製エージェントを AKARI 専用 Node で導入した場合だけ PTY の PATH に前置する。 */
 export function buildPrivateNodePathEnv(options: BuildPrivateNodePathEnvOptions): Record<string, string> {
     const root = join(options.akariHome, 'runtime', 'node', 'v24.21.0');
     const binDir = options.platform === 'win32' ? root : join(root, 'bin');
     const exists = options.exists ?? existsSync;
-    if (!exists(join(root, 'command-code-installed'))
+    const marker = options.agent === 'pi' ? 'pi-installed' : 'command-code-installed';
+    if (!exists(join(root, marker))
         || !exists(join(binDir, options.platform === 'win32' ? 'node.exe' : 'node'))
         || !exists(join(binDir, options.platform === 'win32' ? 'npm.cmd' : 'npm'))) {
         return {};
