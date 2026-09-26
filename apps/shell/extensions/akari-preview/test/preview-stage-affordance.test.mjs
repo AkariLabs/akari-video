@@ -23,6 +23,7 @@ test('キャンバス箱はペインの可用幅と高さの小さい側へ outp
         source,
         /#preview-stage\s*\{[^\n]*width:\s*max\(1px,\s*min\(calc\(100cqw\s*-\s*var\(--akari-preview-gutter\)\s*\*\s*2\),\s*calc\(\(100cqh\s*-\s*var\(--akari-preview-gutter\)\s*\*\s*2\)\s*\*\s*\$\{width\}\s*\/\s*\$\{height\}\)\)\);[^\n]*aspect-ratio:\s*\$\{width\}\s*\/\s*\$\{height\}/
     );
+    assert.match(source, /#preview-stage\.akari-clearance-active\s*\{[^\n]*top:\s*calc\(var\(--akari-preview-gutter-top\)[^\n]*100cqh\s*-\s*var\(--akari-preview-gutter-top\)\s*-\s*var\(--akari-preview-gutter\)/);
     assert.match(
         source,
         /const computeOutputFrameRect = \(\) => \{[\s\S]*const stageRect = previewStage\.getBoundingClientRect\(\);[\s\S]*width: stageRect\.width \/ \(zoomScaleX \|\| 1\)/
@@ -33,8 +34,7 @@ test('ズーム層・黒いステージ・固定ミニマップは別階層で�
     assert.match(source, /<div id="zoom-layer">\s*<div id="preview-stage">/);
     assert.match(source, /<\/div>\s*<\/div>\s*<button id="output-preview-link"/);
     assert.match(source, /<\/div>\s*<div id="zoom-minimap" hidden aria-hidden="true">[\s\S]*<\/section>/);
-    assert.match(source, /previewStage\.offsetWidth \* zoom - previewPane\.clientWidth/);
-    assert.match(source, /previewStage\.offsetHeight \* zoom - previewPane\.clientHeight/);
+    assert.match(source, /computePanLimits\(previewPane\.clientWidth, previewPane\.clientHeight,[\s\S]*previewStage\.offsetWidth, previewStage\.offsetHeight, zoom, stageClearance\.barHeight\)/);
     assert.match(source, /zoomLayer\.style\.transform = 'translate\('[\s\S]*'px\) scale\(' \+ zoom \+ '\)'/);
 });
 

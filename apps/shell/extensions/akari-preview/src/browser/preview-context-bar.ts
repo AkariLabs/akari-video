@@ -107,6 +107,7 @@ export class PreviewContextBar implements Disposable {
     protected popSignature = '';
     protected menuSignature = '';
     protected menuRectSignature = '';
+    protected barRectSignature = '';
     protected popPointerActive = false;
     protected keepRatio = true;
     protected layerDrag: { id: string; pointerId: number; over?: string } | undefined;
@@ -197,6 +198,8 @@ export class PreviewContextBar implements Disposable {
     receive(message: Record<string, unknown>): void {
         if (message.ready === true) {
             this.sendLock();
+            this.barRectSignature = '';
+            this.position();
             return;
         }
         if (message.escape === true) {
@@ -537,6 +540,14 @@ export class PreviewContextBar implements Disposable {
         }
         this.more.classList.toggle('is-placed', showMenu || captionMoreShown);
         const menuBox = showMenu ? this.menu.getBoundingClientRect() : null;
+        const visibleBar = !this.bar.hidden && !this.report.busy ? this.bar.getBoundingClientRect() : null;
+        const barRectInFrame = visibleBar ? { left: visibleBar.left - area.left, top: visibleBar.top - area.top,
+            width: visibleBar.width, height: visibleBar.height } : null;
+        const barSignature = JSON.stringify(barRectInFrame);
+        if (barSignature !== this.barRectSignature) {
+            this.barRectSignature = barSignature;
+            this.host.sendMessage({ type: 'akari-preview-context-bar-rect', rect: barRectInFrame });
+        }
         const menuRect = menuBox ? { left: menuBox.left - area.left, top: menuBox.top - area.top,
             width: menuBox.width, height: menuBox.height } : null;
         const signature = JSON.stringify(menuRect);

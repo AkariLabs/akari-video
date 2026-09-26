@@ -218,6 +218,7 @@ import {
 } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { computeZoomMinimapLayout } from '../common/zoom-minimap-layout';
+import { computePreviewStageClearance, computePreviewPanLimits, pinchPreviewPan } from '../common/preview-stage-clearance';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { resolveRegularSidecarPlan, resolveSpeechSidecarFormat, sortSidecarRequestsByFirstUse } from '../common/preview-audio-eligibility';
 import {
@@ -7907,7 +7908,10 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 .preview-pane.is-draggable { cursor: grab; touch-action: none; }
 .preview-pane.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
-#preview-stage { --akari-preview-gutter: 16px; position: absolute; left: 50%; top: 50%; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
+#preview-stage { --akari-preview-gutter: 16px; --akari-preview-gutter-top: 16px; position: absolute; left: 50%; top: 50%; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
+#preview-stage.akari-clearance-active { top: calc(var(--akari-preview-gutter-top) + (100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) / 2); width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter-top) - var(--akari-preview-gutter)) * ${width} / ${height}))); }
+#preview-stage.akari-clearance-animating { transition: top 150ms ease, width 150ms ease; }
+html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px, min(calc(100cqw - var(--akari-preview-gutter) * 2), calc((100cqh - var(--akari-preview-gutter) * 2) * ${width} / ${height}))) !important; transition: none; }
 #preview-video, #standby-video, #transition-video, #transition-still { position: absolute; top: 0; left: 0; object-fit: contain; }
 #standby-video, #transition-video, #transition-still { display: none; pointer-events: none; }
 .akari-video-fx-rail { position: absolute; top: 0; left: 0; max-width: none; max-height: none; }
@@ -17745,10 +17749,69 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (Math.abs(sliderValue - zoomToSlider(1)) <= SNAP_TOLERANCE) return 1;
                 return Math.pow(2, logMin + (logMax - logMin) * sliderValue);
             };
-            const panLimits = () => ({
-                x: Math.max(0, (previewStage.offsetWidth * zoom - previewPane.clientWidth) / 2),
-                y: Math.max(0, (previewStage.offsetHeight * zoom - previewPane.clientHeight) / 2)
+            const computeStageClearance = (${computePreviewStageClearance.toString()});
+            const computePanLimits = (${computePreviewPanLimits.toString()});
+            const computePinchPan = (${pinchPreviewPan.toString()});
+            let contextBarRect = null;
+            let stageClearance = { top: 16, barHeight: 0, holdUntil: 0, retryAfter: null };
+            let clearanceTimer = 0;
+            let clearanceAnimation = 0;
+            let clearanceTransitionTimer = 0;
+            const refreshStageGeometry = () => {
+                window.akari.updateLayerLayout?.();
+                updateLayerSelectBox();
+                if (cropModeActive) updateLayerCropBox();
+                updateCutSelectBox();
+                updateCaptionSelectBox();
+                renderZoom();
+            };
+            const animateStageGeometry = () => {
+                cancelAnimationFrame(clearanceAnimation);
+                const until = performance.now() + 200;
+                const frame = () => {
+                    refreshStageGeometry();
+                    if (performance.now() < until) clearanceAnimation = requestAnimationFrame(frame);
+                    else clearanceAnimation = 0;
+                };
+                clearanceAnimation = requestAnimationFrame(frame);
+            };
+            previewStage.addEventListener('transitionend', event => {
+                if (event.target === previewStage && (event.propertyName === 'top' || event.propertyName === 'width')) {
+                    refreshStageGeometry();
+                }
             });
+            const applyStageClearance = () => {
+                clearTimeout(clearanceTimer);
+                const next = computeStageClearance(stageClearance, contextBarRect, Date.now(), isPlaying);
+                const layoutChanged = next.top !== stageClearance.top;
+                const changed = layoutChanged || next.barHeight !== stageClearance.barHeight;
+                stageClearance = next;
+                if (changed) {
+                    if (layoutChanged) {
+                        clearTimeout(clearanceTransitionTimer);
+                        previewStage.classList.add('akari-clearance-animating');
+                        // Commit the transition property before changing top/width in this task.
+                        void previewStage.offsetWidth;
+                        previewStage.style.setProperty('--akari-preview-gutter-top', next.top + 'px');
+                        previewStage.classList.toggle('akari-clearance-active', next.top > 16);
+                        animateStageGeometry();
+                        clearanceTransitionTimer = window.setTimeout(() => {
+                            previewStage.classList.remove('akari-clearance-animating');
+                            refreshStageGeometry();
+                        }, 200);
+                    }
+                    pan = clampPan(pan);
+                    renderZoom();
+                }
+                if (next.retryAfter !== null) clearanceTimer = window.setTimeout(applyStageClearance, next.retryAfter);
+            };
+            window.addEventListener('message', event => {
+                if (event.data?.type !== 'akari-preview-context-bar-rect') return;
+                contextBarRect = event.data.rect;
+                applyStageClearance();
+            });
+            const panLimits = () => computePanLimits(previewPane.clientWidth, previewPane.clientHeight,
+                previewStage.offsetWidth, previewStage.offsetHeight, zoom, stageClearance.barHeight);
             const clampPan = value => {
                 const limits = panLimits();
                 return {
@@ -17788,11 +17851,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const setZoom = value => {
                 zoom = clamp(value, ZOOM_MIN, ZOOM_MAX);
-                if (zoom <= 1.05) {
-                    pan = { x: 0, y: 0 };
-                } else {
-                    pan = clampPan(pan);
-                }
+                pan = clampPan(pan);
                 renderZoom();
             };
             new ResizeObserver(() => setZoom(zoom)).observe(previewPane);
@@ -19789,9 +19848,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 indicatorToggle.setAttribute('aria-expanded', 'true');
             });
             zoomSlider.addEventListener('input', () => setZoom(sliderToZoom(Number(zoomSlider.value))));
-            zoomSlider.addEventListener('dblclick', () => setZoom(1));
+            zoomSlider.addEventListener('dblclick', () => { pan = { x: 0, y: 0 }; setZoom(1); });
             for (const preset of document.querySelectorAll('.zoom-preset')) {
-                preset.addEventListener('click', () => setZoom(Number(preset.getAttribute('data-zoom'))));
+                preset.addEventListener('click', () => {
+                    const value = Number(preset.getAttribute('data-zoom'));
+                    if (value === 1) pan = { x: 0, y: 0 };
+                    setZoom(value);
+                });
             }
             // capture 段で登録: パン開始の stopPropagation（ズーム中の previewPane pointerdown）に
             // 外側クリック検知が殺されないようにする
@@ -19810,10 +19873,28 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             }, true);
             previewPane.addEventListener('wheel', event => {
-                if (!event.ctrlKey) return;
+                if (event.ctrlKey) {
+                    event.preventDefault();
+                    const factor = Math.exp(-event.deltaY * 0.01);
+                    const nextZoom = clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX);
+                    const bounds = previewPane.getBoundingClientRect();
+                    pan = computePinchPan(pan, { x: event.clientX - bounds.left - bounds.width / 2,
+                        y: event.clientY - bounds.top - bounds.height / 2 }, zoom, nextZoom);
+                    setZoom(nextZoom);
+                    return;
+                }
+                const target = event.target;
+                if (target instanceof Element && target.closest('.transport-controls, #zoom-popup, #rate-popup, #indicator-popup, input, textarea, select, [role="slider"]')) return;
+                for (let node = target instanceof Element ? target : null; node && node !== previewPane; node = node.parentElement) {
+                    if (node.isContentEditable) continue;
+                    const style = getComputedStyle(node);
+                    if ((/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight)
+                        || (/(auto|scroll)/.test(style.overflowX) && node.scrollWidth > node.clientWidth)) return;
+                }
                 event.preventDefault();
-                const factor = Math.exp(-event.deltaY * 0.01);
-                setZoom(clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX));
+                const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? previewPane.clientHeight : 1;
+                pan = clampPan({ x: pan.x - event.deltaX * unit, y: pan.y - event.deltaY * unit });
+                renderZoom();
             }, { passive: false });
             const isDirectManipulationTarget = (target, pointerEvent) => {
                 if (!(target instanceof Element)) return false;
@@ -20638,7 +20719,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message?.type === 'akari-preview-set-zoom') {
-                    if (message.fit === true) setZoom(1);
+                    if (message.fit === true) { pan = { x: 0, y: 0 }; setZoom(1); }
                     else if (Number.isFinite(message.scale)) setZoom(message.scale);
                     return;
                 }
