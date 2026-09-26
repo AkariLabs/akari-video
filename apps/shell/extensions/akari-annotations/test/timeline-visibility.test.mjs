@@ -142,3 +142,40 @@ test('表示中の別タイムラインは quiet 構成で奪わない', async (
     assert.equal(controller.timelineWidget, quiet);
     assert.equal(controller.review.location, 'quiet');
 });
+
+// 2026-09-26 オーナー指摘「開いたプロジェクトは、デフォルトでタイムラインが見えている状態に」。
+test('起動直後の既定表示は、隠していない かつ 復元で付いていないときだけ走る', async () => {
+    const code = ts.transpileModule(`class Controller { ${contributionMethod('revealTimelineOnOpen')} }`, {
+        compilerOptions: { target: ts.ScriptTarget.ES2021 }
+    }).outputText;
+    const Controller = new Function(`${code}\nreturn Controller;`)();
+    const build = overrides => {
+        const calls = [];
+        const controller = Object.assign(new Controller(), {
+            timelineHidden: false, timelineWidgets: new Set(),
+            attachPassively: async () => calls.push('attach')
+        }, overrides);
+        return { controller, calls };
+    };
+
+    const fresh = build({});
+    await fresh.controller.revealTimelineOnOpen();
+    assert.deepEqual(fresh.calls, ['attach'], '何も付いていなければ自動で出す');
+
+    const hidden = build({ timelineHidden: true });
+    await hidden.controller.revealTimelineOnOpen();
+    assert.deepEqual(hidden.calls, [], '⌘⇧L で畳んだ意思は上書きしない');
+
+    const restored = build({ timelineWidgets: new Set([{ isAttached: true, isDisposed: false }]) });
+    await restored.controller.revealTimelineOnOpen();
+    assert.deepEqual(restored.calls, [], 'レイアウト復元で既に出ているなら触らない');
+
+    const closed = build({ timelineWidgets: new Set([{ isAttached: false, isDisposed: false }]) });
+    await closed.controller.revealTimelineOnOpen();
+    assert.deepEqual(closed.calls, ['attach'], '構成だけされた quiet な widget は「出ている」に数えない');
+});
+
+test('既定表示はレイアウト復元後に 1 回だけ呼ばれる', () => {
+    const start = contributionMethod('onStart');
+    assert.match(start, /reachedState\('initialized_layout'\)\.then\(\(\) => this\.revealTimelineOnOpen\(\)\)/);
+});

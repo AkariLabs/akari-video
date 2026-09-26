@@ -346,6 +346,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         }
         await this.ensureReviewPanelTab();
         keepTimelineHidden();
+        // プロジェクトを開いた直後の既定は「編集データのタイムラインが見えている」
+        // （2026-09-26 オーナー指摘）。レイアウト復元が終わってから 1 回だけ試す。
+        void this.stateService.reachedState('initialized_layout').then(() => this.revealTimelineOnOpen());
         this.widgetManager.onDidCreateWidget(event => {
             if (event.factoryId !== WebviewWidget.FACTORY_ID || !(event.widget instanceof WebviewWidget)) {
                 return;
@@ -1109,6 +1112,27 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             this.review.location = current.timelineLocation;
         }
         if (first && !current?.isAttached) await this.shell.revealWidget(first.id);
+    }
+
+    /**
+     * 起動直後（レイアウト復元後）に 1 回だけ走る既定表示。
+     *
+     * 2026-09-26 オーナー指摘「開いたプロジェクトは、デフォルトで編集データの
+     * タイムラインが見える状態にしておくといい」。これまでタイムラインが出るのは
+     * 出力プレビューを開いたとき（akari-preview → {@link attachPassively}）だけで、
+     * ホームから普通に開いただけでは下パネルが空のままだった。
+     *
+     * 人の意思は上書きしない: ⌘⇧L で畳んである（`timelineHidden`）ときと、
+     * レイアウト復元で既にタイムラインが付いているときは何もしない。実処理は
+     * {@link attachPassively} をそのまま使う（edit.json のあるプロジェクトに限る・
+     * フォーカスは奪わない、という性質をここでも共有する）。
+     */
+    protected async revealTimelineOnOpen(): Promise<void> {
+        if (this.timelineHidden) { return; }
+        for (const widget of this.timelineWidgets) {
+            if (widget.isAttached && !widget.isDisposed) { return; }
+        }
+        await this.attachPassively();
     }
 
     protected async attach(): Promise<AkariAnnotationsWidget | undefined> {
