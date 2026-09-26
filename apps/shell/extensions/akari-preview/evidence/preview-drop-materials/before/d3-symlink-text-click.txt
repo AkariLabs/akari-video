@@ -1,0 +1,1 @@
+T tile click (symlink-opened workspace): captions before 4 after 5 {"id":"c-0004","start":9,"end":11.5,"text":"お湯は少し冷ましてから注ぎます","speaker":null,"sourceRef":null,"edited":false,"src":"a"}

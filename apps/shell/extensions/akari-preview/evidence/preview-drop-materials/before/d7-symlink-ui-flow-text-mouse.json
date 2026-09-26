@@ -1,0 +1,642 @@
+{
+ "cardSpec": "css:[data-akari-library-primary-tile=text]",
+ "dropSpec": "stage:0.3,0.3",
+ "mode": "mouse",
+ "at": "2026-09-26T11:34:58.835Z",
+ "card": {
+  "x": 89,
+  "y": 157,
+  "w": 66,
+  "h": 71,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 319.0390625,
+   "y": 109.1875,
+   "w": 410,
+   "h": 230.625
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 442,
+  "y": 178,
+  "outputPx": {
+   "x": 383.8780487804878,
+   "y": 214.82926829268294
+  },
+  "clampedOutputPx": {
+   "x": 383.8780487804878,
+   "y": 214.82926829268294
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 482,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 347,
+     "y": 155,
+     "w": 190,
+     "h": 46
+    },
+    "text": "テキストを置く0:00.0 → 0:03.0",
+    "border": "dashed"
+   }
+  ]
+ },
+ "waitMs": 505,
+ "afterDrop": {
+  "layer": [],
+  "ghost": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 89,
+   "y": 157,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 95,
+   "y": 163,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 95,
+   "y": 163,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 101,
+   "y": 169,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 101,
+   "y": 169,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 107,
+   "y": 175,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 107,
+   "y": 175,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 113,
+   "y": 181,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 119,
+   "y": 187,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 119,
+   "y": 187,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 125,
+   "y": 193,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 125,
+   "y": 193,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 131,
+   "y": 199,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 137,
+   "y": 205,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 137,
+   "y": 205,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 2,
+   "x": 157,
+   "y": 206,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 198,
+   "y": 208,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 198,
+   "y": 208,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 218,
+   "y": 209,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 218,
+   "y": 209,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 2,
+   "x": 239,
+   "y": 210,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 279,
+   "y": 212,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "lm-SplitPanel-handle"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 279,
+   "y": 212,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 300,
+   "y": 213,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 300,
+   "y": 213,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "lm-SplitPanel-handle"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 10,
+   "x": 320,
+   "y": 214,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 442,
+   "y": 178,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 442,
+   "y": 178,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.caption.placeText",
+   "args": [
+    {
+     "start": 0,
+     "center": {
+      "x": 0.2999047256097561,
+      "y": 0.2978793193976186
+     },
+     "canvasAware": true,
+     "outsideCanvas": false
+    },
+    "file://<work>/ws-u/edit.json"
+   ],
+   "result": "c-0005"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-u/edit.json",
+     "time": 0
+    }
+   ],
+   "result": "seeked"
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": false,
+ "newItems": [],
+ "captionsChanged": true,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 0,
+   "end": 3,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "text_style": {
+    "text_anchor": "mc",
+    "position": {
+     "x": 0.1835297256097561,
+     "y": 0.2978793193976186
+    }
+   }
+  }
+ ],
+ "audioBefore": null,
+ "audioAfter": null,
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "css:[data-akari-library-primary-tile=text]",
+  "drop": "stage:0.3,0.3",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 347,
+     "y": 155,
+     "w": 190,
+     "h": 46
+    },
+    "text": "テキストを置く0:00.0 → 0:03.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.caption.placeText",
+    "result": "\"c-0005\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "\"seeked\""
+   }
+  ],
+  "editChanged": false,
+  "captionsChanged": true,
+  "newItems": [],
+  "notices": [],
+  "playhead": []
+ }
+}

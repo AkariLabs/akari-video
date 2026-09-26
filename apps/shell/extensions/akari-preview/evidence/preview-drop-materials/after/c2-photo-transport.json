@@ -1,0 +1,738 @@
+{
+ "cardSpec": "asset:still/bg-aurora-mesh",
+ "dropSpec": "stage:0.5,1.12",
+ "mode": "mouse",
+ "at": "2026-09-26T13:09:22.466Z",
+ "card": {
+  "x": 87,
+  "y": 197,
+  "w": 58,
+  "h": 60,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 511.70703125,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 813,
+  "y": 435,
+  "outputPx": {
+   "x": 639.9170350397324,
+   "y": 807.0899495287042
+  },
+  "clampedOutputPx": {
+   "x": 639.9170350397324,
+   "y": 720
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 737.7,
+     "y": 351.9,
+     "w": 150.7,
+     "h": 84.8
+    },
+    "text": "オーロラメッシュ背景0:06.0 → 0:11.0",
+    "border": "dashed"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "オーロラメッシュ背景",
+    "img": "https://akari.video/assets/still/bg-aurora-mesh/v1/preview.png"
+   }
+  ]
+ },
+ "waitMs": 5601,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 87,
+   "y": 197,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 93,
+   "y": 203,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 93,
+   "y": 203,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 99,
+   "y": 209,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 99,
+   "y": 209,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 105,
+   "y": 215,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 111,
+   "y": 221,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 111,
+   "y": 221,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 117,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 117,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 123,
+   "y": 233,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 129,
+   "y": 239,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 129,
+   "y": 239,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 135,
+   "y": 245,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 186,
+   "y": 264,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 186,
+   "y": 264,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 238,
+   "y": 283,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 238,
+   "y": 283,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 289,
+   "y": 302,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 289,
+   "y": 302,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 8,
+   "x": 341,
+   "y": 321,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 753,
+   "y": 475,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "lm-SplitPanel-handle"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 753,
+   "y": 475,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 753,
+   "y": 475,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "lm-SplitPanel-handle"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 783,
+   "y": 455,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 783,
+   "y": 455,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "lm-SplitPanel-handle"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 4,
+   "x": 813,
+   "y": 435,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 813,
+   "y": 435,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 813,
+   "y": 435,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.catalog.resolveMaterial",
+   "args": [
+    "still/bg-aurora-mesh"
+   ],
+   "result": {
+    "relativePath": "assets/still/bg-aurora-mesh/bg.png",
+    "kind": "image"
+   }
+  },
+  {
+   "id": "akari.library.isMoving",
+   "args": [],
+   "result": false
+  },
+  {
+   "id": "akari.timeline.addMaterialAtOutputPoint",
+   "args": [
+    {
+     "relativePath": "assets/still/bg-aurora-mesh/bg.png",
+     "kind": "image",
+     "t": 6,
+     "transform": {
+      "x": -0.03318745171247883,
+      "y": 360
+     },
+     "editUri": "file://<work>/ws-a/edit.json",
+     "outsideCanvas": false,
+     "canvasAware": true
+    }
+   ]
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v7",
+   "trackIndex": 8,
+   "lane": "visual",
+   "id": "image-3",
+   "at": 180,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-3",
+    "in": 0,
+    "out": 5
+   },
+   "transform": {
+    "x": -0.03318745171247883,
+    "y": 360,
+    "scale": 0.19138755980861244
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   },
+   {
+    "id": "audio-2",
+    "path": "assets/audio/bgm-beatslide-124-001/bgm-beatslide-124-001.mp3",
+    "t": 4,
+    "track": 0,
+    "gain_db": -6.4,
+    "fade_in": 0.2,
+    "fade_out": 1
+   }
+  ]
+ },
+ "audioAfter": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   },
+   {
+    "id": "audio-2",
+    "path": "assets/audio/bgm-beatslide-124-001/bgm-beatslide-124-001.mp3",
+    "t": 4,
+    "track": 0,
+    "gain_db": -6.4,
+    "fade_in": 0.2,
+    "fade_out": 1
+   }
+  ]
+ },
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "asset:still/bg-aurora-mesh",
+  "drop": "stage:0.5,1.12",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 737.7,
+     "y": 351.9,
+     "w": 150.7,
+     "h": 84.8
+    },
+    "text": "オーロラメッシュ背景0:06.0 → 0:11.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.catalog.resolveMaterial",
+    "result": "{\"relativePath\":\"assets/still/bg-aurora-mesh/bg.png\",\"kind\":\"image\"}"
+   },
+   {
+    "id": "akari.library.isMoving",
+    "result": "false"
+   },
+   {
+    "id": "akari.timeline.addMaterialAtOutputPoint",
+    "result": "null"
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "image-3",
+    "track": "v7",
+    "at": 180,
+    "duration": 150,
+    "transform": {
+     "x": -0.03318745171247883,
+     "y": 360,
+     "scale": 0.19138755980861244
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}

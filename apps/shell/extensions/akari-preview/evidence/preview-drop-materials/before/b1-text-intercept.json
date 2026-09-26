@@ -1,0 +1,253 @@
+{
+ "cardSpec": "css:[data-akari-library-primary-tile=text]",
+ "dropSpec": "stage:0.3,0.3",
+ "mode": "intercept",
+ "at": "2026-09-26T11:10:13.364Z",
+ "card": {
+  "x": 89,
+  "y": 157,
+  "w": 66,
+  "h": 71,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 558.8203125,
+   "y": 55.00390625,
+   "w": 508.4375,
+   "h": 285.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 711,
+  "y": 141,
+  "outputPx": {
+   "x": 383.11493546404427,
+   "y": 216.4995765837135
+  },
+  "clampedOutputPx": {
+   "x": 383.11493546404427,
+   "y": 216.4995765837135
+  }
+ },
+ "dragIntercepted": true,
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "dragImage": {
+  "hasImage": false,
+  "width": null,
+  "height": null
+ },
+ "payload": {
+  "kind": "text"
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 375.9
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 616,
+     "y": 118,
+     "w": 190,
+     "h": 46
+    },
+    "text": "テキストを置く0:01.0 → 0:04.0",
+    "border": "dashed"
+   }
+  ]
+ },
+ "waitMs": 533,
+ "afterDrop": {
+  "layer": [],
+  "ghost": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 89,
+   "y": 157,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 651,
+   "y": 181,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 7,
+   "x": 651,
+   "y": 181,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 711,
+   "y": 141,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 711,
+   "y": 141,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.caption.placeText",
+   "args": [
+    {
+     "start": 1,
+     "center": {
+      "x": 0.2993457671716231,
+      "y": 0.3007976337156448
+     },
+     "canvasAware": true,
+     "outsideCanvas": false
+    },
+    "file://<work>/ws-b/edit.json"
+   ],
+   "result": "c-0005"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-b/edit.json",
+     "time": 1
+    }
+   ],
+   "result": "seeked"
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": false,
+ "newItems": [],
+ "captionsChanged": true,
+ "newCaptions": [
+  {
+   "id": "c-0005",
+   "start": 1,
+   "end": 4,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "text_style": {
+    "text_anchor": "mc",
+    "position": {
+     "x": 0.18297076717162308,
+     "y": 0.3007976337156448
+    }
+   }
+  }
+ ],
+ "audioBefore": null,
+ "audioAfter": null,
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "card": "css:[data-akari-library-primary-tile=text]",
+  "drop": "stage:0.3,0.3",
+  "mode": "intercept",
+  "dragIntercepted": true,
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 616,
+     "y": 118,
+     "w": 190,
+     "h": 46
+    },
+    "text": "テキストを置く0:01.0 → 0:04.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.caption.placeText",
+    "result": "c-0005"
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "seeked"
+   }
+  ],
+  "editChanged": false,
+  "captionsChanged": true,
+  "newItems": [],
+  "notices": [],
+  "playhead": []
+ }
+}

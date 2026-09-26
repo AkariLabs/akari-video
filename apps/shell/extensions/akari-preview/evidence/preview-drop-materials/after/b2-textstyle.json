@@ -1,0 +1,570 @@
+{
+ "cardSpec": "textstyle:subtitle-news",
+ "dropSpec": "stage:0.5,0.4",
+ "mode": "mouse",
+ "at": "2026-09-26T13:07:13.835Z",
+ "card": {
+  "x": 104,
+  "y": 184,
+  "w": 92,
+  "h": 79,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 511.70703125,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 813,
+  "y": 191,
+  "outputPx": {
+   "x": 639.9170350397324,
+   "y": 288.8479177709663
+  },
+  "clampedOutputPx": {
+   "x": 639.9170350397324,
+   "y": 288.8479177709663
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 718,
+     "y": 168,
+     "w": 190,
+     "h": 46
+    },
+    "text": "テキストを置く0:04.0 → 0:07.0",
+    "border": "dashed"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "Tテキストスタイル",
+    "img": null
+   }
+  ]
+ },
+ "waitMs": 503,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 104,
+   "y": 184,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 110,
+   "y": 190,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 3,
+   "x": 110,
+   "y": 190,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 128,
+   "y": 208,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 128,
+   "y": 208,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 134,
+   "y": 214,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 134,
+   "y": 214,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 140,
+   "y": 220,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 146,
+   "y": 226,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 146,
+   "y": 226,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 152,
+   "y": 232,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 152,
+   "y": 232,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 202,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 202,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 252,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 252,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 302,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 302,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 15,
+   "x": 352,
+   "y": 231,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 813,
+   "y": 191,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 813,
+   "y": 191,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.caption.placeText",
+   "args": [
+    {
+     "start": 4,
+     "center": {
+      "x": 0.4999740723033496,
+      "y": 0.4008096565643757
+     },
+     "stylePreset": "subtitle-news",
+     "canvasAware": true,
+     "outsideCanvas": false
+    },
+    "file://<work>/ws-a/edit.json"
+   ],
+   "result": "c-0006"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-a/edit.json",
+     "time": 4
+    }
+   ],
+   "result": "seeked"
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": false,
+ "newItems": [],
+ "captionsChanged": true,
+ "newCaptions": [
+  {
+   "id": "c-0006",
+   "start": 4,
+   "end": 7,
+   "text": "テキストを入力",
+   "speaker": null,
+   "sourceRef": null,
+   "edited": true,
+   "time_domain": "output",
+   "style_preset": "subtitle-news",
+   "text_style": {
+    "text_anchor": "mc",
+    "position": {
+     "x": 0.33434907230334965,
+     "y": 0.4008096565643757
+    }
+   }
+  }
+ ],
+ "audioBefore": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   }
+  ]
+ },
+ "audioAfter": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   }
+  ]
+ },
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "textstyle:subtitle-news",
+  "drop": "stage:0.5,0.4",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 718,
+     "y": 168,
+     "w": 190,
+     "h": 46
+    },
+    "text": "テキストを置く0:04.0 → 0:07.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.caption.placeText",
+    "result": "\"c-0006\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "\"seeked\""
+   }
+  ],
+  "editChanged": false,
+  "captionsChanged": true,
+  "newItems": [],
+  "notices": [],
+  "playhead": []
+ }
+}

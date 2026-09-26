@@ -1,0 +1,409 @@
+{
+ "cardSpec": "material:assets/tone-440.m4a",
+ "dropSpec": "stage:0.5,0.5",
+ "mode": "mouse",
+ "at": "2026-09-26T13:06:47.404Z",
+ "card": {
+  "x": 217,
+  "y": 229,
+  "w": 107,
+  "h": 107,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 511.70703125,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 813,
+  "y": 225,
+  "outputPx": {
+   "x": 639.9170350397324,
+   "y": 361.0619713765527
+  },
+  "clampedOutputPx": {
+   "x": 639.9170350397324,
+   "y": 361.0619713765527
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 733,
+     "y": 202,
+     "w": 160,
+     "h": 46
+    },
+    "text": "時刻に置く0:03.0 → 実尺",
+    "border": "solid"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "tone-440.m4a",
+    "img": "file://<work>/ws-a/.akari/cache/thumbnails/88718"
+   }
+  ]
+ },
+ "waitMs": 1539,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 217,
+   "y": 229,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 223,
+   "y": 235,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 5,
+   "x": 223,
+   "y": 235,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 253,
+   "y": 265,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 253,
+   "y": 265,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 259,
+   "y": 271,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 265,
+   "y": 277,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 265,
+   "y": 277,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 305,
+   "y": 276,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 305,
+   "y": 276,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 17,
+   "x": 346,
+   "y": 275,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 813,
+   "y": 225,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 813,
+   "y": 225,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-material"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.timeline.addMaterialAtOutputPoint",
+   "args": [
+    {
+     "relativePath": "assets/tone-440.m4a",
+     "kind": "audio",
+     "t": 3,
+     "editUri": "file://<work>/ws-a/edit.json",
+     "outsideCanvas": false,
+     "canvasAware": true
+    }
+   ],
+   "result": "undefined"
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-a/edit.json",
+     "time": 3,
+     "waitForReady": true
+    }
+   ],
+   "result": "seeked"
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": null,
+ "audioAfter": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   }
+  ]
+ },
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "material:assets/tone-440.m4a",
+  "drop": "stage:0.5,0.5",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 733,
+     "y": 202,
+     "w": 160,
+     "h": 46
+    },
+    "text": "時刻に置く0:03.0 → 実尺",
+    "border": "solid"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.timeline.addMaterialAtOutputPoint",
+    "result": "\"undefined\""
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "\"seeked\""
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [],
+  "notices": [],
+  "playhead": []
+ }
+}
