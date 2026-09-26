@@ -53,6 +53,12 @@
     "background": "#3aab7d",
     "color": "#ffffff"
   },
+  "irodori": {
+    "name": "Irodori-TTS",
+    "initials": "I",
+    "background": "#4b6ca5",
+    "color": "#ffffff"
+  },
   "elevenlabs": {
     "name": "ElevenLabs",
     "initials": "E",

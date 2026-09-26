@@ -576,6 +576,48 @@
       "as_of": null
     },
     {
+      "id": "irodori",
+      "kind": "voice",
+      "maker": "irodori",
+      "group": "irodori",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "商用条件は未確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "彩（Irodori-TTS）",
+      "family": "彩（Irodori-TTS）",
+      "via": "local",
+      "provider": "irodori",
+      "inputs": {
+        "text": true,
+        "style": true,
+        "voice_clone": "registered",
+        "speed": true
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": true,
+        "voices": ["narrator-male", "bright-female", "slow-explainer"],
+        "default_voice": "narrator-male"
+      },
+      "price": {
+        "unit": "usd_per_1000_chars",
+        "value": 0,
+        "as_of": null,
+        "source_url": null
+      },
+      "as_of": null
+    },
+    {
       "id": "transcribe:speech-analyzer",
       "kind": "transcribe",
       "maker": "local",
