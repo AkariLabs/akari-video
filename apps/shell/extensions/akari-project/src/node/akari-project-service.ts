@@ -1262,18 +1262,41 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
     protected readonly transcribeCancelled = new Set<string>();
     protected readonly transcribeKillTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-    protected async materialTarget(projectRoot: string, relativePath: string): Promise<{ root: string; path: string; relativePath: string }> {
+    protected async materialTarget(projectRoot: string, relativePath: string): Promise<{ root: string; path: string; relativePath: string; actualPath?: string }> {
         const root = await fs.realpath(this.fsPath(projectRoot));
-        const path = await fs.realpath(resolve(root, relativePath));
-        const rel = relative(root, path);
-        if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
-            throw new Error('素材はプロジェクト内のパスで指定してください');
+        const requested = resolve(root, relativePath);
+        const actual = await fs.realpath(requested).catch((error: NodeJS.ErrnoException) => {
+            if (error?.code === 'ENOENT') return undefined;
+            throw error;
+        });
+        if (actual !== undefined) {
+            const rel = relative(root, actual);
+            if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+                throw new Error('素材はプロジェクト内のパスで指定してください');
+            }
+            const lexicalRelative = relative(root, requested);
+            if (!lexicalRelative || lexicalRelative === '..' || lexicalRelative.startsWith(`..${sep}`) || isAbsolute(lexicalRelative)) {
+                throw new Error('素材はプロジェクト内のパスで指定してください');
+            }
+            return { root, path: actual, relativePath: lexicalRelative.split(sep).join('/') };
         }
-        const lexicalRelative = relative(root, resolve(root, relativePath));
+        // 実体が無い = 共有ライブラリ参照（`.akari/asset-references.json`）の可能圏。
+        // 祖先の realpath containment を先に検査し、解決は asset-resolver に一任する。
+        // 生の ENOENT を UI へ通さない（2026-09-26 オーナー報告）。
+        const lexicalRelative = relative(root, requested);
         if (!lexicalRelative || lexicalRelative === '..' || lexicalRelative.startsWith(`..${sep}`) || isAbsolute(lexicalRelative)) {
             throw new Error('素材はプロジェクト内のパスで指定してください');
         }
-        return { root, path, relativePath: lexicalRelative.split(sep).join('/') };
+        const declared = lexicalRelative.split(sep).join('/');
+        await this.transcribeFile(root, declared);
+        const library = await this.resolveDeclaredAssetPaths(root, [declared]);
+        const actualPath = library.get(declared);
+        if (!actualPath) {
+            throw new Error(`素材の実体が見つかりません（共有ライブラリにも未取得です）: ${declared}`);
+        }
+        // `path` は文字起こしの同一実行判定キー。library 実体にすると別プロジェクトの
+        // 同じ参照素材を「実行中」と誤判定するため、宣言パス由来のプロジェクト内パスを保つ。
+        return { root, path: requested, relativePath: declared, actualPath };
     }
 
     protected async findMediaTool(kind: 'media' | 'captions'): Promise<string> {
@@ -1847,8 +1870,11 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
         if (plan.origin === 'edit') {
             const shots: ProjectCardShot[] = [];
             const stillsSeen = new Set<string>();
+            const library = await this.resolveDeclaredAssetPaths(root, plan.samples.map(sample => sample.sourcePath));
             for (const sample of plan.samples) {
-                const absolutePath = isAbsolute(sample.sourcePath) ? sample.sourcePath : join(root, sample.sourcePath);
+                const absolutePath = isAbsolute(sample.sourcePath)
+                    ? sample.sourcePath
+                    : library.get(sample.sourcePath) ?? join(root, sample.sourcePath);
                 // 静止画ソースは時刻が違っても同じ絵になる。同じ 1 枚を 5 コマ並べると
                 // ループが止まって見えるので、静止画は 1 回だけ採る。
                 if (IMAGE_EXTENSIONS.has(extname(absolutePath).toLowerCase())) {
@@ -1872,6 +1898,66 @@ await removeProjectReference(${JSON.stringify(this.fsPath(projectUri))}, ${JSON.
                     ?? (plan.origin === 'export' ? readPlannedDurationSeconds(plan.renderState) : undefined)
         });
         return timestamps.map(seconds => ({ absolutePath: plan.videoPath, seconds }));
+    }
+
+    /**
+     * `edit.json` が宣言するプロジェクト相対パスを、実ファイルの絶対パスへ解決する。
+     *
+     * 参照だけで実体がプロジェクトに無い素材（`akari store` の参照配布 —
+     * `.akari/asset-references.json` に記帳され、実体は素材ライブラリ側にある）は
+     * `assets/<category>/<id>/<file>` が存在しないため、プロジェクト内だけを見ていると
+     * 「動画は入っているのにサムネイルが出ない」になる（2026-09-26 オーナー報告）。
+     * プレビュー・書き出しと同じ `asset-resolver` の shell-reference 経由で台帳を引く。
+     *
+     * プロジェクト内に実体があるものは resolver も同じ答えを返すため、
+     * **ローカルに全部そろっているときは解決自体を省く**（子プロセスを起こさない）。
+     * 解決できないもの（resolver が無い・台帳に無い）はキーを持たず、呼び出し側は
+     * 従来どおり `join(root, declared)` へ落ちる。
+     */
+    protected async resolveDeclaredAssetPaths(root: string, declared: string[]): Promise<Map<string, string>> {
+        const resolved = new Map<string, string>();
+        const missing: string[] = [];
+        for (const path of new Set(declared)) {
+            if (isAbsolute(path)) {
+                continue;
+            }
+            if (!await this.isReadableFile(join(root, path))) {
+                missing.push(path);
+            }
+        }
+        if (missing.length === 0) {
+            return resolved;
+        }
+        const srcDir = await this.findAssetResolverSrcDir();
+        if (!srcDir) {
+            return resolved;
+        }
+        const result = await this.runResolverScript(`
+import { resolveProjectAssetPath } from ${JSON.stringify(pathToFileURL(join(srcDir, 'shell-reference.mjs')).toString())};
+const project = ${JSON.stringify(root)};
+const found = {};
+for (const declared of ${JSON.stringify(missing)}) {
+    try {
+        const actual = await resolveProjectAssetPath(project, declared);
+        if (actual) found[declared] = actual;
+    } catch {}
+}
+process.stdout.write(JSON.stringify(found));
+`);
+        if (result.code !== 0) {
+            return resolved;
+        }
+        try {
+            const parsed = JSON.parse(result.stdout) as Record<string, unknown>;
+            for (const [declared, actual] of Object.entries(parsed)) {
+                if (typeof actual === 'string' && actual) {
+                    resolved.set(declared, actual);
+                }
+            }
+        } catch {
+            // 解決できなければプロジェクト内のパスのまま（絵が出ないだけで一覧は止めない）。
+        }
+        return resolved;
     }
 
     /** `.akari/render.json` を防御的に読む（無い・壊れているときは undefined）。 */

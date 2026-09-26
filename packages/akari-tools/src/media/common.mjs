@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../../media-bin/src/index.mjs";
+import { resolveProjectAssetPathSync } from "../../../asset-resolver/src/shell-reference-sync.mjs";
 
 export const MEDIA_VERSION = "0.1.0";
 
@@ -73,15 +74,36 @@ export function resolveTarget(target, options = {}) {
       sourceId = source.id;
     }
   }
-  if (!existsSync(inputPath)) throw new Error(`素材ファイルが見つかりません: ${target}`);
-  if (!statSync(inputPath).isFile()) throw new Error(`通常ファイルではありません: ${target}`);
-
-  projectRoot = projectRoot ?? findProjectRoot(inputPath);
-  if (projectRoot) {
-    const relative = path.relative(projectRoot, inputPath);
-    if (relative.startsWith("..") || path.isAbsolute(relative)) projectRoot = null;
+  // 参照素材のフォールバック（契約: 実体が共有ライブラリ側にある宣言パス）。
+  // プロジェクト内の実体が無いときだけ台帳 → library を asset-resolver に一任する。
+  let libraryRelative = null;
+  if (!existsSync(inputPath) && cwdProject) {
+    const declared = projectDeclaredPath(cwdProject, inputPath);
+    if (declared) {
+      try {
+        const actual = resolveProjectAssetPathSync(cwdProject, declared, options.env ?? process.env);
+        if (actual) {
+          inputPath = actual;
+          libraryRelative = declared;
+        }
+      } catch {
+        // 解決できない参照は従来どおり「見つかりません」へ落とす。
+      }
+    }
   }
-  const projectRelative = projectRoot ? toPosix(path.relative(projectRoot, inputPath)) : null;
+  if (!libraryRelative) {
+    if (!existsSync(inputPath)) throw new Error(`素材ファイルが見つかりません: ${target}`);
+    if (!statSync(inputPath).isFile()) throw new Error(`通常ファイルではありません: ${target}`);
+
+    projectRoot = projectRoot ?? findProjectRoot(inputPath);
+    if (projectRoot) {
+      const relative = path.relative(projectRoot, inputPath);
+      if (relative.startsWith("..") || path.isAbsolute(relative)) projectRoot = null;
+    }
+  }
+  // library 実体を解決したときは、宣言パスをプロジェクト相対として保つ
+  // （実体からの path.relative() にすると sidecars の置き場を失う）。
+  const projectRelative = libraryRelative ?? (projectRoot ? toPosix(path.relative(projectRoot, inputPath)) : null);
   const declaredSource = projectRoot
     ? readEditSources(projectRoot).find((entry) => entry?.id === sourceId || normalizeRelative(entry?.path) === projectRelative)
     : null;
@@ -98,6 +120,12 @@ export function resolveTarget(target, options = {}) {
 
 function normalizeRelative(value) {
   return typeof value === "string" ? toPosix(path.normalize(value)).replace(/^\.\//, "") : null;
+}
+
+function projectDeclaredPath(projectRoot, absolutePath) {
+  const relativePath = path.relative(projectRoot, absolutePath);
+  if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) return null;
+  return toPosix(relativePath);
 }
 
 export function parseTime(value) {

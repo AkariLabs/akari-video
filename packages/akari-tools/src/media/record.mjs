@@ -140,12 +140,23 @@ async function acquireLock(lockPath) {
 function minimalAnalysis(target, analysisDirectory) {
   return {
     version: 0,
-    source: relativeFrom(analysisDirectory, target.inputPath),
+    source: relativeFrom(analysisDirectory, analysisSourcePath(target)),
     transcript: [],
     keyframes: [],
     events: [],
     tracks: { speakers: [], faces: [], person_matte: null },
   };
+}
+
+/**
+ * analysis.json が記録する `source` は、共有ライブラリ参照でも宣言パス（プロジェクト内の
+ * 実体がある場合と同じ値）へ寄せる。library 実体の絶対パスを相対化すると `.akari/sidecars/`
+ * にマシン固有の脱出パスが焼き付き、プロジェクトを持ち出した時点で壊れる。
+ * projectRoot / projectRelative を持たない素材（プロジェクト外の単体ファイル）は従来どおり。
+ */
+function analysisSourcePath(target) {
+  if (!target.projectRoot || !target.projectRelative) return target.inputPath;
+  return path.join(target.projectRoot, target.projectRelative);
 }
 
 export function replaceTranscriptRange(existing, replacement, range) {
