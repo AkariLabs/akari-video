@@ -58,6 +58,8 @@ import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/bro
 import { partnerSettingsCliRows } from '../common/partner-settings-rows';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
+import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai-models-protocol';
+import { AiModelsView } from './ai-models/ai-models-view';
 import { parseUpdateCache, resolveUpdateDownloadUrl } from '../common/update-feed';
 import {
     applyImmediateUpdaterFallback, applyShellUpdaterEvent, beginUserInitiatedUpdaterCheck,
@@ -113,6 +115,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     /** Akari アカウント節の中身（アカウント帯 + AKARI Store のグループ）。renderStore が描き直す。 */
     protected readonly storeRow = element('div');
     protected readonly sections = new Map<SettingsSectionId, HTMLElement>();
+    protected aiModelsView?: AiModelsView;
     protected shortcutsView?: ShortcutsSettingsView;
     protected readonly storeController: StoreConnectionFlowController;
     protected storeState: StoreConnectionFlowState = { connection: { connected: false }, connectionLoading: true, phase: 'idle' };
@@ -164,7 +167,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         protected readonly narrationService: AkariNarrationEnginesService,
         protected readonly keybindingRegistry: KeybindingRegistry, protected readonly commandRegistry: CommandRegistry,
         protected readonly keymapsService: KeymapsService, protected readonly keyboardLayout: KeyboardLayoutService,
-        initialSection?: SettingsSectionId
+        protected readonly aiModelsService: AkariAiModelsService, initialSection?: SettingsSectionId
     ) {
         super({ title: 'AKARI Video の設定' });
         this.compareDraft = preferences.get<string[]>(AKARI_TRANSCRIBE_COMPARE_SET, []);
@@ -369,8 +372,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         if (id === 'transcribe') { this.renderTranscribe(); return; }
         if (id === 'narration') { this.renderNarration(); return; }
         if (id === 'connections') { return; }
+        if (id === 'ai-models' && this.aiModelsView) { return; }
         const section = this.sections.get(id)!;
         section.replaceChildren(...this.sectionHeading(id));
+        if (id === 'ai-models') { this.aiModelsView = new AiModelsView(section, this.aiModelsService, this.workspaceRoot); return; }
         if (id === 'shortcuts') {
             this.shortcutsView?.dispose();
             this.shortcutsView = new ShortcutsSettingsView(section, this.keybindingRegistry, this.commandRegistry,
@@ -2153,7 +2158,8 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         await this.preferences.ready;
         this.maintenance ??= this.connectionsProvider.createProxy<AkariSettingsMaintenanceService>(AKARI_SETTINGS_MAINTENANCE_PATH);
         const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
-        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, this.requestedSection);
+        const aiModels = this.connectionsProvider.createProxy<AkariAiModelsService>(AKARI_AI_MODELS_SERVICE_PATH);
+        const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.requestedSection);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {

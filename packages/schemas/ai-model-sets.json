@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "sets": {
+    "cheap": {
+      "label": "安く",
+      "defaults": { "image": "codex:image", "video": "fal:wan-2.7-i2v", "voice": "voicevox", "transcribe": "transcribe:whisper-cpp" },
+      "favorites": { "image": ["codex:image"], "video": ["fal:wan-2.7-i2v"], "voice": ["voicevox"], "transcribe": ["transcribe:whisper-cpp"] }
+    },
+    "normal": {
+      "label": "ふつう",
+      "defaults": { "image": "codex:image", "video": "fal:kling-v3-pro-i2v", "voice": "voicevox", "transcribe": "transcribe:whisper-cpp" },
+      "favorites": { "image": ["codex:image", "still:antigravity", "still:grok", "fal:gpt-image-2.5-flare"], "video": ["fal:kling-v3-pro-i2v", "fal:h3-i2v", "fal:seedance-2.0-i2v"], "voice": ["voicevox", "tts:gemini-3.8-flash-tts", "tts:fish-s2.1-pro"], "transcribe": ["transcribe:whisper-cpp"] }
+    },
+    "quality": {
+      "label": "高品質",
+      "defaults": { "image": "fal:nano-banana-pro-edit", "video": "fal:veo-3.1-flf", "voice": "tts:fish-s2.1-pro", "transcribe": "transcribe:cloud:scribe" },
+      "favorites": { "image": ["fal:nano-banana-pro-edit"], "video": ["fal:veo-3.1-flf"], "voice": ["tts:fish-s2.1-pro"], "transcribe": ["transcribe:cloud:scribe"] }
+    }
+  }
+}
