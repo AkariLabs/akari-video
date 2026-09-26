@@ -10,6 +10,11 @@ export interface PreviewPlaybackTick {
     rate?: number;
 }
 
+/** Only the initialized current page may replace the host's playback position. */
+export const shouldCapturePreviewPlaybackTick = (
+    tick: { pageId?: string; positionReady?: boolean }, currentPageId?: string
+): boolean => !!currentPageId && tick.pageId === currentPageId && tick.positionReady === true;
+
 export interface PreviewRefreshRestoreInput {
     seekTimeOverride?: number;
     transport?: Pick<PreviewPlaybackState, 'timelineT' | 'playing'>;

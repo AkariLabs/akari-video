@@ -1,0 +1,300 @@
+{
+ "groups": {
+  "a": {
+   "runs": 10,
+   "placed": 10,
+   "transientReset": 10,
+   "stuckAtZero": 0
+  },
+  "heavy-a": {
+   "runs": 10,
+   "placed": 9,
+   "transientReset": 10,
+   "stuckAtZero": 0
+  },
+  "shape": {
+   "runs": 0,
+   "placed": 0,
+   "transientReset": 0,
+   "stuckAtZero": 0
+  },
+  "text": {
+   "runs": 0,
+   "placed": 0,
+   "transientReset": 0,
+   "stuckAtZero": 0
+  },
+  "pimg": {
+   "runs": 0,
+   "placed": 0,
+   "transientReset": 0,
+   "stuckAtZero": 0
+  },
+  "broll": {
+   "runs": 0,
+   "placed": 0,
+   "transientReset": 0,
+   "stuckAtZero": 0
+  },
+  "pv": {
+   "runs": 0,
+   "placed": 0,
+   "transientReset": 0,
+   "stuckAtZero": 0
+  }
+ },
+ "rows": [
+  {
+   "file": "a01.json",
+   "card": "asset:still/bg-asteroid-belt",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a02.json",
+   "card": "asset:still/bg-atmospheric-limb",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 1,
+   "zeroTicksAccepted": 1,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a03.json",
+   "card": "asset:still/bg-aurora-mesh",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a04.json",
+   "card": "asset:still/bg-aurora-polar",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a05.json",
+   "card": "asset:still/bg-black-hole-disk",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a06.json",
+   "card": "asset:still/bg-blue-nebula-pillars",
+   "start": 5,
+   "minPlayhead": 5,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a07.json",
+   "card": "asset:still/bg-blueprint",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a08.json",
+   "card": "asset:still/bg-canvas",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 10,
+   "zeroTicksAccepted": 10,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a09.json",
+   "card": "asset:still/bg-city-dusk-bokeh",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "a10.json",
+   "card": "asset:still/bg-comet-tail",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 1,
+   "zeroTicksAccepted": 1,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a01.json",
+   "card": "asset:still/bg-concrete-loft-bokeh",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a02.json",
+   "card": "asset:still/bg-dark-grid",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 1,
+   "zeroTicksAccepted": 1,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 0
+  },
+  {
+   "file": "heavy-a03.json",
+   "card": "asset:still/bg-deep-gradient",
+   "start": 5,
+   "minPlayhead": 5,
+   "end": 5,
+   "zeroTicksReceived": 1,
+   "zeroTicksAccepted": 1,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a04.json",
+   "card": "asset:still/bg-dot-grid",
+   "start": 5,
+   "minPlayhead": 5,
+   "end": 5,
+   "zeroTicksReceived": 10,
+   "zeroTicksAccepted": 10,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a05.json",
+   "card": "asset:still/bg-dune-sand",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a06.json",
+   "card": "asset:still/bg-duotone",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a07.json",
+   "card": "asset:still/bg-eclipse",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a08.json",
+   "card": "asset:still/bg-fiber-optic-flow",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 4,
+   "zeroTicksAccepted": 4,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a09.json",
+   "card": "asset:still/bg-fine-noise",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 28,
+   "zeroTicksAccepted": 28,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "heavy-a10.json",
+   "card": "asset:still/bg-fluid-marble",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 5,
+   "zeroTicksReceived": 2,
+   "zeroTicksAccepted": 2,
+   "transientReset": true,
+   "stuckAtZero": false,
+   "placed": 1
+  },
+  {
+   "file": "stuck-positionready-log.json",
+   "card": "asset:still/bg-forest-mist",
+   "start": 5,
+   "minPlayhead": 0,
+   "end": 0,
+   "zeroTicksReceived": 39,
+   "zeroTicksAccepted": 39,
+   "transientReset": true,
+   "stuckAtZero": true,
+   "placed": 1
+  }
+ ]
+}

@@ -240,6 +240,7 @@ import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { previewTrackedResourceSets } from '../common/motion-bag-preview-update';
 import {
     capturePreviewPlaybackTick,
+    shouldCapturePreviewPlaybackTick,
     resolvePreviewRefreshRestore
 } from '../common/preview-refresh-state';
 import { PreviewGestureGuard, reducePreviewGesture } from '../common/preview-gesture-guard';
@@ -1227,6 +1228,7 @@ interface ShowPreviewZoneHintRequest { editUri: string; zones: string[]; duratio
 interface PreviewPlaybackTickRequest {
     type: 'akari-preview-playback-tick';
     pageId?: string;
+    positionReady?: boolean;
     trialToken?: string;
     time: number;
     playing: boolean;
@@ -4092,6 +4094,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected forwardPlaybackTick(widget: PreviewWidgetMarker, message: PreviewPlaybackTickRequest): void {
+        if (!shouldCapturePreviewPlaybackTick(message, widget.akariPreviewPlaybackPageId)) return;
         const editUri = widget.akariPreviewEditUri;
         const normalizedEditUri = editUri?.normalizePath().toString();
         const previous = normalizedEditUri ? this.reviewTransportByEdit.get(normalizedEditUri) : undefined;
@@ -9827,6 +9830,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 lastPlaybackTickAt = now;
                 vscode.postMessage({
                     type: 'akari-preview-playback-tick', time, playing, pageId: initial.playbackPageId,
+                    positionReady: window.akari.previewPositionReady === true,
                     trialToken: window.akari.swapTrialPlaybackToken,
                     rate: clampPreviewPlaybackRateFn(window.akari.previewPlaybackRate)
                 });
@@ -11964,6 +11968,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (window.akari.frameEngineClock) window.akari.frameEngineClock.setRate(previewRate);
                 applyInitialPosition();
                 restoreInitialPlayback();
+                tick(true);
             });
             const penToggle = document.getElementById('pen-toggle');
             const rateToggle = document.getElementById('rate-toggle');
@@ -12264,7 +12269,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.reportLibraryDropGeometry({ requestId: request.requestId,
                     rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                     viewport: { width: window.innerWidth, height: window.innerHeight }, contentFrame, time: outputTime,
-                    fps: initial.summary?.output?.fps, canvasDropTargets: initial.summary?.canvasDropTargets || [] });
+                    fps: summary?.output?.fps, canvasDropTargets: summary?.canvasDropTargets || [] });
             });
             let libraryApplyHighlight;
             let libraryMediaHitAt = () => null;
@@ -12309,6 +12314,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let playToggleRenderedIsPlaying = null;
             let pausedForGapEntry = false;
             let initialPositionApplied = false;
+            let initialSeekTarget = initial.initialSeekTime;
             let initialPlaybackRestorePending = initial.initialPlaying === true;
             let restoreInitialPlayback = () => undefined;
             let zoom = 1;
@@ -17840,14 +17846,36 @@ body { display: grid; place-items: center; padding: 32px; }
                 // next tick()'s applyCutsMuteState(), which hides whenever there is no active
                 // segment) until the user presses play. Bail out without setting the flag so the
                 // *next* call (once segments is real) can still do the real work.
-                if (initialPositionApplied || segments.length === 0) return;
+                if (initialPositionApplied) return;
+                if (segments.length === 0) {
+                    const emptyOutput = playbackMountReady && initial.kind === 'output' && totalTimelineDuration === 0
+                        && !video.getAttribute('src')
+                        && !(summary.cuts?.length || summary.layers?.length || summary.overlays?.length
+                            || captions.length || summary.audio?.sfx?.length || summary.audio?.narration?.length
+                            || summary.audio?.bgm);
+                    if (!emptyOutput) return;
+                    outputTime = 0;
+                    initialPositionApplied = true;
+                    window.akari.previewPositionReady = true;
+                    return;
+                }
+                if (initial.frameEngineEnabled === true) {
+                    if (!(window.akari.frameEngineClock?.totalDuration > 0)
+                        || document.getElementById('frame-engine-preview')?.dataset.frameEngineReady !== 'true') return;
+                } else if (Number.isFinite(initialSeekTarget) && initialSeekTarget > 0
+                    && !(totalTimelineDuration > 0)) return;
                 initialPositionApplied = true;
-                if (Number.isFinite(initial.initialSeekTime)) {
-                    seekTimelineTime(initial.initialSeekTime);
+                if (Number.isFinite(initialSeekTarget)) {
+                    seekTimelineTime(initialSeekTarget);
                 } else {
                     outputTime = segments[0].outStart;
-                    enterSegment(0);
+                    if (window.akari.frameEngineClock) seekTimelineTime(outputTime);
+                    else enterSegment(0);
                 }
+                if (window.akari.frameEngineClock) {
+                    window.akari.previewSyncedFrameEngineClock = window.akari.frameEngineClock;
+                }
+                window.akari.previewPositionReady = true;
             };
             const zoomToSlider = value => {
                 const logMin = Math.log2(ZOOM_MIN);
@@ -19407,8 +19435,15 @@ body { display: grid; place-items: center; padding: 32px; }
             const clearLiveOverride = () => liveDom.clear();
             const paintLiveOverride = () => liveDom.paint();
             const tick = (immediatePlaybackTick = false) => {
+                if (typeof applyInitialPosition === 'function' && !initialPositionApplied) applyInitialPosition();
                 const frameEngineClock = window.akari && window.akari.frameEngineClock;
                 if (frameEngineClock) {
+                    if (window.akari.previewPositionReady === true
+                        && window.akari.previewSyncedFrameEngineClock !== frameEngineClock
+                        && frameEngineClock.totalDuration > 0) {
+                        outputTime = frameEngineClock.seek(outputTime, isPlaying);
+                        window.akari.previewSyncedFrameEngineClock = frameEngineClock;
+                    }
                     outputTime = frameEngineClock.tick(outputTime, isPlaying);
                     if (isPlaying && loopRange && outputTime >= loopRange.end) {
                         seekTimelineTime(loopRange.start);
@@ -19832,6 +19867,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (pendingScrubTime === null) return;
                 const target = pendingScrubTime;
                 pendingScrubTime = null;
+                if (!initialPositionApplied) {
+                    initialSeekTarget = target;
+                    return;
+                }
                 seekTimelineTime(target);
                 notifyScrubSeek();
                 // 一時停止中の手動シークも host の位置正本へ必ず到達させる。通常 tick の 50 ms
@@ -21358,6 +21397,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyRequestedOverlaySelection();
                 window.akari.reportPrimarySelectionReady();
                 playbackMountReady = true;
+                if (!initialPositionApplied) {
+                    applyInitialPosition();
+                    if (initialPositionApplied) tick(true);
+                }
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
     }

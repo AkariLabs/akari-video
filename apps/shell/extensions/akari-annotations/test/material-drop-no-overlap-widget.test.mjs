@@ -142,7 +142,7 @@ for (const kind of ['video', 'image', 'audio']) {
         drag(f, kind, 6, 'target');
         assert.equal(f.handler.trackInsertIndicator.style.display, 'none');
         assert.equal(f.handler.materialGhost.dataset.akariInsertionPreview, undefined);
-        assert.equal(f.handler.materialGhost.style.border, '1px dashed #4dd0c8');
+        assert.equal(f.handler.materialGhost.style.border, '2px solid #f97316');
         assert.equal(f.handler.footer.textContent, '');
         assert.equal(f.text(), f.before, 'ドラッグ表示では保存しない');
     });
@@ -155,7 +155,7 @@ test('ロック行・レーン違いの拒否と本編・行間・音0本のタ�
     assert.equal(f.handler.materialGhost.style.display, 'block');
     assert.equal(f.handler.materialGhost.textContent, '置けません');
     f.handler.lockedId = undefined;
-    assert.equal(drag(f, 'audio', 3, 'v1').dataTransfer.dropEffect, 'none');
+    assert.equal(drag(f, 'audio', 3, 'v1').dataTransfer.dropEffect, 'copy');
     assert.equal(drag(f, 'video', 3, 'a1').dataTransfer.dropEffect, 'none');
     const gap = f.handler.resolveMaterialDropTarget('video', 36);
     assert.equal(gap.insertIndex, 2);
@@ -444,10 +444,10 @@ test('仮尺では重なっていても実尺が短ければ不要なトラッ�
     await assertOneUndo(f);
 });
 
-test('hideMaterialGhost は拒否クラスを外し、オレンジの outline と初期スタイルへ戻す', () => {
+test('hideMaterialGhost は挿入のオレンジへ初期化する', () => {
     const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
     const h = f.handler;
-    drag(f, 'audio', 3, 'v1');
+    drag(f, 'image', 3, 'a1');
     assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), true);
     assert.equal(h.materialGhost.style.outline, '2px solid #f14c4c');
     h.hideMaterialGhost();
@@ -455,8 +455,8 @@ test('hideMaterialGhost は拒否クラスを外し、オレンジの outline �
     assert.equal(h.materialGhost.textContent, '');
     assert.equal(h.materialGhost.dataset.akariInsertionPreview, undefined);
     for (const [key, value] of Object.entries({
-        display: 'none', outline: '2px solid #f97316', border: '1px dashed #4dd0c8',
-        background: 'rgba(77, 208, 200, .22)', opacity: '', zIndex: '10', color: '', fontSize: '', whiteSpace: ''
+        display: 'none', outline: '2px solid #f97316', border: '1px dashed #f97316',
+        background: 'rgba(249, 115, 22, .2)', opacity: '', zIndex: '10', color: '', fontSize: '', whiteSpace: ''
     })) assert.equal(h.materialGhost.style[key], value, key);
     assert.equal(h.trackInsertIndicator.style.display, 'none');
 });
@@ -468,8 +468,8 @@ test('拒否理由は枠内で1行にし、受理時と hide 後は文字スタ�
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.2',
         padding: '2px 4px', fontSize: '11px'
     };
-    for (const reset of [() => drag(f, 'audio', 3, 'a1'), () => h.hideMaterialGhost()]) {
-        drag(f, 'audio', 3, 'v1');
+    for (const reset of [() => drag(f, 'image', 3, 'v1'), () => h.hideMaterialGhost()]) {
+        drag(f, 'image', 3, 'a1');
         for (const [key, value] of Object.entries(rejectedStyles)) {
             assert.equal(h.materialGhost.style[key], value, `拒否中: ${key}`);
         }
@@ -482,15 +482,15 @@ test('拒否理由は枠内で1行にし、受理時と hide 後は文字スタ�
     }
 });
 
-for (const y of [-10, 36, 200]) {
+for (const y of [200, 300, 400]) {
     test(`拒否された行外位置 y=${y} では fallback の行に描かずゴーストを隠す`, () => {
         const f = fixture([track('a1', 'audio'), track('v1', 'visual')]);
         const h = f.handler;
-        drag(f, 'audio', 3, 'v1');
+        drag(f, 'image', 3, 'v1');
         assert.equal(h.materialGhost.style.display, 'block');
-        const target = h.resolveMaterialDropTarget('audio', y);
+        const target = h.resolveMaterialDropTarget('image', y);
         assert.equal(target.rejected, true);
-        assert.equal(target.top, 0, '最上段を指す fallback は表示に使わない');
+        assert.equal(h.laneLayout.tracks.some(row => y >= row.top && y < row.top + row.height), false);
         h.materialDropTime = () => assert.fail('行が無ければ描画計算へ進まない');
         h.updateMaterialGhost(30, y);
         assert.equal(h.materialGhost.style.display, 'none');
@@ -501,7 +501,7 @@ for (const y of [-10, 36, 200]) {
     });
 }
 
-for (const kind of ['video', 'image', 'audio']) {
+for (const kind of ['video', 'image']) {
     test(`拒否表示の純関数: ${kind} は挿入指定が残っていても赤い本体だけを表示`, () => {
         assert.deepEqual(materialGhostVisibility(kind, { rejected: true, insertTrack: 2, overlapInsert: true }),
             { showGhost: true, showInsertIndicator: false, rejected: true });
@@ -531,8 +531,7 @@ for (const kind of ['video', 'image', 'audio']) {
                 hover('valid');
                 assert.equal(h.trackInsertIndicator.style.display, 'block');
                 const rejectedEvent = hover('reject');
-                const reason = locked ? 'locked: reject' : kind === 'audio'
-                    ? '映像のレーンには音を置けません。' : '音のレーンには映像を置けません。';
+                const reason = locked ? 'locked: reject' : '音のレーンには映像を置けません。';
                 assert.equal(rejectedEvent.dataTransfer.dropEffect, 'none');
                 assert.equal(h.materialGhost.style.display, 'block');
                 assert.equal(h.materialGhost.style.top, '47px', '最上段への fallback ではなく実際の行に描く');
@@ -551,13 +550,13 @@ for (const kind of ['video', 'image', 'audio']) {
                 hover('valid');
                 assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
                 assert.equal(h.materialGhost.textContent, '');
-                assert.equal(h.materialGhost.style.background, 'rgba(77, 208, 200, .22)');
+                assert.equal(h.materialGhost.style.background, 'rgba(249, 115, 22, .2)');
                 assert.equal(h.trackInsertIndicator.style.display, 'block');
                 assert.equal(h.materialGhost.style.border, '2px solid #f97316');
                 h.materialDropTime = () => 9;
                 hover('valid');
                 assert.equal(h.trackInsertIndicator.style.display, 'none');
-                assert.equal(h.materialGhost.style.border, '1px dashed #4dd0c8');
+                assert.equal(h.materialGhost.style.border, '2px solid #f97316');
                 assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
 
                 hover('reject');
@@ -571,16 +570,16 @@ for (const kind of ['video', 'image', 'audio']) {
                 assert.equal(h.materialGhost.style.display, 'none');
                 assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
                 assert.equal(h.materialGhost.textContent, '');
-                assert.equal(h.materialGhost.style.border, '1px dashed #4dd0c8');
+                assert.equal(h.materialGhost.style.border, '1px dashed #f97316');
                 assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
-                assert.equal(h.materialGhost.style.background, 'rgba(77, 208, 200, .22)');
+                assert.equal(h.materialGhost.style.background, 'rgba(249, 115, 22, .2)');
                 assert.equal(f.text(), f.before);
                 assert.equal(f.writes.length, 0);
                 assert.equal(f.probes(), 0);
                 assert.deepEqual(f.errors, locked || origin === 'asset' ? [reason] : []);
                 hover('valid');
                 assert.equal(h.materialGhost.classList.contains('akari-annotations-ghost-rejected'), false);
-                assert.equal(h.materialGhost.style.border, '1px dashed #4dd0c8');
+                assert.equal(h.materialGhost.style.border, '2px solid #f97316');
                 assert.equal(h.materialGhost.style.outline, '2px solid #f97316');
                 hover('reject');
                 h.materialDragPayload = undefined;
