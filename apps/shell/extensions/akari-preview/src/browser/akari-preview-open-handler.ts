@@ -29,6 +29,8 @@ import { motionDrawWriteGuard } from '../common/motion-draw-write-guard';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
+import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
+import { compareVersions } from 'akari-surfaces/lib/common/update-feed';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { previewAudioTrimOf } from '../common/preview-audio-trim';
 import { Command, CommandRegistry, CommandService, Emitter, Event as TheiaEvent, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
@@ -62,12 +64,16 @@ import {
     computeDuckEnvelope,
     evaluateEnvelopeDb,
     isAudioItemAudible,
+    isUnknownKeyEditError,
+    newerSavedByVersion,
+    newerVersionOpenNotice,
     projectLegacyAudioView,
     projectSpeechDeclarations,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
     resolvePreviewItemWriteBatch,
     selectGenerationSidecarForSource,
+    SAVED_BY_PATH,
     toAnchorCaptions,
     TRANSITION_VOCABULARY,
     TimelineSegment
@@ -1436,6 +1442,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     @inject(MessageService)
     protected readonly messages: MessageService;
+
+    @inject(ApplicationServer)
+    protected readonly applicationServer: ApplicationServer;
+
+    protected currentAppVersionPromise?: Promise<string | undefined>;
 
     @inject(OpenerService)
     protected readonly openerService: OpenerService;
@@ -3281,6 +3292,28 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected reportOpenFailure(uri: URI, error: unknown): void {
         console.error('[akari-preview] failed to open preview', uri.toString(), error);
+        void this.reportOpenFailureNotice(uri, error);
+    }
+
+    protected async reportOpenFailureNotice(uri: URI, error: unknown): Promise<void> {
+        if (isUnknownKeyEditError(error)) {
+            const [stampText, currentVersion] = await Promise.all([
+                this.fileService.readFile(uri.parent.resolve(SAVED_BY_PATH)).then(file => file.value.toString()).catch(() => undefined),
+                this.currentAppVersionPromise ??= this.applicationServer.getApplicationInfo()
+                    .then(info => info?.version).catch(() => undefined)
+            ]);
+            const newerVersion = newerSavedByVersion(stampText, currentVersion, compareVersions);
+            if (newerVersion && currentVersion) {
+                const choice = await this.messages.error(
+                    `${uri.path.base}: 動画プレビューを開けませんでした — ${newerVersionOpenNotice(newerVersion, currentVersion)}`,
+                    'アップデートを確認'
+                );
+                if (choice === 'アップデートを確認') {
+                    await this.commandService.executeCommand('akari.settings.open', { section: 'about' });
+                }
+                return;
+            }
+        }
         // データ起因（TypeError = edit.json の検証エラー等）は「しばらく待て」では直らないので、
         // 実因メッセージをそのまま出す。原因不明のときだけ従来の汎用文言に落とす。
         const reason = error instanceof Error && error.message ? error.message : undefined;

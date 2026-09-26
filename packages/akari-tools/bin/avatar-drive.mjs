@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
 import { mkdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
+const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
+const writerVersion = (() => {
+  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
+  catch { return undefined; }
+})();
 
 import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
@@ -241,6 +247,7 @@ async function main() {
     if (options.apply) {
       const applied = appendLayersAdditive(timeline.editPath, [layer]);
       if (!applied.ok) throw new Error(applied.reason);
+      await writeSavedByStamp(options.project, writerVersion);
       output.applied = { addedIds: applied.addedIds };
     }
     printJson(output);

@@ -16,6 +16,7 @@
  * 編集不能より lint なし保存の方が被害が小さいという判断（型不正は各書き込みの
  * ローカル検証が別途残るため安全側は保たれる）。
  */
+export declare const SAVED_BY_PATH = ".akari/saved-by.json";
 export interface EditLintFinding {
     severity?: string;
     message?: string;
@@ -30,6 +31,8 @@ export interface EditLintGateResult {
 /** 候補ファイル名（プロジェクト直下からの相対パス）→ 書き込み予定の全文。null は不在扱い。 */
 export type LintCandidates = Record<string, string | null>;
 export interface DeferredLintOptions {
+    /** edit.json を保存した AKARI Video の版。不明なら既存スタンプを消す。 */
+    appVersion?: string;
     debounceMs?: number;
     onLintResult?: (result: EditLintGateResult) => void | Promise<void>;
     /** Deterministic test seam; production callers use runEditLint. */
@@ -77,6 +80,10 @@ export declare function lintProjectCandidates(projectRoot: string, candidates: L
 export declare function lintProjectCandidatesOnDisk(projectRoot: string, candidates: LintCandidates, hooks?: ShadowLintHooks): Promise<EditLintGateResult>;
 /** 互換 API。保存後 lint への移行後も、明示的に検証したい呼び出し側向けに残す。 */
 export declare function assertLintPasses(projectRoot: string, candidates: LintCandidates): Promise<void>;
+/** CLI / preview-server 等のプロセス内で書き手の版を 1 回だけ設定する。 */
+export declare function setDefaultSavedByAppVersion(version: string | undefined): void;
+/** CLI の既存 edit.json 保存直後に、スタンプだけを atomic に更新する。 */
+export declare function writeSavedByStamp(projectRoot: string, appVersion: string | undefined): Promise<void>;
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
 export declare function writeProjectFilesGuarded(projectRoot: string, candidates: LintCandidates, options?: DeferredLintOptions): Promise<void>;
 /** Web UI 旧版が生成した camelCase は schema が閉じていない legacy edit でも保存させない。 */

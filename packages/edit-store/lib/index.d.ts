@@ -42,3 +42,16 @@ export { LegacyEditVersionError } from './migrate/error';
 export * from './adjust-css-visual';
 export { effectiveScale, normalizeTransform } from './transform';
 export * from './transform-keyframe-edit';
+export declare const SAVED_BY_PATH = ".akari/saved-by.json";
+export interface SavedByStamp {
+    version: 1;
+    app: 'akari-video';
+    appVersion: string;
+    savedAt: string;
+}
+export declare function parseSavedBy(text: string | undefined): SavedByStamp | undefined;
+export declare function newerSavedByVersion(text: string | undefined, currentVersion: string | undefined, compareVersions: (left: string, right: string) => number): string | undefined;
+export declare function isUnknownKeyEditError(error: unknown): boolean;
+export declare function newerVersionOpenNotice(savedVersion: string, currentVersion: string): string;
+export declare function newerVersionLintPrefix(savedVersion: string): string;
+export declare function withNewerVersionLintPrefix(message: string, savedVersion?: string): string;

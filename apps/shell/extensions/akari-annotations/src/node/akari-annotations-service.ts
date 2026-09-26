@@ -1,4 +1,5 @@
-import { injectable } from '@theia/core/shared/inversify';
+import { inject, injectable } from '@theia/core/shared/inversify';
+import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { bindingShaFor, validateCaptionDisplayPolicy, type GenerationMetaV1 } from '@akari-video/edit-store';
@@ -229,6 +230,16 @@ interface CanvasStrokeRecord {
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+    @inject(ApplicationServer)
+    protected readonly applicationServer!: ApplicationServer;
+    private writerVersionPromise?: Promise<string | undefined>;
+
+    private shellWriterVersion(): Promise<string | undefined> {
+        return this.writerVersionPromise ??= this.applicationServer
+            ? this.applicationServer.getApplicationInfo().then(info => info?.version).catch(() => undefined)
+            : Promise.resolve(undefined);
+    }
+
     protected readonly imageAiService = new ImageAiService(undefined, async () => {
         const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
         const credentials = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/creator-root/src/index.mjs')).toString());
@@ -2195,6 +2206,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
         }
         await writeProjectFilesGuarded(projectDir, candidates, {
+            appVersion: await this.shellWriterVersion(),
             onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
             onLintResult: result => this.client?.onLintResult({
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
@@ -2226,6 +2238,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                     this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
                 }
                 await writeProjectFilesGuarded(projectDir, candidates, {
+                    appVersion: await this.shellWriterVersion(),
                     onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
                     onLintResult: result => this.client?.onLintResult({
                         projectRootUri: request.projectRootUri,
@@ -2254,6 +2267,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const projectDir = dirname(filePath);
         this.client?.onWillWrite(URI.fromFilePath(filePath).toString());
         await writeProjectFilesGuarded(projectDir, { [basename(filePath)]: content }, {
+            appVersion: await this.shellWriterVersion(),
             onDidWrite: (written, text) => this.notifyDidWrite(written, text),
             onLintResult: result => this.client?.onLintResult({
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
