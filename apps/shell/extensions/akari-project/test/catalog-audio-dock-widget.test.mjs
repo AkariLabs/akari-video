@@ -42,7 +42,6 @@ function fixture() {
     handler.renderTopControls = () => undefined;
     handler.renderCatalogTab = () => react.createElement('div', { 'data-catalog-list': true });
     handler.renderMaterialsTab = () => undefined;
-    handler.renderBundleMaterials = () => undefined;
     return { handler, calls };
 }
 
@@ -54,7 +53,7 @@ test('カテゴリ・パックの一覧外に、下端固定の試聴ドック�
     const item = { key: 'audio/bgm', title: '曲名', mediaUrl: 'sample.mp3' };
     handler.toggleCatalogAudio(item);
     const tree = handler.renderMaterialsPane();
-    const scroll = walk(tree, node => node.props?.style?.overflow === 'auto');
+    const scroll = walk(tree, node => node.props?.style?.overflowY === 'auto');
     const dock = walk(tree, node => node.props?.['data-akari-catalog-audio-dock'] !== undefined);
     assert.ok(scroll && dock);
     assert.equal(walk(scroll, node => node === dock), undefined, 'ドックは一覧スクロール領域の外');

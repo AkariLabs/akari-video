@@ -26,6 +26,8 @@ export interface MaterialContextMenuContext {
     /** グループカードにはファイル単位の文字起こしを出さない。 */
     readonly assetGroup?: boolean;
     readonly reference?: boolean;
+    /** 参照先の実体が見つからない状態。開く・パス系は出さず、取り直しを前に出す。 */
+    readonly missing?: boolean;
 }
 
 /** rename / delete / ask-agent を出す対象（司令塔裁定1）。 */
@@ -40,10 +42,34 @@ export function buildMaterialContextMenuItems(
     isOSX: boolean,
     context?: MaterialContextMenuContext
 ): MaterialContextMenuItem[] {
-    if (context?.reference) return [
-        { id: 'view-library', label: 'ライブラリで見る' },
-        { id: 'remove-reference', label: 'このプロジェクトから外す', danger: true }
-    ];
+    if (context?.reference) {
+        // 参照カードのメニュー（2026-09-26 オーナー指示で拡張）。以前は「ライブラリで見る」と
+        // 「外す」の 2 項目しかなく、実体のある参照でも開く・場所を見る・情報を見るができなかった。
+        // 参照は**実体がライブラリ側にあるだけ**で素材であることは変わらないので、素材カードと
+        // 同じ操作を出す。出さないのは参照に意味を持たない rename / delete / assets へ移動と、
+        // 実体が無いときのファイル系（missing）だけ。
+        const referenceItems: MaterialContextMenuItem[] = [];
+        if (!context.missing) {
+            referenceItems.push({ id: 'open', label: '開く' });
+            if (context.materialKind === 'video' || context.materialKind === 'audio' || context.materialKind === 'image') {
+                referenceItems.push({ id: 'add-to-timeline', label: 'タイムラインに追加' });
+            }
+        } else {
+            referenceItems.push({ id: 'retry-reference', label: 'もう一度取得' });
+        }
+        referenceItems.push({ id: 'view-library', label: 'ライブラリで見る' });
+        referenceItems.push({ id: 'show-info', label: '素材の情報を表示' });
+        if (!context.missing) {
+            referenceItems.push({ id: 'reveal', label: isOSX ? 'Finder で表示' : 'フォルダを開く' });
+            if (isOSX) {
+                referenceItems.push({ id: 'copy-file', label: 'ファイルをコピー' });
+            }
+            referenceItems.push({ id: 'copy-path', label: 'パスをコピー' });
+        }
+        referenceItems.push({ id: 'ask-agent', label: 'エージェントに頼む…' });
+        referenceItems.push({ id: 'remove-reference', label: 'このプロジェクトから外す', danger: true });
+        return referenceItems;
+    }
     const items: MaterialContextMenuItem[] = [
         { id: 'open', label: '開く' }
     ];

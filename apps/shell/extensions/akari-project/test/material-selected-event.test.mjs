@@ -19,6 +19,7 @@ const dependencies = {
   AKARI_RADIUS: { panel: 8, chip: 4 },
   AKARI_SURFACE: { raised: 'raised', card: 'card' },
   AKARI_BORDER: { accent: 'accent-border', ghost: 'ghost-border' },
+  MATERIAL_CARD_FLAG_STYLE: { background: 'flag' }, MATERIAL_CARD_SUBFLAG_STYLE: { background: 'subflag' },
   AKARI_FAINT: 'faint', MaterialCardHoverPreview: () => null,
   formatDurationBadge: () => '0:00', referencePresentation: () => ({ lab: false })
 };

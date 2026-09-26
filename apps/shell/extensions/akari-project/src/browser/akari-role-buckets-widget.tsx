@@ -119,7 +119,7 @@ import {
     searchLibraryHome
 } from '../common/library-home-view';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
-import { buildMaterialContextMenuItems, MaterialContextMenuTarget } from '../common/material-context-menu-items';
+import { buildMaterialContextMenuItems, MaterialContextMenuItem, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
 import { assetGroupOpenTarget } from '../common/asset-group-open-target';
 import { countReferences } from '../common/project-reference-check';
@@ -213,6 +213,21 @@ const MATERIAL_GRID_GAP = MATERIAL_GRID_LAYOUT.gridGap;
 const MATERIAL_GRID_CARD_MIN_WIDTH = MATERIAL_GRID_LAYOUT.cardMinWidth;
 const MATERIAL_GRID_COLUMNS =
     `repeat(auto-fill, minmax(min(${MATERIAL_GRID_CARD_MIN_WIDTH}, calc(50% - ${MATERIAL_GRID_GAP} / 2)), 1fr))`;
+
+// 素材カード左上の札（2026-09-26 オーナー指示）。丸いバッジ + 座布団の余白をやめ、
+// 角のない灰色ラベルをカードの左上へ**詰めて**置く。カードの主役はサムネなので、
+// 札は「読めるが前に出ない」強さに落とす（アクセント色は分析済みドットだけに残す）。
+const MATERIAL_CARD_FLAG_STYLE: React.CSSProperties = {
+    maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden',
+    textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px',
+    borderRadius: 0, fontSize: '0.58em', lineHeight: '13px', fontWeight: 600,
+    background: 'rgba(205, 205, 205, 0.92)', color: '#141414'
+};
+// 「参照」は種別札の補足なので、さらに一段小さくする（オーナー指示「もっともっとちっちゃく」）。
+const MATERIAL_CARD_SUBFLAG_STYLE: React.CSSProperties = {
+    ...MATERIAL_CARD_FLAG_STYLE, padding: '0 3px', fontSize: '0.5em', lineHeight: '11px',
+    background: 'rgba(205, 205, 205, 0.78)'
+};
 
 // 320px 前後のパネルでも左右 padding 20px を差し引いた幅へ 3 列を保証する。
 const CATALOG_GRID_GAP = '8px';
@@ -518,6 +533,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected materialsWatchTimer?: ReturnType<typeof setTimeout>;
     protected lintAvailable = false;
     protected lintCount?: number;
+    protected lintRunning = false;
 
     protected outputs: OutputEntry[] = [];
     protected outputsLoading = false;
@@ -1316,7 +1332,10 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         event.preventDefault();
         event.stopPropagation();
         const target: MaterialContextMenuTarget = entry.unorganized ? 'unorganized' : 'material';
-        const items = buildMaterialContextMenuItems(target, isOSX, { materialKind: entry.kind, assetGroup: !!entry.assetGroup, reference: !!entry.reference });
+        const items = buildMaterialContextMenuItems(target, isOSX, {
+            materialKind: entry.kind, assetGroup: !!entry.assetGroup,
+            reference: !!entry.reference, missing: !!entry.missing
+        });
         if (!entry.reference && entry.assetGroup && entry.thumbnailUri) {
             items.push(OPEN_PREVIEW_IMAGE_ITEM);
         }
@@ -1341,6 +1360,9 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 break;
             case 'remove-reference':
                 void this.removeMaterialReference(entry);
+                break;
+            case 'retry-reference':
+                void this.retryMaterialReference(entry);
                 break;
             case 'open-preview-image':
                 if (entry.assetGroup && entry.thumbnailUri) {
@@ -1472,45 +1494,161 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     protected bundleBusy = false;
     protected projectCreditLines: string[] = [];
-    protected bundleResult?: AssetBundleOutcome;
+
+    /**
+     * 「素材をまとめる」の確認ダイアログ本文（2026-09-26 オーナー指示）。
+     * 旧文面は件数と MB だけで「何を・どこから・どこへ」が分からなかった。ここでは
+     * (1) 何が起きるか（ライブラリの実体をこのプロジェクトの assets/ へ複製する）
+     * (2) 対象そのもの（小さなサムネ付きの一覧）
+     * の 2 点を出す。`ConfirmDialog` は `msg` に HTMLElement を取れるので素の DOM で組む。
+     */
+    protected buildBundlePlanBody(plan: AssetBundleOutcome): HTMLElement {
+        const body = document.createElement('div');
+        Object.assign(body.style, { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '420px' });
+
+        const lead = document.createElement('p');
+        lead.textContent = '次の素材はいまライブラリを「参照」しています。まとめると、実体をこのプロジェクトの'
+            + ' assets/ へ複製します。以後はライブラリ側を消したり別のパソコンへ移しても、'
+            + 'このプロジェクトだけで開けるようになります。';
+        Object.assign(lead.style, { margin: '0', lineHeight: '1.6' });
+        body.appendChild(lead);
+
+        const list = document.createElement('ul');
+        Object.assign(list.style, {
+            listStyle: 'none', margin: '0', padding: '0', display: 'flex', flexDirection: 'column',
+            gap: '1px', maxHeight: '228px', overflowY: 'auto',
+            border: AKARI_BORDER.hairline, borderRadius: `${AKARI_RADIUS.panel}px`
+        });
+        for (const reference of plan.planned) {
+            const row = document.createElement('li');
+            Object.assign(row.style, {
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 8px',
+                background: AKARI_SURFACE.raised
+            });
+            const preview = reference.files.find(file => file.name === 'preview.png');
+            const thumb = document.createElement(preview ? 'img' : 'span');
+            Object.assign(thumb.style, {
+                width: '22px', height: '22px', flex: '0 0 auto', borderRadius: '3px',
+                objectFit: 'cover', background: AKARI_SURFACE.elevated
+            });
+            if (preview && thumb instanceof HTMLImageElement) {
+                thumb.alt = '';
+                thumb.src = URI.fromFilePath(preview.path).toString();
+                thumb.addEventListener('error', () => { thumb.style.visibility = 'hidden'; });
+            }
+            const text = document.createElement('div');
+            Object.assign(text.style, { minWidth: '0', display: 'flex', flexDirection: 'column', lineHeight: '1.35' });
+            const title = document.createElement('span');
+            title.textContent = reference.title ?? reference.id;
+            Object.assign(title.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+            const where = document.createElement('span');
+            const bytes = reference.files.reduce((total, file) => total + (file.bytes || 0), 0);
+            where.textContent = `${reference.category} · ${bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '容量不明'}`
+                + ` → assets/${reference.category}/${reference.id}/`;
+            Object.assign(where.style, { opacity: '0.62', fontSize: '0.82em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+            text.append(title, where);
+            row.append(thumb, text);
+            list.appendChild(row);
+        }
+        body.appendChild(list);
+
+        const total = document.createElement('p');
+        total.textContent = `合計 ${plan.planned.length} 件・${(plan.bytes / 1024 / 1024).toFixed(2)} MB`
+            + (plan.unknownSizeCount ? `（容量不明 ${plan.unknownSizeCount} 件）` : '');
+        Object.assign(total.style, { margin: '0', opacity: '0.72' });
+        body.appendChild(total);
+
+        if (plan.restrictedCount) {
+            const warning = document.createElement('p');
+            warning.textContent = `再配布できない素材が ${plan.restrictedCount} 件含まれます`;
+            Object.assign(warning.style, { margin: '0', color: 'var(--theia-editorWarning-foreground)' });
+            body.appendChild(warning);
+        }
+        return body;
+    }
 
     protected async bundleMaterials(): Promise<void> {
         const root = this.workflow.workspaceRoot;
         if (!root || this.bundleBusy) return;
         this.bundleBusy = true;
-        this.bundleResult = undefined;
         this.update();
         try {
             const plan = await this.projectService.bundleProjectAssets(root.toString(), true);
-            const msg = `${plan.planned.length} 件・${(plan.bytes / 1024 / 1024).toFixed(2)} MB を集めます。`
-                + (plan.unknownSizeCount ? `（容量不明 ${plan.unknownSizeCount} 件）` : '')
-                + (plan.restrictedCount ? `\n再配布できない素材が ${plan.restrictedCount} 件含まれます` : '');
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
-            if (!plan.planned.length) { this.messages.info('実体化する参照はありません'); return; }
-            if (!await new ConfirmDialog({ title: '素材をまとめる', msg, ok: 'まとめる', cancel: 'キャンセル' }).open()) return;
+            if (!plan.planned.length) { this.messages.info('ライブラリを参照している素材はありません。まとめるものはありません。'); return; }
+            const confirmed = await new ConfirmDialog({
+                title: 'ライブラリの素材をプロジェクトへ複製する',
+                msg: this.buildBundlePlanBody(plan), ok: '複製する', cancel: 'キャンセル'
+            }).open();
+            if (!confirmed) return;
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
             const result = await this.projectService.bundleProjectAssets(root.toString(), false);
             if (this.workflow.workspaceRoot?.toString() !== root.toString()) return;
-            this.bundleResult = result;
             await this.loadMaterials();
+            // 結果はパネルに貼り付けず、その場限りの通知で流す（2026-09-26 オーナー指示
+            // 「3 件まとめましたが出続けるのが気になる」）。取りこぼしがあるときだけ、
+            // 読み返せるようダイアログで残す。
+            this.messages.info(`${result.materialized.length} 件をこのプロジェクトへ複製しました。`);
+            if (result.failures.length) {
+                await new ConfirmDialog({
+                    title: '複製できなかった素材',
+                    msg: `次の素材は参照のまま残っています。\n\n`
+                        + result.failures.map(failure => `${failure.key}: ${failure.message}`).join('\n'),
+                    ok: '閉じる'
+                }).open();
+            }
         } catch (error) { this.messages.error(`素材をまとめられませんでした: ${String(error)}`); }
         finally { this.bundleBusy = false; this.update(); }
     }
 
-    protected renderBundleMaterials(): React.ReactNode {
-        return <div style={{ padding: '8px 12px', borderTop: AKARI_BORDER.hairline }}>
-            <button disabled={this.bundleBusy} onClick={() => void this.bundleMaterials()}>素材をまとめる</button>
-            {(this.projectCreditLines?.length ?? 0) > 0 && <button onClick={() => void navigator.clipboard.writeText(this.projectCreditLines.join('\n'))
-                .then(() => this.messages.info('クレジットをコピーしました'))
-                .catch(() => this.messages.error('クレジットをコピーできませんでした'))}>クレジットをコピー</button>}
-            {this.bundleResult && <div role='status' style={{ maxHeight: '180px', overflow: 'auto' }}>
-                <p>{this.bundleResult.materialized.length} 件をまとめました。</p>
-                {this.bundleResult.materialized.length > 0 && <ul>{this.bundleResult.materialized.map(key => <li key={key}>{key}</li>)}</ul>}
-                {this.bundleResult.failures.length > 0 && <><p>次の素材は参照のまま残っています。</p><ul>
-                    {this.bundleResult.failures.map(failure => <li key={failure.key}>{failure.key}: {failure.message}</li>)}
-                </ul></>}
-            </div>}
-        </div>;
+    /**
+     * プロジェクト面のその他操作（2026-09-26 オーナー指示）。旧実装は「素材をまとめる」を
+     * パネル下端の専用バー（上下にヘアライン）に常設していたが、下の「できたもの」と
+     * 混ざって見えるうえ、めったに押さないボタンに面を割きすぎていた。丸い「…」だけを
+     * 検索行に置き、中身はポップアップへ送る。
+     */
+    protected openMaterialsMenu(event: React.MouseEvent<HTMLButtonElement>): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const items: (MaterialContextMenuItem & { icon?: string; separator?: boolean })[] = [
+            { id: 'bundle', label: this.bundleBusy ? 'まとめています…' : '素材をまとめる…', icon: 'archive' }
+        ];
+        if (this.projectCreditLines.length) {
+            items.push({ id: 'copy-credits', label: 'クレジットをコピー', icon: 'copy' });
+        }
+        openAkariContextMenu({
+            x: rect.right, y: rect.bottom + 4, items,
+            onSelect: id => {
+                if (id === 'bundle') { if (!this.bundleBusy) void this.bundleMaterials(); }
+                else if (id === 'copy-credits') {
+                    void navigator.clipboard.writeText(this.projectCreditLines.join('\n'))
+                        .then(() => this.messages.info('クレジットをコピーしました'))
+                        .catch(() => this.messages.error('クレジットをコピーできませんでした'));
+                }
+            }
+        });
+    }
+
+    protected renderMaterialsMenuButton(): React.ReactNode {
+        return (
+            <button
+                type='button'
+                data-akari-materials-menu='true'
+                title='その他の操作'
+                aria-label='その他の操作'
+                aria-haspopup='menu'
+                onClick={event => this.openMaterialsMenu(event)}
+                style={{
+                    flex: '0 0 auto', width: '26px', height: '26px', padding: 0, margin: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '999px', border: AKARI_BORDER.ghost,
+                    background: AKARI_SURFACE.raised, color: AKARI_INK, cursor: 'pointer'
+                }}
+            >
+                <span className='codicon codicon-ellipsis' aria-hidden='true' />
+            </button>
+        );
     }
 
     /**
@@ -2768,18 +2906,36 @@ export class AkariRoleBucketsWidget extends ReactWidget {
 
     // --- lint バッジ ---------------------------------------------------------
 
-    protected async refreshLint(): Promise<void> {
+    protected async refreshLint(notify = false): Promise<void> {
         const root = this.workflow.workspaceRoot;
         if (!root) {
             this.lintAvailable = false;
             this.lintCount = undefined;
+            this.lintRunning = false;
             this.update();
             return;
         }
-        const outcome = await this.projectService.runEditLint(root.toString());
-        this.lintAvailable = outcome.available;
-        this.lintCount = outcome.available ? outcome.issueCount : undefined;
-        this.update();
+        if (this.lintRunning) return;
+        // 押しても画面が何も変わらない（件数が前回と同じなら尚更）状態を潰す
+        // （2026-09-26 オーナー指示「リントを押しても反応がない」）: 実行中は
+        // ボタン自身が「確認中…」になり、終わったら結果をトーストで必ず返す。
+        this.lintRunning = notify;
+        if (notify) this.update();
+        try {
+            const outcome = await this.projectService.runEditLint(root.toString());
+            this.lintAvailable = outcome.available;
+            this.lintCount = outcome.available ? outcome.issueCount : undefined;
+            if (notify) {
+                if (!outcome.available) this.messages.warn('編集内容のチェックはこのプロジェクトでは実行できません。');
+                else if (outcome.issueCount) this.messages.warn(`編集内容のチェック: ${outcome.issueCount} 件の指摘があります。`);
+                else this.messages.info('編集内容のチェック: 指摘はありません。');
+            }
+        } catch (error) {
+            if (notify) this.messages.error(`編集内容をチェックできませんでした: ${this.errorMessage(error)}`);
+        } finally {
+            this.lintRunning = false;
+            this.update();
+        }
     }
 
     // --- 描画 -----------------------------------------------------------------
@@ -2868,13 +3024,16 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 {this.dragActive && this.renderDropOverlay()}
                 {this.renderGenerationPickBand()}
                 {this.renderTopControls()}
-                <div style={{ flex: '1 1 auto', overflow: 'auto', minHeight: 0,
+                <div style={{ flex: '1 1 auto', overflowY: 'auto', overflowX: 'hidden', minHeight: 0,
+                    // 縦スクロールバーが出た瞬間に内容幅が変わって右端が切れる/ずれるのを止める
+                    // （2026-09-26 オーナー指示「パネルの右側が見切れる」）。桁を常に確保しておけば、
+                    // 素材が増えて溢れた前後でグリッドの列幅が動かない。
+                    scrollbarGutter: 'stable',
                     paddingBottom: this.topView === 'catalog' && !this.materialSwap && this.playingCatalogAudioKey ? '56px' : undefined,
                     boxSizing: 'border-box' }}>
                     {this.topView === 'materials' ? this.renderMaterialsTab() : this.renderCatalogTab()}
                 </div>
                 {this.topView === 'catalog' && !this.materialSwap && this.renderCatalogAudioDock()}
-                {this.topView === 'materials' && this.workflow.workspaceRoot && this.renderBundleMaterials()}
             </div>
         );
     }
@@ -2950,7 +3109,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                         style={{
                             position: 'absolute', left: '2px', top: '2px', bottom: '2px',
                             width: 'calc((100% - 4px) / 2)', boxSizing: 'border-box',
-                            background: AKARI_SURFACE.elevated, border: AKARI_BORDER.accent,
+                            // つまみはアクセントの「枠」ではなく**面**で示す（2026-09-26 オーナー指示
+                            // 「オレンジの枠がいらない、ベースの色を変えるぐらいでいい」）。
+                            // 線を足さずに面だけを一段持ち上げるので、カード内に外周より強い線を
+                            // 置かない原則（akari-surface-tokens §2）とも噛み合う。
+                            background: AKARI_SURFACE.elevated, border: AKARI_BORDER.ghost,
                             borderRadius: '999px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
                             pointerEvents: 'none',
                             transform: this.topView === 'materials' ? 'translateX(0)' : 'translateX(100%)',
@@ -3034,6 +3197,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {this.topView === 'catalog' && !this.materialSwap && <LibraryFilterButton filter={this.libraryFilter()}
                         open={!!this.libraryFilterAnchor}
                         onToggle={() => this.toggleLibraryFilterPopover()} />}
+                    {this.topView === 'materials' && this.workflow.workspaceRoot && this.renderMaterialsMenuButton()}
                 </div>
             </div>
         );
@@ -3260,44 +3424,35 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     {!entry.assetGroup && (entry.kind === 'video' || entry.kind === 'audio') && (
                         <span data-akari-transcript-state={transcriptState}
                             title={transcriptLabel} aria-label={transcriptLabel}
-                            style={{ position: 'absolute', bottom: '28px', right: '4px', padding: '0 6px',
-                                display: 'inline-flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap',
-                                maxWidth: 'calc(100% - 30px)', boxSizing: 'border-box',
-                                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.68em', lineHeight: '16px',
-                                background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)' }}>
+                            style={{ ...MATERIAL_CARD_SUBFLAG_STYLE,
+                                position: 'absolute', bottom: '24px', right: 0,
+                                display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                maxWidth: 'calc(100% - 24px)' }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>文字起こし</span>{' '}
                             <span style={{ flexShrink: 0 }}>{transcriptStatus}</span>
                         </span>
                     )}
                     <div style={{
-                        position: 'absolute', top: '4px', left: '4px', maxWidth: 'calc(100% - 21px)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px'
+                        position: 'absolute', top: 0, left: 0, maxWidth: 'calc(100% - 18px)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '1px'
                     }}>
                         <span
                             title={`種別: ${entry.assetGroup ? entry.assetGroup.category || '不明' : layout.kindLabel}`}
                             aria-label={`種別: ${entry.assetGroup ? entry.assetGroup.category || '不明' : layout.kindLabel}`}
                             data-akari-asset-group-category={entry.assetGroup?.category}
-                            style={{
-                                maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden',
-                                textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 6px',
-                                borderRadius: `${AKARI_RADIUS.chip}px`, fontSize: '0.68em', lineHeight: '16px',
-                                background: 'var(--theia-badge-background)', color: 'var(--theia-badge-foreground)'
-                            }}
+                            style={MATERIAL_CARD_FLAG_STYLE}
                         >
                             {layout.kindLabel}
                         </span>
-                        {entry.reference && <span data-akari-reference-badge>参照</span>}
-                        {entry.missing && <span data-akari-reference-missing>見つかりません</span>}
+                        {entry.reference && <span data-akari-reference-badge title='ライブラリを参照しています'
+                            style={MATERIAL_CARD_SUBFLAG_STYLE}>参照</span>}
+                        {entry.missing && <span data-akari-reference-missing
+                            style={{ ...MATERIAL_CARD_SUBFLAG_STYLE, background: 'var(--theia-editorWarning-foreground)' }}>見つかりません</span>}
                         {entry.unorganized && (
                             <span
                                 title='未整理'
                                 aria-label='未整理'
-                                style={{
-                                    padding: '0 6px', borderRadius: `${AKARI_RADIUS.chip}px`,
-                                    fontSize: '0.68em', lineHeight: '16px', whiteSpace: 'nowrap',
-                                    background: 'var(--theia-editorWarning-foreground)',
-                                    color: 'var(--theia-editor-background)'
-                                }}
+                                style={{ ...MATERIAL_CARD_SUBFLAG_STYLE, background: 'var(--theia-editorWarning-foreground)' }}
                             >
                                 未整理
                             </span>
@@ -3319,43 +3474,24 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                             background: entry.analyzed ? 'var(--theia-badge-background)' : AKARI_FAINT
                         }}
                     />
-                    <button
-                        type='button'
-                        title='エージェントに頼む'
-                        aria-label={`${entry.name} についてエージェントに頼む`}
-                        onClick={event => { event.stopPropagation(); void this.askAgent(entry); }}
-                        style={{
-                            position: 'absolute',
-                            bottom: '28px',
-                            left: '4px',
-                            width: '20px',
-                            height: '20px',
-                            padding: 0,
-                            borderRadius: '50%',
-                            border: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'var(--theia-button-background)',
-                            color: 'var(--theia-button-foreground)',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <span className='codicon codicon-comment-discussion' aria-hidden='true' style={{ fontSize: '12px' }} />
-                    </button>
+                    {/*
+                      * 「エージェントに頼む」の常設ボタンはカード上から外した（2026-09-26 オーナー指示）。
+                      * 導線は右クリックメニューの `ask-agent` に一本化する — カードの面はサムネのための
+                      * 場所で、めったに押さない操作を常設する場所ではない。
+                      */}
                     <div style={{
                         position: 'absolute', left: 0, right: 0, bottom: 0,
-                        display: 'flex', alignItems: 'baseline', gap: '4px', padding: '8px 4px 3px',
+                        display: 'flex', alignItems: 'baseline', gap: '4px', padding: '7px 4px 2px',
                         background: 'linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))',
-                        color: '#fff', lineHeight: '16px', pointerEvents: 'none'
+                        color: '#fff', lineHeight: '14px', pointerEvents: 'none'
                     }}>
                         <span style={{
                             flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap', fontSize: '0.78em'
+                            whiteSpace: 'nowrap', fontSize: '0.62em'
                         }}>
                             {entry.name}
                         </span>
-                        <span style={{ flex: '0 0 auto', fontSize: '0.68em', whiteSpace: 'nowrap' }}>
+                        <span style={{ flex: '0 0 auto', fontSize: '0.55em', whiteSpace: 'nowrap' }}>
                             {entry.analyzed ? formatDurationBadge(entry.durationSeconds ?? 0) : '--:--'}
                         </span>
                     </div>
@@ -4969,13 +5105,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         if (!this.lintAvailable) {
             return undefined;
         }
-        const label = this.lintCount === undefined ? '未実行' : `${this.lintCount} 件`;
+        const label = this.lintRunning ? '確認中…' : this.lintCount === undefined ? '未実行' : `${this.lintCount} 件`;
         return (
             <div style={{ flex: '0 0 auto', borderTop: AKARI_BORDER.hairline, padding: '6px' }}>
                 <button
                     className='theia-button secondary'
+                    data-akari-lint-running={this.lintRunning ? 'true' : undefined}
+                    disabled={this.lintRunning}
                     title='クリックして再実行'
-                    onClick={() => void this.refreshLint()}
+                    onClick={() => void this.refreshLint(true)}
                     style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
                     <span>Lint</span>

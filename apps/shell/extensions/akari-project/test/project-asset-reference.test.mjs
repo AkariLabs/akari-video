@@ -70,9 +70,25 @@ test('台帳は取得済みと見つからない参照の両方をカード入�
     assert.equal(referencePresentation(entries[1], true).recovery, 'もう一度取得');
 });
 
-test('参照メニューはライブラリと台帳から外すだけ', () => {
+// 2026-09-26 オーナー指示: 参照カードでも素材カードと同じ操作ができるようにする
+// （実体がライブラリ側にあるだけで素材であることは変わらない）。rename / delete /
+// assets へ移動だけは参照に意味が無いので出さない。
+test('参照メニューは素材と同じ操作を出し、壊す操作だけ外す', () => {
     assert.deepEqual(buildMaterialContextMenuItems('material', true, { reference: true, assetGroup: true, materialKind: 'audio' }).map(item => item.label),
-        ['ライブラリで見る', 'このプロジェクトから外す']);
+        ['開く', 'タイムラインに追加', 'ライブラリで見る', '素材の情報を表示', 'Finder で表示', 'ファイルをコピー', 'パスをコピー',
+            'エージェントに頼む…', 'このプロジェクトから外す']);
+    // macOS 以外では「ファイルをコピー」を出さない（素材カードと同じ規則）。
+    assert.ok(!buildMaterialContextMenuItems('material', false, { reference: true, materialKind: 'audio' })
+        .some(item => item.id === 'copy-file'));
+    // other 種別はタイムラインに置けないので出さない。
+    assert.ok(!buildMaterialContextMenuItems('material', true, { reference: true, materialKind: 'other' })
+        .some(item => item.id === 'add-to-timeline'));
+});
+
+test('実体を見失った参照は取り直しを先頭に出し、ファイル系を出さない', () => {
+    const labels = buildMaterialContextMenuItems('material', true, { reference: true, missing: true, materialKind: 'audio' });
+    assert.deepEqual(labels.map(item => item.id),
+        ['retry-reference', 'view-library', 'show-info', 'ask-agent', 'remove-reference']);
 });
 
 test('まとめる前の警告件数は own/site/subscription の和集合（重複なし）', () => {

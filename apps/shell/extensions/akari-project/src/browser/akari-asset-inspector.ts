@@ -79,10 +79,15 @@ export class AkariAssetInspector extends BaseWidget implements FrontendApplicati
      * Explorer の選択を経由せず直接呼べるようにする。Explorer 選択経由の呼び出し
      * （onStart の `onSelectionChanged` 購読）と同じ実装を共有する。
      */
-    async showAsset(uri: URI): Promise<void> {
+    async showAsset(uri: URI, options?: { readonly force?: boolean }): Promise<void> {
         this.selected = uri;
         const relative = this.workflow.relativePath(uri);
-        if (!relative || !relative.startsWith('assets/') || uri.path.base.startsWith('.')) {
+        // Explorer の選択から来たときは assets/ の外を空状態に落とす（edit.json などを
+        // 選んでも素材カードを出さないため）。「素材の情報を表示」から明示的に呼ばれた
+        // ときは force=true で必ず描く — 参照素材は実体がライブラリ側にあって
+        // relativePath がプロジェクトの外になるため、この門で黙って捨てられていた
+        // （2026-09-26 オーナー指示「押しても何も反応がない」の原因）。
+        if (!options?.force && (!relative || !relative.startsWith('assets/') || uri.path.base.startsWith('.'))) {
             this.renderEmpty();
             return;
         }
@@ -101,10 +106,10 @@ export class AkariAssetInspector extends BaseWidget implements FrontendApplicati
         this.render(uri, meta, raw);
     }
 
-    protected metaCandidates(asset: URI, relative: string): URI[] {
+    protected metaCandidates(asset: URI, relative: string | undefined): URI[] {
         const root = this.workflow.workspaceRoot;
         return [
-            root?.resolve(`.akari/sidecars/${relative}.meta.json`),
+            relative ? root?.resolve(`.akari/sidecars/${relative}.meta.json`) : undefined,
             asset.parent.resolve(`${asset.path.base}.meta.json`),
             asset.parent.resolve(`${asset.path.name}.meta.json`)
         ].filter((value): value is URI => !!value);
@@ -130,7 +135,9 @@ export class AkariAssetInspector extends BaseWidget implements FrontendApplicati
             this.row('解像度', description.resolution),
             this.row('文字起こし', description.transcript),
             this.row('分析', description.analysis),
-            this.row('関連する判断', description.decisions)
+            this.row('関連する判断', description.decisions),
+            // 参照素材は実体がライブラリ側にあるので、どこのファイルを見ているかを出す。
+            this.row('場所', this.workflow.relativePath(uri) ?? uri.path.fsPath())
         );
         if (this.mode.developerMode) {
             const details = document.createElement('details');
