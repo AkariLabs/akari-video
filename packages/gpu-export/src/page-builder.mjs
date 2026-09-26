@@ -12,6 +12,8 @@ import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { classifyCaptionWordMode, evaluateGpuEligibility } from "./eligibility.mjs";
 import { parseThreeEntrance } from "./three-entrance.mjs";
+import { buildMediaPlaneSummary } from "./media-plane-summary.mjs";
+import { GPU_BLEND_MODES, gpuBlendGlsl } from "./blend-modes.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
@@ -22,6 +24,7 @@ const {
   filterCaptionRootByExcludedIds,
   resolveCaptionTrackZ,
   resolveRecordTrackZ,
+  partitionPreviewMediaPlanes,
   toAnchorCaptions,
   TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
@@ -42,6 +45,7 @@ export function buildGpuPage({
   width = edit?.output?.width ?? 1920,
   height = edit?.output?.height ?? 1080,
   duration = 0,
+  internal = null,
   captionTrackZ = null,
   lutCubeText = null,
   layerLutCubeTexts = [],
@@ -59,6 +63,11 @@ export function buildGpuPage({
     ? captionTrackZ
     : Number.MAX_SAFE_INTEGER;
   const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
+  const supportedOverlayBlend = overlay => overlay?.blend && overlay.blend !== "normal"
+    && GPU_BLEND_MODES.includes(overlay.blend);
+  const blendWarnings = enabledOverlays
+    .filter(overlay => overlay?.blend && overlay.blend !== "normal" && !GPU_BLEND_MODES.includes(overlay.blend))
+    .map(overlay => `HTML overlay ${overlay.id} blend ${overlay.blend} is unsupported; using normal composition`);
   const textSlotOverlayCount = enabledOverlays.filter((overlay) => overlayTextSlotParams(overlay) !== null).length;
   const projectedEdit = {
     ...edit,
@@ -82,6 +91,19 @@ export function buildGpuPage({
     output: { width, height },
   });
   const captionOverlays = captionPlan.overlays;
+  const captionRecords = captionOverlays.map(overlay => ({
+    ...overlay,
+    z: captionRoot.find(cue => String(cue.id) === String(overlay.generatedFrom))?.animatorZ ?? captionZ,
+  }));
+  const allOverlays = [...enabledOverlays, ...captionRecords];
+  const mediaPlaneSummary = buildMediaPlaneSummary(projectedEdit, internal, allOverlays, captionZ);
+  const staticBands = partitionPreviewMediaPlanes({
+    base: [], layers: mediaPlaneSummary.layers.map(layer => ({ id: String(layer.id) })),
+  }, mediaPlaneSummary);
+  const hasBlend = enabledOverlays.some(supportedOverlayBlend);
+  const interleaved = staticBands.length > 1 || hasBlend;
+  const stackZByOverlay = new Map(allOverlays.map((overlay, index) =>
+    [String(overlay.id), mediaPlaneSummary.barrierZ[index]]));
   const resultEligibility = eligibility ?? evaluateGpuEligibility({
     edit: projectedEdit,
     captions: captionRoot,
@@ -112,7 +134,7 @@ export function buildGpuPage({
   const compositeIds = new Set(effectiveEligibility.entries
     .filter((entry) => entry.kind === "overlay" && entry.reason === "three-scene-sampled-composite")
     .map((entry) => entry.id));
-  const dom = buildDomRuns(indexedOverlays, classifications, compositeIds);
+  const dom = buildDomRuns(indexedOverlays, classifications, compositeIds, interleaved ? stackZByOverlay : null);
   const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const hasItemMotion = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes)
     || overlay.motion || overlay.motionSource);
@@ -213,6 +235,25 @@ export function buildGpuPage({
     spriteManifest,
     eligibility: effectiveEligibility,
   };
+  if (interleaved) {
+    const spriteZ = Object.fromEntries([...stackZByOverlay]);
+    const spriteBlend = Object.fromEntries(enabledOverlays
+      .filter(supportedOverlayBlend)
+      .map(overlay => [String(overlay.id), overlay.blend]));
+    for (const run of dom) {
+      spriteZ[run.runId] = stackZByOverlay.get(run.entries[0].id);
+      if (supportedOverlayBlend(run.entries[0])) {
+        spriteBlend[run.runId] = run.entries[0].blend;
+      }
+    }
+    config.mediaPlanes = {
+      summary: mediaPlaneSummary,
+      bands: staticBands.map(({ key, zIndex }) => ({ key, zIndex })),
+      spriteZ,
+      spriteBlend,
+      ...(hasBlend ? { blendModes: GPU_BLEND_MODES, blendGlsl: gpuBlendGlsl() } : {}),
+    };
+  }
   const iframe = three.length + vgpu.length > 0
     ? '<iframe id="akari-overlays" src="/overlay-sheet.html" title="AKARI 3D overlays"></iframe>'
     : "";
@@ -237,14 +278,15 @@ export function buildGpuPage({
 <body>
   <div id="akari-stage">
     <canvas id="akari-engine" width="${width}" height="${height}"></canvas>
-    <canvas id="akari-final" width="${width}" height="${height}"></canvas>
+    ${interleaved ? `${staticBands.filter(band => band.key !== 0).map(band =>
+    `<canvas class="akari-media-plane" data-akari-media-plane="${band.key}" width="${width}" height="${height}" style="position:absolute;inset:0;visibility:hidden"></canvas>`).join("\n    ")}\n    ` : ""}<canvas id="akari-final" width="${width}" height="${height}"></canvas>
     <!-- data-no-timeline: 断片の規約は [data-akari-active] .x, [data-no-timeline] .x { animation: ... }。
          OSR のシートは #stage に data-no-timeline を持つ（render-cut/src/rasterize.mjs）。
          GPU の DOM ステージに無いと、no-timeline アームだけで宣言した断片が GPU だけ動かない（issue #53 (c)） -->
     <div id="akari-dom-stage" data-no-timeline></div>
     ${iframe}
   </div>
-  <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};</script>
+  <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};${interleaved ? `window.__akariPartitionMediaPlanes=(${partitionPreviewMediaPlanes.toString()});` : ""}</script>
   <script>${inlineScript(frameEngineBundle)}</script>${textSlotOverlayCount > 0 ? `
   <script>${inlineScript(slotParamsRuntime)}</script>` : ""}
   ${hasItemKeyframes ? `<script>${inlineScript(itemKeyframesRuntime.replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>\n  ` : ""}${hasItemMotion ? `<script>${inlineScript(itemMotionRuntime)}</script>\n  ` : ""}<script>${inlineScript(pageRuntime)}</script>
@@ -274,7 +316,7 @@ export function buildGpuPage({
       stampRow: false,
     },
     // 字幕解決の警告（未知の style_preset・単語帳の保護語を外した行）は render-cut と同じ文面で届ける。
-    warnings: captionPlan.warnings,
+    warnings: [...captionPlan.warnings, ...blendWarnings],
   };
 }
 
@@ -296,7 +338,7 @@ function overlayWindow(overlay, kind) {
   return { start, duration };
 }
 
-function buildDomRuns(indexedOverlays, classifications, compositeIds = new Set()) {
+function buildDomRuns(indexedOverlays, classifications, compositeIds = new Set(), stackZByOverlay = null) {
   const runs = [];
   let current = null;
   for (const { overlay, index } of indexedOverlays) {
@@ -306,8 +348,11 @@ function buildDomRuns(indexedOverlays, classifications, compositeIds = new Set()
       current = null;
       continue;
     }
-    if (current === null || current.z !== z) {
-      current = { runId: `dom-${runs.length}`, index, z, entries: [] };
+    const stackZ = stackZByOverlay?.get(id);
+    const blend = overlay.blend ?? "normal";
+    if (current === null || current.z !== z || (stackZByOverlay &&
+      (current.stackZ !== stackZ || current.blend !== "normal" || blend !== "normal"))) {
+      current = { runId: `dom-${runs.length}`, index, z, ...(stackZByOverlay ? { stackZ, blend } : {}), entries: [] };
       runs.push(current);
     }
     current.entries.push({
@@ -317,6 +362,7 @@ function buildDomRuns(indexedOverlays, classifications, compositeIds = new Set()
       vars: resolveOverlayVars(overlay),
       transform: overlay.transform ?? {},
       role: overlay.role ?? null,
+      ...(stackZByOverlay ? { blend } : {}),
       params: overlayTextSlotParams(overlay),
       ...(compositeIds.has(id) ? { composite: true } : {}),
     });
@@ -423,6 +469,7 @@ export async function loadAndBuildGpuPage({
     width: width ?? edit.output.width,
     height: height ?? edit.output.height,
     duration: duration ?? inferDuration(edit),
+    internal: renderEdit.internal,
     captionTrackZ: resolveCaptionTrackZ(renderEdit.internal.tracks),
     lutCubeText,
     layerLutCubeTexts,
