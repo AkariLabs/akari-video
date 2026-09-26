@@ -23,6 +23,7 @@ import { FrontendApplicationStateService } from '@theia/core/lib/browser/fronten
 import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
 import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariPreviewOpenHandler } from 'akari-preview/lib/browser/akari-preview-open-handler';
+import { sameProjectFile } from 'akari-preview/lib/common/preview-drop-geometry';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import { AkariShortcutKeybindings } from './akari-shortcut-keybindings';
 import {
@@ -484,7 +485,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(PLACE_TEXT, {
             execute: async (options: PlaceTextOptions = {}, editUri?: string) => {
-                const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
+                const location = editUri ? await this.findProjectLocation(editUri) : undefined;
                 const widget = editUri ? (location ? await this.configureQuietTimeline(location) : undefined)
                     : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
                 if (!widget) {
@@ -496,7 +497,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         });
         commands.registerCommand(READ_ALOUD, {
             execute: async (options: { captionIds?: string[] } = {}, editUri?: string) => {
-                const location = editUri ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
+                const location = editUri ? await this.findProjectLocation(editUri) : undefined;
                 const widget = editUri ? (location ? await this.configureQuietTimeline(location) : undefined) : await this.attach();
                 if (widget) await widget.openReadAloud({ captionIds: options.captionIds ?? [] });
             }
@@ -558,8 +559,10 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(ADD_SHAPE_AT, {
             execute: async (request: unknown) => {
                 const editUri = (request as { editUri?: unknown } | undefined)?.editUri;
+                // コマンド登録部分だけを切り出すユニットテストは locateAll だけの owner で呼ぶため。
                 const location = typeof editUri === 'string'
-                    ? (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
+                    ? this.findProjectLocation ? await this.findProjectLocation(editUri)
+                        : (await this.locateAll()).find(item => item.editUri?.toString() === editUri) : undefined;
                 const widget = typeof editUri === 'string'
                     ? (location ? await this.configureQuietTimeline(location) : undefined)
                     : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
@@ -601,7 +604,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             execute: async (request: { relativePath?: string; kind?: string; t?: number;
                 transform?: { x: number; y: number }; editUri?: string;
                 outsideCanvas?: boolean; canvasAware?: boolean }) => {
-                const location = (await this.locateAll()).find(item => item.editUri?.toString() === request?.editUri);
+                const location = request?.editUri ? await this.findProjectLocation(request.editUri) : undefined;
                 if (!location) return this.messages.warn('プロジェクトを特定できません。');
                 const widget = await this.configureQuietTimeline(location);
                 await widget.addMaterialAtOutputPoint(request?.relativePath ?? '', request?.kind ?? '', request?.t ?? NaN,
@@ -614,7 +617,9 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
                 if (!request?.payload) { this.messages.info('当てるものを読み取れませんでした。'); return false; }
                 try {
                     const location = request.editUri
-                        ? (await this.locateAll()).find(item => item.editUri?.toString() === request.editUri) : undefined;
+                        ? this.findProjectLocation ? await this.findProjectLocation(request.editUri)
+                            : (await this.locateAll()).find(item => item.editUri?.toString() === request.editUri)
+                        : undefined;
                     if (request.editUri && !location) { this.messages.warn('プロジェクトを特定できません。'); return false; }
                     const widget = request.editUri ? await this.configureQuietTimeline(location!)
                         : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
@@ -629,13 +634,14 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand({ id: 'akari.timeline.addOverlayAtOutputPoint' }, {
             execute: async (request: { editUri?: string } | undefined) => {
                 const location = request?.editUri
-                    ? (await this.locateAll()).find(item => item.editUri?.toString() === request.editUri)
+                    ? await this.findProjectLocation(request.editUri)
                     : undefined;
                 const widget = request?.editUri
                     ? (location ? await this.configureQuietTimeline(location) : undefined)
                     : this.getShortcutKeybindings().shortcutTimelineWidget() ?? await this.attach();
                 if (!widget) { this.messages.warn('プロジェクトを特定できません。'); return undefined; }
-                return widget.addOverlayAtOutputPoint(request);
+                return widget.addOverlayAtOutputPoint(location?.editUri
+                    ? { ...request, editUri: location.editUri.toString() } : request);
             }
         });
         const onPlaybackTick = (event: Event): void => {
@@ -1310,6 +1316,15 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     protected async locateAll(): Promise<ProjectLocation[]> {
         this.projectLocationsPromise ??= this.resolveProjectLocations();
         return this.projectLocationsPromise;
+    }
+
+    protected async findProjectLocation(editUri: string): Promise<ProjectLocation | undefined> {
+        const find = (locations: ProjectLocation[]): ProjectLocation | undefined =>
+            locations.find(item => item.editUri && sameProjectFile(item.editUri.toString(), editUri));
+        const cached = find(await this.locateAll());
+        if (cached) return cached;
+        this.projectLocationsPromise = undefined;
+        return find(await this.locateAll());
     }
 
     /** Resolve the newly created file with its own infix sidecars, including the first empty tab. */

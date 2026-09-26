@@ -1,0 +1,12 @@
+{
+ "previews": [
+  {
+   "id": "plugin-webview:akari-output-preview-lidc0n",
+   "title": "出力プレビュー",
+   "editUri": "file://<work>/ws-u/edit.json"
+  }
+ ],
+ "roots": [
+  "file://<work>/ws-u"
+ ]
+}

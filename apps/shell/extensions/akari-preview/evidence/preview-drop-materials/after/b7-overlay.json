@@ -1,0 +1,857 @@
+{
+ "cardSpec": "asset:overlay/browser-mock",
+ "dropSpec": "stage:0.4,0.6",
+ "mode": "mouse",
+ "at": "2026-09-26T13:08:42.635Z",
+ "card": {
+  "x": 90,
+  "y": 184,
+  "w": 63,
+  "h": 63,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 511.70703125,
+   "y": 55.00390625,
+   "w": 602.6640625,
+   "h": 338.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 753,
+  "y": 258,
+  "outputPx": {
+   "x": 512.4828560687572,
+   "y": 431.1520822290337
+  },
+  "clampedOutputPx": {
+   "x": 512.4828560687572,
+   "y": 431.1520822290337
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 428.4
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 632.5,
+     "y": 190.1,
+     "w": 241.1,
+     "h": 135.7
+    },
+    "text": "ブラウザモック0:04.0 → 0:09.0",
+    "border": "dashed"
+   }
+  ],
+  "sample": [
+   {
+    "rect": {
+     "x": 0,
+     "y": 0,
+     "w": 0,
+     "h": 0
+    },
+    "display": "none",
+    "text": "ブラウザモック",
+    "img": "https://akari.video/assets/overlay/browser-mock/v1/preview.png"
+   }
+  ]
+ },
+ "waitMs": 3113,
+ "afterDrop": {
+  "layer": [],
+  "ghost": [],
+  "sample": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 90,
+   "y": 184,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 96,
+   "y": 190,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 96,
+   "y": 190,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 102,
+   "y": 196,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 102,
+   "y": 196,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 108,
+   "y": 202,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 114,
+   "y": 208,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 114,
+   "y": 208,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 120,
+   "y": 214,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 120,
+   "y": 214,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 126,
+   "y": 220,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 132,
+   "y": 226,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 132,
+   "y": 226,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 138,
+   "y": 232,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 184,
+   "y": 237,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 184,
+   "y": 237,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 230,
+   "y": 243,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 230,
+   "y": 243,
+   "target": {
+    "tag": "BUTTON",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 276,
+   "y": 248,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "lm-SplitPanel-handle"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 276,
+   "y": 248,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 323,
+   "y": 254,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 323,
+   "y": 254,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "lm-SplitPanel-handle"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 14,
+   "x": 369,
+   "y": 259,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 753,
+   "y": 258,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 753,
+   "y": 258,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.timeline.addOverlayAtOutputPoint",
+   "args": [
+    {
+     "key": "overlay/browser-mock",
+     "t": 4,
+     "center": {
+      "x": 512.5269979723046,
+      "y": 430.77032338185694
+     },
+     "editUri": "file://<work>/ws-a/edit.json",
+     "outsideCanvas": false
+    }
+   ],
+   "result": "overlay-1"
+  },
+  {
+   "id": "akari.catalog.resolveOverlay",
+   "args": [
+    "overlay/browser-mock"
+   ],
+   "result": {
+    "relativePath": "assets/overlay/browser-mock/fragment.html",
+    "meta": {
+     "id": "browser-mock",
+     "category": "overlay",
+     "title": "ブラウザモック",
+     "description": "中に映像・画像を差し込むブラウザウィンドウ。信号ボタン・タブ・戻る/進む/再読み込み・鍵付きアドレスバーを持ち、読み込みバーが一度だけ走る。画面部分は透明にできるので、下のトラックに置いた動画をそのまま透かせる。ウィンドウのサイズを変えるとクロムと文字が短辺比で追従し、16:9 でも 9:16 でも崩れない。特定ブラウザのロゴ・商標は使っていない。",
+     "when_to_use": "Web サイトやアプリの画面を見せるシーン。製品デモ、操作説明、記事や資料の紹介など、素の画面録画では味気ないときにブラウザの枠を与える",
+     "tags": [
+      "frame",
+      "mockup",
+      "browser",
+      "screen",
+      "product-demo",
+      "explainer",
+      "slot",
+      "media-slot",
+      "16:9",
+      "9:16"
+     ],
+     "knobs": [
+      {
+       "cssVar": "--window-width",
+       "type": "slider",
+       "min": 320,
+       "max": 3840,
+       "unit": "px",
+       "group": "layout",
+       "label": "ウィンドウの幅"
+      },
+      {
+       "cssVar": "--window-height",
+       "type": "slider",
+       "min": 180,
+       "max": 2160,
+       "unit": "px",
+       "group": "layout",
+       "label": "ウィンドウの高さ"
+      },
+      {
+       "cssVar": "--corner-radius",
+       "type": "slider",
+       "min": 0,
+       "max": 4,
+       "group": "layout",
+       "label": "角丸（短辺比）"
+      },
+      {
+       "cssVar": "--chrome-scale",
+       "type": "slider",
+       "min": 0.6,
+       "max": 1.8,
+       "group": "layout",
+       "label": "クロム（タブ・アドレスバー）の倍率"
+      },
+      {
+       "cssVar": "--window-align",
+       "type": "dropdown",
+       "group": "layout",
+       "label": "画面内の縦位置（center / start / end）"
+      },
+      {
+       "cssVar": "--window-justify",
+       "type": "dropdown",
+       "group": "layout",
+       "label": "画面内の横位置（center / start / end）"
+      },
+      {
+       "cssVar": "--screen-src",
+       "type": "media",
+       "group": "content",
+       "label": "画面に映す画像（url(...)）"
+      },
+      {
+       "cssVar": "--screen-fit",
+       "type": "dropdown",
+       "group": "content",
+       "label": "画面へのはめ方（cover / contain）"
+      },
+      {
+       "cssVar": "--show-placeholder",
+       "type": "checkbox",
+       "group": "content",
+       "label": "既定のダミーページを出す（1 / 0）"
+      },
+      {
+       "cssVar": "--screen-color",
+       "type": "color",
+       "group": "style",
+       "label": "画面の地色（transparent で切り抜き）"
+      },
+      {
+       "cssVar": "--chrome-color",
+       "type": "color",
+       "group": "style",
+       "label": "タブ列の色"
+      },
+      {
+       "cssVar": "--toolbar-color",
+       "type": "color",
+       "group": "style",
+       "label": "アドレスバー列・タブの色"
+      },
+      {
+       "cssVar": "--chrome-border",
+       "type": "color",
+       "group": "style",
+       "label": "枠線の色"
+      },
+      {
+       "cssVar": "--url-color",
+       "type": "color",
+       "group": "style",
+       "label": "アドレスバーの地色"
+      },
+      {
+       "cssVar": "--chrome-text-color",
+       "type": "color",
+       "group": "style",
+       "label": "タブ・URL の文字色"
+      },
+      {
+       "cssVar": "--chrome-icon-color",
+       "type": "color",
+       "group": "style",
+       "label": "アイコンの色"
+      },
+      {
+       "cssVar": "--accent-color",
+       "type": "color",
+       "group": "style",
+       "label": "アクセント色（favicon・読み込みバー・ダミーページ）"
+      },
+      {
+       "cssVar": "--ui-font-family",
+       "type": "text",
+       "group": "typography",
+       "label": "クロムの書体"
+      },
+      {
+       "cssVar": "--anim",
+       "type": "checkbox",
+       "group": "motion",
+       "label": "アニメーションを使う（1 / 0）"
+      }
+     ],
+     "ai_usage": "タブ名と URL は断片内の .browser-mock__tab-title / .browser-mock__url-text の要素テキストを直接書き換える（CSS 変数にテキストを持たせない）。画面の中身は 3 通りで、順に推奨度が高い。(1) **動画を入れるとき**は --screen-color: transparent + --show-placeholder: 0 にして画面部分…",
+     "requires": [],
+     "provenance": {
+      "origin": "AKARI Video 素材工房（akari-video-internal）/ 2026-07-29 内部制作。chalkboard-jp / whiteboard と同じサイズ可変規約。参照実装・第三者素材の取り込みなし",
+      "generator": "Claude Opus 5 (1M context); prompt: 中に映像を差せるブラウザモックを、黒板と同じサイズ可変規約で作る（overlay-authoring 規約準拠）"
+     },
+     "author": "ryoma",
+     "license": {
+      "spdx": "CC0-1.0",
+      "scope": "commercial-ok",
+      "attribution_required": false,
+      "ai_training_allowed": true
+     },
+     "version": 1,
+     "price": null
+    },
+    "fragment": "<div\n  class=\"browser-mock\"\n  lang=\"ja\"\n  data-start=\"0\"\n  data-duration=\"8\"\n>\n  <style>\n    /*\n     * browser-mock — 中に映像・画像を差し込むブラウザウィンドウ。\n     *\n     * サイズ設計は chalkboard-jp / whiteboard と同じ規約: px 指…"
+   }
+  },
+  {
+   "id": "akari.preview.seekOutput",
+   "args": [
+    {
+     "editUri": "file://<work>/ws-a/edit.json",
+     "time": 4,
+     "waitForReady": true
+    }
+   ]
+  }
+ ],
+ "dragImages": [
+  {
+   "tag": "CANVAS",
+   "width": 1,
+   "height": 1,
+   "rect": {
+    "w": 1,
+    "h": 1
+   },
+   "text": "",
+   "imgs": 0,
+   "offset": [
+    0,
+    0
+   ]
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v6",
+   "trackIndex": 7,
+   "lane": "visual",
+   "id": "overlay-1",
+   "at": 120,
+   "duration": 150,
+   "source": {
+    "kind": "html",
+    "path": "assets/overlay/browser-mock/fragment.html",
+    "vars": {
+     "--window-width": "1560px",
+     "--window-height": "900px",
+     "--corner-radius": "1.4",
+     "--chrome-scale": "1",
+     "--window-align": "center",
+     "--window-justify": "center",
+     "--screen-src": "none",
+     "--screen-fit": "cover",
+     "--show-placeholder": "1",
+     "--screen-color": "#ffffff",
+     "--chrome-color": "#eef0f2",
+     "--toolbar-color": "#fbfcfd",
+     "--chrome-border": "#d3d6db",
+     "--url-color": "#eceef1",
+     "--chrome-text-color": "#4b525b",
+     "--chrome-icon-color": "#7a828c",
+     "--accent-color": "#3b82f6",
+     "--ui-font-family": "\"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif",
+     "--anim": "1"
+    }
+   },
+   "transform": {
+    "x": -173.42171997641339,
+    "y": 41.2318618433954,
+    "scale": 0.3282051282051282
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   },
+   {
+    "id": "audio-2",
+    "path": "assets/audio/bgm-beatslide-124-001/bgm-beatslide-124-001.mp3",
+    "t": 4,
+    "track": 0,
+    "gain_db": -6.4,
+    "fade_in": 0.2,
+    "fade_out": 1
+   }
+  ]
+ },
+ "audioAfter": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/tone-440.m4a",
+    "t": 3,
+    "track": 0,
+    "gain_db": 3.8,
+    "fade_in": 0,
+    "fade_out": 0
+   },
+   {
+    "id": "audio-2",
+    "path": "assets/audio/bgm-beatslide-124-001/bgm-beatslide-124-001.mp3",
+    "t": 4,
+    "track": 0,
+    "gain_db": -6.4,
+    "fade_in": 0.2,
+    "fade_out": 1
+   }
+  ]
+ },
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "dragImages": [
+   {
+    "tag": "CANVAS",
+    "width": 1,
+    "height": 1,
+    "rect": {
+     "w": 1,
+     "h": 1
+    },
+    "text": "",
+    "imgs": 0,
+    "offset": [
+     0,
+     0
+    ]
+   }
+  ],
+  "card": "asset:overlay/browser-mock",
+  "drop": "stage:0.4,0.6",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 632.5,
+     "y": 190.1,
+     "w": 241.1,
+     "h": 135.7
+    },
+    "text": "ブラウザモック0:04.0 → 0:09.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.timeline.addOverlayAtOutputPoint",
+    "result": "\"overlay-1\""
+   },
+   {
+    "id": "akari.catalog.resolveOverlay",
+    "result": "{\"relativePath\":\"assets/overlay/browser-mock/fragment.html\",\"meta\":{\"id\":\"browser-mock\",\"category\":\"overlay\",\"title\":\"ブラウザモック\",\"description\":\"中に映像・画像を差し込むブラウザウィ"
+   },
+   {
+    "id": "akari.preview.seekOutput",
+    "result": "null"
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "overlay-1",
+    "track": "v6",
+    "at": 120,
+    "duration": 150,
+    "transform": {
+     "x": -173.42171997641339,
+     "y": 41.2318618433954,
+     "scale": 0.3282051282051282
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}

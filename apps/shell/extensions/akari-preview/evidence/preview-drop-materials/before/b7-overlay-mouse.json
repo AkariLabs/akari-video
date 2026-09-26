@@ -1,0 +1,906 @@
+{
+ "cardSpec": "asset:overlay/browser-mock",
+ "dropSpec": "stage:0.6,0.6",
+ "mode": "mouse",
+ "at": "2026-09-26T11:13:02.549Z",
+ "card": {
+  "x": 90,
+  "y": 184,
+  "w": 63,
+  "h": 63,
+  "draggable": "true"
+ },
+ "stage": {
+  "host": {
+   "x": 558.8203125,
+   "y": 55.00390625,
+   "w": 508.4375,
+   "h": 285.9921875
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  }
+ },
+ "drop": {
+  "x": 864,
+  "y": 227,
+  "outputPx": {
+   "x": 768.2950215119853,
+   "y": 433.00898735214577
+  },
+  "clampedOutputPx": {
+   "x": 768.2950215119853,
+   "y": 433.00898735214577
+  }
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 1060,
+     "h": 375.9
+    },
+    "visible": true,
+    "cursor": "copy"
+   }
+  ],
+  "ghost": [
+   {
+    "rect": {
+     "x": 762.3,
+     "y": 169.8,
+     "w": 203.4,
+     "h": 114.4
+    },
+    "text": "ブラウザモック0:01.0 → 0:06.0",
+    "border": "dashed"
+   }
+  ]
+ },
+ "waitMs": 4664,
+ "afterDrop": {
+  "layer": [],
+  "ghost": []
+ },
+ "pageEvents": [
+  {
+   "type": "dragstart",
+   "count": 1,
+   "x": 90,
+   "y": 184,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [],
+   "layer": false
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 96,
+   "y": 190,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 96,
+   "y": 190,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 102,
+   "y": 196,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 102,
+   "y": 196,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 108,
+   "y": 202,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 114,
+   "y": 208,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 114,
+   "y": 208,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 120,
+   "y": 214,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 120,
+   "y": 214,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 126,
+   "y": 220,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 132,
+   "y": 226,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 132,
+   "y": 226,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 1,
+   "x": 138,
+   "y": 232,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 193,
+   "y": 234,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 193,
+   "y": 234,
+   "target": {
+    "tag": "IMG",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 249,
+   "y": 237,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "codicon codicon-ellipsis"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 249,
+   "y": 237,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragenter",
+   "count": 1,
+   "x": 304,
+   "y": 240,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragleave",
+   "count": 1,
+   "x": 304,
+   "y": 240,
+   "target": {
+    "tag": "SPAN",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": "codicon codicon-ellipsis"
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragover",
+   "count": 15,
+   "x": 360,
+   "y": 243,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "drop",
+   "count": 1,
+   "x": 864,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": true,
+    "isLayer": true,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  },
+  {
+   "type": "dragend",
+   "count": 1,
+   "x": 864,
+   "y": 227,
+   "target": {
+    "tag": "DIV",
+    "inLayer": false,
+    "isLayer": false,
+    "cls": ""
+   },
+   "types": [
+    "application/x-akari-library-item"
+   ],
+   "layer": true
+  }
+ ],
+ "commands": [
+  {
+   "id": "akari.timeline.addOverlayAtOutputPoint",
+   "args": [
+    {
+     "key": "overlay/browser-mock",
+     "t": 1,
+     "center": {
+      "x": 768.3597020983785,
+      "y": 433.1467059993177
+     },
+     "editUri": "file://<work>/ws-b/edit.json",
+     "outsideCanvas": false
+    }
+   ]
+  },
+  {
+   "id": "akari.catalog.resolveOverlay",
+   "args": [
+    "overlay/browser-mock"
+   ],
+   "result": {
+    "relativePath": "assets/overlay/browser-mock/fragment.html",
+    "meta": {
+     "id": "browser-mock",
+     "category": "overlay",
+     "title": "ブラウザモック",
+     "description": "中に映像・画像を差し込むブラウザウィンドウ。信号ボタン・タブ・戻る/進む/再読み込み・鍵付きアドレスバーを持ち、読み込みバーが一度だけ走る。画面部分は透明にできるので、下のトラックに置いた動画をそのまま透かせる。ウィンドウのサイズを変えるとクロムと文字が短辺比で追従し、16:9 でも 9:16 でも崩れない。特定ブラウザのロゴ・商標は使っていない。",
+     "when_to_use": "Web サイトやアプリの画面を見せるシーン。製品デモ、操作説明、記事や資料の紹介など、素の画面録画では味気ないときにブラウザの枠を与える",
+     "tags": [
+      "frame",
+      "mockup",
+      "browser",
+      "screen",
+      "product-demo",
+      "explainer",
+      "slot",
+      "media-slot",
+      "16:9",
+      "9:16"
+     ],
+     "knobs": [
+      {
+       "cssVar": "--window-width",
+       "type": "slider",
+       "min": 320,
+       "max": 3840,
+       "unit": "px",
+       "group": "layout",
+       "label": "ウィンドウの幅"
+      },
+      {
+       "cssVar": "--window-height",
+       "type": "slider",
+       "min": 180,
+       "max": 2160,
+       "unit": "px",
+       "group": "layout",
+       "label": "ウィンドウの高さ"
+      },
+      {
+       "cssVar": "--corner-radius",
+       "type": "slider",
+       "min": 0,
+       "max": 4,
+       "group": "layout",
+       "label": "角丸（短辺比）"
+      },
+      {
+       "cssVar": "--chrome-scale",
+       "type": "slider",
+       "min": 0.6,
+       "max": 1.8,
+       "group": "layout",
+       "label": "クロム（タブ・アドレスバー）の倍率"
+      },
+      {
+       "cssVar": "--window-align",
+       "type": "dropdown",
+       "group": "layout",
+       "label": "画面内の縦位置（center / start / end）"
+      },
+      {
+       "cssVar": "--window-justify",
+       "type": "dropdown",
+       "group": "layout",
+       "label": "画面内の横位置（center / start / end）"
+      },
+      {
+       "cssVar": "--screen-src",
+       "type": "media",
+       "group": "content",
+       "label": "画面に映す画像（url(...)）"
+      },
+      {
+       "cssVar": "--screen-fit",
+       "type": "dropdown",
+       "group": "content",
+       "label": "画面へのはめ方（cover / contain）"
+      },
+      {
+       "cssVar": "--show-placeholder",
+       "type": "checkbox",
+       "group": "content",
+       "label": "既定のダミーページを出す（1 / 0）"
+      },
+      {
+       "cssVar": "--screen-color",
+       "type": "color",
+       "group": "style",
+       "label": "画面の地色（transparent で切り抜き）"
+      },
+      {
+       "cssVar": "--chrome-color",
+       "type": "color",
+       "group": "style",
+       "label": "タブ列の色"
+      },
+      {
+       "cssVar": "--toolbar-color",
+       "type": "color",
+       "group": "style",
+       "label": "アドレスバー列・タブの色"
+      },
+      {
+       "cssVar": "--chrome-border",
+       "type": "color",
+       "group": "style",
+       "label": "枠線の色"
+      },
+      {
+       "cssVar": "--url-color",
+       "type": "color",
+       "group": "style",
+       "label": "アドレスバーの地色"
+      },
+      {
+       "cssVar": "--chrome-text-color",
+       "type": "color",
+       "group": "style",
+       "label": "タブ・URL の文字色"
+      },
+      {
+       "cssVar": "--chrome-icon-color",
+       "type": "color",
+       "group": "style",
+       "label": "アイコンの色"
+      },
+      {
+       "cssVar": "--accent-color",
+       "type": "color",
+       "group": "style",
+       "label": "アクセント色（favicon・読み込みバー・ダミーページ）"
+      },
+      {
+       "cssVar": "--ui-font-family",
+       "type": "text",
+       "group": "typography",
+       "label": "クロムの書体"
+      },
+      {
+       "cssVar": "--anim",
+       "type": "checkbox",
+       "group": "motion",
+       "label": "アニメーションを使う（1 / 0）"
+      }
+     ],
+     "ai_usage": "タブ名と URL は断片内の .browser-mock__tab-title / .browser-mock__url-text の要素テキストを直接書き換える（CSS 変数にテキストを持たせない）。画面の中身は 3 通りで、順に推奨度が高い。(1) **動画を入れるとき**は --screen-color: transparent + --show-placeholder: 0 にして画面部分を切り抜き、下のトラックに置いた映像を透かす。オーバーレイ内に <video> を置くとランタイムのシークが効かず決定論が崩れるため、この経路を使う。(2) 静止画なら --screen-src に url(...) を渡し、--show-placeholder: 0 にする。(3) 画像要素を直接置きたい場合は .browser-mock__screen の子として <img> を入れる（同じく --show-placeholder: 0）。何も与えなければ CSS で描いた抽象的なダミーページが出る（実在サイトの模写ではない）。サイズは --window-width / --window-height だけ変えればクロムと文字が短辺比（cqmin）で追従する。クロムだけ相対的に大きく/小さくしたいときは --chrome-scale。ダークな画面に馴染ませるときは --chrome-color / --toolbar-color / --url-color を暗色、--chrome-text-color / --chrome-icon-color を明色にする。位置・拡大率・回転は edit.json.overlays[].transform 側で行う。特定ブラウザのロゴ・商標・固有 UI は足さない。filter / backdrop-filter を足さない、wall-clock 駆動を足さない。 画面には CLI から動画・写真をそのまま差し込める（差し込み口は fragment 内の data-akari-slot=\"screen\"）: npx @akari-video/template-render <dir> --screen-video x.mp4 / --screen-image x.png。CLI は毎フレーム同じ時刻へシークするので決定論を保てる。アプリ内オーバーレイでは <video> を置かず、画面を透明にして下のトラックを透かす経路を使う。",
+     "requires": [],
+     "provenance": {
+      "origin": "AKARI Video 素材工房（akari-video-internal）/ 2026-07-29 内部制作。chalkboard-jp / whiteboard と同じサイズ可変規約。参照実装・第三者素材の取り込みなし",
+      "generator": "Claude Opus 5 (1M context); prompt: 中に映像を差せるブラウザモックを、黒板と同じサイズ可変規約で作る（overlay-authoring 規約準拠）"
+     },
+     "author": "ryoma",
+     "license": {
+      "spdx": "CC0-1.0",
+      "scope": "commercial-ok",
+      "attribution_required": false,
+      "ai_training_allowed": true
+     },
+     "version": 1,
+     "price": null
+    },
+    "fragment": "<div\n  class=\"browser-mock\"\n  lang=\"ja\"\n  data-start=\"0\"\n  data-duration=\"8\"\n>\n  <style>\n    /*\n     * browser-mock — 中に映像・画像を差し込むブラウザウィンドウ。\n     *\n     * サイズ設計は chalkboard-jp / whiteboard と同じ規約: px 指定はウィンドウの外形\n     * （--window-width / --window-height）だけで、クロム（タブ・アドレスバー・信号ボタン）と\n     * 文字サイズはすべて cqmin（= ウィンドウの短辺 1%）。「%」単位のツマミは短辺比。\n     *\n     * 中身の入れ方は 2 通り（どちらも .browser-mock__screen の中）:\n     *   1. --screen-src に画像の URL を CSS の url 記法で渡す（静止画）\n     *   2. .browser-mock__screen の子として <img> / <video> を置く（動画。再生は framework が管理）\n     * どちらも与えなければ、CSS で描いた既定のダミーページが出る。\n     */\n    .browser-mock {\n      position: absolute;\n      inset: 0;\n      display: grid;\n      align-items: var(--window-align, center);\n      justify-items: var(--window-justify, center);\n      pointer-events: none;\n      isolation: isolate;\n    }\n\n    .browser-mock,\n    .browser-mock * {\n      box-sizing: border-box;\n    }\n\n    .browser-mock__window {\n      position: relative;\n      display: flex;\n      overflow: hidden;\n      width: var(--window-width, 1560px);\n      height: var(--window-height, 900px);\n      flex-direction: column;\n      container-type: size;\n      border: 0.1cqmin solid var(--chrome-border, #d3d6db);\n      border-radius: calc(var(--corner-radius, 1.4) * 1%);\n      /*\n       * ウィンドウ自身は塗らない。クロムの地色はタブ列とツールバーが持つ。\n       * こうしておくと --screen-color: transparent にしたとき画面部分が本当に切り抜かれ、\n       * 下のトラックの映像をそのまま透かせる（決定論を壊さずに動画を入れる正攻法）。\n       */\n      background: transparent;\n      box-shadow:\n        0 calc(var(--window-height, 900px) * 0.024) calc(var(--window-height, 900px) * 0.07) rgb(15 23 32 / 0.34),\n        0 calc(var(--window-height, 900px) * 0.004) calc(var(--window-height, 900px) * 0.012) rgb(15 23 32 / 0.2);\n      animation: browser-mock-window-in calc(var(--anim, 1) * 640ms) cubic-bezier(0.16, 1, 0.3, 1) both paused;\n      will-change: transform, opacity;\n    }\n\n    /* タブ列 */\n    .browser-mock__tabs {\n      display: flex;\n      height: calc(var(--chrome-scale, 1) * 6.4cqmin);\n      flex: 0 0 auto;\n      align-items: flex-end;\n      gap: calc(var(--chrome-scale, 1) * 1.1cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.6cqmin);\n      background:\n        linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0)),\n        var(--chrome-color, #eef0f2);\n    }\n\n    /* 信号ボタン。ウィンドウ操作の記号であってブランドではない。 */\n    .browser-mock__lights {\n      display: flex;\n      height: 100%;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 0.85cqmin);\n      padding-right: calc(var(--chrome-scale, 1) * 1.4cqmin);\n    }\n\n    .browser-mock__lights > span {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 1.5cqmin);\n      height: calc(var(--chrome-scale, 1) * 1.5cqmin);\n      border-radius: 50%;\n      background: #cfd3d8;\n      box-shadow: inset 0 0.1cqmin 0.16cqmin rgb(255 255 255 / 0.6);\n    }\n\n    .browser-mock__lights > span:nth-child(1) { background: #f0655a; }\n    .browser-mock__lights > span:nth-child(2) { background: #f4bf4f; }\n    .browser-mock__lights > span:nth-child(3) { background: #61c454; }\n\n    .browser-mock__tab {\n      display: flex;\n      min-width: 0;\n      max-width: 34%;\n      height: calc(var(--chrome-scale, 1) * 4.6cqmin);\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 0.9cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.5cqmin);\n      border-radius: calc(var(--chrome-scale, 1) * 1cqmin) calc(var(--chrome-scale, 1) * 1cqmin) 0 0;\n      background: var(--toolbar-color, #fbfcfd);\n      box-shadow: 0 -0.1cqmin 0.3cqmin rgb(15 23 32 / 0.08);\n      color: var(--chrome-text-color, #4b525b);\n      font-family: var(--ui-font-family, \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif);\n      font-size: calc(var(--chrome-scale, 1) * 1.95cqmin);\n      letter-spacing: 0.01em;\n    }\n\n    .browser-mock__favicon {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 1.7cqmin);\n      height: calc(var(--chrome-scale, 1) * 1.7cqmin);\n      flex: 0 0 auto;\n      border-radius: calc(var(--chrome-scale, 1) * 0.42cqmin);\n      background: var(--accent-color, #3b82f6);\n    }\n\n    .browser-mock__tab-title {\n      overflow: hidden;\n      text-overflow: ellipsis;\n      white-space: nowrap;\n    }\n\n    /* アドレスバー列 */\n    .browser-mock__toolbar {\n      display: flex;\n      height: calc(var(--chrome-scale, 1) * 5.8cqmin);\n      flex: 0 0 auto;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 1.3cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.8cqmin);\n      border-bottom: 0.1cqmin solid var(--chrome-border, #d3d6db);\n      background: var(--toolbar-color, #fbfcfd);\n    }\n\n    .browser-mock__nav {\n      display: flex;\n      flex: 0 0 auto;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 1.1cqmin);\n    }\n\n    .browser-mock__nav > span {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 2.1cqmin);\n      height: calc(var(--chrome-scale, 1) * 2.1cqmin);\n      background: var(--chrome-icon-color, #7a828c);\n      mask-repeat: no-repeat;\n      mask-position: center;\n      mask-size: contain;\n    }\n\n    .browser-mock__nav-back {\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15 4 L 7 12 L 15 20' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");\n    }\n\n    .browser-mock__nav-forward {\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 4 L 17 12 L 9 20' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");\n      opacity: 0.42;\n    }\n\n    .browser-mock__nav-reload {\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 12 A 8 8 0 1 1 17 5.9 M20 3.6 L 20 6.4 L 17.2 6.4' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");\n    }\n\n    .browser-mock__url {\n      display: flex;\n      min-width: 0;\n      height: calc(var(--chrome-scale, 1) * 3.6cqmin);\n      flex: 1 1 auto;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 1cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.5cqmin);\n      border-radius: calc(var(--chrome-scale, 1) * 1.8cqmin);\n      background: var(--url-color, #eceef1);\n      color: var(--chrome-text-color, #4b525b);\n      font-family: var(--ui-font-family, \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif);\n      font-size: calc(var(--chrome-scale, 1) * 1.95cqmin);\n      letter-spacing: 0.01em;\n    }\n\n    .browser-mock__lock {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 1.6cqmin);\n      height: calc(var(--chrome-scale, 1) * 1.6cqmin);\n      flex: 0 0 auto;\n      background: var(--chrome-icon-color, #7a828c);\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='5' y='10' width='14' height='10' rx='2.4' fill='black'/%3E%3Cpath d='M8.4 10 V 7.6 A 3.6 3.6 0 0 1 15.6 7.6 V 10' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E\");\n      mask-repeat: no-repeat;\n      mask-position: center;\n      mask-size: contain;\n    }\n\n    .browser-mock__url-text {\n      overflow: hidden;\n      text-overflow: ellipsis;\n      white-space: nowrap;\n    }\n\n    /* 中身（スロット）。--screen-src か、子要素の <img> / <video> で差し替える。 */\n    .browser-mock__screen {\n      position: relative;\n      overflow: hidden;\n      flex: 1 1 auto;\n      background: var(--screen-color, #ffffff);\n    }\n\n    .browser-mock__screen > img,\n    .browser-mock__screen > video {\n      position: absolute;\n      inset: 0;\n      width: 100%;\n      height: 100%;\n      object-fit: var(--screen-fit, cover);\n    }\n\n    .browser-mock__media {\n      position: absolute;\n      inset: 0;\n      background-image: var(--screen-src, none);\n      background-position: center;\n      background-size: var(--screen-fit, cover);\n      background-repeat: no-repeat;\n    }\n\n    /* 読み込みバー。ページが出る直前に一度だけ走る。 */\n    .browser-mock__progress {\n      position: absolute;\n      top: 0;\n      left: 0;\n      width: 100%;\n      height: calc(var(--chrome-scale, 1) * 0.42cqmin);\n      background: var(--accent-color, #3b82f6);\n      transform-origin: left center;\n      animation: browser-mock-progress calc(var(--anim, 1) * 900ms) calc(var(--anim, 1) * 160ms) cubic-bezier(0.22, 0.9, 0.3, 1) both paused;\n      will-change: transform, opacity;\n    }\n\n    /*\n     * 既定のダミーページ。--screen-src も子要素も与えられなかったときに出る。\n     * 実在サイトの模写ではなく、抽象的な面と帯だけで構成している。\n     */\n    .browser-mock__page {\n      position: absolute;\n      inset: 0;\n      display: flex;\n      flex-direction: column;\n      opacity: var(--show-placeholder, 1);\n      animation: browser-mock-page-in calc(var(--anim, 1) * 520ms) calc(var(--anim, 1) * 300ms) cubic-bezier(0.16, 1, 0.3, 1) both paused;\n    }\n\n    .browser-mock__page-nav {\n      display: flex;\n      height: 9%;\n      flex: 0 0 auto;\n      align-items: center;\n      gap: 2.2cqmin;\n      padding: 0 5cqmin;\n      border-bottom: 0.1cqmin solid rgb(15 23 32 / 0.08);\n    }\n\n    .browser-mock__page-logo {\n      width: 9cqmin;\n      height: 1.9cqmin;\n      border-radius: 0.95cqmin;\n      background: var(--accent-color, #3b82f6);\n    }\n\n    .browser-mock__page-nav > i {\n      width: 6cqmin;\n      height: 1.2cqmin;\n      border-radius: 0.6cqmin;\n      background: rgb(15 23 32 / 0.14);\n    }\n\n    .browser-mock__page-nav > i:last-child {\n      width: 7.5cqmin;\n      height: 3cqmin;\n      margin-left: auto;\n      border-radius: 1.5cqmin;\n      background: var(--accent-color, #3b82f6);\n      opacity: 0.9;\n    }\n\n    /* 左に見出し・右にビジュアル、という一般的なランディングの骨格。 */\n    .browser-mock__page-hero {\n      display: grid;\n      flex: 1 1 auto;\n      align-items: center;\n      gap: 4cqmin;\n      padding: 4cqmin 5cqmin;\n      grid-template-columns: 1fr 1fr;\n    }\n\n    .browser-mock__page-copy {\n      display: flex;\n      flex-direction: column;\n      gap: 1.8cqmin;\n    }\n\n    .browser-mock__page-copy > i {\n      display: block;\n      height: 3.2cqmin;\n      border-radius: 0.8cqmin;\n      background: rgb(15 23 32 / 0.15);\n    }\n\n    .browser-mock__page-copy > i:nth-child(1) { width: 92%; }\n    .browser-mock__page-copy > i:nth-child(2) { width: 68%; }\n\n    .browser-mock__page-copy > i:nth-child(3),\n    .browser-mock__page-copy > i:nth-child(4) {\n      width: 84%;\n      height: 1.5cqmin;\n      background: rgb(15 23 32 / 0.09);\n    }\n\n    .browser-mock__page-copy > i:nth-child(4) { width: 62%; }\n\n    .browser-mock__page-copy > i:nth-child(5) {\n      width: 26%;\n      height: 4cqmin;\n      margin-top: 1.4cqmin;\n      border-radius: 2cqmin;\n      background: var(--accent-color, #3b82f6);\n    }\n\n    .browser-mock__page-visual {\n      height: 100%;\n      border-radius: 1.8cqmin;\n      background:\n        linear-gradient(152deg, rgb(59 130 246 / 0.16), rgb(15 23 32 / 0.06) 62%),\n        rgb(15 23 32 / 0.06);\n      box-shadow: inset 0 0 0 0.1cqmin rgb(15 23 32 / 0.06);\n    }\n\n    .browser-mock__page-cards {\n      display: flex;\n      height: 24%;\n      flex: 0 0 auto;\n      gap: 2.6cqmin;\n      padding: 0 5cqmin 4cqmin;\n    }\n\n    .browser-mock__page-cards > i {\n      display: block;\n      flex: 1 1 0;\n      border-radius: 1.4cqmin;\n      background: rgb(15 23 32 / 0.07);\n      box-shadow: inset 0 0 0 0.1cqmin rgb(15 23 32 / 0.05);\n    }\n\n    .browser-mock__page-cards > i:nth-child(2) {\n      background: rgb(15 23 32 / 0.1);\n    }\n\n    @keyframes browser-mock-window-in {\n      from {\n        opacity: 0;\n        transform: translate3d(0, 1.4%, 0) scale(0.982);\n      }\n      to {\n        opacity: 1;\n        transform: translate3d(0, 0, 0) scale(1);\n      }\n    }\n\n    @keyframes browser-mock-page-in {\n      from {\n        opacity: 0;\n        transform: scale(0.994);\n      }\n      to {\n        opacity: var(--show-placeholder, 1);\n        transform: scale(1);\n      }\n    }\n\n    @keyframes browser-mock-progress {\n      0% {\n        opacity: 1;\n        transform: scaleX(0);\n      }\n      72% {\n        opacity: 1;\n        transform: scaleX(1);\n      }\n      100% {\n        opacity: 0;\n        transform: scaleX(1);\n      }\n    }\n  </style>\n\n  <div class=\"browser-mock__window\">\n    <div class=\"browser-mock__tabs\">\n      <span class=\"browser-mock__lights\" aria-hidden=\"true\">\n        <span></span><span></span><span></span>\n      </span>\n      <div class=\"browser-mock__tab\">\n        <span class=\"browser-mock__favicon\" aria-hidden=\"true\"></span>\n        <span class=\"browser-mock__tab-title\">AKARI Video — 開いたら、ほぼ終わっている</span>\n      </div>\n    </div>\n\n    <div class=\"browser-mock__toolbar\">\n      <span class=\"browser-mock__nav\" aria-hidden=\"true\">\n        <span class=\"browser-mock__nav-back\"></span>\n        <span class=\"browser-mock__nav-forward\"></span>\n        <span class=\"browser-mock__nav-reload\"></span>\n      </span>\n      <div class=\"browser-mock__url\">\n        <span class=\"browser-mock__lock\" aria-hidden=\"true\"></span>\n        <span class=\"browser-mock__url-text\">akari.video/product</span>\n      </div>\n    </div>\n\n    <div class=\"browser-mock__screen\" data-akari-slot=\"screen\">\n      <div class=\"browser-mock__page\" aria-hidden=\"true\">\n        <div class=\"browser-mock__page-nav\">\n          <span class=\"browser-mock__page-logo\"></span>\n          <i></i><i></i><i></i><i></i>\n        </div>\n        <div class=\"browser-mock__page-hero\">\n          <div class=\"browser-mock__page-copy\">\n            <i></i><i></i><i></i><i></i><i></i>\n          </div>\n          <div class=\"browser-mock__page-visual\"></div>\n        </div>\n        <div class=\"browser-mock__page-cards\">\n          <i></i><i></i><i></i>\n        </div>\n      </div>\n      <div class=\"browser-mock__media\" aria-hidden=\"true\"></div>\n      <span class=\"browser-mock__progress\" aria-hidden=\"true\"></span>\n    </div>\n  </div>\n</div>\n"
+   }
+  }
+ ],
+ "dropReachedLayer": true,
+ "layerSeenDuringDrag": true,
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v4",
+   "trackIndex": 5,
+   "lane": "visual",
+   "id": "overlay-1",
+   "at": 30,
+   "duration": 150,
+   "source": {
+    "kind": "html",
+    "path": "assets/overlay/browser-mock/fragment.html",
+    "vars": {
+     "--window-width": "1560px",
+     "--window-height": "900px",
+     "--corner-radius": "1.4",
+     "--chrome-scale": "1",
+     "--window-align": "center",
+     "--window-justify": "center",
+     "--screen-src": "none",
+     "--screen-fit": "cover",
+     "--show-placeholder": "1",
+     "--screen-color": "#ffffff",
+     "--chrome-color": "#eef0f2",
+     "--toolbar-color": "#fbfcfd",
+     "--chrome-border": "#d3d6db",
+     "--url-color": "#eceef1",
+     "--chrome-text-color": "#4b525b",
+     "--chrome-icon-color": "#7a828c",
+     "--accent-color": "#3b82f6",
+     "--ui-font-family": "\"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif",
+     "--anim": "1"
+    }
+   },
+   "transform": {
+    "x": 82.41098414966058,
+    "y": 43.60824446085616,
+    "scale": 0.3282051282051282
+   }
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioBefore": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/audio/bgm-beatslide-124-001/bgm-beatslide-124-001.mp3",
+    "t": 1,
+    "track": 0,
+    "gain_db": -6.4,
+    "fade_in": 0.2,
+    "fade_out": 1
+   }
+  ]
+ },
+ "audioAfter": {
+  "sfx": [
+   {
+    "id": "audio-1",
+    "path": "assets/audio/bgm-beatslide-124-001/bgm-beatslide-124-001.mp3",
+    "t": 1,
+    "track": 0,
+    "gain_db": -6.4,
+    "fade_in": 0.2,
+    "fade_out": 1
+   }
+  ]
+ },
+ "newSources": [],
+ "notices": [],
+ "playhead": [],
+ "summary": {
+  "card": "asset:overlay/browser-mock",
+  "drop": "stage:0.6,0.6",
+  "mode": "mouse",
+  "layerSeenDuringDrag": true,
+  "dropReachedLayer": true,
+  "ghost": [
+   {
+    "rect": {
+     "x": 762.3,
+     "y": 169.8,
+     "w": 203.4,
+     "h": 114.4
+    },
+    "text": "ブラウザモック0:01.0 → 0:06.0",
+    "border": "dashed"
+   }
+  ],
+  "commands": [
+   {
+    "id": "akari.timeline.addOverlayAtOutputPoint"
+   },
+   {
+    "id": "akari.catalog.resolveOverlay",
+    "result": {
+     "relativePath": "assets/overlay/browser-mock/fragment.html",
+     "meta": {
+      "id": "browser-mock",
+      "category": "overlay",
+      "title": "ブラウザモック",
+      "description": "中に映像・画像を差し込むブラウザウィンドウ。信号ボタン・タブ・戻る/進む/再読み込み・鍵付きアドレスバーを持ち、読み込みバーが一度だけ走る。画面部分は透明にできるので、下のトラックに置いた動画をそのまま透かせる。ウィンドウのサイズを変えるとクロムと文字が短辺比で追従し、16:9 でも 9:16 でも崩れない。特定ブラウザのロゴ・商標は使っていない。",
+      "when_to_use": "Web サイトやアプリの画面を見せるシーン。製品デモ、操作説明、記事や資料の紹介など、素の画面録画では味気ないときにブラウザの枠を与える",
+      "tags": [
+       "frame",
+       "mockup",
+       "browser",
+       "screen",
+       "product-demo",
+       "explainer",
+       "slot",
+       "media-slot",
+       "16:9",
+       "9:16"
+      ],
+      "knobs": [
+       {
+        "cssVar": "--window-width",
+        "type": "slider",
+        "min": 320,
+        "max": 3840,
+        "unit": "px",
+        "group": "layout",
+        "label": "ウィンドウの幅"
+       },
+       {
+        "cssVar": "--window-height",
+        "type": "slider",
+        "min": 180,
+        "max": 2160,
+        "unit": "px",
+        "group": "layout",
+        "label": "ウィンドウの高さ"
+       },
+       {
+        "cssVar": "--corner-radius",
+        "type": "slider",
+        "min": 0,
+        "max": 4,
+        "group": "layout",
+        "label": "角丸（短辺比）"
+       },
+       {
+        "cssVar": "--chrome-scale",
+        "type": "slider",
+        "min": 0.6,
+        "max": 1.8,
+        "group": "layout",
+        "label": "クロム（タブ・アドレスバー）の倍率"
+       },
+       {
+        "cssVar": "--window-align",
+        "type": "dropdown",
+        "group": "layout",
+        "label": "画面内の縦位置（center / start / end）"
+       },
+       {
+        "cssVar": "--window-justify",
+        "type": "dropdown",
+        "group": "layout",
+        "label": "画面内の横位置（center / start / end）"
+       },
+       {
+        "cssVar": "--screen-src",
+        "type": "media",
+        "group": "content",
+        "label": "画面に映す画像（url(...)）"
+       },
+       {
+        "cssVar": "--screen-fit",
+        "type": "dropdown",
+        "group": "content",
+        "label": "画面へのはめ方（cover / contain）"
+       },
+       {
+        "cssVar": "--show-placeholder",
+        "type": "checkbox",
+        "group": "content",
+        "label": "既定のダミーページを出す（1 / 0）"
+       },
+       {
+        "cssVar": "--screen-color",
+        "type": "color",
+        "group": "style",
+        "label": "画面の地色（transparent で切り抜き）"
+       },
+       {
+        "cssVar": "--chrome-color",
+        "type": "color",
+        "group": "style",
+        "label": "タブ列の色"
+       },
+       {
+        "cssVar": "--toolbar-color",
+        "type": "color",
+        "group": "style",
+        "label": "アドレスバー列・タブの色"
+       },
+       {
+        "cssVar": "--chrome-border",
+        "type": "color",
+        "group": "style",
+        "label": "枠線の色"
+       },
+       {
+        "cssVar": "--url-color",
+        "type": "color",
+        "group": "style",
+        "label": "アドレスバーの地色"
+       },
+       {
+        "cssVar": "--chrome-text-color",
+        "type": "color",
+        "group": "style",
+        "label": "タブ・URL の文字色"
+       },
+       {
+        "cssVar": "--chrome-icon-color",
+        "type": "color",
+        "group": "style",
+        "label": "アイコンの色"
+       },
+       {
+        "cssVar": "--accent-color",
+        "type": "color",
+        "group": "style",
+        "label": "アクセント色（favicon・読み込みバー・ダミーページ）"
+       },
+       {
+        "cssVar": "--ui-font-family",
+        "type": "text",
+        "group": "typography",
+        "label": "クロムの書体"
+       },
+       {
+        "cssVar": "--anim",
+        "type": "checkbox",
+        "group": "motion",
+        "label": "アニメーションを使う（1 / 0）"
+       }
+      ],
+      "ai_usage": "タブ名と URL は断片内の .browser-mock__tab-title / .browser-mock__url-text の要素テキストを直接書き換える（CSS 変数にテキストを持たせない）。画面の中身は 3 通りで、順に推奨度が高い。(1) **動画を入れるとき**は --screen-color: transparent + --show-placeholder: 0 にして画面部分を切り抜き、下のトラックに置いた映像を透かす。オーバーレイ内に <video> を置くとランタイムのシークが効かず決定論が崩れるため、この経路を使う。(2) 静止画なら --screen-src に url(...) を渡し、--show-placeholder: 0 にする。(3) 画像要素を直接置きたい場合は .browser-mock__screen の子として <img> を入れる（同じく --show-placeholder: 0）。何も与えなければ CSS で描いた抽象的なダミーページが出る（実在サイトの模写ではない）。サイズは --window-width / --window-height だけ変えればクロムと文字が短辺比（cqmin）で追従する。クロムだけ相対的に大きく/小さくしたいときは --chrome-scale。ダークな画面に馴染ませるときは --chrome-color / --toolbar-color / --url-color を暗色、--chrome-text-color / --chrome-icon-color を明色にする。位置・拡大率・回転は edit.json.overlays[].transform 側で行う。特定ブラウザのロゴ・商標・固有 UI は足さない。filter / backdrop-filter を足さない、wall-clock 駆動を足さない。 画面には CLI から動画・写真をそのまま差し込める（差し込み口は fragment 内の data-akari-slot=\"screen\"）: npx @akari-video/template-render <dir> --screen-video x.mp4 / --screen-image x.png。CLI は毎フレーム同じ時刻へシークするので決定論を保てる。アプリ内オーバーレイでは <video> を置かず、画面を透明にして下のトラックを透かす経路を使う。",
+      "requires": [],
+      "provenance": {
+       "origin": "AKARI Video 素材工房（akari-video-internal）/ 2026-07-29 内部制作。chalkboard-jp / whiteboard と同じサイズ可変規約。参照実装・第三者素材の取り込みなし",
+       "generator": "Claude Opus 5 (1M context); prompt: 中に映像を差せるブラウザモックを、黒板と同じサイズ可変規約で作る（overlay-authoring 規約準拠）"
+      },
+      "author": "ryoma",
+      "license": {
+       "spdx": "CC0-1.0",
+       "scope": "commercial-ok",
+       "attribution_required": false,
+       "ai_training_allowed": true
+      },
+      "version": 1,
+      "price": null
+     },
+     "fragment": "<div\n  class=\"browser-mock\"\n  lang=\"ja\"\n  data-start=\"0\"\n  data-duration=\"8\"\n>\n  <style>\n    /*\n     * browser-mock — 中に映像・画像を差し込むブラウザウィンドウ。\n     *\n     * サイズ設計は chalkboard-jp / whiteboard と同じ規約: px 指定はウィンドウの外形\n     * （--window-width / --window-height）だけで、クロム（タブ・アドレスバー・信号ボタン）と\n     * 文字サイズはすべて cqmin（= ウィンドウの短辺 1%）。「%」単位のツマミは短辺比。\n     *\n     * 中身の入れ方は 2 通り（どちらも .browser-mock__screen の中）:\n     *   1. --screen-src に画像の URL を CSS の url 記法で渡す（静止画）\n     *   2. .browser-mock__screen の子として <img> / <video> を置く（動画。再生は framework が管理）\n     * どちらも与えなければ、CSS で描いた既定のダミーページが出る。\n     */\n    .browser-mock {\n      position: absolute;\n      inset: 0;\n      display: grid;\n      align-items: var(--window-align, center);\n      justify-items: var(--window-justify, center);\n      pointer-events: none;\n      isolation: isolate;\n    }\n\n    .browser-mock,\n    .browser-mock * {\n      box-sizing: border-box;\n    }\n\n    .browser-mock__window {\n      position: relative;\n      display: flex;\n      overflow: hidden;\n      width: var(--window-width, 1560px);\n      height: var(--window-height, 900px);\n      flex-direction: column;\n      container-type: size;\n      border: 0.1cqmin solid var(--chrome-border, #d3d6db);\n      border-radius: calc(var(--corner-radius, 1.4) * 1%);\n      /*\n       * ウィンドウ自身は塗らない。クロムの地色はタブ列とツールバーが持つ。\n       * こうしておくと --screen-color: transparent にしたとき画面部分が本当に切り抜かれ、\n       * 下のトラックの映像をそのまま透かせる（決定論を壊さずに動画を入れる正攻法）。\n       */\n      background: transparent;\n      box-shadow:\n        0 calc(var(--window-height, 900px) * 0.024) calc(var(--window-height, 900px) * 0.07) rgb(15 23 32 / 0.34),\n        0 calc(var(--window-height, 900px) * 0.004) calc(var(--window-height, 900px) * 0.012) rgb(15 23 32 / 0.2);\n      animation: browser-mock-window-in calc(var(--anim, 1) * 640ms) cubic-bezier(0.16, 1, 0.3, 1) both paused;\n      will-change: transform, opacity;\n    }\n\n    /* タブ列 */\n    .browser-mock__tabs {\n      display: flex;\n      height: calc(var(--chrome-scale, 1) * 6.4cqmin);\n      flex: 0 0 auto;\n      align-items: flex-end;\n      gap: calc(var(--chrome-scale, 1) * 1.1cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.6cqmin);\n      background:\n        linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0)),\n        var(--chrome-color, #eef0f2);\n    }\n\n    /* 信号ボタン。ウィンドウ操作の記号であってブランドではない。 */\n    .browser-mock__lights {\n      display: flex;\n      height: 100%;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 0.85cqmin);\n      padding-right: calc(var(--chrome-scale, 1) * 1.4cqmin);\n    }\n\n    .browser-mock__lights > span {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 1.5cqmin);\n      height: calc(var(--chrome-scale, 1) * 1.5cqmin);\n      border-radius: 50%;\n      background: #cfd3d8;\n      box-shadow: inset 0 0.1cqmin 0.16cqmin rgb(255 255 255 / 0.6);\n    }\n\n    .browser-mock__lights > span:nth-child(1) { background: #f0655a; }\n    .browser-mock__lights > span:nth-child(2) { background: #f4bf4f; }\n    .browser-mock__lights > span:nth-child(3) { background: #61c454; }\n\n    .browser-mock__tab {\n      display: flex;\n      min-width: 0;\n      max-width: 34%;\n      height: calc(var(--chrome-scale, 1) * 4.6cqmin);\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 0.9cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.5cqmin);\n      border-radius: calc(var(--chrome-scale, 1) * 1cqmin) calc(var(--chrome-scale, 1) * 1cqmin) 0 0;\n      background: var(--toolbar-color, #fbfcfd);\n      box-shadow: 0 -0.1cqmin 0.3cqmin rgb(15 23 32 / 0.08);\n      color: var(--chrome-text-color, #4b525b);\n      font-family: var(--ui-font-family, \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif);\n      font-size: calc(var(--chrome-scale, 1) * 1.95cqmin);\n      letter-spacing: 0.01em;\n    }\n\n    .browser-mock__favicon {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 1.7cqmin);\n      height: calc(var(--chrome-scale, 1) * 1.7cqmin);\n      flex: 0 0 auto;\n      border-radius: calc(var(--chrome-scale, 1) * 0.42cqmin);\n      background: var(--accent-color, #3b82f6);\n    }\n\n    .browser-mock__tab-title {\n      overflow: hidden;\n      text-overflow: ellipsis;\n      white-space: nowrap;\n    }\n\n    /* アドレスバー列 */\n    .browser-mock__toolbar {\n      display: flex;\n      height: calc(var(--chrome-scale, 1) * 5.8cqmin);\n      flex: 0 0 auto;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 1.3cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.8cqmin);\n      border-bottom: 0.1cqmin solid var(--chrome-border, #d3d6db);\n      background: var(--toolbar-color, #fbfcfd);\n    }\n\n    .browser-mock__nav {\n      display: flex;\n      flex: 0 0 auto;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 1.1cqmin);\n    }\n\n    .browser-mock__nav > span {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 2.1cqmin);\n      height: calc(var(--chrome-scale, 1) * 2.1cqmin);\n      background: var(--chrome-icon-color, #7a828c);\n      mask-repeat: no-repeat;\n      mask-position: center;\n      mask-size: contain;\n    }\n\n    .browser-mock__nav-back {\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15 4 L 7 12 L 15 20' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");\n    }\n\n    .browser-mock__nav-forward {\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 4 L 17 12 L 9 20' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");\n      opacity: 0.42;\n    }\n\n    .browser-mock__nav-reload {\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 12 A 8 8 0 1 1 17 5.9 M20 3.6 L 20 6.4 L 17.2 6.4' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\");\n    }\n\n    .browser-mock__url {\n      display: flex;\n      min-width: 0;\n      height: calc(var(--chrome-scale, 1) * 3.6cqmin);\n      flex: 1 1 auto;\n      align-items: center;\n      gap: calc(var(--chrome-scale, 1) * 1cqmin);\n      padding: 0 calc(var(--chrome-scale, 1) * 1.5cqmin);\n      border-radius: calc(var(--chrome-scale, 1) * 1.8cqmin);\n      background: var(--url-color, #eceef1);\n      color: var(--chrome-text-color, #4b525b);\n      font-family: var(--ui-font-family, \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif);\n      font-size: calc(var(--chrome-scale, 1) * 1.95cqmin);\n      letter-spacing: 0.01em;\n    }\n\n    .browser-mock__lock {\n      display: block;\n      width: calc(var(--chrome-scale, 1) * 1.6cqmin);\n      height: calc(var(--chrome-scale, 1) * 1.6cqmin);\n      flex: 0 0 auto;\n      background: var(--chrome-icon-color, #7a828c);\n      mask-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='5' y='10' width='14' height='10' rx='2.4' fill='black'/%3E%3Cpath d='M8.4 10 V 7.6 A 3.6 3.6 0 0 1 15.6 7.6 V 10' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E\");\n      mask-repeat: no-repeat;\n      mask-position: center;\n      mask-size: contain;\n    }\n\n    .browser-mock__url-text {\n      overflow: hidden;\n      text-overflow: ellipsis;\n      white-space: nowrap;\n    }\n\n    /* 中身（スロット）。--screen-src か、子要素の <img> / <video> で差し替える。 */\n    .browser-mock__screen {\n      position: relative;\n      overflow: hidden;\n      flex: 1 1 auto;\n      background: var(--screen-color, #ffffff);\n    }\n\n    .browser-mock__screen > img,\n    .browser-mock__screen > video {\n      position: absolute;\n      inset: 0;\n      width: 100%;\n      height: 100%;\n      object-fit: var(--screen-fit, cover);\n    }\n\n    .browser-mock__media {\n      position: absolute;\n      inset: 0;\n      background-image: var(--screen-src, none);\n      background-position: center;\n      background-size: var(--screen-fit, cover);\n      background-repeat: no-repeat;\n    }\n\n    /* 読み込みバー。ページが出る直前に一度だけ走る。 */\n    .browser-mock__progress {\n      position: absolute;\n      top: 0;\n      left: 0;\n      width: 100%;\n      height: calc(var(--chrome-scale, 1) * 0.42cqmin);\n      background: var(--accent-color, #3b82f6);\n      transform-origin: left center;\n      animation: browser-mock-progress calc(var(--anim, 1) * 900ms) calc(var(--anim, 1) * 160ms) cubic-bezier(0.22, 0.9, 0.3, 1) both paused;\n      will-change: transform, opacity;\n    }\n\n    /*\n     * 既定のダミーページ。--screen-src も子要素も与えられなかったときに出る。\n     * 実在サイトの模写ではなく、抽象的な面と帯だけで構成している。\n     */\n    .browser-mock__page {\n      position: absolute;\n      inset: 0;\n      display: flex;\n      flex-direction: column;\n      opacity: var(--show-placeholder, 1);\n      animation: browser-mock-page-in calc(var(--anim, 1) * 520ms) calc(var(--anim, 1) * 300ms) cubic-bezier(0.16, 1, 0.3, 1) both paused;\n    }\n\n    .browser-mock__page-nav {\n      display: flex;\n      height: 9%;\n      flex: 0 0 auto;\n      align-items: center;\n      gap: 2.2cqmin;\n      padding: 0 5cqmin;\n      border-bottom: 0.1cqmin solid rgb(15 23 32 / 0.08);\n    }\n\n    .browser-mock__page-logo {\n      width: 9cqmin;\n      height: 1.9cqmin;\n      border-radius: 0.95cqmin;\n      background: var(--accent-color, #3b82f6);\n    }\n\n    .browser-mock__page-nav > i {\n      width: 6cqmin;\n      height: 1.2cqmin;\n      border-radius: 0.6cqmin;\n      background: rgb(15 23 32 / 0.14);\n    }\n\n    .browser-mock__page-nav > i:last-child {\n      width: 7.5cqmin;\n      height: 3cqmin;\n      margin-left: auto;\n      border-radius: 1.5cqmin;\n      background: var(--accent-color, #3b82f6);\n      opacity: 0.9;\n    }\n\n    /* 左に見出し・右にビジュアル、という一般的なランディングの骨格。 */\n    .browser-mock__page-hero {\n      display: grid;\n      flex: 1 1 auto;\n      align-items: center;\n      gap: 4cqmin;\n      padding: 4cqmin 5cqmin;\n      grid-template-columns: 1fr 1fr;\n    }\n\n    .browser-mock__page-copy {\n      display: flex;\n      flex-direction: column;\n      gap: 1.8cqmin;\n    }\n\n    .browser-mock__page-copy > i {\n      display: block;\n      height: 3.2cqmin;\n      border-radius: 0.8cqmin;\n      background: rgb(15 23 32 / 0.15);\n    }\n\n    .browser-mock__page-copy > i:nth-child(1) { width: 92%; }\n    .browser-mock__page-copy > i:nth-child(2) { width: 68%; }\n\n    .browser-mock__page-copy > i:nth-child(3),\n    .browser-mock__page-copy > i:nth-child(4) {\n      width: 84%;\n      height: 1.5cqmin;\n      background: rgb(15 23 32 / 0.09);\n    }\n\n    .browser-mock__page-copy > i:nth-child(4) { width: 62%; }\n\n    .browser-mock__page-copy > i:nth-child(5) {\n      width: 26%;\n      height: 4cqmin;\n      margin-top: 1.4cqmin;\n      border-radius: 2cqmin;\n      background: var(--accent-color, #3b82f6);\n    }\n\n    .browser-mock__page-visual {\n      height: 100%;\n      border-radius: 1.8cqmin;\n      background:\n        linear-gradient(152deg, rgb(59 130 246 / 0.16), rgb(15 23 32 / 0.06) 62%),\n        rgb(15 23 32 / 0.06);\n      box-shadow: inset 0 0 0 0.1cqmin rgb(15 23 32 / 0.06);\n    }\n\n    .browser-mock__page-cards {\n      display: flex;\n      height: 24%;\n      flex: 0 0 auto;\n      gap: 2.6cqmin;\n      padding: 0 5cqmin 4cqmin;\n    }\n\n    .browser-mock__page-cards > i {\n      display: block;\n      flex: 1 1 0;\n      border-radius: 1.4cqmin;\n      background: rgb(15 23 32 / 0.07);\n      box-shadow: inset 0 0 0 0.1cqmin rgb(15 23 32 / 0.05);\n    }\n\n    .browser-mock__page-cards > i:nth-child(2) {\n      background: rgb(15 23 32 / 0.1);\n    }\n\n    @keyframes browser-mock-window-in {\n      from {\n        opacity: 0;\n        transform: translate3d(0, 1.4%, 0) scale(0.982);\n      }\n      to {\n        opacity: 1;\n        transform: translate3d(0, 0, 0) scale(1);\n      }\n    }\n\n    @keyframes browser-mock-page-in {\n      from {\n        opacity: 0;\n        transform: scale(0.994);\n      }\n      to {\n        opacity: var(--show-placeholder, 1);\n        transform: scale(1);\n      }\n    }\n\n    @keyframes browser-mock-progress {\n      0% {\n        opacity: 1;\n        transform: scaleX(0);\n      }\n      72% {\n        opacity: 1;\n        transform: scaleX(1);\n      }\n      100% {\n        opacity: 0;\n        transform: scaleX(1);\n      }\n    }\n  </style>\n\n  <div class=\"browser-mock__window\">\n    <div class=\"browser-mock__tabs\">\n      <span class=\"browser-mock__lights\" aria-hidden=\"true\">\n        <span></span><span></span><span></span>\n      </span>\n      <div class=\"browser-mock__tab\">\n        <span class=\"browser-mock__favicon\" aria-hidden=\"true\"></span>\n        <span class=\"browser-mock__tab-title\">AKARI Video — 開いたら、ほぼ終わっている</span>\n      </div>\n    </div>\n\n    <div class=\"browser-mock__toolbar\">\n      <span class=\"browser-mock__nav\" aria-hidden=\"true\">\n        <span class=\"browser-mock__nav-back\"></span>\n        <span class=\"browser-mock__nav-forward\"></span>\n        <span class=\"browser-mock__nav-reload\"></span>\n      </span>\n      <div class=\"browser-mock__url\">\n        <span class=\"browser-mock__lock\" aria-hidden=\"true\"></span>\n        <span class=\"browser-mock__url-text\">akari.video/product</span>\n      </div>\n    </div>\n\n    <div class=\"browser-mock__screen\" data-akari-slot=\"screen\">\n      <div class=\"browser-mock__page\" aria-hidden=\"true\">\n        <div class=\"browser-mock__page-nav\">\n          <span class=\"browser-mock__page-logo\"></span>\n          <i></i><i></i><i></i><i></i>\n        </div>\n        <div class=\"browser-mock__page-hero\">\n          <div class=\"browser-mock__page-copy\">\n            <i></i><i></i><i></i><i></i><i></i>\n          </div>\n          <div class=\"browser-mock__page-visual\"></div>\n        </div>\n        <div class=\"browser-mock__page-cards\">\n          <i></i><i></i><i></i>\n        </div>\n      </div>\n      <div class=\"browser-mock__media\" aria-hidden=\"true\"></div>\n      <span class=\"browser-mock__progress\" aria-hidden=\"true\"></span>\n    </div>\n  </div>\n</div>\n"
+    }
+   }
+  ],
+  "editChanged": true,
+  "captionsChanged": false,
+  "newItems": [
+   {
+    "id": "overlay-1",
+    "track": "v4",
+    "at": 30,
+    "duration": 150,
+    "transform": {
+     "x": 82.41098414966058,
+     "y": 43.60824446085616,
+     "scale": 0.3282051282051282
+    }
+   }
+  ],
+  "notices": [],
+  "playhead": []
+ }
+}
