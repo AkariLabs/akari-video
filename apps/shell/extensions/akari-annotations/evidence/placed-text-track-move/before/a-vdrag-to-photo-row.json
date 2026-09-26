@@ -1,0 +1,135 @@
+{
+ "id": "c-0005",
+ "dx": 45,
+ "dy": 66,
+ "at": "2026-09-26T11:32:39.241Z",
+ "rowsBefore": [
+  {
+   "trackId": "t-placed-text-display",
+   "top": 512.5,
+   "h": 24
+  },
+  {
+   "trackId": "v-captions",
+   "top": 538.5,
+   "h": 24
+  },
+  {
+   "trackId": "v-photo",
+   "top": 564.5,
+   "h": 50
+  },
+  {
+   "trackId": "v-main",
+   "top": 616.5,
+   "h": 48
+  },
+  {
+   "trackId": "a1",
+   "top": 666.5,
+   "h": 28
+  }
+ ],
+ "labels": [
+  {
+   "text": "文字",
+   "cls": "akari-track-header-name",
+   "top": 516.8,
+   "height": 16.5,
+   "visible": true
+  },
+  {
+   "text": "字幕",
+   "cls": "akari-track-header-name",
+   "top": 542.8,
+   "height": 16.5,
+   "visible": true
+  }
+ ],
+ "chipBefore": {
+  "id": "c-0005",
+  "lane": "t-placed-text-display",
+  "left": 567.4,
+  "top": 512.5,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(251, 146, 60)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-selected akari-annotations-caption-selected"
+ },
+ "captionBefore": {
+  "id": "c-0005",
+  "start": 3,
+  "end": 6,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "y": 0.4625
+   }
+  }
+ },
+ "during": {
+  "pointer": {
+   "x": 652.4,
+   "y": 589.5
+  },
+  "ghostCandidates": [],
+  "dragFeedback": "00:00:03.952 – 00:00:06.952",
+  "footer": "00:00:03.000 にプレビューをシークしました。"
+ },
+ "captionsChanged": true,
+ "editJsonByteEqual": true,
+ "captionAfter": {
+  "id": "c-0005",
+  "start": 3.951994590939824,
+  "end": 6.951994590939824,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "y": 0.4625
+   }
+  }
+ },
+ "otherCaptionsUnchanged": true,
+ "chipAfter": {
+  "id": "c-0005",
+  "lane": "t-placed-text-display",
+  "left": 612.2,
+  "top": 512.5,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(251, 146, 60)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-selected akari-annotations-caption-selected"
+ },
+ "footerAfter": "文字のタイミングを調整しました。",
+ "undo": {
+  "presses": 1,
+  "captionsByteEqual": true,
+  "editJsonByteEqual": true,
+  "chip": {
+   "id": "c-0005",
+   "lane": "t-placed-text-display",
+   "left": 567.4,
+   "top": 512.5,
+   "width": 141.4,
+   "height": 22,
+   "text": "置いた文字",
+   "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+   "border": "rgb(251, 146, 60)",
+   "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-selected akari-annotations-caption-selected"
+  }
+ }
+}

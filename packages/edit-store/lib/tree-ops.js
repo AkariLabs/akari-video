@@ -14,6 +14,8 @@ exports.moveItem = moveItem;
 exports.createCanvas = createCanvas;
 exports.putIntoCanvas = putIntoCanvas;
 exports.putPlacedCaptionIntoCanvas = putPlacedCaptionIntoCanvas;
+exports.putPlacedCaptionIntoTrack = putPlacedCaptionIntoTrack;
+exports.returnPlacedCaptionToBag = returnPlacedCaptionToBag;
 exports.takeOutOfCanvas = takeOutOfCanvas;
 exports.insertItem = insertItem;
 exports.removeItem = removeItem;
@@ -284,6 +286,20 @@ function putPlacedCaptionIntoCanvas(edit, caption, canvasId) {
     }
     if (caption.at < absoluteAt(canvas))
         throw new Error('キャンバスより前の字幕は入れられません。');
+    const bag = ensurePlacedCaptionBag(edit, caption);
+    const exclude = bag.source.kind === 'captions' ? bag.source.exclude ?? [] : [];
+    if (bag.source.kind === 'captions' && !exclude.includes(caption.id))
+        bag.source.exclude = [...exclude, caption.id];
+    let id = `cap-${caption.id}`;
+    let serial = 1;
+    while (locate(edit, id))
+        id = `cap-${caption.id}-${serial++}`;
+    const item = { id, at: caption.at - absoluteAt(canvas), duration: caption.duration,
+        source: { kind: 'caption', path: 'captions.json', id: caption.id } };
+    ensureChildren(canvas.item).push(item);
+    return item;
+}
+function ensurePlacedCaptionBag(edit, caption) {
     let bag = allLocations(edit).find(location => location.item.source.kind === 'captions'
         && location.item.source.path === 'captions.json')?.item;
     if (!bag) {
@@ -300,6 +316,32 @@ function putPlacedCaptionIntoCanvas(edit, caption, canvasId) {
     }
     if (bag.duration < caption.at + caption.duration)
         bag.duration = caption.at + caption.duration;
+    return bag;
+}
+/** P-3 と同じ字幕袋の除外を使い、明示字幕 item を映像段へ置く。 */
+function putPlacedCaptionIntoTrack(edit, caption, target) {
+    if (!Number.isInteger(caption.at) || caption.at < 0
+        || !Number.isInteger(caption.duration) || caption.duration <= 0)
+        throw new Error('字幕の時刻が不正です。');
+    const existing = allLocations(edit).find(location => location.item.source.kind === 'caption'
+        && location.item.source.id === caption.id);
+    if (existing) {
+        const track = target.insertIndex === undefined ? target.track
+            : createTrackAt(edit, 'visual', target.insertIndex).id;
+        if (!track)
+            throw new Error('置き先の段がありません。');
+        if (requireTrack(edit, track).lane !== 'visual')
+            throw new Error('置き先は映像トラックにしてください。');
+        updateItem(edit, existing.item.id, {
+            at: existing.item.at + caption.at - absoluteAt(existing), duration: caption.duration
+        });
+        return moveItem(edit, existing.item.id, { track });
+    }
+    const track = target.insertIndex === undefined ? tracksOf(edit).find(candidate => candidate.id === target.track)
+        : createTrackAt(edit, 'visual', target.insertIndex);
+    if (!track || track.lane !== 'visual')
+        throw new Error('置き先は映像トラックにしてください。');
+    const bag = ensurePlacedCaptionBag(edit, caption);
     const exclude = bag.source.kind === 'captions' ? bag.source.exclude ?? [] : [];
     if (bag.source.kind === 'captions' && !exclude.includes(caption.id))
         bag.source.exclude = [...exclude, caption.id];
@@ -307,10 +349,22 @@ function putPlacedCaptionIntoCanvas(edit, caption, canvasId) {
     let serial = 1;
     while (locate(edit, id))
         id = `cap-${caption.id}-${serial++}`;
-    const item = { id, at: caption.at - absoluteAt(canvas), duration: caption.duration,
+    const item = { id, at: caption.at, duration: caption.duration,
         source: { kind: 'caption', path: 'captions.json', id: caption.id } };
-    ensureChildren(canvas.item).push(item);
-    return item;
+    return insertItem(edit, track.id, item);
+}
+function returnPlacedCaptionToBag(edit, captionId) {
+    const item = allLocations(edit).find(location => location.item.source.kind === 'caption'
+        && location.item.source.id === captionId);
+    if (item)
+        removeItem(edit, item.item.id);
+    for (const location of allLocations(edit)) {
+        if (location.item.source.kind !== 'captions')
+            continue;
+        const exclude = location.item.source.exclude ?? [];
+        if (exclude.includes(captionId))
+            location.item.source.exclude = exclude.filter(id => id !== captionId);
+    }
 }
 function takeOutOfCanvas(edit, itemIds) {
     return [...new Set(itemIds)].map(id => {

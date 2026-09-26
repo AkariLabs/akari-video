@@ -769,6 +769,8 @@ interface EditSummary {
     timelineTracks?: EditSummaryTimelineTrack[];
     itemStackZ?: Record<string, number>;
     trackStackZ?: Record<string, number>;
+    barrierZ?: number[];
+    captionItemTrackIds?: Record<string, string>;
     captionTrackId?: string;
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
@@ -6089,6 +6091,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const timelineTracks: EditSummaryTimelineTrack[] = captionTrackOrder.tracks;
             const captionTrackId = captionTrackOrder.captionTrackId;
             const itemStackOrder = resolvePreviewItemStackOrder(internal.tracks);
+            const captionItemTrackIds = Object.fromEntries(internal.tracks.flatMap(track => track.items
+                .filter(item => item.source.kind === 'caption').map(item => [item.id, track.id])));
+            const captionItemBarrierZ = internal.tracks.flatMap(track => track.items
+                .filter(item => item.source.kind === 'caption')
+                .map(item => itemStackOrder?.itemStackZ?.[item.id]
+                    ?? itemStackOrder?.trackStackZ?.[track.id]
+                    ?? timelineTracks.findIndex(candidate => candidate.id === track.id))
+                .filter(z => z >= 0));
             const audio = await this.resolveAudioAssets(
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
                 previewAudioKeepProbes, previewAudioPendingRequests, sidecarRequests,
@@ -6189,6 +6199,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(tracks ? { tracks } : {}),
                     timelineTracks,
                     ...(itemStackOrder ?? {}),
+                    ...(captionItemBarrierZ.length ? { barrierZ: captionItemBarrierZ } : {}),
+                    ...(captionItemBarrierZ.length ? { captionItemTrackIds } : {}),
                     ...(captionTrackId ? { captionTrackId } : {}),
                     ...(captions.length > 0 || hasInlineCaptions(internal) ? { hasCaptions: true } : {}),
                     ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {}),
@@ -17360,7 +17372,8 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.akari.updateCanvasCaptionLayer = () => {
                 if (summary.itemStackZ) return;
-                const plan = canvasCaptionZPlanFn([...captionRows.values()].map(row => row.caption),
+                const plan = canvasCaptionZPlanFn([...captionRows.values()].map(row => ({ ...row.caption,
+                    canvasTrackId: summary.captionItemTrackIds?.[row.caption.id] || row.caption.canvasTrackId })),
                     summary.captionTrackId, zForTrack);
                 captionLayer.style.zIndex = plan.split ? 'auto' : plan.layerZ >= 0 ? String(plan.layerZ) : '';
                 for (const row of captionRows.values()) {
@@ -18924,7 +18937,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (itemStack && row.plate?.style) {
                         const itemZ = itemStack.itemStackZ[caption.groupItemId || caption.id];
                         const rowZ = Number.isInteger(itemZ) ? itemZ
-                            : itemStack.trackStackZ?.[caption.groupTrackId || itemStack.captionTrackId];
+                            : itemStack.trackStackZ?.[itemStack.captionItemTrackIds?.[caption.id]
+                                || caption.canvasTrackId || caption.groupTrackId || itemStack.captionTrackId];
                         row.plate.style.zIndex = Number.isInteger(rowZ) ? String(rowZ) : '';
                     }
                     // Reconcile order without moving a focused editor or captured pointer.

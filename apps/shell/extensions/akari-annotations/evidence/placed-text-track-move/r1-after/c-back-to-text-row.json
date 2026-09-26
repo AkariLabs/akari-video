@@ -1,0 +1,180 @@
+{
+ "id": "c-0005",
+ "dx": -30,
+ "dy": -103,
+ "at": "2026-09-26T17:32:08.359Z",
+ "rowsBefore": [
+  {
+   "trackId": "t-placed-text-display",
+   "top": 418.9,
+   "h": 24
+  },
+  {
+   "trackId": "v-captions",
+   "top": 444.9,
+   "h": 24
+  },
+  {
+   "trackId": "v-photo",
+   "top": 470.9,
+   "h": 50
+  },
+  {
+   "trackId": "v1",
+   "top": 522.9,
+   "h": 24
+  },
+  {
+   "trackId": "v-main",
+   "top": 548.9,
+   "h": 48
+  },
+  {
+   "trackId": "a1",
+   "top": 598.9,
+   "h": 28
+  }
+ ],
+ "labels": [
+  {
+   "text": "文字",
+   "cls": "akari-track-header-name",
+   "top": 423.1,
+   "height": 16.5,
+   "visible": true
+  },
+  {
+   "text": "字幕",
+   "cls": "akari-track-header-name",
+   "top": 449.1,
+   "height": 16.5,
+   "visible": true
+  }
+ ],
+ "chipBefore": {
+  "id": "c-0005",
+  "lane": "v1",
+  "left": 597.2,
+  "top": 522.9,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(251, 146, 60)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-selected akari-annotations-caption-selected"
+ },
+ "captionBefore": {
+  "id": "c-0005",
+  "start": 3.6346153846153846,
+  "end": 6.634615384615385,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "y": 0.4625
+   }
+  }
+ },
+ "during": {
+  "pointer": {
+   "x": 607.2,
+   "y": 430.9
+  },
+  "ghostCandidates": [],
+  "dragFeedback": "00:00:02.999 – 00:00:05.999",
+  "footer": "00:00:03.853 にプレビューをシークしました。"
+ },
+ "captionsChanged": true,
+ "editJsonByteEqual": false,
+ "captionAfter": {
+  "id": "c-0005",
+  "start": 2.9987179487179487,
+  "end": 5.99871794871795,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "y": 0.4625
+   }
+  }
+ },
+ "editAfter": [
+  {
+   "id": "v-main",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "cut-base",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "media",
+      "src": "a",
+      "in": 0,
+      "out": 12,
+      "speed": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "v-photo",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "photo-1",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "media",
+      "src": "p",
+      "in": 0,
+      "out": 12
+     }
+    }
+   ]
+  },
+  {
+   "id": "v-captions",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "captions",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "captions",
+      "path": "captions.json"
+     }
+    }
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "otherCaptionsUnchanged": true,
+ "chipAfter": {
+  "id": "c-0005",
+  "lane": "t-placed-text-display",
+  "left": 567.3,
+  "top": 418.9,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(251, 146, 60)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-selected akari-annotations-caption-selected"
+ },
+ "footerAfter": "置いた文字を移動しました。"
+}

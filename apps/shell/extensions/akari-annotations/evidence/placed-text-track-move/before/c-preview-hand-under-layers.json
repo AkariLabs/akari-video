@@ -1,0 +1,50 @@
+{
+ "case": "hand-under（caption item cap-c-0005 を写真の段の下の段 v-text-under に手書き）・4.5 秒",
+ "tracksBottomToTop": [
+  "v-main",
+  "v-text-under",
+  "v-photo",
+  "v-captions",
+  "a1"
+ ],
+ "captionPlates": [
+  {
+   "id": "caption-plate-c-0002-output-1",
+   "plateZ": "auto",
+   "layerZ": "3",
+   "layerCls": ""
+  },
+  {
+   "id": "caption-plate-cap-c-0005",
+   "plateZ": "auto",
+   "layerZ": "3",
+   "layerCls": ""
+  }
+ ],
+ "stageLayers": [
+  {
+   "tag": "CANVAS",
+   "id": "frame-engine-canvas",
+   "cls": "",
+   "z": "auto",
+   "plane": null,
+   "w": 478
+  },
+  {
+   "tag": "DIV",
+   "id": "transition-plate",
+   "cls": "",
+   "z": "0",
+   "plane": null,
+   "w": 478
+  },
+  {
+   "tag": "DIV",
+   "id": "caption-plate",
+   "cls": "",
+   "z": "3",
+   "plane": null,
+   "w": 478
+  }
+ ]
+}

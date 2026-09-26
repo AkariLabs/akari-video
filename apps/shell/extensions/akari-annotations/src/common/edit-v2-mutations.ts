@@ -7,6 +7,7 @@
 
 import {
     absoluteAt,
+    allLocations,
     attachEditHelpers,
     composeTransforms,
     createCanvas as createTreeCanvas,
@@ -19,6 +20,8 @@ import {
     moveItem as moveTreeItem,
     putIntoCanvas as putTreeItemsIntoCanvas,
     putPlacedCaptionIntoCanvas as putTreePlacedCaptionIntoCanvas,
+    putPlacedCaptionIntoTrack as putTreePlacedCaptionIntoTrack,
+    returnPlacedCaptionToBag as returnTreePlacedCaptionToBag,
     takeOutOfCanvas as takeTreeItemsOutOfCanvas,
     moveKeyframe as moveTreeKeyframe,
     normalizeTracks,
@@ -266,6 +269,34 @@ export function placeTreeV2CaptionIntoCanvas(
         if (parentTransform) value.transform = relativeTransform(parentTransform, undefined);
     }
     return { document: edit as unknown as EditV2Document, value };
+}
+
+export function moveTreeV2PlacedCaption(
+    doc: EditV2Document, caption: { id: string; at: number; duration: number },
+    target: { track?: string; insertIndex?: number } | { placedText: true }
+): TreeMutationResult<ProjectItemV2 | undefined> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    const emptyBefore = new Set(edit.tracks.filter(track => Array.isArray(track.items) && track.items.length === 0)
+        .map(track => String(track.id)));
+    const finish = (value: ProjectItemV2 | undefined): TreeMutationResult<ProjectItemV2 | undefined> => {
+        // この操作の前から空だった段だけ保持し、移動で空になった段は通常どおり落とす。
+        edit.tracks = edit.tracks.filter(track => emptyBefore.has(String(track.id))
+            || !Array.isArray(track.items) || track.items.length > 0);
+        const createdTrackId = edit.tracks.find(track => !beforeTrackIds.has(String(track.id)))?.id;
+        return { document: edit as unknown as EditV2Document, value,
+            ...(createdTrackId === undefined ? {} : { createdTrackId: String(createdTrackId) }) };
+    };
+    if ('placedText' in target) {
+        const excludedBags = allLocations(edit).filter(location => location.item.source.kind === 'captions'
+            && location.item.source.exclude?.includes(caption.id)).map(location => location.item);
+        returnTreePlacedCaptionToBag(edit, caption.id);
+        for (const bag of excludedBags) {
+            if (bag.source.kind === 'captions' && bag.source.exclude?.length === 0) delete bag.source.exclude;
+        }
+        return finish(undefined);
+    }
+    return finish(putTreePlacedCaptionIntoTrack(edit, caption, target));
 }
 
 export function takeTreeV2ItemsOutOfCanvas(

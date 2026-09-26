@@ -231,6 +231,7 @@ import {
     pinAutomaticBgmDuration,
     stringifyEditV2,
     moveTreeV2Item,
+    moveTreeV2PlacedCaption,
     moveV2Keyframe,
     prepareV2KeyframeDistribution,
     removeV2Keyframe,
@@ -337,7 +338,7 @@ import {
     MaterialDragKind,
     MaterialDropZone,
 } from '../common/timeline-material-insert';
-import { planPlacedTextMove } from '../common/placed-text-drag';
+import { planPlacedTextMove, startsPlacedTextVerticalDrag, type PlacedTextDestination } from '../common/placed-text-drag';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { closeTimelineContextMenu, openTimelineContextMenu, withAudioTrimMenuItem } from './akari-timeline-context-menu';
 import { AkariAudioKeyframeDialog } from './akari-audio-keyframe-dialog';
@@ -878,7 +879,8 @@ type DragPreview =
         insertTrack?: number; targetTrackId?: string; insertIndex?: number }
     | { kind: 'caption'; id: string; start: number; end: number; timeDomain: 'source' | 'output';
         storedTimeDomain?: 'source' | 'output';
-        originalStart: number; originalEnd: number; originalTimeDomain?: 'source' | 'output'; originalEdited: boolean }
+        originalStart: number; originalEnd: number; originalTimeDomain?: 'source' | 'output'; originalEdited: boolean;
+        destination?: PlacedTextDestination; rejected?: boolean }
     | { kind: 'overlay-move'; id: string; start: number; track: number; rejected?: boolean; insertTrack?: number;
         targetTrackId?: string; insertIndex?: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
@@ -10720,6 +10722,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const rowIndex = this.overlayRows.get(row.id) ?? -1;
             const rowGeometry = this.treeRowGeometry.get(row.id);
             if (layout && (rowIndex >= 0 || rowGeometry)) this.renderKeyframePropertyRows(row, layout.top, rowIndex);
+            if (row.sourceKind === 'caption' && row.parentId === undefined
+                && this.captions.some(caption => caption.timeDomain === 'output'
+                    && this.rawV2Item(row.id)?.source?.id === caption.id)) continue;
             if (renderedItemIds.has(row.id)) continue;
             if (!layout || !rowGeometry && rowIndex < 0 || !this.isRangeMounted(row.at, row.at + row.duration)) continue;
             const raw = this.rawKeyframeItem(row.id);
@@ -10843,23 +10848,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
             .map(caption => caption.id).sort().map((id, index) =>
                 [id, PLACED_TEXT_COLORS[index % PLACED_TEXT_COLORS.length]] as const));
         this.captions.forEach(caption => {
-            if (excludedCaptionIds.has(caption.id)) return;
+            const itemRow = this.captionTreeRow(caption.id);
+            const placedItemRow = caption.timeDomain === 'output' && itemRow?.parentId === undefined
+                && this.rawV2Item(itemRow.id)?.source?.kind === 'caption' ? itemRow : undefined;
+            if (excludedCaptionIds.has(caption.id) && !placedItemRow) return;
             const placedText = caption.timeDomain === 'output';
-            const captionTrackLayout = placedText
+            const captionTrackLayout = placedItemRow
+                ? this.laneLayout.tracks.find(layout => layout.id === placedItemRow.trackId)
+                : placedText
                 ? this.laneLayout.tracks.find(layout => layout.id === PLACED_TEXT_TRACK_ID)
                 : this.laneLayout.tracks.find(layout => layout.kind === 'captions'
                     && layout.id !== PLACED_TEXT_TRACK_ID);
             const captionLayout = this.captionLayouts.get(caption.id);
-            if (!captionTrackLayout || !captionLayout) {
+            if (!captionTrackLayout || !captionLayout && !placedItemRow) {
                 // output 区間を持たない（削除区間へ完全に落ちた）字幕はレイアウト計算時に除外済み。
                 return;
             }
-            const { start: outputStart, end: outputEnd } = captionLayout;
+            const { start: outputStart, end: outputEnd } = placedItemRow
+                ? { start: placedItemRow.at, end: placedItemRow.at + placedItemRow.duration } : captionLayout!;
             if (!this.isRangeMounted(outputStart, outputEnd)) {
                 return;
             }
-            const top = captionTrackLayout.top + (placedText
-                ? (this.placedTextRows.get(caption.id) ?? 0) * SUBROW_STRIDE : 0);
+            const top = captionTrackLayout.top + (placedItemRow
+                ? this.treeRowGeometry.get(placedItemRow.id)?.top ?? this.overlayRows.get(placedItemRow.id) ?? 0
+                : placedText ? (this.placedTextRows.get(caption.id) ?? 0) * SUBROW_STRIDE : 0);
             const captionDisplayCues = this.captionDisplayCuesBySource.get(caption.id) ?? [];
             const blocks = !placedText && captionFragmentBreaksVisible
                 ? captionFragmentBlocks(captionDisplayCues) : [];
@@ -10884,7 +10896,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const mode = this.resolveClipEdgeMode(event, rect, element);
                 return {
                     kind: 'caption', id: caption.id, mode,
-                    originalStart: caption.start, originalEnd: caption.end,
+                    originalStart: placedItemRow ? outputStart : caption.start,
+                    originalEnd: placedItemRow ? outputEnd : caption.end,
                     originalTimeDomain: caption.timeDomain,
                     originalEdited: caption.edited
                 };
@@ -15935,7 +15948,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             event.preventDefault();
             const verticalMove = ((state.kind === 'overlay' && state.mode === 'move')
                 || state.kind === 'cut-move' || (state.kind === 'layer' && state.mode === 'move') || state.kind === 'audio')
-                && Math.abs(event.clientY - state.startClientY) > DRAG_THRESHOLD_PX;
+                && Math.abs(event.clientY - state.startClientY) > DRAG_THRESHOLD_PX
+                || startsPlacedTextVerticalDrag({ kind: state.kind,
+                    mode: state.kind === 'caption' ? state.mode : undefined,
+                    timeDomain: state.kind === 'caption' ? state.originalTimeDomain : undefined,
+                    startClientY: state.startClientY, clientY: event.clientY, threshold: DRAG_THRESHOLD_PX });
             if (Math.abs(event.clientX - state.startClientX) > DRAG_THRESHOLD_PX || verticalMove) {
                 state.dragged = true;
             }
@@ -16212,6 +16229,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         }
         if (state.kind === 'caption') {
+            let destination: PlacedTextDestination | undefined;
+            let destinationReason: string | undefined;
             let start = state.originalStart;
             let end = state.originalEnd;
             let snapped = false;
@@ -16232,13 +16251,38 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         showGuide,
                         originalEdges
                     );
+                    const rawTracks = Array.isArray(this.editDocument?.tracks) ? this.editDocument.tracks : [];
+                    const movingRow = this.captionTreeRow(state.id);
+                    const movingItemId = movingRow && this.rawV2Item(movingRow.id)?.source?.kind === 'caption'
+                        ? movingRow.id : undefined;
+                    const hit = this.trackAtClientY('layer', this.laneLayout.tracks, clientY, 0);
                     const plan = planPlacedTextMove({
                         originalStart: state.originalStart, originalEnd: state.originalEnd,
-                        proposedStart: snap.time, originalTop: state.element.style.top, clientY
+                        proposedStart: snap.time, originalTop: state.element.style.top, clientY,
+                        stripTop: this.strip.getBoundingClientRect().top,
+                        fps: this.fps, movingItemId,
+                        trackItems: rawTracks.flatMap(track => Array.isArray(track.items)
+                            ? track.items.map(item => ({ trackId: track.id, id: item.id,
+                                at: item.at, duration: item.duration })) : []),
+                        rows: this.laneLayout.tracks.map(row => ({
+                            id: row.id, top: row.top, height: row.height,
+                            lane: row.id === PLACED_TEXT_TRACK_ID ? 'placed-text' as const
+                                : rawTracks.find(track => track.id === row.id)?.items?.some(
+                                    item => item.source?.kind === 'captions') ? 'caption-bag' as const
+                                : rawTracks.find(track => track.id === row.id)?.lane === 'visual' ? 'visual' as const
+                                    : rawTracks.find(track => track.id === row.id)?.lane === 'audio' ? 'audio' as const
+                                        : 'other' as const
+                        })),
+                        visualHit: hit
                     });
                     start = plan.start;
                     end = plan.end;
                     state.ghost.style.top = plan.top;
+                    destination = plan.destination;
+                    destinationReason = plan.reason;
+                    if (destination.kind === 'new-track') this.showTrackInsertIndicatorAt(hit.top);
+                    else this.hideTrackInsertIndicator();
+                    this.setGhostRejected(state.ghost, destination.kind === 'rejected');
                     snapped = snap.snapped;
                 } else {
                     const originalEdge = state.mode === 'start' ? state.originalStart : state.originalEnd;
@@ -16341,10 +16385,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const rangeText = timeDomain === 'output' && state.originalTimeDomain !== 'output'
                 ? `出力時間の字幕に変換 ${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`
                 : `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`;
-            this.updateDragFeedback(state, blockedByNeighbor ? `${rangeText}（隣の字幕で止まりました）` : rangeText);
+            this.updateDragFeedback(state, destinationReason ?? (blockedByNeighbor
+                ? `${rangeText}（隣の字幕で止まりました）` : rangeText));
             return {
                 kind: 'caption', id: state.id,
                 start, end, timeDomain,
+                ...(destination ? { destination, rejected: destination.kind === 'rejected' } : {}),
                 ...(timeDomain === 'output' ? { storedTimeDomain: 'output' as const }
                     : state.originalTimeDomain !== undefined
                         ? { storedTimeDomain: state.originalTimeDomain } : {}),
@@ -17099,15 +17145,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         try {
             if (preview.originalTimeDomain === 'output') {
-                await this.withHistory('文字のタイミングを調整', async () => {
-                    await this.annotationsService.setCaptionTiming({
-                        captionsUri: location.captionsUri.toString(),
-                        projectRootUri: location.root.toString(), captionId: preview.id,
-                        start: preview.start, end: preview.end, edited: true
-                    });
-                });
+                const before = (await this.fileService.readFile(location.captionsUri)).value.toString();
+                const after = setCaptionTimingLine(before, preview.id, preview.start, preview.end, 'output', true);
+                await this.commitEditMutation('置いた文字を移動', doc => {
+                    const target = preview.destination;
+                    const caption = { id: preview.id, at: this.frameAt(preview.start),
+                        duration: Math.max(1, this.frameAt(preview.end - preview.start)) };
+                    if (!target) {
+                        const row = this.captionTreeRow(preview.id);
+                        return row?.parentId === undefined && this.rawV2Item(row.id)?.source?.kind === 'caption'
+                            ? moveTreeV2PlacedCaption(doc, caption, { track: row.trackId }).document : doc;
+                    }
+                    if (target.kind === 'rejected') return doc;
+                    return moveTreeV2PlacedCaption(doc, caption,
+                        target.kind === 'track' ? { track: target.trackId }
+                            : target.kind === 'new-track' ? { insertIndex: target.insertIndex }
+                                : { placedText: true }).document;
+                }, { captions: { before, after }, optimistic: true });
                 await this.reloadCaptions();
-                this.footer.textContent = '文字のタイミングを調整しました。';
+                this.footer.textContent = '置いた文字を移動しました。';
                 return;
             }
             const before = (await this.fileService.readFile(location.captionsUri)).value.toString();

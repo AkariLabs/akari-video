@@ -1,0 +1,101 @@
+{
+ "how": "widget.createCanvasAt(2,6) → widget.putItemsIntoCanvas([\"c-0005\"], \"g-1\")（P-3 の「キャンバスへ入れる」と同じ経路）",
+ "captionsJsonChanged": false,
+ "tracks": [
+  {
+   "id": "v-main",
+   "lane": "visual",
+   "name": "Base",
+   "items": [
+    {
+     "id": "cut-base",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "media",
+      "src": "a",
+      "in": 0,
+      "out": 12,
+      "speed": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "v-photo",
+   "lane": "visual",
+   "name": "写真",
+   "items": [
+    {
+     "id": "photo-1",
+     "at": 0,
+     "duration": 360,
+     "transform": {
+      "x": 0,
+      "y": 0,
+      "scale": 0.5,
+      "rotate": 0
+     },
+     "source": {
+      "kind": "media",
+      "src": "p",
+      "in": 0,
+      "out": 12
+     }
+    }
+   ]
+  },
+  {
+   "id": "v-captions",
+   "lane": "visual",
+   "name": "字幕",
+   "items": [
+    {
+     "id": "captions",
+     "name": "字幕",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "captions",
+      "path": "captions.json",
+      "exclude": [
+       "c-0005"
+      ]
+     },
+     "items": []
+    }
+   ]
+  },
+  {
+   "id": "v1",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "g-1",
+     "name": "キャンバス",
+     "at": 60,
+     "duration": 180,
+     "source": {
+      "kind": "group",
+      "canvas": {
+       "origin": "user",
+       "durationMode": "fixed"
+      }
+     },
+     "items": [
+      {
+       "id": "cap-c-0005",
+       "at": 30,
+       "duration": 90,
+       "source": {
+        "kind": "caption",
+        "path": "captions.json",
+        "id": "c-0005"
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

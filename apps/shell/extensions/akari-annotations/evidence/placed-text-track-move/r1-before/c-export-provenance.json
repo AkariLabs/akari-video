@@ -1,0 +1,6 @@
+{
+ "base": "f29966d64（merge/2026-09-26-preview-ops を取り込んだ r1 の土台）",
+ "under": { "tracksBottomToTop": ["v-main", "v-text-under", "v-photo", "v-captions", "a1"], "engine": "osr", "osr_launcher_tier": 2, "seconds": 16, "frame": "c-osr-hand-under-4.5s.png", "result": "文字は写真に隠れる（トラックの順）" },
+ "over": { "tracksBottomToTop": ["v-main", "v-photo", "v-text-over", "v-captions", "a1"], "engine": "osr", "osr_launcher_tier": 2, "seconds": 16, "frame": "c-osr-hand-over-4.5s.png", "result": "文字は写真の手前" },
+ "psnr_under_vs_over": { "osr": "28.49 dB（異なる = 段の順が効く）", "preview": "inf（同一 = プレビューはまだ段の順を無視して手前に描く）" }
+}
