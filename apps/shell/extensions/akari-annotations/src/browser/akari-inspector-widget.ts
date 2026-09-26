@@ -6357,8 +6357,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 ? current.transform : undefined;
             live!.resetDesired(transform);
             if (!target || !hadLive || this.generationIdentity(current)?.key !== identity.key) return;
-            this.model.requestLivePreview?.({ target, field: 'scaleX', value: transform?.scaleX ?? transform?.scale ?? 1, clear: true });
-            this.model.requestLivePreview?.({ target, field: 'scaleY', value: transform?.scaleY ?? transform?.scale ?? 1, clear: true });
+            this.model.requestLivePreview?.({ target, values: {
+                scaleX: transform?.scaleX ?? transform?.scale ?? 1,
+                scaleY: transform?.scaleY ?? transform?.scale ?? 1
+            }, clear: true });
         };
         const previousWrite = this.frameAspectWrites.get(identity.key);
         let releaseWrite!: () => void;
@@ -6434,8 +6436,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const target = this.frameAspectTargets.get(key);
         const values = live.live();
         if (!target || !values) return;
-        this.model.requestLivePreview?.({ target, field: 'scaleX', value: values.scaleX });
-        this.model.requestLivePreview?.({ target, field: 'scaleY', value: values.scaleY });
+        this.model.requestLivePreview?.({ target, values: { scaleX: values.scaleX, scaleY: values.scaleY } });
     }
 
     protected async ensureFrameSourceSize(key: string, sourcePath: string): Promise<void> {

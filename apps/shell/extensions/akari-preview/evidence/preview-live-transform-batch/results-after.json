@@ -1,0 +1,2055 @@
+{
+  "phase": "after",
+  "status": "PASS",
+  "step": "cleanup",
+  "checks": [
+    {
+      "name": "V1 の上に描いた空の枠が幅 50%・中央（edit.json の変形）",
+      "pass": true,
+      "measured": {
+        "geometry": {
+          "canvas": {
+            "w": 332,
+            "h": 186.75
+          },
+          "layer": {
+            "x": 0.25,
+            "y": 0.25,
+            "w": 0.5,
+            "h": 0.5,
+            "cx": 0.5,
+            "cy": 0.5,
+            "aspect": 1.7777777777777777,
+            "area": 0.25
+          },
+          "selectBox": {
+            "x": 0.25,
+            "y": 0.24966577736728163,
+            "w": 0.5,
+            "h": 0.4993315955880815,
+            "cx": 0.5,
+            "cy": 0.49933157516132237,
+            "aspect": 1.7801575080423484,
+            "area": 0.24966579779404074
+          },
+          "cut": null,
+          "cutSelectBox": null,
+          "src": "http://127.0.0.1:59535/asset/9cb225447a2d8bd01cbf0bac93bcad571157029b0d62d760a729e02fea1866c9.png",
+          "data": {
+            "x": "0",
+            "y": "0",
+            "scale": "0.5",
+            "scaleX": "0.5",
+            "scaleY": "0.5"
+          }
+        },
+        "item": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5
+          },
+          "sourcePath": "assets/generated/frame-1790446319816-3QFxc1.png"
+        }
+      }
+    },
+    {
+      "name": "目標に着かなかった押下が無い（0）",
+      "pass": true,
+      "measured": {
+        "min": 12,
+        "median": 16,
+        "max": 52,
+        "missing": 0
+      }
+    },
+    {
+      "name": "連打の最後は 16:9",
+      "pass": true,
+      "measured": [
+        [
+          {
+            "ms": 0.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 21.5,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 126.6,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 252.2,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        [
+          {
+            "ms": 0.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 20.5,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 126.6,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 230.6,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 2510.3,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 2535.5,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ]
+      ]
+    },
+    {
+      "name": "目標以外の比率が出た押下 0 回（単押し 0/36・連打 0/2）",
+      "pass": true,
+      "measured": []
+    },
+    {
+      "name": "スライダー（transform-x）: ドラッグ中（書き込み前）にプレビューの枠が変わる",
+      "pass": true,
+      "measured": {
+        "fieldName": "transform-x",
+        "beforeItem": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5000000000000001
+          },
+          "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+        },
+        "midItem": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5000000000000001
+          },
+          "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+        },
+        "committed": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 60,
+            "y": 0,
+            "scale": 0.5000000000000001
+          },
+          "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+        },
+        "midMs": 1406,
+        "before": {
+          "x": 0.25,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "mid": {
+          "x": 0.28125,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.53125,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "after": {
+          "x": 0.28125,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.53125,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        }
+      }
+    },
+    {
+      "name": "スライダー（transform-x）: 離すと edit.json に書き込まれ、プレビューはドラッグ中の形のまま",
+      "pass": true,
+      "measured": {
+        "fieldName": "transform-x",
+        "beforeItem": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5000000000000001
+          },
+          "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+        },
+        "midItem": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5000000000000001
+          },
+          "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+        },
+        "committed": {
+          "id": "frame-1",
+          "trackId": "v1",
+          "trackIndex": 1,
+          "at": 15,
+          "duration": 75,
+          "transform": {
+            "x": 60,
+            "y": 0,
+            "scale": 0.5000000000000001
+          },
+          "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+        },
+        "midMs": 1406,
+        "before": {
+          "x": 0.25,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.5,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "mid": {
+          "x": 0.28125,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.53125,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        },
+        "after": {
+          "x": 0.28125,
+          "y": 0.25,
+          "w": 0.5,
+          "h": 0.5,
+          "cx": 0.53125,
+          "cy": 0.5,
+          "aspect": 1.7777777777777777,
+          "area": 0.25
+        }
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 9022,
+    "previewOpen": "\"opened\"",
+    "v2Frame": {
+      "id": "frame-1",
+      "trackId": "v1",
+      "trackIndex": 1,
+      "at": 15,
+      "duration": 75,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.5
+      },
+      "sourcePath": "assets/generated/frame-1790446319816-3QFxc1.png"
+    },
+    "previewReconnects": 44,
+    "v2FrameInitial": {
+      "canvas": {
+        "w": 332,
+        "h": 186.75
+      },
+      "layer": {
+        "x": 0.25,
+        "y": 0.25,
+        "w": 0.5,
+        "h": 0.5,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 0.25
+      },
+      "selectBox": {
+        "x": 0.25,
+        "y": 0.24966577736728163,
+        "w": 0.5,
+        "h": 0.4993315955880815,
+        "cx": 0.5,
+        "cy": 0.49933157516132237,
+        "aspect": 1.7801575080423484,
+        "area": 0.24966579779404074
+      },
+      "cut": null,
+      "cutSelectBox": null,
+      "src": "http://127.0.0.1:59535/asset/9cb225447a2d8bd01cbf0bac93bcad571157029b0d62d760a729e02fea1866c9.png",
+      "data": {
+        "x": "0",
+        "y": "0",
+        "scale": "0.5",
+        "scaleX": "0.5",
+        "scaleY": "0.5"
+      }
+    },
+    "presses": [
+      {
+        "label": "r1 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 33,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 1.5,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 32.6,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 1271,
+        "rafSamples": 124,
+        "pollSamples": 1147,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r1 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 32,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.5,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 31.7,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 518,
+        "rafSamples": 49,
+        "pollSamples": 469,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r1 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 52,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 51.6,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 814,
+        "rafSamples": 90,
+        "pollSamples": 724,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r2 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 15,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 14.6,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 709,
+        "rafSamples": 28,
+        "pollSamples": 681,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r2 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 14,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.1,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 14.2,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 545,
+        "rafSamples": 28,
+        "pollSamples": 517,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r2 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 13,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.1,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 12.7,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 638,
+        "rafSamples": 30,
+        "pollSamples": 608,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r3 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 14,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.4,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 14.3,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 835,
+        "rafSamples": 30,
+        "pollSamples": 805,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r3 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 14,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.4,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 14.2,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 767,
+        "rafSamples": 29,
+        "pollSamples": 738,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r3 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 13,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 12.8,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 582,
+        "rafSamples": 32,
+        "pollSamples": 550,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r3 undo",
+        "undo": true,
+        "undoBefore": true,
+        "reseeked": false
+      },
+      {
+        "label": "r4 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "1:1",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 15,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 14.6,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 625,
+        "rafSamples": 30,
+        "pollSamples": 595,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": true,
+        "otherShape": false
+      },
+      {
+        "label": "r4 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 12,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 11.9,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 685,
+        "rafSamples": 33,
+        "pollSamples": 652,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r4 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 14,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 14.2,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 629,
+        "rafSamples": 37,
+        "pollSamples": 592,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r5 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 13,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 2.5,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 12.5,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 339,
+        "rafSamples": 35,
+        "pollSamples": 304,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r5 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 26,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 26.1,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 764,
+        "rafSamples": 44,
+        "pollSamples": 720,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r5 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 25,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.1,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 24.8,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 745,
+        "rafSamples": 57,
+        "pollSamples": 688,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r6 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 15,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 15.3,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 694,
+        "rafSamples": 32,
+        "pollSamples": 662,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r6 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 16,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 15.9,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 705,
+        "rafSamples": 32,
+        "pollSamples": 673,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r6 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 13,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.1,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 13.1,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 1116,
+        "rafSamples": 36,
+        "pollSamples": 1080,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r6 undo",
+        "undo": true,
+        "undoBefore": true,
+        "reseeked": false
+      },
+      {
+        "label": "r7 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "1:1",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 16,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 15.6,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 776,
+        "rafSamples": 30,
+        "pollSamples": 746,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": true,
+        "otherShape": false
+      },
+      {
+        "label": "r7 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 15,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 14.6,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 758,
+        "rafSamples": 32,
+        "pollSamples": 726,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r7 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 16,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 16,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 697,
+        "rafSamples": 36,
+        "pollSamples": 661,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r8 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 16,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 15.6,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 725,
+        "rafSamples": 42,
+        "pollSamples": 683,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r8 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 16,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.1,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 15.7,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 865,
+        "rafSamples": 38,
+        "pollSamples": 827,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r8 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 13,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 13.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 1004,
+        "rafSamples": 33,
+        "pollSamples": 971,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r9 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 18,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 17.6,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 811,
+        "rafSamples": 34,
+        "pollSamples": 777,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r9 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 17,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.4,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 17,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 924,
+        "rafSamples": 46,
+        "pollSamples": 878,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r9 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 31,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.6,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 30.7,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 942,
+        "rafSamples": 59,
+        "pollSamples": 883,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r9 undo",
+        "undo": true,
+        "undoBefore": true,
+        "reseeked": false
+      },
+      {
+        "label": "r10 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "1:1",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 16,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 16.2,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 726,
+        "rafSamples": 47,
+        "pollSamples": 679,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": true,
+        "otherShape": false
+      },
+      {
+        "label": "r10 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 17,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 16.7,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 914,
+        "rafSamples": 42,
+        "pollSamples": 872,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r10 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 17,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.1,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 17,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 1148,
+        "rafSamples": 54,
+        "pollSamples": 1094,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r11 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 17,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 17.4,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 1093,
+        "rafSamples": 44,
+        "pollSamples": 1049,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r11 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 18,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 17.7,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 1129,
+        "rafSamples": 46,
+        "pollSamples": 1083,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r11 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 16,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.2,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 16,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 1386,
+        "rafSamples": 54,
+        "pollSamples": 1332,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r12 9:16",
+        "sequence": [
+          "9:16"
+        ],
+        "priorShape": "16:9",
+        "target": "9:16",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 14,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 14.4,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          }
+        ],
+        "sampleCount": 925,
+        "rafSamples": 48,
+        "pollSamples": 877,
+        "finalAspect": 0.5629615631488828,
+        "area": 0.2499974556811175,
+        "cx": 0.499999977019896,
+        "cy": 0.49999995914648176,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r12 1:1",
+        "sequence": [
+          "1:1"
+        ],
+        "priorShape": "9:16",
+        "target": "1:1",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 17,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 16.9,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          }
+        ],
+        "sampleCount": 912,
+        "rafSamples": 47,
+        "pollSamples": 865,
+        "finalAspect": 1,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "r12 16:9",
+        "sequence": [
+          "16:9"
+        ],
+        "priorShape": "1:1",
+        "target": "16:9",
+        "pressSpreadMs": 0,
+        "targetMsFromLastPress": 18,
+        "onlyPriorThenTarget": true,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 17.8,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 1284,
+        "rafSamples": 56,
+        "pollSamples": 1228,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "afterUndo": false,
+        "otherShape": false
+      },
+      {
+        "label": "rapid 1",
+        "sequence": [
+          "9:16",
+          "1:1",
+          "16:9"
+        ],
+        "priorShape": "16:9",
+        "target": "16:9",
+        "pressSpreadMs": 241,
+        "targetMsFromLastPress": 11,
+        "onlyPriorThenTarget": false,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 21.5,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 126.6,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 252.2,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 1549,
+        "rafSamples": 87,
+        "pollSamples": 1462,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "rapid": true,
+        "otherShape": false,
+        "endsOnTarget": true,
+        "reseeked": false
+      },
+      {
+        "label": "rapid 2",
+        "sequence": [
+          "9:16",
+          "1:1",
+          "16:9"
+        ],
+        "priorShape": "16:9",
+        "target": "16:9",
+        "pressSpreadMs": 217,
+        "targetMsFromLastPress": 14,
+        "onlyPriorThenTarget": false,
+        "foreignSamples": 0,
+        "foreign": [],
+        "transitions": [
+          {
+            "ms": 0.3,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 20.5,
+            "shape": "9:16",
+            "a": 0.563,
+            "w": 0.281,
+            "h": 0.889
+          },
+          {
+            "ms": 126.6,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 230.6,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          },
+          {
+            "ms": 2510.3,
+            "shape": "1:1",
+            "a": 1,
+            "w": 0.375,
+            "h": 0.667
+          },
+          {
+            "ms": 2535.5,
+            "shape": "16:9",
+            "a": 1.778,
+            "w": 0.5,
+            "h": 0.5
+          }
+        ],
+        "sampleCount": 1687,
+        "rafSamples": 87,
+        "pollSamples": 1600,
+        "finalAspect": 1.7777777777777777,
+        "area": 0.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "sourceChanged": true,
+        "rapid": true,
+        "otherShape": false,
+        "endsOnTarget": true,
+        "reseeked": false
+      }
+    ],
+    "summary": {
+      "singlePresses": 36,
+      "rapidPresses": 6,
+      "totalPresses": 42,
+      "singlesWithOtherShape": 0,
+      "singlesWithForeignRatio": 0,
+      "rapidWithOtherShape": 0,
+      "pressesAfterUndo": 3,
+      "targetMs": {
+        "min": 12,
+        "median": 16,
+        "max": 52,
+        "missing": 0
+      },
+      "otherShapeLabels": []
+    },
+    "sliderTabs": [
+      "edit",
+      "video",
+      "adjust",
+      "audio",
+      "motion",
+      "info"
+    ],
+    "sliderTab": "video",
+    "slider": {
+      "fieldName": "transform-x",
+      "beforeItem": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.5000000000000001
+        },
+        "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+      },
+      "midItem": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.5000000000000001
+        },
+        "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+      },
+      "committed": {
+        "id": "frame-1",
+        "trackId": "v1",
+        "trackIndex": 1,
+        "at": 15,
+        "duration": 75,
+        "transform": {
+          "x": 60,
+          "y": 0,
+          "scale": 0.5000000000000001
+        },
+        "sourcePath": "assets/generated/frame-1790446507310-6GjIoQ.png"
+      },
+      "midMs": 1406,
+      "before": {
+        "x": 0.25,
+        "y": 0.25,
+        "w": 0.5,
+        "h": 0.5,
+        "cx": 0.5,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 0.25
+      },
+      "mid": {
+        "x": 0.28125,
+        "y": 0.25,
+        "w": 0.5,
+        "h": 0.5,
+        "cx": 0.53125,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 0.25
+      },
+      "after": {
+        "x": 0.28125,
+        "y": 0.25,
+        "w": 0.5,
+        "h": 0.5,
+        "cx": 0.53125,
+        "cy": 0.5,
+        "aspect": 1.7777777777777777,
+        "area": 0.25
+      }
+    }
+  },
+  "clicks": [
+    {
+      "name": "draw V2 frame",
+      "attempt": 1,
+      "passed": false
+    },
+    {
+      "name": "draw V2 frame",
+      "attempt": 2,
+      "passed": true
+    },
+    {
+      "name": "still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open video tab",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "after-01-v2-frame-preview.png",
+      "bytes": 448587
+    },
+    {
+      "name": "after-02-after-rounds.png",
+      "bytes": 329977
+    },
+    {
+      "name": "after-03-rapid-final-16x9.png",
+      "bytes": 329797
+    },
+    {
+      "name": "after-04-slider-transform-x-committed.png",
+      "bytes": 307143
+    }
+  ]
+}

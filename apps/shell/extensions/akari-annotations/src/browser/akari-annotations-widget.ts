@@ -900,8 +900,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.handleInspectorWrite(request);
     protected readonly inspectorRequestLivePreview = (request: LivePreviewRequest): void => {
         this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
-            target: request.target, field: request.field, value: request.value,
-            values: { [request.field]: request.value },
+            target: request.target,
+            ...('values' in request ? { values: request.values } : {
+                field: request.field, value: request.value, values: { [request.field]: request.value }
+            }),
             ...(request.clear ? { clear: true } : {}),
             ...(request.easing === undefined ? {} : { easing: request.easing }),
             ...(request.shapeHtml === undefined ? {} : { shapeHtml: request.shapeHtml })

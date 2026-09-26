@@ -483,19 +483,20 @@ export type LivePreviewTarget =
 
 export interface AdjustBypassRequest { target: LivePreviewTarget; enabled: boolean; }
 
-export interface LivePreviewRequest {
-    target: LivePreviewTarget;
-    field: 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate' | 'opacity'
+export type LivePreviewField = 'x' | 'y' | 'scale' | 'scaleX' | 'scaleY' | 'rotate' | 'opacity'
         | 'crop.x' | 'crop.y' | 'crop.w' | 'crop.h'
         | `perspective.${'tl' | 'tr' | 'bl' | 'br'}.${'x' | 'y'}`
         | 'caption.size' | 'caption.lineHeight' | 'caption.letterSpacing' | 'caption.strokeWidth'
         | `adjust.basic.${string}`
         | 'shape';
-    value: number;
+
+export type LivePreviewRequest = {
+    target: LivePreviewTarget;
     clear?: boolean;
     easing?: string;
     shapeHtml?: string;
-}
+} & ({ field: LivePreviewField; value: number; values?: never }
+    | { values: Partial<Record<LivePreviewField, number>>; field?: never; value?: never });
 
 /**
  * タイムラインでの選択状態をインスペクターへ受け渡すためのモデル。

@@ -178,7 +178,7 @@ test('missing card size starts a read and sends no guessed live transform', asyn
   assert.deepEqual(calls, ['read', 'rpc']);
   sizeRead.resolve({ width: 1080, height: 1080 });
   await new Promise(setImmediate);
-  assert.deepEqual(calls.slice(2).map(row => row.field), ['scaleX', 'scaleY']);
+  assert.deepEqual(calls.slice(2).map(row => Object.keys(row.values)), [['scaleX', 'scaleY']]);
   rpc.resolve({ relativePath: 'new.png', width: 608, height: 1080, transform: { scale: 0.8885 } });
   await done;
 });
@@ -191,17 +191,15 @@ test('rapid presses keep the latest ratio while old RPC results commit in press 
   const visible = [];
   const previewBasesDuringCommit = [];
   let path = 'portrait.png';
-  let x;
   const snapshot = { kind: 'cut', itemId: 'frame', index: 0, transform: { scale: 0.8885 } };
   const instance = aspectMaps(Object.assign(new Harness(), {
     workspaceService: { tryGetRoots: () => [{ resource: root }] },
     aiStillStates: new Map([['frame', { aspect: '16:9', canvas: { width: 1920, height: 1080 } }]]),
     generationTabMeta: new Map(), generationStates: new Map(),
     model: { snapshot, requestLivePreview(request) {
-      if (request.field === 'scaleX') x = request.value;
-      else if (request.field === 'scaleY') {
+      if (Number.isFinite(request.values?.scaleX) && Number.isFinite(request.values?.scaleY)) {
         const base = instance.frameAspectLive.get('frame').previewSize;
-        visible.push(base.width * x / (base.height * request.value));
+        visible.push(base.width * request.values.scaleX / (base.height * request.values.scaleY));
       }
     } },
     layerAudioService: { setEmptyFrameAspect(request) {
@@ -266,7 +264,6 @@ test('aspect presses during planned meta reload still commit and preview the las
   const calls = [];
   const visible = [];
   let sourcePath = 'wide.png';
-  let scaleX;
   const snapshot = { kind: 'cut', itemId: 'frame', index: 0, transform: { scale: 0.5 } };
   const state = { aspect: '16:9', canvas: { width: 1920, height: 1080 } };
   const instance = aspectMaps(Object.assign(new Panel(), {
@@ -276,10 +273,9 @@ test('aspect presses during planned meta reload still commit and preview the las
     generationStates: new Map([['frame', 'planned']]),
     frameAspectPlanned: new Map(),
     model: { snapshot, requestLivePreview(request) {
-      if (request.field === 'scaleX') scaleX = request.value;
-      if (request.field === 'scaleY') {
+      if (Number.isFinite(request.values?.scaleX) && Number.isFinite(request.values?.scaleY)) {
         const base = instance.frameAspectLive.get('frame').previewSize;
-        visible.push(base.width * scaleX / (base.height * request.value));
+        visible.push(base.width * request.values.scaleX / (base.height * request.values.scaleY));
       }
     } },
     generationIdentity: () => ({ key: 'frame', itemId: 'frame', sourcePath, duration: 90 }),
@@ -461,13 +457,11 @@ test('planned cut sends live 9:16 scales before RPC without adding an edit mutat
   }), { width: 1920, height: 1080 });
   await instance.setEmptyFrameAspect({ key: 'frame', itemId: 'frame', sourcePath: 'old.png' }, '9:16');
   assert.equal(instance.aiStillStates.get('frame').error, undefined);
-  assert.deepEqual(calls.slice(0, 3).map(call => call.type), ['live', 'live', 'rpc']);
+  assert.deepEqual(calls.slice(0, 2).map(call => call.type), ['live', 'rpc']);
   assert.deepEqual(calls[0].request.target, { kind: 'cut', index: 2 });
-  assert.deepEqual(calls[1].request.target, { kind: 'cut', index: 2 });
-  assert.equal(calls[0].request.field, 'scaleX');
-  assert.equal(calls[1].request.field, 'scaleY');
-  assert.ok(Math.abs(calls[0].request.value - 0.2814) < 0.0001);
-  assert.ok(Math.abs(calls[1].request.value - 0.8885) < 0.0001);
+  assert.deepEqual(Object.keys(calls[0].request.values), ['scaleX', 'scaleY']);
+  assert.ok(Math.abs(calls[0].request.values.scaleX - 0.2814) < 0.0001);
+  assert.ok(Math.abs(calls[0].request.values.scaleY - 0.8885) < 0.0001);
   assert.equal(mutations, 1);
 });
 
@@ -493,13 +487,11 @@ for (const failure of ['RPC', 'commit']) test(`planned item clears both live axe
   }), { width: 1920, height: 1080 });
   await instance.setEmptyFrameAspect({ key: 'frame', itemId: 'frame', sourcePath: 'old.png' }, '9:16');
   assert.equal(instance.aiStillStates.get('frame').error, `${failure} failed`);
-  assert.deepEqual(live.map(request => [request.target, request.field, request.clear ?? false]), [
-    [{ kind: 'item', id: 'frame' }, 'scaleX', false],
-    [{ kind: 'item', id: 'frame' }, 'scaleY', false],
-    [{ kind: 'item', id: 'frame' }, 'scaleX', true],
-    [{ kind: 'item', id: 'frame' }, 'scaleY', true]
+  assert.deepEqual(live.map(request => [request.target, Object.keys(request.values), request.clear ?? false]), [
+    [{ kind: 'item', id: 'frame' }, ['scaleX', 'scaleY'], false],
+    [{ kind: 'item', id: 'frame' }, ['scaleX', 'scaleY'], true]
   ]);
-  assert.deepEqual(live.slice(2).map(request => request.value), [0.5, 0.5]);
+  assert.deepEqual(live[1].values, { scaleX: 0.5, scaleY: 0.5 });
 });
 
 test('initialTabFor: planned wins over saved video, ordinary photo retains it, explicit tab wins', () => {

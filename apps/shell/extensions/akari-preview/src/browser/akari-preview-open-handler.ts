@@ -1968,6 +1968,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     | { kind: 'layer' | 'item' | 'caption'; id: string };
                 field?: string;
                 value?: number;
+                values?: Record<string, number>;
                 clear?: boolean;
                 shapeHtml?: string;
             }>).detail;
@@ -1976,8 +1977,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     && detail.target.kind !== 'layer'
                     && detail.target.kind !== 'item'
                     && detail.target.kind !== 'caption')
-                || typeof detail.field !== 'string' || typeof detail.value !== 'number'
-                || !Number.isFinite(detail.value)) {
+                || (detail.values === undefined
+                    ? typeof detail.field !== 'string' || !Number.isFinite(detail.value)
+                    : !detail.values || typeof detail.values !== 'object'
+                        || !Object.keys(detail.values).length
+                        || Object.entries(detail.values).some(([field, value]) =>
+                            !field || !Number.isFinite(value)))) {
                 return;
             }
             let key: string;
@@ -1991,9 +1996,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.sendMessage({
                     type: 'akari-preview-live-transform',
                     target: detail.target,
-                    field: detail.field,
-                    value: detail.value,
-                    values: { [detail.field]: detail.value },
+                    ...(detail.values === undefined
+                        ? { field: detail.field, value: detail.value, values: { [detail.field!]: detail.value! } }
+                        : { ...(typeof detail.field === 'string' && Number.isFinite(detail.value)
+                            ? { field: detail.field, value: detail.value } : {}), values: detail.values }),
                     ...(detail.clear ? { clear: true } : {}),
                     ...(typeof detail.shapeHtml === 'string' ? { shapeHtml: detail.shapeHtml } : {})
                 });
@@ -21422,12 +21428,19 @@ body { display: grid; place-items: center; padding: 32px; }
                         || message.target.kind === 'layer'
                         || message.target.kind === 'item'
                         || message.target.kind === 'caption')
-                    && typeof message.field === 'string' && Number.isFinite(message.value)) {
+                    && (message.values && typeof message.values === 'object'
+                        || typeof message.field === 'string' && Number.isFinite(message.value))) {
+                    const values = message.values && typeof message.values === 'object'
+                        ? Object.entries(message.values) : [[message.field, message.value]];
+                    if (!values.length || values.some(([field, value]) =>
+                        typeof field !== 'string' || !field || !Number.isFinite(value))) return;
                     const targetKey = message.target.kind === 'cut'
                         ? 'cut:' + message.target.index : message.target.kind === 'caption'
                             ? 'caption:' + message.target.id : 'item:' + message.target.id;
                     if (message.clear) {
-                        void window.akari.frameEngineClock?.applyLivePreview?.(message);
+                        if (values.length === 1) void window.akari.frameEngineClock?.applyLivePreview?.(message);
+                        else void window.akari.frameEngineClock?.applyTransformPreview?.(
+                            message.target, Object.fromEntries(values));
                         clearLiveOverride();
                         tick(true);
                         return;
@@ -21436,7 +21449,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         liveDom.updateShape(targetKey, message.shapeHtml);
                         return;
                     }
-                    liveDom.update(targetKey, message.field, message.value);
+                    for (const [field, value] of values) liveDom.update(targetKey, field, value);
                     if (message.target.kind === 'caption') {
                         paintLiveOverride();
                         updateCaptionSelectBox();
@@ -21448,21 +21461,26 @@ body { display: grid; place-items: center; padding: 32px; }
                     // 正規の HTML に置き換わるため、ここで明示的な「クリア」は不要
                     // （Esc 破棄時は元値を持つ同型メッセージが再送されて上書きされる）。
                     const applyLiveField = element => {
-                        if (message.field === 'x') element.dataset.akariTransformX = String(message.value);
-                        else if (message.field === 'y') element.dataset.akariTransformY = String(message.value);
-                        else if (message.field === 'scale') element.dataset.akariTransformScale = String(message.value);
-                        else if (message.field === 'scaleX') element.dataset.akariTransformScaleX = String(message.value);
-                        else if (message.field === 'scaleY') element.dataset.akariTransformScaleY = String(message.value);
-                        else if (message.field === 'rotate') element.dataset.akariTransformRotate = String(message.value);
-                        else if (message.field === 'opacity') element.style.opacity = String(message.value);
-                        else if (message.field === 'crop.x') element.dataset.akariCropX = String(message.value);
-                        else if (message.field === 'crop.y') element.dataset.akariCropY = String(message.value);
-                        else if (message.field === 'crop.w') element.dataset.akariCropW = String(message.value);
-                        else if (message.field === 'crop.h') element.dataset.akariCropH = String(message.value);
+                        for (const [field, value] of values) {
+                            if (field === 'x') element.dataset.akariTransformX = String(value);
+                            else if (field === 'y') element.dataset.akariTransformY = String(value);
+                            else if (field === 'scale') element.dataset.akariTransformScale = String(value);
+                            else if (field === 'scaleX') element.dataset.akariTransformScaleX = String(value);
+                            else if (field === 'scaleY') element.dataset.akariTransformScaleY = String(value);
+                            else if (field === 'rotate') element.dataset.akariTransformRotate = String(value);
+                            else if (field === 'opacity') element.style.opacity = String(value);
+                            else if (field === 'crop.x') element.dataset.akariCropX = String(value);
+                            else if (field === 'crop.y') element.dataset.akariCropY = String(value);
+                            else if (field === 'crop.w') element.dataset.akariCropW = String(value);
+                            else if (field === 'crop.h') element.dataset.akariCropH = String(value);
+                        }
                     };
-                    const enginePreview = window.akari.frameEngineClock?.applyLivePreview?.(message);
+                    const enginePreview = values.length === 1
+                        ? window.akari.frameEngineClock?.applyLivePreview?.(message)
+                        : window.akari.frameEngineClock?.applyTransformPreview?.(
+                            message.target, Object.fromEntries(values));
                     if (message.target.kind === 'cut') {
-                        if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
+                        if (values.some(([field]) => field !== 'opacity')) video.dataset.akariCutTransformActive = 'true';
                         applyLiveField(video);
                     } else if (typeof message.target.id === 'string') {
                         const overlay = Array.from(typeof stage !== 'undefined' && stage
@@ -21471,89 +21489,91 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (overlay && message.target.kind === 'item') {
                             const nodes = Array.isArray(summary.tree) ? summary.tree : [];
                             const selected = nodes.find(node => String(node.id) === message.target.id);
-                            if (selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
-                                let ancestorId = selected.parentId;
-                                let parent = {};
-                                const seen = new Set();
-                                while (ancestorId != null && !seen.has(String(ancestorId))) {
-                                    seen.add(String(ancestorId));
-                                    const ancestor = nodes.find(node => String(node.id) === String(ancestorId));
-                                    if (!ancestor) break;
-                                    if (ancestor.kind === 'group') { parent = ancestor.transform || {}; break; }
-                                    ancestorId = ancestor.parentId;
+                            for (const [field, value] of values) {
+                                if (selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(field)) {
+                                    let ancestorId = selected.parentId;
+                                    let parent = {};
+                                    const seen = new Set();
+                                    while (ancestorId != null && !seen.has(String(ancestorId))) {
+                                        seen.add(String(ancestorId));
+                                        const ancestor = nodes.find(node => String(node.id) === String(ancestorId));
+                                        if (!ancestor) break;
+                                        if (ancestor.kind === 'group') { parent = ancestor.transform || {}; break; }
+                                        ancestorId = ancestor.parentId;
+                                    }
+                                    const inlineNumber = (name, fallback) => {
+                                        const value = Number.parseFloat(overlay.style.getPropertyValue?.(name) || '');
+                                        return Number.isFinite(value) ? value : fallback;
+                                    };
+                                    const stored = selected.transform || {};
+                                    const inlineScale = Boolean(overlay.style.getPropertyValue?.('--scale')?.trim());
+                                    const inlineAxis = ['--scale-x', '--scale-y'].some(name =>
+                                        overlay.style.getPropertyValue?.(name)?.trim());
+                                    const scale = inlineNumber('--scale', stored.scale ?? 1);
+                                    const scaleX = inlineNumber('--scale-x', inlineScale ? scale : stored.scaleX ?? scale);
+                                    const scaleY = inlineNumber('--scale-y', inlineScale ? scale : stored.scaleY ?? scale);
+                                    const world = {
+                                        x: inlineNumber('--x', stored.x ?? 0),
+                                        y: inlineNumber('--y', stored.y ?? 0),
+                                        scale: inlineAxis && scaleX === scaleY ? scaleX : scale,
+                                        ...((inlineAxis || !inlineScale && (stored.scaleX !== undefined || stored.scaleY !== undefined))
+                                            && scaleX !== scaleY ? { scaleX, scaleY } : {}),
+                                        rotate: inlineNumber('--rotate', stored.rotate ?? 0)
+                                    };
+                                    const parentScale = parent.scale ?? 1;
+                                    const radians = (parent.rotate ?? 0) * Math.PI / 180;
+                                    const cosine = Math.cos(radians), sine = Math.sin(radians);
+                                    const dx = (world.x ?? 0) - (parent.x ?? 0);
+                                    const dy = (world.y ?? 0) - (parent.y ?? 0);
+                                    const local = {
+                                        x: (cosine * dx + sine * dy) / parentScale,
+                                        y: (-sine * dx + cosine * dy) / parentScale,
+                                        scale: (world.scale ?? 1) / parentScale,
+                                        scaleX: (world.scaleX ?? world.scale ?? 1) / parentScale,
+                                        scaleY: (world.scaleY ?? world.scale ?? 1) / parentScale,
+                                        rotate: (world.rotate ?? 0) - (parent.rotate ?? 0)
+                                    };
+                                    if (field === 'scale') {
+                                        const previous = Math.sqrt(local.scaleX * local.scaleY);
+                                        const ratio = previous > 0 ? value / previous : 1;
+                                        local.scaleX *= ratio;
+                                        local.scaleY *= ratio;
+                                        local.scale = value;
+                                    } else local[field] = value;
+                                    const sx = parentScale * (local.scaleX ?? local.scale ?? 1);
+                                    const sy = parentScale * (local.scaleY ?? local.scale ?? 1);
+                                    const next = {
+                                        x: (parent.x ?? 0) + parentScale * (cosine * local.x - sine * local.y),
+                                        y: (parent.y ?? 0) + parentScale * (sine * local.x + cosine * local.y),
+                                        scale: sx === sy ? sx : parentScale * (local.scale ?? 1),
+                                        scaleX: sx, scaleY: sy,
+                                        rotate: (parent.rotate ?? 0) + local.rotate
+                                    };
+                                    overlay.style.setProperty('--x', String(next.x) + 'px');
+                                    overlay.style.setProperty('--y', String(next.y) + 'px');
+                                    overlay.style.setProperty('--scale', String(next.scale));
+                                    if (sx === sy) {
+                                        overlay.style.removeProperty('--scale-x');
+                                        overlay.style.removeProperty('--scale-y');
+                                    } else {
+                                        overlay.style.setProperty('--scale-x', String(next.scaleX));
+                                        overlay.style.setProperty('--scale-y', String(next.scaleY));
+                                    }
+                                    overlay.style.setProperty('--rotate', String(next.rotate) + 'deg');
                                 }
-                                const inlineNumber = (name, fallback) => {
-                                    const value = Number.parseFloat(overlay.style.getPropertyValue?.(name) || '');
-                                    return Number.isFinite(value) ? value : fallback;
-                                };
-                                const stored = selected.transform || {};
-                                const inlineScale = Boolean(overlay.style.getPropertyValue?.('--scale')?.trim());
-                                const inlineAxis = ['--scale-x', '--scale-y'].some(name =>
-                                    overlay.style.getPropertyValue?.(name)?.trim());
-                                const scale = inlineNumber('--scale', stored.scale ?? 1);
-                                const scaleX = inlineNumber('--scale-x', inlineScale ? scale : stored.scaleX ?? scale);
-                                const scaleY = inlineNumber('--scale-y', inlineScale ? scale : stored.scaleY ?? scale);
-                                const world = {
-                                    x: inlineNumber('--x', stored.x ?? 0),
-                                    y: inlineNumber('--y', stored.y ?? 0),
-                                    scale: inlineAxis && scaleX === scaleY ? scaleX : scale,
-                                    ...((inlineAxis || !inlineScale && (stored.scaleX !== undefined || stored.scaleY !== undefined))
-                                        && scaleX !== scaleY ? { scaleX, scaleY } : {}),
-                                    rotate: inlineNumber('--rotate', stored.rotate ?? 0)
-                                };
-                                const parentScale = parent.scale ?? 1;
-                                const radians = (parent.rotate ?? 0) * Math.PI / 180;
-                                const cosine = Math.cos(radians), sine = Math.sin(radians);
-                                const dx = (world.x ?? 0) - (parent.x ?? 0);
-                                const dy = (world.y ?? 0) - (parent.y ?? 0);
-                                const local = {
-                                    x: (cosine * dx + sine * dy) / parentScale,
-                                    y: (-sine * dx + cosine * dy) / parentScale,
-                                    scale: (world.scale ?? 1) / parentScale,
-                                    scaleX: (world.scaleX ?? world.scale ?? 1) / parentScale,
-                                    scaleY: (world.scaleY ?? world.scale ?? 1) / parentScale,
-                                    rotate: (world.rotate ?? 0) - (parent.rotate ?? 0)
-                                };
-                                if (message.field === 'scale') {
-                                    const previous = Math.sqrt(local.scaleX * local.scaleY);
-                                    const ratio = previous > 0 ? message.value / previous : 1;
-                                    local.scaleX *= ratio;
-                                    local.scaleY *= ratio;
-                                    local.scale = message.value;
-                                } else local[message.field] = message.value;
-                                const sx = parentScale * (local.scaleX ?? local.scale ?? 1);
-                                const sy = parentScale * (local.scaleY ?? local.scale ?? 1);
-                                const next = {
-                                    x: (parent.x ?? 0) + parentScale * (cosine * local.x - sine * local.y),
-                                    y: (parent.y ?? 0) + parentScale * (sine * local.x + cosine * local.y),
-                                    scale: sx === sy ? sx : parentScale * (local.scale ?? 1),
-                                    scaleX: sx, scaleY: sy,
-                                    rotate: (parent.rotate ?? 0) + local.rotate
-                                };
-                                overlay.style.setProperty('--x', String(next.x) + 'px');
-                                overlay.style.setProperty('--y', String(next.y) + 'px');
-                                overlay.style.setProperty('--scale', String(next.scale));
-                                if (sx === sy) {
-                                    overlay.style.removeProperty('--scale-x');
-                                    overlay.style.removeProperty('--scale-y');
-                                } else {
-                                    overlay.style.setProperty('--scale-x', String(next.scaleX));
-                                    overlay.style.setProperty('--scale-y', String(next.scaleY));
+                                if (!selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(field)) {
+                                    const name = field === 'scaleX' ? '--scale-x'
+                                        : field === 'scaleY' ? '--scale-y' : '--' + field;
+                                    overlay.style.setProperty(name, String(value)
+                                        + (field === 'x' || field === 'y' ? 'px'
+                                            : field === 'rotate' ? 'deg' : ''));
                                 }
-                                overlay.style.setProperty('--rotate', String(next.rotate) + 'deg');
+                                if (field === 'opacity') overlay.style.opacity = String(value);
                             }
-                            if (!selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
-                                const name = message.field === 'scaleX' ? '--scale-x'
-                                    : message.field === 'scaleY' ? '--scale-y' : '--' + message.field;
-                                overlay.style.setProperty(name, String(message.value)
-                                    + (message.field === 'x' || message.field === 'y' ? 'px'
-                                        : message.field === 'rotate' ? 'deg' : ''));
-                            }
-                            if (message.field === 'opacity') overlay.style.opacity = String(message.value);
                             liveDom.captureOverlayCss(overlay);
                         }
                         if (message.target.kind === 'item' && video.dataset.akariCutId === message.target.id) {
-                            if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
+                            if (values.some(([field]) => field !== 'opacity')) video.dataset.akariCutTransformActive = 'true';
                             applyLiveField(video);
                         } else {
                             const layerIdSelector = CSS.escape(message.target.id);
