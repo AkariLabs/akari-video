@@ -249,7 +249,7 @@ test('Escape leaves existing crop, perspective, drag, and inline edit cancellati
         assert.match(body, /finally \{[\s\S]*endSelectionGesture\(gesture\)/);
         assert.match(body, /const cleanup = \(\) => \{\s*selectionDragActive = false/);
     }
-    const captionDrag = between("captionLayer.addEventListener('pointerdown', event =>", '            new ResizeObserver(() => updateCaptionSelectBox())');
+    const captionDrag = between("const onCaptionPointerDown = event =>", '            new ResizeObserver(() => updateCaptionSelectBox())');
     assert.match(captionDrag, /selectionDragActive = true/);
     assert.match(captionDrag, /const cleanup = \(\) => \{\s*selectionDragActive = false/);
 });
@@ -269,7 +269,13 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
             document: { getElementById: () => ({ getBoundingClientRect: () => ({ width: 800 * zoom, height: 450 * zoom }) }) },
             window: { akari: { stageScale: () => scale } },
             summary: { output: { width: 1280, height: 720 } }, selectedCaptionId: 'c1',
-            captionSelectBox: { style: { setProperty() {} }, classList: { add() {} } }, updateCaptionSelectTools() {}, updateCaptionRowBox() {},
+            captionSelectBox: { style: { setProperty() {} }, classList: { add() {} },
+                querySelector: () => null, querySelectorAll: () => [],
+                getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 40 }),
+                offsetWidth: 100, offsetHeight: 40 },
+            previewPane: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 450 }) },
+            previewLayerActionsFn: () => null, fitCaptionSelectTools() {},
+            updateCaptionSelectTools() {}, updateCaptionRowBox() {},
             captionLayoutRect: () => plate, captionTransformValues: () => ({ scale: 1, rotate: 0 }),
             captionOrientedFrameFn: captionOrientedFrame,
             captionPlate: {

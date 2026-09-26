@@ -138,9 +138,10 @@ test('user deselection removes transcript-supplied plate attributes and handles 
     h.run("selectCaption('speech', { report: false })");
     assert.deepEqual(reports, []);
     assert.equal(h.plate.hasAttribute('data-selected'), true);
-    assert.ok(h.plate.querySelectorAll('.akari-caption-handle').length > 0);
+    assert.ok(h.run('captionSelectBox.children.flatMap(box => box.children).length') > 0);
     h.run('deselectCaption()');
     assert.deepEqual(reports, [null]);
     assert.equal(h.plate.hasAttribute('data-selected'), false);
     assert.equal(h.plate.querySelectorAll('.akari-caption-handle').length, 0);
+    assert.equal(h.run('captionSelectBox.children.length'), 0);
 });

@@ -1,0 +1,3626 @@
+{
+  "label": "after",
+  "port": 9623,
+  "project": "landscape",
+  "theme": "dark",
+  "pid": 40412,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 1,
+  "shots": {
+    "a-photo-edge-fit": "after-a-photo-edge-fit.png",
+    "a-shape-edge-fit": "after-a-shape-edge-fit.png",
+    "a-placed-text-edge-fit": "after-a-placed-text-edge-fit.png",
+    "a-caption-bottom-fit": "after-a-caption-bottom-fit.png",
+    "a-zoom-photo-1-200": "after-a-zoom-photo-1-200.png",
+    "a-zoom-photo-1-50": "after-a-zoom-photo-1-50.png",
+    "a-zoom-shape-a-200": "after-a-zoom-shape-a-200.png",
+    "a-zoom-shape-a-50": "after-a-zoom-shape-a-50.png",
+    "a-zoom-c-0101-200": "after-a-zoom-c-0101-200.png",
+    "a-zoom-c-0101-50": "after-a-zoom-c-0101-50.png",
+    "a-zoom-c-0001-200": "after-a-zoom-c-0001-200.png",
+    "a-zoom-c-0001-50": "after-a-zoom-c-0001-50.png",
+    "a-zoom-partial-c-0101-130": "after-a-zoom-partial-c-0101-130.png",
+    "a-zoom-partial-c-0101-160": "after-a-zoom-partial-c-0101-160.png",
+    "b-hidden-caption-selected": "after-b-hidden-caption-selected.png",
+    "e-guide-shape": "after-e-guide-shape.png",
+    "e-guide-photo": "after-e-guide-photo.png"
+  },
+  "results": {
+    "a-photo-edge": {
+      "stage": {
+        "l": 263.890625,
+        "t": 16.00390625,
+        "w": 478.21875,
+        "h": 268.998046875,
+        "cx": 503,
+        "cy": 150.5029296875,
+        "r": 742.109375,
+        "b": 285.001953125
+      },
+      "before": {
+        "l": 311.21435546875,
+        "t": 53.862892150878906,
+        "w": 104.6103515625,
+        "h": 68.74394226074219,
+        "cx": 363.51953125,
+        "cy": 88.23486328125,
+        "r": 415.82470703125,
+        "b": 122.6068344116211
+      },
+      "after": {
+        "l": 237.736083984375,
+        "t": -4.6223907470703125,
+        "w": 104.6103515625,
+        "h": 68.74394226074219,
+        "cx": 290.041259765625,
+        "cy": 29.74958038330078,
+        "r": 342.346435546875,
+        "b": 64.12155151367188
+      },
+      "shot": "after-a-photo-edge-fit.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 263.9,
+          "t": 16,
+          "w": 478.2,
+          "h": 269
+        },
+        "items": [
+          {
+            "name": "layer-box",
+            "rect": {
+              "l": 237.7,
+              "t": -4.6,
+              "w": 104.7,
+              "h": 68.7
+            },
+            "visibleFrac": 0.933,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "2147483647",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:nw",
+            "rect": {
+              "l": 233.2,
+              "t": -9.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0.17,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:ne",
+            "rect": {
+              "l": 335.9,
+              "t": -9.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0.17,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:sw",
+            "rect": {
+              "l": 233.2,
+              "t": 57.6,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:se",
+            "rect": {
+              "l": 335.9,
+              "t": 57.6,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:rotate",
+            "rect": {
+              "l": 264.7,
+              "t": 77.7,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:move",
+            "rect": {
+              "l": 292.8,
+              "t": 77.7,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:n",
+            "rect": {
+              "l": 280.1,
+              "t": -9.1,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 0.17,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:e",
+            "rect": {
+              "l": 335.9,
+              "t": 19.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:s",
+            "rect": {
+              "l": 280.1,
+              "t": 57.6,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "layer-handle:w",
+            "rect": {
+              "l": 233.2,
+              "t": 19.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "crop-toggle",
+            "rect": {
+              "l": 346.4,
+              "t": 20,
+              "w": 22,
+              "h": 22
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "1960",
+            "pos": "absolute"
+          },
+          {
+            "name": "persp-toggle",
+            "rect": {
+              "l": 346.4,
+              "t": 50,
+              "w": 22,
+              "h": 22
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "1960",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 0,
+            "t": 0,
+            "w": 0,
+            "h": 0
+          }
+        },
+        "clipped": [
+          "layer-box=0.933",
+          "layer-handle:nw=0.17",
+          "layer-handle:ne=0.17",
+          "layer-handle:n=0.17"
+        ],
+        "covered": [
+          "layer-handle:nw<null",
+          "layer-handle:ne<null",
+          "layer-handle:n<null"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 181.7,
+            "t": 47,
+            "w": 756.5,
+            "h": 40
+          }
+        },
+        "preview-element-menu": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 268.8,
+            "t": 155,
+            "w": 156,
+            "h": 36
+          }
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-shape-edge": {
+      "shot": "after-a-shape-edge-fit.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 263.9,
+          "t": 16,
+          "w": 478.2,
+          "h": 269
+        },
+        "items": [
+          {
+            "name": "ix-frame",
+            "rect": {
+              "l": 689.8,
+              "t": 110.6,
+              "w": 74.7,
+              "h": 49.8
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "[object SVGAnimatedString]",
+            "z": "2147483647",
+            "pos": "fixed"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 685.3,
+              "t": 106.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 758,
+              "t": 106.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 758,
+              "t": 154,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 685.3,
+              "t": 154,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 717.2,
+              "t": 106.1,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 758,
+              "t": 125.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 717.2,
+              "t": 154,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 685.3,
+              "t": 125.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 700.2,
+              "t": 172.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 729.2,
+              "t": 172.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 0,
+            "t": 0,
+            "w": 0,
+            "h": 0
+          }
+        },
+        "clipped": [],
+        "covered": [
+          "ix-frame<[object SVGAnimatedString]"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 391.5,
+            "t": 47,
+            "w": 337,
+            "h": 40
+          }
+        },
+        "preview-element-menu": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 706.3,
+            "t": 103.5,
+            "w": 156,
+            "h": 36
+          }
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-placed-text-edge": {
+      "shot": "after-a-placed-text-edge-fit.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 263.9,
+          "t": 16,
+          "w": 478.2,
+          "h": 269
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 475.4,
+              "t": 16,
+              "w": 55.3,
+              "h": 14.9
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption__line",
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 540.6,
+              "t": 5.5,
+              "w": 144.1,
+              "h": 36
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 544.6,
+              "t": 9.5,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 583.6,
+              "t": 9.5,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 613.6,
+              "t": 9.5,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:reset",
+            "rect": {
+              "l": 652.7,
+              "t": 9.5,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 471.4,
+              "t": 12,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 523.7,
+              "t": 12,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 471.4,
+              "t": 23.9,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 523.7,
+              "t": 23.9,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 523.7,
+              "t": 13.5,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 471.4,
+              "t": 13.5,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 478,
+              "t": 45,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 506,
+              "t": 45,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 540.6,
+            "t": 5.5,
+            "w": 144.1,
+            "h": 36
+          }
+        },
+        "clipped": [],
+        "covered": [
+          "caption-box<akari-caption__line",
+          "caption-handle:nw<akari-caption-handle",
+          "caption-handle:ne<akari-caption-handle",
+          "caption-handle:sw<akari-caption-handle",
+          "caption-handle:se<akari-caption-handle"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 244.2,
+            "t": 47,
+            "w": 631.7,
+            "h": 40
+          }
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-caption-edge": {
+      "shot": "after-a-caption-bottom-fit.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 263.9,
+          "t": 16,
+          "w": 478.2,
+          "h": 269
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 437.4,
+              "t": 251.2,
+              "w": 93.2,
+              "h": 14.9
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption__line",
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 431.4,
+              "t": 205.2,
+              "w": 105,
+              "h": 36
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 435.4,
+              "t": 209.2,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 474.4,
+              "t": 209.2,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 504.4,
+              "t": 209.2,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 433.4,
+              "t": 247.2,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 523.6,
+              "t": 247.2,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 433.4,
+              "t": 259.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 523.6,
+              "t": 259.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 523.6,
+              "t": 248.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 433.4,
+              "t": 248.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 536,
+              "t": 247.7,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 564,
+              "t": 247.7,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 431.4,
+            "t": 205.2,
+            "w": 105,
+            "h": 36
+          }
+        },
+        "clipped": [],
+        "covered": [
+          "caption-box<akari-caption__line",
+          "caption-handle:nw<akari-caption-handle",
+          "caption-handle:ne<akari-caption-handle",
+          "caption-handle:sw<akari-caption-handle",
+          "caption-handle:se<akari-caption-handle"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-photo-1-2": {
+      "shot": "after-a-zoom-photo-1-200.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 24.8,
+          "t": -118.5,
+          "w": 956.4,
+          "h": 538
+        },
+        "items": [],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 0,
+            "t": 0,
+            "w": 0,
+            "h": 0
+          }
+        },
+        "clipped": [],
+        "covered": []
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-photo-1-0.5": {
+      "shot": "after-a-zoom-photo-1-50.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 383.4,
+          "t": 83.3,
+          "w": 239.1,
+          "h": 134.5
+        },
+        "items": [],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 0,
+            "t": 0,
+            "w": 0,
+            "h": 0
+          }
+        },
+        "clipped": [],
+        "covered": []
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-shape-a-2": {
+      "shot": "after-a-zoom-shape-a-200.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 24.8,
+          "t": -118.5,
+          "w": 956.4,
+          "h": 538
+        },
+        "items": [
+          {
+            "name": "ix-frame",
+            "rect": {
+              "l": 876.6,
+              "t": 70.8,
+              "w": 149.4,
+              "h": 99.6
+            },
+            "visibleFrac": 0.866,
+            "hitSelf": false,
+            "hitBy": "[object SVGAnimatedString]",
+            "z": "2147483647",
+            "pos": "fixed"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 872.1,
+              "t": 66.3,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 1019.5,
+              "t": 66.3,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 1019.5,
+              "t": 163.9,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 872.1,
+              "t": 163.9,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 941.3,
+              "t": 66.3,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 1019.5,
+              "t": 110.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 941.3,
+              "t": 163.9,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 872.1,
+              "t": 110.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 924.3,
+              "t": 182.4,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 953.3,
+              "t": 182.4,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 0,
+            "t": 0,
+            "w": 0,
+            "h": 0
+          }
+        },
+        "clipped": [
+          "ix-frame=0.866",
+          "ix-handle=0",
+          "ix-handle=0",
+          "ix-handle=0"
+        ],
+        "covered": [
+          "ix-frame<[object SVGAnimatedString]",
+          "ix-handle<null",
+          "ix-handle<null",
+          "ix-handle<null"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 391.5,
+            "t": 47,
+            "w": 337,
+            "h": 40
+          }
+        },
+        "preview-element-menu": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 903,
+            "t": 261.5,
+            "w": 156,
+            "h": 36
+          }
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-shape-a-0.5": {
+      "shot": "after-a-zoom-shape-a-50.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 383.4,
+          "t": 83.3,
+          "w": 239.1,
+          "h": 134.5
+        },
+        "items": [
+          {
+            "name": "ix-frame",
+            "rect": {
+              "l": 596.4,
+              "t": 130.6,
+              "w": 37.4,
+              "h": 24.9
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "[object SVGAnimatedString]",
+            "z": "2147483647",
+            "pos": "fixed"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 591.9,
+              "t": 126.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 627.3,
+              "t": 126.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 627.3,
+              "t": 149,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 591.9,
+              "t": 149,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 605.1,
+              "t": 126.1,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 627.3,
+              "t": 133,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 605.1,
+              "t": 149,
+              "w": 20,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 591.9,
+              "t": 133,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 588.1,
+              "t": 167.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "ix-handle",
+            "rect": {
+              "l": 617.1,
+              "t": 167.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 0,
+            "t": 0,
+            "w": 0,
+            "h": 0
+          }
+        },
+        "clipped": [],
+        "covered": [
+          "ix-frame<[object SVGAnimatedString]"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 391.5,
+            "t": 47,
+            "w": 337,
+            "h": 40
+          }
+        },
+        "preview-element-menu": {
+          "visible": true,
+          "busy": null,
+          "rect": {
+            "l": 594.3,
+            "t": 123.5,
+            "w": 156,
+            "h": 36
+          }
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-c-0101-2": {
+      "shot": "after-a-zoom-c-0101-200.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 24.8,
+          "t": -118.5,
+          "w": 956.4,
+          "h": 538
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 447.9,
+              "t": -118.5,
+              "w": 110.6,
+              "h": 29.9
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 149.5,
+              "t": 3.9,
+              "w": 288.1,
+              "h": 72
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 157.5,
+              "t": 11.9,
+              "w": 56,
+              "h": 56
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 235.5,
+              "t": 11.9,
+              "w": 56,
+              "h": 56
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 295.6,
+              "t": 11.9,
+              "w": 56,
+              "h": 56
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:reset",
+            "rect": {
+              "l": 373.6,
+              "t": 11.9,
+              "w": 56,
+              "h": 56
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 445.4,
+              "t": -121,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 550,
+              "t": -121,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 445.4,
+              "t": -97.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 550,
+              "t": -97.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 550,
+              "t": -113.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 445.4,
+              "t": -113.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 577.7,
+              "t": 17.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 633.7,
+              "t": 17.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 149.5,
+            "t": 3.9,
+            "w": 288.1,
+            "h": 72
+          }
+        },
+        "clipped": [
+          "caption-box=0",
+          "caption-handle:nw=0",
+          "caption-handle:ne=0",
+          "caption-handle:sw=0",
+          "caption-handle:se=0",
+          "caption-handle:e=0",
+          "caption-handle:w=0"
+        ],
+        "covered": [
+          "caption-box<null",
+          "caption-handle:nw<null",
+          "caption-handle:ne<null",
+          "caption-handle:sw<null",
+          "caption-handle:se<null",
+          "caption-handle:e<null",
+          "caption-handle:w<null"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-c-0101-0.5": {
+      "shot": "after-a-zoom-c-0101-50.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 383.4,
+          "t": 83.3,
+          "w": 239.1,
+          "h": 134.5
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 489.2,
+              "t": 83.3,
+              "w": 27.6,
+              "h": 7.5
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption__line",
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 467,
+              "t": 55.3,
+              "w": 72,
+              "h": 18
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 469,
+              "t": 57.3,
+              "w": 14,
+              "h": 14
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 488.5,
+              "t": 57.3,
+              "w": 14,
+              "h": 14
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 503.5,
+              "t": 57.3,
+              "w": 14,
+              "h": 14
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:reset",
+            "rect": {
+              "l": 523,
+              "t": 57.3,
+              "w": 14,
+              "h": 14
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 484.5,
+              "t": 78.5,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 510.6,
+              "t": 78.5,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 484.5,
+              "t": 84.5,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 510.6,
+              "t": 84.5,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 510.6,
+              "t": 77,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 484.5,
+              "t": 77,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 484.2,
+              "t": 91.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 498.2,
+              "t": 91.5,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 467,
+            "t": 55.3,
+            "w": 72,
+            "h": 18
+          }
+        },
+        "clipped": [],
+        "covered": [
+          "caption-box<akari-caption__line",
+          "caption-handle:nw<akari-caption-handle",
+          "caption-handle:ne<akari-caption-handle",
+          "caption-handle:sw<akari-caption-handle",
+          "caption-handle:se<akari-caption-handle"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-c-0001-2": {
+      "shot": "after-a-zoom-c-0001-200.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 24.8,
+          "t": -118.5,
+          "w": 956.4,
+          "h": 538
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 371.8,
+              "t": 351.9,
+              "w": 186.3,
+              "h": 29.9
+            },
+            "visibleFrac": 0.237,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 151.6,
+              "t": 225,
+              "w": 210.1,
+              "h": 72
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 159.6,
+              "t": 233,
+              "w": 56,
+              "h": 56
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 237.6,
+              "t": 233,
+              "w": 56,
+              "h": 56
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 297.6,
+              "t": 233,
+              "w": 56,
+              "h": 56
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 369.3,
+              "t": 349.4,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0.871,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 549.6,
+              "t": 349.4,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0.871,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 369.3,
+              "t": 373.3,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 549.6,
+              "t": 373.3,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 549.6,
+              "t": 356.9,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0.107,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 369.3,
+              "t": 356.9,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0.107,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 577.5,
+              "t": 264.6,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 633.5,
+              "t": 264.6,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 151.6,
+            "t": 225,
+            "w": 210.1,
+            "h": 72
+          }
+        },
+        "clipped": [
+          "caption-box=0.237",
+          "caption-handle:nw=0.871",
+          "caption-handle:ne=0.871",
+          "caption-handle:sw=0",
+          "caption-handle:se=0",
+          "caption-handle:e=0.107",
+          "caption-handle:w=0.107"
+        ],
+        "covered": [
+          "caption-box<null",
+          "caption-handle:sw<null",
+          "caption-handle:se<null",
+          "caption-handle:e<null",
+          "caption-handle:w<null"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-c-0001-0.5": {
+      "shot": "after-a-zoom-c-0001-50.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 383.4,
+          "t": 83.3,
+          "w": 239.1,
+          "h": 134.5
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 470.2,
+              "t": 200.9,
+              "w": 46.6,
+              "h": 7.5
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption__line",
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 467.2,
+              "t": 172.9,
+              "w": 52.5,
+              "h": 18
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 469.2,
+              "t": 174.9,
+              "w": 14,
+              "h": 14
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 488.7,
+              "t": 174.9,
+              "w": 14,
+              "h": 14
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 503.7,
+              "t": 174.9,
+              "w": 14,
+              "h": 14
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 465.4,
+              "t": 196.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 510.5,
+              "t": 196.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 465.4,
+              "t": 202.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 510.5,
+              "t": 202.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 510.5,
+              "t": 194.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 465.4,
+              "t": 194.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 474.7,
+              "t": 209.1,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 488.7,
+              "t": 209.1,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 467.2,
+            "t": 172.9,
+            "w": 52.5,
+            "h": 18
+          }
+        },
+        "clipped": [],
+        "covered": [
+          "caption-box<akari-caption__line",
+          "caption-handle:nw<akari-caption-handle",
+          "caption-handle:ne<akari-caption-handle",
+          "caption-handle:sw<akari-caption-handle",
+          "caption-handle:se<akari-caption-handle"
+        ]
+      },
+      "host": {
+        "preview-context-bar": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-menu": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-context-window": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        },
+        "preview-element-more": {
+          "visible": false,
+          "busy": null,
+          "rect": null
+        }
+      }
+    },
+    "a-zoom-partial-c-0101-1.3": {
+      "shot": "after-a-zoom-partial-c-0101-130.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 192.2,
+          "t": -24.3,
+          "w": 621.7,
+          "h": 349.7
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 467.2,
+              "t": -24.3,
+              "w": 71.9,
+              "h": 19.4
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 548.9,
+              "t": 4,
+              "w": 187.3,
+              "h": 46.8
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 554.1,
+              "t": 9.2,
+              "w": 36.4,
+              "h": 36.4
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 604.8,
+              "t": 9.2,
+              "w": 36.4,
+              "h": 36.4
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 643.8,
+              "t": 9.2,
+              "w": 36.4,
+              "h": 36.4
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:reset",
+            "rect": {
+              "l": 694.6,
+              "t": 9.2,
+              "w": 36.4,
+              "h": 36.4
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 463.6,
+              "t": -27.9,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 531.6,
+              "t": -27.9,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 463.6,
+              "t": -12.4,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 531.6,
+              "t": -12.4,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 531.6,
+              "t": -24.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 463.6,
+              "t": -24.6,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 474.2,
+              "t": 17.1,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 510.6,
+              "t": 17.1,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 548.9,
+            "t": 4,
+            "w": 187.3,
+            "h": 46.8
+          }
+        },
+        "clipped": [
+          "caption-box=0",
+          "caption-handle:nw=0",
+          "caption-handle:ne=0",
+          "caption-handle:sw=0",
+          "caption-handle:se=0",
+          "caption-handle:e=0",
+          "caption-handle:w=0"
+        ],
+        "covered": [
+          "caption-box<null",
+          "caption-handle:nw<null",
+          "caption-handle:ne<null",
+          "caption-handle:sw<null",
+          "caption-handle:se<null",
+          "caption-handle:e<null",
+          "caption-handle:w<null"
+        ]
+      }
+    },
+    "a-zoom-partial-c-0101-1.6": {
+      "shot": "after-a-zoom-partial-c-0101-160.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 120.4,
+          "t": -64.7,
+          "w": 765.2,
+          "h": 430.4
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 458.9,
+              "t": -64.7,
+              "w": 88.5,
+              "h": 23.9
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 218.2,
+              "t": 3.9,
+              "w": 230.5,
+              "h": 57.6
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 224.6,
+              "t": 10.3,
+              "w": 44.8,
+              "h": 44.8
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 287,
+              "t": 10.3,
+              "w": 44.8,
+              "h": 44.8
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 335.1,
+              "t": 10.3,
+              "w": 44.8,
+              "h": 44.8
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:reset",
+            "rect": {
+              "l": 397.5,
+              "t": 10.3,
+              "w": 44.8,
+              "h": 44.8
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 455.8,
+              "t": -67.8,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 539.5,
+              "t": -67.8,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 455.8,
+              "t": -48.7,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 539.5,
+              "t": -48.7,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 539.5,
+              "t": -62.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 455.8,
+              "t": -62.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 0,
+            "hitSelf": false,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 561.1,
+              "t": 11.9,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 605.9,
+              "t": 11.9,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 218.2,
+            "t": 3.9,
+            "w": 230.5,
+            "h": 57.6
+          }
+        },
+        "clipped": [
+          "caption-box=0",
+          "caption-handle:nw=0",
+          "caption-handle:ne=0",
+          "caption-handle:sw=0",
+          "caption-handle:se=0",
+          "caption-handle:e=0",
+          "caption-handle:w=0"
+        ],
+        "covered": [
+          "caption-box<null",
+          "caption-handle:nw<null",
+          "caption-handle:ne<null",
+          "caption-handle:sw<null",
+          "caption-handle:se<null",
+          "caption-handle:e<null",
+          "caption-handle:w<null"
+        ]
+      }
+    },
+    "b-hidden-caption": {
+      "shot": "after-b-hidden-caption-selected.png",
+      "view": {
+        "viewport": [
+          1006,
+          359
+        ],
+        "stage": {
+          "l": 263.9,
+          "t": 16,
+          "w": 478.2,
+          "h": 269
+        },
+        "items": [
+          {
+            "name": "caption-box",
+            "rect": {
+              "l": 437.4,
+              "t": 251.2,
+              "w": 93.2,
+              "h": 14.9
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption__line",
+            "z": "1900",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tools",
+            "rect": {
+              "l": 431.4,
+              "t": 205.2,
+              "w": 105,
+              "h": 36
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-tool:group",
+            "rect": {
+              "l": 435.4,
+              "t": 209.2,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:snap",
+            "rect": {
+              "l": 474.4,
+              "t": 209.2,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-tool:clamp",
+            "rect": {
+              "l": 504.4,
+              "t": 209.2,
+              "w": 28,
+              "h": 28
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "relative"
+          },
+          {
+            "name": "caption-handle:nw",
+            "rect": {
+              "l": 433.4,
+              "t": 247.2,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:ne",
+            "rect": {
+              "l": 523.6,
+              "t": 247.2,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:sw",
+            "rect": {
+              "l": 433.4,
+              "t": 259.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:se",
+            "rect": {
+              "l": 523.6,
+              "t": 259.1,
+              "w": 11,
+              "h": 11
+            },
+            "visibleFrac": 1,
+            "hitSelf": false,
+            "hitBy": "akari-caption-handle",
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:e",
+            "rect": {
+              "l": 523.6,
+              "t": 248.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:w",
+            "rect": {
+              "l": 433.4,
+              "t": 248.7,
+              "w": 11,
+              "h": 20
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:rot",
+            "rect": {
+              "l": 536,
+              "t": 247.7,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          },
+          {
+            "name": "caption-handle:move",
+            "rect": {
+              "l": 564,
+              "t": 247.7,
+              "w": 25,
+              "h": 25
+            },
+            "visibleFrac": 1,
+            "hitSelf": true,
+            "hitBy": null,
+            "z": "auto",
+            "pos": "absolute"
+          }
+        ],
+        "guides": [],
+        "bodyCls": [],
+        "toolsStyle": {
+          "visibility": "visible",
+          "display": "flex",
+          "opacity": "1",
+          "bg": "rgba(24, 26, 31, 0.96)",
+          "rect": {
+            "l": 431.4,
+            "t": 205.2,
+            "w": 105,
+            "h": 36
+          }
+        },
+        "clipped": [],
+        "covered": [
+          "caption-box<akari-caption__line",
+          "caption-handle:nw<akari-caption-handle",
+          "caption-handle:ne<akari-caption-handle",
+          "caption-handle:sw<akari-caption-handle",
+          "caption-handle:se<akari-caption-handle"
+        ]
+      },
+      "dragResult": {
+        "captionScaleBefore": null,
+        "captionScaleAfter": {
+          "scale": 1.439,
+          "text_anchor": "tl",
+          "position": {
+            "x": 0.40537218773228695,
+            "y": 0.8866220907687854
+          }
+        },
+        "coverBefore": {
+          "x": 0,
+          "y": 389
+        },
+        "coverAfter": {
+          "x": 0,
+          "y": 389
+        }
+      }
+    },
+    "e-guide-color": {
+      "shape": {
+        "p": {
+          "x": 503,
+          "y": 150.5029296875
+        },
+        "shot": "after-e-guide-shape.png",
+        "guides": [
+          {
+            "cls": "akari-interaction-snap-guide is-vertical",
+            "bg": "rgb(255, 139, 44)",
+            "borderLeft": "none rgb(238, 238, 238)",
+            "borderTop": "none rgb(238, 238, 238)",
+            "rect": {
+              "l": 502.5,
+              "t": 16,
+              "w": 1,
+              "h": 269
+            }
+          },
+          {
+            "cls": "akari-interaction-snap-guide is-horizontal",
+            "bg": "rgb(255, 139, 44)",
+            "borderLeft": "none rgb(238, 238, 238)",
+            "borderTop": "none rgb(238, 238, 238)",
+            "rect": {
+              "l": 263.9,
+              "t": 150,
+              "w": 478.2,
+              "h": 1
+            }
+          }
+        ]
+      },
+      "photo": {
+        "q": {
+          "x": 503,
+          "y": 150.5029296875
+        },
+        "shot": "after-e-guide-photo.png",
+        "guides": [
+          {
+            "cls": "akari-interaction-snap-guide is-vertical",
+            "bg": "rgb(255, 139, 44)",
+            "borderLeft": "none rgb(238, 238, 238)",
+            "borderTop": "none rgb(238, 238, 238)",
+            "rect": {
+              "l": 502.5,
+              "t": 16,
+              "w": 1,
+              "h": 269
+            }
+          },
+          {
+            "cls": "akari-interaction-snap-guide is-horizontal",
+            "bg": "rgb(255, 139, 44)",
+            "borderLeft": "none rgb(238, 238, 238)",
+            "borderTop": "none rgb(238, 238, 238)",
+            "rect": {
+              "l": 263.9,
+              "t": 150,
+              "w": 478.2,
+              "h": 1
+            }
+          }
+        ]
+      }
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "after-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      },
+      {
+        "id": "cover",
+        "path": "assets/cover.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -855.0009801999608,
+              "y": -484.80886100764553,
+              "scale": 0.6
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape",
+        "lane": "visual",
+        "name": "shape",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 810.0000000000002,
+              "y": 440,
+              "scale": 1,
+              "rotate": 0
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-kf",
+        "lane": "visual",
+        "name": "kf",
+        "items": [
+          {
+            "id": "photo-kf",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1.1368683772161603e-13,
+              "y": 0,
+              "scale": 0.4
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "transform": {
+                  "scale": 0.35
+                }
+              },
+              {
+                "t": 299,
+                "transform": {
+                  "scale": 0.55
+                }
+              }
+            ],
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "字幕",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      },
+      {
+        "id": "v-cover",
+        "lane": "visual",
+        "name": "cover",
+        "items": [
+          {
+            "id": "cover-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 0,
+              "y": 389
+            },
+            "source": {
+              "kind": "media",
+              "src": "cover",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Vkc (<file>)\n    at async u3n.reloadResolvedCaptionDisplay (<file>)\n    at async Ukc (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "orient": "landscape",
+  "exit": 0,
+  "seconds": 34,
+  "engine": "osr",
+  "osrLauncherTier": null,
+  "provenance": "{\"audio\":{\"envelope\":{\"duck_keys\":[\"narration\",\"speech\"],\"speech_intervals\":0,\"ducked_items\":[],\"keyframed_items\":[]},\"clip_fx\":{\"processed_items\":[],\"filters\":{\"highpass\":0,\"afftdn\":0,\"anlmdn\":0,\"rubberband\":0}}},\"sources\":[{\"id\":\"base\",\"path\":\"assets/base.mp4\",\"duration_seconds\":10,\"has_audio\":false,\"width\":1920,\"height\":1080,\"fps\":30,\"pix_fmt\":\"yuv420p\",\"color_range\":null}],\"proxy_used\":false,\"render_tmp_dir\":\".akari/render-tmp/2026-09-26T12-58-06-006Z-15147-gQs2EY\",\"rasterizer\":{\"planned\":\"osr\",\"adopted\":\"osr\",\"attempts\":[{\"method\":\"osr\",\"status\":\"adopted\",\"reason\":null}]},\"environment\":{\"node\":\"v26.3.0\",\"ffmpeg\":\"ffmpeg version 8.1.1 Copyright (c) 2000-2026 the FFmpeg developers\",\"ffprobe\":\"ffprobe version 8.1.1 Copyright (c) 2007-2026 the FFmpeg developers\"},\"engine_requested\":\"osr\",\"engine\":\"osr\",\"codec\":\"h264\",\"osr\":{\"provenance\":{\"engine\":\"osr\",\"launcher_tier\":2,\"verify\":\"stamp\",\"codec\":\"h264\",\"gpu_preference\":{\"policy\":\"auto\",\"exit\":\"osr\",\"applied\":false,\"previous\":null,\"restored\":null,\"reason\":\"platform\",\"recovered_stale\":false}},\"memory\":{\"profile\":\"gpu\",\"warning_bytes\":3221225472,\"hard_stop_bytes\":4294967296,\"worker_budget_bytes\":4294967296,\"budget_scale\":1,\"machine_capped\":false,\"machine_floor\":true,\"total_memory_bytes\":17179869184,\"peak_bytes\":381075456,\"warning_exceeded\":false,\"hard_stop_exceeded\":false},\"viewport\":{\"requested\":{\"width\":1920,\"height\":1081},\"measured\":{\"width\":1920,\"height\":1081},\"emulated\":false,\"display\":{\"width\":1680,\"height\":1050},\"work_are",
+  "frame": "after-f-export-osr-landscape.png",
+  "pixels": {
+    "total": 2073600,
+    "accentBlue4da3ff": 0,
+    "guideOrangeff8b2c": 0
+  }
+}

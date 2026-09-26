@@ -54,7 +54,7 @@ test('辺バーは 14×5 の白いつまみと 6px 広い当たりを持つ', ()
     assert.match(css, /\.akari-crop-edge-e, #layer-select-box \.akari-crop-edge-w, #cut-select-box \.akari-crop-edge-e, #cut-select-box \.akari-crop-edge-w \{ width: 11px; height: 20px;/u);
     assert.match(
         source,
-        /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-crop-edge,/u
+        /#preview-chrome-layer\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-crop-edge,/u
     );
     // ⛶ クロップモード中は select box 側の操作系（辺バー含む）を隠す。
     assert.match(source, /#layer-select-box\.akari-crop-mode-hide-handles \.akari-crop-edge,/u);

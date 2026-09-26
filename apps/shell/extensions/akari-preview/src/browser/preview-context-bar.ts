@@ -31,6 +31,7 @@ interface Rect { left: number; top: number; width: number; height: number }
 export interface PreviewContextBoxReport {
     box: Rect | null;
     busy: boolean;
+    pointerHeld?: boolean;
     stage: Rect | null;
 }
 
@@ -147,15 +148,7 @@ export class PreviewContextBar implements Disposable {
         document.addEventListener('mousedown', onDown, true);
         this.toDispose.push(Disposable.create(() => document.removeEventListener('mousedown', onDown, true)));
         // 離したあとも「動かしている最中」の報告が残ったままなら（作り直しで枠が消えたときなど）、隠すのをやめる
-        const onUp = (): void => {
-            const reports = this.reportCount;
-            window.setTimeout(() => {
-                if (!this.report.busy || this.reportCount !== reports) return;
-                this.report = { ...this.report, busy: false };
-                this.root.removeAttribute('data-busy');
-                this.position();
-            }, 1500);
-        };
+        const onUp = (): void => this.scheduleBusyRelease();
         document.addEventListener('mouseup', onUp, true);
         this.toDispose.push(Disposable.create(() => document.removeEventListener('mouseup', onUp, true)));
         this.root.addEventListener('keydown', event => {
@@ -226,9 +219,22 @@ export class PreviewContextBar implements Disposable {
         this.reportCount++;
         const busy = message.busy === true;
         const wasBusy = this.report.busy;
-        this.report = { box: rect(message.box), busy, stage: rect(message.stage) };
+        const wasHeld = this.report.pointerHeld === true;
+        this.report = { box: rect(message.box), busy, pointerHeld: message.pointerHeld === true,
+            stage: rect(message.stage) };
         if (busy !== wasBusy) this.root.toggleAttribute('data-busy', busy);
         this.position();
+        if (wasHeld && !this.report.pointerHeld && busy) this.scheduleBusyRelease();
+    }
+
+    protected scheduleBusyRelease(): void {
+        const reports = this.reportCount;
+        window.setTimeout(() => {
+            if (!this.report.busy || this.report.pointerHeld || this.reportCount !== reports) return;
+            this.report = { ...this.report, busy: false };
+            this.root.removeAttribute('data-busy');
+            this.position();
+        }, 1500);
     }
 
     protected setState(value: unknown): void {
