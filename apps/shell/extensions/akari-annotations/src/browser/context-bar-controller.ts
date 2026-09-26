@@ -389,7 +389,9 @@ export class ContextBarController implements Disposable {
             this.deps.widget()?.contextBarFooter('ロック中の要素にはスタイルを当てられません。');
             return;
         }
-        await this.commit('スタイルを当てる', doc => applyStyleClip(doc, targetId, clip, targetKind));
+        // 当て先の不透明度が動きを持つときは、静的値でなく再生位置へ点を打つ（applyStyleClip 側で分岐）
+        const atFrame = source ? Math.round(source.playhead * source.fps) : undefined;
+        await this.commit('スタイルを当てる', doc => applyStyleClip(doc, targetId, clip, targetKind, atFrame));
         this.deps.widget()?.contextBarFooter(clip.kind === targetKind ? 'スタイルを当てました。' : '種類が違うので不透明度だけ当てました。');
     }
 

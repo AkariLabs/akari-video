@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { evaluatedItemOpacity } from '@akari-video/edit-store';
 import {
     applyStyleClip, buildItemClipboard, contextBarKind, duplicateItem, findItemPlace, fitItemToScreen, hasCorners,
     isItemLocked, ITEM_CLIPBOARD_KIND, lockedItemIds, layerListAt, moveLayer, nudgeItem, parseItemClipboard, pasteItemClipboard,
-    resizeShapeTo, serializeItemClipboard, setCornerRadius, setItemLocked, styleClipOf, styleWrites, swapLineEnds
+    resizeShapeTo, serializeItemClipboard, setCornerRadius, setItemLocked, STYLE_PATHS, styleClipOf, styleWrites, swapLineEnds
 } from '../lib/common/context-bar-edit.js';
 
 const square = (fill, extra = {}) => ({ kind: 'shape', shape: 'path', params: { fill, stroke: 'none', strokeWidth: 0,
@@ -262,4 +263,60 @@ test('動きを持つ item の揃え・画面に合わせる・幅と高さは�
     assert.equal(fitPoint.x + 960 * (1 - fit.transform.scaleX), 0);
     assert.equal(fitPoint.y + 540 * (1 - fit.transform.scaleY), 0);
     assert.equal(fit.keyframes.length, 3);
+});
+
+test('スタイルを当てる: 当て先の不透明度が動きを持つときは再生位置に点を打つ（KF-1b）', () => {
+    // photo-1（at 0・duration 300）に不透明度の動き。出力 75 フレーム = item 内 75
+    const animated = () => {
+        const d = doc();
+        findItemPlace(d, 'photo-1').item.keyframes = [{ t: 0, opacity: 1 }, { t: 149, opacity: 0.2 }];
+        return d;
+    };
+    const clip = styleClipOf(findItemPlace(doc(), 'shape-a').item, 'shape');
+    const painted = applyStyleClip(animated(), 'photo-1', clip, 'photo', 75);
+    const after = findItemPlace(painted, 'photo-1').item;
+    assert.equal(after.opacity, undefined, '静的値は変えない');
+    assert.equal(after.keyframes.find(point => point.t === 75).opacity, 0.5);
+    assert.equal(evaluatedItemOpacity(after, 75), 0.5, '見えている不透明度が当てた値になる');
+    assert.equal(evaluatedItemOpacity(after, 0), 1, 'ほかの時刻の点は変えない');
+    assert.equal(evaluatedItemOpacity(after, 149), 0.2);
+    // atFrame を渡さない（従来の呼び方）と静的値のまま・点は増えない
+    const staticWrite = findItemPlace(applyStyleClip(animated(), 'photo-1', clip, 'photo'), 'photo-1').item;
+    assert.equal(staticWrite.opacity, 0.5);
+    assert.deepEqual(staticWrite.keyframes.map(point => point.t), [0, 149]);
+    // 動きを持たない当て先は atFrame があっても静的値（既存の期待どおり）
+    const plain = findItemPlace(applyStyleClip(doc(), 'photo-1', clip, 'photo', 75), 'photo-1').item;
+    assert.equal(plain.opacity, 0.5);
+    assert.equal(plain.keyframes, undefined);
+    // 同じ種類（photo → photo）のクリップでも不透明度の点は同じ扱い。flip など他のパスは静的
+    const photoClip = styleClipOf({ source: { kind: 'media', src: 'photo', in: 0, out: 5 }, opacity: 0.4, flip: { h: true } }, 'photo');
+    const same = findItemPlace(applyStyleClip(animated(), 'photo-1', photoClip, 'photo', 30), 'photo-1').item;
+    assert.equal(same.keyframes.find(point => point.t === 30).opacity, 0.4);
+    assert.deepEqual(same.flip, { h: true });
+});
+
+test('スタイルを当てる: ネストした当て先でも祖先の at を引いた item 内フレームに点を打つ', () => {
+    const d = doc();
+    // canvas-1（at 60）の中の kid-1（at 0・duration 120）に不透明度の動き
+    const kid = findItemPlace(d, 'kid-1').item;
+    kid.keyframes = [{ t: 0, opacity: 1 }, { t: 119, opacity: 0.2 }];
+    const clip = styleClipOf({ source: { kind: 'media', src: 'photo', in: 0, out: 5 }, opacity: 0.4 }, 'photo');
+    // 出力 100 フレーム = 祖先 60 + item 内 40
+    const after = findItemPlace(applyStyleClip(d, 'kid-1', clip, 'photo', 100), 'kid-1').item;
+    assert.equal(after.keyframes.find(point => point.t === 40).opacity, 0.4);
+    assert.equal(after.opacity, undefined);
+    assert.equal(evaluatedItemOpacity(after, 40), 0.4);
+});
+
+test('スタイルの写すパスに変形（位置・大きさ・回転）は無い', () => {
+    for (const paths of Object.values(STYLE_PATHS)) {
+        for (const path of paths) assert.doesNotMatch(path, /^transform(\.|$)/u, path);
+    }
+    const d = doc();
+    findItemPlace(d, 'shape-b').item.transform = { x: 12, y: 34, scale: 0.5 };
+    findItemPlace(d, 'shape-b').item.keyframes = [{ t: 0, opacity: 1 }, { t: 149, opacity: 0.2 }];
+    const clip = styleClipOf(findItemPlace(doc(), 'shape-a').item, 'shape');
+    const after = findItemPlace(applyStyleClip(d, 'shape-b', clip, 'shape', 75), 'shape-b').item;
+    assert.deepEqual(after.transform, { x: 12, y: 34, scale: 0.5 });
+    assert.deepEqual(Object.keys(after.keyframes.find(point => point.t === 75)).sort(), ['opacity', 't']);
 });

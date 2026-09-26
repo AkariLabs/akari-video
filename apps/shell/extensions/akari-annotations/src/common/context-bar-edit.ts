@@ -1,4 +1,4 @@
-import { evaluatedItemTransform, hasItemKeyframeGroup, writeItemTransformAt, type TransformV2 } from '@akari-video/edit-store';
+import { evaluatedItemTransform, hasItemKeyframeGroup, writeItemOpacityAt, writeItemTransformAt, type TransformV2 } from '@akari-video/edit-store';
 import { EditV2Document, moveTreeV2Item } from './edit-v2-mutations';
 
 /**
@@ -329,13 +329,24 @@ export function styleWrites(clip: StyleClip, targetKind: ContextBarKind): Array<
     return paths.map(path => ({ path, value: path in clip.values ? clip.values[path] : null }));
 }
 
-export function applyStyleClip(doc: EditV2Document, targetId: string, clip: StyleClip, targetKind: ContextBarKind): EditV2Document {
+/**
+ * スタイルを当てる。`atFrame`（出力のフレーム）を渡すと、当て先の不透明度が動き（点）を持つときは
+ * 静的値でなく再生位置の item 内フレームへ点を打つ（動きが無ければ今までどおり静的値）。
+ * `STYLE_PATHS` に変形（位置・大きさ・回転）のパスは無いので、変形へは波及しない。
+ */
+export function applyStyleClip(doc: EditV2Document, targetId: string, clip: StyleClip, targetKind: ContextBarKind,
+    atFrame?: number): EditV2Document {
     const value = clone(doc) as JsonRecord;
     const place = findItemPlace(value, targetId);
     if (!place) throw new Error(`スタイルを当てる要素が見つかりません: ${targetId}`);
     for (const { path, value: next } of styleWrites(clip, targetKind)) {
         // v0 の rect は角の丸みを持てない（描画に効かない）ので写さない
         if (path === 'source.params.cornerRadius' && place.item.source?.shape !== 'path' && place.item.source?.shape !== 'rounded-rect') continue;
+        if (path === 'opacity' && typeof next === 'number' && atFrame !== undefined && Number.isFinite(atFrame)
+            && hasItemKeyframeGroup(place.item as never, 'opacity')) {
+            const frame = itemFrameAt(place, atFrame);
+            if (frame !== undefined) { writeAnimatedOpacity(place.item, frame, next); continue; }
+        }
         writePath(place.item, path, next);
     }
     return value;
@@ -420,22 +431,35 @@ export function setCornerRadius(doc: EditV2Document, id: string, percent: number
     return value;
 }
 
+/** 出力のフレームを item 内のフレームへ（祖先の at を含む absoluteAt を引く）。 */
+function itemFrameAt(place: ItemPlace, atFrame: number | undefined): number | undefined {
+    if (atFrame === undefined || !Number.isFinite(atFrame)) return undefined;
+    const duration = Number.isFinite(place.item.duration) ? place.item.duration as number : 0;
+    return Math.max(0, Math.min(duration, Math.round(atFrame) - place.absoluteAt));
+}
+
 /**
  * 変形のまとまり（位置・大きさ・回転）のどれかが動き（キーフレーム）を持つとき、再生位置の item の中のフレームを返す。
  * そのときは静的値へ書かず、キーフレームの書き込み層（edit-store の writeItemTransformAt）で再生位置へ点を打つ
  * （静的値へ書くと点に負けて「戻る」）。`atFrame` は出力のフレーム。
  */
 function animatedFrame(place: ItemPlace, atFrame: number | undefined): number | undefined {
-    if (atFrame === undefined || !Number.isFinite(atFrame)) return undefined;
+    const frame = itemFrameAt(place, atFrame);
+    if (frame === undefined) return undefined;
     const item = place.item as never;
     if (!(['position', 'size', 'rotation'] as const).some(group => hasItemKeyframeGroup(item, group))) return undefined;
-    const duration = Number.isFinite(place.item.duration) ? place.item.duration as number : 0;
-    return Math.max(0, Math.min(duration, Math.round(atFrame) - place.absoluteAt));
+    return frame;
 }
 
 function writeAnimatedTransform(item: JsonRecord, frame: number, patch: TransformV2): void {
     const updated = writeItemTransformAt(item as never, frame, patch);
     item.transform = updated.transform;
+    if (updated.keyframes) item.keyframes = updated.keyframes; else delete item.keyframes;
+}
+
+function writeAnimatedOpacity(item: JsonRecord, frame: number, opacity: number): void {
+    const updated = writeItemOpacityAt(item as never, frame, opacity);
+    item.opacity = updated.opacity;
     if (updated.keyframes) item.keyframes = updated.keyframes; else delete item.keyframes;
 }
 
