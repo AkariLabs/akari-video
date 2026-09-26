@@ -380,7 +380,7 @@ test('retry restores chrome, waits another frame, and keeps the first freeze tim
     assert.equal(r.buttonClasses.size, 0);
 });
 
-test('DOM expectations use post-fit rectangles, pre-hide chrome colors, and only visible caption lines', async () => {
+test('DOM expectations use post-fit rectangles, post-hide chrome visibility, and only visible caption lines', async () => {
     const style = { display: 'block', visibility: 'visible', opacity: '1', backgroundColor: 'rgba(0, 0, 0, 0)',
         borderTopWidth: '0px', borderTopStyle: 'none', borderTopColor: 'rgb(0, 0, 0)',
         outlineWidth: '0px', outlineStyle: 'none', outlineColor: 'rgb(0, 0, 0)', color: 'rgb(230, 150, 60)' };
@@ -395,9 +395,14 @@ test('DOM expectations use post-fit rectangles, pre-hide chrome colors, and only
     const badge = node({ get style() { return style; } });
     Object.defineProperty(badge, 'style', { get: () => ({ ...style, backgroundColor: 'rgb(90, 60, 120)',
         visibility: r?.classes.has('akari-gen-capturing') ? 'hidden' : 'visible' }) });
-    const selected = node({ matches: () => false, style: { ...style, outlineColor: 'rgb(245, 196, 81)',
+    const selected = node({ matches: () => false });
+    Object.defineProperty(selected, 'style', { get: () => ({ ...style, outlineColor: 'rgb(245, 196, 81)',
+        outlineWidth: r?.classes.has('akari-gen-capturing') ? '0px' : '2px', outlineOffset: '4px',
+        outlineStyle: r?.classes.has('akari-gen-capturing') ? 'none' : 'solid' }) });
+    const leakedOutline = node({ matches: () => false, style: { ...style, outlineColor: 'rgb(245, 196, 81)',
         outlineWidth: '2px', outlineOffset: '4px', outlineStyle: 'solid' } });
-    r = renderer({ clipped: true, nodes: [badge, selected, invisible], plate: { querySelectorAll: () => [line, invisible, inheritedHidden, outside] } });
+    r = renderer({ clipped: true, nodes: [badge, selected, leakedOutline, invisible],
+        plate: { querySelectorAll: () => [line, invisible, inheritedHidden, outside] } });
     r.click();
     const pending = r.message(r.command('akari-preview-capture-prepare'));
     await new Promise(setImmediate);
@@ -407,13 +412,37 @@ test('DOM expectations use post-fit rectangles, pre-hide chrome colors, and only
     assert.deepEqual(expectations.captions[0].color, [230, 150, 60]);
     assert.equal(expectations.captions[0].rect.x, 0.1);
     assert.equal(expectations.captions[0].rect.y, 0.2);
-    assert.equal(expectations.chrome.length, 2);
-    assert.deepEqual(expectations.chrome[0].colors, [[90, 60, 120]]);
-    assert.equal(expectations.chrome[0].kind, 'fill');
-    assert.equal(expectations.chrome[1].kind, 'edge');
-    assert.equal(expectations.chrome[1].rect.x, (52 - 6 - 20) / 320);
-    assert.equal(expectations.chrome[1].band.x, 2 / 320);
+    assert.equal(expectations.chrome.length, 1);
+    assert.equal(expectations.chrome[0].kind, 'edge');
+    assert.equal(expectations.chrome[0].rect.x, (52 - 6 - 20) / 320);
+    assert.equal(expectations.chrome[0].band.x, 2 / 320);
     await r.message(r.command('akari-preview-capture-restore'));
+});
+
+test('blue footage passes when capture CSS hides chrome, but visible chrome on it is rejected', async () => {
+    for (const hiddenByCapture of [true, false]) {
+        let r;
+        const chrome = { parentElement: null, offsetWidth: 64, offsetHeight: 36, matches: () => true,
+            getBoundingClientRect: () => ({ left: 52, top: 66, right: 116, bottom: 102, width: 64, height: 36 }),
+            get style() { return { display: 'block', visibility: hiddenByCapture && r?.classes.has('akari-gen-capturing') ? 'hidden' : 'visible',
+                opacity: '1', backgroundColor: 'rgb(77, 163, 255)', borderTopColor: 'rgb(0, 0, 0)',
+                borderTopWidth: '0px', borderTopStyle: 'none', outlineColor: 'rgb(0, 0, 0)',
+                outlineWidth: '0px', outlineStyle: 'none' }; } };
+        r = renderer({ nodes: [chrome] });
+        r.click();
+        const prepared = r.message(r.command('akari-preview-capture-prepare'));
+        await new Promise(setImmediate);
+        await frame(r); await frame(r); await prepared;
+        const expectations = r.sent[1].expectations;
+        assert.equal(expectations.chrome.length, hiddenByCapture ? 0 : 1);
+        // NativeImage bitmap bytes are BGRA on little-endian hosts.
+        const main = await mainCapture({ paint: () => [200, 80, 20, 255] });
+        const result = await main.capture({}, { rect: r.sent[1].rect,
+            output: { width: 1920, height: 1080 }, expectations });
+        assert.equal(result.inspection.ok, hiddenByCapture);
+        assert.deepEqual(Array.from(result.inspection.reasons), hiddenByCapture ? [] : ['chrome-leak']);
+        await r.message(r.command('akari-preview-capture-restore'));
+    }
 });
 
 test('failed main-process inspection returns no PNG and cannot encode a rejected frame', async () => {

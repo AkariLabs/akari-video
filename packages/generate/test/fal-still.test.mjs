@@ -3,7 +3,19 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { falStillEstimate, falStillRequest, falStillFetch, generateFalStill } from '../src/cli/fal-still.mjs';
+import { FAL_STILL_MODEL, FAL_STILL_PRICE, FAL_STILL_AS_OF,
+  falStillEstimate, falStillRequest, falStillFetch, generateFalStill } from '../src/cli/fal-still.mjs';
+
+test('fal still estimates read the ai-models catalog price for every quality', async () => {
+  const catalog = JSON.parse(await readFile(new URL('../../schemas/ai-models.json', import.meta.url), 'utf8'));
+  const price = catalog.models.find(model => model.id === FAL_STILL_MODEL).price;
+  assert.deepEqual(FAL_STILL_PRICE, price.by_quality_1024);
+  assert.equal(FAL_STILL_AS_OF, price.as_of);
+  for (const [quality, usd] of Object.entries(price.by_quality_1024))
+    assert.deepEqual(falStillEstimate(quality), { usd, asOf: price.as_of });
+  const source = await readFile(new URL('../src/cli/fal-still.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /0\.006|0\.0133|0\.0528/);
+});
 
 test('all eight aspects map to supported fal image sizes and edit uses image_urls', () => {
   const expected = {

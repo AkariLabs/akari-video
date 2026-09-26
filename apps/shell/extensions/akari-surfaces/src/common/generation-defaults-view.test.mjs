@@ -23,6 +23,7 @@ function findCatalog() {
 const catalogPath = findCatalog();
 assert.ok(catalogPath, '祖先に packages/schemas/gen-models.json が存在する');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+const aiCatalog = JSON.parse(fs.readFileSync(path.join(path.dirname(catalogPath), 'ai-models.json'), 'utf8'));
 
 test('価格を単価・範囲・見積不可・音声倍率つきで表示する', () => {
     const cases = [
@@ -45,9 +46,22 @@ test('実カタログ行の option 文言が完全一致する', () => {
     const expected = {
         'fal:h3-i2v': 'MiniMax H3 · fal:h3-i2v · $0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点',
         'fal:kling-v3-standard-i2v': 'Kling Video v3 Standard · fal:kling-v3-standard-i2v · 見積不可 · 音声つき（切替） · 2026-09-12 時点',
-        'codex:image': 'OpenAI GPT Image · codex:image · 見積不可 · 音声なし · 2026-09-12 時点'
+        'codex:image': 'ChatGPT · codex:image · 見積不可 · 音声なし · 2026-09-12 時点'
     };
     for (const [id, label] of Object.entries(expected)) assert.equal(generationOptionLabel(catalog.models.find(model => model.id === id)), label);
+});
+
+test('画像・動画の表示名は AI モデル一覧の name と一致する', () => {
+    const names = new Map(aiCatalog.models.filter(model => typeof model.name === 'string')
+        .map(model => [model.id, model.name]));
+    const checked = { image: 0, video: 0 };
+    for (const model of catalog.models.filter(model => model.kind === 'image' || model.kind === 'video')) {
+        const name = names.get(model.id);
+        if (name === undefined) continue;
+        assert.equal(generationOptionLabel(model).split(' · ')[0], name, model.id);
+        checked[model.kind]++;
+    }
+    assert.ok(checked.image > 0, '表示名を明示した画像行を実カタログで検査する');
 });
 
 test('kind で絞り込み、順番を保ち、カタログ外の現在値だけ先頭に足す', () => {
@@ -57,7 +71,12 @@ test('kind で絞り込み、順番を保ち、カタログ外の現在値だけ
     assert.ok(ordinary.every(option => option.missing === false));
     const missing = generationOptions(catalog.models, 'image', 'legacy:image');
     assert.deepEqual(missing[0], { value: 'legacy:image', label: 'legacy:image · カタログにありません', missing: true });
-    assert.deepEqual(missing.slice(1).map(option => option.value), catalog.models.filter(model => model.kind === 'image').map(model => model.id));
+    assert.deepEqual(missing.slice(1).map(option => option.value),
+        catalog.models.filter(model => model.kind === 'image' && model.id !== 'fal:gpt-image-2.5-flare').map(model => model.id));
+    const fal = generationOptions(catalog.models, 'image', 'fal:gpt-image-2.5-flare');
+    assert.deepEqual(fal[0], { value: 'fal:gpt-image-2.5-flare',
+        label: 'fal:gpt-image-2.5-flare · この画面では選べません', missing: true });
+    assert.equal(fal.slice(1).some(option => option.value === 'fal:gpt-image-2.5-flare'), false);
 });
 
 test('出所の 3 値を表示する', () => {

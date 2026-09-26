@@ -150,21 +150,23 @@ export function installPreviewFrameCapture(environment: {
             const outlineSelector = '#caption-plate:is([data-selected], [data-alt-all]), '
                 + '#caption-plate:is([data-selected], [data-alt-all]) .akari-caption__plate, '
                 + '[data-akari-interaction-selected], [data-akari-interaction-editing="true"], [data-akari-caption-editing="true"]';
-            const chrome: { element: HTMLElement; color?: PreviewFrameColor; kind: 'fill' | 'edge'; width: number; offset: number }[] = [];
+            const chrome: { element: HTMLElement; color?: PreviewFrameColor; kind: 'fill' | 'edge';
+                source: 'background' | 'border' | 'outline'; width: number; offset: number }[] = [];
             for (const element of Array.from(document.querySelectorAll<HTMLElement>(hiddenSelector + ', ' + outlineSelector))) {
                 if (element === button || !visible(element, before)) continue;
                 const style = getComputedStyle(element);
                 if (element.matches(hiddenSelector)) {
                     // Translucent fills blend with footage: retain only blue detection for their region.
-                    if (color(style.backgroundColor)) chrome.push({ element, color: color(style.backgroundColor, 0.95), kind: 'fill', width: 0, offset: 0 });
+                    if (color(style.backgroundColor)) chrome.push({ element, color: color(style.backgroundColor, 0.95),
+                        kind: 'fill', source: 'background', width: 0, offset: 0 });
                     const border = color(style.borderTopColor, 0.5), width = parseFloat(style.borderTopWidth);
                     if (border && width > 0 && !['none', 'hidden'].includes(style.borderTopStyle)) {
-                        chrome.push({ element, color: border, kind: 'edge', width, offset: -width });
+                        chrome.push({ element, color: border, kind: 'edge', source: 'border', width, offset: -width });
                     }
                 }
                 const outline = color(style.outlineColor, 0.5), width = parseFloat(style.outlineWidth);
                 if (outline && width > 0 && !['none', 'hidden'].includes(style.outlineStyle)) {
-                    chrome.push({ element, color: outline, kind: 'edge', width, offset: parseFloat(style.outlineOffset) || 0 });
+                    chrome.push({ element, color: outline, kind: 'edge', source: 'outline', width, offset: parseFloat(style.outlineOffset) || 0 });
                 }
             }
             const frame = window.frameElement as HTMLIFrameElement;
@@ -198,6 +200,15 @@ export function installPreviewFrameCapture(environment: {
                 if (textColor) expectations.captions.push({ rect: normalize(line.getBoundingClientRect()), color: textColor });
             }
             for (const entry of chrome) {
+                // Capture CSS hides editor chrome. Only chrome still visible after that CSS has
+                // painted can be evidence; footage beneath a hidden selection must not count.
+                if (!visible(entry.element, box)) continue;
+                const style = getComputedStyle(entry.element);
+                if (entry.source === 'background' && !color(style.backgroundColor)) continue;
+                if (entry.source === 'border' && (parseFloat(style.borderTopWidth) <= 0
+                    || ['none', 'hidden'].includes(style.borderTopStyle))) continue;
+                if (entry.source === 'outline' && (parseFloat(style.outlineWidth) <= 0
+                    || ['none', 'hidden'].includes(style.outlineStyle))) continue;
                 const rect = entry.element.getBoundingClientRect();
                 const sx = rect.width / (entry.element.offsetWidth || rect.width);
                 const sy = rect.height / (entry.element.offsetHeight || rect.height);

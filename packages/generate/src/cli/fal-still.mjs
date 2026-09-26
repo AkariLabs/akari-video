@@ -1,9 +1,13 @@
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { submit, pollStatus, fetchResponse, download } from './fal-queue.mjs';
 
 export const FAL_STILL_MODEL = 'fal:gpt-image-2.5-flare';
-export const FAL_STILL_AS_OF = '2026-09-26';
-export const FAL_STILL_PRICE = Object.freeze({ low: 0.006, medium: 0.0133, high: 0.0528 });
+const require = createRequire(import.meta.url);
+const falPrice = require('../../../schemas/ai-models.json').models.find(model => model.id === FAL_STILL_MODEL)?.price;
+if (falPrice?.unit !== 'usd_per_image' || !falPrice.by_quality_1024) throw new Error('fal 静止画の料金がカタログにありません');
+export const FAL_STILL_AS_OF = falPrice.as_of;
+export const FAL_STILL_PRICE = Object.freeze(falPrice.by_quality_1024);
 const baseEndpoint = 'openai/gpt-image-2.5/flare/';
 const sizes = Object.freeze({
   '16:9': 'landscape_16_9', '9:16': 'portrait_16_9', '1:1': 'square_hd',

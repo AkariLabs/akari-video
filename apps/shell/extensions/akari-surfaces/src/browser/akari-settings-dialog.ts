@@ -309,6 +309,11 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
 
     showSection(section: SettingsSectionId): void {
         if (section !== 'about') { this.stopAboutUpdaterEvents(); }
+        const block = this.contentNode.parentElement;
+        if (block) {
+            block.style.width = `min(${section === 'ai-models' ? 1440 : 1040}px, calc(100vw - 48px))`;
+            block.style.maxWidth = section === 'ai-models' ? '1440px' : '1040px';
+        }
         const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${section}"]`);
         if (navTarget?.hidden && this.searchInput.value) { this.searchInput.value = ''; this.filterSections(); }
         for (const [id, node] of this.sections) {
@@ -1892,8 +1897,9 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const rowFor = (field: 'still' | 'video', kind: GenerationKind, label: string): HTMLElement => {
                 const options = generationOptions(catalog.models, kind, defaults.effective[field]).map(item => {
                     const [family, id, ...rest] = item.label.split(' · ');
-                    return item.missing ? { value: item.value, label: item.value, description: 'カタログにありません' }
-                        : { value: item.value, label: id ? `${family} · ${id}` : item.label, description: rest.join(' · ') || undefined };
+                    return item.missing ? { value: item.value, label: item.value,
+                        description: item.value === 'fal:gpt-image-2.5-flare' ? 'この画面では選べません' : 'カタログにありません' }
+                        : { value: item.value, label: family, description: [id, ...rest].filter(Boolean).join(' · ') || undefined };
                 });
                 const control = dropdown({ label: `${label}の既定モデル`, options, value: defaults.effective[field] ?? '',
                     onChange: async value => {

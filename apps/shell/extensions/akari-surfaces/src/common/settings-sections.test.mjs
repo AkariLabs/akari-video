@@ -197,6 +197,16 @@ test('ページの保存と復元は保存不可でも動き、コマンドか�
     assert.match(dialog, /new AkariSettingsDialog\([^;]*this\.requestedSection\)/);
 });
 
+test('AI モデルの節だけダイアログを広げ、比較表はレーダーの下に置く', () => {
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    const section = dialog.slice(dialog.indexOf('showSection(section: SettingsSectionId): void {'));
+    assert.match(section, /block\.style\.width = `min\(\$\{section === 'ai-models' \? 1440 : 1040\}px, calc\(100vw - 48px\)\)`/);
+    assert.match(section, /block\.style\.maxWidth = section === 'ai-models' \? '1440px' : '1040px'/);
+    const models = source('../browser/ai-models/ai-models-view.ts');
+    assert.match(models, /\.akari-ai-compare\{[^}]*display:flex;flex-direction:column/);
+    assert.doesNotMatch(models, /\.akari-ai-compare\{[^}]*grid-template-columns/);
+});
+
 test('形式・fps・OS ごとのエンコーダは有効値を保持し、不正値を既定に戻す', () => {
     for (const { value } of EXPORT_CODEC_CHOICES) { assert.equal(normalizeExportCodec(value), value); }
     for (const value of [24, 30, 60]) { assert.equal(normalizeExportFps(value), value); }

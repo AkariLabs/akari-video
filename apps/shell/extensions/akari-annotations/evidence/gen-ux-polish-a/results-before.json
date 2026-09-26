@@ -1,0 +1,657 @@
+{
+  "phase": "before",
+  "status": "fail",
+  "step": "settings: default still model options",
+  "checks": [
+    {
+      "name": "カメラボタン: 青い素材の上で枠を選んだまま → assets/captures/ に PNG が増え「コマを保存しました」",
+      "pass": false,
+      "measured": {
+        "file": null,
+        "size": null,
+        "notifications": [
+          "コマを保存できませんでした。もう一度押してください",
+          "コマを保存できませんでした。もう一度押してください",
+          "コマを保存できませんでした。もう一度押してください",
+          "コマを保存できませんでした。もう一度押してください"
+        ],
+        "consoleDuring": [
+          "2026-09-26T21:23:47.379Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+          "2026-09-26T21:23:47.458Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+          "2026-09-26T21:23:47.525Z root WARN [akari-preview] frame capture rejected: chrome-leak"
+        ]
+      }
+    },
+    {
+      "name": "今のコマ: 青い素材の上で枠を選んだまま → assets/captures/ に PNG が増え参照として付く",
+      "pass": false,
+      "measured": {
+        "captured": false,
+        "file": null,
+        "size": null,
+        "panelError": "コマを保存できませんでした",
+        "notifications": [
+          "コマを保存できませんでした。もう一度押してください",
+          "コマを保存できませんでした。もう一度押してください",
+          "コマを保存できませんでした。もう一度押してください",
+          "コマを保存できませんでした。もう一度押してください"
+        ],
+        "consoleDuring": [
+          "2026-09-26T21:23:51.516Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+          "2026-09-26T21:23:51.591Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+          "2026-09-26T21:23:51.656Z root WARN [akari-preview] frame capture rejected: chrome-leak"
+        ]
+      }
+    },
+    {
+      "name": "AI モデル（default・viewport 1120）: 3 つ比べても横スクロールしない",
+      "pass": false,
+      "measured": {
+        "columns": 3,
+        "values": [
+          "fal:kling-v3-pro-i2v",
+          "fal:veo-3.1-flf",
+          "fal:seedance-2.0-i2v"
+        ],
+        "compareRight": 1036,
+        "lastSelectRight": 1276,
+        "horizontalScroll": true,
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "cls": "akari-ai-table-wrap",
+            "scrollWidth": 616,
+            "clientWidth": 355,
+            "overflowX": "auto"
+          }
+        ],
+        "tableWidth": 616,
+        "compareWidth": 697
+      }
+    },
+    {
+      "name": "AI モデル（default・viewport 1120）: カードが 3 列以上",
+      "pass": false,
+      "measured": {
+        "image": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 5
+        },
+        "video": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 8
+        }
+      }
+    },
+    {
+      "name": "他の節（default）: アカウント・接続の幅は AI モデルを開く前後で同じ",
+      "pass": true,
+      "measured": {
+        "account": {
+          "width": 1042,
+          "height": 622,
+          "left": 39,
+          "viewport": 1120
+        },
+        "connections": {
+          "width": 1042,
+          "height": 622,
+          "left": 39,
+          "viewport": 1120
+        },
+        "ai-models": {
+          "width": 1042,
+          "height": 622,
+          "left": 39,
+          "viewport": 1120
+        },
+        "account-after-ai-models": {
+          "width": 1042,
+          "height": 622,
+          "left": 39,
+          "viewport": 1120
+        },
+        "connections-after-ai-models": {
+          "width": 1042,
+          "height": 622,
+          "left": 39,
+          "viewport": 1120
+        }
+      }
+    },
+    {
+      "name": "AI モデル（w1440・viewport 1440）: 3 つ比べても横スクロールしない",
+      "pass": false,
+      "measured": {
+        "columns": 3,
+        "values": [
+          "fal:kling-v3-pro-i2v",
+          "fal:veo-3.1-flf",
+          "fal:seedance-2.0-i2v"
+        ],
+        "compareRight": 1196,
+        "lastSelectRight": 1436,
+        "horizontalScroll": true,
+        "scrollers": [
+          {
+            "tag": "DIV",
+            "cls": "akari-ai-table-wrap",
+            "scrollWidth": 616,
+            "clientWidth": 355,
+            "overflowX": "auto"
+          }
+        ],
+        "tableWidth": 616,
+        "compareWidth": 697
+      }
+    },
+    {
+      "name": "AI モデル（w1440・viewport 1440）: カードが 3 列以上",
+      "pass": false,
+      "measured": {
+        "image": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 5
+        },
+        "video": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 8
+        }
+      }
+    },
+    {
+      "name": "他の節（w1440）: アカウント・接続の幅は AI モデルを開く前後で同じ",
+      "pass": true,
+      "measured": {
+        "account": {
+          "width": 1042,
+          "height": 762,
+          "left": 199,
+          "viewport": 1440
+        },
+        "connections": {
+          "width": 1042,
+          "height": 762,
+          "left": 199,
+          "viewport": 1440
+        },
+        "ai-models": {
+          "width": 1042,
+          "height": 762,
+          "left": 199,
+          "viewport": 1440
+        },
+        "account-after-ai-models": {
+          "width": 1042,
+          "height": 762,
+          "left": 199,
+          "viewport": 1440
+        },
+        "connections-after-ai-models": {
+          "width": 1042,
+          "height": 762,
+          "left": 199,
+          "viewport": 1440
+        }
+      }
+    },
+    {
+      "name": "既定モデル: 静止画の codex:image の表示名が「ChatGPT」",
+      "pass": false,
+      "measured": {
+        "button": "OpenAI GPT Image · codex:image",
+        "options": [
+          {
+            "value": "codex:image",
+            "text": "OpenAI GPT Image · codex:image見積不可 · 音声なし · 2026-09-12 時点"
+          },
+          {
+            "value": "fal:gpt-image-2.5-flare",
+            "text": "GPT Image 2.5 Flare · fal:gpt-image-2.5-flare見積不可 · 音声なし · 2026-09-26 時点"
+          },
+          {
+            "value": "fal:nano-banana-pro-edit",
+            "text": "Nano Banana Pro · fal:nano-banana-pro-edit見積不可 · 音声なし · 2026-09-12 時点"
+          }
+        ]
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 36655,
+    "console": [
+      "2026-09-26T21:21:30.415Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.991235d3de17b80b6a7d0108ac4de5674877a15b.flac.36662.1790457689344.tmp.flac",
+      "2026-09-26T21:21:30.415Z root WARN [akari-preview] speech sidecar clip-photo-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.47f6876f083e2fd66c6b3e0285d20a0e341c0491.flac.36662.1790457689346.tmp.flac",
+      "2026-09-26T21:21:34.834Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.991235d3de17b80b6a7d0108ac4de5674877a15b.flac.36662.1790457689344.tmp.flac",
+      "2026-09-26T21:21:34.857Z root WARN [akari-preview] speech sidecar clip-photo-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.47f6876f083e2fd66c6b3e0285d20a0e341c0491.flac.36662.1790457689346.tmp.flac",
+      "2026-09-26T21:23:47.379Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+      "2026-09-26T21:23:47.458Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+      "2026-09-26T21:23:47.525Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+      "2026-09-26T21:23:51.516Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+      "2026-09-26T21:23:51.591Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+      "2026-09-26T21:23:51.656Z root WARN [akari-preview] frame capture rejected: chrome-leak"
+    ],
+    "frame": "frame-1",
+    "previewReconnects": 1,
+    "selectionAtButton": {
+      "selectionVisible": true,
+      "boxes": [
+        {
+          "id": "layer-select-box",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            119,
+            124,
+            166,
+            93
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            115,
+            119,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            279,
+            119,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            115,
+            211,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            279,
+            211,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(212, 212, 212)",
+          "rect": [
+            177,
+            230,
+            25,
+            25
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(212, 212, 212)",
+          "rect": [
+            205,
+            230,
+            25,
+            25
+          ]
+        }
+      ]
+    },
+    "playheadAtButton": "0.5",
+    "cameraButton": {
+      "file": null,
+      "size": null,
+      "notifications": [
+        "コマを保存できませんでした。もう一度押してください",
+        "コマを保存できませんでした。もう一度押してください",
+        "コマを保存できませんでした。もう一度押してください",
+        "コマを保存できませんでした。もう一度押してください"
+      ],
+      "consoleDuring": [
+        "2026-09-26T21:23:47.379Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+        "2026-09-26T21:23:47.458Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+        "2026-09-26T21:23:47.525Z root WARN [akari-preview] frame capture rejected: chrome-leak"
+      ]
+    },
+    "stillRoutes": [
+      {
+        "id": "codex",
+        "checked": true,
+        "price": null
+      },
+      {
+        "id": "antigravity",
+        "checked": false,
+        "price": null
+      },
+      {
+        "id": "grok",
+        "checked": false,
+        "price": null
+      },
+      {
+        "id": "fal",
+        "checked": false,
+        "price": "見積もり $0.053 / 枚"
+      }
+    ],
+    "selectionAtCurrentFrame": {
+      "selectionVisible": true,
+      "boxes": [
+        {
+          "id": "layer-select-box",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            119,
+            124,
+            166,
+            93
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            115,
+            119,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            279,
+            119,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            115,
+            211,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(238, 238, 238)",
+          "rect": [
+            279,
+            211,
+            11,
+            11
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(212, 212, 212)",
+          "rect": [
+            177,
+            230,
+            25,
+            25
+          ]
+        },
+        {
+          "id": "",
+          "border": "1px solid rgb(77, 163, 255)",
+          "outline": "0px none rgb(212, 212, 212)",
+          "rect": [
+            205,
+            230,
+            25,
+            25
+          ]
+        }
+      ]
+    },
+    "playheadAtCurrentFrame": "0.5",
+    "currentFrame": {
+      "captured": false,
+      "file": null,
+      "size": null,
+      "panelError": "コマを保存できませんでした",
+      "notifications": [
+        "コマを保存できませんでした。もう一度押してください",
+        "コマを保存できませんでした。もう一度押してください",
+        "コマを保存できませんでした。もう一度押してください",
+        "コマを保存できませんでした。もう一度押してください"
+      ],
+      "consoleDuring": [
+        "2026-09-26T21:23:51.516Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+        "2026-09-26T21:23:51.591Z root WARN [akari-preview] frame capture rejected: chrome-leak",
+        "2026-09-26T21:23:51.656Z root WARN [akari-preview] frame capture rejected: chrome-leak"
+      ]
+    },
+    "settings": {
+      "default": {
+        "viewport": {
+          "width": 1120,
+          "height": 668
+        },
+        "dialogWidths": {
+          "account": {
+            "width": 1042,
+            "height": 622,
+            "left": 39,
+            "viewport": 1120
+          },
+          "connections": {
+            "width": 1042,
+            "height": 622,
+            "left": 39,
+            "viewport": 1120
+          },
+          "ai-models": {
+            "width": 1042,
+            "height": 622,
+            "left": 39,
+            "viewport": 1120
+          },
+          "account-after-ai-models": {
+            "width": 1042,
+            "height": 622,
+            "left": 39,
+            "viewport": 1120
+          },
+          "connections-after-ai-models": {
+            "width": 1042,
+            "height": 622,
+            "left": 39,
+            "viewport": 1120
+          }
+        },
+        "imageCards": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 5
+        },
+        "videoCards": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 8
+        },
+        "compare": {
+          "columns": 3,
+          "values": [
+            "fal:kling-v3-pro-i2v",
+            "fal:veo-3.1-flf",
+            "fal:seedance-2.0-i2v"
+          ],
+          "compareRight": 1036,
+          "lastSelectRight": 1276,
+          "horizontalScroll": true,
+          "scrollers": [
+            {
+              "tag": "DIV",
+              "cls": "akari-ai-table-wrap",
+              "scrollWidth": 616,
+              "clientWidth": 355,
+              "overflowX": "auto"
+            }
+          ],
+          "tableWidth": 616,
+          "compareWidth": 697
+        }
+      },
+      "w1440": {
+        "resize": {
+          "method": "Emulation.setDeviceMetricsOverride",
+          "inner": {
+            "width": 1440,
+            "height": 900
+          }
+        },
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "dialogWidths": {
+          "account": {
+            "width": 1042,
+            "height": 762,
+            "left": 199,
+            "viewport": 1440
+          },
+          "connections": {
+            "width": 1042,
+            "height": 762,
+            "left": 199,
+            "viewport": 1440
+          },
+          "ai-models": {
+            "width": 1042,
+            "height": 762,
+            "left": 199,
+            "viewport": 1440
+          },
+          "account-after-ai-models": {
+            "width": 1042,
+            "height": 762,
+            "left": 199,
+            "viewport": 1440
+          },
+          "connections-after-ai-models": {
+            "width": 1042,
+            "height": 762,
+            "left": 199,
+            "viewport": 1440
+          }
+        },
+        "imageCards": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 5
+        },
+        "videoCards": {
+          "columns": 2,
+          "cardWidth": 225,
+          "count": 8
+        },
+        "compare": {
+          "columns": 3,
+          "values": [
+            "fal:kling-v3-pro-i2v",
+            "fal:veo-3.1-flf",
+            "fal:seedance-2.0-i2v"
+          ],
+          "compareRight": 1196,
+          "lastSelectRight": 1436,
+          "horizontalScroll": true,
+          "scrollers": [
+            {
+              "tag": "DIV",
+              "cls": "akari-ai-table-wrap",
+              "scrollWidth": 616,
+              "clientWidth": 355,
+              "overflowX": "auto"
+            }
+          ],
+          "tableWidth": 616,
+          "compareWidth": 697
+        }
+      }
+    },
+    "stillDefaultOptions": {
+      "button": "OpenAI GPT Image · codex:image",
+      "options": [
+        {
+          "value": "codex:image",
+          "text": "OpenAI GPT Image · codex:image見積不可 · 音声なし · 2026-09-12 時点"
+        },
+        {
+          "value": "fal:gpt-image-2.5-flare",
+          "text": "GPT Image 2.5 Flare · fal:gpt-image-2.5-flare見積不可 · 音声なし · 2026-09-26 時点"
+        },
+        {
+          "value": "fal:nano-banana-pro-edit",
+          "text": "Nano Banana Pro · fal:nano-banana-pro-edit見積不可 · 音声なし · 2026-09-12 時点"
+        }
+      ]
+    }
+  },
+  "screenshots": [
+    {
+      "name": "before-01-camera-button-selected-over-blue.png",
+      "bytes": 440833
+    },
+    {
+      "name": "before-02-current-frame-selected-over-blue.png",
+      "bytes": 315748
+    },
+    {
+      "name": "before-03-ai-models-cards-default.png",
+      "bytes": 355504
+    },
+    {
+      "name": "before-04-ai-models-compare-3-default.png",
+      "bytes": 245889
+    },
+    {
+      "name": "before-03-ai-models-cards-w1440.png",
+      "bytes": 581441
+    },
+    {
+      "name": "before-04-ai-models-compare-3-w1440.png",
+      "bytes": 445738
+    },
+    {
+      "name": "before-05-default-still-options.png",
+      "bytes": 511369
+    }
+  ]
+}
