@@ -80,6 +80,30 @@ test('motion 袋参照を item id で解決し count 不一致は無視する', 
     assert.deepEqual(references, ['motion/s01.json']);
 });
 
+test('media item の motion 袋も秒単位で読み、参照を監視対象へ渡す', async () => {
+    const raw = fixtureEdit();
+    raw.tracks[0].items[0].keyframes = { path: 'motion/cut.json', count: 9 };
+    const internal = readInternalEdit(JSON.stringify(raw));
+    const references = [];
+    const points = Array.from({ length: 9 }, (_, index) => ({ t: index * 10,
+        transform: { x: index * 10, y: 0, scale: 1, rotate: 0 } }));
+    await resolvePreviewItemKeyframes(internal, {
+        readText: async path => {
+            if (path === 'motion/cut.json') {
+                return JSON.stringify({ version: 0, group: 'cut', items: { cut: points } });
+            }
+            if (path === 'motion/s01.json') return bagText;
+            throw new Error(`unexpected bag ${path}`);
+        },
+        onReference: path => references.push(path)
+    });
+    const cut = internal.tracks[0].items[0];
+    assert.deepEqual(cut.declaration.keyframes.map(point => point.t),
+        points.map(point => point.t / 30));
+    assert.deepEqual(cut.declaration.keyframes[8].transform, points[8].transform);
+    assert.deepEqual(references, ['motion/cut.json', 'motion/s01.json']);
+});
+
 test('motion 袋欠落は warning に留めて overlay を静的値で残す', async () => {
     const warnings = [];
     const overlays = await project(
