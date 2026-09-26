@@ -206,5 +206,9 @@ export class AkariCssVariableForceContribution implements FrontendApplicationCon
         root.setProperty('--akari-line-inner', palette.lineInner);
         root.setProperty('--akari-muted', palette.muted);
         root.setProperty('--akari-faint', palette.faint);
+        // AKARI Store の「Lifetime パス」表示だけが使う金色（ホーム右上のバッジ）。
+        // アクセント（オレンジ）と役割が違う — 購入済みの格を示す 1 色なので別に持つ。
+        // ダークは明るい金、ライトは沈んだ金。どちらも地の上でコントラストが残る値。
+        root.setProperty('--akari-plan-gold', light ? '#8a6612' : '#e3bd63');
     }
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterProjects, readProjectView, saveProjectView } from '../../lib/common/project-browser.js';
+import { filterProjects, filterProjectsByChannel, HOME_PROJECT_PAGE_SIZE, listProjectChannels, PROJECT_PAGE_SIZE, readProjectView, saveProjectView, shouldLoadMoreProjects } from '../../lib/common/project-browser.js';
 
 test('検索は表示ページ外も含め、名前とチャンネルを組み合わせられる', () => {
     const rows = Array.from({ length: 100 }, (_, i) => ({ name: `動画 ${i}`, channel: i % 2 ? '旅行' : '料理', key: `project-${i}` }));
@@ -50,4 +50,37 @@ test('ホームとランチャーで表示形式・ソートを別々に保持�
         assert.equal(readProjectSort(), 'updated-asc');
         assert.equal(readProjectSort('home'), 'name-desc');
     } finally { delete globalThis.localStorage; }
+});
+
+// 2026-09-26 オーナー指摘「チャンネルの切り替えはプロジェクト・ランチャーの中へ」。
+test('チャンネル一覧は重複なし・ロケール順で、単体は現れない', () => {
+    const rows = [
+        { channel: 'gadget' }, { channel: 'cooking' }, { channel: 'gadget' }, {}, { channel: undefined }
+    ];
+    assert.deepEqual(listProjectChannels(rows), ['cooking', 'gadget']);
+    assert.deepEqual(listProjectChannels([]), []);
+});
+
+test('チャンネル絞り込みは未選択ならそのまま通す', () => {
+    const rows = [{ channel: 'gadget', key: 'a' }, { key: 'b' }, { channel: 'cooking', key: 'c' }];
+    assert.deepEqual(filterProjectsByChannel(rows, 'gadget').map(row => row.key), ['a']);
+    assert.deepEqual(filterProjectsByChannel(rows).map(row => row.key), ['a', 'b', 'c']);
+    assert.deepEqual(filterProjectsByChannel(rows, '見つからない'), []);
+});
+
+// 2026-09-26 オーナー指摘「もっと読み込むを押さなくても読めないか」。
+test('追い読みは下端に近づいたときだけ、まだ残りがあるときだけ走る', () => {
+    // 1000px の中身を 600px の窓で見ていて、余白 260px より下端に近い位置。
+    assert.equal(shouldLoadMoreProjects(200, 600, 1000, 12, 40), true);
+    // 同じ位置でも全件出し切っていれば何もしない。
+    assert.equal(shouldLoadMoreProjects(200, 600, 1000, 40, 40), false);
+    // まだ上のほう（下端まで 800px）なら足さない。
+    assert.equal(shouldLoadMoreProjects(0, 200, 1000, 12, 40), false);
+    // スクロールが生まれない（中身が窓に収まる）ときは下端扱いで足す。
+    assert.equal(shouldLoadMoreProjects(0, 600, 400, 12, 40), true);
+});
+
+test('ホーム一覧の 1 ページは押さずに読める件数を持つ', () => {
+    assert.ok(HOME_PROJECT_PAGE_SIZE >= 12, 'オーナー指摘の「3、4 件しか出ない」を脱している');
+    assert.ok(HOME_PROJECT_PAGE_SIZE <= PROJECT_PAGE_SIZE, 'ランチャーの 1 ページを超えない');
 });

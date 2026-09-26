@@ -12,7 +12,7 @@ const { installModeSwitchStyle } = require('../lib/browser/mode-switch/mode-swit
 
 const render = (overrides = {}) => renderToStaticMarkup(React.createElement(CurrentProjectBand, {
     name: '試作', path: '/tmp/example', frames: [], stats: {}, canPreview: false,
-    onPreview() {}, onStart() {}, onReveal() {}, onEdit() {}, onExport() {}, onSwitch() {}, onJoin() {}, onLauncher() {},
+    onPreview() {}, onStart() {}, onReveal() {}, onSwitch() {}, onJoin() {},
     ...overrides
 }));
 
@@ -61,7 +61,7 @@ test('a poster load failure keeps the preview click handler', () => {
     const onPreview = () => {};
     const element = exports.CurrentProjectBand({
         name: '試作', path: '/tmp/example', frames: ['missing.jpg'], stats: {}, canPreview: true,
-        onPreview, onStart() {}, onReveal() {}, onEdit() {}, onExport() {}, onSwitch() {}, onJoin() {}, onLauncher() {}
+        onPreview, onStart() {}, onReveal() {}, onSwitch() {}, onJoin() {}
     });
     const find = node => {
         if (!node || typeof node !== 'object') return undefined;
@@ -101,4 +101,35 @@ test('selected mode card and rail marker use the theme accent', () => {
     assert.match(style.textContent, /\.akari-mode-popup \.mo\.on::before[^}]*background: var\(--akari-accent/);
     assert.match(style.textContent, /\.akari-mode-popup \.mo\.on > svg\s*\{[^}]*visibility: visible/);
     assert.match(style.textContent, /\.akari-mode-switch-selected \.akari-mode-switch-icon::after/);
+});
+
+// 帯 v2（2026-09-26 オーナー指摘）: ボタンを全廃し、狭い幅でもサムネを巨大化させない。
+test('帯はボタンを持たず、フォルダを開くのはパス行だけになる', () => {
+    const html = render({ channel: 'my-channel', frames: ['poster.jpg'], canPreview: true });
+    assert.doesNotMatch(html, /theia-button|akari-current-actions/, '帯の中に押しボタンは残さない');
+    assert.doesNotMatch(html, /続きから編集|プロジェクト・ランチャー/);
+    // Finder を開く導線はパス行そのもの（アイコン + パス）。
+    assert.match(html, /class="akari-current-path"[^>]*title="[^"]*クリックでフォルダを開く/);
+    assert.match(html, /codicon-folder-opened/);
+});
+
+test('チャンネル名は弱い 1 行で、切り替えの当たり判定だけ残す', () => {
+    const html = render({ channel: 'my-channel' });
+    assert.match(html, /class="akari-current-tag channel"[^>]*data-akari-channel-switch="true"/);
+    assert.match(html, /my-channel/);
+    // 枠・背景を持たない = 強調しない（旧: focusBorder の縁取り + 塗り）。
+    assert.match(homePanelCss, /\.akari-current-tag\{[^}]*border:0;background:none/);
+    assert.doesNotMatch(homePanelCss, /\.akari-current-tag\.channel\{/);
+    assert.match(render({}), /class="akari-current-tag single"/);
+});
+
+test('狭い幅でもサムネ列は 1 列へ畳まない（巨大化の原因を塞ぐ）', () => {
+    // 旧実装は @container (max-width:650px) で grid-template-columns:1fr へ畳み、
+    // その瞬間サムネが面いっぱいに広がっていた。
+    assert.doesNotMatch(homePanelCss, /\.akari-current-band\{grid-template-columns:1fr\}/);
+    assert.match(homePanelCss, /\.akari-current-band\{[^}]*grid-template-columns:minmax\(0,152px\)/);
+    assert.match(homePanelCss, /@container \(max-width:620px\)\{\.akari-current-band\{grid-template-columns:minmax\(0,108px\)/);
+    assert.match(homePanelCss, /@container \(max-width:420px\)\{\.akari-current-band\{grid-template-columns:minmax\(0,78px\)/);
+    // 空のときも縦に伸びない（旧 min-height:180px を廃し 16:9 のまま）。
+    assert.doesNotMatch(homePanelCss, /\.akari-current-hero-empty\{[^}]*min-height:180px/);
 });

@@ -1,7 +1,22 @@
 export type ProjectViewMode = 'cards' | 'list';
 export const PROJECT_PAGE_SIZE = 24;
 const VIEW_KEY = 'akari.projects.view';
-export const HOME_PROJECT_PAGE_SIZE = 3;
+// ホーム一覧の 1 ページ。2026-09-26 オーナー指摘「3、4 件しか読み込めない」で 3 → 12。
+// 行そのものは既に全件メモリ上にある（listCreatorRootProjects が title / details まで
+// 読み終えている）ので、増やして増えるのはサムネ生成だけ。それも 2 レーンの直列キュー
+// （enqueueProjectCardWork）に並び、ディスクにキャッシュされるため一斉起動にはならない。
+export const HOME_PROJECT_PAGE_SIZE = 12;
+/** 一覧の下端に近づいたら自動で次のページを足す距離（px）。押させないための余白。 */
+export const HOME_PROJECT_AUTOLOAD_MARGIN_PX = 260;
+
+/** 下端に近づいたか（スクロール容器の実測値だけで決める純関数 — テストしやすくするため）。 */
+export function shouldLoadMoreProjects(
+    scrollTop: number, clientHeight: number, scrollHeight: number,
+    visibleCount: number, totalCount: number
+): boolean {
+    return visibleCount < totalCount
+        && scrollTop + clientHeight >= scrollHeight - HOME_PROJECT_AUTOLOAD_MARGIN_PX;
+}
 const SORT_KEY = 'akari.projects.sort';
 export interface ProjectDetails {
     updatedAt?: number;
@@ -15,6 +30,8 @@ export const PROJECT_SORT_LABELS = {
 } as const;
 export type ProjectSortOrder = keyof typeof PROJECT_SORT_LABELS;
 export const PROJECT_VIEW_ICONS = { cards: 'codicon-dashboard', list: 'codicon-list-flat' } as const;
+/** 並べ替えボタンのアイコン（2026-09-26: select をやめてアイコン 1 個 + QuickPick にした）。 */
+export const PROJECT_SORT_ICON = 'codicon-sort-precedence';
 
 export function readProjectSort(scope: 'home' | 'launcher' = 'launcher'): ProjectSortOrder {
     try {
@@ -58,6 +75,26 @@ export function readProjectView(scope: 'home' | 'launcher' = 'launcher'): Projec
 
 export function saveProjectView(mode: ProjectViewMode, scope: 'home' | 'launcher' = 'launcher'): void {
     try { localStorage.setItem(scope === 'home' ? 'akari.home.projects.view' : VIEW_KEY, mode); } catch { /* 表示切り替えは保存不可でも使える。 */ }
+}
+
+/**
+ * 一覧に出ているチャンネル名（重複なし・ロケール順）。単体プロジェクトは
+ * チャンネルを持たないのでここには現れない。
+ *
+ * 2026-09-26 オーナー指摘「チャンネルの切り替えはプロジェクト・ランチャーの中に
+ * 入れたい」。ランチャーはこの一覧を絞り込みの選択肢に使う。
+ */
+export function listProjectChannels<T extends { channel?: string }>(rows: readonly T[]): string[] {
+    const channels = new Set<string>();
+    for (const row of rows) {
+        if (row.channel) { channels.add(row.channel); }
+    }
+    return [...channels].sort((left, right) => left.localeCompare(right));
+}
+
+/** チャンネル絞り込み。`undefined`（= すべて）はそのまま通す。 */
+export function filterProjectsByChannel<T extends { channel?: string }>(rows: readonly T[], channel?: string): T[] {
+    return channel ? rows.filter(row => row.channel === channel) : [...rows];
 }
 
 export function filterProjects<T extends { name: string; channel?: string; key: string }>(rows: readonly T[], query: string): T[] {
