@@ -5,6 +5,7 @@ import { homedir } from 'os';
 import { pathToFileURL } from 'url';
 import type { GenerateStillResult, ImageRouteState, StartGenerateStillRequest } from '../common/akari-annotations-protocol';
 import { projectOutputPath } from './project-asset-path';
+import { finishPlaceholderGenerating, markPlaceholderGenerating, type GenerationSidecarMeta } from '../common/generation-sidecar';
 
 type SpawnProcess = typeof spawn;
 type Asset = (path: string) => Promise<string>;
@@ -130,11 +131,31 @@ export class StillGenerationManager {
         const target = join(root, relativePath);
         const run = { child: undefined as ChildProcess | undefined, cancelled: false };
         this.active.set(request.itemId, run);
+        let oldMetaPath: string | undefined;
+        let oldMetaText: string | undefined;
+        let oldMetaCaptured = false;
+        let temporaryMeta: GenerationSidecarMeta | undefined;
+        let succeeded = false;
         try {
             const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
             const load = async (name: string): Promise<any> => importEsm(pathToFileURL(await this.findAsset(`packages/generate/src/cli/${name}.mjs`)).toString());
             const [generator, metas, validator] = await Promise.all([load(route === 'codex' ? 'codex-image' : route === 'antigravity' ? 'agy-image' : 'grok-image'), load('meta-still'), load('meta-validate')]);
             const prompt = `${request.prompt.trim()}\n\n${aspectText[request.aspect]}`;
+            oldMetaPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
+            oldMetaText = await fs.readFile(oldMetaPath, 'utf8').catch(error => {
+                if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+                throw error;
+            });
+            oldMetaCaptured = true;
+            const atStart = new Date().toISOString();
+            const placeholder = oldMetaText ? JSON.parse(oldMetaText) : metas.plannedStillMeta({
+                prompt: '', duration_s: Number(item.duration) / (Number(edit.output?.fps) || 30),
+                at: atStart, asOf: atStart.slice(0, 10)
+            });
+            const provider = route === 'antigravity' ? 'agy' : route;
+            const generating = markPlaceholderGenerating(placeholder, provider, atStart);
+            temporaryMeta = generating;
+            await fs.writeFile(oldMetaPath, `${JSON.stringify(generating, null, 2)}\n`);
             const spawnProcess = ((...args: Parameters<SpawnProcess>) => {
                 const child = this.spawnProcess(...args); run.child = child;
                 if (run.cancelled) child.kill('SIGTERM');
@@ -152,8 +173,7 @@ export class StillGenerationManager {
             if (run.cancelled) return { ok: false, cancelled: true, reason: '中止しました。' };
             if (!result?.ok) return { ok: false, reason: brief(result?.error ?? `${route} から結果が返りませんでした`) };
             const image = await metas.inspectPng(join(staging, 'image.png'));
-            const oldMetaPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
-            const oldMeta = await fs.readFile(oldMetaPath, 'utf8').then(JSON.parse).catch(() => undefined);
+            const oldMeta = oldMetaText ? JSON.parse(oldMetaText) : undefined;
             const at = new Date().toISOString();
             const duration_s = Number(item.duration) / (Number(edit.output?.fps) || 30);
             let meta = metas.doneStillMeta({ prompt, duration_s, at, asOf: route === 'codex' ? await metas.readCodexModelAsOf() : at.slice(0, 10),
@@ -183,11 +203,19 @@ export class StillGenerationManager {
                 await Promise.all([fs.rm(target, { force: true }), fs.rm(`${target}.meta.json`, { force: true })]);
                 return { ok: false, cancelled: true, reason: '中止しました。' };
             }
+            succeeded = true;
             return { ok: true, relativePath, width: image.width, height: image.height, elapsedSeconds: result.elapsed_s };
         } catch (error) {
             return { ok: false, reason: brief(error instanceof Error ? error.message : error) };
         } finally {
             this.active.delete(request.itemId);
+            if (oldMetaPath && oldMetaCaptured) {
+                if (oldMetaText === undefined) await fs.rm(oldMetaPath, { force: true });
+                else if (succeeded && temporaryMeta) {
+                    const restored = finishPlaceholderGenerating(JSON.parse(oldMetaText), temporaryMeta, new Date().toISOString());
+                    await fs.writeFile(oldMetaPath, `${JSON.stringify(restored, null, 2)}\n`);
+                } else await fs.writeFile(oldMetaPath, oldMetaText);
+            }
             await fs.rm(staging, { recursive: true, force: true });
         }
     }

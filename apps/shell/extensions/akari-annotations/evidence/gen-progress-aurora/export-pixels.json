@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "frame": 210,
+  "width": 1280,
+  "height": 720,
+  "pixelsCompared": 921600,
+  "diffPixels": 0,
+  "maxChannelDifference": 0,
+  "before": "export-before-frame-210.png",
+  "generating": "export-generating-frame-210.png"
+}

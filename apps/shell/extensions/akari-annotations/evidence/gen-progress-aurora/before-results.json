@@ -1,0 +1,152 @@
+{
+  "status": "PASS",
+  "step": "cleanup",
+  "boot": {},
+  "checks": [
+    {
+      "name": "before preview shows planned frame",
+      "pass": true,
+      "measured": "planned · clip-b"
+    },
+    {
+      "name": "still precedes video",
+      "pass": true,
+      "measured": [
+        "静止画",
+        "動画にする",
+        "文字起こし"
+      ]
+    },
+    {
+      "name": "badge and route text do not intersect",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "clickable buttons have a background or border",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "empty prompt disables 作る",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "prompt and aspects exist",
+      "pass": true,
+      "measured": {
+        "intersects": false,
+        "styled": true,
+        "disabled": true,
+        "badge": "使える",
+        "buttons": 5
+      }
+    },
+    {
+      "name": "before generation leaves preview planned",
+      "pass": true,
+      "measured": "planned · clip-b"
+    }
+  ],
+  "clicks": [
+    {
+      "name": "select cut 1",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open AI",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "progress",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "before-planned.png",
+      "bytes": 174323
+    },
+    {
+      "name": "before-planned-timeline-2x.png",
+      "bytes": 11722
+    },
+    {
+      "name": "before-planned-preview-2x.png",
+      "bytes": 28187
+    },
+    {
+      "name": "before-generating.png",
+      "bytes": 167887
+    },
+    {
+      "name": "before-generating-timeline-2x.png",
+      "bytes": 11719
+    },
+    {
+      "name": "before-generating-preview-2x.png",
+      "bytes": 28187
+    }
+  ],
+  "measurements": {
+    "badgeTextIntersect": false,
+    "clickableButtonsStyled": true,
+    "disabledCreate": true,
+    "timelineThumbnailBefore": "ca7b8e8bd4402caaa23195c1f4f1c4df3372c4cf4cb9d3ec667277527d63bdd8",
+    "timelineThumbnailAfter": null,
+    "timelineThumbnailUndo": null,
+    "previewBefore": "8d87a74f3ae348003b2e371c5e6fb7189b0d8eecc0621e9c7d54d374e0edcb38",
+    "previewAfter": null,
+    "previewUndo": null,
+    "timelineThumbnailChanged": null,
+    "previewChanged": null,
+    "previewStageReady": true,
+    "beforePlannedPreviewTag": "planned · clip-b",
+    "beforeGeneratingPreviewTag": "planned · clip-b"
+  },
+  "fixture": {
+    "ok": true,
+    "project": "temporary-workspace",
+    "clips": [
+      "clip-a",
+      "clip-b",
+      "clip-c",
+      "clip-plain",
+      "clip-mp4"
+    ],
+    "sidecars": [
+      "assets/stills/a.png.meta.json",
+      "assets/stills/b.png.meta.json",
+      "assets/stills/c.png.meta.json"
+    ],
+    "plainImage": "assets/stills/plain.png",
+    "captions": true
+  }
+}

@@ -24,6 +24,23 @@ export interface GenerationChipDescription {
     title: string;
 }
 
+/** 生成中の表示用に、元の枠の記録を保ったまま状態を一時的に進める。 */
+export function markPlaceholderGenerating(meta: GenerationSidecarMeta, provider: string, at: string): GenerationSidecarMeta {
+    return {
+        ...meta,
+        status: 'generating',
+        job: { ...meta.job, provider, started_at: at, stale_after_s: 600 },
+        history: [...(Array.isArray(meta.history) ? meta.history : []), { at, status: 'generating', reason: null }]
+    };
+}
+
+/** 成功時は元の状態に戻し、処理した履歴を枠に残す。 */
+export function finishPlaceholderGenerating(original: GenerationSidecarMeta,
+    generating: GenerationSidecarMeta, at: string): GenerationSidecarMeta {
+    return { ...original, history: [...(Array.isArray(generating.history) ? generating.history : []),
+        { at, status: original.status, reason: null }] };
+}
+
 const TIMELINE_STATES = ['planned', 'generating', 'stale', 'done', 'failed'] as const;
 export function resolveGenerationState(
     meta: GenerationSidecarMeta | undefined, nowMs: number, binding?: GenerationBindingView | null
@@ -42,7 +59,7 @@ function generationProgress(meta: GenerationSidecarMeta | undefined): number | u
 }
 
 export function describeGenerationChip(
-    state: GenerationState, meta?: GenerationSidecarMeta
+    state: GenerationState, meta?: GenerationSidecarMeta, nowMs = Date.now()
 ): GenerationChipDescription {
     const progress = state === 'generating' ? generationProgress(meta) : undefined;
     if (state === 'planned-video') {
@@ -60,7 +77,10 @@ export function describeGenerationChip(
             className: 'akari-generation-planned', title: '生成予定（絵なし）' };
     }
     if (state === 'generating') {
-        const badge = progress === undefined ? '生成中' : `生成中 ${Math.round(progress)}%`;
+        const startedMs = Date.parse(String(meta?.job?.started_at ?? ''));
+        const elapsed = Number.isFinite(startedMs) ? Math.max(0, Math.floor((nowMs - startedMs) / 1000)) : undefined;
+        const badge = progress === undefined ? elapsed === undefined ? '生成中' : `生成中 · ${elapsed} 秒`
+            : `生成中 ${Math.round(progress)}%`;
         return { badge, progress, className: 'akari-generation-generating', title: badge };
     }
     if (state === 'stale') {

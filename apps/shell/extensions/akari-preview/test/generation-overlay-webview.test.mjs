@@ -43,6 +43,17 @@ test('reduced motion、exportLook、生成更新メッセージを webview HTML 
     assert.match(previewBootstrapMethod, /resolveGenerationStateFn\(clip\.meta, Date\.now\(\), clip\.binding, resolveGenerationStateV1\)/u);
 });
 
+test('オーロラはクリップの変形とクロップに収まり、動きを減らす設定で止まる', () => {
+    assert.match(previewBootstrapMethod, /generationOverlay\.style\.left =/u);
+    assert.match(previewBootstrapMethod, /generationOverlay\.style\.top =/u);
+    assert.match(previewBootstrapMethod, /crop\.w/u);
+    assert.match(previewBootstrapMethod, /transform\.scaleX/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora="planned"\]/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora="planned"\]::before\s*\{\s*opacity: 1; background: linear-gradient\(150deg, rgba\(111,120,240,\.22\)/u);
+    assert.match(prepareHtmlMethod, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*#akari-gen-icon\s*\{\s*animation: none/u);
+    assert.match(previewBootstrapMethod, /if \(generationExportLook\)\s*\{\s*hideGenerationOverlay\(\)/u);
+});
+
 test('sendGenerationUpdate は clip ごとに first frame 逆引きを使う', () => {
     const sendGenerationUpdate = methods.get('sendGenerationUpdate');
     assert.ok(sendGenerationUpdate);
@@ -147,6 +158,27 @@ test('sendGenerationUpdate は小窓・背景の URI を配信し、再更新で
         { pipUri: null, blurBackgroundUri: 'http://127.0.0.1/assets/2' }
     ]);
     assert.deepEqual(widget.akariPreviewAssetStreamIds, ['stream-1', 'stream-2']);
+});
+
+test('音の空の枠が生成中なら映像より先にプレビューへ配信する', async () => {
+    const { sender, widget, messages, calls } = await generationSenderFixture();
+    sender.fileService = { readFile: async () => ({ value: Buffer.from(JSON.stringify({
+        output: { fps: 30 }, sources: [{ id: 'audio-src', path: 'assets/generated/frame-audio.wav' }],
+        tracks: [{ lane: 'audio', items: [{ id: 'audio-frame', at: 30, duration: 60,
+            source: { kind: 'media', src: 'audio-src' } }] }]
+    })) }) };
+    const originalRead = sender.previewService.readGenerationSidecars;
+    sender.previewService.readGenerationSidecars = async () => {
+        const result = await originalRead();
+        result.entries.push({ sourcePath: 'assets/generated/frame-audio.wav',
+            meta: { kind: 'audio', status: 'generating', job: { started_at: new Date().toISOString() } } });
+        return result;
+    };
+    await sender.sendGenerationUpdate(widget);
+    assert.equal(messages[0].clips[0].id, 'audio-frame');
+    assert.equal(messages[0].clips[0].kind, 'audio');
+    assert.equal(messages[0].clips[0].meta.status, 'generating');
+    assert.equal(calls.includes('file:///project/assets/generated/frame-audio.wav'), false);
 });
 
 test('画像の解決中にプレビューが閉じたらストリームを破棄し追加更新を送らない', async () => {
