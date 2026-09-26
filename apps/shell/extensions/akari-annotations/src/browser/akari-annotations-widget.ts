@@ -1,4 +1,5 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
+import { previewSelectionSeekTime } from '../common/preview-selection-seek';
 import { itemFrameAtPlayhead, nextNudgeValue, type NudgeValue } from '../common/nudge-value';
 import { captionLibraryApplyFeedback, planLibraryApply, shouldShowTextPlaceBand, timelineApplyTarget,
     type ApplyPayload, type ApplyTarget } from './library-apply-plan';
@@ -2788,7 +2789,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.applySelection({
                     kind: 'item', id: row.id, itemKind: row.itemKind,
                     parentId: row.parentId, trackId: row.trackId
-                });
+                }, true, true);
                 return;
             }
             if ((event.metaKey || event.ctrlKey) && ['c', 'x', 'v'].includes(event.key.toLowerCase())
@@ -3205,7 +3206,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return { kind: 'overlay', id: state.id };
     }
 
-    protected applySelection(selection: TimelineSelection, notifyPreview = true): void {
+    protected applySelection(selection: TimelineSelection, notifyPreview = true, directSingle = false): void {
+        const seekTime = selection && directSingle && notifyPreview
+            ? previewSelectionSeekTime({ range: this.focusRangeFor(selection), playhead: this.playheadT,
+                playing: this.visualPlaying, multiple: false,
+                origin: 'single' }) : undefined;
         if (notifyPreview) this.previewBagSelection = undefined;
         const hadGap = !!this.selectedGap;
         this.selectedGap = undefined;
@@ -3223,6 +3228,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
                 this.syncRightPane();
             }
+            if (seekTime !== undefined) void this.requestSeek(seekTime, { domain: 'output' }).catch(() => undefined);
             return;
         }
         this.selection = selection;
@@ -3231,10 +3237,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.pushSelectionSnapshot();
         this.applySelectionClass();
         if (notifyPreview) this.publishPrimaryPreviewSelection(selection);
-        // 素材選択では現在の再生位置を保ったまま出力プレビューを開く。
         if (selection && selection.kind !== 'world-stop' && selection.kind !== 'world-edge') {
             this.revealOutputPreview();
         }
+        if (seekTime !== undefined) void this.requestSeek(seekTime, { domain: 'output' }).catch(() => undefined);
     }
 
     protected publishPrimaryPreviewSelection(selection: TimelineSelection): void {
@@ -10524,7 +10530,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.playhead.style.left = `${this.percent(this.playheadT)}%`;
                     void this.requestSeek(this.playheadT, { domain: 'output' });
                 },
-                onSelect: target => this.applySelection(target)
+                onSelect: target => this.applySelection(target, true, true)
             }));
             element.style.top = `${this.laneLayout.world.top}px`;
         }
@@ -10720,7 +10726,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                     const selected = this.selectionForTreeRow(row);
                     if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
-                    else this.applySelection(selected);
+                    else this.applySelection(selected, true, true);
                 });
                 if (row.sourceKind === 'group') element.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || event.target instanceof Element && event.target.closest('button')) return;
@@ -12133,7 +12139,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 marker.addEventListener('click', event => {
                     event.preventDefault();
                     event.stopPropagation();
-                    this.applySelection(this.selectionForTreeRow(row));
+                    this.applySelection(this.selectionForTreeRow(row), true, true);
                     const current = this.selectionModel.keyframeSelection;
                     const times = event.shiftKey && current?.itemId === row.id
                         && current.property === propertyRow.property
@@ -12761,7 +12767,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 const selected = this.selectionForTreeRow(treeRow);
                 if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
-                else this.applySelection(selected);
+                else this.applySelection(selected, true, true);
             });
             row.addEventListener('pointerdown', event => event.stopPropagation());
             row.addEventListener('contextmenu', event => {
@@ -14563,7 +14569,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (event.button === 0) {
                     const selected = this.selectionFromDragState(dragDetail);
                     if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
-                    else this.applySelection(selected);
+                    else this.applySelection(selected, true, true);
                 }
                 return;
             }
@@ -14686,7 +14692,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (event.button === 0) {
                     const selected = this.selectionFromDragState(dragDetail);
                     if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
-                    else this.applySelection(selected);
+                    else this.applySelection(selected, true, true);
                 }
                 return;
             }
@@ -15795,7 +15801,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (event.button === 0) {
                     const selected = this.selectionFromDragState(dragDetail);
                     if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
-                    else this.applySelection(selected);
+                    else this.applySelection(selected, true, true);
                 }
                 return;
             }
@@ -15910,7 +15916,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                 }
                 if (this.shouldToggleMultiSelection(event)) this.toggleMultiSelection(selected);
-                else this.applySelection(selected);
+                else this.applySelection(selected, true, true);
                 return;
             }
             state.altKey = event.altKey;

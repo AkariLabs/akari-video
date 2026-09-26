@@ -9704,6 +9704,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 audioMeterTap = null;
             }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
+                window.akari.expirePreviewSelections?.(time);
                 if (Number.isFinite(time)) contextMenuTimelineT = Math.max(0, time);
                 window.akari.updateEmptyCanvasHint?.(time);
                 const now = performance.now();
@@ -12752,7 +12753,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 ? summary.itemStackZ[itemId] : trackZ;
             const applyCutsZIndex = segment => {
                 if (segment && segment.kind === 'src') {
-                    const z = zForTrack(segment.trackId);
+                    const z = typeof zForItem === 'function'
+                        ? zForItem(segment.id, zForTrack(segment.trackId)) : zForTrack(segment.trackId);
                     // renderTransitionComposite が同じ tick の前段で確定した zSwap を、
                     // applyCutsMuteState の通常 z 同期で巻き戻さない。合成終了時の reset が
                     // video / stillImage を正準 track z へ戻す。
@@ -14040,6 +14042,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const selectLayer = (layerId, options) => {
                 const report = !options || options.report !== false;
                 const nextId = layerId && findLayerEntry(layerId) ? layerId : null;
+                const selectedSpan = nextId && findLayerEntry(nextId)?.spec;
+                window.akari.notePreviewSelection?.('layer', nextId, options?.visibleHit === true
+                    || !!selectedSpan && outputTime >= selectedSpan.t && outputTime < selectedSpan.t + selectedSpan.duration);
                 if (nextId && cropModeActive && photoCropTarget?.kind === 'cut') setCropMode(false);
                 if (nextId) { requestedCutId = undefined; requestedOverlayId = null; window.akari.interaction?.clearSelection?.(); }
                 if (nextId === selectedLayerId) {
@@ -14624,10 +14629,6 @@ body { display: grid; place-items: center; padding: 32px; }
             const handleVisualMediaPointerDown = event => {
                 if (typeof motionDraw !== 'undefined' && motionDraw) return;
                 if (window.akari.shouldStartPreviewMarquee?.(event)) return;
-                // A blank click must release captions before selecting the media behind them.
-                // Otherwise selectCut/selectLayer silently clear the local caption first and
-                // pointerup can no longer notify the host that its caption selection ended.
-                if ((selectedCaptionId || activeCaptionEdit) && isSelectionReleaseTarget(event)) return;
                 // ㉔ クロップモード中は移動/選択切り替えと操作が衝突しないよう、選択中レイヤーの
                 // ボディドラッグを含め本編ステージの通常操作を止める（ハンドルは別要素なので
                 // このガードの影響を受けない）。
@@ -14644,8 +14645,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (penModeActive || rectModeActive) return;
                     if (interactiveTarget) {
                         const domItem = target?.closest?.('[data-overlay-id], #caption-plate');
+                        const captionRow = target?.closest?.('.caption-row-plate');
                         const mediaHit = domItem ? findVisualMediaHitAt(event) : null;
-                        if (!mediaHit || Number(mediaHit.style.zIndex) <= Number(domItem.style.zIndex)) return;
+                        const domZ = captionRow
+                            ? Number(captionRow.style.zIndex || captionLayer.style.zIndex)
+                            : Number(domItem?.style.zIndex);
+                        if (!mediaHit || Number(mediaHit.style.zIndex) <= domZ) return;
                         coveredDomHit = mediaHit;
                         event.stopPropagation();
                     }
@@ -14659,9 +14664,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         && !targetIsEngineStage)) return;
                 const hit = coveredDomHit || findVisualMediaHitAt(event);
                 if (!hit) return;
+                if (activeCaptionEdit) void commitCaptionEdit();
+                if (selectedCaptionId) deselectCaption();
                 if (hit === video || hit === stillImage) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
-                    selectCut();
+                    selectCut({ visibleHit: true });
                     const segment = typeof cutInteractionSegment === 'function' ? cutInteractionSegment() : null;
                     const cutImage = segment?.src && (initial.imageSources || {})[segment.src];
                     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -14716,7 +14723,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const entry = findLayerEntry(hit.dataset.akariLayerId);
                 if (!entry) return;
-                selectLayer(entry.spec.id);
+                selectLayer(entry.spec.id, { visibleHit: true });
                 const photo = entry.spec.isImage === true;
                 const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
                 const twice = photo && typeof lastPhotoPointerDown !== 'undefined'
@@ -15093,7 +15100,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '#layer-perspective-panel, .caption-row-plate, [data-overlay-id], [data-akari-interaction], '
                     + 'button, [role="button"], input, textarea, select, a[href]')) return false;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
-                return !!selectedCaptionId || !!activeCaptionEdit || !findVisualMediaHitAt(event);
+                return !!event.target.closest?.('#caption-plate') || !findVisualMediaHitAt(event);
             };
             const releasePreviewSelection = () => {
                 if (activeCaptionEdit) void commitCaptionEdit();
@@ -15492,6 +15499,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 requestedOverlayId = null;
                 window.akari.interaction?.clearSelection?.();
                 if (report) requestedCutId = video.dataset.akariCutId;
+                const selectedSpan = typeof cutInteractionSegment === 'function' ? cutInteractionSegment() : undefined;
+                window.akari.notePreviewSelection?.('cut', requestedCutId, options?.visibleHit === true
+                    || !!selectedSpan && outputTime >= selectedSpan.outStart && outputTime < selectedSpan.outEnd);
                 if (cutSelected) {
                     updateCutSelectBox();
                     if (report) window.akari.reportCutSelection(cutSelectionVideo().dataset.akariCutId || null);
@@ -15506,6 +15516,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const deselectCut = options => {
                 const report = !options || options.report !== false;
+                window.akari.notePreviewSelection?.('cut', null, false);
                 if (cropModeActive && !selectedLayerId) setCropMode(false);
                 if (report) requestedCutId = undefined;
                 if (!cutSelected) {
@@ -16256,6 +16267,9 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
+                window.akari.notePreviewSelection?.('caption', captionId, !!captionId
+                    && window.AkariEditKernel.findActiveCaptions(captions, outputTime)
+                        .some(item => (item.sourceCueId || item.id) === captionId));
                 // Keep a host-selected group when one of its cues becomes primary.
                 if (!options?.preserveGroup && !(selectedCaptionIds.size > 1 && selectedCaptionIds.has(captionId))) {
                     selectedCaptionIds = captionId ? new Set([captionId]) : new Set();
@@ -18426,9 +18440,79 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             };
+            const previewSelectionVisibility = {
+                caption: { id: null, visible: false }, layer: { id: null, visible: false },
+                overlay: { id: null, visible: false }, cut: { id: null, visible: false }
+            };
+            window.akari.notePreviewSelection = (kind, id, visible) => {
+                const state = previewSelectionVisibility[kind];
+                if (state.id === id && state.visible && !visible) return;
+                state.id = id || null;
+                state.visible = Boolean(id && visible);
+            };
+            window.akari.previewSelectionWasVisible = (kind, id) => {
+                const state = previewSelectionVisibility[kind];
+                return state.id === id && state.visible;
+            };
+            window.akari.overlaySelectionVisible = (id, time) => {
+                const item = summary.overlays?.find(candidate => candidate.id === id);
+                if (!item || time < item.start || time >= item.start + item.duration) return false;
+                if (window.akari.interaction?.selectedId === id) return true;
+                return Array.from(stage.querySelectorAll('[data-overlay-id]')).some(container =>
+                    container.getAttribute('data-overlay-id') === id
+                    && getComputedStyle(container).visibility !== 'hidden'
+                    && getComputedStyle(container).display !== 'none');
+            };
+            const leftVisiblePreview = (kind, id, visible) => {
+                const state = previewSelectionVisibility[kind];
+                if (state.id !== id) {
+                    state.id = id || null;
+                    state.visible = Boolean(id && visible);
+                    return false;
+                }
+                const left = Boolean(id && state.visible && !visible);
+                state.visible = Boolean(id && visible);
+                if (left) state.id = null;
+                return left;
+            };
+            window.akari.expirePreviewSelections = (time, activeCaptions) => {
+                const active = activeCaptions || window.AkariEditKernel.findActiveCaptions(captions, time);
+                const currentCaptionId = typeof selectedCaptionId !== 'undefined' ? selectedCaptionId : null;
+                const currentLayerId = typeof selectedLayerId !== 'undefined' ? selectedLayerId : null;
+                const currentCutId = typeof requestedCutId !== 'undefined' ? requestedCutId : undefined;
+                const selectedLayerEntry = currentLayerId && findLayerEntry(currentLayerId);
+                const selectedLayer = selectedLayerEntry?.spec;
+                const selectedOverlayId = (typeof requestedOverlayId !== 'undefined' && requestedOverlayId)
+                    || window.akari.interaction?.selectedId;
+                const selectedOverlay = selectedOverlayId && summary.overlays?.find(item => item.id === selectedOverlayId);
+                const selectedCut = currentCutId !== undefined
+                    ? cutInteractionSegment() : undefined;
+                const outside = (start, end) => Number.isFinite(start) && Number.isFinite(end)
+                    && (time < start || time >= end);
+                if (leftVisiblePreview('caption', currentCaptionId,
+                    !!currentCaptionId && active.some(item => (item.sourceCueId || item.id) === currentCaptionId))) {
+                    deselectCaption();
+                }
+                if (leftVisiblePreview('layer', currentLayerId, !!selectedLayer
+                    && !outside(selectedLayer.t, selectedLayer.t + selectedLayer.duration)
+                    && selectedLayerEntry.video?.style.display !== 'none')) selectLayer(null);
+                if (leftVisiblePreview('cut', currentCutId, !!selectedCut
+                    && !outside(selectedCut.outStart, selectedCut.outEnd))) {
+                    requestedCutId = undefined;
+                    deselectCut({ report: false });
+                    window.akari.reportCutSelection(null);
+                }
+                if (leftVisiblePreview('overlay', selectedOverlayId, !!selectedOverlay
+                    && window.akari.overlaySelectionVisible(selectedOverlayId, time))) {
+                    requestedOverlayId = undefined;
+                    window.akari.interaction?.clearSelection?.();
+                    window.akari.reportOverlaySelection(null);
+                }
+            };
             const renderCaption = () => {
                 // All preview cues are normalized to output time by the host.
                 const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime);
+                window.akari.expirePreviewSelections?.(outputTime, active);
                 const activeTrackId = active.find(caption => caption.groupTrackId)?.groupTrackId;
                 const itemStack = typeof summary !== 'undefined' && summary.itemStackZ ? summary : null;
                 if (itemStack && captionLayer?.style) {
@@ -18731,7 +18815,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         video.style.opacity = restoredOpacity;
                     }
                     if (segment && segment.kind === 'src') {
-                        const restoredZ = String(zForTrack(segment.trackId));
+                        const restoredZ = String(typeof zForItem === 'function'
+                            ? zForItem(segment.id, zForTrack(segment.trackId)) : zForTrack(segment.trackId));
                         video.style.zIndex = restoredZ;
                         stillImage.style.zIndex = restoredZ;
                     }
@@ -18813,8 +18898,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     removeTransitionEngineElements();
                     activeTransitionEngine = visual.engine;
                 }
-                const outgoingZ = zForTrack(window.outgoing.trackId);
-                const incomingZ = zForTrack(window.incoming.trackId);
+                const outgoingZ = zForItem(window.outgoing.id, zForTrack(window.outgoing.trackId));
+                const incomingZ = zForItem(window.incoming.id, zForTrack(window.incoming.trackId));
                 const engineZ = Math.max(outgoingZ, incomingZ) + 1;
                 const engineFilters = visual.engine === 'directional-blur'
                     || visual.engine === 'noise-dissolve'
@@ -20707,6 +20792,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-select-overlay'
                     && (typeof message.overlayId === 'string' || message.overlayId === null)) {
                     requestedOverlayId = message.overlayId;
+                    const visible = window.akari.overlaySelectionVisible?.(requestedOverlayId, outputTime);
+                    window.akari.notePreviewSelection?.('overlay', requestedOverlayId, visible);
+                    if (requestedOverlayId && !visible) window.akari.interaction?.clearSelection?.();
                     applyRequestedOverlaySelection();
                 }
                 if (message && message.type === 'akari-preview-select-layer'
@@ -20909,19 +20997,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (selectedOverlayId !== lastReportedOverlayId || force === true
                     || selectedOverlayIds.length !== lastReportedOverlayIds.length
                     || selectedOverlayIds.some((id, index) => id !== lastReportedOverlayIds[index])) {
+                    if (!selectedOverlayId && requestedOverlayId
+                        && !window.akari.previewSelectionWasVisible?.('overlay', requestedOverlayId)
+                        && !(force && notify)) return;
                     lastReportedOverlayId = selectedOverlayId;
                     lastReportedOverlayIds = [...selectedOverlayIds];
-                    if (!selectedOverlayId && requestedOverlayId) {
-                        const item = summary.overlays.find(candidate => candidate.id === requestedOverlayId);
-                        if (item && (outputTime < item.start || outputTime >= item.start + item.duration)) return;
-                    }
                     if (selectedOverlayId) {
+                        window.akari.notePreviewSelection?.('overlay', selectedOverlayId, true);
                         requestedCutId = undefined;
                         selectLayer(null, { report: false });
                         deselectCut({ report: false });
-                        deselectCaption({ report: false });
+                        if (selectedCaptionId) deselectCaption();
                     }
                     requestedOverlayId = selectedOverlayId || undefined;
+                    if (!selectedOverlayId) window.akari.notePreviewSelection?.('overlay', null, false);
                     if (notify && selectedOverlayId !== applyingOverlaySelection) {
                         if (interaction?.hasSelectionTree) window.akari.reportOverlaySelection(selectedOverlayId, interaction.scopeId, selectedOverlayIds);
                         else window.akari.reportOverlaySelection(selectedOverlayId);
