@@ -1,0 +1,22 @@
+{
+  "base": "c878a49a9",
+  "output": "1280x720 30fps",
+  "osrLauncherTier": { "before": { "a": 2, "a-rev": 2, "b": 2, "c": 2, "d": 2, "d-top": 2, "e": 2 }, "after": { "a": 2, "a-rev": 2, "b": 2, "c": 2, "d": 2, "d-top": 2, "f": 2 } },
+  "osrVideoFrameMd5": {
+    "note": "md5 of ffmpeg framemd5 (video stream, all frames)",
+    "before": { "a": "6feaf973", "a-rev": "6feaf973", "b": "703eb501", "c": "8ef24cc8", "d": "b7de82e7", "d-top": "b7de82e7", "e": "159016d3" },
+    "after": { "a": "d8a54a07", "a-rev": "6feaf973", "b": "50eaf339", "c": "ebc18e03", "d": "36b0fc22", "d-top": "b7de82e7", "e": "159016d3" },
+    "f-caption-region-y560-720": { "base": "d8fe2b0f", "after": "d8fe2b0f" }
+  },
+  "singleBandPageHtml": { "e": "identical to base except the inlined page-runtime and tree paths", "a-rev": "identical (same exceptions)", "d-top": "identical (same exceptions)" },
+  "timingSecondsInterleaved": {
+    "e-single-band": { "base": [11.63, 11.68, 11.5], "after": [11.89, 12.1, 12.66], "meanDeltaPercent": 5.3 },
+    "f-multi-band-200-cues": { "base": [13.17, 14.14, 13.0], "after": [12.42, 12.56, 12.56], "codexRound1PerOverlayIframes": { "base": [12.3, 14.37], "after": [18.99, 17.91] } }
+  },
+  "gpu": {
+    "refused": { "a": "overlay:shape-z:absolute-external-url", "b": "overlay:cap-c-0002:absolute-external-url, font-face-external-resource, animation-timing", "e": "overlay:shape-z:absolute-external-url" },
+    "videoFrameMd5": { "c": "a5331c05", "d": "4744ad97", "d-top": "4744ad97" },
+    "finding": "GPU export is not in track order: (c) caption over the higher photo; (d) and (d-top) are identical frames (multiply ignored, band always over the photo). Unchanged before/after (gpu-export not edited)."
+  },
+  "tests": { "osr-export": "228/228", "edit-store": "1002/1002 (npm test = build + test, no generated drift)", "render-cut": "621/654; the same 33 failures on base c878a49a9 (audio real-render / static hash, environment)", "apps/shell build:ext": "exit 0", "apps/shell lint": "exit 1 on base and after (akari-partner bootstrap-runner.ts no-control-regex, untouched)" }
+}

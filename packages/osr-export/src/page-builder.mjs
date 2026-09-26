@@ -21,6 +21,7 @@ const {
   filterCaptionRootByExcludedIds,
   resolveCaptionTrackZ,
   resolveRecordTrackZ,
+  partitionPreviewMediaPlanes,
   toAnchorCaptions,
   TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
@@ -114,18 +115,26 @@ export function buildOsrPage({
   const blendWarnings = orderedBlendOverlays
     .filter(overlay => !blendModes.has(overlay.blend ?? "normal"))
     .map(overlay => `HTML overlay ${overlay.id} blend ${overlay.blend} is unsupported; using normal composition`);
-  const blendFramesHtml = orderedBlendOverlays.map((overlay, index) => {
+  const mediaPlaneSummary = buildMediaPlaneSummary(projectedEdit, internal, allOverlays, captionZ);
+  const staticBands = partitionPreviewMediaPlanes({ base: [], layers: mediaPlaneSummary.layers.map(layer => ({ id: String(layer.id) })) }, mediaPlaneSummary);
+  const multipleBands = staticBands.length > 1;
+  const blendFramesHtml = (multipleBands ? [] : orderedBlendOverlays).map((overlay, index) => {
     const sheet = renderOverlaySheet({ overlays: [overlay], edit: projectedEdit, projectRoot, duration })
       .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf");
     const escapedSheet = sheet.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
     return `<iframe class="akari-overlay-frame" data-blend="${overlay.blend ?? "normal"}" srcdoc="${escapedSheet}" scrolling="no" title="AKARI overlay ${index + 1}" style="mix-blend-mode:${blendModes.get(overlay.blend ?? "normal") ?? "normal"};z-index:${index + 1}"></iframe>`;
   }).join("\n    ");
+  const multiBandHtml = multipleBands
+    ? renderInterleavedPlanes(staticBands, allOverlays, mediaPlaneSummary.barrierZ, {
+      width, height, projectedEdit, projectRoot, duration, blendModes,
+    }) : "";
   const lookDeclaration = lutCubeText === null ? null : {
     cubeText: lutCubeText,
     intensity: Number(edit?.output?.look?.intensity ?? 1),
   };
   const config = { edit: projectedEdit, fps, width, height, duration, look: lookDeclaration, adjustLutCubeTexts };
   if (Object.keys(captionAnimators).length) config.captionAnimators = captionAnimators;
+  if (multipleBands) config.mediaPlaneSummary = mediaPlaneSummary;
   const pageHeight = height + (stampRow ? 1 : 0);
   const html = `<!doctype html>
 <html>
@@ -137,17 +146,17 @@ export function buildOsrPage({
     #akari-stage { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: #000; }
     #akari-engine, #akari-overlays { position: absolute; inset: 0; width: ${width}px; height: ${height}px; border: 0; display: block; }
     #akari-engine { z-index: 0; }
-    #akari-overlays { z-index: 1; background: transparent; }${hasOverlayBlend ? `\n    .akari-overlay-frame { position: absolute; inset: 0; width: ${width}px; height: ${height}px; border: 0; display: block; background: transparent; }` : ""}
+    #akari-overlays { z-index: 1; background: transparent; }${hasOverlayBlend || multipleBands ? `\n    .akari-overlay-frame { position: absolute; inset: 0; width: ${width}px; height: ${height}px; border: 0; display: block; background: transparent; }` : ""}${multipleBands ? `\n    .akari-media-plane { position: absolute; inset: 0; width: ${width}px; height: ${height}px; display: block; background: transparent; }` : ""}
     #akari-stamp { position: fixed; z-index: 2147483647; left: 0; bottom: 0; width: 100%; height: 1px; background: rgb(0, 0, 85); }
   </style>
 </head>
 <body>
   <div id="akari-stage">
-    <canvas id="akari-engine" width="${width}" height="${height}"></canvas>
-    <iframe id="akari-overlays" src="/overlay-sheet.html" scrolling="no" title="AKARI overlays"${hasOverlayBlend ? ' style="display:none"' : ""}></iframe>${hasOverlayBlend ? `\n    ${blendFramesHtml}` : ""}
+    ${multipleBands ? multiBandHtml : `<canvas id="akari-engine" width="${width}" height="${height}"></canvas>
+    <iframe id="akari-overlays" src="/overlay-sheet.html" scrolling="no" title="AKARI overlays"${hasOverlayBlend ? ' style="display:none"' : ""}></iframe>${hasOverlayBlend ? `\n    ${blendFramesHtml}` : ""}`}
   </div>
   ${stampRow ? '<div id="akari-stamp" aria-hidden="true"></div>' : ""}
-  <script>window.__akariEncodeStamp=${stampFunctionSource()};window.__AKARI_OSR_CONFIG__=${safeJson(config)};</script>
+  <script>window.__akariEncodeStamp=${stampFunctionSource()};window.__AKARI_OSR_CONFIG__=${safeJson(config)};${multipleBands ? `window.__akariPartitionMediaPlanes=(${partitionPreviewMediaPlanes.toString()});` : ""}</script>
   <script>${inlineScript(frameEngineBundle)}</script>
   <script>${inlineScript(pageRuntime)}</script>
 </body>
@@ -242,6 +251,110 @@ export async function loadAndBuildOsrPage({
     adjustLutCubeTexts,
   });
   return { ...page, warnings: [...prepared.warnings, ...(page.warnings ?? [])] };
+}
+
+function buildMediaPlaneSummary(edit, internal, overlays, captionZ) {
+  const tracks = internal?.tracks ?? [];
+  const itemTrackId = Object.create(null);
+  const visit = (item, trackId) => {
+    if (item?.id != null) itemTrackId[String(item.id)] = trackId;
+    for (const child of item?.children ?? item?.items ?? []) visit(child, trackId);
+  };
+  for (const track of tracks) for (const item of track.items ?? []) visit(item, track.id);
+
+  // Match resolvePreviewItemStackOrder: the expanded scale is needed only for grouped captions.
+  const hasGroupedCaption = (items, insideGroup = false) => (items ?? []).some(item =>
+    (insideGroup && ["caption", "captions"].includes(item.source?.kind))
+    || hasGroupedCaption(item.children ?? item.items, insideGroup || item.source?.kind === "group"));
+  const expanded = tracks.some(track => hasGroupedCaption(track.items));
+  const itemStackZ = Object.create(null);
+  const trackStackZ = Object.create(null);
+  if (expanded) {
+    let z = 0;
+    const stack = items => {
+      for (const item of items ?? []) {
+        if (item.id) itemStackZ[String(item.id)] = z;
+        z++;
+        stack(item.children ?? item.items);
+      }
+    };
+    for (const track of tracks) {
+      trackStackZ[String(track.id)] = z++;
+      stack(track.items);
+    }
+  }
+  const itemIdForRecord = record => {
+    const id = String(record?.id ?? "");
+    const candidates = [id, String(record?.parentId ?? ""), id.split("::")[0], id.split("#")[0]];
+    return candidates.find(candidate => Object.hasOwn(itemTrackId, candidate));
+  };
+  const mediaEntry = (item, index, prefix) => {
+    const id = String(item?.id ?? `${prefix}-${index}`);
+    const trackId = itemTrackId[id];
+    return { id, trackId, renderTrack: trackId !== undefined ? tracks.findIndex(track => track.id === trackId)
+      : Number.isInteger(item?.renderTrack) ? item.renderTrack
+        : Number.isInteger(item?.track) ? item.track : 0 };
+  };
+  const cuts = (edit.cuts ?? []).map((item, index) => mediaEntry(item, index, "cut"));
+  const layers = (edit.layers ?? []).map((item, index) => mediaEntry(item, index, "layer"));
+  const barrierZ = overlays.map(overlay => {
+    const itemId = itemIdForRecord(overlay);
+    if (itemId !== undefined && Number.isInteger(itemStackZ[itemId])) return itemStackZ[itemId];
+    const z = Number.isInteger(overlay.z) ? overlay.z : captionZ;
+    return expanded && z < tracks.length ? trackStackZ[String(tracks[z].id)] ?? z : z;
+  });
+  return {
+    timelineTracks: tracks.map(track => ({ id: track.id })),
+    ...(expanded ? { itemStackZ, trackStackZ } : {}),
+    cutsById: Object.fromEntries(cuts.map(cut => [cut.id, cut])),
+    layers: [...cuts, ...layers],
+    barrierZ,
+  };
+}
+
+function renderInterleavedPlanes(bands, overlays, barrierZ, { width, height, projectedEdit, projectRoot, duration, blendModes }) {
+  const values = [...new Set([...bands.map(band => band.zIndex), ...barrierZ])].sort((a, b) => a - b);
+  const rank = z => values.indexOf(z);
+  const elements = [];
+  for (const band of bands) {
+    const zIndex = band.key === 0 ? 0 : 2 * rank(band.zIndex);
+    const attrs = band.key === 0 ? 'id="akari-engine"' : `class="akari-media-plane" data-akari-media-plane="${band.key}"`;
+    elements.push({ z: band.zIndex, order: -1, html: `<canvas ${attrs} width="${width}" height="${height}"${band.key === 0 ? "" : ` style="z-index:${zIndex}"`}></canvas>` });
+  }
+  overlays.forEach((overlay, index) => {
+    elements.push({ z: barrierZ[index], order: index, recordZ: overlay.z ?? 0, overlay });
+  });
+  elements.sort((a, b) => a.z - b.z || Number(Boolean(a.overlay)) - Number(Boolean(b.overlay))
+    || (a.recordZ ?? 0) - (b.recordZ ?? 0) || a.order - b.order);
+  const frameHtml = (records, z, index) => {
+    const sheet = renderOverlaySheet({ overlays: records, edit: projectedEdit, projectRoot, duration })
+      .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf");
+    const escapedSheet = sheet.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
+    const mode = records[0].blend ?? "normal";
+    const blend = blendModes.get(mode) ?? "normal";
+    return `<iframe class="akari-overlay-frame" data-blend="${mode}" srcdoc="${escapedSheet}" scrolling="no" title="AKARI overlay ${index + 1}" style="mix-blend-mode:${blend};z-index:${2 * rank(z) + 1}"></iframe>`;
+  };
+  const html = [];
+  for (let index = 0; index < elements.length;) {
+    const element = elements[index];
+    if (!element.overlay) {
+      html.push(element.html);
+      index++;
+      continue;
+    }
+    const records = [element.overlay];
+    index++;
+    if ((element.overlay.blend ?? "normal") === "normal") {
+      while (index < elements.length && elements[index].overlay
+        && elements[index].z === element.z
+        && (elements[index].overlay.blend ?? "normal") === "normal") {
+        records.push(elements[index].overlay);
+        index++;
+      }
+    }
+    html.push(frameHtml(records, element.z, element.order));
+  }
+  return html.join("\n    ");
 }
 
 // GPU 出口と同じ内部宣言の投影。袋は含まれる全 cue、分離 item は参照 cue のみ。

@@ -67,7 +67,48 @@
   class OsrFrameEngineRuntime {
     constructor() {
       this.canvas = document.getElementById("akari-engine");
-      this.compositor = new FE.WebGL2Compositor(this.canvas, { synchronization: "flush", uploadPath: "direct" });
+      const baseCompositor = new FE.WebGL2Compositor(this.canvas, { synchronization: "flush", uploadPath: "direct" });
+      if (config.mediaPlaneSummary) {
+        const planes = new Map([...document.querySelectorAll(".akari-media-plane")].map(canvas => [Number(canvas.dataset.akariMediaPlane), {
+          canvas,
+          compositor: new FE.WebGL2Compositor(canvas, { synchronization: "flush", uploadPath: "direct", transparent: true }),
+        }]));
+        this.compositor = {
+          kind: "webgl2",
+          get uploadPath() {
+            return [...planes.values()].some(plane => plane.compositor.uploadPath === "copyTo")
+              ? "copyTo" : baseCompositor.uploadPath;
+          },
+          async compose(baseFrames, layerFrames, output, metrics, plan) {
+            const bands = window.__akariPartitionMediaPlanes(plan, config.mediaPlaneSummary);
+            const used = new Set(bands.map(band => band.key));
+            for (const [key, plane] of planes) plane.canvas.style.visibility = used.has(key) ? "visible" : "hidden";
+            let surface;
+            for (const band of bands) {
+              const bandPlan = { ...plan,
+                base: band.baseIndices.map(index => plan.base[index]),
+                layers: band.entries.map(entry => entry.spec),
+              };
+              const bandBase = band.baseIndices.map(index => baseFrames[index]);
+              const bandLayers = band.entries.map(entry => entry.baseIndex !== undefined
+                ? { color: baseFrames[entry.baseIndex] } : layerFrames[entry.layerIndex]);
+              if (band.key === 0) {
+                surface = await baseCompositor.compose(bandBase, bandLayers, output, metrics, bandPlan);
+              } else {
+                const upper = await planes.get(band.key).compositor.compose(bandBase, bandLayers, output, metrics, bandPlan);
+                upper.close();
+              }
+            }
+            return surface;
+          },
+          dispose() {
+            baseCompositor.dispose();
+            for (const plane of planes.values()) plane.compositor.dispose();
+          },
+        };
+      } else {
+        this.compositor = baseCompositor;
+      }
       this.metrics = new FE.FrameMetrics();
       const cuts = normalizedCuts(config.edit, config.adjustLutCubeTexts);
       const urls = new Map();
@@ -137,7 +178,7 @@
       const plan = FE.evaluationPlanFromResolvedTimeline(this.timeline, Math.round(clamped * 1e6), this.sources, this.output);
       const reaped = this.reaper.reap(plan, Math.round(clamped * this.fps));
       this.decoderSessions = { live: reaped.liveStreams, released: this.reaper.released() };
-      if (plan.base.length === 0 && plan.layers.length === 0) {
+      if (!config.mediaPlaneSummary && plan.base.length === 0 && plan.layers.length === 0) {
         const context = this.canvas.getContext("webgl2");
         if (context) {
           context.clearColor(0, 0, 0, 1);
@@ -170,7 +211,7 @@
 
   const overlayFrame = document.getElementById("akari-overlays");
   const overlayFrames = [...(document.querySelectorAll?.(".akari-overlay-frame") ?? [])];
-  const activeOverlayFrames = overlayFrames.length ? overlayFrames : [overlayFrame];
+  const activeOverlayFrames = overlayFrames.length ? overlayFrames : overlayFrame ? [overlayFrame] : [];
   const stampRow = document.getElementById("akari-stamp");
   let engineRuntime;
 
