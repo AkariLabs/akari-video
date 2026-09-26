@@ -1,0 +1,916 @@
+{
+ "label": "a-caption-caption",
+ "move": "caption",
+ "click": "caption",
+ "probe": {
+  "scriptId": "21",
+  "breakpoints": [
+   {
+    "breakpointId": "4:8328:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 8328,
+     "columnNumber": 16
+    }
+   },
+   {
+    "breakpointId": "4:3360:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 3360,
+     "columnNumber": 32
+    }
+   }
+  ]
+ },
+ "from": [
+  640,
+  639.5998791060382
+ ],
+ "drag": {
+  "a": {
+   "x": 560,
+   "y": 293.9585876464844
+  },
+  "b": {
+   "x": 574.9443359375,
+   "y": 305.1665954589844
+  }
+ },
+ "target": [
+  640,
+  639.5998791060382
+ ],
+ "clicked": {
+  "x": 560,
+  "y": 293.9585876464844
+ },
+ "steps": [
+  {
+   "label": "t1-before",
+   "at": "2026-09-26T14:02:10.291Z",
+   "closure": {
+    "at": 1790431330288,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "undefined",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 1
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [],
+   "timeline": {
+    "selected": [],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t1-after-move",
+   "at": "2026-09-26T14:02:13.218Z",
+   "closure": {
+    "at": 1790431333216,
+    "selectedCaptionId": "c-0001",
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 1
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790431330586,
+     "kind": "out:reportCaptionSelection",
+     "detail": [
+      "c-0001"
+     ]
+    },
+    {
+     "t": 1790431330620,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330620,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330620,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330622,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330622,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330622,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330622,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330622,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431330622,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431331164,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-3",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790431331164,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-3",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790431331164,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-3",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790431331175,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431331175,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431331175,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431331176,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431331176,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431331176,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431331184,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom",
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.4297,
+          "y": 0.9717
+         }
+        },
+        "textStyleVars": {
+         "--caption-top": "auto",
+         "--caption-bottom": "2.83%",
+         "--caption-left": "42.97%",
+         "--caption-right": "-34.97%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.12
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "12%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    },
+    {
+     "t": 1790431331184,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom",
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.4297,
+          "y": 0.9717
+         }
+        },
+        "textStyleVars": {
+         "--caption-top": "auto",
+         "--caption-bottom": "2.83%",
+         "--caption-left": "42.97%",
+         "--caption-right": "-34.97%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.12
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "12%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    },
+    {
+     "t": 1790431331184,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom",
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.4297,
+          "y": 0.9717
+         }
+        },
+        "textStyleVars": {
+         "--caption-top": "auto",
+         "--caption-bottom": "2.83%",
+         "--caption-left": "42.97%",
+         "--caption-right": "-34.97%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.12
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "12%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "c-0001"
+    ],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t6-after-seek",
+   "at": "2026-09-26T14:02:15.799Z",
+   "closure": {
+    "at": 1790431335796,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790431333492,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790431333492,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790431333492,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790431333504,
+     "kind": "out:reportCaptionSelection",
+     "detail": [
+      null
+     ]
+    },
+    {
+     "t": 1790431333520,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431333520,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431333520,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431333601,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431333601,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431333601,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t6-after-click",
+   "at": "2026-09-26T14:02:17.671Z",
+   "closure": {
+    "at": 1790431337668,
+    "selectedCaptionId": "c-0002",
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 1,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790431336026,
+     "kind": "out:reportCaptionSelection",
+     "detail": [
+      "c-0002"
+     ]
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790431336057,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "c-0002"
+    ],
+    "playhead": []
+   }
+  }
+ ],
+ "z": {
+  "overlays": [
+   {
+    "id": "shape-a",
+    "z": "2",
+    "cz": "2",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "shape-b",
+    "z": "2",
+    "cz": "2",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-a-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-b-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "shape-b",
+    "z": "90",
+    "cz": "90",
+    "vis": "visible",
+    "parent": "vscode-dark"
+   }
+  ],
+  "planes": [],
+  "layers": [
+   {
+    "id": "photo-a-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "none"
+   },
+   {
+    "id": "photo-b-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "block"
+   }
+  ]
+ }
+}
