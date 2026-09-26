@@ -1,0 +1,472 @@
+{
+  "label": "before",
+  "port": 9623,
+  "project": "portrait",
+  "theme": "dark",
+  "pid": 99148,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 1,
+  "shots": {
+    "d-photo-rotate-mid": "before-d-photo-rotate-mid.png",
+    "d-cut-scale-mid": "before-d-cut-scale-mid.png"
+  },
+  "results": {
+    "d-photo-rotate": {
+      "mid": {
+        "pointer": {
+          "x": 587.7220982142857,
+          "y": 160.28683035714286
+        },
+        "samples": [
+          {
+            "wait": 0,
+            "handleCenter": {
+              "x": 0,
+              "y": 0
+            },
+            "pointerToHandlePx": 609.2,
+            "frame": {
+              "l": 512.9,
+              "t": 159.6,
+              "w": 36.3,
+              "h": 23.8
+            },
+            "media": {
+              "l": 511.2,
+              "t": 149.8,
+              "w": 39.6,
+              "h": 43.4
+            },
+            "frameAngle": 0,
+            "mediaAngle": -122.5
+          },
+          {
+            "wait": 150,
+            "handleCenter": {
+              "x": 0,
+              "y": 0
+            },
+            "pointerToHandlePx": 609.2,
+            "frame": {
+              "l": 512.9,
+              "t": 159.6,
+              "w": 36.3,
+              "h": 23.8
+            },
+            "media": {
+              "l": 511.2,
+              "t": 149.8,
+              "w": 39.6,
+              "h": 43.4
+            },
+            "frameAngle": 0,
+            "mediaAngle": -122.5
+          },
+          {
+            "wait": 600,
+            "handleCenter": {
+              "x": 0,
+              "y": 0
+            },
+            "pointerToHandlePx": 609.2,
+            "frame": {
+              "l": 512.9,
+              "t": 159.6,
+              "w": 36.3,
+              "h": 23.8
+            },
+            "media": {
+              "l": 511.2,
+              "t": 149.8,
+              "w": 39.6,
+              "h": 43.4
+            },
+            "frameAngle": 0,
+            "mediaAngle": -122.5
+          }
+        ],
+        "shot": "before-d-photo-rotate-mid.png",
+        "host": {
+          "preview-context-bar": {
+            "visible": false,
+            "busy": null,
+            "rect": null
+          },
+          "preview-element-menu": {
+            "visible": false,
+            "busy": null,
+            "rect": null
+          },
+          "preview-context-window": {
+            "visible": false,
+            "busy": null,
+            "rect": null
+          },
+          "preview-element-more": {
+            "visible": false,
+            "busy": null,
+            "rect": null
+          }
+        },
+        "bodyCls": [
+          "akari-selection-gesture-active",
+          "akari-media-transforming",
+          "akari-media-moving"
+        ]
+      },
+      "released": {
+        "frame": {
+          "l": 512.8671875,
+          "t": 159.5859375,
+          "w": 36.2890625,
+          "h": 23.84375,
+          "cx": 531.01171875,
+          "cy": 171.5078125,
+          "r": 549.15625,
+          "b": 183.4296875
+        },
+        "media": {
+          "l": 510.347900390625,
+          "t": 149.9043426513672,
+          "w": 41.34588623046875,
+          "h": 43.22254943847656,
+          "cx": 531.0208435058594,
+          "cy": 171.51561737060547,
+          "r": 551.6937866210938,
+          "b": 193.12689208984375
+        }
+      }
+    },
+    "d-cut-scale": {
+      "mid": {
+        "pointer": {
+          "x": 467.6294642857143,
+          "y": 40.57142857142857
+        },
+        "samples": [
+          {
+            "wait": 0,
+            "handleCenter": {
+              "x": 428.3,
+              "y": 17
+            },
+            "pointerToHandlePx": 45.8,
+            "frame": {
+              "l": 427.3,
+              "t": 16,
+              "w": 151.3,
+              "h": 269
+            },
+            "media": null,
+            "frameAngle": 0,
+            "mediaAngle": null
+          },
+          {
+            "wait": 150,
+            "handleCenter": {
+              "x": 428.3,
+              "y": 17
+            },
+            "pointerToHandlePx": 45.8,
+            "frame": {
+              "l": 427.3,
+              "t": 16,
+              "w": 151.3,
+              "h": 269
+            },
+            "media": null,
+            "frameAngle": 0,
+            "mediaAngle": null
+          },
+          {
+            "wait": 600,
+            "handleCenter": {
+              "x": 428.3,
+              "y": 17
+            },
+            "pointerToHandlePx": 45.8,
+            "frame": {
+              "l": 427.3,
+              "t": 16,
+              "w": 151.3,
+              "h": 269
+            },
+            "media": null,
+            "frameAngle": 0,
+            "mediaAngle": null
+          }
+        ],
+        "shot": "before-d-cut-scale-mid.png",
+        "host": {
+          "preview-context-bar": {
+            "visible": true,
+            "busy": null,
+            "rect": {
+              "l": 439,
+              "t": 47,
+              "w": 242,
+              "h": 40
+            }
+          },
+          "preview-element-menu": {
+            "visible": true,
+            "busy": null,
+            "rect": {
+              "l": 482.3,
+              "t": 357.5,
+              "w": 156,
+              "h": 36
+            }
+          },
+          "preview-context-window": {
+            "visible": false,
+            "busy": null,
+            "rect": null
+          },
+          "preview-element-more": {
+            "visible": false,
+            "busy": null,
+            "rect": null
+          }
+        },
+        "bodyCls": []
+      },
+      "released": {
+        "frame": {
+          "l": 427.34375,
+          "t": 16,
+          "w": 151.3125,
+          "h": 269,
+          "cx": 503,
+          "cy": 150.5,
+          "r": 578.65625,
+          "b": 285
+        },
+        "media": null
+      }
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "before-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      },
+      {
+        "id": "cover",
+        "path": "assets/cover.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -200,
+              "y": -560,
+              "scale": 0.6
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape",
+        "lane": "visual",
+        "name": "shape",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 620,
+              "y": 700
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-kf",
+        "lane": "visual",
+        "name": "kf",
+        "items": [
+          {
+            "id": "photo-kf",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 200,
+              "y": 150,
+              "scale": 0.4
+            },
+            "keyframes": [
+              {
+                "t": 0,
+                "transform": {
+                  "x": 200,
+                  "y": 150,
+                  "scale": 0.35,
+                  "rotate": 0
+                }
+              },
+              {
+                "t": 30,
+                "transform": {
+                  "x": 200,
+                  "y": 150,
+                  "scale": 0.370066889632107,
+                  "rotate": -128.87795316410222
+                }
+              },
+              {
+                "t": 299,
+                "transform": {
+                  "x": 200,
+                  "y": 150,
+                  "scale": 0.55,
+                  "rotate": 0
+                }
+              }
+            ],
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "字幕",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      },
+      {
+        "id": "v-cover",
+        "lane": "visual",
+        "name": "cover",
+        "items": [
+          {
+            "id": "cover-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 0,
+              "y": 691
+            },
+            "source": {
+              "kind": "media",
+              "src": "cover",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Lkc (<file>)\n    at async c3n.reloadResolvedCaptionDisplay (<file>)\n    at async Rkc (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

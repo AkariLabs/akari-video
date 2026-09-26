@@ -7,7 +7,14 @@ export interface PreviewMotionTransform {
     rotate: number;
 }
 
-/** The evaluated pose owns hit geometry; a live move may override only its position. */
+/** Evaluate the current base pose while retaining motion and parent animation. */
+export function previewMotionLiveItem<T extends { transform?: PreviewMotionTransform; keyframes?: unknown }>(
+    item: T, live: PreviewMotionTransform
+): T {
+    return { ...item, transform: live, keyframes: undefined };
+}
+
+/** The evaluated pose owns hit geometry, including live scale and rotation. */
 export function previewMotionGeometryTransform(
     base: PreviewMotionTransform,
     evaluated: PreviewMotionTransform | null | undefined,

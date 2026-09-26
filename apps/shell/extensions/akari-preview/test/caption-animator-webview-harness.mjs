@@ -170,7 +170,12 @@ export function harness({ text = source, cues = [], engine = true, available = t
         fps: 30, totalTimelineDuration: 60, videoDuration: () => 60,
         timelineToSource: time => ({ index: 0, kind: 'src', time }), enterSegment: noop, frameEngineMediaIdle: false
     });
-    vm.runInContext("const captionLayer = document.getElementById('caption-plate'); const captionRows = new Map();", context);
+    vm.runInContext(`const captionLayer = document.getElementById('caption-plate');
+        const captionRows = new Map();
+        const captionSelectBox = { children: [], appendChild(child) { child.parentElement = this; this.children.push(child); },
+          querySelector(selector) { return selector === '.akari-caption-handle-box'
+            ? this.children.find(child => child.className === 'akari-caption-handle-box') ?? null : null; } };
+        const selectedCaption = () => captions.find(cue => (cue.sourceCueId || cue.id) === selectedCaptionId);`, context);
     vm.runInContext(`const renderCaptionRuns = (${applyCaptionRunsToHtml.toString()});`, context);
     vm.runInContext(section(text, 'const escapeCaptionHtml =', 'const renderTransitionPlate ='), context);
     vm.runInContext('const renderTransitionPlate = () => {};', context);

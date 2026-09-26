@@ -109,11 +109,11 @@ test('engine 面の pointerdown は previewStage へ一度だけ委譲し操作 
 test('engine 面の選択枠はボディもハンドルも操作できる', () => {
     assert.match(
         compiledHandler,
-        /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \{ pointer-events: auto; \}/u
+        /#preview-chrome-layer\[data-frame-engine-active="true"\] #layer-select-box\.is-active \{ pointer-events: auto; \}/u
     );
     assert.match(
         compiledHandler,
-        /#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-handle,\s*#preview-stage\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-rotate-stem \{ pointer-events: auto; \}/u
+        /#preview-chrome-layer\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-handle,\s*#preview-chrome-layer\[data-frame-engine-active="true"\] #layer-select-box\.is-active \.akari-layer-rotate-stem \{ pointer-events: auto; \}/u
     );
     assert.match(
         compiledHandler,

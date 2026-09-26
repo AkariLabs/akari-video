@@ -11,10 +11,10 @@ import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-h
 
 const handler = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
 const start = handler.indexOf('const beginCaptionHandleDrag =');
-const end = handler.indexOf("captionLayer.addEventListener('pointerdown', event =>", start);
+const end = handler.indexOf("const onCaptionPointerDown = event =>", start);
 assert.ok(start >= 0 && end > start);
 const handleDragSource = handler.slice(start, end);
-const cssStart = handler.indexOf('.caption-row-plate .akari-caption-handle-box {');
+const cssStart = handler.indexOf('#caption-select-box .akari-caption-handle-box {');
 const cssEnd = handler.indexOf('.caption-row-plate.akari-caption-host--editing,', cssStart);
 const baseCss = handler.slice(cssStart, cssEnd);
 
@@ -33,7 +33,7 @@ test('a selected output caption keeps its grabbed edge and writes wrap width wit
         font-size:38px;line-height:1.42}
       </style>
       <div id="overlay-stage" style="position:absolute;left:20px;top:20px;width:1920px;height:1080px;transform-origin:0 0;transform:scale(${sx},${sy})">
-        <div class="caption-row-plate" style="position:absolute;left:0;top:0;width:1920px;height:1080px">
+        <div id="caption-select-box" class="caption-row-plate" style="position:absolute;left:0;top:0;width:1920px;height:1080px">
           <div class="akari-caption__plate">
             <div class="akari-caption__line">長い字幕の文字をここに置いて折り返しを確かめます</div>
             <div class="akari-caption-handle-box" style="position:absolute;left:0;top:0;width:400px;height:100px;${declarations}">
