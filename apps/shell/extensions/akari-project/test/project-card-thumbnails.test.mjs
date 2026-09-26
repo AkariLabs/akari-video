@@ -168,3 +168,68 @@ test('コマのファイル名と相対パスは 1 始まりの連番で往復�
     assert.equal(parseProjectCardFrameIndex('.tmp-123-frame-1.jpg'), undefined);
     assert.equal(parseProjectCardFrameIndex('poster.png'), undefined);
 });
+
+// v2（tracks[].items[]）— 2026-09-26 オーナー報告「動画が入っているのにサムネイルが出ない」。
+// 原因はここが v1 の cuts[] しか読めず、v2 のプロジェクトが常に空を返していたこと。
+test('deriveEditTimelineSamples: v2 は出力フレーム / 素材秒の別軸を正しく読む', () => {
+    const edit = {
+        version: 2,
+        output: { width: 1920, height: 1080, fps: 30 },
+        sources: [{ id: 'src-1', path: 'assets/broll/clip.mp4' }],
+        tracks: [{ id: 'v1', lane: 'visual', items: [
+            // at / duration はフレーム（0〜1128 = 0〜37.6 秒）、in / out は素材の秒。
+            { id: 'clip-1', at: 0, duration: 1128, source: { kind: 'media', src: 'src-1', in: 0, out: 37.6 } }
+        ] }]
+    };
+    const samples = deriveEditTimelineSamples(edit, 5);
+    assert.equal(samples.length, 5);
+    assert.deepEqual(samples.map(sample => sample.sourcePath), Array(5).fill('assets/broll/clip.mp4'));
+    // 37.6 秒を 6 等分した内側の 5 点。
+    assert.deepEqual(samples.map(sample => sample.sourceSeconds), [6.267, 12.533, 18.8, 25.067, 31.333]);
+});
+
+test('deriveEditTimelineSamples: v2 は tracks の配列順（下から上）で上のトラックが勝つ', () => {
+    const edit = {
+        version: 2,
+        output: { fps: 30 },
+        sources: [{ id: 'under', path: 'assets/under.mp4' }, { id: 'over', path: 'assets/over.mp4' }],
+        tracks: [
+            { id: 'v1', lane: 'visual', items: [{ id: 'a', at: 0, duration: 60, source: { kind: 'media', src: 'under', in: 0, out: 2 } }] },
+            { id: 'v2', lane: 'visual', items: [{ id: 'b', at: 0, duration: 60, source: { kind: 'media', src: 'over', in: 0, out: 2 } }] }
+        ]
+    };
+    assert.equal(deriveEditTimelineSamples(edit, 1)[0].sourcePath, 'assets/over.mp4');
+});
+
+test('deriveEditTimelineSamples: v2 は hidden・audio lane・焼けない source を採らない', () => {
+    const base = (items, lane = 'visual') => ({
+        version: 2, output: { fps: 30 },
+        sources: [{ id: 'src-1', path: 'assets/clip.mp4' }],
+        tracks: [{ id: 'v1', lane, items }]
+    });
+    assert.deepEqual(deriveEditTimelineSamples(base([
+        { id: 'a', at: 0, duration: 60, hidden: true, source: { kind: 'media', src: 'src-1', in: 0, out: 2 } }
+    ]), 1), []);
+    assert.deepEqual(deriveEditTimelineSamples(base([
+        { id: 'a', at: 0, duration: 60, source: { kind: 'media', src: 'src-1', in: 0, out: 2 } }
+    ], 'audio'), 1), []);
+    // テロップ・HTML はヘッドレス Chrome が要るので、この段では焼かない。
+    assert.deepEqual(deriveEditTimelineSamples(base([
+        { id: 'a', at: 0, duration: 60, source: { kind: 'telop', preset: 'basic' } }
+    ]), 1), []);
+});
+
+test('deriveEditTimelineSamples: v2 の group は子の at を親相対として降りる', () => {
+    const edit = {
+        version: 2, output: { fps: 30 },
+        sources: [{ id: 'src-1', path: 'assets/clip.mp4' }],
+        tracks: [{ id: 'v1', lane: 'visual', items: [
+            { id: 'g', at: 30, duration: 120, source: { kind: 'group' }, items: [
+                { id: 'child', at: 0, duration: 120, source: { kind: 'media', src: 'src-1', in: 0, out: 4 } }
+            ] }
+        ] }]
+    };
+    const samples = deriveEditTimelineSamples(edit, 1);
+    // 出力 5 秒（150 フレーム）の中点 2.5 秒は、子カット（出力 1.0〜5.0 秒）の 1.5 秒地点。
+    assert.deepEqual(samples, [{ sourcePath: 'assets/clip.mp4', sourceSeconds: 1.5 }]);
+});
