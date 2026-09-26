@@ -29,8 +29,24 @@ export function createCaptionHoverPreview(document: Pick<Document, 'createElemen
     caption.className = 'akari-caption';
     const style = input.textStyle;
     caption.style.setProperty('--caption-font-size', `${height > width ? Math.round(width * 0.06) : 38}px`);
-    for (const [name, value] of Object.entries(captionTextStyleVars(style))) {
+    const vars = captionTextStyleVars(style);
+    for (const [name, value] of Object.entries(vars)) {
         caption.style.setProperty(name, value);
+    }
+    if (style?.shadow?.color && style.shadow.opacity !== 0) {
+        const angle = (style.shadow.angleDeg ?? 45) * Math.PI / 180;
+        const distance = style.shadow.distancePx ?? 1;
+        const x = Math.round(Math.cos(angle) * distance * 10) / 10;
+        const y = Math.round(Math.sin(angle) * distance * 10) / 10;
+        const alpha = Math.round(Math.min(1, Math.max(0, style.shadow.opacity ?? 1)) * 100);
+        const shadow = `${x}px ${y}px ${style.shadow.blurPx ?? 2}px `
+            + `color-mix(in srgb, ${style.shadow.color} ${alpha}%, transparent)`;
+        const stroke = vars['--caption-text-shadow'];
+        caption.style.setProperty('--caption-text-shadow', stroke ? `${stroke}, ${shadow}` : shadow);
+    }
+    if (style?.background?.paddingPx !== undefined) {
+        caption.style.setProperty('--plate-pad-x', `${style.background.paddingPx}px`);
+        caption.style.setProperty('--plate-pad-y', `${style.background.paddingPx}px`);
     }
     if (style?.fontFamily !== undefined) caption.style.fontFamily = style.fontFamily;
     if (style?.fontWeight !== undefined || style?.weight !== undefined) {

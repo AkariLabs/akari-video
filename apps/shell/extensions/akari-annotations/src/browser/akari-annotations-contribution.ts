@@ -514,6 +514,20 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         commands.registerCommand(OPEN_AKARI_INSPECTOR, {
             execute: (options?: AkariInspectorOpenOptions) => this.openInspectorPanel(options)
         });
+        commands.registerCommand({ id: 'akari.captionPanel.toggle' }, {
+            execute: async (argument?: { panel?: 'font' | 'style' }): Promise<boolean> => {
+                if (argument?.panel !== 'font' && argument?.panel !== 'style') return false;
+                const selection = this.selectionModel.snapshot;
+                if (selection?.kind !== 'caption' && !(selection?.kind === 'item'
+                    && selection.itemKind === 'caption')) return false;
+                const widget = await this.openInspectorPanel();
+                return widget?.toggleCaptionPanel(argument.panel) ?? false;
+            }
+        });
+        commands.registerCommand({ id: 'akari.captionPanel.close' }, {
+            execute: (): void => this.widgetManager.tryGetWidget<AkariInspectorWidget>(AkariInspectorWidget.FACTORY_ID)
+                ?.closeCaptionPanel()
+        });
         commands.registerCommand(REVEAL_AKARI_INSPECTOR_FIELD, {
             execute: async (argument?: unknown) => {
                 const widget = await this.openInspectorPanel();

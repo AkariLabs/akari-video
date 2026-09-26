@@ -1,0 +1,388 @@
+{
+  "phase": "before",
+  "base": "08c006c86",
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "theiaDocumentFonts": {
+    "fontFaceCount": 8,
+    "families": [
+      "codicon",
+      "FontAwesome",
+      "Mfizz",
+      "Devicons",
+      "file-icons",
+      "octicons"
+    ],
+    "check": {
+      "Dela Gothic One": {
+        "declared": false,
+        "check": true
+      },
+      "BIZ UDGothic": {
+        "declared": false,
+        "check": true
+      },
+      "DotGothic16": {
+        "declared": false,
+        "check": true
+      },
+      "Klee One": {
+        "declared": false,
+        "check": true
+      },
+      "M PLUS Rounded 1c": {
+        "declared": false,
+        "check": true
+      },
+      "Noto Serif JP": {
+        "declared": false,
+        "check": true
+      },
+      "Shippori Mincho": {
+        "declared": false,
+        "check": true
+      },
+      "Zen Maru Gothic": {
+        "declared": false,
+        "check": true
+      },
+      "Noto Sans JP": {
+        "declared": false,
+        "check": true
+      },
+      "Reggae One": {
+        "declared": false,
+        "check": true
+      }
+    }
+  },
+  "inspectorStyleSection": {
+    "sections": [
+      "時間",
+      "内容",
+      "文字",
+      "縁取り",
+      "座布団",
+      "効果",
+      "位置",
+      "タイミング"
+    ],
+    "styleText": "文字 / 色 / 大きさ / px / 折り返し幅 / % / 太さ / 普通 / 太字 / 極太 / 行間 / （既定） / 字間 / em / （既定）",
+    "fontControls": []
+  },
+  "shots": [
+    "before-01-inspector-text-section.png",
+    "before-02-font-window.png",
+    "before-03-style-window.png",
+    "before-04-library-textstyle-cards.png"
+  ],
+  "contextBarItems": [
+    "captionPreset | 字幕のスタイル",
+    "captionCushion | 座布団",
+    "captionTextColor | 文字の色",
+    "captionStrokeColor | 縁取りの色",
+    "captionBold | 太字",
+    "captionFont | フォント",
+    "captionSize | 大きさ",
+    "captionSpacing | 行間・字間",
+    "captionStroke | 縁取り",
+    "captionMore | その他"
+  ],
+  "fontWindow": {
+    "window": null,
+    "choices": [
+      {
+        "family": "AKARI Noto Sans JP",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "Dela Gothic One",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "BIZ UDGothic",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "DotGothic16",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "Klee One",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "M PLUS Rounded 1c",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "Noto Serif JP",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "Shippori Mincho",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      },
+      {
+        "family": "Zen Maru Gothic",
+        "renderedFont": "-apple-system, \"system-ui\", sans-serif"
+      }
+    ]
+  },
+  "styleWindow": {
+    "window": null,
+    "choices": [
+      {
+        "key": "subtitle-standard",
+        "label": "標準字幕",
+        "color": "rgb(204, 204, 204)",
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "key": "subtitle-interview",
+        "label": "インタビュー字幕",
+        "color": "rgb(204, 204, 204)",
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "key": "subtitle-commentary",
+        "label": "実況テロップ",
+        "color": "rgb(204, 204, 204)",
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "key": "subtitle-news",
+        "label": "ニュース風",
+        "color": "rgb(204, 204, 204)",
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "key": "subtitle-variety",
+        "label": "バラエティ",
+        "color": "rgb(204, 204, 204)",
+        "bg": "rgba(0, 0, 0, 0)"
+      },
+      {
+        "key": "narration-caption",
+        "label": "ナレーション字幕",
+        "color": "rgb(204, 204, 204)",
+        "bg": "rgba(0, 0, 0, 0)"
+      }
+    ]
+  },
+  "libraryCards": [
+    {
+      "id": "mystyle/ct-yellow",
+      "sample": {
+        "text": "文字",
+        "color": "rgb(255, 230, 0)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "color(srgb 0 0 0 / 0.7) 0px 1.4px 1.1px",
+        "stroke": "1.7px rgb(122, 31, 162)",
+        "chainBg": [
+          "color(srgb 0.0627451 0.188235 0.164706 / 0.9)",
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/subtitle-news",
+      "sample": {
+        "text": "速報ニュース",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/subtitle-standard",
+      "sample": {
+        "text": "読みやすい標準字幕",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/subtitle-variety",
+      "sample": {
+        "text": "ここがすごい！",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/subtitle-commentary",
+      "sample": {
+        "text": "ここで一気に加速！",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/subtitle-interview",
+      "sample": {
+        "text": "「そう思いました」",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/narration-caption",
+      "sample": {
+        "text": "この街には、まだ誰も知らない物語がある。",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/emphasis-red",
+      "sample": {
+        "text": "ここ重要！",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/verdict-badge",
+      "sample": {
+        "text": "買い！",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/discount-text",
+      "sample": {
+        "text": "30% OFF",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/neon",
+      "sample": {
+        "text": "NEON",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/glitch",
+      "sample": {
+        "text": "GLITCH",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    },
+    {
+      "id": "textstyle/title-impact",
+      "sample": {
+        "text": "衝撃の事実",
+        "color": "rgb(229, 229, 229)",
+        "font": "-apple-system, \"system-ui\", sans-serif",
+        "weight": "800",
+        "letterSpacing": "normal",
+        "shadow": "none",
+        "stroke": "0px rgb(229, 229, 229)",
+        "chainBg": [
+          "rgb(10, 10, 10)"
+        ],
+        "filter": "none"
+      }
+    }
+  ],
+  "status": "ok"
+}

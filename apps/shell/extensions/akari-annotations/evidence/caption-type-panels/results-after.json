@@ -1,0 +1,751 @@
+{
+  "phase": "after",
+  "base": "08c006c86",
+  "checks": [
+    {
+      "name": "字幕が選ばれていないとき toggle は何もしない（false・通知なし）",
+      "pass": true,
+      "ms": 603,
+      "detail": {
+        "result": false,
+        "events": {
+          "changed": [],
+          "preview": []
+        }
+      }
+    },
+    {
+      "name": "(c) toggle font → フォントパネル・通知 {panel:\"font\"}・書体は読み込み後にその書体で描かれる",
+      "pass": true,
+      "ms": 1873,
+      "detail": {
+        "rows": [
+          {
+            "id": "biz-udgothic",
+            "text": "BIZ UDGothic",
+            "family": "BIZ UDGothic",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": true
+          },
+          {
+            "id": "dela-gothic-one",
+            "text": "Dela Gothic One",
+            "family": "Dela Gothic One",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": false
+          },
+          {
+            "id": "dotgothic16",
+            "text": "DotGothic16",
+            "family": "DotGothic16",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": false
+          },
+          {
+            "id": "klee-one",
+            "text": "Klee One",
+            "family": "Klee One",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": false
+          },
+          {
+            "id": "mplus-rounded-1c",
+            "text": "M PLUS Rounded 1c",
+            "family": "M PLUS Rounded 1c",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": true
+          },
+          {
+            "id": "noto-sans-jp",
+            "text": "Noto Sans JP",
+            "family": "AKARI Noto Sans JP",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": true
+          },
+          {
+            "id": "noto-serif-jp",
+            "text": "Noto Serif JP",
+            "family": "Noto Serif JP",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": true
+          },
+          {
+            "id": "shippori-mincho",
+            "text": "Shippori Mincho",
+            "family": "Shippori Mincho",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": false
+          },
+          {
+            "id": "zen-maru-gothic",
+            "text": "Zen Maru Gothic",
+            "family": "Zen Maru Gothic",
+            "faceLoaded": true,
+            "detail": "Aa Bb 123 · 同梱",
+            "chevron": true
+          }
+        ],
+        "events": [
+          {
+            "panel": "font"
+          }
+        ]
+      }
+    },
+    {
+      "name": "(c) 同じ toggle をもう一度 → 元の中身（文字・縁取り…の欄）に戻る・通知 {panel:null}",
+      "pass": true,
+      "ms": 1053,
+      "detail": {
+        "sections": [
+          "時間",
+          "内容",
+          "文字",
+          "縁取り",
+          "座布団",
+          "効果",
+          "位置",
+          "タイミング"
+        ],
+        "events": [
+          {
+            "panel": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "違う panel で切り替え（font → style → font）・close コマンド・毎回通知",
+      "pass": true,
+      "ms": 2058,
+      "detail": {
+        "events": [
+          {
+            "panel": "font"
+          },
+          {
+            "panel": "style"
+          },
+          {
+            "panel": "font"
+          },
+          {
+            "panel": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "(d) 検索欄の右のボタン → 横スライドの四角いチップ 1 列・「すべて」無し・複数選択は AND・選んだ数がボタンに出る",
+      "pass": true,
+      "ms": 2893,
+      "detail": {
+        "button": {
+          "rightOfSearch": true
+        },
+        "chips": {
+          "tags": [
+            "japanese|日本語",
+            "handwriting|手書き",
+            "mincho|明朝",
+            "gothic|ゴシック",
+            "rounded|丸",
+            "display|見出し",
+            "pixel|ドット"
+          ],
+          "hasAll": false,
+          "oneRow": true,
+          "overflowX": "auto",
+          "radius": "3px"
+        },
+        "counts": {
+          "none": 9,
+          "gothic": 6,
+          "gothic+rounded": 2
+        },
+        "labelWithTwo": "☰ 2",
+        "rowsAnd": [
+          "mplus-rounded-1c",
+          "zen-maru-gothic"
+        ],
+        "backToAll": 9
+      }
+    },
+    {
+      "name": "(e) シェブロンで実際にある太さだけ展開・各太さをその太さで描く・太さ 1 つの書体はシェブロン無し",
+      "pass": true,
+      "ms": 1052,
+      "detail": {
+        "font": "mplus-rounded-1c",
+        "weights": [
+          {
+            "w": "500",
+            "css": "500",
+            "font": "\"M PLUS Rounded 1c\""
+          },
+          {
+            "w": "800",
+            "css": "800",
+            "font": "\"M PLUS Rounded 1c\""
+          },
+          {
+            "w": "900",
+            "css": "900",
+            "font": "\"M PLUS Rounded 1c\""
+          }
+        ],
+        "singleWeightChevron": {
+          "disabled": true,
+          "text": "",
+          "visible": true
+        }
+      }
+    },
+    {
+      "name": "(f-1) ホバー: 書き込まない（captions.json 不変）・仮の見た目の通知が出る",
+      "pass": true,
+      "ms": 1628,
+      "detail": {
+        "previewEvents": [
+          {
+            "captionId": "c-0001",
+            "textStyle": {
+              "fontFamily": "Dela Gothic One"
+            }
+          }
+        ],
+        "previewPlate": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)"
+        },
+        "previewPlateInitial": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)"
+        },
+        "previewPlateChanged": false
+      }
+    },
+    {
+      "name": "(f-2) Esc → 仮を解く通知（textStyle:null）・書き込みなし・パネルは開いたまま",
+      "pass": true,
+      "ms": 1025,
+      "detail": {
+        "previewEvents": [
+          {
+            "captionId": "c-0001",
+            "textStyle": null
+          }
+        ],
+        "panel": "font",
+        "plate": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)"
+        }
+      }
+    },
+    {
+      "name": "(f-3) クリックで確定: 書き込み 1 回（font_family だけ変わる）・プレビューの字幕がその書体に",
+      "pass": true,
+      "ms": 22244,
+      "detail": {
+        "changedKeys": [
+          "font_family"
+        ],
+        "fontFamily": "Dela Gothic One",
+        "previewPlate": {
+          "font": "\"Dela Gothic One\"",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)"
+        }
+      }
+    },
+    {
+      "name": "(f-4) undo 1 回（Cmd+Z）で captions.json が元と byte 一致",
+      "pass": true,
+      "ms": 2629,
+      "detail": {
+        "captionsEqualHead": true,
+        "gitStatus": "",
+        "previewPlate": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)"
+        }
+      }
+    },
+    {
+      "name": "キーボード: 見本にフォーカス → ↓ で移動（仮の通知）→ Enter で確定（書き込み 1 回）→ undo 1 回",
+      "pass": true,
+      "ms": 2347,
+      "detail": {
+        "focusedAfterArrowDown": "dela-gothic-one",
+        "previewEvents": [
+          "BIZ UDGothic",
+          "Dela Gothic One"
+        ],
+        "committedFamily": "Dela Gothic One",
+        "undo": {
+          "captionsEqualHead": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "(g) スタイルパネル: 最近使った / マイスタイル / テキストスタイルの段・カードごとに違う見た目（色・縁取り・座布団・影）",
+      "pass": true,
+      "ms": 1918,
+      "detail": {
+        "heads": [
+          "最近使ったスタイル",
+          "マイスタイル",
+          "テキストスタイル"
+        ],
+        "cards": [
+          {
+            "id": "mystyle/ct-yellow",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 230, 0)",
+            "stroke": "7.84px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(16, 48, 42, 0.9)",
+            "shadow": "rgb(122, 31, 162) -6px -6px 0px, rgb(122, 31, 162) 6px -6px 0px, rgb(122, 31, 162) -6px 6px 0px, rgb(122, 31, 162) 6px 6",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "800",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "discount-text",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 45, 85)",
+            "stroke": "10.08px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(255, 255, 255) -3px -3px 0px, rgb(255, 255, 255) 3px -3px 0px, rgb(255, 255, 255) -3px 3px 0px, rgb(255, 255, 255) 3",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "400",
+            "letterSpacing": "2.88px"
+          },
+          {
+            "id": "emphasis-red",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 23, 68)",
+            "stroke": "12.88px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(255, 255, 255) -6px -6px 0px, rgb(255, 255, 255) 6px -6px 0px, rgb(255, 255, 255) -6px 6px 0px, rgb(255, 255, 255) 6",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "glitch",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(245, 245, 245)",
+            "stroke": "16.24px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "color(srgb 1 0 0.4 / 0.9) 8px 0px 0px",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "6.96px"
+          },
+          {
+            "id": "narration-caption",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "3.92px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "color(srgb 0 0 0 / 0.55) 0px 1px 6px",
+            "font": "\"Noto Serif JP\"",
+            "weight": "400",
+            "letterSpacing": "1.68px"
+          },
+          {
+            "id": "neon",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(174, 252, 255)",
+            "stroke": "16.8px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "color(srgb 0 0.898039 1 / 0.9) 0px 0px 24px",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "14.4px"
+          },
+          {
+            "id": "subtitle-commentary",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(0, 230, 118)",
+            "stroke": "8.4px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(0, 0, 0) -7px -7px 0px, rgb(0, 0, 0) 7px -7px 0px, rgb(0, 0, 0) -7px 7px 0px, rgb(0, 0, 0) 7px 7px 0px, rgba(0, 0, 0",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "subtitle-interview",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 253, 231)",
+            "stroke": "7.84px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(51, 105, 30) -6px -6px 0px, rgb(51, 105, 30) 6px -6px 0px, rgb(51, 105, 30) -6px 6px 0px, rgb(51, 105, 30) 6px 6px 0",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "subtitle-news",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "7.84px rgba(0, 0, 0, 0.9)",
+            "bg": "rgb(198, 40, 40)",
+            "shadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "subtitle-standard",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "7.84px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(0, 0, 0) -4px -4px 0px, rgb(0, 0, 0) 4px -4px 0px, rgb(0, 0, 0) -4px 4px 0px, rgb(0, 0, 0) 4px 4px 0px, rgba(0, 0, 0",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "subtitle-variety",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 242, 0)",
+            "stroke": "11.2px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(26, 26, 26) -9px -9px 0px, rgb(26, 26, 26) 9px -9px 0px, rgb(26, 26, 26) -9px 9px 0px, rgb(26, 26, 26) 9px 9px 0px, ",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "title-impact",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 235, 59)",
+            "stroke": "23.52px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(0, 0, 0) -10px -10px 0px, rgb(0, 0, 0) 10px -10px 0px, rgb(0, 0, 0) -10px 10px 0px, rgb(0, 0, 0) 10px 10px 0px, rgba",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "700",
+            "letterSpacing": "normal"
+          },
+          {
+            "id": "verdict-badge",
+            "text": "Abc あいう 漢字",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "11.2px rgba(0, 0, 0, 0.9)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "shadow": "rgb(229, 57, 53) -4px -4px 0px, rgb(229, 57, 53) 4px -4px 0px, rgb(229, 57, 53) -4px 4px 0px, rgb(229, 57, 53) 4px 4px 0",
+            "font": "\"AKARI Noto Sans JP\"",
+            "weight": "400",
+            "letterSpacing": "-1.6px"
+          }
+        ],
+        "save": true,
+        "distinctLooks": 13,
+        "withBg": 2,
+        "withStroke": 13,
+        "withShadow": 13,
+        "distinctColors": 10
+      }
+    },
+    {
+      "name": "(g) スタイルのカードをクリック → 書き込み 1 回 → undo 1 回で戻る",
+      "pass": true,
+      "ms": 3076,
+      "detail": {
+        "appliedTextStyle": {
+          "color": "#ffffff",
+          "size_px": 56,
+          "weight": 700,
+          "background": {
+            "color": "#c62828",
+            "opacity": 1,
+            "padding_px": 16,
+            "radius_px": 0
+          }
+        },
+        "stylePreset": null,
+        "undo": {
+          "captionsEqualHead": true,
+          "gitStatus": ""
+        }
+      }
+    },
+    {
+      "name": "選択の変化: 別の字幕へ → パネルを保つ（通知なし）/ 選択を外す（タイムラインで Esc）→ 閉じる（通知 {panel:null}）",
+      "pass": true,
+      "ms": 4182,
+      "detail": {
+        "keptOnOtherCaption": "style",
+        "closedOnDeselect": null,
+        "inspectorText": "タイムラインで項目を選択してください。",
+        "events": [
+          {
+            "panel": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "(h) ライブラリのテキストスタイル / マイスタイルのカード: 固定のお試し文字に実際のスタイル（カードごとに違う・色 / 縁 / 座布団 / 影）",
+      "pass": true,
+      "ms": 4199,
+      "detail": {
+        "count": 13,
+        "distinctLooks": 13,
+        "withBg": 2,
+        "withStroke": 9,
+        "withShadow": 8,
+        "cards": [
+          {
+            "id": "mystyle/ct-yellow",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 230, 0)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "800",
+              "letterSpacing": "normal",
+              "shadow": "color(srgb 0 0 0 / 0.7) 0px 1.4px 1.1px",
+              "stroke": "1.7px rgb(122, 31, 162)",
+              "chainBg": [
+                "color(srgb 0.0627451 0.188235 0.164706 / 0.9)",
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/subtitle-news",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 255, 255)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "normal",
+              "shadow": "none",
+              "stroke": "0px rgb(255, 255, 255)",
+              "chainBg": [
+                "color(srgb 0.776471 0.156863 0.156863)",
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/subtitle-standard",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 255, 255)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "normal",
+              "shadow": "none",
+              "stroke": "1.1px rgb(0, 0, 0)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/subtitle-variety",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 242, 0)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "normal",
+              "shadow": "color(srgb 0 0 0 / 0.6) 0px 1.7px 1.7px",
+              "stroke": "2.5px rgb(26, 26, 26)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/subtitle-commentary",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(0, 230, 118)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "normal",
+              "shadow": "none",
+              "stroke": "2px rgb(0, 0, 0)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/subtitle-interview",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 253, 231)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "normal",
+              "shadow": "color(srgb 0 0 0 / 0.5) 0px 1.1px 1.7px",
+              "stroke": "1.7px rgb(51, 105, 30)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/narration-caption",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 255, 255)",
+              "font": "\"Noto Serif JP\", serif",
+              "weight": "400",
+              "letterSpacing": "0.72px",
+              "shadow": "color(srgb 0 0 0 / 0.55) 0px 0.5px 2.6px",
+              "stroke": "0px rgb(255, 255, 255)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/emphasis-red",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 23, 68)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "normal",
+              "shadow": "none",
+              "stroke": "1.4px rgb(255, 255, 255)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/verdict-badge",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 255, 255)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "400",
+              "letterSpacing": "-0.24px",
+              "shadow": "color(srgb 0.898039 0.223529 0.207843 / 0.6) 0px 0px 4.4px",
+              "stroke": "1.1px rgb(229, 57, 53)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/discount-text",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 45, 85)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "400",
+              "letterSpacing": "0.48px",
+              "shadow": "none",
+              "stroke": "0.8px rgb(255, 255, 255)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/neon",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(174, 252, 255)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "1.44px",
+              "shadow": "color(srgb 0 0.898039 1 / 0.9) 0px 0px 4.4px",
+              "stroke": "0px rgb(174, 252, 255)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/glitch",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(245, 245, 245)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "0.72px",
+              "shadow": "color(srgb 1 0 0.4 / 0.9) 1.5px 0px 0px",
+              "stroke": "0px rgb(245, 245, 245)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          },
+          {
+            "id": "textstyle/title-impact",
+            "sample": {
+              "text": "Abc あいう 漢字",
+              "color": "rgb(255, 235, 59)",
+              "font": "-apple-system, \"system-ui\", sans-serif",
+              "weight": "700",
+              "letterSpacing": "normal",
+              "shadow": "color(srgb 0 0 0 / 0.7) 0px 1px 1.8px",
+              "stroke": "1.3px rgb(0, 0, 0)",
+              "chainBg": [
+                "rgb(10, 10, 10)"
+              ],
+              "filter": "none"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "sectionsBefore": [
+    "時間",
+    "内容",
+    "文字",
+    "縁取り",
+    "座布団",
+    "効果",
+    "位置",
+    "タイミング"
+  ],
+  "plateInitial": {
+    "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+    "weight": "900",
+    "color": "rgb(255, 212, 0)"
+  },
+  "status": "pass"
+}
