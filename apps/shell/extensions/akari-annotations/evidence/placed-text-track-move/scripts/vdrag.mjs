@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // 「文字」行の置いた文字のチップ（または任意の字幕チップ）を縦 + 横にドラッグして離し、captions.json / edit.json / チップの位置を記録する（ラッパー作成の検証スクリプト）。
 // 離す直前にドラッグ中のゴースト・チップ・フッターも採る。--undo で Cmd+Z 1 手のあと captions.json / edit.json の byte 一致を確かめる。
+// r1: 待ちは edit.json の変化も見る・離した後の edit.json の段と item を editAfter に残す。
 // 使い方: node vdrag.mjs <project> <captionId|placed> <dx> <dy> <out.json> [--undo] [--shot=<prefix>]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -22,7 +23,7 @@ const cdp = new CDP(target.webSocketDebuggerUrl); await cdp.connect();
 const ev = expr => evalOn(cdp, expr);
 const chip = async () => (await ev(CHIPS)).find(c => c.id === id);
 const HEADERS = `[...document.querySelectorAll('.akari-track-header-row')].map(e=>{const r=e.getBoundingClientRect();return{trackId:e.dataset.akariTimelineTrackId,top:Math.round(r.top*10)/10,h:Math.round(r.height*10)/10}})`;
-const DURING = `(()=>{const px=v=>Math.round(v*10)/10;const w=document.querySelector('.akari-annotations-widget');const gs=[...w.querySelectorAll('div')].filter(e=>e.style.opacity&&e.style.display!=='none'&&/dashed|solid/.test(e.style.border||e.style.borderStyle||'')&&e.getBoundingClientRect().width>0&&!e.dataset.akariItemId).map(e=>{const r=e.getBoundingClientRect();return{left:px(r.left),top:px(r.top),w:px(r.width),h:px(r.height),opacity:e.style.opacity,border:e.style.border}});const fb=[...w.querySelectorAll('div')].find(e=>e.style.display==='block'&&/–/.test(e.textContent)&&e.children.length===0);return{ghostCandidates:gs.slice(0,4),dragFeedback:fb?fb.textContent:null,footer:[...w.children].filter(c=>c.tagName==='DIV').pop().textContent.trim()}})()`;
+const DURING = `(()=>{const px=v=>Math.round(v*10)/10;const w=document.querySelector('.akari-annotations-widget');const gs=[...w.querySelectorAll('div')].filter(e=>e.style.opacity&&e.style.display!=='none'&&/dashed|solid/.test(e.style.border||e.style.borderStyle||'')&&e.getBoundingClientRect().width>0&&!e.dataset.akariItemId).map(e=>{const r=e.getBoundingClientRect();return{left:px(r.left),top:px(r.top),w:px(r.width),h:px(r.height),opacity:e.style.opacity,border:e.style.border}});const fb=[...w.querySelectorAll('div')].find(e=>e.style.display==='block'&&/–|置けません|重なります/.test(e.textContent)&&e.children.length===0);return{ghostCandidates:gs.slice(0,4),dragFeedback:fb?fb.textContent:null,footer:[...w.children].filter(c=>c.tagName==='DIV').pop().textContent.trim()}})()`;
 
 const rec = { id, dx: Number(dxArg), dy: Number(dyArg), at: new Date().toISOString() };
 const capBefore = read('captions.json'), editShaBefore = sha('edit.json');
@@ -44,11 +45,12 @@ await sleep(300);
 rec.during = { pointer: { x: x1, y: y1 }, ...(await ev(DURING)) };
 if (shot) await screenshot(cdp, `${shot}-during.png`);
 await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', buttons: 0, clickCount: 1 });
-for (let i = 0; i < 20 && read('captions.json') === capBefore; i++) await sleep(250);
+for (let i = 0; i < 20 && read('captions.json') === capBefore && sha('edit.json') === editShaBefore; i++) await sleep(250);
 await sleep(1500);
 rec.captionsChanged = read('captions.json') !== capBefore;
 rec.editJsonByteEqual = sha('edit.json') === editShaBefore;
 rec.captionAfter = captions().find(c => c.id === id) ?? null;
+rec.editAfter = JSON.parse(read('edit.json')).tracks.map(t => ({ id: t.id, lane: t.lane, items: (t.items ?? []).map(i => ({ id: i.id, at: i.at, duration: i.duration, source: i.source })) }));
 rec.otherCaptionsUnchanged = JSON.stringify(captions().filter(c => c.id !== id)) === JSON.stringify((JSON.parse(capBefore).captions ?? JSON.parse(capBefore)).filter(c => c.id !== id));
 rec.chipAfter = await chip();
 rec.footerAfter = (await ev(DURING)).footer;
@@ -58,7 +60,7 @@ if (flag('undo') && (rec.captionsChanged || !rec.editJsonByteEqual)) {
     const k = { modifiers: 4, key: 'z', code: 'KeyZ', windowsVirtualKeyCode: 90, nativeVirtualKeyCode: 90, commands: ['undo'] };
     await cdp.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...k });
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', ...k });
-    for (let i = 0; i < 40 && read('captions.json') !== capBefore; i++) await sleep(250);
+    for (let i = 0; i < 40 && (read('captions.json') !== capBefore || sha('edit.json') !== editShaBefore); i++) await sleep(250);
     await sleep(1000);
     rec.undo = { presses: 1, captionsByteEqual: read('captions.json') === capBefore, editJsonByteEqual: sha('edit.json') === editShaBefore, chip: await chip() };
 }

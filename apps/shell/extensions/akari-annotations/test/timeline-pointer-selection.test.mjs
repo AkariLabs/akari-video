@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { startsPlacedTextVerticalDrag } from '../lib/common/placed-text-drag.js';
 
 // Exercise the actual widget listeners without booting Theia's application services.
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
@@ -8,8 +9,9 @@ const start = source.indexOf('    updateTrimAffordance(');
 const end = source.indexOf('    updateDragPreview(', start);
 const modifierStart = source.indexOf('    shouldToggleMultiSelection(');
 const modifierEnd = source.indexOf('\n    }', modifierStart) + 6;
-const Widget = new Function('os_1', `const DRAG_THRESHOLD_PX = 3; return class {
-    ${source.slice(modifierStart, modifierEnd)} ${source.slice(start, end)} };`)({ isOSX: process.platform === 'darwin' });
+const Widget = new Function('os_1', 'placed_text_drag_1', `const DRAG_THRESHOLD_PX = 3; return class {
+    ${source.slice(modifierStart, modifierEnd)} ${source.slice(start, end)} };`)(
+        { isOSX: process.platform === 'darwin' }, { startsPlacedTextVerticalDrag });
 function fixture(detail) {
     const handlers = new Map();
     const element = {
@@ -36,9 +38,9 @@ function fixture(detail) {
         commitDrag() { this.committed = true; }
     });
     widget.installDragListeners(element, () => detail);
-    const dispatch = (name, clientX = 50) => {
+    const dispatch = (name, clientX = 50, clientY = 10) => {
         for (const handler of handlers.get(name) ?? []) {
-            handler({ button: 0, pointerId: 1, clientX, clientY: 10, preventDefault() {}, stopPropagation() {} });
+            handler({ button: 0, pointerId: 1, clientX, clientY, preventDefault() {}, stopPropagation() {} });
         }
     };
     return { widget, element, dispatch };
@@ -71,4 +73,17 @@ test('drag still commits instead of selecting or seeking', () => {
     dispatch('pointerup', 70);
     assert.equal(widget.committed, true);
     assert.equal(widget.selection, undefined);
+});
+test('output の置いた文字は縦だけでも確定し、source 字幕の縦だけはクリックのまま', () => {
+    const output = fixture({ kind: 'caption', mode: 'move', id: 'placed', originalTimeDomain: 'output' });
+    output.dispatch('pointerdown');
+    output.dispatch('pointermove', 50, 70);
+    output.dispatch('pointerup', 50, 70);
+    assert.equal(output.widget.committed, true);
+    const source = fixture({ kind: 'caption', mode: 'move', id: 'spoken', originalTimeDomain: 'source' });
+    source.dispatch('pointerdown');
+    source.dispatch('pointermove', 50, 70);
+    source.dispatch('pointerup', 50, 70);
+    assert.equal(source.widget.committed, undefined);
+    assert.equal(source.widget.selection.kind, 'caption');
 });

@@ -1,0 +1,50 @@
+{
+ "case": "hand-under・4.5 秒・土台 f29966d64",
+ "tracksBottomToTop": [
+  "v-main",
+  "v-text-under",
+  "v-photo",
+  "v-captions",
+  "a1"
+ ],
+ "stageLayers": [
+  {
+   "tag": "CANVAS",
+   "id": "frame-engine-canvas",
+   "cls": null,
+   "z": "auto",
+   "plane": null,
+   "parentZ": "auto"
+  },
+  {
+   "tag": "DIV",
+   "id": "caption-plate",
+   "cls": null,
+   "z": "3",
+   "plane": null,
+   "parentZ": "auto"
+  },
+  {
+   "tag": "CANVAS",
+   "id": "pen-layer",
+   "cls": null,
+   "z": "2",
+   "plane": null,
+   "parentZ": "auto"
+  }
+ ],
+ "captionPlates": [
+  {
+   "id": "caption-plate-c-0002-output-1",
+   "text": ".akari-caption{p",
+   "plateZ": "auto",
+   "layerZ": "3"
+  },
+  {
+   "id": "caption-plate-cap-c-0005",
+   "text": ".akari-caption{p",
+   "plateZ": "auto",
+   "layerZ": "3"
+  }
+ ]
+}

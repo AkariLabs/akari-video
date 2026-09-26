@@ -1,0 +1,201 @@
+{
+ "id": "c-0005",
+ "dx": 0,
+ "dy": 130,
+ "at": "2026-09-26T17:39:14.076Z",
+ "rowsBefore": [
+  {
+   "trackId": "t-placed-text-display",
+   "top": 418.9,
+   "h": 24
+  },
+  {
+   "trackId": "v-captions",
+   "top": 444.9,
+   "h": 24
+  },
+  {
+   "trackId": "v2",
+   "top": 470.9,
+   "h": 24
+  },
+  {
+   "trackId": "v-photo",
+   "top": 496.9,
+   "h": 50
+  },
+  {
+   "trackId": "v-main",
+   "top": 548.9,
+   "h": 48
+  },
+  {
+   "trackId": "a1",
+   "top": 598.9,
+   "h": 28
+  }
+ ],
+ "labels": [
+  {
+   "text": "文字",
+   "cls": "akari-track-header-name",
+   "top": 423.1,
+   "height": 16.5,
+   "visible": true
+  },
+  {
+   "text": "字幕",
+   "cls": "akari-track-header-name",
+   "top": 449.1,
+   "height": 16.5,
+   "visible": true
+  }
+ ],
+ "chipBefore": {
+  "id": "c-0005",
+  "lane": "v2",
+  "left": 597.2,
+  "top": 470.9,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(204, 204, 204)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target"
+ },
+ "captionBefore": {
+  "id": "c-0005",
+  "start": 3.6333333333333333,
+  "end": 6.633333333333333,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "x": 0.6544,
+    "y": 0.4583
+   }
+  }
+ },
+ "during": {
+  "pointer": {
+   "x": 637.2,
+   "y": 611.9
+  },
+  "ghostCandidates": [],
+  "dragFeedback": "音のトラックには置けません",
+  "footer": "移動できません（レーンが異なるか、同じ段の中で区間が重なります）。"
+ },
+ "captionsChanged": false,
+ "editJsonByteEqual": true,
+ "captionAfter": {
+  "id": "c-0005",
+  "start": 3.6333333333333333,
+  "end": 6.633333333333333,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "x": 0.6544,
+    "y": 0.4583
+   }
+  }
+ },
+ "editAfter": [
+  {
+   "id": "v-main",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "cut-base",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "media",
+      "src": "a",
+      "in": 0,
+      "out": 12,
+      "speed": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "v-photo",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "photo-1",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "media",
+      "src": "p",
+      "in": 0,
+      "out": 12
+     }
+    }
+   ]
+  },
+  {
+   "id": "v2",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "cap-c-0005",
+     "at": 109,
+     "duration": 90,
+     "source": {
+      "kind": "caption",
+      "path": "captions.json",
+      "id": "c-0005"
+     }
+    }
+   ]
+  },
+  {
+   "id": "v-captions",
+   "lane": "visual",
+   "items": [
+    {
+     "id": "captions",
+     "at": 0,
+     "duration": 360,
+     "source": {
+      "kind": "captions",
+      "path": "captions.json",
+      "exclude": [
+       "c-0005"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "a1",
+   "lane": "audio",
+   "items": []
+  }
+ ],
+ "otherCaptionsUnchanged": true,
+ "chipAfter": {
+  "id": "c-0005",
+  "lane": "v2",
+  "left": 597.2,
+  "top": 470.9,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(204, 204, 204)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target"
+ },
+ "footerAfter": "移動できません（レーンが異なるか、同じ段の中で区間が重なります）。"
+}

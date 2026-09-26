@@ -1,0 +1,99 @@
+{
+ "id": "c-0005",
+ "itemBefore": {
+  "track": "v2",
+  "id": "cap-c-0005",
+  "at": 109,
+  "duration": 90,
+  "source": {
+   "kind": "caption",
+   "path": "captions.json",
+   "id": "c-0005"
+  }
+ },
+ "chipBefore": {
+  "id": "c-0005",
+  "lane": "v2",
+  "left": 597.2,
+  "top": 470.9,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(204, 204, 204)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-caption-playing"
+ },
+ "chipAfterClick": {
+  "id": "c-0005",
+  "lane": "v2",
+  "left": 597.2,
+  "top": 470.9,
+  "width": 141.4,
+  "height": 22,
+  "text": "置いた文字",
+  "bg": "color(srgb 0.219608 0.741176 0.972549 / 0.68)",
+  "border": "rgb(251, 146, 60)",
+  "cls": "akari-annotations-placed-text akari-annotations-strip-hit-target akari-annotations-caption-playing akari-annotations-selected akari-annotations-caption-selected"
+ },
+ "inspectorShowsText": false,
+ "plate": {
+  "fx": 0.49999993869086856,
+  "fy": 0.5042041672334533,
+  "z": "2"
+ },
+ "captionBefore": {
+  "id": "c-0005",
+  "start": 3.6333333333333333,
+  "end": 6.633333333333333,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "y": 0.4625
+   }
+  }
+ },
+ "previewDrag": {
+  "from": {
+   "x": 673.0390472412109,
+   "y": 165.58855056762695
+  },
+  "to": {
+   "x": 733.0390472412109,
+   "y": 165.58855056762695
+  }
+ },
+ "captionAfter": {
+  "id": "c-0005",
+  "start": 3.6333333333333333,
+  "end": 6.633333333333333,
+  "text": "置いた文字",
+  "speaker": null,
+  "sourceRef": null,
+  "edited": true,
+  "time_domain": "output",
+  "text_style": {
+   "text_anchor": "tc",
+   "position": {
+    "x": 0.6544,
+    "y": 0.4583
+   }
+  }
+ },
+ "captionPositionChanged": true,
+ "itemAfter": {
+  "track": "v2",
+  "id": "cap-c-0005",
+  "at": 109,
+  "duration": 90,
+  "source": {
+   "kind": "caption",
+   "path": "captions.json",
+   "id": "c-0005"
+  }
+ }
+}

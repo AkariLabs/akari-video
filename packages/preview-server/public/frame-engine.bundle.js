@@ -9035,6 +9035,8 @@ var require_tree_ops = __commonJS({
     exports.createCanvas = createCanvas;
     exports.putIntoCanvas = putIntoCanvas;
     exports.putPlacedCaptionIntoCanvas = putPlacedCaptionIntoCanvas;
+    exports.putPlacedCaptionIntoTrack = putPlacedCaptionIntoTrack;
+    exports.returnPlacedCaptionToBag = returnPlacedCaptionToBag;
     exports.takeOutOfCanvas = takeOutOfCanvas;
     exports.insertItem = insertItem;
     exports.removeItem = removeItem;
@@ -9310,25 +9312,7 @@ var require_tree_ops = __commonJS({
       }
       if (caption.at < absoluteAt(canvas))
         throw new Error("\u30AD\u30E3\u30F3\u30D0\u30B9\u3088\u308A\u524D\u306E\u5B57\u5E55\u306F\u5165\u308C\u3089\u308C\u307E\u305B\u3093\u3002");
-      let bag = allLocations(edit).find((location2) => location2.item.source.kind === "captions" && location2.item.source.path === "captions.json")?.item;
-      if (!bag) {
-        const visual = tracksOf(edit).find((track) => track.lane === "visual");
-        const bagTrack = visual ? createTrackAbove(edit, visual) : createTrackAt(edit, "visual", tracksOf(edit).length);
-        let id2 = "captions-exclusions";
-        let serial2 = 1;
-        while (locate(edit, id2))
-          id2 = `captions-exclusions-${serial2++}`;
-        bag = {
-          id: id2,
-          at: 0,
-          duration: Math.max(1, caption.at + caption.duration),
-          source: { kind: "captions", path: "captions.json", exclude: [] },
-          items: []
-        };
-        requireTrackItems(bagTrack).push(bag);
-      }
-      if (bag.duration < caption.at + caption.duration)
-        bag.duration = caption.at + caption.duration;
+      const bag = ensurePlacedCaptionBag(edit, caption);
       const exclude = bag.source.kind === "captions" ? bag.source.exclude ?? [] : [];
       if (bag.source.kind === "captions" && !exclude.includes(caption.id))
         bag.source.exclude = [...exclude, caption.id];
@@ -9344,6 +9328,75 @@ var require_tree_ops = __commonJS({
       };
       ensureChildren(canvas.item).push(item);
       return item;
+    }
+    function ensurePlacedCaptionBag(edit, caption) {
+      let bag = allLocations(edit).find((location2) => location2.item.source.kind === "captions" && location2.item.source.path === "captions.json")?.item;
+      if (!bag) {
+        const visual = tracksOf(edit).find((track) => track.lane === "visual");
+        const bagTrack = visual ? createTrackAbove(edit, visual) : createTrackAt(edit, "visual", tracksOf(edit).length);
+        let id = "captions-exclusions";
+        let serial = 1;
+        while (locate(edit, id))
+          id = `captions-exclusions-${serial++}`;
+        bag = {
+          id,
+          at: 0,
+          duration: Math.max(1, caption.at + caption.duration),
+          source: { kind: "captions", path: "captions.json", exclude: [] },
+          items: []
+        };
+        requireTrackItems(bagTrack).push(bag);
+      }
+      if (bag.duration < caption.at + caption.duration)
+        bag.duration = caption.at + caption.duration;
+      return bag;
+    }
+    function putPlacedCaptionIntoTrack(edit, caption, target) {
+      if (!Number.isInteger(caption.at) || caption.at < 0 || !Number.isInteger(caption.duration) || caption.duration <= 0)
+        throw new Error("\u5B57\u5E55\u306E\u6642\u523B\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+      const existing = allLocations(edit).find((location2) => location2.item.source.kind === "caption" && location2.item.source.id === caption.id);
+      if (existing) {
+        const track2 = target.insertIndex === void 0 ? target.track : createTrackAt(edit, "visual", target.insertIndex).id;
+        if (!track2)
+          throw new Error("\u7F6E\u304D\u5148\u306E\u6BB5\u304C\u3042\u308A\u307E\u305B\u3093\u3002");
+        if (requireTrack(edit, track2).lane !== "visual")
+          throw new Error("\u7F6E\u304D\u5148\u306F\u6620\u50CF\u30C8\u30E9\u30C3\u30AF\u306B\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        updateItem(edit, existing.item.id, {
+          at: existing.item.at + caption.at - absoluteAt(existing),
+          duration: caption.duration
+        });
+        return moveItem(edit, existing.item.id, { track: track2 });
+      }
+      const track = target.insertIndex === void 0 ? tracksOf(edit).find((candidate) => candidate.id === target.track) : createTrackAt(edit, "visual", target.insertIndex);
+      if (!track || track.lane !== "visual")
+        throw new Error("\u7F6E\u304D\u5148\u306F\u6620\u50CF\u30C8\u30E9\u30C3\u30AF\u306B\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      const bag = ensurePlacedCaptionBag(edit, caption);
+      const exclude = bag.source.kind === "captions" ? bag.source.exclude ?? [] : [];
+      if (bag.source.kind === "captions" && !exclude.includes(caption.id))
+        bag.source.exclude = [...exclude, caption.id];
+      let id = `cap-${caption.id}`;
+      let serial = 1;
+      while (locate(edit, id))
+        id = `cap-${caption.id}-${serial++}`;
+      const item = {
+        id,
+        at: caption.at,
+        duration: caption.duration,
+        source: { kind: "caption", path: "captions.json", id: caption.id }
+      };
+      return insertItem(edit, track.id, item);
+    }
+    function returnPlacedCaptionToBag(edit, captionId) {
+      const item = allLocations(edit).find((location2) => location2.item.source.kind === "caption" && location2.item.source.id === captionId);
+      if (item)
+        removeItem(edit, item.item.id);
+      for (const location2 of allLocations(edit)) {
+        if (location2.item.source.kind !== "captions")
+          continue;
+        const exclude = location2.item.source.exclude ?? [];
+        if (exclude.includes(captionId))
+          location2.item.source.exclude = exclude.filter((id) => id !== captionId);
+      }
     }
     function takeOutOfCanvas(edit, itemIds) {
       return [...new Set(itemIds)].map((id) => {

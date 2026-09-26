@@ -98,6 +98,16 @@ export declare function putPlacedCaptionIntoCanvas(edit: EditableEditV2, caption
     at: number;
     duration: number;
 }, canvasId: string): ProjectItemV2;
+/** P-3 と同じ字幕袋の除外を使い、明示字幕 item を映像段へ置く。 */
+export declare function putPlacedCaptionIntoTrack(edit: EditableEditV2, caption: {
+    id: string;
+    at: number;
+    duration: number;
+}, target: {
+    track?: string;
+    insertIndex?: number;
+}): ProjectItemV2;
+export declare function returnPlacedCaptionToBag(edit: EditableEditV2, captionId: string): void;
 export declare function takeOutOfCanvas(edit: EditableEditV2, itemIds: readonly string[]): ProjectItemV2[];
 export declare function insertItem(edit: EditableEditV2, target: string, item: MutableItem, index?: number): ProjectItemV2;
 export declare function removeItem(edit: EditableEditV2, id: string): ProjectItemV2;

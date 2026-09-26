@@ -13,12 +13,20 @@ test('拒否の詳細理由を枠内用の短い語へ変換する', () => {
     assert.equal(materialGhostRejectLabel(''), '置けません');
 });
 
-test('置いた文字は縦ドラッグで段を変えず、横の差分だけ時刻へ反映する', () => {
-    const base = { originalStart: 3, originalEnd: 6, proposedStart: 5, originalTop: '680.9px' };
-    for (const clientY of [680.9, 780.9, 480.9]) {
-        assert.deepEqual(planPlacedTextMove({ ...base, clientY }),
-            { start: 5, end: 8, top: '680.9px' });
-    }
-    assert.deepEqual(planPlacedTextMove({ ...base, proposedStart: -2, clientY: 780.9 }),
-        { start: 0, end: 3, top: '680.9px' });
+test('置いた文字の縦ドラッグは映像段・新しい段・文字の行を選び、音の行を拒否する', () => {
+    const base = { originalStart: 3, originalEnd: 6, proposedStart: 5, originalTop: '680.9px',
+        stripTop: 100, rows: [
+            { id: 'v1', lane: 'visual', top: 0, height: 50 },
+            { id: 'a1', lane: 'audio', top: 55, height: 50 },
+            { id: 'text', lane: 'placed-text', top: 110, height: 50 }
+        ] };
+    assert.deepEqual(planPlacedTextMove({ ...base, clientY: 120,
+        visualHit: { top: 0, targetTrackId: 'v1', rejected: false } }),
+    { start: 5, end: 8, top: '0px', destination: { kind: 'track', trackId: 'v1' } });
+    assert.equal(planPlacedTextMove({ ...base, clientY: 150,
+        visualHit: { top: 50, insertIndex: 1, rejected: false } }).destination.kind, 'new-track');
+    assert.equal(planPlacedTextMove({ ...base, clientY: 220 }).destination.kind, 'placed-text');
+    assert.equal(planPlacedTextMove({ ...base, clientY: 170,
+        visualHit: { top: 55, rejected: true } }).destination.kind, 'rejected');
+    assert.equal(planPlacedTextMove({ ...base, proposedStart: -2, clientY: 220 }).start, 0);
 });
