@@ -1,0 +1,34 @@
+{
+ "under": {
+  "tracksBottomToTop": [
+   "v-main",
+   "v-text-under",
+   "v-photo",
+   "v-captions",
+   "a1"
+  ],
+  "engine": "osr",
+  "osr_launcher_tier": 2,
+  "frame": "c-osr-hand-under-4.5s.png"
+ },
+ "over": {
+  "tracksBottomToTop": [
+   "v-main",
+   "v-photo",
+   "v-text-over",
+   "v-captions",
+   "a1"
+  ],
+  "engine": "osr",
+  "osr_launcher_tier": 2,
+  "frame": "c-osr-hand-over-4.5s.png"
+ },
+ "gpu": {
+  "command": "render-cut <project> --engine gpu",
+  "result": "refused: GPU export is ineligible: overlay:cap-c-0005:absolute-external-url, font-face-external-resource, animation-timing"
+ },
+ "psnr_under_vs_over": {
+  "osr": "inf（同一）",
+  "preview": "inf（同一）"
+ }
+}
