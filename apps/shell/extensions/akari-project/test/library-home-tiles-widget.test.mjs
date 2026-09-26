@@ -3,10 +3,11 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
 import { LIBRARY_DETAIL_GROUPS, LIBRARY_PRIMARY_TILES } from '../lib/common/library-home-view.js';
+import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../lib/common/library-tile-art.js';
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
-const methods = ['readLibraryDetailsOpen', 'toggleLibraryDetails', 'placeLibraryText', 'renderLibraryPrimaryTile', 'renderLibraryHome', 'handleLibraryTransitionDragEnd'];
+const methods = ['readLibraryDetailsOpen', 'toggleLibraryDetails', 'placeLibraryText', 'renderLibraryTilePlate', 'renderLibraryPrimaryTile', 'renderLibraryHome', 'handleLibraryTransitionDragEnd'];
 const code = ts.transpileModule(`class Handler { ${methods.map(name => {
     const member = widget.members.find(candidate => candidate.name?.getText(source) === name);
     assert.ok(member, `${name} が存在する`);
@@ -23,10 +24,11 @@ class CustomEvent {
 }
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }) };
 const LibraryTextLookRow = props => React.createElement('button', { 'data-akari-library-text-look-row': true, ...props });
-const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'LibraryTextLookRow', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK',
+const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'LibraryTextLookRow', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK', 'LIBRARY_TILE_ART', 'LIBRARY_TILE_SHARED_DEFS',
     `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS, LibraryTextLookRow,
     'akari.library.detailsOpen',
-    { panel: 6 }, { card: '#111', raised: '#222' }, { ghost: '1px solid #333' }, '#fff');
+    { panel: 6 }, { card: '#111', raised: '#222' }, { ghost: '1px solid #333' }, '#fff',
+    LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS);
 
 function fixture() {
     const handler = new Handler();
@@ -34,6 +36,9 @@ function fixture() {
     const errors = [];
     handler.catalogQuery = '';
     handler.libraryDetailsOpen = false;
+    // 本体ではクラスフィールド（`protected tilePlateSeq = 0`）。
+    // この harness はメソッドだけを抜き出すので、ここで初期値を置く。
+    handler.tilePlateSeq = 0;
     handler.presetShowcase = { textstyle: Array(12), textanim: Array(47), lut: [] };
     handler.myStyles = [];
     handler.assetCatalogItems = Array.from({ length: 31 }, (_, index) => ({ id: `font-${index}`, category: 'font' }));
@@ -52,24 +57,59 @@ function nodes(tree, predicate) {
     return [...(predicate(tree) ? [tree] : []), ...tree.children.flatMap(child => nodes(child, predicate))];
 }
 
-test('ホームは主要タイルを最上段に 9 枚描き、詳細は既定で描かない', () => {
+test('ホームは主要タイルを宣言順に描き、段は線で区切り、詳細は既定で描かない', () => {
     const { handler } = fixture();
     const home = handler.renderLibraryHome();
     const tiles = nodes(home, node => node.props['data-akari-library-primary-tile']);
     assert.deepEqual(tiles.map(node => node.props['data-akari-library-primary-tile']), LIBRARY_PRIMARY_TILES.map(tile => tile.key));
     assert.deepEqual(tiles.map(node => node.props['data-akari-library-tile-kind']), LIBRARY_PRIMARY_TILES.map(tile => tile.kind));
-    const grid = nodes(home, node => node.props['data-akari-library-primary-tiles'] !== undefined)[0];
-    assert.equal(grid.props.style.gridTemplateColumns, 'repeat(3, minmax(0, 1fr))');
+    // 器は 1 つ。その中に 3 列の格子が段の数だけ並ぶ。
+    const section = nodes(home, node => node.props['data-akari-library-primary-tiles'] !== undefined)[0];
+    const grids = nodes(section, node => node.props.style?.gridTemplateColumns === 'repeat(3, minmax(0, 1fr))');
+    const groups = LIBRARY_PRIMARY_TILES.filter(tile => tile.startsGroup).length;
+    assert.equal(grids.length, groups + 1, '段の数だけ格子がある');
+    // 見出しの文字は置かず、段の切れ目は線 1 本（2026-09-27 オーナー指示）。
+    const rules = nodes(section, node => node.props['data-akari-library-tile-rule'] !== undefined);
+    assert.equal(rules.length, groups);
     assert.equal(tiles[0].props['data-akari-library-category'], undefined);
     assert.equal(tiles[0].props.draggable, true);
     assert.ok(tiles.slice(1).every(tile => tile.props.draggable === undefined));
-    assert.deepEqual(tiles.slice(3).map(node => node.props['data-akari-library-category']),
+    assert.deepEqual(tiles.slice(3, 9).map(node => node.props['data-akari-library-category']),
         ['image', 'broll', 'bgm', 'sfx', 'overlay', 'scene3d']);
     assert.equal(tiles[1].props['data-akari-library-soon'], undefined);
     assert.equal(tiles[1].props['data-akari-library-category'], 'shapes');
     assert.equal(tiles[2].props['data-akari-library-soon'], 'true');
     assert.equal(nodes(home, node => node.props['data-akari-library-details'] !== undefined).length, 0);
     assert.equal(nodes(home, node => node.props['data-akari-library-details-toggle'] !== undefined)[0].props['aria-expanded'], false);
+});
+
+// 2 枚重ねカード（2026-09-27 オーナー検収）。表と裏で別の絵を重ね、
+// グラデ id は台座ごとに振り直して衝突させない。
+test('タイルは表と裏の 2 枚を重ね、絵の id をカードごとに振り直す', () => {
+    const { handler } = fixture();
+    const tile = handler.renderLibraryPrimaryTile(LIBRARY_PRIMARY_TILES[3]);
+    const plates = nodes(tile, node => typeof node.props.className === 'string'
+        && node.props.className.includes('akari-library-tile-plate'));
+    assert.equal(plates.length, 2);
+    assert.ok(plates[0].props.className.includes('akari-tile-back'), '裏が先（奥）');
+    assert.ok(plates[1].props.className.includes('akari-tile-front'), '表が後（手前）');
+    // 台座色はタイル宣言から CSS 変数で渡る。
+    assert.equal(plates[1].props.style['--akari-tile-c1'], LIBRARY_PRIMARY_TILES[3].plate[0]);
+    assert.equal(plates[1].props.style['--akari-tile-c2'], LIBRARY_PRIMARY_TILES[3].plate[1]);
+    // 表と裏は別の絵。
+    const html = plates.map(plate => plate.props.dangerouslySetInnerHTML.__html);
+    assert.notEqual(html[0], html[1]);
+    // {I} が残っていない = すべて実番号へ置換されている。
+    assert.ok(html.every(markup => !markup.includes('{I}')));
+    // 2 枚のあいだで id が衝突しない。
+    const ids = html.map(markup => [...markup.matchAll(/id="([^"]+)"/g)].map(match => match[1]));
+    assert.equal(ids[0].filter(id => ids[1].includes(id)).length, 0);
+    // 16 種すべてに表裏の絵がある。
+    for (const spec of LIBRARY_PRIMARY_TILES) {
+        assert.ok(LIBRARY_TILE_ART[spec.art], `${spec.key} の絵がある`);
+        assert.ok(LIBRARY_TILE_ART[spec.art].front && LIBRARY_TILE_ART[spec.art].back, `${spec.key} は表裏そろう`);
+    }
+    assert.ok(LIBRARY_TILE_SHARED_DEFS.includes('{I}'));
 });
 
 test('テキストタイルだけが既定スタイルの payload をドラッグし、終了を通知する', () => {

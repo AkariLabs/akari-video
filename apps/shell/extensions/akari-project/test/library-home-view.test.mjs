@@ -2,26 +2,43 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LIBRARY_DETAIL_GROUPS, LIBRARY_GROUPS, LIBRARY_PRIMARY_TILES, resolveOpenableLibraryCategory, searchLibraryHome } from '../lib/common/library-home-view.js';
 
-test('最上段はモックどおり 3×3 の 9 タイルで、作る/選ぶを分ける', () => {
+// 2026-09-27 オーナー改訂: 9 枚 → 16 枚。仕上げ・まとめて・マイスタイルも同じカードで
+// 最上段へ出し、B-roll は「動画」と呼ぶ（データキー broll は維持）。
+test('最上段は 16 タイルで、作る/選ぶを分け、段の切れ目を宣言する', () => {
     assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.key), [
-        'text', 'shapes', 'stamps', 'image', 'broll', 'bgm', 'sfx', 'overlay', 'scene3d'
+        'text', 'shapes', 'stamps',
+        'image', 'broll', 'bgm', 'sfx', 'overlay', 'scene3d',
+        'lut', 'transition', 'fx', 'motion',
+        'mypresets', 'template', 'pack'
     ]);
     assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.kind), [
-        'make', 'make', 'make', 'pick', 'pick', 'pick', 'pick', 'pick', 'pick'
+        'make', 'make', 'make',
+        'pick', 'pick', 'pick', 'pick', 'pick', 'pick',
+        'pick', 'pick', 'pick', 'pick',
+        'pick', 'pick', 'pick'
     ]);
-    assert.deepEqual(LIBRARY_PRIMARY_TILES.map(tile => tile.status), [
-        'live', 'live', 'soon', 'live', 'live', 'live', 'live', 'live', 'live'
-    ]);
+    assert.deepEqual(LIBRARY_PRIMARY_TILES.filter(tile => tile.status === 'soon').map(tile => tile.key),
+        ['stamps', 'fx', 'motion', 'mypresets', 'template']);
     assert.equal(LIBRARY_PRIMARY_TILES[0].hint, '押すかドラッグで置く');
+    // 段の区切りは見出しではなく線 1 本。線を引く位置は startsGroup が持つ。
+    assert.deepEqual(LIBRARY_PRIMARY_TILES.filter(tile => tile.startsGroup).map(tile => tile.key),
+        ['image', 'lut', 'mypresets']);
+    // 画面語と内部キーを切り離す（B-roll → 動画・パック → セット・テンプレート → ひな形）。
+    const label = key => LIBRARY_PRIMARY_TILES.find(tile => tile.key === key).label;
+    assert.equal(label('broll'), '動画');
+    assert.equal(label('pack'), 'セット');
+    assert.equal(label('template'), 'ひな形');
+    assert.equal(label('mypresets'), 'マイスタイル');
+    // 2 枚重ねカードの絵と台座色は全タイルが持つ。
+    assert.ok(LIBRARY_PRIMARY_TILES.every(tile => typeof tile.art === 'string' && tile.art.length > 0));
+    assert.ok(LIBRARY_PRIMARY_TILES.every(tile => tile.plate.length === 2
+        && tile.plate.every(color => /^#[0-9a-f]{6}$/.test(color))));
 });
 
-test('詳細は残りの 12 カテゴリだけで、全カテゴリの外部解決を保つ', () => {
-    assert.deepEqual(LIBRARY_DETAIL_GROUPS.map(group => group.label), ['文字の見た目', '仕上げ', 'まとめて', 'マイ']);
+test('詳細は主要タイルに出さなかった 5 カテゴリだけで、全カテゴリの外部解決を保つ', () => {
+    assert.deepEqual(LIBRARY_DETAIL_GROUPS.map(group => group.label), ['文字の見た目', 'マイ']);
     const detailKeys = LIBRARY_DETAIL_GROUPS.flatMap(group => group.categories.map(category => category.key));
-    assert.deepEqual(detailKeys, [
-        'textstyle', 'textanim', 'font', 'lut', 'transition', 'fx', 'motion',
-        'pack', 'template', 'fav', 'brandkit', 'mypresets'
-    ]);
+    assert.deepEqual(detailKeys, ['textstyle', 'textanim', 'font', 'fav', 'brandkit']);
     const primaryCategoryKeys = LIBRARY_PRIMARY_TILES.filter(tile => tile.key !== 'text').map(tile => tile.key);
     assert.equal(detailKeys.some(key => primaryCategoryKeys.includes(key)), false);
     assert.deepEqual(new Set([...detailKeys, ...primaryCategoryKeys]),

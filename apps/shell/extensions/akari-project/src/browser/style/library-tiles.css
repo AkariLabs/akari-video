@@ -1,0 +1,174 @@
+/*
+ * ライブラリ主要タイルの 2 枚重ねカード。
+ *
+ * 正本: 内部リポ `planning/notes-2026-09-27-library-tile-cards-mock.html`
+ * （オーナー検収 2026-09-27・第 5 稿）。寸法・角度・曲線はモックの実測値。
+ *
+ * ここに書く理由（インラインスタイルにしない理由）: :hover / :focus-visible /
+ * prefers-reduced-motion は React のインライン style では書けない。
+ *
+ * 面・線・角丸はインライン側（akari-surface-tokens）が持ち、この CSS が持つのは
+ * カードの立体と動きだけ。台座の色はタイルごとに --akari-tile-c1 / -c2 で受ける。
+ */
+
+.akari-library-tile {
+    -webkit-appearance: none;
+    appearance: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    margin: 0;
+    padding: 8px 2px 9px;
+    font: inherit;
+    text-align: center;
+    color: var(--akari-ink);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+/* ホバーで下に敷く座布団は置かない（2026-09-27 オーナー指示「動くのはカードだけ」）。 */
+.akari-library-tile:focus-visible {
+    outline: 2px solid var(--akari-accent);
+    outline-offset: -1px;
+}
+
+/* 開いたカードが隣のタイルに隠れないよう、ホバー中だけ手前へ出す。 */
+.akari-library-tile:hover,
+.akari-library-tile:focus-visible {
+    position: relative;
+    z-index: 2;
+}
+
+/*
+ * カードの器。タイル幅の 78% は「余白過多の第 1 稿（62px 固定）」と
+ * 「幅いっぱいの B 案」のちょうど中間（オーナー指示 2026-09-26）。
+ */
+.akari-library-tile-art {
+    position: relative;
+    width: 78%;
+    aspect-ratio: 1 / 1;
+}
+
+.akari-library-tile-plate {
+    position: absolute;
+    inset: 0;
+    border-radius: 24%;
+    overflow: hidden;
+    background: linear-gradient(152deg, var(--akari-tile-c1) 0%, var(--akari-tile-c2) 100%);
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, .38),
+        inset 0 -2px 0 rgba(0, 0, 0, .16),
+        0 5px 12px -5px rgba(0, 0, 0, .42);
+    /*
+     * 回転の支点はカードの中心。下端を支点にすると、裏が回るぶんだけ右下へ
+     * 落ちて見える（第 4 稿で実際にそうなった）。中心で傾けてから横へ送れば
+     * 高さが動かない。
+     */
+    transform-origin: 50% 50%;
+    transition:
+        transform .32s cubic-bezier(.32, .72, 0, 1),
+        box-shadow .3s ease;
+}
+
+/* 上半分のつや。立体感はここで決まる。 */
+.akari-library-tile-plate::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(176deg,
+        rgba(255, 255, 255, .26) 0%,
+        rgba(255, 255, 255, .05) 38%,
+        rgba(255, 255, 255, 0) 54%);
+}
+
+.akari-library-tile-plate svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* 平常でも裏が少しのぞいている（「まだ何かある」ことが止まった画面でも伝わる）。 */
+.akari-library-tile-plate.akari-tile-back {
+    z-index: 0;
+    transform: translateX(6%) rotate(4deg) scale(.93);
+    filter: brightness(.86) saturate(.92);
+}
+
+.akari-library-tile-plate.akari-tile-front {
+    z-index: 1;
+}
+
+/* ホバー = 裏は高さを保ったまま右へ傾き、表はその場で大きく傾く。開き角 26°。 */
+.akari-library-tile:hover .akari-tile-back,
+.akari-library-tile:focus-visible .akari-tile-back {
+    transform: translateX(18%) rotate(15deg) scale(.9);
+}
+
+.akari-library-tile:hover .akari-tile-front,
+.akari-library-tile:focus-visible .akari-tile-front {
+    transform: rotate(-11deg);
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, .38),
+        inset 0 -2px 0 rgba(0, 0, 0, .16),
+        0 10px 20px -7px rgba(0, 0, 0, .4);
+}
+
+.akari-library-tile:active .akari-tile-front {
+    transform: rotate(-11deg) scale(.96);
+}
+
+/* 近日 — 色を抜いて薄くし、ホバーにも反応させない。 */
+.akari-library-tile[data-akari-library-soon] {
+    cursor: default;
+}
+
+.akari-library-tile[data-akari-library-soon] .akari-library-tile-art {
+    opacity: .38;
+    filter: grayscale(.72);
+}
+
+.akari-library-tile[data-akari-library-soon]:hover .akari-tile-back {
+    transform: translateX(6%) rotate(4deg) scale(.93);
+}
+
+.akari-library-tile[data-akari-library-soon]:hover .akari-tile-front {
+    transform: none;
+}
+
+.akari-library-tile-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .72em;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+.akari-library-tile[data-akari-library-soon] .akari-library-tile-label {
+    color: var(--akari-faint, var(--theia-descriptionForeground));
+}
+
+/*
+ * 段の区切り。見出しの文字は置かない（2026-09-27 オーナー指示 —
+ * 「そざい」「しあげ」のような言葉は付けるたび不自然になるので名前ごとやめる）。
+ */
+.akari-library-tile-rule {
+    height: 1px;
+    margin: 13px 2px;
+    background: var(--akari-line-inner, color-mix(in srgb, var(--akari-line) 54%, transparent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .akari-library-tile-plate {
+        transition-duration: .01ms;
+    }
+}
