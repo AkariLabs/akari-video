@@ -45,7 +45,7 @@ test('メタ: shell extraResources へ RVM 実装を足すと CLI が落ち、�
 
 test('メタ: vendor の ONNX を追跡対象へ足すと CLI が落ち、理由を出す', (t) => {
   const directory = temporaryDirectory(t);
-  const tracked = execFileSync('git', ['-C', REPO_ROOT, 'ls-files'], { encoding: 'utf8' });
+  const tracked = execFileSync('git', ['-C', REPO_ROOT, 'ls-files'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   const trackedPath = join(directory, 'tracked-files.txt');
   writeFileSync(trackedPath, `${tracked.trimEnd()}\npackages/matte-rvm/vendor/rvm_mobilenetv3_fp32.onnx\n`);
 

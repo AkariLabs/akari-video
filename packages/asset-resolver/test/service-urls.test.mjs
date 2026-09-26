@@ -20,7 +20,7 @@ test('tracked sources and documentation cannot reintroduce the retired domain', 
     'packages/akari-launcher/src/service-urls.cjs',
     'packages/asset-resolver/test/service-urls.test.mjs',
   ]);
-  const files = execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8' }).split('\0').filter(Boolean);
+  const files = execFileSync('git', ['ls-files', '-z'], { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\0').filter(Boolean);
   const targets = files.filter(file => {
     // Evidence and changelogs record historical observations, not current defaults.
     if (/(^|\/)evidence\//.test(file) || /(^|\/)CHANGELOG[^/]*$/i.test(file)) return false;
