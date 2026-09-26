@@ -1,0 +1,178 @@
+# AFTER partnerDetails() の実出力（同じ呼び方。HOME 配下は ~ に置換）
+
+## PATH=/usr/bin:/bin:/usr/sbin:/sbin（GUI 起動相当）
+{
+ "commandcode": {
+  "installed": true,
+  "detail": "—"
+ },
+ "codex": {
+  "installed": true,
+  "version": "codex-cli 0.155.1",
+  "detail": "codex-cli 0.155.1"
+ },
+ "devin": {
+  "installed": false,
+  "detail": "—"
+ },
+ "cursor": {
+  "installed": false,
+  "detail": "cursor-agent が見つかりません"
+ },
+ "pi": {
+  "installed": false,
+  "detail": "—"
+ },
+ "claude": {
+  "installed": true,
+  "version": "2.1.283 (Claude Code)",
+  "detail": "2.1.283 (Claude Code)"
+ },
+ "grok": {
+  "installed": true,
+  "version": "grok 1.0.13 (5e9a58528b76) [stable]",
+  "detail": "grok 1.0.13 (5e9a58528b76) [stable]"
+ },
+ "antigravity": {
+  "installed": true,
+  "version": "1.2.11",
+  "detail": "1.2.11"
+ },
+ "opencode": {
+  "installed": true,
+  "version": "1.18.32",
+  "detail": "1.18.32"
+ },
+ "copilot": {
+  "installed": true,
+  "version": "GitHub Copilot CLI 1.0.80.",
+  "detail": "GitHub Copilot CLI 1.0.80."
+ }
+}
+
+## 開発者のシェル PATH
+{
+ "pi": {
+  "installed": false,
+  "detail": "—"
+ },
+ "devin": {
+  "installed": false,
+  "detail": "—"
+ },
+ "cursor": {
+  "installed": false,
+  "detail": "cursor-agent が見つかりません"
+ },
+ "grok": {
+  "installed": true,
+  "version": "grok 1.0.13 (5e9a58528b76) [stable]",
+  "detail": "grok 1.0.13 (5e9a58528b76) [stable]"
+ },
+ "codex": {
+  "installed": true,
+  "version": "codex-cli 0.155.1",
+  "detail": "codex-cli 0.155.1"
+ },
+ "claude": {
+  "installed": true,
+  "version": "2.1.283 (Claude Code)",
+  "detail": "2.1.283 (Claude Code)"
+ },
+ "antigravity": {
+  "installed": true,
+  "version": "1.2.11",
+  "detail": "1.2.11"
+ },
+ "opencode": {
+  "installed": true,
+  "version": "1.18.32",
+  "detail": "1.18.32"
+ },
+ "copilot": {
+  "installed": true,
+  "version": "GitHub Copilot CLI 1.0.80.",
+  "detail": "GitHub Copilot CLI 1.0.80."
+ },
+ "commandcode": {
+  "installed": true,
+  "version": "1.49.1",
+  "detail": "1.49.1"
+ }
+}
+
+## 実アプリの設定画面（CDP で .akari-set-partner-row の innerText を取得）
+Claude Code | インストール済み | 2.1.283 (Claude Code) | 起動
+Codex (OpenAI) | インストール済み | codex-cli 0.155.1 | 起動
+opencode | インストール済み | 1.18.32 | 起動
+Command Code | インストール済み | 1.49.1 | 起動
+Pi | 未インストール | — | 入れ方
+Devin (Cognition) | 未インストール | — | 入れ方
+GitHub Copilot | インストール済み | GitHub Copilot CLI 1.0.80. | 起動
+Cursor | 未インストール | cursor-agent が見つかりません | 入れ方
+Antigravity (Google) | インストール済み | 1.2.11 | 起動
+Grok Build (xAI) | インストール済み | grok 1.0.13 (5e9a58528b76) [stable] | 起動
+Claude Code 拡張 | 入っていない | anthropic.claude-code | 開く
+Codex 拡張 | 入っていない | openai.chatgpt | 開く
+
+## 実アプリのファイルツリーのフィルタ — 既存プロジェクト（workflow.json の hidden に .devin 無し）
+{
+ "hidden": [
+  ".claude",
+  ".agents",
+  ".codex",
+  ".akari",
+  "CLAUDE.md",
+  "AGENTS.md",
+  ".gitignore",
+  ".gitkeep",
+  ".cursor",
+  ".opencode",
+  ".devin"
+ ],
+ "developerMode": false,
+ "filter": {
+  ".devin": "hidden",
+  ".devin/skills/akari": "hidden",
+  ".cursor": "hidden",
+  ".opencode": "hidden",
+  ".agents": "hidden",
+  ".codex": "hidden",
+  ".claude": "hidden",
+  "assets": "shown",
+  "planning": "shown",
+  "exports": "shown",
+  "edit.json": "shown"
+ }
+}
+
+## 実アプリのファイルツリーのフィルタ — 新規プロジェクト（project-scaffold createProject + スキルリンク）
+{
+ "hidden": [
+  ".claude",
+  ".agents",
+  ".codex",
+  ".akari",
+  "CLAUDE.md",
+  "AGENTS.md",
+  ".gitignore",
+  ".gitkeep",
+  ".cursor",
+  ".opencode",
+  ".devin"
+ ],
+ "developerMode": false,
+ "filter": {
+  ".devin": "hidden",
+  ".devin/skills/akari": "hidden",
+  ".cursor": "hidden",
+  ".opencode": "hidden",
+  ".agents": "hidden",
+  ".codex": "hidden",
+  ".claude": "hidden",
+  "assets": "shown",
+  "planning": "shown",
+  "exports": "shown",
+  "edit.json": "shown"
+ }
+}

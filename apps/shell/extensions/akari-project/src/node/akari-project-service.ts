@@ -2700,7 +2700,7 @@ const FALLBACK_WORKFLOW = {
         { path: 'exports', label: '書き出し', kind: 'exports' }
     ],
     tree: {
-        hidden: ['.claude', '.agents', '.codex', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
+        hidden: ['.claude', '.agents', '.codex', '.cursor', '.opencode', '.devin', '.akari', 'CLAUDE.md', 'AGENTS.md', '.gitignore', '.gitkeep'],
         sidecarSuffixes: ['.meta.json', '.decisions.json', '.analysis.json'],
         developerModePreference: 'akari.developerMode'
     },

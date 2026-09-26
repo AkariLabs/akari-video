@@ -3,11 +3,26 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { existsSync } from 'fs';
+import { constants, existsSync } from 'fs';
 import { pathToFileURL } from 'url';
 import { AkariSettingsMaintenanceService, PartnerDetail, StorageCleanTarget, StorageEntry, StorageSnapshot } from '../common/settings-maintenance-protocol';
 import { AKARI_APP_ICON } from '../browser/settings/app-icon';
 import { resolveUpdateChannel } from '../common/shell-update-applier';
+import { partnerCliCandidates } from 'akari-partner/lib/node/partner-cli-candidates';
+import { buildPrivateNodePathEnv } from 'akari-partner/lib/node/cli-provisioner';
+import { resolveAkariHomeDir } from 'akari-partner/lib/node/partner-connection-writer';
+import rawPartnerCatalog = require('akari-partner/lib/common/partner-catalog.json');
+
+const CLI_AGENTS = rawPartnerCatalog.filter(entry => entry.form === 'cli').map(entry => entry.agent as string);
+
+async function installedPartnerPath(agent: string): Promise<string | undefined> {
+    for (const candidate of partnerCliCandidates(agent as Parameters<typeof partnerCliCandidates>[0], {
+        homeDir: os.homedir(), platform: process.platform, env: process.env
+    })) {
+        try { await fs.access(candidate, constants.X_OK); return candidate; } catch { /* 次の候補 */ }
+    }
+    return undefined;
+}
 
 const home = (): string => process.env.AKARI_HOME || path.join(os.homedir(), '.akari');
 const localDate = (value: Date): string => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
@@ -161,39 +176,39 @@ export class AkariSettingsMaintenanceServiceImpl implements AkariSettingsMainten
         await fs.writeFile(location, JSON.stringify(next, null, 2), { mode: 0o600 });
     }
     async partnerAvailability(): Promise<Record<string, boolean>> {
-        const commands: Record<string, string[]> = { claude: ['claude'], codex: ['codex'], opencode: ['opencode'],
-            commandcode: ['commandcode'], copilot: ['copilot'], cursor: ['cursor-agent'], antigravity: ['antigravity'], grok: ['grok'] };
-        const directories = (process.env.PATH || '').split(path.delimiter);
         const result: Record<string, boolean> = {};
-        for (const [id, names] of Object.entries(commands)) {
-            result[id] = false;
-            for (const directory of directories) {
-                for (const name of names) {
-                    for (const suffix of process.platform === 'win32' ? ['.exe', '.cmd'] : ['']) {
-                        try { await fs.access(path.join(directory, name + suffix)); result[id] = true; break; } catch { /* 続ける */ }
-                    }
-                    if (result[id]) { break; }
-                }
-                if (result[id]) { break; }
-            }
-        }
+        await Promise.all(CLI_AGENTS.map(async agent => { result[agent] = Boolean(await installedPartnerPath(agent)); }));
         return result;
     }
     async partnerDetails(): Promise<Record<string, PartnerDetail>> {
-        const commands: Record<string, string> = { claude: 'claude', codex: 'codex', opencode: 'opencode',
-            commandcode: 'commandcode', copilot: 'copilot', cursor: 'cursor-agent', antigravity: 'antigravity', grok: 'grok' };
-        const available = await this.partnerAvailability();
         const result: Record<string, PartnerDetail> = {};
-        await Promise.all(Object.entries(commands).map(async ([id, command]) => {
-            if (!available[id]) { result[id] = { installed: false, detail: id === 'cursor' ? 'cursor-agent が見つかりません' : '—' }; return; }
+        await Promise.all(CLI_AGENTS.map(async id => {
+            const executable = await installedPartnerPath(id);
+            if (!executable) { result[id] = { installed: false, detail: id === 'cursor' ? 'cursor-agent が見つかりません' : '—' }; return; }
+            const privateEnv = id === 'commandcode' || id === 'pi' ? buildPrivateNodePathEnv({
+                agent: id, akariHome: resolveAkariHomeDir(), platform: process.platform, existingPath: process.env.PATH
+            }) : {};
             const version = await new Promise<string | undefined>(resolve => {
-                const child = spawn(command, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+                const isWindowsShim = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(executable);
+                let child: ReturnType<typeof spawn>;
+                try {
+                    child = spawn(isWindowsShim ? `"${executable.replace(/"/g, '\\"')}"` : executable,
+                        [isWindowsShim ? '"--version"' : '--version'], {
+                            stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...privateEnv }, shell: isWindowsShim
+                        });
+                } catch { resolve(undefined); return; }
                 let output = '';
-                const timeout = setTimeout(() => { child.kill(); resolve(undefined); }, 4000);
+                let timedOut = false;
+                let spawnFailed = false;
+                const timeout = setTimeout(() => { timedOut = true; child.kill(); resolve(undefined); }, 4000);
                 const collect = (chunk: Buffer): void => { if (output.length < 500) { output += chunk.toString('utf8'); } };
                 child.stdout.on('data', collect); child.stderr.on('data', collect);
-                child.on('error', () => { clearTimeout(timeout); resolve(undefined); });
-                child.on('close', () => { clearTimeout(timeout); resolve(output.split(/\r?\n/)[0]?.replace(/[\\/].*$/, '').slice(0, 80) || undefined); });
+                child.on('error', () => { spawnFailed = true; clearTimeout(timeout); resolve(undefined); });
+                child.on('close', (code, signal) => {
+                    clearTimeout(timeout);
+                    if (timedOut || spawnFailed || code !== 0 || signal) { resolve(undefined); return; }
+                    resolve(output.split(/\r?\n/)[0]?.replace(/[\\/].*$/, '').slice(0, 80) || undefined);
+                });
             });
             result[id] = { installed: true, version, detail: version || '—' };
         }));

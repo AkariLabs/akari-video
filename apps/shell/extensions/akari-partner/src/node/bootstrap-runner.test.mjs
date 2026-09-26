@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateRawSync, gzipSync } from 'node:zlib';
 import { bootstrapRunner } from '../../lib/node/bootstrap-runner.js';
+import { partnerCliCandidates } from '../../lib/node/partner-cli-candidates.js';
 
 const VERSION = '0.149.1';
 const TAG = `rust-v${VERSION}`;
@@ -145,7 +146,7 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
             `};`
         );
     }
-    sourceLines.push(`(${bootstrapRunner.toString()})()`);
+    sourceLines.push(`(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`);
     const source = sourceLines.join('\n');
     const env = {
         ...process.env,

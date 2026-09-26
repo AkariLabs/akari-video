@@ -16,6 +16,7 @@ import {
 } from '../common/akari-partner-protocol';
 import { buildPartnerConnectionMarker } from '../common/partner-connection-marker';
 import { bootstrapRunner } from './bootstrap-runner';
+import { partnerCliCandidates } from './partner-cli-candidates';
 import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 
@@ -51,7 +52,7 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
     async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
-        const runnerSource = `(${bootstrapRunner.toString()})()`;
+        const runnerSource = `(${bootstrapRunner.toString()})(${partnerCliCandidates.toString()})`;
         const workspaceRootFsPath = workspaceRootUri ? this.toFsPath(workspaceRootUri) : undefined;
         const env = {
             ...process.env,

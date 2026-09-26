@@ -1,0 +1,116 @@
+# BEFORE（origin/main 5e38b7a8）partnerDetails() の実出力 — lib/node/settings-maintenance-service.js を直接呼んだもの（HOME 配下は ~ に置換）
+
+## PATH=/usr/bin:/bin:/usr/sbin:/sbin（GUI 起動相当）
+{
+ "claude": {
+  "installed": false,
+  "detail": "—"
+ },
+ "codex": {
+  "installed": false,
+  "detail": "—"
+ },
+ "opencode": {
+  "installed": false,
+  "detail": "—"
+ },
+ "commandcode": {
+  "installed": false,
+  "detail": "—"
+ },
+ "copilot": {
+  "installed": false,
+  "detail": "—"
+ },
+ "cursor": {
+  "installed": false,
+  "detail": "cursor-agent が見つかりません"
+ },
+ "antigravity": {
+  "installed": false,
+  "detail": "—"
+ },
+ "grok": {
+  "installed": false,
+  "detail": "—"
+ }
+}
+
+## 開発者のシェル PATH（~/.local/bin を含む）
+{
+ "cursor": {
+  "installed": false,
+  "detail": "cursor-agent が見つかりません"
+ },
+ "antigravity": {
+  "installed": false,
+  "detail": "—"
+ },
+ "claude": {
+  "installed": true,
+  "version": "2.1.283 (Claude Code)",
+  "detail": "2.1.283 (Claude Code)"
+ },
+ "grok": {
+  "installed": true,
+  "version": "grok 1.0.13 (5e9a58528b76) [stable]",
+  "detail": "grok 1.0.13 (5e9a58528b76) [stable]"
+ },
+ "codex": {
+  "installed": true,
+  "version": "codex-cli 0.155.1",
+  "detail": "codex-cli 0.155.1"
+ },
+ "opencode": {
+  "installed": true,
+  "detail": "—"
+ },
+ "commandcode": {
+  "installed": true,
+  "detail": "—"
+ },
+ "copilot": {
+  "installed": true,
+  "detail": "—"
+ }
+}
+
+## 実アプリの設定画面（CDP で .akari-set-partner-row の innerText を取得）
+Claude Code | インストール済み | 2.1.283 (Claude Code) | 起動
+Codex | インストール済み | codex-cli 0.155.1 | 起動
+OpenCode | インストール済み | 1.18.32 | 起動
+Command Code | インストール済み | 1.49.1 | 起動
+Copilot | インストール済み | GitHub Copilot CLI 1.0.80. | 起動
+Cursor | 未インストール | cursor-agent が見つかりません | 入れ方
+Antigravity | 未インストール | — | 入れ方
+Grok | インストール済み | grok 1.0.13 (5e9a58528b76) [stable] | 起動
+Claude Code 拡張 | 入っていない | anthropic.claude-code | 開く
+Codex 拡張 | 入っていない | openai.chatgpt | 開く
+
+## 実アプリのファイルツリーのフィルタ（developer mode オフ・既存プロジェクト = テンプレの workflow.json）
+{
+ "hidden": [
+  ".claude",
+  ".agents",
+  ".codex",
+  ".akari",
+  "CLAUDE.md",
+  "AGENTS.md",
+  ".gitignore",
+  ".gitkeep"
+ ],
+ "developerMode": false,
+ "filter": {
+  ".devin": "shown",
+  ".devin/skills/akari": "shown",
+  ".cursor": "shown",
+  ".opencode": "shown",
+  ".agents": "hidden",
+  ".codex": "hidden",
+  ".claude": "hidden",
+  "assets": "shown",
+  "planning": "shown",
+  "exports": "shown",
+  "edit.json": "shown"
+ }
+}
