@@ -10849,7 +10849,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 [id, PLACED_TEXT_COLORS[index % PLACED_TEXT_COLORS.length]] as const));
         this.captions.forEach(caption => {
             const itemRow = this.captionTreeRow(caption.id);
-            const placedItemRow = caption.timeDomain === 'output' && itemRow?.parentId === undefined
+            const placedItemRow = caption.timeDomain === 'output' && itemRow !== undefined && itemRow.parentId === undefined
                 && this.rawV2Item(itemRow.id)?.source?.kind === 'caption' ? itemRow : undefined;
             if (excludedCaptionIds.has(caption.id) && !placedItemRow) return;
             const placedText = caption.timeDomain === 'output';
@@ -17153,7 +17153,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         duration: Math.max(1, this.frameAt(preview.end - preview.start)) };
                     if (!target) {
                         const row = this.captionTreeRow(preview.id);
-                        return row?.parentId === undefined && this.rawV2Item(row.id)?.source?.kind === 'caption'
+                        return row !== undefined && row.parentId === undefined && this.rawV2Item(row.id)?.source?.kind === 'caption'
                             ? moveTreeV2PlacedCaption(doc, caption, { track: row.trackId }).document : doc;
                     }
                     if (target.kind === 'rejected') return doc;
