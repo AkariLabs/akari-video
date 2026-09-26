@@ -33,6 +33,7 @@
 | id | family | provider | 参照画像 max | 解像度 | 価格 | as_of | verified |
 |---|---|---|---|---|---|---|---|
 | codex:image | OpenAI GPT Image | codex | 1 | 解像度: 指定なし; 縦横比: 指定なし | — | 2026-09-12 | documented |
+| fal:gpt-image-2.5-flare | GPT Image 2.5 Flare | fal | 0 | 解像度: 指定なし; 縦横比: 16:9, 9:16, 1:1, 4:3, 3:4, 4:5, 3:2, 21:9 | — | 2026-09-26 | documented |
 | fal:nano-banana-pro-edit | Nano Banana Pro | fal | 14 | 解像度: 1K, 2K, 4K; 縦横比: auto, 21:9, 16:9, 3:2, 4:3, 5:4, 1:1, 4:5, 3:4, 2:3, 9:16 | — | 2026-09-12 | documented |
 
 <!-- END GENERATED generation-models -->

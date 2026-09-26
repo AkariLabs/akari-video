@@ -33,6 +33,7 @@ Price is outside drift detection, so check `price_url` manually.
 | id | family | provider | Reference images max | Resolution | Price | as_of | verified |
 |---|---|---|---|---|---|---|---|
 | codex:image | OpenAI GPT Image | codex | 1 | resolutions: not specified; aspects: not specified | — | 2026-09-12 | documented |
+| fal:gpt-image-2.5-flare | GPT Image 2.5 Flare | fal | 0 | resolutions: not specified; aspects: 16:9, 9:16, 1:1, 4:3, 3:4, 4:5, 3:2, 21:9 | — | 2026-09-26 | documented |
 | fal:nano-banana-pro-edit | Nano Banana Pro | fal | 14 | resolutions: 1K, 2K, 4K; aspects: auto, 21:9, 16:9, 3:2, 4:3, 5:4, 1:1, 4:5, 3:4, 2:3, 9:16 | — | 2026-09-12 | documented |
 
 <!-- END GENERATED generation-models -->
