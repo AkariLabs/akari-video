@@ -3,7 +3,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { barItems } from '../lib/common/context-bar-view.js';
-import { CAPTION_PRESETS, CAPTION_TOOL_KEYS, captionFontChoices, captionMoreItems } from '../lib/common/caption-context-bar.js';
+import { CAPTION_BAR_ORDER, CAPTION_TOOL_KEYS, captionEscapeClosesPopup, captionOverflowKeys,
+    captionOverflowPressed, captionValueChanged, nextCaptionAlign, nextCaptionWindow } from '../lib/common/caption-context-bar.js';
 import { previewContextBarPageScript } from '../lib/browser/preview-context-bar-page.js';
 
 const require = createRequire(import.meta.url);
@@ -14,27 +15,63 @@ const state = { editUri: 'file:///edit.json', selectedId: 'cue-1', kind: 'captio
     locked: false, hasCorners: false, multi: 0, styleCopy: null,
     output: { width: 1920, height: 1080 }, lockedIds: [] };
 
-test('字幕の上のメニューとその他の項目', () => {
-    assert.deepEqual(barItems(state).map(({ key, label }) => [key, label]), [
-        ['captionPreset', '字幕のスタイル'], ['captionCushion', '座布団'],
-        ['captionTextColor', '文字の色'], ['captionStrokeColor', '縁取りの色'],
-        ['captionBold', '太字'], ['captionFont', 'フォント'], ['captionSize', '大きさ'],
-        ['captionSpacing', '行間・字間'], ['captionStroke', '縁取り'],
-        ['captionSep', ''], ['captionMore', 'その他']
-    ]);
-    assert.equal(barItems(state).at(-2).kind, 'separator');
-    assert.equal(barItems(state).at(-1).kind, 'window');
-    assert.deepEqual(captionMoreItems(), [
-        { key: 'captionMyStyleSave', label: 'マイスタイルに保存' },
-        { key: 'captionInspector', label: 'インスペクターを開く' }
-    ]);
-    assert.equal(CAPTION_PRESETS.length, 6);
-    assert.ok(CAPTION_PRESETS.some(item => item.key === 'subtitle-standard'));
-    const fonts = captionFontChoices('Noto Serif JP');
-    assert.equal(fonts.filter(name => name === 'Noto Serif JP').length, 1);
-    assert.ok(fonts.includes('BIZ UDGothic'));
-    assert.ok(fonts.includes('Dela Gothic One'));
+test('字幕の上のメニューは試作 v2 の順で 1 段の項目を持つ', () => {
+    assert.deepEqual(barItems(state).map(item => item.key), [...CAPTION_BAR_ORDER]);
+    assert.equal(barItems(state).at(0).label, 'フォント');
+    assert.equal(barItems(state).at(-1).label, 'スタイル');
     assert.deepEqual(barItems({ ...state, selectedId: null }), []);
+});
+
+test('狭い幅では右から畳みフォント・サイズ・スタイルを残す', () => {
+    const widths = Object.fromEntries(CAPTION_BAR_ORDER.map(key => [key,
+        key === 'captionFont' ? 94 : key === 'captionSize' ? 78
+            : key === 'captionEffect' ? 60 : key === 'captionAnimation' ? 80
+                : key === 'captionStyle' ? 50 : 30]));
+    const hidden = captionOverflowKeys(widths, 330 - 28);
+    assert.ok(hidden.length > 0);
+    assert.ok(hidden.every(key => !['captionFont', 'captionSize', 'captionStyle'].includes(key)));
+    assert.equal(hidden.at(-1), 'captionAnimation');
+    assert.deepEqual(captionOverflowKeys(widths, 720 - 28), []);
+    const css = readFileSync(new URL('../src/browser/preview-context-bar.ts', import.meta.url), 'utf8');
+    assert.match(css, /\.akari-ctx-caption-item \{[^}]*width: 28px;[^}]*height: 28px/u);
+    assert.match(css, /\.akari-ctx-caption-item\[data-font-button\] \{ width: 92px/u);
+    assert.match(css, /const resize = new ResizeObserver\(\(\) => \{ this\.barSignature = ''; this\.render\(\); \}\)/u);
+});
+
+test('畳んだ押下項目は一覧と「…」の点で示す', () => {
+    assert.equal(captionOverflowPressed(['captionItalic'], { italic: true }, null), true);
+    assert.equal(captionOverflowPressed(['captionItalic'], { italic: false }, null), false);
+    assert.equal(captionOverflowPressed(['captionStyle'], {}, 'style'), true);
+    assert.equal(captionOverflowPressed(['captionAlign'], { align: 'right' }, null), true);
+    assert.equal(captionOverflowPressed(['captionCase'], { textTransform: 'upper' }, null), true);
+    assert.equal(captionOverflowPressed(['captionOpacity'], { opacity: 0.5 }, null), true);
+    const view = { state: { item: { textStyle: { italic: true } } }, captionPanel: null, openWindow: null };
+    const html = PreviewContextBar.prototype.captionButton.call(view, 'captionItalic');
+    assert.match(html, /is-open[^>]*aria-pressed="true"/u);
+    const css = readFileSync(new URL('../src/browser/preview-context-bar.ts', import.meta.url), 'utf8');
+    assert.match(css, /\.akari-ctx-overflow\[aria-pressed="true"\]::after/u);
+});
+
+test('Esc は字幕の窓・「…」だけを閉じ、窓なしは選択解除へ渡す', () => {
+    assert.equal(captionEscapeClosesPopup('caption', 'captionSpacing', false), true);
+    assert.equal(captionEscapeClosesPopup('caption', null, true), true);
+    assert.equal(captionEscapeClosesPopup('caption', null, false), false);
+    assert.equal(captionEscapeClosesPopup('shape', null, true), true);
+    assert.equal(captionValueChanged(48, undefined, 48), false);
+    assert.equal(captionValueChanged(48, 72, 72), false);
+    const host = readFileSync(new URL('../src/browser/preview-context-bar.ts', import.meta.url), 'utf8');
+    assert.match(host, /button\.focus\(\{ preventScroll: true \}\)/u);
+    assert.match(host, /event\.stopImmediatePropagation\(\)/u);
+    assert.match(previewContextBarPageScript, /event\.stopImmediatePropagation\(\);[\s\S]*?reportContextBox\(\{ escape: true \}\)/u);
+});
+
+test('配置の巡回とミニポップアップの切り替え・閉じる規則', () => {
+    assert.deepEqual([nextCaptionAlign(undefined), nextCaptionAlign('center'), nextCaptionAlign('right')],
+        ['center', 'right', 'left']);
+    assert.equal(nextCaptionWindow(null, 'captionTextColor'), 'captionTextColor');
+    assert.equal(nextCaptionWindow('captionTextColor', 'captionSpacing'), 'captionSpacing');
+    assert.equal(nextCaptionWindow('captionSpacing', 'captionSpacing'), null);
+    assert.equal(nextCaptionWindow('captionOpacity', 'captionBold'), null);
 });
 
 test('下の通常表示は 4 操作だけで、範囲選択用は残る', () => {
@@ -51,13 +88,14 @@ test('下の通常表示は 4 操作だけで、範囲選択用は残る', () =>
     assert.match(source, /\[data-caption-optional-separator\]:has\(~ \[data-akari-run-tool\]:not\(\[hidden\]\), ~ \[data-caption-tool="reset"\]:not\(\[hidden\]\)\) \{ display: block; \}/u);
 });
 
-test('その他の窓は字幕の 2 行に空のショートカット欄を出さない', () => {
-    const view = { moreOpen: true, state, more: { hidden: true, innerHTML: '' }, mac: true, canPaste: false };
+test('畳んだ字幕項目はその他の窓で押せる', () => {
+    const view = { moreOpen: true, state, more: { hidden: true, innerHTML: '' }, mac: true, canPaste: false,
+        captionOverflow: ['captionUnderline', 'captionStyle'], captionPanel: null, openWindow: null,
+        captionButton: PreviewContextBar.prototype.captionButton };
     PreviewContextBar.prototype.renderMore.call(view);
     assert.equal(view.more.hidden, false);
-    assert.equal(view.more.innerHTML.includes('<kbd>'), false);
-    assert.deepEqual([...view.more.innerHTML.matchAll(/data-akari-menu-item="([^"]+)"/gu)].map(match => match[1]),
-        ['captionMyStyleSave', 'captionInspector']);
+    assert.deepEqual([...view.more.innerHTML.matchAll(/data-akari-bar-item="([^"]+)"/gu)].map(match => match[1]),
+        ['captionUnderline', 'captionStyle']);
     view.state = { ...state, kind: 'shape' };
     PreviewContextBar.prototype.renderMore.call(view);
     assert.equal([...view.more.innerHTML.matchAll(/<kbd>/gu)].length, 5);

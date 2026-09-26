@@ -3369,6 +3369,9 @@ ${indent}`);
         "weight",
         "italic",
         "underline",
+        "strikethrough",
+        "list",
+        "opacity",
         "letter_spacing_em",
         "line_height",
         "align",
@@ -3425,6 +3428,12 @@ ${indent}`);
         if (typeof value.underline === "boolean") {
           style.underline = value.underline;
         }
+        if (typeof value.strikethrough === "boolean")
+          style.strikethrough = value.strikethrough;
+        if (value.list === "bullet" || value.list === null)
+          style.list = value.list;
+        if (isFiniteNumber(value.opacity) && value.opacity >= 0 && value.opacity <= 1)
+          style.opacity = value.opacity;
         if (isFiniteNumber(value.letter_spacing_em)) {
           style.letterSpacingEm = value.letter_spacing_em;
         }
@@ -3647,6 +3656,9 @@ ${indent}`);
           ...style.weight !== void 0 ? { weight: style.weight } : {},
           ...style.italic !== void 0 ? { italic: style.italic } : {},
           ...style.underline !== void 0 ? { underline: style.underline } : {},
+          ...style.strikethrough !== void 0 ? { strikethrough: style.strikethrough } : {},
+          ...style.list !== void 0 ? { list: style.list } : {},
+          ...style.opacity !== void 0 ? { opacity: style.opacity } : {},
           ...style.letterSpacingEm !== void 0 ? { letter_spacing_em: style.letterSpacingEm } : {},
           ...style.lineHeight !== void 0 ? { line_height: style.lineHeight } : {},
           ...style.align !== void 0 ? { align: style.align } : {},
@@ -4608,6 +4620,9 @@ ${indent}`);
         "weight",
         "italic",
         "underline",
+        "strikethrough",
+        "list",
+        "opacity",
         "letter_spacing_em",
         "align",
         "vertical_align",
@@ -5257,6 +5272,9 @@ ${indent}`);
         failIf(has("weight") && (!Number.isInteger(value.weight) || value.weight < 100 || value.weight > 900), "weight must be an integer within [100, 900]");
         failIf(has("italic") && typeof value.italic !== "boolean", "italic must be a boolean");
         failIf(has("underline") && typeof value.underline !== "boolean", "underline must be a boolean");
+        failIf(has("strikethrough") && typeof value.strikethrough !== "boolean", "strikethrough must be a boolean");
+        failIf(has("list") && value.list !== "bullet" && value.list !== null, "list must be bullet or null");
+        failIf(has("opacity") && (!finiteNumber2(value.opacity) || value.opacity < 0 || value.opacity > 1), "opacity must be within [0, 1]");
         failIf(has("letter_spacing_em") && !finiteNumber2(value.letter_spacing_em), "letter_spacing_em must be a finite number");
         failIf(has("align") && !CAPTION_ALIGN_VALUES.has(value.align), "align must be one of left, center, right");
         failIf(has("vertical_align") && !CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align), "vertical_align must be one of top, middle, bottom");
@@ -5906,13 +5924,16 @@ ${indent}`);
           ...positiveInteger(value.reference_height_px) ? { reference_height_px: value.reference_height_px } : {},
           ...typeof value.font_family === "string" && value.font_family !== "" ? { font_family: value.font_family } : {},
           ...finiteNumber2(value.weight) && value.weight >= 100 && value.weight <= 900 ? { weight: value.weight } : Number.isInteger(value.font_weight) && value.font_weight >= 1 && value.font_weight <= 1e3 ? { weight: value.font_weight } : {},
-          ...value.italic === true ? { italic: true } : {},
-          ...value.underline === true ? { underline: true } : {},
+          ...typeof value.italic === "boolean" ? { italic: value.italic } : {},
+          ...typeof value.underline === "boolean" ? { underline: value.underline } : {},
+          ...typeof value.strikethrough === "boolean" ? { strikethrough: value.strikethrough } : {},
+          ...value.list === "bullet" || value.list === null ? { list: value.list } : {},
+          ...finiteNumber2(value.opacity) && value.opacity >= 0 && value.opacity <= 1 ? { opacity: value.opacity } : {},
           ...finiteNumber2(value.letter_spacing_em) ? { letter_spacing_em: value.letter_spacing_em } : {},
           ...finitePositive4(value.line_height) ? { line_height: value.line_height } : {},
           ...CAPTION_ALIGN_VALUES.has(value.align) ? { align: value.align } : {},
           ...CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align) ? { vertical_align: value.vertical_align } : {},
-          ...value.vertical === true ? { vertical: true } : {},
+          ...typeof value.vertical === "boolean" ? { vertical: value.vertical } : {},
           ...CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] ? { text_transform: CAPTION_TEXT_TRANSFORM_MAP[value.text_transform] } : {},
           ...finiteNumber2(value.max_width_pct) && value.max_width_pct > 0 && value.max_width_pct < 100 ? { max_width_pct: value.max_width_pct } : {},
           ...finiteNumber2(value.wrap_width_pct) && value.wrap_width_pct > 0 && value.wrap_width_pct <= 100 ? { wrap_width_pct: value.wrap_width_pct } : {},
@@ -6092,8 +6113,12 @@ ${indent}`);
           vars["--caption-font-weight"] = String(style.font_weight);
         if (style.italic)
           vars["--caption-font-style"] = "italic";
-        if (style.underline)
-          vars["--caption-text-decoration"] = "underline";
+        if (style.underline || style.strikethrough)
+          vars["--caption-text-decoration"] = [style.underline ? "underline" : "", style.strikethrough ? "line-through" : ""].filter(Boolean).join(" ");
+        if (style.list === "bullet")
+          vars["--caption-list-display"] = "list-item";
+        if (finiteNumber2(style.opacity))
+          vars["--caption-opacity"] = String(style.opacity);
         if (finiteNumber2(style.letter_spacing_em))
           vars["--caption-letter-spacing"] = `${style.letter_spacing_em}em`;
         if (finiteNumber2(style.line_height))
@@ -6105,8 +6130,13 @@ ${indent}`);
           vars["--caption-line-max-width"] = `${style.max_width_pct}%`;
         if (finiteNumber2(style.wrap_width_pct))
           vars["--caption-wrap-width"] = `${style.wrap_width_pct}%`;
-        if (style.vertical)
+        if (style.vertical) {
           vars["--caption-writing-mode"] = "vertical-rl";
+          vars["--caption-text-orientation"] = "upright";
+          vars["--caption-width"] = "max-content";
+          delete vars["--caption-line-max-width"];
+          delete vars["--caption-wrap-width"];
+        }
         if (extendedBackground && isRecord2(style.background)) {
           if (style.background.fit !== "frame") {
             vars["--plate-ext-width"] = percentageBackground ? `${style.background.width_pct ?? 0}%` : `${px(style.background.padding_px ?? 0)}px`;
@@ -6124,17 +6154,36 @@ ${indent}`);
         if (textShadow !== null)
           vars["--caption-text-shadow"] = textShadow;
         Object.assign(vars, captionZoneVars(style.zone));
-        Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
+        Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical ? void 0 : style.vertical_align));
+        if (style.vertical && style.vertical_align && !(isRecord2(style.position) && finiteNumber2(style.position.x))) {
+          vars["--caption-left"] = style.vertical_align === "top" ? "auto" : style.vertical_align === "middle" ? "50%" : "4%";
+          vars["--caption-right"] = style.vertical_align === "top" ? "4%" : "auto";
+          vars["--caption-align-items"] = style.vertical_align === "top" ? "flex-end" : style.vertical_align === "middle" ? "center" : "flex-start";
+          if (style.vertical_align === "middle")
+            vars["--caption-translate"] = "-50% 0";
+        } else if (style.vertical && !style.vertical_align && !style.text_anchor && (!style.zone || style.zone === "bottom") && !(isRecord2(style.position) && finiteNumber2(style.position.x))) {
+          vars["--caption-left"] = "50%";
+          vars["--caption-right"] = "auto";
+          vars["--caption-align-items"] = "center";
+          vars["--caption-translate"] = "-50% 0";
+        }
         if (style.align) {
           vars["--caption-text-align"] = style.align;
-          vars["--caption-align-items"] = style.align === "left" ? "flex-start" : style.align === "right" ? "flex-end" : "center";
         }
         return vars;
       }
       function resolveCaptionLineStyleVars(style, output) {
         if (!isRecord2(style))
           return {};
-        return resolveCaptionLineStyleVarsAtScale(style, resolveCaptionReferenceScale(style, output));
+        const vars = resolveCaptionLineStyleVarsAtScale(style, resolveCaptionReferenceScale(style, output));
+        Object.assign(vars, captionVerticalHeightVars(style, output));
+        return vars;
+      }
+      function captionVerticalHeightVars(style, output) {
+        if (style.vertical !== true || !output || !finitePositive4(output.height))
+          return {};
+        const pct = finitePositive4(style.wrap_width_pct) ? style.wrap_width_pct : finitePositive4(style.max_width_pct) ? style.max_width_pct : 90;
+        return { "--caption-vertical-max-height": `${formatCssNumber(output.height * pct / 100)}px` };
       }
       function resolveCaptionStyleForOutput(style, output) {
         let layout;
@@ -6151,6 +6200,7 @@ ${indent}`);
           scale = resolveCaptionReferenceScale(style, output);
         }
         const vars = resolveCaptionLineStyleVarsAtScale(style, scale);
+        Object.assign(vars, captionVerticalHeightVars(style, output));
         vars["--caption-paint-order"] = "stroke fill";
         if (!isRecord2(style.shadow) && !isRecord2(style.glow))
           vars["--caption-text-shadow"] = "none";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { captionTextStyleVars, generateCaptionOverlays } from "../src/captions.mjs";
+import { captionTextStyleVars, generateCaptionOverlays, renderCaptionFragment, renderResolvedSingleLineCaption, renderStyledCaptionFragment } from "../src/captions.mjs";
 
 const caption = (textStyle) => ({
   id: "c-0001",
@@ -14,6 +14,126 @@ const caption = (textStyle) => ({
 test("text_style 完全不在では overlay.vars が空のまま", () => {
   const [overlay] = generateCaptionOverlays([caption()], []);
   assert.deepEqual(overlay.vars, {});
+});
+
+test("新しい項目の無い字幕は既存スタイル指定でも HTML のバイト列を増やさない", () => {
+  const baseline = renderCaptionFragment('長い字幕\n短い', { textStyleActive: true });
+  assert.equal(renderCaptionFragment('長い字幕\n短い', {
+    textStyleActive: true, contextStyle: { color: '#ff0000', line_height: 1.5 }
+  }), baseline);
+  const resolved = renderResolvedSingleLineCaption('字幕', ['字幕'], { style_vars: {} });
+  assert.equal(renderResolvedSingleLineCaption('字幕', ['字幕'], {
+    style_vars: {}, text_style: { color: '#ff0000', line_height: 1.5 }
+  }), resolved);
+  const words = [{ text: '字幕', start: 0, end: 2 }];
+  assert.equal(renderStyledCaptionFragment(words, 'karaoke', {
+    contextStyle: { color: '#ff0000', line_height: 1.5 }
+  }), renderStyledCaptionFragment(words, 'karaoke'));
+});
+
+test("縦書きの一列の高さは出力高を基準にし、句読点と横書きの文字数上限で列を割らない", () => {
+  for (const output of [{ width: 1920, height: 1080 }, { width: 1080, height: 1920 }]) {
+    const [overlay] = generateCaptionOverlays([{ ...caption({ vertical: true }),
+      text: '縦書きの字幕 2026年、AKARI' }], [], { output });
+    assert.equal(overlay.vars['--caption-vertical-max-height'], `${output.height * 0.9}px`);
+    assert.equal(overlay.vars['--caption-left'], '50%');
+    assert.equal(overlay.vars['--caption-translate'], '-50% 0');
+    assert.equal((overlay.html.match(/<p class="akari-caption__line"/gu) ?? []).length, 1);
+    assert.match(overlay.html, /\.akari-caption--vertical \.akari-caption__line\{writing-mode:vertical-rl;max-height:var\(--caption-vertical-max-height,90vh\)/u);
+  }
+  const vars = captionTextStyleVars({ vertical: true, max_width_pct: 50 }, { width: 1080, height: 1920 });
+  assert.equal(vars['--caption-vertical-max-height'], '960px');
+  assert.equal(vars['--caption-line-max-width'], undefined);
+  const wrap = captionTextStyleVars({ vertical: true, max_width_pct: 50, wrap_width_pct: 35 },
+    { width: 1080, height: 1920 });
+  assert.equal(wrap['--caption-vertical-max-height'], '672px');
+  assert.equal(wrap['--caption-wrap-width'], undefined);
+  const resolved = renderResolvedSingleLineCaption('縦書きの字幕 2026年、AKARI',
+    ['縦書きの字幕 2026年、', 'AKARI'], { text_style: { vertical: true } });
+  assert.equal((resolved.match(/<p class="akari-caption__line"/gu) ?? []).length, 1);
+});
+
+test("箇条書き CSS は bullet cue にだけ当たり、GPU の共有 DOM で他の字幕へ漏れない", () => {
+  const [bullet, underline, opacity] = generateCaptionOverlays([
+    { ...caption({ list: 'bullet' }), id: 'bullet' },
+    { ...caption({ underline: true }), id: 'underline' },
+    { ...caption({ opacity: 0.5 }), id: 'opacity' }
+  ], [], { output: { width: 1920, height: 1080 } });
+  assert.match(bullet.html, /class="akari-caption akari-caption--bullet"/u);
+  assert.match(bullet.html, /\.akari-caption--bullet \.akari-caption__line\{display:list-item/u);
+  for (const other of [underline, opacity]) {
+    assert.doesNotMatch(other.html, /akari-caption--bullet|display:list-item/u);
+  }
+});
+
+test("文字色の線だけを上層に置き、縁取り層と影には線を描かない", () => {
+  for (const style of [
+    { color: '#f5c451', stroke: { color: '#000000', width_px: 6 }, underline: true },
+    { color: '#4da3ff', stroke: { color: '#000000', width_px: 6 }, strikethrough: true },
+    { color: '#f26666', underline: true, strikethrough: true }
+  ]) {
+    const [overlay] = generateCaptionOverlays([caption(style)], [], { output: { width: 1920, height: 1080 } });
+    assert.match(overlay.html, /class="akari-caption akari-caption--decorated"/u);
+    assert.match(overlay.html, /data-decoration-text="字幕"/u);
+    assert.match(overlay.html, /\.akari-caption--decorated[^{}]*\{text-decoration:none!important;\}/u);
+    assert.match(overlay.html, /\.akari-caption--decorated \.akari-caption__line::after\{[^}]*-webkit-text-stroke:0 transparent!important;text-shadow:none!important;[^}]*text-decoration-color:var\(--caption-color,#fff\)/u);
+    assert.equal(overlay.vars['--caption-color'], style.color);
+  }
+});
+
+test("縦書きの下線は文字列を含む行を基準に置き、右寄せでも親プレートへ飛ばない", () => {
+  const [overlay] = generateCaptionOverlays([{
+    ...caption({ vertical: true, vertical_align: 'top', underline: true }),
+    text: '縦書きを右に固定'
+  }], [], { output: { width: 1920, height: 1080 } });
+  assert.equal(overlay.vars['--caption-left'], 'auto');
+  assert.equal(overlay.vars['--caption-right'], '4%');
+  assert.match(overlay.html, /\.akari-caption--decorated \.akari-caption__line\{position:relative;\}/u);
+  assert.match(overlay.html, /\.akari-caption--decorated \.akari-caption__line::after\{[^}]*position:absolute;inset:0/u);
+});
+
+test("縦書きの固定位置は右・中央・左の列端を基準に全フラグメントへ届く", () => {
+  const placements = [
+    { align: 'top', left: 'auto', right: '4%', translate: undefined, items: 'flex-end' },
+    { align: 'middle', left: '50%', right: 'auto', translate: '-50% 0', items: 'center' },
+    { align: 'bottom', left: '4%', right: 'auto', translate: undefined, items: 'flex-start' },
+  ];
+  for (const { align, left, right, translate, items } of placements) {
+    const style = { vertical: true, vertical_align: align };
+    const [plain] = generateCaptionOverlays([caption(style)], [], { output: { width: 1920, height: 1080 } });
+    const [timed] = generateCaptionOverlays([{ ...caption(style), style: 'karaoke',
+      words: [{ text: '字幕', start: 0, end: 2 }] }], [], { output: { width: 1920, height: 1080 } });
+    const resolved = renderResolvedSingleLineCaption('字幕', ['字幕'], {
+      text_style: style, style_vars: captionTextStyleVars(style),
+    });
+    for (const overlay of [plain, timed]) {
+      assert.equal(overlay.vars['--caption-left'], left, align);
+      assert.equal(overlay.vars['--caption-right'], right, align);
+      assert.equal(overlay.vars['--caption-translate'], translate, align);
+      assert.equal(overlay.vars['--caption-align-items'], items, align);
+    }
+    for (const html of [plain.html, timed.html, resolved]) {
+      assert.match(html, /\.akari-caption--vertical \.akari-caption__line\{writing-mode:vertical-rl;[^}]*margin:0;/u);
+      assert.match(html, /\.akari-caption\.akari-caption--vertical \.akari-caption__plate\{[^}]*left:var\(--caption-left,0\);right:var\(--caption-right,0\);width:var\(--caption-width,max-content\);[^}]*writing-mode:horizontal-tb;align-items:var\(--caption-align-items,center\);\}/u);
+    }
+  }
+});
+
+test("align は最長行の内容幅の箱で短い行だけを揃え、配置位置を変えない", () => {
+  for (const align of ["left", "center", "right"]) {
+    const [overlay] = generateCaptionOverlays([{ ...caption({ align }), text: '長い字幕\n短い' }], [],
+      { output: { width: 1920, height: 1080 } });
+    assert.equal(overlay.vars["--caption-text-align"], align);
+    assert.equal(overlay.vars["--caption-line-width"], undefined);
+    assert.equal(overlay.vars["--caption-align-items"], undefined);
+    assert.match(overlay.html, /<div class="akari-caption__alignbox"><p class="akari-caption__line">/u);
+    assert.match(overlay.html, /\.akari-caption__alignbox\{display:flex;flex-direction:column;width:max-content/u);
+    assert.match(overlay.html, /\.akari-caption__alignbox \.akari-caption__line\{box-sizing:border-box;width:100%/u);
+    const resolved = renderResolvedSingleLineCaption('長い字幕\n短い', ['長い字幕', '短い'], {
+      text_style: { align }, style_vars: captionTextStyleVars({ align }) });
+    assert.match(resolved, /<div class="akari-caption__alignbox"><p class="akari-caption__line">長い字幕/u);
+    assert.match(resolved, /\.akari-caption__alignbox \.akari-caption__line\{box-sizing:border-box;width:100%/u);
+  }
 });
 
 test("defaultTextStyle と per-caption をネストもフィールド単位で合成する", () => {

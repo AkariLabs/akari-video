@@ -58,6 +58,9 @@ export interface CaptionTextStyle {
     weight?: number;
     italic?: boolean;
     underline?: boolean;
+    strikethrough?: boolean;
+    list?: 'bullet' | null;
+    opacity?: number;
     letterSpacingEm?: number;
     lineHeight?: number;
     align?: CaptionAlign;
