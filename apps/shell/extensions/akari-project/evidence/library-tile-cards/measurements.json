@@ -1,0 +1,844 @@
+{
+  "capturedAt": "2026-09-26T16:58:10.175Z",
+  "shots": {
+    "00-window-default.png": {
+      "bytes": 270826,
+      "kb": 264,
+      "clip": {
+        "x": 0,
+        "y": 0,
+        "width": 1120,
+        "height": 668
+      },
+      "scale": 0.7
+    },
+    "01-library-home-default.png": {
+      "bytes": 103746,
+      "kb": 101,
+      "clip": {
+        "x": 48,
+        "y": 4,
+        "width": 165,
+        "height": 638
+      },
+      "scale": 1
+    },
+    "06-width-164.png": {
+      "bytes": 103746,
+      "kb": 101,
+      "clip": {
+        "x": 48,
+        "y": 4,
+        "width": 165,
+        "height": 638
+      },
+      "scale": 1
+    },
+    "07-width-400.png": {
+      "bytes": 340629,
+      "kb": 333,
+      "clip": {
+        "x": 48,
+        "y": 4,
+        "width": 401,
+        "height": 638
+      },
+      "scale": 1
+    },
+    "10-tiles-400.png": {
+      "bytes": 330077,
+      "kb": 322,
+      "clip": {
+        "x": 54,
+        "y": 94,
+        "width": 374,
+        "height": 572
+      },
+      "scale": 1
+    },
+    "02-tile-normal.png": {
+      "bytes": 228487,
+      "kb": 223,
+      "clip": {
+        "x": 48,
+        "y": 242,
+        "width": 137,
+        "height": 143
+      },
+      "scale": 4
+    },
+    "03-tile-opening.png": {
+      "bytes": 373912,
+      "kb": 365,
+      "clip": {
+        "x": 48,
+        "y": 242,
+        "width": 137,
+        "height": 143
+      },
+      "scale": 4
+    },
+    "03b-tile-opening-late.png": {
+      "bytes": 386503,
+      "kb": 377,
+      "clip": {
+        "x": 48,
+        "y": 242,
+        "width": 137,
+        "height": 143
+      },
+      "scale": 4
+    },
+    "04-tile-hover.png": {
+      "bytes": 330019,
+      "kb": 322,
+      "clip": {
+        "x": 48,
+        "y": 242,
+        "width": 137,
+        "height": 143
+      },
+      "scale": 4
+    },
+    "05-library-home-hover.png": {
+      "bytes": 351709,
+      "kb": 343,
+      "clip": {
+        "x": 48,
+        "y": 4,
+        "width": 401,
+        "height": 638
+      },
+      "scale": 1
+    },
+    "11-soon-hover.png": {
+      "bytes": 159276,
+      "kb": 156,
+      "clip": {
+        "x": 296,
+        "y": 88,
+        "width": 137,
+        "height": 143
+      },
+      "scale": 4
+    },
+    "09-art-text.png": {
+      "bytes": 273225,
+      "kb": 267,
+      "clip": {
+        "x": 52,
+        "y": 92,
+        "width": 129,
+        "height": 135
+      },
+      "scale": 4
+    },
+    "09-art-bgm.png": {
+      "bytes": 267069,
+      "kb": 261,
+      "clip": {
+        "x": 300,
+        "y": 246,
+        "width": 129,
+        "height": 135
+      },
+      "scale": 4
+    },
+    "09-art-sfx.png": {
+      "bytes": 267251,
+      "kb": 261,
+      "clip": {
+        "x": 52,
+        "y": 295,
+        "width": 129,
+        "height": 135
+      },
+      "scale": 4
+    },
+    "09-art-fx.png": {
+      "bytes": 157579,
+      "kb": 154,
+      "clip": {
+        "x": 300,
+        "y": 295,
+        "width": 129,
+        "height": 135
+      },
+      "scale": 4
+    },
+    "09-art-motion.png": {
+      "bytes": 162050,
+      "kb": 158,
+      "clip": {
+        "x": 52,
+        "y": 295,
+        "width": 129,
+        "height": 135
+      },
+      "scale": 4
+    },
+    "08-reduced-motion.png": {
+      "bytes": 352214,
+      "kb": 344,
+      "clip": {
+        "x": 48,
+        "y": 4,
+        "width": 401,
+        "height": 638
+      },
+      "scale": 1
+    }
+  },
+  "defaultPanelWidth": 164.9140625,
+  "structure": {
+    "tileCount": 16,
+    "labels": [
+      "テキスト",
+      "図形",
+      "イラスト",
+      "画像",
+      "動画",
+      "BGM",
+      "SFX",
+      "オーバーレイ",
+      "3D・アバター",
+      "LUT",
+      "トランジション",
+      "エフェクト",
+      "モーション",
+      "マイスタイル",
+      "ひな形",
+      "セット"
+    ],
+    "categories": [
+      "make",
+      "shapes",
+      "stamps",
+      "image",
+      "broll",
+      "bgm",
+      "sfx",
+      "overlay",
+      "scene3d",
+      "lut",
+      "transition",
+      "fx",
+      "motion",
+      "mypresets",
+      "template",
+      "pack"
+    ],
+    "platesPerTile": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "backPerTile": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "frontPerTile": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "plateCountTotal": 32,
+    "ruleCount": 3,
+    "ruleTextChars": 0,
+    "headingChars": 0,
+    "svgIdDuplicates": [
+      {
+        "label": "テキスト",
+        "idCount": 12,
+        "duplicates": []
+      },
+      {
+        "label": "図形",
+        "idCount": 12,
+        "duplicates": []
+      },
+      {
+        "label": "イラスト",
+        "idCount": 15,
+        "duplicates": []
+      },
+      {
+        "label": "画像",
+        "idCount": 18,
+        "duplicates": []
+      },
+      {
+        "label": "動画",
+        "idCount": 14,
+        "duplicates": []
+      },
+      {
+        "label": "BGM",
+        "idCount": 14,
+        "duplicates": []
+      },
+      {
+        "label": "SFX",
+        "idCount": 12,
+        "duplicates": []
+      },
+      {
+        "label": "オーバーレイ",
+        "idCount": 14,
+        "duplicates": []
+      },
+      {
+        "label": "3D・アバター",
+        "idCount": 16,
+        "duplicates": []
+      },
+      {
+        "label": "LUT",
+        "idCount": 16,
+        "duplicates": []
+      },
+      {
+        "label": "トランジション",
+        "idCount": 14,
+        "duplicates": []
+      },
+      {
+        "label": "エフェクト",
+        "idCount": 15,
+        "duplicates": []
+      },
+      {
+        "label": "モーション",
+        "idCount": 16,
+        "duplicates": []
+      },
+      {
+        "label": "マイスタイル",
+        "idCount": 14,
+        "duplicates": []
+      },
+      {
+        "label": "ひな形",
+        "idCount": 14,
+        "duplicates": []
+      },
+      {
+        "label": "セット",
+        "idCount": 13,
+        "duplicates": []
+      }
+    ],
+    "soon": [
+      "stamps",
+      "fx",
+      "motion",
+      "mypresets",
+      "template"
+    ],
+    "disabledCount": 5,
+    "horizontalScroll": {
+      "scrollWidth": 150,
+      "clientWidth": 150,
+      "overflowX": false
+    }
+  },
+  "computed": {
+    "home": {
+      "padding": "2px 8px 12px"
+    },
+    "grid": {
+      "display": "grid",
+      "gridTemplateColumns": "41.9688px 41.9688px 41.9766px",
+      "gap": "4px"
+    },
+    "tile": {
+      "padding": "8px 2px 9px",
+      "gap": "7px",
+      "borderRadius": "8px"
+    },
+    "art": {
+      "width": "29.6094px",
+      "aspectRatio": "1 / 1"
+    },
+    "plate": {
+      "borderRadius": "24%",
+      "backgroundImage": "linear-gradient(152deg, rgb(74, 165, 255) 0%, rgb(30, 111, 217) 100%)",
+      "boxShadow": "rgba(255, 255, 255, 0.38) 0px 1.5px 0px 0px inset, rgba(0, 0, 0, 0.16) 0px -2px 0px 0px inset, rgba(0, 0, 0, 0.42) 0px 5px 12px -5px",
+      "filter": "brightness(0.86) saturate(0.92)",
+      "transformOrigin": "14.8047px 14.8047px",
+      "overflow": "hidden"
+    },
+    "label": {
+      "fontSize": "9.36px",
+      "fontWeight": "500",
+      "lineHeight": "12.168px",
+      "whiteSpace": "nowrap",
+      "textOverflow": "ellipsis",
+      "overflow": "hidden"
+    },
+    "rule": {
+      "height": "1px",
+      "margin": "13px 2px"
+    },
+    "soonArt": {
+      "opacity": "0.38",
+      "filter": "grayscale(0.72)"
+    }
+  },
+  "width164": {
+    "requested": 164,
+    "actual": 164.9140625,
+    "labels": {
+      "scrollWidth": 150,
+      "clientWidth": 150,
+      "overflowX": false,
+      "labels": [
+        {
+          "label": "テキスト",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "図形",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "イラスト",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "画像",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "動画",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "BGM",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "SFX",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "オーバーレイ",
+          "lines": 1,
+          "ellipsized": true,
+          "withinTile": true
+        },
+        {
+          "label": "3D・アバター",
+          "lines": 1,
+          "ellipsized": true,
+          "withinTile": true
+        },
+        {
+          "label": "LUT",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "トランジション",
+          "lines": 1,
+          "ellipsized": true,
+          "withinTile": true
+        },
+        {
+          "label": "エフェクト",
+          "lines": 1,
+          "ellipsized": true,
+          "withinTile": true
+        },
+        {
+          "label": "モーション",
+          "lines": 1,
+          "ellipsized": true,
+          "withinTile": true
+        },
+        {
+          "label": "マイスタイル",
+          "lines": 1,
+          "ellipsized": true,
+          "withinTile": true
+        },
+        {
+          "label": "ひな形",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        },
+        {
+          "label": "セット",
+          "lines": 1,
+          "ellipsized": false,
+          "withinTile": true
+        }
+      ]
+    }
+  },
+  "width400": {
+    "requested": 400,
+    "actual": 400.375,
+    "layout": {
+      "scrollWidth": 385,
+      "clientWidth": 385,
+      "overflowX": false,
+      "artWidth": 90.83,
+      "ellipsized": [],
+      "wrapped": []
+    }
+  },
+  "normal": {
+    "label": "画像",
+    "art": {
+      "w": 90.83,
+      "h": 90.83
+    },
+    "back": {
+      "transform": {
+        "raw": "matrix(0.927735, 0.0648735, -0.0648735, 0.927735, 5.44969, 0)",
+        "deg": 4,
+        "scale": 0.93,
+        "tx": 5.45,
+        "ty": 0
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "0.32s, 0.3s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 76.6,
+        "y": 258.34,
+        "w": 90.16,
+        "h": 90.16,
+        "cx": 121.68,
+        "cy": 303.41
+      }
+    },
+    "front": {
+      "transform": {
+        "raw": "none"
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "0.32s, 0.3s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 70.81,
+        "y": 258,
+        "w": 90.83,
+        "h": 90.83,
+        "cx": 116.23,
+        "cy": 303.41
+      }
+    }
+  },
+  "opening": {
+    "before": {
+      "back": {
+        "raw": "matrix(0.879402, 0.210379, -0.210379, 0.879402, 14.8172, 0)",
+        "deg": 13.454,
+        "scale": 0.9042,
+        "tx": 14.817,
+        "ty": 0
+      },
+      "front": {
+        "raw": "matrix(0.986418, -0.164256, 0.164256, 0.986418, 0, 0)",
+        "deg": -9.454,
+        "scale": 1,
+        "tx": 0,
+        "ty": 0
+      }
+    },
+    "after": {
+      "back": {
+        "raw": "matrix(0.876187, 0.217766, -0.217766, 0.876187, 15.316, 0)",
+        "deg": 13.957,
+        "scale": 0.9028,
+        "tx": 15.316,
+        "ty": 0
+      },
+      "front": {
+        "raw": "matrix(0.984937, -0.172915, 0.172915, 0.984937, 0, 0)",
+        "deg": -9.957,
+        "scale": 1,
+        "tx": 0,
+        "ty": 0
+      }
+    }
+  },
+  "openingLate": {
+    "before": {
+      "back": {
+        "raw": "matrix(0.871123, 0.229049, -0.229049, 0.871123, 16.0831, 0)",
+        "deg": 14.732,
+        "scale": 0.9007,
+        "tx": 16.083,
+        "ty": 0
+      },
+      "front": {
+        "raw": "matrix(0.98251, -0.186209, 0.186209, 0.98251, 0, 0)",
+        "deg": -10.732,
+        "scale": 1,
+        "tx": 0,
+        "ty": 0
+      }
+    },
+    "after": {
+      "back": {
+        "raw": "matrix(0.870409, 0.230606, -0.230606, 0.870409, 16.1896, 0)",
+        "deg": 14.839,
+        "scale": 0.9004,
+        "tx": 16.19,
+        "ty": 0
+      },
+      "front": {
+        "raw": "matrix(0.982159, -0.188051, 0.188051, 0.982159, 0, 0)",
+        "deg": -10.839,
+        "scale": 1,
+        "tx": 0,
+        "ty": 0
+      }
+    }
+  },
+  "hover": {
+    "label": "画像",
+    "art": {
+      "w": 90.83,
+      "h": 90.83
+    },
+    "back": {
+      "transform": {
+        "raw": "matrix(0.869333, 0.232937, -0.232937, 0.869333, 16.3491, 0)",
+        "deg": 15,
+        "scale": 0.9,
+        "tx": 16.349,
+        "ty": 0
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "0.32s, 0.3s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 82.52,
+        "y": 253.36,
+        "w": 100.12,
+        "h": 100.12,
+        "cx": 132.58,
+        "cy": 303.41
+      }
+    },
+    "front": {
+      "transform": {
+        "raw": "matrix(0.981627, -0.190809, 0.190809, 0.981627, 0, 0)",
+        "deg": -11,
+        "scale": 1,
+        "tx": 0,
+        "ty": 0
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "0.32s, 0.3s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 62.98,
+        "y": 250.17,
+        "w": 106.49,
+        "h": 106.49,
+        "cx": 116.23,
+        "cy": 303.41
+      }
+    }
+  },
+  "backSink": {
+    "normalCy": 303.41,
+    "hoverCy": 303.41,
+    "deltaY": 0,
+    "artHeight": 90.83
+  },
+  "soonHover": {
+    "label": "イラスト",
+    "art": {
+      "w": 90.84,
+      "h": 90.84
+    },
+    "back": {
+      "transform": {
+        "raw": "matrix(0.927735, 0.0648735, -0.0648735, 0.927735, 5.45016, 0)",
+        "deg": 4,
+        "scale": 0.93,
+        "tx": 5.45,
+        "ty": 0
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "0.32s, 0.3s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 325.51,
+        "y": 104.34,
+        "w": 90.16,
+        "h": 90.16,
+        "cx": 370.59,
+        "cy": 149.42
+      }
+    },
+    "front": {
+      "transform": {
+        "raw": "none"
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "0.32s, 0.3s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 319.73,
+        "y": 104,
+        "w": 90.84,
+        "h": 90.84,
+        "cx": 365.14,
+        "cy": 149.42
+      }
+    }
+  },
+  "reducedMotion": {
+    "label": "画像",
+    "art": {
+      "w": 90.83,
+      "h": 90.83
+    },
+    "back": {
+      "transform": {
+        "raw": "matrix(0.927735, 0.0648735, -0.0648735, 0.927735, 5.44969, 0)",
+        "deg": 4,
+        "scale": 0.93,
+        "tx": 5.45,
+        "ty": 0
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "1e-05s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 76.6,
+        "y": -108.16,
+        "w": 90.16,
+        "h": 90.16,
+        "cx": 121.68,
+        "cy": -63.09
+      }
+    },
+    "front": {
+      "transform": {
+        "raw": "none"
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "1e-05s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 70.81,
+        "y": -108.5,
+        "w": 90.83,
+        "h": 90.83,
+        "cx": 116.23,
+        "cy": -63.09
+      }
+    }
+  },
+  "reducedMotionHover": {
+    "label": "画像",
+    "art": {
+      "w": 90.83,
+      "h": 90.83
+    },
+    "back": {
+      "transform": {
+        "raw": "matrix(0.869333, 0.232937, -0.232937, 0.869333, 16.3491, 0)",
+        "deg": 15,
+        "scale": 0.9,
+        "tx": 16.349,
+        "ty": 0
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "1e-05s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 82.52,
+        "y": 253.36,
+        "w": 100.12,
+        "h": 100.12,
+        "cx": 132.58,
+        "cy": 303.41
+      }
+    },
+    "front": {
+      "transform": {
+        "raw": "matrix(0.981627, -0.190809, 0.190809, 0.981627, 0, 0)",
+        "deg": -11,
+        "scale": 1,
+        "tx": 0,
+        "ty": 0
+      },
+      "transitionProperty": "transform, box-shadow",
+      "transitionDuration": "1e-05s",
+      "transitionTimingFunction": "cubic-bezier(0.32, 0.72, 0, 1), ease",
+      "box": {
+        "x": 62.98,
+        "y": 250.17,
+        "w": 106.49,
+        "h": 106.49,
+        "cx": 116.23,
+        "cy": 303.41
+      }
+    }
+  }
+}
