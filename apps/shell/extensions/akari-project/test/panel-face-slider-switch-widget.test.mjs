@@ -35,7 +35,8 @@ test('つながったトラックに、transform だけで移動するつまみ�
     assert.equal(style(thumb[0], 'width'), "'calc((100% - 4px) / 2)'");
     assert.equal(style(thumb[0], 'boxSizing'), "'border-box'");
     assert.equal(style(thumb[0], 'background'), 'AKARI_SURFACE.elevated');
-    assert.equal(style(thumb[0], 'border'), 'AKARI_BORDER.accent');
+    // つまみはアクセントの枠ではなく面で示す（2026-09-26 オーナー指示）。
+    assert.equal(style(thumb[0], 'border'), 'AKARI_BORDER.ghost');
     assert.equal(style(thumb[0], 'transform'), "this.topView === 'materials' ? 'translateX(0)' : 'translateX(100%)'");
     assert.equal(style(thumb[0], 'transition'), "'var(--akari-panel-segment-transition, none)'");
 });

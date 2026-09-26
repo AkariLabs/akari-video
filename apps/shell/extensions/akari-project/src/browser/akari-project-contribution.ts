@@ -40,6 +40,7 @@ import { AkariWorkflowService } from './akari-workflow-service';
 import { AkariRoleBucketsWidget } from './akari-role-buckets-widget';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_REVEAL_PROJECT_ROOT, AKARI_SHOW_ASSET_INFO } from './akari-reveal-commands';
 import { AkariAssetInspector } from './akari-asset-inspector';
+import { EXPLORER_VIEW_CONTAINER_ID } from '@theia/navigator/lib/browser/navigator-widget-factory';
 
 /**
  * 「場所を選んで新規作成…」。File メニュー先頭の「新規プロジェクト作成」は
@@ -599,9 +600,13 @@ export class AkariProjectContribution implements CommandContribution, MenuContri
     protected async showAssetInfo(uri: URI): Promise<void> {
         try {
             const inspector = await this.widgets.getOrCreateWidget<AkariAssetInspector>(AkariAssetInspector.ID);
+            // パネル自体が畳まれている/隠れていると reveal だけでは表に出ないことがあるので、
+            // 先に Explorer コンテナを開いてから素材の情報パートを起こす
+            // （2026-09-26 オーナー指示「押しても何も反応がない」）。
+            await this.shell.revealWidget(EXPLORER_VIEW_CONTAINER_ID).catch(() => undefined);
             await this.shell.revealWidget(inspector.id);
             await this.shell.activateWidget(inspector.id);
-            await inspector.showAsset(uri);
+            await inspector.showAsset(uri, { force: true });
         } catch (error) {
             this.messages.warn(`素材の情報を表示できませんでした: ${this.errorMessage(error)}`);
         }
