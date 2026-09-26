@@ -66,7 +66,7 @@ finish();
 
 function validateCatalog(value) {
   if (!value || typeof value !== "object" || !Array.isArray(value.models)) return;
-  if (value.models.length !== 14) fail(`models は 14 行である必要があります: ${value.models.length}`);
+  if (value.models.length !== 15) fail(`models は 15 行である必要があります: ${value.models.length}`);
 
   const ids = new Set();
   for (const [index, model] of value.models.entries()) {
