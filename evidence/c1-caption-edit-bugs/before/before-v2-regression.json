@@ -1,0 +1,110 @@
+{
+  "label": "before-v2-regression",
+  "port": 9577,
+  "pid": 72709,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "outer": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 404,
+    "h": 359
+  },
+  "iframes": [
+    {
+      "src": "http://439937b8-5a2d-58c1-8cd6-a3870688b746.webview.localhost:49021/webview/index.html?id=akari-outp",
+      "rect": {
+        "x": 221.9140625,
+        "y": 39,
+        "w": 404,
+        "h": 359
+      }
+    }
+  ],
+  "windowShot": "before-v2-regression-window.png",
+  "results": {
+    "regression": {
+      "initial": {
+        "stage": {
+          "x": 36,
+          "y": 57.125,
+          "width": 332,
+          "height": 186.75
+        },
+        "items": {
+          "box-b": {
+            "left": 87.9,
+            "top": 164.3,
+            "width": 41.5,
+            "height": 27.7,
+            "cx": 108.6,
+            "cy": 178.2,
+            "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+            "opacity": "1",
+            "filter": "none",
+            "fontSize": "13px"
+          },
+          "photo-a": {
+            "left": 246.6,
+            "top": 100.7,
+            "width": 66.4,
+            "height": 37.4,
+            "cx": 279.8,
+            "cy": 119.4,
+            "transform": "translate(-50%, -50%) rotate(0deg)",
+            "opacity": "1",
+            "filter": "none",
+            "fontSize": "13px"
+          }
+        },
+        "frame": null
+      },
+      "photoHit": {
+        "x": 279.81250762939453,
+        "y": 119.375,
+        "owner": null
+      },
+      "photoSelected": null,
+      "photoTimelineSelected": null,
+      "photoInspector": "photo.png00:00.0 – 00:10.0 · 素材",
+      "resize": {
+        "before": {
+          "left": 87.9,
+          "top": 164.3,
+          "width": 41.5,
+          "height": 27.7,
+          "cx": 108.6,
+          "cy": 178.2,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "after": {
+          "left": 87.9,
+          "top": 164.3,
+          "width": 66.2,
+          "height": 44.1,
+          "cx": 121,
+          "cy": 186.4,
+          "transform": "translate(var(--x,0px), var(--y,0px)) rotate(var(--rotate,0deg)) scale(var(--scale-x,var(--scale,1)),var(--scale-y,var(-",
+          "opacity": "1",
+          "filter": "none",
+          "fontSize": "13px"
+        },
+        "writeEvents": [
+          "edit.json"
+        ],
+        "undo": true
+      },
+      "shot": "before-v2-regression-regression.png"
+    }
+  },
+  "allConsoleErrors": []
+}

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { harness, source } from './caption-animator-webview-harness.mjs';
+import { captionEditorWrapWidth, captionLineCountFromMetrics, captionEditorFitWidth,
+    captionEditorLines, captionEditorValue } from '../lib/common/caption-edit-geometry.js';
 
-function editingHarness(cue, write = async () => {}) {
+function editingHarness(cue, write = async () => {}, visibleLines = []) {
     const h = harness({ cues: [cue] });
     h.tick(1);
     const plate = h.plate;
@@ -16,10 +18,17 @@ function editingHarness(cue, write = async () => {}) {
     };
     const query = plate.querySelector.bind(plate);
     plate.querySelector = selector => selector === '.akari-caption__plate' ? layout : query(selector);
-    h.context.document.createElement = () => {
+    const queryAll = plate.querySelectorAll.bind(plate);
+    plate.querySelectorAll = selector => selector === '.akari-caption__line'
+        ? visibleLines.map(textContent => ({ textContent, offsetWidth: 200, offsetHeight: 20 })) : queryAll(selector);
+    h.context.document.createTextNode = text => ({ textContent: text });
+    h.context.document.createElement = tag => {
         const attributes = new Map();
         const children = [];
-        return { className: '', textContent: '', style: {}, children, parentElement: null,
+        return { tagName: tag.toUpperCase(), className: '', textContent: '', style: {}, children, parentElement: null,
+            get offsetHeight() { return Math.max(20, Math.ceil(this.textContent.length * 20 / (parseFloat(this.style.width) || 200)) * 20); },
+            get innerText() { return this.textContent; },
+            replaceChildren(...nodes) { this.textContent = nodes.map(node => node.tagName === 'BR' ? '\n' : node.textContent).join(''); },
             getAttribute: name => attributes.get(name) ?? null,
             setAttribute: (name, value) => attributes.set(name, value), removeAttribute: name => attributes.delete(name),
             appendChild(child) { child.parentElement = this; children.push(child); return child; },
@@ -35,6 +44,13 @@ function editingHarness(cue, write = async () => {}) {
     h.context.window.akari.reportCaptionSelection = () => {};
     h.context.window.akari.engine = { captionWrite: write };
     h.context.window.akari.showWriteError = () => {};
+    h.context.captionEditorLinesFn = captionEditorLines;
+    h.context.captionEditorWrapWidthFn = captionEditorWrapWidth;
+    h.context.captionLineCountFromMetricsFn = captionLineCountFromMetrics;
+    h.context.captionEditorFitWidthFn = captionEditorFitWidth;
+    h.context.getComputedStyle = () => ({ lineHeight: '20px', paddingTop: '0px', paddingBottom: '0px' });
+    h.context.captionEditorValueFn = captionEditorValue;
+    h.context.vscode = { postMessage() {} };
     const start = source.indexOf('const restoreCaptionEditAttribute =');
     const end = source.indexOf("captionLayer.addEventListener('dblclick'", start);
     h.run(source.slice(start, end));
@@ -96,6 +112,22 @@ test('編集の取消・確定で文字範囲ツールの状態を同期する',
     const beforeCommit = synced;
     await h.run('commitCaptionEdit()');
     assert.ok(synced > beforeCommit);
+});
+
+test('soft wrapping never becomes a saved newline after typing', async () => {
+    const writes = [];
+    const h = editingHarness({ id: 'lines', start: 0, end: 4, text: '一行目二行目' },
+        async (...args) => { writes.push(args); }, ['一行目', '二行目']);
+    h.run('beginCaptionEdit(captions[0])');
+    assert.equal(h.editor.innerText, '一行目二行目');
+    assert.ok(parseFloat(h.editor.style.width) < 200);
+    await h.run('commitCaptionEdit()');
+    assert.equal(writes.length, 0);
+    h.run('beginCaptionEdit(captions[0])');
+    h.editor.textContent += '追記';
+    await h.run('commitCaptionEdit()');
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0][1].text, '一行目二行目追記');
 });
 
 test('user deselection removes transcript-supplied plate attributes and handles without echoing incoming selection', () => {

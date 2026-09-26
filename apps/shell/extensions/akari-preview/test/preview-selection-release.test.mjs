@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import { captionOrientedFrame } from '../lib/common/caption-edit-geometry.js';
 
 // Execute the webview's actual source fragments; no compiled lib is required.
 const source = readFileSync(new URL('../src/browser/akari-preview-open-handler.ts', import.meta.url), 'utf8');
@@ -268,7 +269,9 @@ test('caption and layer coordinates use the measured frame with gutters, zoom, a
             document: { getElementById: () => ({ getBoundingClientRect: () => ({ width: 800 * zoom, height: 450 * zoom }) }) },
             window: { akari: { stageScale: () => scale } },
             summary: { output: { width: 1280, height: 720 } }, selectedCaptionId: 'c1',
-            captionSelectBox: { style: {}, classList: { add() {} } }, updateCaptionSelectTools() {}, updateCaptionRowBox() {},
+            captionSelectBox: { style: { setProperty() {} }, classList: { add() {} } }, updateCaptionSelectTools() {}, updateCaptionRowBox() {},
+            captionLayoutRect: () => plate, captionTransformValues: () => ({ scale: 1, rotate: 0 }),
+            captionOrientedFrameFn: captionOrientedFrame,
             captionPlate: {
                 querySelector: () => null, querySelectorAll: () => [],
                 getBoundingClientRect: () => ({

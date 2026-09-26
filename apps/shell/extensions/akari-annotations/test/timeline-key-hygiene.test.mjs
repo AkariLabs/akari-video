@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
 
 const source = ts.createSourceFile('timeline.ts', readFileSync(
     new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
@@ -55,6 +56,7 @@ function dispatch(key, { focus = 'timeline', eventTarget = focus, modal = null, 
     const document = {
         body, activeElement: elements[focus],
         querySelectorAll: selector => {
+            if (selector === '[data-akari-caption-editing-focus="true"]') return [];
             assert.equal(selector, '.dialogOverlay, [aria-modal="true"]');
             if (!modal || modal === 'roleOnly') return [];
             return [{ getClientRects: () => modal === 'displayNone' ? [] : [{}],
@@ -72,9 +74,10 @@ function dispatch(key, { focus = 'timeline', eventTarget = focus, modal = null, 
         commands: { executeCommand: () => { counts.text++; } }, location: undefined
     };
     const factory = new Function('isImeCompositionKeydown', 'document', 'window', 'HTMLElement',
-        'PLACE_TEXT_COMMAND_ID', 'getComputedStyle', `return function () { return (${js}); };`);
+        'PLACE_TEXT_COMMAND_ID', 'getComputedStyle', 'captionEditFocusWithinMarkedWidget', `return function () { return (${js}); };`);
     const onKeyDown = factory(event => event.isComposing || event.keyCode === 229,
-        document, window, Element, 'place-text', element => ({ visibility: element.visibility })).call(widget);
+        document, window, Element, 'place-text', element => ({ visibility: element.visibility }),
+        captionEditFocusWithinMarkedWidget).call(widget);
     onKeyDown({ key, code, isComposing, keyCode, metaKey, ctrlKey: false, altKey: false, shiftKey: false,
         target: elements[eventTarget], preventDefault: () => { counts.prevented++; },
         stopPropagation: () => { counts.stopped++; } });

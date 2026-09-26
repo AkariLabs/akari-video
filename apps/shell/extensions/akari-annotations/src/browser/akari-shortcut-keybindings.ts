@@ -7,6 +7,7 @@ import { AkariEditHistoryService } from './akari-edit-history-service';
 import { AkariAnnotationsWidget } from './akari-annotations-widget';
 import { PLACE_TEXT } from './akari-annotations-commands';
 import { AKARI_SHORTCUTS, AkariShortcut } from './akari-shortcuts';
+import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 
 /** The annotations contribution supplies references; shortcut policy and execution live here. */
 export interface AkariShortcutDependencies {
@@ -50,6 +51,8 @@ export class AkariShortcutKeybindings {
             const control = focused?.closest('button, [role="button"], [tabindex]');
             const editable = (target: EventTarget | null): boolean => target instanceof HTMLElement
                 && (!!target.closest('.akari-inspector-widget') || isEditableEventTarget(target));
+            const captionEditing = captionEditFocusWithinMarkedWidget(focused,
+                Array.from(document.querySelectorAll('[data-akari-caption-editing-focus="true"]')));
             const modalOpen = Array.from(document.querySelectorAll('.dialogOverlay, [aria-modal="true"]'))
                 .some(element => element.getClientRects().length > 0
                     && getComputedStyle(element).visibility !== 'hidden');
@@ -58,9 +61,9 @@ export class AkariShortcutKeybindings {
             this.deps.contextKeys.setContext('akariFocusOutsideTimeline', outside);
             this.deps.contextKeys.setContext('akariFocusOnControl', !webview && !!control && control !== widget?.node);
             this.deps.contextKeys.setContext('akariModalOpen', modalOpen);
-            this.deps.contextKeys.setContext('akariEditableFocus', editable(event.target) || editable(focused));
+            this.deps.contextKeys.setContext('akariEditableFocus', captionEditing || editable(event.target) || editable(focused));
             this.deps.contextKeys.setContext('akariHistoryEditableFocus',
-                event.target instanceof HTMLElement && isEditableEventTarget(event.target)
+                captionEditing || event.target instanceof HTMLElement && isEditableEventTarget(event.target)
                 || !!focused && isEditableEventTarget(focused));
             this.deps.contextKeys.setContext('akariImeComposing', isImeCompositionKeydown(event));
             this.deps.contextKeys.setContext('akariTextSelection', !!window.getSelection?.()?.toString());
@@ -96,6 +99,9 @@ export class AkariShortcutKeybindings {
     protected shortcutEnabled(shortcut: AkariShortcut): boolean {
         // User keymaps may supply only command + keybinding; keep the command's focus gate.
         const focused = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+        if (captionEditFocusWithinMarkedWidget(focused,
+            typeof document.querySelectorAll === 'function'
+                ? Array.from(document.querySelectorAll('[data-akari-caption-editing-focus="true"]')) : [])) return false;
         if (!this.deps.contextKeys.match(shortcut.when, focused)) return false;
         const id = shortcut.command.id;
         const widget = this.shortcutTimelineWidget();

@@ -64,6 +64,7 @@ import { isVisualThumbnailDiskEntry, pruneThumbnailIndex, visualThumbnailCacheFi
     VisualThumbnailDiskEntry } from '../common/visual-thumbnail-disk-cache';
 import { visualThumbnailSnapshot, visualThumbnailKey } from './visual-thumbnail-key';
 import { isEditableEventTarget, isImeCompositionKeydown } from 'akari-preview/lib/common/review-tool-mode';
+import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 import {
     areCutsAdjacent,
     cutOverlapFrames,
@@ -2608,6 +2609,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (modalOpen) return;
             const focusedElement = typeof HTMLElement !== 'undefined' && document.activeElement instanceof HTMLElement
                 ? document.activeElement : null;
+            if (captionEditFocusWithinMarkedWidget(focusedElement,
+                typeof document.querySelectorAll === 'function'
+                    ? Array.from(document.querySelectorAll('[data-akari-caption-editing-focus="true"]')) : [])) return;
             // Theia が webview の keydown を再送すると、target と activeElement は iframe になる。
             const isWebviewKeydown = focusedElement?.tagName === 'IFRAME'
                 || (typeof HTMLElement !== 'undefined' && event.target instanceof HTMLElement

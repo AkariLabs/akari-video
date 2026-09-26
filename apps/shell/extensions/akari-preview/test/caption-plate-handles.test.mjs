@@ -224,7 +224,7 @@ test('explicit-x caption handles measure the ink box and preserve the opposite c
   assert.equal((renderCaptionSource.match(/width: var\(--caption-width, auto\);[\s\S]{0,350}?transform-origin: center;/gu) ?? []).length, 2);
   assert.match(visualContract.resolved_single_line_caption_css,
     /width:var\(--caption-width,auto\);[\s\S]*?transform-origin:center;/u);
-  assert.match(handlerSource, /const captionLayoutRect = [\s\S]*?plate\.style\.transform = 'none';[\s\S]*?return captionVisualRect\(captionPlate\);[\s\S]*?plate\.style\.transform = previousTransform;/u);
+  assert.match(handlerSource, /const captionLayoutRect = [\s\S]*?plate\.style\.transform = 'none';[\s\S]*?const ink = captionVisualRect\(captionPlate\);[\s\S]*?return \{ \.\.\.ink, pivot:[\s\S]*?plate\.style\.transform = previousTransform;/u);
   assert.match(handlerSource, /const rect = captionVisualRect\(\);\s*const layoutRect = captionLayoutRect\(captionPlate\);\s*const center = \{ x: \(rect\.left \+ rect\.right\) \/ 2, y: \(rect\.top \+ rect\.bottom\) \/ 2 \};/u);
 
   const center = { x: 256 + 109, y: 540 };
