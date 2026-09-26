@@ -1,5 +1,6 @@
 import { previewSelectionHandlesStyle } from './preview-selection-handles-style';
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
+import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { previewLiveValues } from '../common/preview-live-values';
@@ -106,6 +107,7 @@ import {
     AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssetUrls,
+    ReadGenerationSidecarsResult,
     ReviewStrokeFrame,
     VideoStreamReference,
     VideoStreamRequest
@@ -3408,6 +3410,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             widget.akariPreviewAllTracksMutedScopes = Object.entries(session.allTracksMutedByScope)
                 .filter(([, muted]) => muted).map(([scope]) => scope);
         }
+        // Read photo generation status alongside the initial preview load so the
+        // context bar can render existing photos completely on its first paint.
+        const initialPhotoSidecars = kind === 'output'
+            ? this.currentWorkspaceRoots().then(workspaceRoots => this.previewService.readGenerationSidecars({
+                editUri: identityUri.toString(), workspaceRoots
+            })).catch(() => undefined)
+            : Promise.resolve(undefined);
         await this.refreshPreview(widget, identityUri, kind, initialSeekTime);
         if (kind === 'output') {
             this.pendingOutputInitialSeek.delete(seekKey);
@@ -3468,14 +3477,117 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
         window.addEventListener('akari.photo.highlight', onPhotoHighlight);
         disposables.push(Disposable.create(() => window.removeEventListener('akari.photo.highlight', onPhotoHighlight)));
+        // Seed the bar from the edit's existing sources before its first state read.
+        // Unknown paths (such as a newly drawn frame) stay conservative until checked.
+        const photoToolCache = new Map<string, boolean>();
+        const photoToolReads = new Map<string, Promise<boolean>>();
+        let latestPhotoSelection = '';
+        let photoStateRevision = 0;
+        let photoTableRevision = 0;
+        let onKnownAvailabilityChanged = (): void => undefined;
+        const availabilityForSource = (sourcePath: string, sidecars: ReadGenerationSidecarsResult): boolean => {
+            const direct = sidecars.entries.find(entry => entry.sourcePath === sourcePath);
+            const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
+                sourcePath: entry.sourcePath,
+                meta: entry.meta as GenerationMetaV1 | null,
+                binding: entry.binding
+            })), Date.now()) ?? direct;
+            const state = resolveGenerationState(generation?.meta, Date.now(), generation?.binding);
+            return photoToolsAvailableFor({ emptyFrame: state === 'planned', generationState: state });
+        };
+        const readPhotoSidecars = async (editUri: string): Promise<ReadGenerationSidecarsResult> =>
+            this.previewService.readGenerationSidecars({ editUri, workspaceRoots: await this.currentWorkspaceRoots() });
+        const prewarmPhotoTools = async (prefetched?: ReadGenerationSidecarsResult): Promise<void> => {
+            const editUri = widget.akariPreviewEditUri?.toString();
+            if (!editUri || widget.isDisposed) return;
+            const revision = ++photoTableRevision;
+            try {
+                const sidecars = prefetched && editUri === identityUri.toString()
+                    ? prefetched : await readPhotoSidecars(editUri);
+                if (widget.isDisposed || revision !== photoTableRevision
+                    || editUri !== widget.akariPreviewEditUri?.toString()) return;
+                let changed = false;
+                for (const entry of sidecars.entries) {
+                    const available = availabilityForSource(entry.sourcePath, sidecars);
+                    if (photoToolCache.get(entry.sourcePath) !== available) changed = true;
+                    photoToolCache.set(entry.sourcePath, available);
+                }
+                if (changed) onKnownAvailabilityChanged();
+            } catch {
+                // Preserve the last known value when sidecar reading fails.
+            }
+        };
+        const readPhotoToolsAvailable = async (sourcePath: string, editUri: string): Promise<boolean> =>
+            availabilityForSource(sourcePath, await readPhotoSidecars(editUri));
+        const refreshPhotoToolsAvailable = (sourcePath: string, editUri: string): Promise<boolean> => {
+            const pending = photoToolReads.get(sourcePath);
+            if (pending) return pending;
+            const request = readPhotoToolsAvailable(sourcePath, editUri).finally(() => {
+                if (photoToolReads.get(sourcePath) === request) photoToolReads.delete(sourcePath);
+            });
+            photoToolReads.set(sourcePath, request);
+            return request;
+        };
+        class GenerationAwareContextBar extends PreviewContextBar {
+            refreshKnownAvailability(): void {
+                const state = this.state;
+                if (state?.kind !== 'photo' || !state.sourcePath) return;
+                const available = photoToolCache.get(state.sourcePath);
+                if (available !== undefined && available !== state.photoToolsAvailable) {
+                    super.setState({ ...state, photoToolsAvailable: available });
+                }
+            }
+
+            protected override setState(value: unknown): void {
+                const revision = ++photoStateRevision;
+                const state = value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+                if (!state || state.kind !== 'photo' || typeof state.sourcePath !== 'string'
+                    || state.editUri !== widget.akariPreviewEditUri?.toString()) {
+                    latestPhotoSelection = '';
+                    super.setState(value);
+                    return;
+                }
+                const sourcePath = state.sourcePath;
+                const selection = `${String(state.selectedId ?? '')}:${sourcePath}`;
+                latestPhotoSelection = selection;
+                const cached = photoToolCache.get(sourcePath);
+                super.setState({ ...state, photoToolsAvailable: cached ?? false });
+                void refreshPhotoToolsAvailable(sourcePath, String(state.editUri)).then(available => {
+                    photoToolCache.set(sourcePath, available);
+                    if (revision !== photoStateRevision || selection !== latestPhotoSelection || widget.isDisposed) return;
+                    if ((cached ?? false) !== available) super.setState({ ...state, photoToolsAvailable: available });
+                }).catch(() => undefined); // Keep the last known value when lookup fails.
+            }
+        }
+        if (kind === 'output') await prewarmPhotoTools(await initialPhotoSidecars);
         // 上のバー・選んだものの上の小さなメニュー（中身は preview-context-bar.ts）
-        const contextBar = kind === 'output' ? new PreviewContextBar({
+        const contextBar = kind === 'output' ? new GenerationAwareContextBar({
             node: widget.node, sendMessage: message => widget.sendMessage(message),
             editUri: () => widget.akariPreviewEditUri?.toString()
         }, this.commandRegistry) : undefined;
         if (contextBar) {
+            onKnownAvailabilityChanged = () => contextBar.refreshKnownAvailability();
             widget.node.dataset.akariOutputPreview = 'true';
             disposables.push(contextBar.start());
+            const matchesEdit = (uri: string): boolean => {
+                const editUri = widget.akariPreviewEditUri;
+                if (!editUri) return false;
+                try {
+                    const changed = new URI(uri);
+                    return changed.toString() === editUri.toString()
+                        || this.resourceSuffix(changed) === this.resourceSuffix(editUri);
+                } catch { return false; }
+            };
+            const onEditPhotoSources = (event: Event): void => {
+                const uri = (event as CustomEvent<{ uri?: unknown }>).detail?.uri;
+                if (typeof uri === 'string' && matchesEdit(uri)) void prewarmPhotoTools();
+            };
+            window.addEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditPhotoSources);
+            disposables.push(Disposable.create(() => window.removeEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditPhotoSources)));
+            disposables.push(this.fileService.onDidFilesChange(event => {
+                if (event.changes.some(change => matchesEdit(change.resource.toString())
+                    || change.resource.path.base.endsWith('.meta.json'))) void prewarmPhotoTools();
+            }));
         }
         const onPhotoCropOpen = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; itemId?: string }>).detail;

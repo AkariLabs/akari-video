@@ -81,9 +81,9 @@ test('successful frame selects the item before revealing inspector without attac
   assert.deepEqual(f.commands, [{ id: 'akari.inspector.open', options: undefined, selection: { kind: 'cut', index: 0 } }]);
   assert.deepEqual(f.notices, ['空の枠を置きました。']);
 });
-test('planned empty frame opens the edit tab', () => {
+test('planned empty frame keeps a saved video tab', () => {
   assert.equal(initialTabFor({ kind: 'cut', tabs: tabsForKind('cut', { src: 'frame.png', generationAvailable: true }),
-    generationTodo: true, persisted: 'video', clipKey: 'new', previousClipKey: 'old' }), 'edit');
+    generationTodo: true, persisted: 'video', clipKey: 'new', previousClipKey: 'old' }), 'video');
 });
 test('frame capture prevents clip listeners and is confined to frame mode', () => {
   assert.match(source, /if \(this.toolMode === 'frame'\)\s*this.onStripPointerDown\(event\);\s*}, true\)/);

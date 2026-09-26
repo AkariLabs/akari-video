@@ -1,0 +1,1237 @@
+{
+  "phase": "before",
+  "status": "PASS",
+  "step": "cleanup",
+  "checks": [
+    {
+      "name": "before: 写真のホームに画像の AI（高画質化）が出る",
+      "pass": true,
+      "measured": {
+        "panelLabel": "インスペクター",
+        "sideTitles": [
+          "インスペクター"
+        ],
+        "workbenchTabLabels": [
+          "インスペクター"
+        ],
+        "tablistLabel": "インスペクター",
+        "tabs": [
+          {
+            "id": "video",
+            "label": "映像",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "adjust",
+            "label": "色",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "audio",
+            "label": "音声",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "edit",
+            "label": "編集",
+            "active": true,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "motion",
+            "label": "動き",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false,
+            "title": null
+          }
+        ],
+        "activeTab": "edit",
+        "header": "photo.png",
+        "sections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-material-choice"
+        ],
+        "tiles": [
+          {
+            "id": "still",
+            "enabled": true
+          },
+          {
+            "id": "video",
+            "enabled": true
+          },
+          {
+            "id": "transcribe",
+            "enabled": false
+          }
+        ],
+        "enabledTiles": 2,
+        "stillPanel": false,
+        "imageAiPanel": true,
+        "imageAiButtons": [
+          "高画質化",
+          "背景生成（近日）"
+        ],
+        "soonText": 2,
+        "soonAttrs": [],
+        "soonChips": 0,
+        "voiceIsolationRow": false,
+        "bar": [
+          "edit",
+          "replace",
+          "cutout",
+          "eraser",
+          "photoColor",
+          "border",
+          "photoRadius",
+          "crop",
+          "flip",
+          "opacity",
+          "anim",
+          "arrange",
+          "style"
+        ],
+        "barHidden": false
+      }
+    },
+    {
+      "name": "before: 写真の浮いたバーに写真用の項目が出る",
+      "pass": true,
+      "measured": [
+        "edit",
+        "replace",
+        "cutout",
+        "eraser",
+        "photoColor",
+        "border",
+        "photoRadius",
+        "crop",
+        "flip",
+        "opacity",
+        "anim",
+        "arrange",
+        "style"
+      ]
+    },
+    {
+      "name": "BEFORE: 空の枠のホーム（編集）に画像の AI か写真用のバーの項目が出ている（再現）",
+      "pass": true,
+      "measured": {
+        "panelLabel": "インスペクター",
+        "sideTitles": [
+          "インスペクター"
+        ],
+        "workbenchTabLabels": [
+          "インスペクター"
+        ],
+        "tablistLabel": "インスペクター",
+        "tabs": [
+          {
+            "id": "video",
+            "label": "映像",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "adjust",
+            "label": "色",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "audio",
+            "label": "音声",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "edit",
+            "label": "編集",
+            "active": true,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "motion",
+            "label": "動き",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false,
+            "title": null
+          }
+        ],
+        "activeTab": "edit",
+        "header": "frame-1790426337328-EuPm8g.png",
+        "sections": [
+          "edit-alternatives"
+        ],
+        "tiles": [
+          {
+            "id": "still",
+            "enabled": true
+          },
+          {
+            "id": "video",
+            "enabled": true
+          },
+          {
+            "id": "transcribe",
+            "enabled": false
+          }
+        ],
+        "enabledTiles": 2,
+        "stillPanel": false,
+        "imageAiPanel": true,
+        "imageAiButtons": [
+          "高画質化",
+          "背景生成（近日）"
+        ],
+        "soonText": 1,
+        "soonAttrs": [],
+        "soonChips": 0,
+        "voiceIsolationRow": false,
+        "bar": [
+          "edit",
+          "replace",
+          "cutout",
+          "eraser",
+          "photoColor",
+          "border",
+          "photoRadius",
+          "crop",
+          "flip",
+          "opacity",
+          "anim",
+          "arrange",
+          "style"
+        ],
+        "barHidden": false
+      }
+    },
+    {
+      "name": "BEFORE: 静止画の専用パネルで上の編集タブを押しても一覧へ戻らない（再現）",
+      "pass": true,
+      "measured": {
+        "panelLabel": "インスペクター",
+        "sideTitles": [
+          "インスペクター"
+        ],
+        "workbenchTabLabels": [
+          "インスペクター"
+        ],
+        "tablistLabel": "インスペクター",
+        "tabs": [
+          {
+            "id": "video",
+            "label": "映像",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "adjust",
+            "label": "色",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "audio",
+            "label": "音声",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "edit",
+            "label": "編集",
+            "active": true,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "motion",
+            "label": "動き",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false,
+            "title": null
+          }
+        ],
+        "activeTab": "edit",
+        "header": "photo.png",
+        "sections": [],
+        "tiles": [],
+        "enabledTiles": 0,
+        "stillPanel": true,
+        "imageAiPanel": false,
+        "imageAiButtons": [],
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0,
+        "voiceIsolationRow": false,
+        "bar": [
+          "edit",
+          "replace",
+          "cutout",
+          "eraser",
+          "photoColor",
+          "border",
+          "photoRadius",
+          "crop",
+          "flip",
+          "opacity",
+          "anim",
+          "arrange",
+          "style"
+        ],
+        "barHidden": false
+      }
+    },
+    {
+      "name": "BEFORE: 音声タブに「ボイス分離（近日）」の行がある（再現）",
+      "pass": true,
+      "measured": {
+        "panelLabel": "インスペクター",
+        "sideTitles": [
+          "インスペクター"
+        ],
+        "workbenchTabLabels": [
+          "インスペクター"
+        ],
+        "tablistLabel": "インスペクター",
+        "tabs": [
+          {
+            "id": "audio",
+            "label": "音声",
+            "active": true,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "edit",
+            "label": "編集",
+            "active": false,
+            "disabled": false,
+            "title": null
+          },
+          {
+            "id": "info",
+            "label": "情報",
+            "active": false,
+            "disabled": false,
+            "title": null
+          }
+        ],
+        "activeTab": "audio",
+        "header": "se.wav",
+        "sections": [
+          "audio",
+          "time",
+          "audio:fades",
+          "audio:keyframes",
+          "audio:pitch-time",
+          "audio:enhancement",
+          "audio:master"
+        ],
+        "tiles": [],
+        "enabledTiles": 0,
+        "stillPanel": false,
+        "imageAiPanel": false,
+        "imageAiButtons": [],
+        "soonText": 1,
+        "soonAttrs": [],
+        "soonChips": 0,
+        "voiceIsolationRow": true,
+        "bar": [],
+        "barHidden": true
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 49605,
+    "previewOpen": "\"opened\"",
+    "photoPanel": {
+      "panelLabel": "インスペクター",
+      "sideTitles": [
+        "インスペクター"
+      ],
+      "workbenchTabLabels": [
+        "インスペクター"
+      ],
+      "tablistLabel": "インスペクター",
+      "tabs": [
+        {
+          "id": "video",
+          "label": "映像",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "activeTab": "video",
+      "header": "photo.png",
+      "sections": [
+        "time",
+        "transform",
+        "motion-summary",
+        "framing",
+        "freeze",
+        "appearance",
+        "timing",
+        "audio"
+      ],
+      "tiles": [],
+      "enabledTiles": 0,
+      "stillPanel": false,
+      "imageAiPanel": false,
+      "imageAiButtons": [],
+      "soonText": 0,
+      "soonAttrs": [],
+      "soonChips": 0,
+      "voiceIsolationRow": false,
+      "bar": [
+        "edit",
+        "replace",
+        "cutout",
+        "eraser",
+        "photoColor",
+        "border",
+        "photoRadius",
+        "crop",
+        "flip",
+        "opacity",
+        "anim",
+        "arrange",
+        "style"
+      ],
+      "barHidden": false
+    },
+    "photoHome": {
+      "panelLabel": "インスペクター",
+      "sideTitles": [
+        "インスペクター"
+      ],
+      "workbenchTabLabels": [
+        "インスペクター"
+      ],
+      "tablistLabel": "インスペクター",
+      "tabs": [
+        {
+          "id": "video",
+          "label": "映像",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "activeTab": "edit",
+      "header": "photo.png",
+      "sections": [
+        "edit-correction",
+        "adjust:basic",
+        "adjust:curves",
+        "adjust:wheels",
+        "adjust:hue",
+        "adjust:lut",
+        "adjust:fx",
+        "edit-alternatives",
+        "edit-material-choice"
+      ],
+      "tiles": [
+        {
+          "id": "still",
+          "enabled": true
+        },
+        {
+          "id": "video",
+          "enabled": true
+        },
+        {
+          "id": "transcribe",
+          "enabled": false
+        }
+      ],
+      "enabledTiles": 2,
+      "stillPanel": false,
+      "imageAiPanel": true,
+      "imageAiButtons": [
+        "高画質化",
+        "背景生成（近日）"
+      ],
+      "soonText": 2,
+      "soonAttrs": [],
+      "soonChips": 0,
+      "voiceIsolationRow": false,
+      "bar": [
+        "edit",
+        "replace",
+        "cutout",
+        "eraser",
+        "photoColor",
+        "border",
+        "photoRadius",
+        "crop",
+        "flip",
+        "opacity",
+        "anim",
+        "arrange",
+        "style"
+      ],
+      "barHidden": false,
+      "imagePanelScrolled": true
+    },
+    "photoSoonByTab": [
+      {
+        "tab": "video",
+        "label": "映像",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "adjust",
+        "label": "色",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "audio",
+        "label": "音声",
+        "soonText": 6,
+        "soonAttrs": [],
+        "soonChips": 18
+      },
+      {
+        "tab": "edit",
+        "label": "編集",
+        "soonText": 2,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "motion",
+        "label": "動き",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "info",
+        "label": "情報",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      }
+    ],
+    "drawGeometry": {
+      "left": 364.9140625,
+      "right": 470.3359375,
+      "top": 512.515625
+    },
+    "frame": {
+      "id": "frame-1",
+      "name": "空の枠",
+      "at": 15,
+      "duration": 75,
+      "generation": null
+    },
+    "emptyFrameHome": {
+      "panelLabel": "インスペクター",
+      "sideTitles": [
+        "インスペクター"
+      ],
+      "workbenchTabLabels": [
+        "インスペクター"
+      ],
+      "tablistLabel": "インスペクター",
+      "tabs": [
+        {
+          "id": "video",
+          "label": "映像",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "activeTab": "edit",
+      "header": "frame-1790426337328-EuPm8g.png",
+      "sections": [
+        "edit-alternatives"
+      ],
+      "tiles": [
+        {
+          "id": "still",
+          "enabled": true
+        },
+        {
+          "id": "video",
+          "enabled": true
+        },
+        {
+          "id": "transcribe",
+          "enabled": false
+        }
+      ],
+      "enabledTiles": 2,
+      "stillPanel": false,
+      "imageAiPanel": true,
+      "imageAiButtons": [
+        "高画質化",
+        "背景生成（近日）"
+      ],
+      "soonText": 1,
+      "soonAttrs": [],
+      "soonChips": 0,
+      "voiceIsolationRow": false,
+      "bar": [
+        "edit",
+        "replace",
+        "cutout",
+        "eraser",
+        "photoColor",
+        "border",
+        "photoRadius",
+        "crop",
+        "flip",
+        "opacity",
+        "anim",
+        "arrange",
+        "style"
+      ],
+      "barHidden": false
+    },
+    "emptyFrameSoonByTab": [
+      {
+        "tab": "video",
+        "label": "映像",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "adjust",
+        "label": "色",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "audio",
+        "label": "音声",
+        "soonText": 6,
+        "soonAttrs": [],
+        "soonChips": 18
+      },
+      {
+        "tab": "edit",
+        "label": "編集",
+        "soonText": 1,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "motion",
+        "label": "動き",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "info",
+        "label": "情報",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      }
+    ],
+    "photoTilesBeforeStill": [
+      {
+        "id": "still",
+        "enabled": true
+      },
+      {
+        "id": "video",
+        "enabled": true
+      },
+      {
+        "id": "transcribe",
+        "enabled": false
+      }
+    ],
+    "photoStillPanel": {
+      "panelLabel": "インスペクター",
+      "sideTitles": [
+        "インスペクター"
+      ],
+      "workbenchTabLabels": [
+        "インスペクター"
+      ],
+      "tablistLabel": "インスペクター",
+      "tabs": [
+        {
+          "id": "video",
+          "label": "映像",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "activeTab": "edit",
+      "header": "photo.png",
+      "sections": [],
+      "tiles": [],
+      "enabledTiles": 0,
+      "stillPanel": true,
+      "imageAiPanel": false,
+      "imageAiButtons": [],
+      "soonText": 0,
+      "soonAttrs": [],
+      "soonChips": 0,
+      "voiceIsolationRow": false,
+      "bar": [
+        "edit",
+        "replace",
+        "cutout",
+        "eraser",
+        "photoColor",
+        "border",
+        "photoRadius",
+        "crop",
+        "flip",
+        "opacity",
+        "anim",
+        "arrange",
+        "style"
+      ],
+      "barHidden": false
+    },
+    "photoAfterHomeClick": {
+      "panelLabel": "インスペクター",
+      "sideTitles": [
+        "インスペクター"
+      ],
+      "workbenchTabLabels": [
+        "インスペクター"
+      ],
+      "tablistLabel": "インスペクター",
+      "tabs": [
+        {
+          "id": "video",
+          "label": "映像",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "adjust",
+          "label": "色",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "motion",
+          "label": "動き",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "activeTab": "edit",
+      "header": "photo.png",
+      "sections": [],
+      "tiles": [],
+      "enabledTiles": 0,
+      "stillPanel": true,
+      "imageAiPanel": false,
+      "imageAiButtons": [],
+      "soonText": 0,
+      "soonAttrs": [],
+      "soonChips": 0,
+      "voiceIsolationRow": false,
+      "bar": [
+        "edit",
+        "replace",
+        "cutout",
+        "eraser",
+        "photoColor",
+        "border",
+        "photoRadius",
+        "crop",
+        "flip",
+        "opacity",
+        "anim",
+        "arrange",
+        "style"
+      ],
+      "barHidden": false
+    },
+    "audioPanelOnSelect": {
+      "panelLabel": "インスペクター",
+      "sideTitles": [
+        "インスペクター"
+      ],
+      "workbenchTabLabels": [
+        "インスペクター"
+      ],
+      "tablistLabel": "インスペクター",
+      "tabs": [
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "activeTab": "audio",
+      "header": "se.wav",
+      "sections": [
+        "audio",
+        "time",
+        "audio:fades",
+        "audio:keyframes",
+        "audio:pitch-time",
+        "audio:enhancement",
+        "audio:master"
+      ],
+      "tiles": [],
+      "enabledTiles": 0,
+      "stillPanel": false,
+      "imageAiPanel": false,
+      "imageAiButtons": [],
+      "soonText": 1,
+      "soonAttrs": [],
+      "soonChips": 0,
+      "voiceIsolationRow": true,
+      "bar": [],
+      "barHidden": true
+    },
+    "audioTab": {
+      "panelLabel": "インスペクター",
+      "sideTitles": [
+        "インスペクター"
+      ],
+      "workbenchTabLabels": [
+        "インスペクター"
+      ],
+      "tablistLabel": "インスペクター",
+      "tabs": [
+        {
+          "id": "audio",
+          "label": "音声",
+          "active": true,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "edit",
+          "label": "編集",
+          "active": false,
+          "disabled": false,
+          "title": null
+        },
+        {
+          "id": "info",
+          "label": "情報",
+          "active": false,
+          "disabled": false,
+          "title": null
+        }
+      ],
+      "activeTab": "audio",
+      "header": "se.wav",
+      "sections": [
+        "audio",
+        "time",
+        "audio:fades",
+        "audio:keyframes",
+        "audio:pitch-time",
+        "audio:enhancement",
+        "audio:master"
+      ],
+      "tiles": [],
+      "enabledTiles": 0,
+      "stillPanel": false,
+      "imageAiPanel": false,
+      "imageAiButtons": [],
+      "soonText": 1,
+      "soonAttrs": [],
+      "soonChips": 0,
+      "voiceIsolationRow": true,
+      "bar": [],
+      "barHidden": true,
+      "scrolledToVoiceRow": true
+    },
+    "audioSoonByTab": [
+      {
+        "tab": "audio",
+        "label": "音声",
+        "soonText": 1,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "edit",
+        "label": "編集",
+        "soonText": 1,
+        "soonAttrs": [],
+        "soonChips": 0
+      },
+      {
+        "tab": "info",
+        "label": "情報",
+        "soonText": 0,
+        "soonAttrs": [],
+        "soonChips": 0
+      }
+    ]
+  },
+  "clicks": [
+    {
+      "name": "select photo.png",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open edit tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open video tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open adjust tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open audio tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open edit tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open motion tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open info tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "frame tool",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select tool",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open video tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open adjust tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open audio tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open edit tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open motion tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open info tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select photo.png",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open edit tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "still panel",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "select se.wav",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open edit tab",
+      "attempt": 1,
+      "passed": true
+    },
+    {
+      "name": "open info tab",
+      "attempt": 1,
+      "passed": true
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-before-photo-panel.png",
+      "bytes": 328949
+    },
+    {
+      "name": "02-before-photo-home.png",
+      "bytes": 454981
+    },
+    {
+      "name": "03-before-empty-frame-home.png",
+      "bytes": 461665
+    },
+    {
+      "name": "04-before-still-then-home-tab.png",
+      "bytes": 333043
+    },
+    {
+      "name": "05-before-audio-tab.png",
+      "bytes": 313081
+    }
+  ]
+}

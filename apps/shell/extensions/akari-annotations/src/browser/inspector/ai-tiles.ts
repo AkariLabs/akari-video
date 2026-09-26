@@ -46,16 +46,17 @@ export function appendAiTiles(parent: HTMLElement, groups: readonly AiTileGroup[
     const list = document.createElement('div');
     list.className = 'akari-inspector-ai-list';
     let tileGrid: HTMLElement | undefined;
-    for (const group of [{ tiles: groups.flatMap(entry => entry.tiles) }]) {
+    for (const group of groups.length ? groups : [{ group: 'make' as const, tiles: [] }]) {
         const section = document.createElement('section');
         section.className = 'akari-inspector-section akari-inspector-ai-group';
-        section.setAttribute('data-akari-ui', 'section:inspector-edit-alternatives');
+        section.setAttribute('data-akari-ui', group.group === 'make'
+            ? 'section:inspector-edit-alternatives' : 'section:inspector-edit-refine');
         const heading = document.createElement('h3');
         heading.className = 'akari-inspector-section-header akari-inspector-ai-heading';
-        heading.textContent = '別案を生成';
+        heading.textContent = group.group === 'make' ? '作る' : '直す';
         section.appendChild(heading);
         const grid = document.createElement('div');
-        tileGrid = grid;
+        if (group.group === 'refine' || !tileGrid) tileGrid = grid;
         grid.className = 'akari-inspector-section-body akari-inspector-ai-grid';
         if (group.tiles.length === 0 && emptyMessage) {
             const empty = document.createElement('p');

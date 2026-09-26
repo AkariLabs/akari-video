@@ -122,7 +122,7 @@ test('widget: 素材を選ぶと編集を表示し、タイムライン選択変
   assert.ok(find(instance.body, byText('interview.wav')));
   assert.ok(find(instance.body, byText('音声の素材')));
   const tabs = all(instance.body, node => node.attributes.get('role') === 'tab');
-  assert.deepEqual(tabs.map(node => node.textContent), ['編集', '情報']);
+  assert.deepEqual(tabs.map(node => node.textContent), ['ホーム', '情報']);
   assert.equal(tabs[0].attributes.get('aria-selected'), 'true');
   const tile = find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe'));
   assert.equal(tile.attributes.get('aria-disabled'), 'false');

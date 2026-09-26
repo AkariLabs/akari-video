@@ -67,9 +67,9 @@ for (const [name, kind, hasIdentity, groups, expected] of [
   });
 }
 
-test('タブは id edit・表示 編集、ふつうの動画 cut でも enabled', () => {
+test('タブは id edit・表示 ホーム、ふつうの動画 cut でも enabled', () => {
   const tab = tabsForKind('cut', { generationAvailable: true }).find(tab => tab.id === 'edit');
-  assert.equal(tab.label, '編集');
+  assert.equal(tab.label, 'ホーム');
   assert.equal(tab.enabled, true);
   assert.equal(tab.disabledTitle, undefined);
 });

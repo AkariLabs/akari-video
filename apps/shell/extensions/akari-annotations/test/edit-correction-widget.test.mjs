@@ -121,7 +121,7 @@ test('widget: 写真のタイル一覧では補正が先に閉じて出て、専
   instance.render();
   const correction = instance.sections.find(section => section.id === 'edit-correction');
   assert.equal(correction.collapsedByDefault, true);
-  assert.ok(instance.sections.some(section => section.id === 'edit-material-choice'));
+  assert.equal(instance.sections.some(section => section.id === 'edit-material-choice'), false);
   assert.equal(instance.body.children.findIndex(node => node.attributes.get('data-akari-ui') === 'section:inspector-edit-correction')
     < instance.body.children.findIndex(node => node.className === 'akari-inspector-ai-list'), true);
   instance.aiView = 'still';

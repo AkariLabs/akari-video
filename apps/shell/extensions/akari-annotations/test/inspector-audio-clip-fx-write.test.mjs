@@ -160,10 +160,7 @@ test('実働行は値・reset を単一 audio-clip-fx kind に対応付ける', 
     const invalid = await rows.find(row => row.name === 'audio-lowcut').write(snapshot, '500');
     assert.equal(invalid.ok, false);
     assert.match(invalid.message, /0〜400/);
-    const voice = rows.at(-1);
-    assert.equal(voice.label, 'ボイス分離');
-    assert.equal(voice.getValue(snapshot), '近日');
-    assert.equal(voice.disabled, true);
+    assert.equal(rows.some(row => row.name === 'audio-voice-isolation'), false);
 });
 
 function handlerContext(document) {
