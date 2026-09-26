@@ -93,7 +93,7 @@ class AppServer {
     });
   }
 
-  async run(prompt) {
+  async run(prompt, references = []) {
     const started = await this.request("thread/start", {
       cwd: this.cwd,
       model: null,
@@ -107,7 +107,8 @@ class AppServer {
     const completed = new Promise((resolvePromise, reject) => this.#turns.set(threadId, { resolve: resolvePromise, reject }));
     await this.request("turn/start", {
       threadId,
-      input: [{ type: "text", text: prompt, text_elements: [] }],
+      input: [{ type: "text", text: prompt, text_elements: [] },
+        ...references.map(path => ({ type: "localImage", path }))],
       model: null,
       effort: null,
       outputSchema: null,
@@ -122,7 +123,7 @@ class AppServer {
 }
 
 function promptFor(item, absoluteOutput) {
-  return `${item.prompt}\n\n画像をちょうど 1 枚生成し、絶対パス ${absoluteOutput} に保存してください。` +
+  return `${item.prompt}${item.references?.length ? '\n参照画像の人物・物・色を保ってください。' : ''}\n\n画像をちょうど 1 枚生成し、絶対パス ${absoluteOutput} に保存してください。` +
     "他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。";
 }
 
@@ -175,7 +176,7 @@ export async function generateCodexImages({
         const started = Date.now();
         try {
           await mkdir(dirname(output), { recursive: true });
-          await server.run(promptFor(item, output));
+          await server.run(promptFor(item, output), item.references);
           if (!(await exists(output))) throw new Error("生成ターン完了後も画像がありません");
           const elapsed_s = (Date.now() - started) / 1000;
           log(`生成 ${item.id}: 所要秒 ${elapsed_s.toFixed(1)}`);

@@ -30,7 +30,7 @@ test('emptyFrameTransform: audio is outside video rule', () => {
 });
 
 for (const canvas of [{ width: 1920, height: 1080 }, { width: 1080, height: 1920 }]) {
-  for (const aspect of ['16:9', '9:16', '1:1']) {
+  for (const aspect of ['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '3:2', '21:9']) {
     test(`frameDimensions: ${aspect} in ${canvas.width}x${canvas.height}`, () => {
       const result = frameDimensions(aspect, canvas);
       const [w, h] = aspect.split(':').map(Number);
@@ -520,11 +520,14 @@ test('aspect buttons retain data and pressed state, show proportional figures an
     appendAiStillPanel(parent, state, { change: value => { selected = value; changes.push(value); }, probe() {}, generate() {}, cancel() {} });
     const walk = node => [node, ...node.children.flatMap(walk)];
     const buttons = walk(parent).filter(node => node.attributes.get('data-akari-inspector-ai-aspect'));
-    assert.deepEqual(buttons.map(node => node.attributes.get('data-akari-inspector-ai-aspect')), ['16:9', '9:16', '1:1']);
-    assert.deepEqual(buttons.map(node => node.attributes.get('aria-pressed')), ['false', 'true', 'false']);
+    assert.deepEqual(buttons.map(node => node.attributes.get('data-akari-inspector-ai-aspect')),
+      ['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '3:2', '21:9']);
+    assert.deepEqual(buttons.map(node => node.attributes.get('aria-pressed')),
+      ['false', 'true', 'false', 'false', 'false', 'false', 'false', 'false']);
     for (const button of buttons) {
       const aspect = button.attributes.get('data-akari-inspector-ai-aspect');
-      assert.equal(button.children[0].style.aspectRatio, aspect.replace(':', ' / '));
+      const [w, h] = aspect.split(':').map(Number);
+      assert.ok(Math.abs(parseInt(button.children[0].style.width) / parseInt(button.children[0].style.height) - w / h) < 0.05);
       assert.equal(button.children[1].textContent, aspect);
     }
     buttons[2].listeners.get('click')();

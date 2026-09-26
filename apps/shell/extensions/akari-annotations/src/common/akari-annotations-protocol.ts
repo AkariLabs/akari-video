@@ -166,8 +166,9 @@ export interface GenerationProcessResult {
     exitCode?: number | null;
 }
 export interface ImageRouteState { id: 'codex' | 'antigravity' | 'grok'; state: 'ready' | 'signed-out' | 'missing' | 'unknown'; detail: string; }
-export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: '16:9' | '9:16' | '1:1'; route?: ImageRouteState['id']; }
-export interface GenerateStillResult { ok: boolean; reason?: string; relativePath?: string; width?: number; height?: number; elapsedSeconds?: number; cancelled?: boolean; }
+export type StillAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '4:5' | '3:2' | '21:9';
+export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: StillAspect; route?: ImageRouteState['id']; references?: string[]; cropToAspect?: boolean; }
+export interface GenerateStillResult { ok: boolean; reason?: string; relativePath?: string; width?: number; height?: number; elapsedSeconds?: number; cancelled?: boolean; croppedFrom?: string; }
 
 export interface GetClipFilmstripChunkRequest {
     projectRootUri: string;
@@ -907,7 +908,7 @@ export interface AkariAnnotationsService {
     createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
         relativePath: string; sha256: string; width: number; height: number; renderer: string;
     }>;
-    setEmptyFrameAspect(request: { projectRootUri: string; itemId: string; aspect: '16:9' | '9:16' | '1:1' }): Promise<{
+    setEmptyFrameAspect(request: { projectRootUri: string; itemId: string; aspect: StillAspect }): Promise<{
         relativePath: string; width: number; height: number; transform?: { x?: number; y?: number; scale?: number; [key: string]: unknown };
     }>;
     createEmptyAudioFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{

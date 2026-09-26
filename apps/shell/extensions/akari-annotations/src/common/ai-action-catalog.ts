@@ -18,6 +18,7 @@ export interface AiRoute {
     label: string;
     kind: 'cli' | 'api' | 'local';
     cost: 'free' | 'paid';
+    inputs?: { reference_images?: { max: number; note?: string } };
 }
 export interface AiAction {
     id: string;
@@ -46,9 +47,9 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
         visibleFor: ['empty-frame', 'still', 'video', 'generated-video', 'gap'],
         accepts: ['empty-frame', 'still', 'gap'],
         reasonWhenDisabled: '空の枠か静止画で使えます', output: 'image', placement: 'replace',
-        routes: [{ id: 'codex', label: 'Codex', kind: 'cli', cost: 'free' },
-            { id: 'antigravity', label: 'Antigravity', kind: 'cli', cost: 'free' },
-            { id: 'grok', label: 'Grok', kind: 'cli', cost: 'free' }]
+        routes: [{ id: 'codex', label: 'Codex', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
+            { id: 'antigravity', label: 'Antigravity', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 0 } } },
+            { id: 'grok', label: 'Grok', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 1, note: '参照は縮めて送られます' } } }]
     }, {
         id: 'video', group: 'make', label: '動画にする', image: 'video',
         visibleFor: ['still', 'empty-frame', 'video', 'generated-video', 'gap', 'material-image'],

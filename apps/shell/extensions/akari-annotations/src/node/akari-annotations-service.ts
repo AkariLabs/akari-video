@@ -832,7 +832,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { video: resolved.effective?.defaults?.generate?.video || 'fal:h3-i2v' };
     }
 
-    async createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number; aspect?: '16:9' | '9:16' | '1:1' }): Promise<{
+    async createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number; aspect?: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
         relativePath: string; sha256: string; width: number; height: number; renderer: string;
     }> {
         if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
@@ -887,11 +887,11 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         }
     }
 
-    async setEmptyFrameAspect(request: { projectRootUri: string; itemId: string; aspect: '16:9' | '9:16' | '1:1' }): Promise<{
+    async setEmptyFrameAspect(request: { projectRootUri: string; itemId: string; aspect: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
         relativePath: string; width: number; height: number;
         transform?: { x?: number; y?: number; scale?: number; [key: string]: unknown };
     }> {
-        if (!request?.projectRootUri || !request.itemId || !['16:9', '9:16', '1:1'].includes(request.aspect)) {
+        if (!request?.projectRootUri || !request.itemId || !['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '3:2', '21:9'].includes(request.aspect)) {
             throw new Error('枠と画角を指定してください。');
         }
         const root = await fs.realpath(this.fsPath(request.projectRootUri));

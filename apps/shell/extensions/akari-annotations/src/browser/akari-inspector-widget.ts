@@ -14,7 +14,7 @@ import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { captionRunRows } from './inspector/caption-run-rows';
-import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
@@ -50,7 +50,7 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
-import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState, type StillAspect } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillCroppedNotice, stillDimensionMismatch, stillMismatchNotice, stillRouteAvailability, stillRouteIds, type AiStillState, type StillAspect } from './inspector/ai-still-panel';
 import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
@@ -3304,11 +3304,18 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-panel { display: grid; gap: 10px; padding: 4px 2px 14px; min-width: 0; }
 .akari-inspector-ai-still-label { display: grid; gap: 5px; font-size: 12px; font-weight: 600; }
 .akari-inspector-ai-still-prompt { box-sizing: border-box; width: 100%; min-height: 104px; padding: 8px; resize: vertical; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; font: inherit; font-weight: 400; }
-.akari-inspector-ai-still-aspects { display: flex; gap: 6px; }
+.akari-inspector-ai-still-aspects { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .akari-inspector-ai-still-aspect { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; justify-content: end; gap: 4px; height: 60px; }
-.akari-inspector-ai-still-aspect-picture { display: block; box-sizing: border-box; height: auto; max-width: 38px; max-height: 30px; width: 100%; border: 2px solid currentColor; border-radius: 2px; }
-.akari-inspector-ai-still-aspect[data-akari-inspector-ai-aspect="9:16"] .akari-inspector-ai-still-aspect-picture { width: 17px; }
-.akari-inspector-ai-still-aspect[data-akari-inspector-ai-aspect="1:1"] .akari-inspector-ai-still-aspect-picture { width: 28px; }
+.akari-inspector-ai-still-aspect-picture { display: block; box-sizing: border-box; border: 2px solid currentColor; border-radius: 2px; }
+.akari-inspector-ai-still-references { display: grid; gap: 6px; font-size: 12px; }
+.akari-inspector-ai-still-reference-drop { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px dashed var(--akari-line); border-radius: 5px; }
+.akari-inspector-ai-still-reference-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; font-size: 11px; }
+.akari-inspector-ai-still-reference-thumbnail { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; }
+.akari-inspector-ai-still-reference-list { display: grid; gap: 4px; max-height: 180px; overflow: auto; }
+.akari-inspector-ai-still-crop { display: flex; align-items: start; gap: 6px; font-size: 11px; }
+.akari-inspector-ai-still-route[data-akari-inspector-ai-route-disabled="true"] { opacity: .48; cursor: default; }
+.akari-inspector-ai-still-route-reason, .akari-inspector-ai-still-route-note { flex-basis: 100%; padding-left: 22px; color: var(--akari-faint); font-size: 11px; }
+.akari-inspector-ai-still-cropped { margin: 0; color: var(--akari-accent); font-size: 11px; }
 .akari-inspector-widget button.akari-inspector-ai-still-aspect,
 .akari-inspector-widget button.akari-inspector-ai-still-secondary { padding: 5px 9px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-still-aspect[aria-pressed="true"] { border-color: var(--akari-accent); color: var(--akari-accent); }
@@ -6273,7 +6280,8 @@ export class AkariInspectorWidget extends BaseWidget {
             const [cardWidth, cardHeight] = String(meta?.output?.resolution ?? '').split('x').map(Number);
             const initialAspect = meta?.output?.aspect ?? (cardWidth > 0 && cardHeight > 0
                 ? nearestStillAspect(cardWidth, cardHeight) : '16:9');
-            state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true, running: false };
+            state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true,
+                running: false, references: [], cropToAspect: savedStillCrop() };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
@@ -6309,8 +6317,92 @@ export class AkariInspectorWidget extends BaseWidget {
             },
             probe: () => { void this.probeStillRoute(identity.key); },
             generate: () => { void this.startStillGeneration(identity); },
-            cancel: () => { void this.cancelStillGeneration(identity); }
+            cancel: () => { void this.cancelStillGeneration(identity); },
+            addReference: path => { void this.addStillReference(identity.key, path); },
+            chooseReference: () => { void this.chooseStillReference(identity.key); },
+            captureReference: () => { void this.captureStillReference(identity.key); }
         });
+    }
+
+    protected async addStillReference(key: string, path: string): Promise<void> {
+        const state = this.aiStillStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        if (!/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path) || path.startsWith('/')
+            || path.split('/').includes('..')) { state.error = 'プロジェクト内の画像を選んでください。'; this.render(); return; }
+        if (state.references?.some(row => row.path === path)) return;
+        if ((state.references?.length ?? 0) >= maxStillReferences) { state.error = `参照画像は ${maxStillReferences} 枚までです。`; this.render(); return; }
+        try {
+            const file = await this.fileService.readFile(root.resolve(path));
+            const bytes = file.value.buffer;
+            const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+            const extension = path.split('.').pop()?.toLowerCase();
+            const mime = extension === 'jpg' ? 'jpeg' : extension === 'svg' ? 'svg+xml' : extension;
+            state.references ??= [];
+            state.references.push({ path, thumbnail: `data:image/${mime};base64,${btoa(binary)}` });
+            state.choosingReference = false;
+            state.error = undefined;
+            if (stillRouteAvailability(state.routeId ?? 'codex', state.references.length).disabled) state.routeId = 'codex';
+        } catch { state.error = '参照画像を読み込めませんでした。'; }
+        this.render();
+    }
+
+    protected async chooseStillReference(key: string): Promise<void> {
+        const state = this.aiStillStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        try {
+            const paths: string[] = [];
+            const walk = async (uri: URI): Promise<void> => {
+                const node = await this.fileService.resolve(uri);
+                for (const child of node.children ?? []) {
+                    if (child.isDirectory) await walk(child.resource);
+                    else if (/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(child.resource.path.base)) {
+                        const relative = root.relative(child.resource)?.toString();
+                        if (relative) paths.push(relative);
+                    }
+                }
+            };
+            await walk(root.resolve('assets'));
+            state.availableReferences = paths.sort();
+            state.choosingReference = !state.choosingReference;
+            state.error = paths.length ? undefined : 'プロジェクトに画像素材がありません。';
+        } catch { state.error = '素材の一覧を読み込めませんでした。'; }
+        this.render();
+    }
+
+    protected async captureStillReference(key: string): Promise<void> {
+        const state = this.aiStillStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        try {
+            const editUri = root.resolve('edit.json');
+            await this.commandRegistry.executeCommand('akari.preview.ensureVisible', { editUri: editUri.toString() });
+            const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
+            if (Number.isFinite(playhead) && playhead >= 0) await this.commandRegistry.executeCommand('akari.preview.seekOutput',
+                { editUri: editUri.toString(), time: playhead, waitForReady: true });
+            const widget = this.stillWidgetManager.getWidgets('plugin-webview').find(candidate => {
+                const preview = candidate as typeof candidate & { akariPreviewEditUri?: URI; akariPreviewPlaybackPageId?: string };
+                return !candidate.isDisposed && preview.akariPreviewEditUri?.toString() === editUri.toString()
+                    && !!preview.akariPreviewPlaybackPageId;
+            }) as unknown as { akariPreviewPlaybackPageId: string } | undefined;
+            if (!widget) throw new Error('出力プレビューを開いてください。');
+            const captures = root.resolve('assets/captures');
+            const names = async (): Promise<string[]> => this.fileService.resolve(captures).then(node =>
+                (node.children ?? []).map(child => child.resource.path.base), () => []);
+            const before = new Set(await names());
+            const container = (window as Window & { theia?: { container?: Container } }).theia?.container;
+            if (!container) throw new Error('プレビューの撮影機能が見つかりません。');
+            const handler = container.getAll(FrontendApplicationContribution).find(candidate =>
+                (candidate as { id?: string }).id === 'akari-preview-open-handler') as { capturePreviewFrame?: (widget: unknown,
+                request: { type: 'akari-preview-capture-frame'; requestId: string; pageId: string }) => Promise<void> } | undefined;
+            if (!handler?.capturePreviewFrame) throw new Error('プレビューの撮影機能が見つかりません。');
+            await handler.capturePreviewFrame(widget, { type: 'akari-preview-capture-frame',
+                    requestId: `still-ref-${Date.now()}`, pageId: widget.akariPreviewPlaybackPageId });
+            const saved = (await names()).find(name => !before.has(name) && /\.png$/iu.test(name));
+            if (!saved) throw new Error('コマを保存できませんでした。');
+            await this.addStillReference(key, `assets/captures/${saved}`);
+        } catch (error) { state.error = error instanceof Error ? error.message : String(error); this.render(); }
     }
 
     protected async setEmptyFrameAspect(identity: { key: string; itemId: string; sourcePath: string }, aspect: StillAspect): Promise<void> {
@@ -6487,11 +6579,13 @@ export class AkariInspectorWidget extends BaseWidget {
         const selectedRoute = state?.routeId ?? 'codex';
         const routeState = state?.routes?.find(route => route.id === selectedRoute)?.state;
         if (!state || !root || state.running || state.probingRoutes?.has(selectedRoute) ||
-            (routeState !== 'ready' && routeState !== 'unknown') || !state.prompt.trim()) return;
+            (routeState !== 'ready' && routeState !== 'unknown') || !state.prompt.trim()
+            || stillRouteAvailability(selectedRoute, state.references?.length ?? 0).disabled) return;
         state.running = true;
         state.startedAt = Date.now();
         state.error = undefined;
         state.mismatch = undefined;
+        state.croppedNotice = undefined;
         this.render();
         if (this.aiStillTick) window.clearInterval(this.aiStillTick);
         this.aiStillTick = window.setInterval(() => {
@@ -6499,10 +6593,12 @@ export class AkariInspectorWidget extends BaseWidget {
         }, 1000);
         try {
             const result = await this.layerAudioService.startGenerateStill({ projectRootUri: root.toString(),
-                itemId: identity.itemId, prompt: state.prompt, aspect: state.aspect, route: state.routeId ?? 'codex' });
+                itemId: identity.itemId, prompt: state.prompt, aspect: state.aspect, route: state.routeId ?? 'codex',
+                references: state.references?.map(row => row.path), cropToAspect: state.cropToAspect !== false });
             if (!state.running) return;
             if (!result.ok || !result.relativePath) throw new Error(result.reason || '生成できませんでした。');
             state.mismatch = stillDimensionMismatch(state.aspect, result);
+            if (result.croppedFrom) state.croppedNotice = stillCroppedNotice(state.aspect, result.croppedFrom);
             if (this.generationIdentity(this.model.snapshot)?.sourcePath !== identity.sourcePath) {
                 throw new Error('選択した枠の素材が変わりました。');
             }

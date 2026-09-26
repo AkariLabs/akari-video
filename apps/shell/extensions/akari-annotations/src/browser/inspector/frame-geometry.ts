@@ -1,4 +1,4 @@
-export type FrameAspect = '16:9' | '9:16' | '1:1';
+export type FrameAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '4:5' | '3:2' | '21:9';
 
 export function frameDimensions(aspect: FrameAspect, canvas: { width: number; height: number }): { width: number; height: number } {
     const [w, h] = aspect.split(':').map(Number);

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { homedir } from 'os';
@@ -6,6 +7,7 @@ import { pathToFileURL } from 'url';
 import type { GenerateStillResult, ImageRouteState, StartGenerateStillRequest } from '../common/akari-annotations-protocol';
 import { projectOutputPath } from './project-asset-path';
 import { finishPlaceholderGenerating, markPlaceholderGenerating, type GenerationSidecarMeta } from '../common/generation-sidecar';
+import { aiActionCatalog } from '../common/ai-action-catalog';
 
 type SpawnProcess = typeof spawn;
 type Asset = (path: string) => Promise<string>;
@@ -18,9 +20,21 @@ type Route = ImageRouteState['id'];
 export const IMAGE_PROBE_TIMEOUT_MS: Readonly<Record<Route, number>> = {
     codex: 5000, antigravity: 20000, grok: 20000
 };
-const aspectText: Record<StartGenerateStillRequest['aspect'], string> = {
-    '16:9': '横長 16:9 の画像。', '9:16': '縦長 9:16 の画像。', '1:1': '正方形 1:1 の画像。'
+export const stillAspectText: Readonly<Record<StartGenerateStillRequest['aspect'], string>> = {
+    '16:9': '横長 16:9 の画像。', '9:16': '縦長 9:16 の画像。', '1:1': '正方形 1:1 の画像。',
+    '4:3': '横長 4:3 の画像。', '3:4': '縦長 3:4 の画像。', '4:5': '縦長 4:5 の画像。',
+    '3:2': '横長 3:2 の画像。', '21:9': '横長 21:9 の画像。'
 };
+
+export function stillCropPlan(width: number, height: number, aspect: StartGenerateStillRequest['aspect']):
+    { width: number; height: number; filter: string } | undefined {
+    const [numerator, denominator] = aspect.split(':').map(Number);
+    if (Math.abs(width / height / (numerator / denominator) - 1) <= 0.01) return undefined;
+    const cropWidth = width / height > numerator / denominator ? Math.round(height * numerator / denominator) : width;
+    const cropHeight = width / height < numerator / denominator ? Math.round(width * denominator / numerator) : height;
+    return { width: cropWidth, height: cropHeight,
+        filter: `crop=${cropWidth}:${cropHeight}:${Math.floor((width - cropWidth) / 2)}:${Math.floor((height - cropHeight) / 2)}` };
+}
 
 export class StillGenerationManager {
     private readonly active = new Map<string, { child?: ChildProcess; cancelled: boolean }>();
@@ -29,6 +43,7 @@ export class StillGenerationManager {
         /** Legacy override for every route; route-specific values take precedence. */
         probeTimeoutMs?: number;
         probeTimeoutMsByRoute?: Partial<Record<Route, number>>;
+        cropPng?: (input: string, output: string, filter: string) => Promise<void>;
     } = {}) {}
 
     private get env(): NodeJS.ProcessEnv { return this.options.env ?? process.env; }
@@ -104,14 +119,31 @@ export class StillGenerationManager {
     }
 
     async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest): Promise<GenerateStillResult> {
-        if (!request.prompt?.trim() || !aspectText[request.aspect]) return { ok: false, reason: '指示文と画角を指定してください。' };
+        if (!request.prompt?.trim() || !stillAspectText[request.aspect]) return { ok: false, reason: '指示文と画角を指定してください。' };
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId)) return { ok: false, reason: 'itemId が不正です。' };
         if (this.active.has(request.itemId)) return { ok: false, reason: 'この枠は生成中です。' };
         const route = request.route ?? 'codex';
         if (!(['codex', 'antigravity', 'grok'] as const).includes(route)) return { ok: false, reason: '手段が不正です。' };
+        const maxReferences = aiActionCatalog([]).find(action => action.id === 'still')!.routes.find(row => row.id === route)!
+            .inputs!.reference_images!.max;
+        if (!Array.isArray(request.references ?? []) || (request.references?.length ?? 0) > maxReferences) {
+            return { ok: false, reason: route === 'antigravity' ? 'この手段は画像を受け取れません' : `${route} は ${maxReferences} 枚まで` };
+        }
+        const root = await fs.realpath(projectRoot);
+        const references: Array<{ path: string; sha256: string; absolutePath: string }> = [];
+        for (const path of request.references ?? []) {
+            if (typeof path !== 'string' || isAbsolute(path) || !/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path)) {
+                return { ok: false, reason: '参照画像はプロジェクト内の画像ファイルを指定してください。' };
+            }
+            const absolutePath = await fs.realpath(resolve(root, path)).catch(() => undefined);
+            if (!absolutePath || !absolutePath.startsWith(`${root}${sep}`) || !(await fs.stat(absolutePath)).isFile()) {
+                return { ok: false, reason: '参照画像が見つからないか、プロジェクト外です。' };
+            }
+            references.push({ path: relative(root, absolutePath).split(sep).join('/'), absolutePath,
+                sha256: createHash('sha256').update(await fs.readFile(absolutePath)).digest('hex') });
+        }
         const cli = await this.resolveCli(route);
         if (!cli) return { ok: false, reason: `${route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex'} CLI が見つかりません。` };
-        const root = await fs.realpath(projectRoot);
         const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
         if (edit.version !== 2) return { ok: false, reason: 'v2 へ変換してから編集してください。' };
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
@@ -140,7 +172,7 @@ export class StillGenerationManager {
             const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
             const load = async (name: string): Promise<any> => importEsm(pathToFileURL(await this.findAsset(`packages/generate/src/cli/${name}.mjs`)).toString());
             const [generator, metas, validator] = await Promise.all([load(route === 'codex' ? 'codex-image' : route === 'antigravity' ? 'agy-image' : 'grok-image'), load('meta-still'), load('meta-validate')]);
-            const prompt = `${request.prompt.trim()}\n\n${aspectText[request.aspect]}`;
+            const prompt = `${request.prompt.trim()}\n\n${stillAspectText[request.aspect]}`;
             oldMetaPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
             oldMetaText = await fs.readFile(oldMetaPath, 'utf8').catch(error => {
                 if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
@@ -162,22 +194,44 @@ export class StillGenerationManager {
                 return child;
             }) as SpawnProcess;
             const result = route === 'codex' ? (await generator.generateCodexImages({ projectDir: root, parallel: 1,
-                items: [{ id, path: stageRelative, prompt }], env: { ...this.spawnEnv(cli), AKARI_CODEX_BIN: cli },
+                items: [{ id, path: stageRelative, prompt, references: references.map(row => row.absolutePath) }], env: { ...this.spawnEnv(cli), AKARI_CODEX_BIN: cli },
                 spawnProcess,
                 log: () => undefined, logError: () => undefined
             }))[0] : await generator[route === 'antigravity' ? 'generateAgyImage' : 'generateGrokImage']({
                 projectDir: root, item: { id, path: stageRelative, prompt }, aspect: request.aspect,
+                references: references.map(row => row.absolutePath),
                 env: { ...this.spawnEnv(cli), [route === 'antigravity' ? 'AKARI_AGY_BIN' : 'AKARI_GROK_BIN']: cli },
                 spawnProcess
             });
             if (run.cancelled) return { ok: false, cancelled: true, reason: '中止しました。' };
             if (!result?.ok) return { ok: false, reason: brief(result?.error ?? `${route} から結果が返りませんでした`) };
-            const image = await metas.inspectPng(join(staging, 'image.png'));
+            let image = await metas.inspectPng(join(staging, 'image.png'));
+            const crop = request.cropToAspect === false ? undefined : stillCropPlan(image.width, image.height, request.aspect);
+            const croppedFrom = crop ? `${image.width}x${image.height}` : undefined;
+            if (crop) {
+                const input = join(staging, 'image.png'), output = join(staging, 'cropped.png');
+                if (this.options.cropPng) await this.options.cropPng(input, output, crop.filter);
+                else {
+                    const mediaBin = await importEsm(pathToFileURL(await this.findAsset('packages/media-bin/src/index.mjs')).toString());
+                    const ffmpeg = mediaBin.resolveFfmpeg({ env: this.env });
+                    await new Promise<void>((resolvePromise, reject) => {
+                        const child = spawnProcess(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-i', input,
+                            '-vf', crop.filter, '-frames:v', '1', output], { env: this.spawnEnv(ffmpeg), stdio: 'ignore' });
+                        child.once('error', reject);
+                        child.once('close', code => code === 0 ? resolvePromise() : reject(new Error('画像を切りそろえられませんでした。')));
+                    });
+                }
+                await fs.rename(output, input);
+                image = await metas.inspectPng(input);
+                if (image.width !== crop.width || image.height !== crop.height) {
+                    throw new Error('切りそろえた画像の寸法が一致しません。');
+                }
+            }
             const oldMeta = oldMetaText ? JSON.parse(oldMetaText) : undefined;
             const at = new Date().toISOString();
             const duration_s = Number(item.duration) / (Number(edit.output?.fps) || 30);
             let meta = metas.doneStillMeta({ prompt, duration_s, at, asOf: route === 'codex' ? await metas.readCodexModelAsOf() : at.slice(0, 10),
-                path: relativePath, image, elapsed_s: result.elapsed_s });
+                path: relativePath, image, elapsed_s: result.elapsed_s, references, croppedFrom, aspect: request.aspect });
             if (route !== 'codex') {
                 const name = route === 'antigravity' ? 'agy' : 'grok';
                 meta.model.id = `${name}:image`;
@@ -204,7 +258,7 @@ export class StillGenerationManager {
                 return { ok: false, cancelled: true, reason: '中止しました。' };
             }
             succeeded = true;
-            return { ok: true, relativePath, width: image.width, height: image.height, elapsedSeconds: result.elapsed_s };
+            return { ok: true, relativePath, width: image.width, height: image.height, elapsedSeconds: result.elapsed_s, croppedFrom };
         } catch (error) {
             return { ok: false, reason: brief(error instanceof Error ? error.message : error) };
         } finally {
