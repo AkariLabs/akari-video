@@ -115,7 +115,7 @@ function createHost({ animations = () => [] } = {}) {
 
 
 test("glass tick seeks local time after CSS and disposes on hide/unmount", async () => {
-  const animation = { pause() {}, currentTime: null, effect: { getComputedTiming: () => ({endTime: 800}) } };
+  const animation = { pause() {}, play() {}, currentTime: null, effect: { getComputedTiming: () => ({endTime: 800}) } };
   const host = createHost({ animations: () => [animation] });
   await host.runtime.mount({ overlays: [{id: "glass", html: GLASS_HTML, start: 2, duration: 3}] });
   host.runtime.tick(3.5, true);
