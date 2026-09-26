@@ -112,12 +112,14 @@ test('ordinary user pause still cancels retries',async()=>{
  const trial=h.swapTrialPlaybacks.get('edit');await h.pauseOutputPreview({editUri:'edit'});
  assert.equal(trial.state.cancelled,true);assert.equal(trial.signal.aborted,true);
 });
-test('timeline ticks carry only the current renderer page token',()=>{
+test('timeline ticks ignore stale pages and ticks before initial positioning',()=>{
  const widget={akariPreviewEditUri:new URI('edit'),akariPreviewPlaybackPageId:'current-page'};
  const h=Object.assign(new Host(),{swapTrialPlaybacks:new Map(),reviewTransportByEdit:new Map()});
  forwarded.length=0;
- h.forwardPlaybackTick(widget,{time:11.23,playing:true,pageId:'old-page',trialToken:'trial'});
- assert.equal(forwarded.at(-1).detail.trialToken,undefined);
- h.forwardPlaybackTick(widget,{time:1.4,playing:true,pageId:'current-page',trialToken:'trial'});
+ h.forwardPlaybackTick(widget,{time:11.23,playing:true,pageId:'old-page',positionReady:true,trialToken:'trial'});
+ h.forwardPlaybackTick(widget,{time:0,playing:false,pageId:'current-page',positionReady:false});
+ assert.equal(forwarded.length,0);
+ assert.equal(h.reviewTransportByEdit.size,0);
+ h.forwardPlaybackTick(widget,{time:1.4,playing:true,pageId:'current-page',positionReady:true,trialToken:'trial'});
  assert.equal(forwarded.at(-1).detail.trialToken,'trial');assert.equal(forwarded.at(-1).detail.time,1.4);
 });

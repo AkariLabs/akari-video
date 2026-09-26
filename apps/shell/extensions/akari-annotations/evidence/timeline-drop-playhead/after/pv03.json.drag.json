@@ -1,0 +1,424 @@
+{
+ "cardSpec": "asset:still/bg-frosted-glass",
+ "dropSpec": "stage:0.3,0.3",
+ "at": "2026-09-26T14:07:41.178Z",
+ "card": {
+  "x": 154,
+  "y": 341,
+  "draggable": "true"
+ },
+ "stage": {
+  "hostFrame": {
+   "x": 283.0390625,
+   "y": 39,
+   "w": 779.953125,
+   "h": 358.515625
+  },
+  "outerFrame": {
+   "x": 0,
+   "y": 0,
+   "w": 780,
+   "h": 359
+  },
+  "inner": {
+   "x": 150.890625,
+   "y": 16.00390625,
+   "w": 478.21875,
+   "h": 268.9921875,
+   "offsetW": 478,
+   "offsetH": 269,
+   "transform": "matrix(1, 0, 0, 1, -239.109, -134.496)"
+  },
+  "output": {
+   "width": 1280,
+   "height": 720,
+   "fps": 30
+  },
+  "host": {
+   "x": 433.9296875,
+   "y": 55.00390625,
+   "w": 478.21875,
+   "h": 268.9921875
+  }
+ },
+ "drop": {
+  "x": 577,
+  "y": 136,
+  "outputPx": {
+   "x": 382.9419068156571,
+   "y": 216.79881502134702
+  }
+ },
+ "dragIntercepted": true,
+ "atDragStart": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "mimeTypes": [
+  "application/x-akari-library-item"
+ ],
+ "payload": {
+  "kind": "asset",
+  "key": "still/bg-frosted-glass",
+  "id": "bg-frosted-glass",
+  "category": "still",
+  "title": "すりガラス背景",
+  "thumb": "https://akari.video/assets/still/bg-frosted-glass/v1/preview.png"
+ },
+ "duringDrag": {
+  "layer": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "data": [
+     "data-akari-preview-library-drop=true"
+    ],
+    "rect": {
+     "x": 283,
+     "y": 39,
+     "w": 780,
+     "h": 358.5
+    },
+    "pointerEvents": "auto"
+   }
+  ],
+  "dashed": [
+   {
+    "tag": "DIV",
+    "cls": "",
+    "rect": {
+     "x": 517.2,
+     "y": 102.4,
+     "w": 119.5,
+     "h": 67.2
+    },
+    "border": "dashed rgb(251, 146, 60) 2px",
+    "text": "すりガラス背景0:05.0 → 0:10.0"
+   }
+  ],
+  "times": [
+   {
+    "text": "0:05.0 → 0:10.0",
+    "rect": {
+     "x": 522.7,
+     "y": 167.6,
+     "w": 108.6,
+     "h": 21
+    }
+   }
+  ],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "waitMs": 3515,
+ "afterDrop": {
+  "layer": [],
+  "dashed": [],
+  "times": [],
+  "svgs": [],
+  "timelineGhost": []
+ },
+ "editChanged": true,
+ "newItems": [
+  {
+   "track": "v38",
+   "trackIndex": 39,
+   "lane": "visual",
+   "id": "image-28",
+   "at": 150,
+   "duration": 150,
+   "source": {
+    "kind": "media",
+    "src": "src-28",
+    "in": 0,
+    "out": 5
+   },
+   "transform": {
+    "x": -257.01080574777467,
+    "y": -142.85040225504875,
+    "scale": 0.19138755980861244
+   }
+  }
+ ],
+ "tracksAfter": [
+  {
+   "index": 0,
+   "id": "v-main",
+   "name": "Base",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 1,
+   "id": "v1",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 2,
+   "id": "v2",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 3,
+   "id": "v3",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 4,
+   "id": "v4",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 5,
+   "id": "v5",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 6,
+   "id": "v6",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 7,
+   "id": "v7",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 8,
+   "id": "v8",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 9,
+   "id": "v9",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 10,
+   "id": "v10",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 11,
+   "id": "v11",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 12,
+   "id": "v12",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 13,
+   "id": "v13",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 14,
+   "id": "v14",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 15,
+   "id": "v15",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 16,
+   "id": "v16",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 17,
+   "id": "v17",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 18,
+   "id": "v18",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 19,
+   "id": "v19",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 20,
+   "id": "v20",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 21,
+   "id": "v21",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 22,
+   "id": "v23",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 23,
+   "id": "v25",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 24,
+   "id": "v24",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 25,
+   "id": "v22",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 26,
+   "id": "v-captions",
+   "name": "字幕",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 27,
+   "id": "v26",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 28,
+   "id": "v27",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 29,
+   "id": "v28",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 30,
+   "id": "v29",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 31,
+   "id": "v30",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 32,
+   "id": "v31",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 33,
+   "id": "v32",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 34,
+   "id": "v33",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 35,
+   "id": "v34",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 36,
+   "id": "v35",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 37,
+   "id": "v36",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 38,
+   "id": "v37",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 39,
+   "id": "v38",
+   "lane": "visual",
+   "items": 1
+  },
+  {
+   "index": 40,
+   "id": "a1",
+   "name": "A1",
+   "lane": "audio",
+   "items": 0
+  }
+ ],
+ "captionsChanged": false,
+ "newCaptions": [],
+ "audioAfter": null,
+ "newSources": [
+  {
+   "id": "src-28",
+   "path": "assets/still/bg-frosted-glass/bg.png"
+  }
+ ],
+ "notices": [
+  "この素材は直接置けません"
+ ]
+}

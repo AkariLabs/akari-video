@@ -1113,6 +1113,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected canvasRange?: { at: number; duration: number };
     /** 素材カード D&D の点線ゴースト（task 2026-08-10-material-dnd-timeline 司令塔裁定5）。 */
     protected readonly materialGhost = document.createElement('div');
+    protected readonly materialDropBadge = document.createElement('div');
     protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-akari-timeline-notice' });
     protected readonly updateNoticeButton = document.createElement('button');
     protected currentAppVersionPromise?: Promise<string | undefined>;
@@ -1861,13 +1862,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 帯アイテムの keyed mount/unmount から独立した永続 UI なので timelineOverlay が所有する
         // （trackInsertIndicator と同じ所有関係）。
         Object.assign(this.materialGhost.style, {
-            position: 'absolute', display: 'none', border: '1px dashed #4dd0c8',
-            background: 'rgba(77, 208, 200, .22)', borderRadius: '3px',
+            position: 'absolute', display: 'none', border: '1px dashed #f97316',
+            background: 'rgba(249, 115, 22, .2)', borderRadius: '3px',
             pointerEvents: 'none', zIndex: '10', boxSizing: 'border-box'
+        });
+        Object.assign(this.materialDropBadge.style, {
+            position: 'absolute', display: 'none', padding: '3px 6px',
+            color: '#fff', background: '#b45309', borderRadius: '3px',
+            fontSize: '11px', whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: '12'
         });
         this.timelineOverlay.append(
             this.hoverSeek, this.playhead, this.snapGuide, this.dragFeedback, this.trackInsertIndicator, this.selectionMarquee,
-            this.materialGhost
+            this.materialGhost, this.materialDropBadge
         );
         // ㉖ 全域クリックシーク: strip 単体ではなく stripScroll（中央寄せの上下ギャップ・
         // トラック本数不足の余白・黒背景を含む可視領域全体）へバインドする。strip 内の
@@ -7117,12 +7123,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-            this.updateTextStyleDropGhost(point.x);
+            this.updateTextStyleDropGhost(point.x, point.y);
             return;
         }
         if (this.readLibraryShapeDropPayload?.(event.dataTransfer)) {
-            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-            this.updateShapeDropGhost(point.x);
+            const target = this.resolveMaterialDropTarget('image', point.y);
+            if (event.dataTransfer) event.dataTransfer.dropEffect = target.rejected ? 'none' : 'copy';
+            if (target.rejected && target.reason) this.footer.textContent = target.reason;
+            this.updateShapeDropGhost(point.x, point.y);
             return;
         }
         const payload = this.materialDragPayload;
@@ -7211,11 +7219,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             // タイムラインへ落とす = 落とした時刻・出力の中央（プレイヘッドの位置は使わない）。
             this.hideMaterialGhost();
             this.clearLibraryTransitionDragState();
-            const rect = this.strip.getBoundingClientRect();
             const t = point.zone === 'header-column'
                 ? Math.max(0, this.playheadT)
-                : textStyleDropStart(point.x, rect.left, rect.width, this.viewStart, this.visibleDuration());
-            void this.addShapeAt({ preset: shapePayload.preset, t });
+                : this.materialDropTime(point.x, 'layers', 0, SHAPE_PLACE_DEFAULT_DURATION_SECONDS);
+            const rowTarget = this.resolveMaterialDropTarget('image', point.y);
+            if (rowTarget.rejected || this.isTrackLocked(rowTarget.targetTrackId)) {
+                this.footer.textContent = rowTarget.reason || '図形をここには置けません。';
+                return;
+            }
+            const timelineTarget = this.materialDropTargetWithoutOverlap(rowTarget, t, SHAPE_PLACE_DEFAULT_DURATION_SECONDS);
+            void this.addShapeAt({ preset: shapePayload.preset, t, timelineTarget });
             return;
         }
         const textPayload = this.readLibraryTextStyleDropPayload?.(event.dataTransfer);
@@ -7367,17 +7380,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return payload?.kind === 'shape' ? payload : undefined;
     }
 
-    /** 図形は映像のいちばん上の段の上に 5 秒のゴーストを出す（置く段の選び方は shape-place.ts）。 */
-    protected updateShapeDropGhost(clientX: number): void {
-        const rect = this.strip.getBoundingClientRect();
-        const start = textStyleDropStart(clientX, rect.left, rect.width, this.viewStart, this.visibleDuration());
-        const rows = [...this.laneLayout.overlayTracks, ...this.laneLayout.layerTracks, ...this.laneLayout.cutTracks];
-        const top = rows.length ? Math.min(...rows.map(row => row.top)) : this.laneLayout.captions.top;
-        this.setGhostRange(this.materialGhost, start, start + SHAPE_PLACE_DEFAULT_DURATION_SECONDS);
-        this.materialGhost.textContent = '';
-        this.materialGhost.style.top = `${this.rulerRowHeightPx() + top - this.stripScroll.scrollTop}px`;
-        this.materialGhost.style.height = `${SUBROW_STRIDE}px`;
-        this.materialGhost.style.display = 'block';
+    protected updateShapeDropGhost(clientX: number, clientY: number): void {
+        this.updateMaterialGhost(clientX, clientY, {
+            relativePath: 'shape', kind: 'image', durationSeconds: SHAPE_PLACE_DEFAULT_DURATION_SECONDS
+        });
     }
 
     /**
@@ -7386,6 +7392,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     async addShapeAt(request: unknown): Promise<string | undefined> {
         const options = parseShapePlaceRequest(request);
+        const timelineTarget = request && typeof request === 'object'
+            ? (request as { timelineTarget?: ReturnType<AkariAnnotationsWidget['resolveMaterialDropTarget']> }).timelineTarget
+            : undefined;
         if (!options) {
             this.messages.warn('図形を置けません（図形の指定が不正です）。');
             return undefined;
@@ -7417,14 +7426,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const locked = new Set(tracks.map(track => String(track.id)).filter(trackId => this.isTrackLocked(trackId)));
                 const inCanvas = placePreviewShapeInCanvas(doc, item,
                     options.canvasAware === true, options.outsideCanvas === true);
-                const inserted = inCanvas ? { doc: inCanvas, createdTrack: false } : insertShapeItem(doc, item, locked);
+                let inserted: { doc: EditV2Document; createdTrack: boolean };
+                if (inCanvas) inserted = { doc: inCanvas, createdTrack: false };
+                else if (timelineTarget?.insertIndex !== undefined) {
+                    const withTrack = insertV2Track(doc, { index: timelineTarget.insertIndex, lane: 'visual' });
+                    const trackId = String((withTrack.tracks as Array<Record<string, unknown>>)[timelineTarget.insertIndex].id);
+                    inserted = { doc: insertV2Item(withTrack, trackId, item), createdTrack: true };
+                } else if (timelineTarget?.targetTrackId) {
+                    inserted = { doc: insertV2Item(doc, timelineTarget.targetTrackId, item), createdTrack: false };
+                } else inserted = insertShapeItem(doc, item, locked);
                 placement.placed = { id, createdTrack: inserted.createdTrack };
                 return inserted.doc;
             });
             const placed = placement.placed;
             if (!placed) return undefined;
             window.dispatchEvent(new CustomEvent(SHAPE_PLACED_EVENT, { detail: { preset: options.preset, id: placed.id } }));
-            await this.focusTimelineItem(placed.id, { seek: true });
+            await this.focusTimelineItem(placed.id, { seek: !timelineTarget });
             this.hideNotice();
             this.footer.textContent = placed.createdTrack ? '図形を置きました（新しいトラックに置きました）。' : '図形を置きました。';
             this.revealOutputPreview();
@@ -7437,7 +7454,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected updateTextStyleDropGhost(clientX: number): void {
+    protected updateTextStyleDropGhost(clientX: number, clientY: number): void {
         const band = this.textStyleDropBandLayout();
         const rect = this.strip.getBoundingClientRect();
         const start = textStyleDropStart(clientX, rect.left, rect.width, this.viewStart, this.visibleDuration());
@@ -7447,7 +7464,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialGhost.textContent = '';
         this.materialGhost.style.top = `${this.rulerRowHeightPx() + band.top - this.stripScroll.scrollTop}px`;
         this.materialGhost.style.height = `${band.height}px`;
+        this.materialGhost.style.border = '2px solid #f97316';
+        this.materialGhost.style.background = 'rgba(249, 115, 22, .2)';
         this.materialGhost.style.display = 'block';
+        this.showMaterialDropBadge(clientX, clientY, '文字の行に入ります');
+    }
+
+    protected showMaterialDropBadge(clientX: number, clientY: number, label: string): void {
+        if (!this.materialDropBadge) return;
+        const rect = this.strip.getBoundingClientRect();
+        this.materialDropBadge.textContent = label;
+        this.materialDropBadge.style.left = `${Math.max(0, clientX - rect.left + 12)}px`;
+        this.materialDropBadge.style.top = `${Math.max(this.rulerRowHeightPx(),
+            this.rulerRowHeightPx() + clientY - rect.top - this.stripScroll.scrollTop + 12)}px`;
+        this.materialDropBadge.style.display = 'block';
     }
 
     protected textStyleDropBandLayout(): { top: number; height: number } {
@@ -7660,34 +7690,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const localY = clientY - this.strip.getBoundingClientRect().top;
         const lockedLayout = this.laneLayout.tracks.find(layout =>
             localY >= layout.top && localY < layout.top + layout.height && this.isTrackLocked(layout.id));
-        if (lockedLayout) {
+        if (lockedLayout && kind !== 'audio') {
             const track = this.displayTimelineTracks.find(candidate => candidate.id === lockedLayout.id);
             return {
-                zone: kind === 'audio' ? 'audio' : 'layers', track: lockedLayout.track,
+                zone: 'layers', track: lockedLayout.track,
                 top: lockedLayout.top, height: lockedLayout.height, rejected: true,
                 targetTrackId: lockedLayout.id,
                 reason: lockedTrackMessage(track?.label || this.computeTrackAutoNames().get(lockedLayout.id!) || lockedLayout.id!)
             };
         }
         if (kind === 'audio') {
-            const layouts = this.laneLayout.audioTracks;
+            const audioTrackIds = new Set((Array.isArray(this.editDocument?.tracks)
+                ? this.editDocument!.tracks as Array<Record<string, unknown>> : [])
+                .filter(track => track.lane === 'audio').map(track => track.id));
+            const layouts = this.laneLayout.audioTracks.filter(layout => audioTrackIds.has(layout.id));
             if (layouts.length === 0) {
+                const bottom = Math.max(0, ...this.laneLayout.tracks.map(layout => layout.top + layout.height));
                 return {
-                    zone: 'audio', track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2),
+                    zone: 'audio', track: 0, top: bottom + LANE_GAP,
                     height: SUBROW_STRIDE, rejected: false, createAudioTrack: true
                 };
             }
             const hit = layouts.find(layout =>
                 localY >= layout.top && localY < layout.top + layout.height + LANE_GAP);
-            if (hit) {
-                return {
-                    zone: 'audio', track: hit.track, top: hit.top, height: hit.height,
-                    rejected: false, targetTrackId: hit.id
-                };
-            }
+            const destination = hit ?? layouts[0];
             return {
-                zone: 'audio', track: 0, top: 0, height: SUBROW_STRIDE, rejected: true,
-                reason: '映像のレーンには音を置けません。'
+                zone: 'audio', track: destination.track, top: destination.top, height: destination.height,
+                rejected: this.isTrackLocked(destination.id), targetTrackId: destination.id,
+                ...(this.isTrackLocked(destination.id) ? { reason: '音の行はロック中です。' } : {})
             };
         }
         const zone: MaterialDropZone = 'layers';
@@ -7765,12 +7795,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.isAttached, this.isVisible);
     }
 
-    protected updateMaterialGhost(clientX: number, clientY: number): void {
+    protected updateMaterialGhost(clientX: number, clientY: number, dragPayload = this.materialDragPayload): void {
         if (this.materialGhostAllowed?.() === false) {
             this.hideMaterialGhost();
             return;
         }
-        const payload = this.materialDragPayload;
+        const payload = dragPayload;
         if (!payload) {
             this.hideMaterialGhost();
             return;
@@ -7778,7 +7808,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialDragLastClientX = clientX;
         this.materialDragLastClientY = clientY;
         let rowTarget = this.resolveMaterialDropTarget(payload.kind, clientY);
-        if (this.isTrackLocked(rowTarget.targetTrackId) || rowTarget.rejected) {
+        if (payload.kind !== 'audio' && (this.isTrackLocked(rowTarget.targetTrackId) || rowTarget.rejected)) {
             // 拒否ターゲットの fallback 座標ではなく、実際にポインタが乗っている行へ描く。
             const localY = clientY - this.strip.getBoundingClientRect().top;
             const hoveredRow = this.laneLayout.tracks.find(row =>
@@ -7814,7 +7844,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const rejectedColor = '#f14c4c';
         Object.assign(this.materialGhost.style, {
             background: visibility.rejected
-                ? 'rgba(241, 76, 76, .25)' : 'rgba(77, 208, 200, .22)',
+                ? 'rgba(241, 76, 76, .25)' : 'rgba(249, 115, 22, .2)',
             color: visibility.rejected ? rejectedColor : '',
             fontSize: visibility.rejected ? '11px' : '',
             whiteSpace: visibility.rejected ? 'nowrap' : '',
@@ -7828,6 +7858,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialGhost.style.top = `${viewportTop}px`;
         this.materialGhost.style.height = `${target.height}px`;
         this.materialGhost.style.display = 'block';
+        if (payload.kind === 'audio' && !target.rejected) {
+            this.showMaterialDropBadge?.(clientX, clientY, '音の行に入ります');
+        } else {
+            if (this.materialDropBadge) this.materialDropBadge.style.display = 'none';
+        }
         if (target.overlapInsert) {
             this.footer.textContent = '重なるので新しいトラックに置きます';
         } else if (this.footer.textContent === '重なるので新しいトラックに置きます') {
@@ -7839,7 +7874,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else {
             delete this.materialGhost.dataset.akariInsertionPreview;
             Object.assign(this.materialGhost.style, {
-                border: visibility.rejected ? `2px solid ${rejectedColor}` : '1px dashed #4dd0c8',
+                border: visibility.rejected ? `2px solid ${rejectedColor}` : '2px solid #f97316',
                 opacity: '', zIndex: '10'
             });
             this.hideTrackInsertIndicator();
@@ -7851,10 +7886,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.materialGhost.textContent = '';
         delete this.materialGhost.dataset.akariInsertionPreview;
         Object.assign(this.materialGhost.style, {
-            display: 'none', border: '1px dashed #4dd0c8', background: 'rgba(77, 208, 200, .22)',
+            display: 'none', border: '1px dashed #f97316', background: 'rgba(249, 115, 22, .2)',
             color: '', fontSize: '', whiteSpace: '', overflow: '', textOverflow: '', wordBreak: '',
             lineHeight: '', padding: '', opacity: '', zIndex: '10'
         });
+        if (this.materialDropBadge) this.materialDropBadge.style.display = 'none';
         this.hideTrackInsertIndicator();
         if (this.footer.textContent === '重なるので新しいトラックに置きます') {
             this.footer.textContent = '';
