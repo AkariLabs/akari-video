@@ -9,6 +9,7 @@ import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalo
 import { StillGenerationManager } from '../lib/node/still-generation.js';
 import { imageRouteBadgeText, imageRouteNextText, nearestStillAspect, replaceStillInEdit, stillDimensionMismatch, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
+import { plannedStillMeta } from '../../../../../packages/generate/src/cli/meta-still.mjs';
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
 const fixture = fileURLToPath(new URL('./fixtures/fake-codex.mjs', import.meta.url));
@@ -170,4 +171,50 @@ test('キャンセルは app-server を止めて PNG・meta を公開しない',
     assert.equal(result.ok, false);
     assert.deepEqual((await readdir(join(dir, 'assets/generated'))).filter(name => name.startsWith('still-')), []);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('静止画の枠 meta は開始中だけ generating、成功・失敗・中止で元に戻る', async () => {
+  for (const mode of ['success', 'fail', 'cancel']) {
+    const { dir } = await project();
+    const metaPath = join(dir, 'assets/generated/old.png.meta.json');
+    const at = '2026-09-26T00:00:00.000Z';
+    const original = plannedStillMeta({ prompt: '', duration_s: 3, at, asOf: '2026-09-26' });
+    await writeFile(metaPath, JSON.stringify(original));
+    try {
+      let atSpawn;
+      const manager = new StillGenerationManager(findAsset, {
+        env: { ...process.env, AKARI_CODEX_BIN: fixture,
+          FAKE_CODEX_MODE: mode === 'fail' ? 'fail' : 'ready', FAKE_CODEX_DELAY_MS: '1500' },
+        spawnProcess: (command, args, options) => {
+          atSpawn = readFile(metaPath, 'utf8').then(JSON.parse);
+          return spawn(command, args, options);
+        }
+      });
+      const pending = manager.startGenerateStill(dir, request);
+      if (mode === 'cancel') {
+        for (let i = 0; i < 100 && !atSpawn; i++) await new Promise(resolve => setTimeout(resolve, 10));
+        manager.cancelGenerateStill('clip-1');
+      }
+      const result = await pending;
+      const generating = await atSpawn;
+      assert.equal(generating.status, 'generating', mode);
+      assert.equal(generating.job.provider, 'codex');
+      assert.ok(Number.isFinite(Date.parse(generating.job.started_at)));
+      assert.equal(generating.job.stale_after_s, 600);
+      assert.equal(generating.history.at(-1).status, 'generating');
+      assert.deepEqual(validateGenerationMeta(generating), { ok: true, errors: [] });
+      const restored = JSON.parse(await readFile(metaPath, 'utf8'));
+      if (mode === 'success') {
+        assert.equal(restored.status, 'planned');
+        assert.equal(restored.history.at(-2).status, 'generating');
+        assert.equal(restored.history.at(-1).status, 'planned');
+        assert.deepEqual({ ...restored, history: original.history }, original);
+      } else assert.deepEqual(restored, original, mode);
+      assert.equal(result.ok, mode === 'success');
+      if (mode === 'success') {
+        const done = JSON.parse(await readFile(join(dir, `${result.relativePath}.meta.json`), 'utf8'));
+        assert.equal(done.status, 'done');
+      }
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  }
 });

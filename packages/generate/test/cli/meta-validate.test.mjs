@@ -90,6 +90,19 @@ test("planned audio is valid; unknown kind remains invalid", async () => {
   assert.equal(validateGenerationMeta(planned).ok, false);
 });
 
+test("静止画・音の空の枠は request_id なしの generating を受理する", async () => {
+  const planned = JSON.parse(await readFile(path.join(FIXTURES, "planned.json"), "utf8"));
+  for (const kind of ["still", "audio"]) {
+    const meta = structuredClone(planned);
+    meta.kind = kind;
+    meta.status = "generating";
+    meta.job = { provider: kind === "still" ? "codex" : "voicevox",
+      started_at: "2026-09-26T00:00:00.000Z", stale_after_s: 600 };
+    meta.history.push({ at: meta.job.started_at, status: "generating", reason: null });
+    assert.deepEqual(validateGenerationMeta(meta), { ok: true, errors: [] }, kind);
+  }
+});
+
 test("generation-meta の変異 12 件以上を欄名付きで拒否する", async () => {
   const mutations = mutationDocuments(await fixtureDocuments());
   assert.ok(mutations.length >= 12);

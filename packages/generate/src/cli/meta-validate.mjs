@@ -30,7 +30,7 @@ export function validateGenerationMeta(meta) {
   if (hasOwn(meta, "next")) validateNext(meta.next, "/next", fail);
   if (hasOwn(meta, "placeholder")) validatePlaceholder(meta.placeholder, "/placeholder", fail);
 
-  if (meta.status === "generating" && isObject(meta.job) && !hasOwn(meta.job, "request_id")) {
+  if (meta.status === "generating" && meta.kind === "video" && isObject(meta.job) && !hasOwn(meta.job, "request_id")) {
     fail("/job に必須キー request_id がありません");
   }
   if (meta.status === "done" && !hasOwn(meta, "result")) {

@@ -4,19 +4,19 @@
 
 .akari-generation-planned {
     border-style: dashed !important;
-    opacity: .58;
+    border-color: #9da5f4 !important;
+    background: linear-gradient(110deg, rgba(111,120,240,.15), rgba(56,189,248,.13), rgba(192,132,252,.14)) !important;
 }
 
 .akari-generation-planned-audio {
-    border: 2px dashed #6bd6a0 !important;
-    background: rgba(66, 177, 120, .17) !important;
+    border: 2px dashed #9da5f4 !important;
+    background: linear-gradient(110deg, rgba(111,120,240,.15), rgba(56,189,248,.13), rgba(192,132,252,.14)) !important;
     opacity: 1 !important;
 }
 .akari-generation-planned-audio .akari-generation-badge {
-    color: #6bd6a0;
+    color: #badbff;
 }
 
-.akari-generation-generating,
 .akari-generation-stale {
     border-color: var(--theia-editorWarning-foreground, #f5c842) !important;
     background-image: repeating-linear-gradient(
@@ -24,6 +24,32 @@
         color-mix(in srgb, var(--theia-editorWarning-foreground, #f5c842) 11%, transparent) 0 6px,
         color-mix(in srgb, var(--theia-editorWarning-foreground, #f5c842) 20%, transparent) 6px 12px
     ) !important;
+}
+
+.akari-generation-generating {
+    border-color: #8ea5f7 !important;
+    background: linear-gradient(105deg, rgba(111,120,240,.27), rgba(56,189,248,.26), rgba(192,132,252,.27), rgba(111,120,240,.27)) !important;
+    background-size: 300% 100% !important;
+}
+.akari-generation-aurora-layer {
+    position: absolute;
+    inset: 1px;
+    z-index: 1;
+    border-radius: inherit;
+    pointer-events: none;
+}
+.akari-generation-planned > .akari-generation-aurora-layer,
+.akari-generation-planned-audio > .akari-generation-aurora-layer {
+    background: linear-gradient(110deg, rgba(111,120,240,.24), rgba(56,189,248,.20), rgba(192,132,252,.23));
+}
+.akari-generation-generating > .akari-generation-aurora-layer {
+    background: linear-gradient(105deg, rgba(111,120,240,.48), rgba(56,189,248,.43), rgba(192,132,252,.48), rgba(111,120,240,.48));
+    background-size: 300% 100%;
+    animation: akari-generation-aurora 6s ease-in-out infinite;
+}
+@keyframes akari-generation-aurora {
+    from { background-position: 0% 0; }
+    to { background-position: 100% 0; }
 }
 
 .akari-generation-failed {
@@ -58,10 +84,29 @@
     color: var(--theia-editorInfo-foreground, #3794ff);
 }
 
-.akari-generation-generating .akari-generation-badge,
 .akari-generation-stale .akari-generation-badge {
     color: var(--theia-editorWarning-foreground, #f5c842);
 }
+.akari-generation-generating .akari-generation-badge { color: #d4ebff; }
+.akari-generation-generating .akari-generation-badge::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border: 1.5px solid rgba(212,235,255,.4);
+    border-top-color: #d4ebff;
+    border-radius: 50%;
+    animation: akari-generation-spin 1.2s linear infinite;
+}
+.akari-generation-planned .akari-generation-badge::before,
+.akari-generation-planned-audio .akari-generation-badge::before {
+    content: '✦';
+    display: inline;
+    margin-right: 3px;
+    color: #c084fc;
+}
+@keyframes akari-generation-spin { to { transform: rotate(360deg); } }
 
 .akari-generation-failed .akari-generation-badge {
     color: var(--theia-editorError-foreground, #d6402b);
@@ -74,7 +119,7 @@
     z-index: 4;
     height: 3px;
     max-width: 100%;
-    background: var(--theia-editorWarning-foreground, #f5c842);
+    background: linear-gradient(90deg, #6f78f0, #38bdf8, #c084fc);
     pointer-events: none;
 }
 
@@ -82,7 +127,7 @@
     width: 35%;
     background: repeating-linear-gradient(
         90deg,
-        var(--theia-editorWarning-foreground, #f5c842) 0 6px,
+        #6f78f0 0 6px,
         transparent 6px 10px
     );
     animation: akari-generation-progress-slide 1s linear infinite;
@@ -95,6 +140,9 @@
 
 @media (prefers-reduced-motion: reduce) {
     .akari-generation-progress-indeterminate { animation: none; }
+    .akari-generation-generating { animation: none; }
+    .akari-generation-generating > .akari-generation-aurora-layer { animation: none; }
+    .akari-generation-generating .akari-generation-badge::before { animation: none; }
 }
 
 /* Non-video generation states share one header row. Keep the r1 video layout below isolated. */
@@ -146,6 +194,9 @@
     margin-left: auto;
 }
 .akari-generation-chip-layout .akari-generation-badge::before { display: none; }
+.akari-generation-chip-layout.akari-generation-planned .akari-generation-badge::before,
+.akari-generation-chip-layout.akari-generation-planned-audio .akari-generation-badge::before,
+.akari-generation-chip-layout.akari-generation-generating .akari-generation-badge::before { display: inline-block; }
 @container akari-generation-chip (width < 128px) {
     .akari-generation-chip-layout .akari-annotations-strip-clip-header-duration { display: none; }
 }

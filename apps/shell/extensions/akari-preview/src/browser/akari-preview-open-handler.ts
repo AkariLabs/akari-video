@@ -8182,8 +8182,15 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
 #caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
-#akari-gen-overlay { --akari-gen-inv-scale: 1; --akari-gen-band-space: 0px; position: absolute; inset: 0; pointer-events: none; z-index: 2100; }
+#akari-gen-overlay { --akari-gen-inv-scale: 1; --akari-gen-band-space: 0px; position: absolute; pointer-events: none; z-index: 2100; overflow: hidden; box-sizing: border-box; }
 #akari-gen-overlay *, #akari-gen-overlay *::before, #akari-gen-overlay *::after { pointer-events: none; }
+#akari-gen-overlay[data-akari-gen-aurora="planned"] { border: 1.5px dashed rgba(160,170,200,.32); border-radius: 14px; }
+#akari-gen-overlay[data-akari-gen-aurora="generating"] { border: 1.5px dashed rgba(160,170,200,.48); border-radius: 14px; }
+#akari-gen-overlay[data-akari-gen-media="audio"] { border-radius: 12px; background: rgba(20,25,45,.76); }
+#akari-gen-overlay[data-akari-gen-aurora]::before { content: ''; position: absolute; inset: 0; background: linear-gradient(150deg, rgba(111,120,240,.12), rgba(56,189,248,.09), rgba(192,132,252,.07)); }
+#akari-gen-overlay[data-akari-gen-aurora="planned"]::before { opacity: 1; background: linear-gradient(150deg, rgba(111,120,240,.22), rgba(56,189,248,.17), rgba(192,132,252,.16)); }
+#akari-gen-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: calc(36px * var(--akari-gen-inv-scale)); color: rgba(196,205,235,.9); text-shadow: 0 0 18px rgba(111,120,240,.4); animation: akari-gen-pulse 3.4s ease-in-out infinite; }
+@keyframes akari-gen-pulse { 50% { opacity: .45; } }
 #akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 #akari-gen-blur-image { width: 100%; height: 100%; object-fit: cover; filter: blur(18px) brightness(.65); transform: scale(1.06); pointer-events: none; }
 #akari-gen-pip { position: absolute; right: calc(10px * var(--akari-gen-inv-scale)); bottom: calc((10px + var(--akari-gen-band-space)) * var(--akari-gen-inv-scale)); width: 22%; pointer-events: none; }
@@ -8191,15 +8198,16 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #akari-gen-pip-label { display: block; margin-bottom: calc(4px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #E6DFFF; text-shadow: 0 calc(1px * var(--akari-gen-inv-scale)) calc(3px * var(--akari-gen-inv-scale)) #000; }
 #akari-gen-tag[data-akari-gen-severity="planned-video"] { border-color: #A99AF2; color: #E6DFFF; background: rgba(42,28,72,.8); }
 #akari-gen-tag { position: absolute; left: calc(10px * var(--akari-gen-inv-scale)); top: calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; padding: calc(2px * var(--akari-gen-inv-scale)) calc(8px * var(--akari-gen-inv-scale)); border-radius: calc(4px * var(--akari-gen-inv-scale)); background: rgba(0,0,0,.6); color: #DCE6EE; border: calc(1px * var(--akari-gen-inv-scale)) dashed #8FA3B4; box-sizing: border-box; min-height: calc(22px * var(--akari-gen-inv-scale)); max-width: calc(100% - 20px * var(--akari-gen-inv-scale)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #F5C842; color: #F5C842; }
+#akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #9da5f4; color: #d4ebff; }
 #akari-gen-tag[data-akari-gen-severity="error"] { border-color: #D6402B; color: #D6402B; border-style: solid; }
 #akari-gen-tag[data-akari-gen-severity="frames"] { border-color: #1F6F8B; color: #1F6F8B; }
-#akari-gen-band { position: absolute; left: 0; right: 0; bottom: 0; height: calc(26px * var(--akari-gen-inv-scale)); box-sizing: border-box; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: calc(8px * var(--akari-gen-inv-scale)); padding: 0 calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; color: #F5C842; }
+#akari-gen-band { position: absolute; left: 0; right: 0; bottom: 0; height: calc(26px * var(--akari-gen-inv-scale)); box-sizing: border-box; background: rgba(0,0,0,.55); display: flex; align-items: center; gap: calc(8px * var(--akari-gen-inv-scale)); padding: 0 calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; color: #d4ebff; }
 #akari-gen-band-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #akari-gen-band-bar { flex: 1; min-width: calc(20px * var(--akari-gen-inv-scale)); height: calc(3px * var(--akari-gen-inv-scale)); background: rgba(255,255,255,.2); border-radius: calc(2px * var(--akari-gen-inv-scale)); overflow: hidden; }
-#akari-gen-band-fill { display: block; height: 100%; background: #F5C842; }
-#akari-gen-shimmer { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255,255,255,.14) 50%, transparent 65%); background-size: 250% 100%; }
-@media (prefers-reduced-motion: no-preference) { #akari-gen-shimmer { animation: akari-gen-sh 1.6s linear infinite; } }
+#akari-gen-band-fill { display: block; height: 100%; background: linear-gradient(90deg, #6f78f0, #38bdf8, #c084fc); }
+#akari-gen-shimmer { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.05) 50%, transparent 62%); background-size: 250% 100%; }
+@media (prefers-reduced-motion: no-preference) { #akari-gen-shimmer { animation: akari-gen-sh 5.5s ease-in-out infinite; } }
+@media (prefers-reduced-motion: reduce) { #akari-gen-icon { animation: none; } }
 @keyframes akari-gen-sh { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 #akari-gen-mask { position: absolute; box-sizing: border-box; border: 2px dashed #D6402B; border-radius: 3px; }
 #akari-gen-mask-label { position: absolute; left: 0; top: calc(-18px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #D6402B; }
@@ -8375,6 +8383,7 @@ ${previewSelectionHandlesStyle}
             <div id="akari-gen-overlay" aria-hidden="true" hidden>
               <div id="akari-gen-blur" hidden><img id="akari-gen-blur-image" alt=""></div>
               <div id="akari-gen-shimmer" hidden></div>
+              <div id="akari-gen-icon" hidden>✦</div>
               <div id="akari-gen-mask" hidden><span id="akari-gen-mask-label">編集領域</span></div>
               <div id="akari-gen-tag" hidden></div>
               <div id="akari-gen-pip" hidden><span id="akari-gen-pip-label">最後の絵</span><img id="akari-gen-pip-image" alt=""></div>
@@ -20152,6 +20161,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const generationBlur = document.getElementById('akari-gen-blur');
             const generationBlurImage = document.getElementById('akari-gen-blur-image');
             const generationShimmer = document.getElementById('akari-gen-shimmer');
+            const generationIcon = document.getElementById('akari-gen-icon');
             const generationMask = document.getElementById('akari-gen-mask');
             const generationTag = document.getElementById('akari-gen-tag');
             const generationBand = document.getElementById('akari-gen-band');
@@ -20159,6 +20169,15 @@ body { display: grid; place-items: center; padding: 32px; }
             const generationBandBar = document.getElementById('akari-gen-band-bar');
             const generationBandFill = document.getElementById('akari-gen-band-fill');
             let generationTagText = '';
+            let generationElapsedStartedAt = null;
+            if (typeof window.setInterval === 'function') {
+                const generationElapsedTicker = window.setInterval(() => {
+                    if (!generationOverlay || generationOverlay.hidden || !Number.isFinite(generationElapsedStartedAt)) return;
+                    generationBandText.textContent = '生成中 · ' + Math.max(0,
+                        Math.floor((Date.now() - generationElapsedStartedAt) / 1000)) + ' 秒';
+                }, 1000);
+                if (typeof generationElapsedTicker?.unref === 'function') generationElapsedTicker.unref();
+            }
             // 出力座標系は維持し、札と文字だけを画面 px に戻す。layersStage の実測は
             // updateStageScale の frameScale と外側 zoom-layer の倍率の両方を含む。
             const updateGenerationOverlayLayout = () => {
@@ -20183,6 +20202,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 generationPipImage.removeAttribute('src');
                 generationBlurImage.removeAttribute('src');
                 generationShimmer.hidden = true;
+                if (generationIcon) generationIcon.hidden = true;
+                generationElapsedStartedAt = null;
+                delete generationOverlay.dataset.akariGenAurora;
+                delete generationOverlay.dataset.akariGenMedia;
                 generationMask.hidden = true;
                 generationTag.hidden = true;
                 generationBand.hidden = true;
@@ -20206,11 +20229,29 @@ body { display: grid; place-items: center; padding: 32px; }
                     clipDurationSec: clip.end - clip.start
                 }, describeNextDraftV1);
                 if (description.tag === null && description.band === null
-                    && !description.shimmer && !description.maskRect && !description.pip && !description.blurBackground) {
+                    && !description.shimmer && !description.aurora && !description.maskRect && !description.pip && !description.blurBackground) {
                     hideGenerationOverlay();
                     return;
                 }
                 generationOverlay.hidden = false;
+                generationOverlay.dataset.akariGenAurora = description.aurora || '';
+                generationOverlay.dataset.akariGenMedia = clip.kind || 'visual';
+                if (generationIcon) generationIcon.textContent = clip.kind === 'audio' ? '♫' : '✦';
+                const transform = clip.transform || {};
+                const crop = clip.crop || {};
+                const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+                const stageWidth = layersStage.offsetWidth;
+                const stageHeight = layersStage.offsetHeight;
+                const scale = Math.max(.01, finite(transform.scale, 1));
+                const boxWidth = clip.kind === 'audio' ? stageWidth * .7
+                    : stageWidth * Math.max(.01, finite(crop.w, 1)) * Math.max(.01, finite(transform.scaleX, scale));
+                const boxHeight = clip.kind === 'audio' ? stageHeight * .34
+                    : stageHeight * Math.max(.01, finite(crop.h, 1)) * Math.max(.01, finite(transform.scaleY, scale));
+                generationOverlay.style.left = (stageWidth / 2 + finite(transform.x, 0) - boxWidth / 2) + 'px';
+                generationOverlay.style.top = (stageHeight / 2 + finite(transform.y, 0) - boxHeight / 2) + 'px';
+                generationOverlay.style.width = boxWidth + 'px';
+                generationOverlay.style.height = boxHeight + 'px';
+                generationOverlay.style.transform = 'rotate(' + finite(transform.rotate, 0) + 'deg)';
                 const setGenerationImage = (container, image, path, uri) => {
                     container.hidden = !path || typeof uri !== 'string' || !uri;
                     if (container.hidden) image.removeAttribute('src');
@@ -20227,11 +20268,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 else delete generationTag.dataset.akariGenSeverity;
                 generationBand.hidden = description.band === null;
                 generationBandText.textContent = description.band?.text || '';
+                const startedAt = Date.parse(String(clip.meta?.job?.started_at || ''));
+                generationElapsedStartedAt = /^生成中 · [0-9]+ 秒$/u.test(description.band?.text || '')
+                    && Number.isFinite(startedAt) ? startedAt : null;
                 const progress = description.band?.progress;
                 generationBandBar.hidden = progress === null || progress === undefined;
                 generationBandFill.style.width = progress === null || progress === undefined
                     ? '0%' : (Math.max(0, Math.min(1, progress)) * 100) + '%';
                 generationShimmer.hidden = !description.shimmer;
+                if (generationIcon) generationIcon.hidden = description.aurora !== 'generating';
                 generationMask.hidden = description.maskRect === null;
                 if (description.maskRect) {
                     generationMask.style.left = (description.maskRect.x * 100) + '%';
@@ -21538,11 +21583,41 @@ body { display: grid; place-items: center; padding: 32px; }
                 workspaceRoots: await this.currentWorkspaceRoots()
             });
             if (disposed()) return;
+            // 音の空の枠は映像 cut の一覧に入らないため、生成小札用の時間窓だけ edit から読む。
+            const audioFrames: Array<{ id: string; name: string; start: number; end: number;
+                sourcePath: string; meta: GenerationMetaV1 | null; binding: unknown;
+                transform: null; crop: null; kind: 'audio' }> = [];
+            try {
+                const raw = JSON.parse((await this.fileService.readFile(editUri)).value.toString()) as {
+                    output?: { fps?: number }; sources?: Array<{ id?: string; path?: string }>;
+                    tracks?: Array<{ lane?: string; items?: Array<{ id?: string; name?: string; at?: number;
+                        duration?: number; source?: { src?: string; path?: string } }> }>;
+                };
+                const fps = Number(raw.output?.fps) || 30;
+                const sourcePaths = new Map((raw.sources ?? []).filter(source => source.id && source.path)
+                    .map(source => [source.id!, source.path!]));
+                for (const track of raw.tracks ?? []) {
+                    if (track.lane !== 'audio') continue;
+                    for (const item of track.items ?? []) {
+                        if (!Number.isFinite(item.at) || !Number.isFinite(item.duration)) continue;
+                        const sourcePath = item.source?.path ?? sourcePaths.get(item.source?.src ?? '');
+                        if (!sourcePath) continue;
+                        const generation = selectGenerationSidecarForSource(sourcePath,
+                            sidecars.entries.map(entry => ({ sourcePath: entry.sourcePath,
+                                meta: entry.meta as GenerationMetaV1 | null, binding: entry.binding })), Date.now());
+                        if (generation?.meta?.kind !== 'audio') continue;
+                        audioFrames.push({ id: item.id ?? sourcePath, name: item.name ?? item.id ?? '音の空の枠',
+                            start: item.at! / fps, end: (item.at! + item.duration!) / fps,
+                            sourcePath, meta: generation.meta, binding: generation.binding ?? null,
+                            transform: null, crop: null, kind: 'audio' });
+                    }
+                }
+            } catch { /* 旧形式や読み込み中でも映像の生成表示を続ける。 */ }
             // summary は音声更新でも置き換わる。参照一致を送信条件にせず、その時点の cuts を使う。
             const describeClips = () => {
                 const latest = widget.akariPreviewSummary ?? summary;
                 const segments = this.previewCaptionTimelineSegments(latest.cuts, latest.output.fps);
-                return segments.flatMap(segment => {
+                const visualClips = segments.flatMap(segment => {
                     if (segment.kind !== 'src' || segment.cutIndex === null) return [];
                     const cut = latest.cuts[segment.cutIndex];
                     if (!cut) return [];
@@ -21558,10 +21633,14 @@ body { display: grid; place-items: center; padding: 32px; }
                         start: segment.outStart,
                         end: segment.outEnd,
                         sourcePath,
+                        transform: cut.transform ?? null,
+                        crop: cut.crop ?? null,
                         meta: generation?.meta ?? null,
                         binding: generation?.binding ?? null
                     }];
                 });
+                return [...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) === 'generating'),
+                    ...visualClips, ...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) !== 'generating')];
             };
             const clips = describeClips();
             // 画像の失敗・読み込みとの競合・遅延で既存の小札や帯まで止めない。

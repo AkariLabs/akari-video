@@ -198,6 +198,24 @@ test('next の無い静止画は完成品、小札なし。文字カードの pl
     assert.equal(describeOverlay('planned', { kind: 'still', status: 'planned' }, '空の枠').tag, 'planned · 空の枠');
 });
 
+test('静止画の生成中は経過秒とシマー、空の枠は静止した淡いオーロラを示す', () => {
+    const started = '2026-09-26T00:00:00.000Z';
+    const generating = describeOverlay('generating', {
+        kind: 'still', status: 'generating', job: { provider: 'codex', started_at: started, stale_after_s: 600 }
+    }, '空の枠', { nowMs: Date.parse(started) + 32_000 });
+    assert.equal(generating.band.text, '生成中 · 32 秒');
+    assert.equal(generating.shimmer, true);
+    assert.equal(generating.aurora, 'generating');
+    const planned = describeOverlay('planned', { kind: 'still', status: 'planned' }, '空の枠');
+    assert.equal(planned.aurora, 'planned');
+    assert.equal(planned.shimmer, false);
+    assert.equal(planned.band, null);
+    const audio = describeOverlay('generating', { kind: 'audio', status: 'generating',
+        job: { started_at: started } }, '音の空の枠', { sourcePath: 'assets/generated/frame.wav', nowMs: Date.parse(started) + 8000 });
+    assert.equal(audio.band.text, '生成中 · 8 秒');
+    assert.equal(audio.blurBackground, null);
+});
+
 test('orphan / failed / generating / stale は next より優先し、小窓を出さない', () => {
     for (const [state, tag] of [
         ['orphan', '孤児 · clip'], ['failed', '失敗 · timeout · 再試行は右パネル'],

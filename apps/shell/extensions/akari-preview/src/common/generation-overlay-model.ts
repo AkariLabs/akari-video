@@ -30,6 +30,7 @@ export interface GenerationOverlayDescription {
     blurBackground?: string | null;
     band: { text: string; progress: number | null } | null;
     shimmer: boolean;
+    aurora?: 'planned' | 'generating';
     maskRect: { x: number; y: number; w: number; h: number } | null;
 }
 
@@ -40,6 +41,7 @@ export interface DescribeOverlayOptions {
     localTimeSec?: number;
     /** クリップの尺（秒）。kind:"frames" の総コマ数の推定に使う。 */
     clipDurationSec?: number;
+    nowMs?: number;
 }
 
 export function resolveGenerationState(
@@ -128,14 +130,20 @@ export function describeOverlay(
                     ? `生成中 ${percent}%`
                     : eta !== undefined
                         ? `生成中 · 残り約 ${eta} 秒`
-                        : '生成中';
+                        : (() => {
+                            const startedAt = Date.parse(String(job.started_at ?? ''));
+                            if (!Number.isFinite(startedAt)) return '生成中';
+                            const seconds = Math.max(0, Math.floor(((options.nowMs ?? Date.now()) - startedAt) / 1000));
+                            return `生成中 · ${seconds} 秒`;
+                        })();
             const firstFramePath = objectAt(value.inputs, 'first_frame').path;
             return {
                 ...empty(),
                 tag: `生成中 · ${beatLabel}`,
                 band: { text, progress: percent === undefined ? null : percent / 100 },
                 shimmer: true,
-                blurBackground: typeof firstFramePath === 'string' && firstFramePath.trim()
+                aurora: 'generating',
+                blurBackground: value.kind === 'audio' ? null : typeof firstFramePath === 'string' && firstFramePath.trim()
                     ? firstFramePath : options.sourcePath || null
             };
         }
@@ -199,7 +207,7 @@ export function describeOverlay(
         }
 
         if (state === 'planned') {
-            return { ...empty(), tag: `planned · ${beatLabel}` };
+            return { ...empty(), tag: `planned · ${beatLabel}`, aurora: 'planned' };
         }
         return empty();
     } catch {

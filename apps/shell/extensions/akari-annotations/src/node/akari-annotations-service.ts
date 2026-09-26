@@ -23,6 +23,7 @@ import { promisify } from 'util';
 import { savePhotoMask } from './photo-mask-storage';
 import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, adoptPhotoCandidates } from './photo-segmentation';
 import { NarrationCliManager } from './narration-cli';
+import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../common/generation-sidecar';
 import { ImageAiService } from './image-ai-service';
 import type { ImageAiInspection, ImageAiResult } from '../common/akari-annotations-protocol';
 import type { ImageAiBinding } from '../common/image-ai-binding';
@@ -492,7 +493,74 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (['gemini-tts', 'fal-qwen3'].includes(request.engine) && request.approved !== true) {
             throw new Error('費用承認が必要です。');
         }
-        return this.narrationCli.generate(request, this.fsPath(request.projectRootUri));
+        const root = resolve(this.fsPath(request.projectRootUri));
+        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8')) as {
+            output?: { fps?: number }; sources?: Array<{ id: string; path: string }>;
+            tracks?: Array<{ lane?: string; items?: Array<{ at?: number; source?: { src?: string } }> }>;
+        };
+        const fps = Number(edit.output?.fps) || 30;
+        let originalPath: string | undefined;
+        let originalText: string | undefined;
+        let generatingMeta: GenerationMetaV1 | undefined;
+        let succeeded = false;
+        for (const item of (edit.tracks ?? []).filter(track => track.lane === 'audio').flatMap(track => track.items ?? [])) {
+            if (Math.abs(Number(item.at) / fps - request.t) > 1 / fps / 2) continue;
+            const sourcePath = edit.sources?.find(source => source.id === item.source?.src)?.path;
+            if (!sourcePath || !/^assets\/generated\/frame-audio-[^/]+\.wav$/u.test(sourcePath)) continue;
+            const candidate = join(root, `${sourcePath}.meta.json`);
+            const text = await fs.readFile(candidate, 'utf8').catch(() => undefined);
+            if (!text) continue;
+            const meta = JSON.parse(text) as GenerationMetaV1;
+            if (meta.kind !== 'audio' || meta.status !== 'planned') continue;
+            originalPath = candidate;
+            originalText = text;
+            break;
+        }
+        if (originalPath && originalText) {
+            const generating = markPlaceholderGenerating(JSON.parse(originalText) as GenerationMetaV1,
+                request.engine, new Date().toISOString());
+            generatingMeta = generating;
+            await fs.writeFile(originalPath, `${JSON.stringify(generating, null, 2)}\n`);
+        }
+        try {
+            const generated = await this.narrationCli.generate(request, root);
+            if (originalText && generated.status === 'ok' && generated.path
+                && Number(generated.duration_s) > 0
+                && /^out\/narration\/n-\d{4}\.(?:wav|mp3)$/u.test(generated.path)) {
+                const bytes = await fs.readFile(join(root, generated.path));
+                const at = new Date().toISOString();
+                const source = JSON.parse(originalText) as GenerationMetaV1;
+                const done = {
+                    ...source, status: 'done',
+                    model: { ...(source.model as object), id: `${request.engine}:tts` },
+                    inputs: { ...(source.inputs as object), prompt: request.script },
+                    output: { ...(source.output as object), duration_s: generated.duration_s },
+                    cost: { ...(source.cost as object),
+                        estimate_usd: generated.estimate_usd ?? 0,
+                        actual_usd: generated.cost_usd ?? null,
+                        source: generated.cost_usd === undefined ? 'estimate' : 'provider' },
+                    job: { ...generatingMeta?.job, provider: request.engine },
+                    provenance: { ...(source.provenance as object), created_at: at,
+                        tool: `akari narration generate --${request.engine}`,
+                        key_source: typeof generated.provenance?.key_source === 'string'
+                            ? generated.provenance.key_source : (source.provenance as { key_source?: unknown })?.key_source ?? null },
+                    result: { path: generated.path, sha256: createHash('sha256').update(bytes).digest('hex'),
+                        bytes: bytes.length, duration_s_actual: generated.duration_s },
+                    history: [...(Array.isArray(generatingMeta?.history) ? generatingMeta.history : []),
+                        { at, status: 'done', reason: null }]
+                };
+                await fs.writeFile(join(root, `${generated.path}.meta.json`), `${JSON.stringify(done, null, 2)}\n`);
+                succeeded = true;
+            }
+            return generated;
+        } finally {
+            if (originalPath && originalText) {
+                const restored = succeeded && generatingMeta
+                    ? `${JSON.stringify(finishPlaceholderGenerating(JSON.parse(originalText) as GenerationMetaV1,
+                        generatingMeta, new Date().toISOString()), null, 2)}\n` : originalText;
+                await fs.writeFile(originalPath, restored);
+            }
+        }
     }
     async cancelNarration(projectRootUri: string): Promise<void> {
         await this.narrationCli.cancel(this.fsPath(projectRootUri));

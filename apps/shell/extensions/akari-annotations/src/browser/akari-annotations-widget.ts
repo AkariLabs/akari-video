@@ -9271,6 +9271,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             state: GenerationState; meta?: GenerationSidecarMeta; binding?: GenerationBindingView | null
         } | undefined
     ): void {
+        const previousTimer = Number(element.dataset.akariGenerationElapsedTimer);
+        if (previousTimer && typeof window !== 'undefined') window.clearInterval(previousTimer);
+        delete element.dataset.akariGenerationElapsedTimer;
         element.classList.remove(
             'akari-generation-none', 'akari-generation-planned', 'akari-generation-generating',
             'akari-generation-stale', 'akari-generation-done', 'akari-generation-failed',
@@ -9284,6 +9287,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.querySelector(':scope > .akari-generation-perforations-bottom')?.remove();
         }
         if (generation?.state !== 'failed') element.querySelector('.akari-generation-action')?.remove();
+        const aurora = element.querySelector<HTMLElement>(':scope > .akari-generation-aurora-layer');
+        if (generation?.state !== 'planned' && generation?.state !== 'generating') aurora?.remove();
         let badge = element.querySelector<HTMLElement>('[data-akari-generation-badge]');
         let progress = element.querySelector<HTMLElement>(':scope > [data-akari-generation-progress]');
         const header = element.querySelector<HTMLElement>(':scope > .akari-annotations-strip-clip-header');
@@ -9319,6 +9324,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
             label.textContent = description.badge;
             badge.textContent = '';
             badge.appendChild(label);
+            if (generation.state === 'generating' && description.progress === undefined
+                && Number.isFinite(Date.parse(String(generation.meta?.job?.started_at ?? '')))
+                && typeof window !== 'undefined') {
+                const timer = window.setInterval(() => {
+                    if (!element.isConnected || element.dataset.akariGenerationState !== 'generating') {
+                        window.clearInterval(timer);
+                        delete element.dataset.akariGenerationElapsedTimer;
+                        return;
+                    }
+                    const current = describeGenerationChip('generating', generation.meta);
+                    label.textContent = current.badge;
+                    badge!.title = `${current.badge} — ${current.title}`;
+                }, 1000);
+                element.dataset.akariGenerationElapsedTimer = String(timer);
+            }
             badge.dataset.akariGenerationCompact = Array.from(description.badge)[0];
             badge.title = `${description.badge} — ${description.title}`;
             const name = header?.querySelector<HTMLElement>('.akari-annotations-strip-clip-header-label');
@@ -9334,6 +9354,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else if (badge.parentElement !== element) {
             // planned-video keeps its original direct-child badge and r1 layout.
             element.appendChild(badge);
+        }
+        if ((generation.state === 'planned' || generation.state === 'generating') && !aurora) {
+            const layer = document.createElement('span');
+            layer.className = 'akari-generation-aurora-layer';
+            layer.setAttribute('aria-hidden', 'true');
+            element.appendChild(layer);
         }
         if (generation.state === 'generating') {
             if (!progress) {

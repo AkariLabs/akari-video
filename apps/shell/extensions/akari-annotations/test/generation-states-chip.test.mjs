@@ -17,6 +17,15 @@ const fixture = new URL('./fixtures/generation-states/', import.meta.url);
 const widgetSource = await readFile(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 const chipLayoutFixture = JSON.parse(await readFile(new URL('chip-layout.json', fixture), 'utf8'));
 
+test('秒表示は started_at に従い、オーロラとスピナーは動きを減らす設定で止まる', async () => {
+  const started = '2026-09-26T00:00:00.000Z';
+  assert.equal(describeGenerationChip('generating', { status: 'generating',
+    job: { started_at: started } }, Date.parse(started) + 32_000).badge, '生成中 · 32 秒');
+  const css = await readFile(new URL('../src/browser/style/generation-chip.css', import.meta.url), 'utf8');
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.akari-generation-generating \{ animation: none; \}/u);
+  assert.match(css, /\.akari-generation-generating \.akari-generation-badge::before \{ animation: none; \}/u);
+});
+
 function widgetMethod(name, dependencies) {
   const ast = ts.createSourceFile('widget.ts', widgetSource, ts.ScriptTarget.Latest, true);
   const widget = ast.statements.find(statement => ts.isClassDeclaration(statement)
@@ -223,6 +232,24 @@ test('generation chip 更新は再描画で class を復元し、2 回適用し�
   assert.equal(renderStrip.match(/this\.applyGenerationChip\(/g)?.length, 2, 'tree と cut で各 1 回');
   assert.match(renderStrip, /element\.style\.pointerEvents = 'auto';\s*this\.applyGenerationChip\(element, generation\);\s*if \(created\)/);
   assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*if \(created && unsupportedDeclaredTransitions/);
+});
+
+test('planned と generating のオーロラ層は一枚だけで、終了状態では取り除く', async () => {
+  const element = new DummyElement();
+  const layers = () => element.children.filter(child => child.className === 'akari-generation-aurora-layer');
+  for (const state of ['planned', 'planned', 'generating', 'generating']) {
+    applyGenerationChip.call({}, element, { state });
+    assert.equal(layers().length, 1, state);
+    assert.equal(layers()[0]['aria-hidden'], 'true');
+  }
+  for (const state of ['stale', 'failed', 'done', 'none']) {
+    applyGenerationChip.call({}, element, { state });
+    assert.equal(layers().length, 0, state);
+  }
+  const css = await readFile(new URL('../src/browser/style/generation-chip.css', import.meta.url), 'utf8');
+  assert.match(css, /\.akari-generation-aurora-layer\s*\{[^}]*z-index:\s*1;[^}]*pointer-events:\s*none;/u);
+  assert.match(css, /\.akari-generation-generating > \.akari-generation-aurora-layer\s*\{[^}]*animation:\s*akari-generation-aurora 6s/u);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.akari-generation-generating > \.akari-generation-aurora-layer \{ animation: none; \}/u);
 });
 
 test('orphan の generation chip は孤児クラスとバッジを表示する', () => {
