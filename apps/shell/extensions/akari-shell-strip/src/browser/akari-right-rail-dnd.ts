@@ -1,10 +1,12 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { ApplicationShell, FrontendApplicationContribution } from '@theia/core/lib/browser';
 import { Widget } from '@theia/core/shared/@lumino/widgets';
+import { RIGHT_RAIL_PARTNER_ID } from 'akari-annotations/lib/browser/right-panel-order';
 import { AkariRightPanelHandler, RIGHT_RAIL_WIDGET_MIME } from './akari-right-panel-handler';
 import { RightRailZone } from './right-rail-state';
 
 interface LuminoDragEvent extends Event {
+    readonly clientY?: number;
     readonly mimeData?: { hasData(mime: string): boolean; getData(mime: string): unknown };
     readonly proposedAction?: string;
     dropAction?: string;
@@ -44,6 +46,7 @@ export class AkariRightRailDnd implements FrontendApplicationContribution {
 
     protected overlays: HTMLElement[] = [];
     protected dragging: Widget | undefined;
+    protected marker: HTMLElement | undefined;
 
     onStart(): void {
         const handler = this.handler;
@@ -101,9 +104,13 @@ export class AkariRightRailDnd implements FrontendApplicationContribution {
         }
         const rail = handler.tabBar.node.getBoundingClientRect();
         if (rail.width > 0 && rail.height > 0) {
-            const middle = rail.height / 2;
-            boxes.push({ zone: 'railtop', label: RIGHT_RAIL_ZONE_LABELS.railtop, narrow: true, rect: { left: rail.left - 4, top: rail.top + 4, width: rail.width + 4, height: middle - 6 } });
-            boxes.push({ zone: 'railbottom', label: RIGHT_RAIL_ZONE_LABELS.railbottom, narrow: true, rect: { left: rail.left - 4, top: rail.top + middle + 2, width: rail.width + 4, height: middle - 6 } });
+            const lowerStart = handler.tabBar.contentNode.querySelector('.akari-rail-lower-start')?.getBoundingClientRect().top;
+            const divider = handler.tabBar.node.classList.contains('akari-rail-crowded') && lowerStart
+                ? lowerStart - 7 : rail.top + rail.height / 2;
+            boxes.push({ zone: 'railtop', label: RIGHT_RAIL_ZONE_LABELS.railtop, narrow: true,
+                rect: { left: rail.left - 4, top: rail.top + 4, width: rail.width + 4, height: Math.max(0, divider - rail.top - 6) } });
+            boxes.push({ zone: 'railbottom', label: RIGHT_RAIL_ZONE_LABELS.railbottom, narrow: true,
+                rect: { left: rail.left - 4, top: divider + 2, width: rail.width + 4, height: Math.max(0, rail.bottom - divider - 6) } });
         }
         return boxes;
     }
@@ -125,6 +132,10 @@ export class AkariRightRailDnd implements FrontendApplicationContribution {
             document.body.appendChild(node);
             this.overlays.push(node);
         }
+        this.marker = document.createElement('div');
+        this.marker.className = 'akari-rail-insert-marker';
+        document.body.appendChild(this.marker);
+        this.overlays.push(this.marker);
         // ドラッグの終わり（Lumino は document の capture で pointerup を受けて drop を配る）。window の capture で
         // 先に気づき、drop が配られた後に片付ける。Escape での取り消しも同じ。
         const capture: AddEventListenerOptions = { capture: true };
@@ -151,34 +162,87 @@ export class AkariRightRailDnd implements FrontendApplicationContribution {
         node.addEventListener('lm-dragenter', event => {
             accept(event as LuminoDragEvent);
             node.classList.add('akari-rail-drop-hot');
+            this.showInsertion(zone, event as LuminoDragEvent);
         });
         node.addEventListener('lm-dragover', event => {
             accept(event as LuminoDragEvent);
             node.classList.add('akari-rail-drop-hot');
+            this.showInsertion(zone, event as LuminoDragEvent);
         });
         node.addEventListener('lm-dragleave', event => {
             event.stopPropagation();
             node.classList.remove('akari-rail-drop-hot');
+            if (zone === 'railtop' || zone === 'railbottom') {
+                this.marker?.classList.remove('akari-rail-insert-visible');
+            }
         });
         node.addEventListener('lm-drop', event => {
             accept(event as LuminoDragEvent);
             const widget = this.dragging;
+            const beforeId = this.insertionAt(zone, event as LuminoDragEvent)?.beforeId;
             this.hide();
             if (widget) {
-                void this.drop(widget, zone);
+                void this.drop(widget, zone, beforeId);
             }
         });
     }
 
+    /** アイコン上半分 = 前、下半分 = 後。余白はその区画の末尾へ置く。 */
+    protected insertionAt(zone: RightRailZone, event: LuminoDragEvent): { beforeId: string | null; top: number } | undefined {
+        if (zone !== 'railtop' && zone !== 'railbottom') {
+            return undefined;
+        }
+        const handler = this.handler;
+        if (!handler) {
+            return undefined;
+        }
+        const group = zone === 'railtop' ? 'agent' : 'lower';
+        const tabs = Array.from(handler.tabBar.contentNode.children) as HTMLElement[];
+        const items = handler.tabBar.titles.flatMap((title, index) => handler.railGroupOf(title.owner.id) === group
+            ? [{ id: title.owner.id, rect: tabs[index]?.getBoundingClientRect() }] : [])
+            .filter(item => item.rect && item.rect.height > 0);
+        const y = event.clientY ?? 0;
+        let index = items.findIndex(item => y < item.rect!.top + item.rect!.height / 2);
+        if (index < 0) {
+            index = items.length;
+        }
+        // 上の末尾は「パートナーを追加」の手前。下の末尾は最後のアイコンの直後。
+        if (group === 'agent') {
+            const partner = items.findIndex(item => item.id === RIGHT_RAIL_PARTNER_ID);
+            if (partner >= 0) {
+                index = Math.min(index, partner);
+            }
+        }
+        const before = items[index];
+        const rail = handler.tabBar.node.getBoundingClientRect();
+        const top = before?.rect?.top ?? items[items.length - 1]?.rect?.bottom ?? (group === 'agent' ? rail.top + 8 : rail.top + rail.height / 2 + 8);
+        return { beforeId: before?.id ?? null, top };
+    }
+
+    protected showInsertion(zone: RightRailZone, event: LuminoDragEvent): void {
+        const insertion = this.insertionAt(zone, event);
+        const marker = this.marker;
+        const handler = this.handler;
+        if (!insertion || !marker || !handler) {
+            marker?.classList.remove('akari-rail-insert-visible');
+            return;
+        }
+        const rail = handler.tabBar.node.getBoundingClientRect();
+        marker.style.left = `${Math.round(rail.left + 9)}px`;
+        marker.style.top = `${Math.round(insertion.top - 2)}px`;
+        marker.style.width = `${Math.max(16, Math.round(rail.width - 18))}px`;
+        marker.classList.add('akari-rail-insert-visible');
+    }
+
     /** 置いたとき。L1 でドラッグ操作と同じ経路を直接呼べるよう public。 */
-    async drop(widget: Widget, zone: RightRailZone): Promise<void> {
+    async drop(widget: Widget, zone: RightRailZone, beforeId?: string | null): Promise<void> {
         const handler = this.handler;
         if (!handler || widget.isDisposed) {
             return;
         }
         await handler.dropPanel(widget, zone, async (target, area) => {
             await this.shell.addWidget(target, { area });
-        });
+        }, beforeId);
         if (zone === 'main' || zone === 'bottom') {
             await this.shell.activateWidget(widget.id);
         }
@@ -190,6 +254,7 @@ export class AkariRightRailDnd implements FrontendApplicationContribution {
         }
         this.overlays = [];
         this.dragging = undefined;
+        this.marker = undefined;
         document.body.classList.remove('akari-rail-drag-active');
     }
 }

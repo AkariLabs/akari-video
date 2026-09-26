@@ -34,15 +34,45 @@ export const RIGHT_RAIL_FIXED_ORDER: readonly string[] = [
     'akari-audio-meter-widget'
 ];
 
-/** 既定の所属: パートナーを追加と Theia の端末（terminal-<n>）が上、それ以外（未知の新顔も）は下。 */
+// package.json / tsconfig に拡張間依存を足せないため、実行時に同梱されるカタログ JSON を静的 require する。
+// lib/browser からの相対位置でも解決でき、ビュー id の別表を持たずに済む。
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const partnerCatalog = require('../../../akari-partner/src/common/partner-catalog.json') as Array<{ viewContainerIds?: string[] }>;
+const partnerViewIds = new Set(partnerCatalog.flatMap(entry => entry.viewContainerIds ?? [])
+    .map(id => `plugin-view-container:${id}`));
+
+export const isTransientRailId = (id: string): boolean => /^terminal-\d+$/.test(id);
+
+/** 既定の所属: パートナーを追加・端末・カタログ掲載の拡張ビューが上、未知の新顔は下。 */
 export function defaultRightRailGroup(id: string): RightRailGroup {
-    return id === RIGHT_RAIL_PARTNER_ID || /^terminal-\d+$/.test(id) ? 'agent' : 'lower';
+    return id === RIGHT_RAIL_PARTNER_ID || isTransientRailId(id) || partnerViewIds.has(id) ? 'agent' : 'lower';
+}
+
+/** 保存された並びに新顔を既定順で差し込み、既存の利用者順を保つ。 */
+function mergeOrder(defaultIds: string[], saved: readonly string[]): string[] {
+    if (!saved.length) {
+        return defaultIds;
+    }
+    const present = new Set(defaultIds);
+    const ordered = saved.filter(id => present.has(id));
+    const known = new Set(ordered);
+    for (let index = 0; index < defaultIds.length; index++) {
+        const id = defaultIds[index];
+        if (known.has(id)) {
+            continue;
+        }
+        const next = defaultIds.slice(index + 1).find(candidate => known.has(candidate));
+        ordered.splice(next ? ordered.indexOf(next) : ordered.length, 0, id);
+        known.add(id);
+    }
+    return ordered;
 }
 
 export function computeRightPanelOrder(
     currentIds: readonly string[],
     fixedOrder: readonly string[],
-    groupOf?: (id: string) => RightRailGroup
+    groupOf?: (id: string) => RightRailGroup,
+    savedOrder: readonly string[] = []
 ): string[] {
     const fixedSet = new Set(fixedOrder);
     if (!groupOf) {
@@ -58,5 +88,11 @@ export function computeRightPanelOrder(
     if (agentFixed.includes(RIGHT_RAIL_PARTNER_ID)) {
         partnerLast.push(RIGHT_RAIL_PARTNER_ID);
     }
-    return [...looseIn('agent'), ...partnerLast, ...fixedIn('lower'), ...looseIn('lower')];
+    const agent = [...looseIn('agent'), ...partnerLast];
+    const lower = [...fixedIn('lower'), ...looseIn('lower')];
+    return [
+        ...mergeOrder(agent.filter(id => id !== RIGHT_RAIL_PARTNER_ID), savedOrder),
+        ...agent.filter(id => id === RIGHT_RAIL_PARTNER_ID),
+        ...mergeOrder(lower, savedOrder)
+    ];
 }

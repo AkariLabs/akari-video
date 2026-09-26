@@ -1,11 +1,11 @@
-import { defaultRightRailGroup, RightRailGroup } from 'akari-annotations/lib/browser/right-panel-order';
+import { computeRightPanelOrder, defaultRightRailGroup, isTransientRailId, RIGHT_RAIL_FIXED_ORDER, RIGHT_RAIL_PARTNER_ID, RightRailGroup } from 'akari-annotations/lib/browser/right-panel-order';
 
 /**
  * 右レールの状態（task 2026-09-22-right-rail-regroup）。DOM / Lumino に依存しない純ロジック。
  * 見た目と動きの正は内部リポの試作 planning/notes-2026-09-22-right-rail-prototype.html（2 版）で、
  * その drop(k, where) / レールのクリック / × / 境目の規則をそのまま写す。
  *
- * - 所属（上 = エージェント / 下 = それ以外）は既定（defaultRightRailGroup）との差分だけを持つ
+ * - 所属（上 = エージェント / 下 = それ以外）は既定（defaultRightRailGroup）との差分だけを持ち、並びは order に持つ
  * - 右パネルは既定で 1 面。1 面のとき「どれが出ているか」は Theia の縦バーの currentTitle が正で、
  *   ここでは持たない。2 段のときだけ top / bottom / focus を持つ
  * - 2 段の規則 = 区切り線どおり: 上の段には所属が上のもの、下の段には所属が下のものだけが出る
@@ -18,6 +18,8 @@ export type RightRailZone = 'main' | 'bottom' | 'railtop' | 'railbottom' | 'rtop
 export interface RightRailState {
     version: 1;
     groups: Record<string, RightRailGroup>;
+    /** 利用者が並べ替えた順。旧データでは空配列（既定順）。 */
+    order: string[];
     split: boolean;
     top: string | null;
     bottom: string | null;
@@ -32,11 +34,27 @@ export const RIGHT_RAIL_COLLAPSE_EDGE = 0.12;
 export const RIGHT_RAIL_DEFAULT_RATIO = 0.5;
 
 export function defaultRightRailState(): RightRailState {
-    return { version: 1, groups: {}, split: false, top: null, bottom: null, focus: 'top', ratio: RIGHT_RAIL_DEFAULT_RATIO, displaced: {} };
+    return { version: 1, groups: {}, order: [], split: false, top: null, bottom: null, focus: 'top', ratio: RIGHT_RAIL_DEFAULT_RATIO, displaced: {} };
 }
 
 export function cloneRightRailState(state: RightRailState): RightRailState {
-    return { ...state, groups: { ...state.groups }, displaced: { ...state.displaced } };
+    return { ...state, groups: { ...state.groups }, order: [...state.order], displaced: { ...state.displaced } };
+}
+
+/** Theia の端末連番は別の端末へ再利用されるため、保存時には端末由来の状態を除く。 */
+export function saveRightRailState(state: RightRailState): RightRailState {
+    // terminal-<n> は起動ごとに別の端末へ再利用される。所属・並びを永続化しない。
+    const saved = cloneRightRailState(state);
+    saved.groups = Object.fromEntries(Object.entries(saved.groups).filter(([id]) => !isTransientRailId(id)));
+    saved.order = saved.order.filter(id => !isTransientRailId(id));
+    saved.displaced = Object.fromEntries(Object.entries(saved.displaced).filter(([id]) => !isTransientRailId(id))) as Record<string, RightRailArea>;
+    if (saved.split && (isTransientRailId(saved.top!) || isTransientRailId(saved.bottom!))) {
+        saved.split = false;
+        saved.top = null;
+        saved.bottom = null;
+        saved.focus = 'top';
+    }
+    return saved;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -44,8 +62,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isId = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length < 256;
 
 /**
- * 保存データの読み取り。1 か所でも形が壊れていたら部分救済せず、まるごと既定（1 面・既定の所属）に落とす。
- * 保存データが無い（旧レイアウト）ときも既定。
+ * 保存データの読み取り。形が壊れていたら部分救済せず、まるごと既定（1 面・既定の所属）に落とす。
+ * 正しい旧データでも段に端末連番があれば、その 2 段だけを解いて他の設定を残す。
+ * 保存データが無い（旧レイアウト）ときは既定。
  */
 export function readRightRailState(raw: unknown): RightRailState {
     const fallback = defaultRightRailState();
@@ -55,11 +74,14 @@ export function readRightRailState(raw: unknown): RightRailState {
     if (!isRecord(raw) || raw.version !== 1) {
         return fallback;
     }
-    const { groups, split, top, bottom, focus, ratio, displaced } = raw;
+    const { groups, order, split, top, bottom, focus, ratio, displaced } = raw;
     if (!isRecord(groups) || !isRecord(displaced) || typeof split !== 'boolean') {
         return fallback;
     }
     if (!Object.entries(groups).every(([id, group]) => isId(id) && (group === 'agent' || group === 'lower'))) {
+        return fallback;
+    }
+    if (order !== undefined && (!Array.isArray(order) || !order.every(isId) || new Set(order).size !== order.length)) {
         return fallback;
     }
     if (!Object.entries(displaced).every(([id, area]) => isId(id) && (area === 'main' || area === 'bottom'))) {
@@ -78,15 +100,17 @@ export function readRightRailState(raw: unknown): RightRailState {
     } else if (top !== null || bottom !== null) {
         return fallback;
     }
+    const restoredSplit = split && !isTransientRailId(top as string) && !isTransientRailId(bottom as string);
     return {
         version: 1,
-        groups: groups as Record<string, RightRailGroup>,
-        split,
-        top: split ? top as string : null,
-        bottom: split ? bottom as string : null,
-        focus,
+        groups: Object.fromEntries(Object.entries(groups).filter(([id]) => !isTransientRailId(id))) as Record<string, RightRailGroup>,
+        order: ((order ?? []) as string[]).filter(id => !isTransientRailId(id)),
+        split: restoredSplit,
+        top: restoredSplit ? top as string : null,
+        bottom: restoredSplit ? bottom as string : null,
+        focus: split && !restoredSplit ? 'top' : focus,
         ratio,
-        displaced: displaced as Record<string, RightRailArea>
+        displaced: Object.fromEntries(Object.entries(displaced).filter(([id]) => !isTransientRailId(id))) as Record<string, RightRailArea>
     };
 }
 
@@ -101,6 +125,26 @@ export function setRightRailGroup(state: RightRailState, id: string, group: Righ
     } else {
         state.groups[id] = group;
     }
+}
+
+/** 現在の所属と保存順からレールの表示順を計算する。 */
+export function rightRailOrder(state: RightRailState, ids: readonly string[]): string[] {
+    return computeRightPanelOrder(ids, RIGHT_RAIL_FIXED_ORDER, id => rightRailGroupOf(state, id), state.order);
+}
+
+/** 挿入先の区画で順を確定する。パートナーを追加は上の末尾に固定する。 */
+export function insertRightRailItem(state: RightRailState, id: string, beforeId: string | null, ids: readonly string[]): void {
+    if (id === RIGHT_RAIL_PARTNER_ID || id === beforeId) {
+        return;
+    }
+    const ordered = rightRailOrder(state, ids).filter(candidate => candidate !== id);
+    const group = rightRailGroupOf(state, id);
+    const anchor = beforeId && beforeId !== id && ordered.includes(beforeId) && rightRailGroupOf(state, beforeId) === group
+        ? beforeId : group === 'agent' && ordered.includes(RIGHT_RAIL_PARTNER_ID) ? RIGHT_RAIL_PARTNER_ID : null;
+    const at = anchor ? ordered.indexOf(anchor) : group === 'agent'
+        ? ordered.findIndex(candidate => rightRailGroupOf(state, candidate) === 'lower') : -1;
+    ordered.splice(at < 0 ? ordered.length : at, 0, id);
+    state.order = ordered;
 }
 
 const slotOfGroup = (group: RightRailGroup): RightRailSlot => group === 'agent' ? 'top' : 'bottom';
@@ -182,7 +226,8 @@ export interface RightRailDropResult {
 /**
  * パネルを置いたとき（試作の drop(k, where)）。state を書き換え、動かす先と出すものを返す。
  */
-export function dropOnRightRail(state: RightRailState, id: string, zone: RightRailZone, context: RightRailDropContext): RightRailDropResult {
+export function dropOnRightRail(state: RightRailState, id: string, zone: RightRailZone, context: RightRailDropContext,
+    beforeId?: string | null): RightRailDropResult {
     const inRight = context.railIds.includes(id);
     const result: RightRailDropResult = {};
     /** 右から外れるときの後始末（2 段で出ていたら 1 面に戻す / 1 面で出ていたら次のものへ）。 */
@@ -213,6 +258,9 @@ export function dropOnRightRail(state: RightRailState, id: string, zone: RightRa
             if (!state.split && context.current === null && context.railIds.length === 0) {
                 result.current = id;
             }
+        }
+        if (beforeId !== undefined) {
+            insertRightRailItem(state, id, beforeId, inRight ? context.railIds : [...context.railIds, id]);
         }
         return result;
     }

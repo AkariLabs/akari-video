@@ -1,0 +1,680 @@
+{
+  "status": "pass",
+  "phase": "after",
+  "startedAt": "2026-09-26T04:28:06.149Z",
+  "port": 9613,
+  "steps": [
+    {
+      "name": "(a) 新しい userData で Claude Code CLI / Codex CLI を接続した直後のレール",
+      "pass": true,
+      "detail": {
+        "initialRail": [
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "claudeId": "terminal-1",
+        "codexId": "terminal-2",
+        "claudeAbove": true,
+        "codexAbove": true,
+        "railIds": [
+          "terminal-1",
+          "terminal-2",
+          "akari-partner-onboarding",
+          "akari-daihon-widget",
+          "akari-cuts-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "rail": [
+          "terminal-1:agent:partner",
+          "terminal-2:agent:partner",
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "order": [],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "separatorY": 300,
+        "icons": {
+          "claude": {
+            "x": 1072,
+            "y": 10,
+            "w": 48,
+            "h": 48
+          },
+          "codex": {
+            "x": 1072,
+            "y": 62,
+            "w": 48,
+            "h": 48
+          }
+        }
+      },
+      "ms": 17785
+    },
+    {
+      "name": "(c) 拡張形態（Claude Code 拡張 / Codex 拡張）のビューを開いた直後のレール",
+      "pass": true,
+      "detail": {
+        "substitute": true,
+        "ids": [
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer"
+        ],
+        "groups": {
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary": "agent",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer": "agent"
+        },
+        "above": true,
+        "railIds": [
+          "terminal-1",
+          "terminal-2",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-daihon-widget",
+          "akari-cuts-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "rail": [
+          "terminal-1:agent:partner",
+          "terminal-2:agent:partner",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:agent",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:agent",
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "order": [],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 2261
+    },
+    {
+      "name": "(d) レールのアイコン（カット）を別のアイコン（台本）の上寄りへドラッグ",
+      "pass": true,
+      "detail": {
+        "before": [
+          "terminal-1",
+          "terminal-2",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-daihon-widget",
+          "akari-cuts-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "after": [
+          "terminal-1",
+          "terminal-2",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-cuts-widget",
+          "akari-daihon-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "reordered": true,
+        "during": {
+          "zones": [
+            {
+              "zone": "main",
+              "hot": false,
+              "rect": {
+                "x": 229,
+                "y": 11,
+                "w": 390,
+                "h": 624
+              }
+            },
+            {
+              "zone": "rtop",
+              "hot": false,
+              "rect": {
+                "x": 643,
+                "y": 47,
+                "w": 421,
+                "h": 286
+              }
+            },
+            {
+              "zone": "rbottom",
+              "hot": false,
+              "rect": {
+                "x": 643,
+                "y": 349,
+                "w": 421,
+                "h": 286
+              }
+            },
+            {
+              "zone": "railtop",
+              "hot": false,
+              "rect": {
+                "x": 1068,
+                "y": 8,
+                "w": 52,
+                "h": 290
+              }
+            },
+            {
+              "zone": "railbottom",
+              "hot": true,
+              "rect": {
+                "x": 1068,
+                "y": 302,
+                "w": 52,
+                "h": 290
+              }
+            }
+          ],
+          "marker": {
+            "rect": {
+              "x": 1081,
+              "y": 305,
+              "w": 30,
+              "h": 3
+            },
+            "color": "rgb(249, 115, 22)"
+          }
+        },
+        "rail": [
+          "terminal-1:agent:partner",
+          "terminal-2:agent:partner",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:agent",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:agent",
+          "akari-partner-onboarding:agent",
+          "akari-cuts-widget:lower",
+          "akari-daihon-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "order": [
+            "terminal-1",
+            "terminal-2",
+            "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+            "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+            "akari-partner-onboarding",
+            "akari-cuts-widget",
+            "akari-daihon-widget",
+            "akari-review-panel-widget",
+            "akari-inspector-widget",
+            "akari-audio-meter-widget"
+          ],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 4324
+    },
+    {
+      "name": "(e) 線の上どうしの入れ替え: Codex CLI を Claude Code CLI の前へ",
+      "pass": true,
+      "detail": {
+        "before": [
+          "terminal-1",
+          "terminal-2",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-cuts-widget",
+          "akari-daihon-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "after": [
+          "terminal-2",
+          "terminal-1",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-cuts-widget",
+          "akari-daihon-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "marker": {
+          "rect": {
+            "x": 1081,
+            "y": 8,
+            "w": 30,
+            "h": 3
+          },
+          "color": "rgb(249, 115, 22)"
+        },
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "order": [
+            "terminal-2",
+            "terminal-1",
+            "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+            "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+            "akari-partner-onboarding",
+            "akari-cuts-widget",
+            "akari-daihon-widget",
+            "akari-review-panel-widget",
+            "akari-inspector-widget",
+            "akari-audio-meter-widget"
+          ],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 4294
+    },
+    {
+      "name": "(f) 線の下どうしの入れ替え: インスペクターを台本の前へ",
+      "pass": true,
+      "detail": {
+        "before": [
+          "terminal-2",
+          "terminal-1",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-cuts-widget",
+          "akari-daihon-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "after": [
+          "terminal-2",
+          "terminal-1",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-cuts-widget",
+          "akari-inspector-widget",
+          "akari-daihon-widget",
+          "akari-review-panel-widget",
+          "akari-audio-meter-widget"
+        ],
+        "marker": {
+          "rect": {
+            "x": 1081,
+            "y": 357,
+            "w": 30,
+            "h": 3
+          },
+          "color": "rgb(249, 115, 22)"
+        },
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "order": [
+            "terminal-2",
+            "terminal-1",
+            "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+            "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+            "akari-partner-onboarding",
+            "akari-cuts-widget",
+            "akari-inspector-widget",
+            "akari-daihon-widget",
+            "akari-review-panel-widget",
+            "akari-audio-meter-widget"
+          ],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 4266
+    },
+    {
+      "name": "(g) 線をまたぐ移動: 注釈（線の下）を Claude Code CLI の後ろ（線の上）へ → 所属も上に",
+      "pass": true,
+      "detail": {
+        "before": [
+          "terminal-2",
+          "terminal-1",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-cuts-widget",
+          "akari-inspector-widget",
+          "akari-daihon-widget",
+          "akari-review-panel-widget",
+          "akari-audio-meter-widget"
+        ],
+        "after": [
+          "terminal-2",
+          "terminal-1",
+          "akari-review-panel-widget",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+          "akari-partner-onboarding",
+          "akari-cuts-widget",
+          "akari-inspector-widget",
+          "akari-daihon-widget",
+          "akari-audio-meter-widget"
+        ],
+        "rail": [
+          "terminal-2:agent:partner",
+          "terminal-1:agent:partner",
+          "akari-review-panel-widget:agent",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:agent",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:agent",
+          "akari-partner-onboarding:agent",
+          "akari-cuts-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-daihon-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "afterDaihonToEnd": [
+          "terminal-2:agent:partner",
+          "terminal-1:agent:partner",
+          "akari-review-panel-widget:agent",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:agent",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:agent",
+          "akari-partner-onboarding:agent",
+          "akari-cuts-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "akari-daihon-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "order": [
+            "terminal-2",
+            "terminal-1",
+            "akari-review-panel-widget",
+            "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+            "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+            "akari-partner-onboarding",
+            "akari-cuts-widget",
+            "akari-inspector-widget",
+            "akari-audio-meter-widget",
+            "akari-daihon-widget"
+          ],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 7142
+    },
+    {
+      "name": "(b) Claude Code CLI を線の下へ置いて再起動 → 復元後のレール → Codex CLI・Claude Code CLI を接続し直す（(h) 並べ替えた順が再起動後も同じ）",
+      "pass": true,
+      "detail": {
+        "claudeMovedGroup": "lower",
+        "savedRail": {
+          "version": 1,
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "order": [
+            "akari-review-panel-widget",
+            "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+            "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+            "akari-partner-onboarding",
+            "akari-cuts-widget",
+            "akari-inspector-widget",
+            "akari-audio-meter-widget",
+            "akari-daihon-widget"
+          ],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "beforeRestart": [
+          "terminal-2:agent:partner",
+          "akari-review-panel-widget:agent",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:agent",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:agent",
+          "akari-partner-onboarding:agent",
+          "akari-cuts-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "akari-daihon-widget:lower",
+          "terminal-1:lower:partner"
+        ],
+        "afterRestart": [
+          "akari-review-panel-widget:agent",
+          "akari-partner-onboarding:agent",
+          "akari-cuts-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "akari-daihon-widget:lower"
+        ],
+        "restoredRailState": {
+          "version": 1,
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "order": [
+            "akari-review-panel-widget",
+            "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+            "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+            "akari-partner-onboarding",
+            "akari-cuts-widget",
+            "akari-inspector-widget",
+            "akari-audio-meter-widget",
+            "akari-daihon-widget"
+          ],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "reconnected": {
+          "codexId": "terminal-2",
+          "claudeId": "terminal-3",
+          "codexGroup": "agent",
+          "claudeGroup": "agent",
+          "codexAbove": true
+        },
+        "rail": [
+          "terminal-2:agent:partner",
+          "terminal-3:agent:partner",
+          "akari-review-panel-widget:agent",
+          "akari-partner-onboarding:agent",
+          "akari-cuts-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "akari-daihon-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "order": [
+            "akari-review-panel-widget",
+            "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+            "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer",
+            "akari-partner-onboarding",
+            "akari-cuts-widget",
+            "akari-inspector-widget",
+            "akari-audio-meter-widget",
+            "akari-daihon-widget"
+          ],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 41150
+    },
+    {
+      "name": "(i) 既存の置き場所: カットをメインへ置く → 線の下へ戻す / 音声メーターを右の下の段に分ける",
+      "pass": true,
+      "detail": {
+        "mainZones": [
+          "main",
+          "rtop",
+          "rbottom",
+          "railtop",
+          "railbottom"
+        ],
+        "backRail": [
+          "terminal-2:agent:partner",
+          "terminal-3:agent:partner",
+          "akari-review-panel-widget:agent",
+          "akari-partner-onboarding:agent",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower"
+        ],
+        "split": {
+          "version": 1,
+          "groups": {
+            "akari-review-panel-widget": "agent"
+          },
+          "order": [
+            "terminal-2",
+            "terminal-3",
+            "akari-review-panel-widget",
+            "akari-partner-onboarding",
+            "akari-inspector-widget",
+            "akari-audio-meter-widget",
+            "akari-daihon-widget",
+            "akari-cuts-widget"
+          ],
+          "split": true,
+          "top": "akari-partner-onboarding",
+          "bottom": "akari-audio-meter-widget",
+          "focus": "bottom",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "clickOpenCollapse": true
+      },
+      "ms": 15983
+    },
+    {
+      "name": "(j) 並びのフィールドだけ壊した保存データで起動 → 既定の並び・エラーなし",
+      "pass": true,
+      "detail": {
+        "brokenFields": [
+          "order"
+        ],
+        "rail": [
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "order": [],
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "relatedErrors": []
+      },
+      "ms": 21035
+    }
+  ],
+  "screenshots": [
+    "after-a-cli-connected.png",
+    "after-c-extension-views.png",
+    "after-d-drag-cuts-onto-daihon.png",
+    "after-d-after-drop.png",
+    "after-e-drag-agent-agent.png",
+    "after-e-after.png",
+    "after-f-drag-lower-lower.png",
+    "after-f-after.png",
+    "after-g-drag-across-line.png",
+    "after-g-after.png",
+    "after-b0-claude-moved-below.png",
+    "after-b1-after-restart.png",
+    "after-b2-reconnected.png",
+    "after-i1-drag-cuts-to-main.png",
+    "after-i1-cuts-in-main.png",
+    "after-i2-drag-meter-rbottom.png",
+    "after-i2-two-panes.png",
+    "after-j-broken-order-default.png"
+  ],
+  "launches": [
+    {
+      "label": "1",
+      "readyMs": 10613
+    },
+    {
+      "label": "2",
+      "readyMs": 10901
+    },
+    {
+      "label": "3-broken",
+      "readyMs": 12142
+    }
+  ],
+  "finishedAt": "2026-09-26T04:30:15.055Z"
+}

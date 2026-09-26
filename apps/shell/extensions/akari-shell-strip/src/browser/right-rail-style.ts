@@ -164,6 +164,19 @@ export const RIGHT_RAIL_CSS = `
     background: rgba(249, 115, 22, 0.2);
     border-style: solid;
 }
+.akari-rail-insert-marker {
+    position: fixed;
+    display: none;
+    height: 3px;
+    border-radius: 2px;
+    background: #f97316;
+    box-shadow: 0 0 5px #f97316;
+    pointer-events: none;
+    z-index: 10045;
+}
+.akari-rail-insert-marker.akari-rail-insert-visible {
+    display: block;
+}
 `;
 
 export function installRightRailStyle(): void {
