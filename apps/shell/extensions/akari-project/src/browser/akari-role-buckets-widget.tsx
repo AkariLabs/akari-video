@@ -118,6 +118,7 @@ import {
     resolveOpenableLibraryCategory,
     searchLibraryHome
 } from '../common/library-home-view';
+import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../common/library-tile-art';
 import { AKARI_REVEAL_IN_FILE_MANAGER, AKARI_SHOW_ASSET_INFO, revealInFileManagerActionLabel } from './akari-reveal-commands';
 import { buildMaterialContextMenuItems, MaterialContextMenuItem, MaterialContextMenuTarget } from '../common/material-context-menu-items';
 import { openAkariContextMenu, OPEN_PREVIEW_IMAGE_ITEM } from './akari-context-menu';
@@ -127,6 +128,7 @@ import { ElectronAkariProjectApi } from '../electron-common/electron-api';
 import { isOsFileDropInput } from '../common/delegated-drop';
 
 try { require('../../src/browser/style/generation-pick.css'); } catch { /* node 単体テスト環境 */ }
+try { require('../../src/browser/style/library-tiles.css'); } catch { /* node 単体テスト環境 */ }
 
 // パートナー拡張の公開コマンド ID とミラー（extension 間の npm 依存を作らない。
 // akari-partner-command-contribution.ts の AkariPartnerCommands.INJECT_PROMPT と同一）。
@@ -3613,15 +3615,28 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         return (
             <div data-akari-library-home style={{ padding: '2px 8px 12px' }}>
-                <section style={{ marginTop: '10px' }}>
-                    <div style={{
-                        position: 'sticky', top: 0, zIndex: 4, margin: '0 -8px 6px', padding: '6px 8px 4px',
-                        background: AKARI_SURFACE.card, fontSize: '0.75em', fontWeight: 700,
-                        letterSpacing: '0.08em', opacity: 0.78
-                    }}>よく使う</div>
-                    <div data-akari-library-primary-tiles style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '6px' }}>
-                        {LIBRARY_PRIMARY_TILES.map(tile => this.renderLibraryPrimaryTile(tile))}
-                    </div>
+                {/*
+                  * 段の見出し（「よく使う」「そざい」等）は置かない — 2026-09-27 オーナー指示
+                  * 「名前を付けようとするたび不自然になるので、名前ごとやめて細い線で区切る」。
+                  * 区切りは `startsGroup` を持つタイルの直前に 1 本だけ入れる。
+                  */}
+                <section style={{ marginTop: '10px' }} data-akari-library-primary-tiles>
+                    {(LIBRARY_PRIMARY_TILES as readonly LibraryPrimaryTile[]).reduce<{ rows: React.ReactNode[]; group: React.ReactNode[] }>((acc, tile, index) => {
+                        if (tile.startsGroup && acc.group.length) {
+                            acc.rows.push(
+                                <div key={`tiles-${acc.rows.length}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px' }}>{acc.group}</div>,
+                                <div key={`rule-${acc.rows.length}`} data-akari-library-tile-rule className='akari-library-tile-rule' />
+                            );
+                            acc.group = [];
+                        }
+                        acc.group.push(this.renderLibraryPrimaryTile(tile));
+                        if (index === LIBRARY_PRIMARY_TILES.length - 1) {
+                            acc.rows.push(
+                                <div key={`tiles-${acc.rows.length}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px' }}>{acc.group}</div>
+                            );
+                        }
+                        return acc;
+                    }, { rows: [], group: [] }).rows}
                 </section>
                 {this.renderRecentLibraryStrip()}
                 <button type='button' data-akari-library-details-toggle aria-expanded={this.libraryDetailsOpen}
@@ -3697,10 +3712,42 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         window.dispatchEvent(new CustomEvent(LIBRARY_DRAG_START_EVENT, { detail: payload }));
     }
 
+    /**
+     * 台座 1 枚ぶんの通し番号。絵の中のグラデ・フィルタ・クリップは id で参照するので、
+     * 同じ絵を何枚並べても衝突しないよう `{I}` をここで置換する。
+     */
+    protected tilePlateSeq = 0;
+
+    protected renderLibraryTilePlate(tile: LibraryPrimaryTile, face: 'front' | 'back'): React.ReactNode {
+        const art = LIBRARY_TILE_ART[tile.art];
+        const id = ++this.tilePlateSeq;
+        const svg = '<svg viewBox="0 0 48 48" aria-hidden="true">'
+            + (LIBRARY_TILE_SHARED_DEFS + (art ? art[face] : '')).replace(/\{I\}/g, String(id))
+            + '</svg>';
+        return (
+            <span
+                key={face}
+                aria-hidden='true'
+                draggable={false}
+                className={`akari-library-tile-plate akari-tile-${face}`}
+                style={{ ['--akari-tile-c1' as string]: tile.plate[0], ['--akari-tile-c2' as string]: tile.plate[1] }}
+                // 絵は本ソース内のリテラル（library-tile-art.ts）だけ。外部入力は混ざらない。
+                dangerouslySetInnerHTML={{ __html: svg }}
+            />
+        );
+    }
+
+    /**
+     * 主要タイル（2026-09-27 オーナー検収の 2 枚重ねカード）。
+     * 表と裏で別の絵を重ね、ホバーで裏が右へ傾いて開く。動きは CSS
+     * （`style/library-tiles.css`）が持ち、ここは構造と配線だけ。
+     * hint は出さない — 9 枚すべてに「一覧から選ぶ」が並んで情報量が無かったため。
+     */
     protected renderLibraryPrimaryTile(tile: LibraryPrimaryTile): React.ReactNode {
         const soon = tile.status === 'soon';
         return (
             <button key={tile.key} type='button' disabled={soon} aria-disabled={soon ? 'true' : undefined}
+                className='akari-library-tile'
                 data-akari-library-primary-tile={tile.key} data-akari-library-tile-kind={tile.kind}
                 data-akari-library-category={tile.key === 'text' ? undefined : tile.key}
                 data-akari-library-soon={soon ? 'true' : undefined}
@@ -3717,16 +3764,13 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     event.stopPropagation();
                     if (tile.key === 'text') void this.placeLibraryText();
                     else this.selectLibraryCategory(tile.key);
-                }}
-                style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', minWidth: 0,
-                    padding: '7px 4px', borderRadius: `${AKARI_RADIUS.panel}px`, opacity: soon ? 0.48 : 1,
-                    background: AKARI_SURFACE.raised, color: AKARI_INK, cursor: soon ? 'default' : 'pointer',
-                    border: AKARI_BORDER.ghost
                 }}>
-                <span draggable={tile.key === 'text' ? false : undefined} style={{ fontSize: '1.15em' }}>{tile.icon}</span>
-                <span draggable={tile.key === 'text' ? false : undefined} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7em' }}>{tile.label}</span>
-                <span draggable={tile.key === 'text' ? false : undefined} style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.62em' }}>{tile.hint}</span>
+                <span className='akari-library-tile-art' draggable={false}>
+                    {this.renderLibraryTilePlate(tile, 'back')}
+                    {this.renderLibraryTilePlate(tile, 'front')}
+                </span>
+                <span draggable={tile.key === 'text' ? false : undefined}
+                    className='akari-library-tile-label'>{tile.label}</span>
             </button>
         );
     }

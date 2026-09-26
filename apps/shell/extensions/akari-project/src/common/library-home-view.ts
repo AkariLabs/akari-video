@@ -78,19 +78,69 @@ export interface LibraryPrimaryTile {
     readonly icon: string;
     readonly hint: string;
     readonly status: LibraryCategoryStatus;
+    /**
+     * `library-tile-art.ts` の絵の名前。タイルの key とは独立させてある
+     * （`broll` の絵は「動画」、`pack` の絵は「セット」というように、
+     * 内部の key を変えずに見せ方だけ差し替えられるようにするため）。
+     */
+    readonly art: string;
+    /** 2 枚重ねカードの台座色（両テーマ共通。c1 = 明るい側 / c2 = 深い側）。 */
+    readonly plate: readonly [string, string];
+    /**
+     * 段の区切り。`true` の直前に細い線を 1 本引く（見出しの文字は置かない
+     * — 2026-09-27 オーナー指示「そざい・しあげのような言葉は不自然なので、
+     * 名前ごとやめて線で区切る」）。
+     */
+    readonly startsGroup?: boolean;
 }
 
-/** ホームの最上段。text はカテゴリ一覧を持たない配置アクション。 */
+/**
+ * ホームのタイル。text はカテゴリ一覧を持たない配置アクション。
+ *
+ * 顔ぶれの経緯: 2026-09-22 裁定で 9 枚（text / shapes / stamps / image / broll /
+ * bgm / sfx / overlay / scene3d）に確定していたが、**2026-09-27 オーナー指示で改訂**。
+ * - 「B-roll」→「動画」（業界語をやめる。`chipKey` は `broll` のまま）
+ * - 仕上げ（LUT・トランジション・エフェクト・モーション）とマイスタイルも
+ *   同じカードに揃えて最上段へ出す（詳細に畳まない）
+ * - テキストスタイル・テキストアニメ・フォントは出さない。文字に対する操作は
+ *   テキストの中に入る（動きはスタイルに内包する。正本 = モック §03）
+ */
 export const LIBRARY_PRIMARY_TILES = [
-    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すかドラッグで置く', status: 'live' },
-    { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '棚から選ぶ', status: 'live' },
-    { key: 'stamps', kind: 'make', label: 'イラスト', icon: '◇', hint: '近日', status: 'soon' },
-    { key: 'image', kind: 'pick', label: '画像', icon: '▦', hint: '一覧から選ぶ', status: 'live' },
-    { key: 'broll', kind: 'pick', label: 'B-roll', icon: '▶', hint: '一覧から選ぶ', status: 'live' },
-    { key: 'bgm', kind: 'pick', label: 'BGM', icon: '♪', hint: '一覧から選ぶ', status: 'live' },
-    { key: 'sfx', kind: 'pick', label: 'SFX', icon: '♬', hint: '一覧から選ぶ', status: 'live' },
-    { key: 'overlay', kind: 'pick', label: 'オーバーレイ', icon: '✦', hint: '一覧から選ぶ', status: 'live' },
-    { key: 'scene3d', kind: 'pick', label: '3D・アバター', icon: '⬡', hint: '一覧から選ぶ', status: 'live' }
+    { key: 'text', kind: 'make', label: 'テキスト', icon: 'T', hint: '押すかドラッグで置く', status: 'live',
+        art: 'text', plate: ['#8b6cff', '#5b3fd6'] },
+    { key: 'shapes', kind: 'make', label: '図形', icon: '◯', hint: '棚から選ぶ', status: 'live',
+        art: 'shapes', plate: ['#35cadd', '#1490a8'] },
+    { key: 'stamps', kind: 'make', label: 'イラスト', icon: '◇', hint: '近日', status: 'soon',
+        art: 'stamps', plate: ['#f5a742', '#d9761a'] },
+
+    { key: 'image', kind: 'pick', label: '画像', icon: '▦', hint: '一覧から選ぶ', status: 'live',
+        art: 'image', plate: ['#4aa5ff', '#1e6fd9'], startsGroup: true },
+    { key: 'broll', kind: 'pick', label: '動画', icon: '▶', hint: '一覧から選ぶ', status: 'live',
+        art: 'video', plate: ['#bc6ef5', '#8a2fd0'] },
+    { key: 'bgm', kind: 'pick', label: 'BGM', icon: '♪', hint: '一覧から選ぶ', status: 'live',
+        art: 'bgm', plate: ['#f9656e', '#cc2431'] },
+    { key: 'sfx', kind: 'pick', label: 'SFX', icon: '♬', hint: '一覧から選ぶ', status: 'live',
+        art: 'sfx', plate: ['#f77fbe', '#d62b89'] },
+    { key: 'overlay', kind: 'pick', label: 'オーバーレイ', icon: '✦', hint: '一覧から選ぶ', status: 'live',
+        art: 'overlay', plate: ['#7d8afc', '#4450d8'] },
+    { key: 'scene3d', kind: 'pick', label: '3D・アバター', icon: '⬡', hint: '一覧から選ぶ', status: 'live',
+        art: 'scene3d', plate: ['#3cdcc7', '#0d9488'] },
+
+    { key: 'lut', kind: 'pick', label: 'LUT', icon: '◐', hint: '一覧から選ぶ', status: 'live',
+        art: 'lut', plate: ['#4bd471', '#1a8c3a'], startsGroup: true },
+    { key: 'transition', kind: 'pick', label: 'トランジション', icon: '⇄', hint: '一覧から選ぶ', status: 'live',
+        art: 'transition', plate: ['#26b0f0', '#0369a1'] },
+    { key: 'fx', kind: 'pick', label: 'エフェクト', icon: '✳', hint: '近日', status: 'soon',
+        art: 'fx', plate: ['#f5c231', '#b4860b'] },
+    { key: 'motion', kind: 'pick', label: 'モーション', icon: '∿', hint: '近日', status: 'soon',
+        art: 'motion', plate: ['#fb8496', '#e11d48'] },
+
+    { key: 'mypresets', kind: 'pick', label: 'マイスタイル', icon: '✎', hint: '近日', status: 'soon',
+        art: 'mystyle', plate: ['#f4b942', '#cc8409'], startsGroup: true },
+    { key: 'template', kind: 'pick', label: 'ひな形', icon: '⧉', hint: '近日', status: 'soon',
+        art: 'template', plate: ['#9aa0b8', '#5c6178'] },
+    { key: 'pack', kind: 'pick', label: 'セット', icon: '▤', hint: '一覧から選ぶ', status: 'live',
+        art: 'pack', plate: ['#a3b0c2', '#64748b'] }
 ] as const satisfies readonly LibraryPrimaryTile[];
 
 function detailGroup(label: string, keys: readonly LibraryCategoryKey[]): LibraryGroupDefinition {
@@ -103,12 +153,19 @@ function detailGroup(label: string, keys: readonly LibraryCategoryKey[]): Librar
     return { label, categories };
 }
 
-/** 主要タイルに移したカテゴリを除いた、詳細内の表示順。 */
+/**
+ * 主要タイルに移したカテゴリを除いた、詳細内の表示順。
+ *
+ * 2026-09-27 改訂: 仕上げ（lut / transition / fx / motion）・まとめて（pack / template）・
+ * 保存したプリセット（mypresets）は主要タイルへ昇格したので詳細から外す
+ * （重複させない規律は 2026-09-23 から継続）。残るのは
+ * - 文字の見た目（textstyle / textanim / font）… 本来はテキストの中へ潜らせる予定。
+ *   その導線ができるまでの仮置き（正本 = モック §03）
+ * - マイの残り（fav / brandkit）… まだ実装枠
+ */
 export const LIBRARY_DETAIL_GROUPS: readonly LibraryGroupDefinition[] = [
     detailGroup('文字の見た目', ['textstyle', 'textanim', 'font']),
-    detailGroup('仕上げ', ['lut', 'transition', 'fx', 'motion']),
-    detailGroup('まとめて', ['pack', 'template']),
-    detailGroup('マイ', ['fav', 'brandkit', 'mypresets'])
+    detailGroup('マイ', ['fav', 'brandkit'])
 ];
 
 /**
