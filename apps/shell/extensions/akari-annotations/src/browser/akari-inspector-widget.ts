@@ -37,6 +37,7 @@ import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
 import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
+import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
@@ -4941,14 +4942,33 @@ export class AkariInspectorWidget extends BaseWidget {
         this.appendTabStrip(sectionKind, tabs, activeTab, generationTodo);
 
         if (activeTab === 'edit') {
+            if (this.aiCatalogLoaded) {
+                if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
+                this.aiView = aiTabViewFor({
+                    clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
+                    generationState, generationDone, forcePanel: aiAvailability.forcePanel
+                });
+                if (opensGapFrame && gapAiOpening) {
+                    this.aiView = gapAiOpening.view;
+                    this.gapAiOpening = undefined;
+                }
+                this.aiViewClipKey = clipKey;
+            }
+            // Older render harnesses extract this method without its imported visibility helper.
+            const showEditCorrection = typeof editCorrectionVisible !== 'function' || editCorrectionVisible({
+                aiView: this.aiCatalogLoaded ? this.aiView! : 'tiles',
+                targetKind: aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
+                    audio: sectionKind === 'audio', audioPlanned: this.audioPlanned }),
+                generationState
+            });
             const imageSource = rowSnapshot.kind === 'cut' ? rowSnapshot.sourcePath
                 : rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
                     ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
             const imageSelected = isInspectorStillImage(imageSource);
-            if (imageSelected) {
+            if (showEditCorrection && imageSelected) {
                 const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
                     ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
-                const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', fields: [
+                const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', collapsedByDefault: true, fields: [
                     ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields),
                     ...photoFields.filter(field => field.name === 'photo-cutout-panel'), {
                         name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
@@ -4967,7 +4987,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         importLut: () => this.importAdjustLut(rowSnapshot)
                     }).forEach(section => this.appendSection(section, rowSnapshot, sectionKind, correctionBody, true));
                 }
-            } else {
+            } else if (showEditCorrection) {
                 this.appendSection({ id: 'edit-correction', label: '補正', fields: [{
                     name: 'edit-correction-unavailable', label: '補正',
                     getValue: () => 'この要素で使える補正はまだありません'
@@ -4980,20 +5000,10 @@ export class AkariInspectorWidget extends BaseWidget {
             };
             if (!this.aiCatalogLoaded) {
                 appendAiTiles(this.body, [], () => undefined, false, '別案を読み込んでいます…');
-                appendMaterialChoice();
+                if (showEditCorrection) appendMaterialChoice();
                 this.appendSoloBanner();
                 return;
             }
-            if (this.aiViewClipKey !== clipKey) this.narrationPlacementNotice = undefined;
-            this.aiView = aiTabViewFor({
-                clipKey, previousClipKey: this.aiViewClipKey, previousView: this.aiView,
-                generationState, generationDone, forcePanel: aiAvailability.forcePanel
-            });
-            if (opensGapFrame && gapAiOpening) {
-                this.aiView = gapAiOpening.view;
-                this.gapAiOpening = undefined;
-            }
-            this.aiViewClipKey = clipKey;
             if (this.aiView === 'tiles') {
                 if (stillNotice) appendAiStillNotice(this.body, stillNotice);
                 if (this.narrationPlacementNotice?.clipKey === clipKey
@@ -5033,7 +5043,7 @@ export class AkariInspectorWidget extends BaseWidget {
                         this.imageAiPanelOpen = { ...panel, itemId: imageItemId };
                     }
                 }
-                appendMaterialChoice();
+                if (showEditCorrection) appendMaterialChoice();
                 this.appendSoloBanner();
                 return;
             }
