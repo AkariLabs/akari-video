@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /**
  * This function is deliberately self-contained. The backend serializes it with
- * `toString()` and passes it to the bundled Electron executable via `node -e`.
+ * `toString()` and passes it to the bundled Electron executable via stdin.
  * That keeps packaged execution independent of both user PATH and extension
  * source/layout paths inside app.asar.
  */

@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateRawSync, gzipSync } from 'node:zlib';
 import { bootstrapRunner } from '../../lib/node/bootstrap-runner.js';
+import { spawnBootstrapProcess } from '../../lib/node/bootstrap-process.js';
 import { partnerCliCandidates } from '../../lib/node/partner-cli-candidates.js';
 
 const VERSION = '0.149.1';
@@ -163,7 +164,7 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
         delete env.AKARI_PARTNER_NODE_DIST_BASE_URL;
     }
     return new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, ['-e', source, agent], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawnBootstrapProcess(process.execPath, source, agent, env);
         let stdout = '';
         let stderr = '';
         child.stdout.on('data', chunk => stdout += chunk.toString());

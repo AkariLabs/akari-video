@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { PartnerAgentId } from '../common/akari-partner-protocol';
 
-/** Self-contained so bootstrapRunner can receive this function through `node -e`. */
+/** Self-contained so bootstrapRunner can receive this function through stdin. */
 export function partnerCliCandidates(agent: PartnerAgentId, options: {
     homeDir: string;
     platform: NodeJS.Platform;
