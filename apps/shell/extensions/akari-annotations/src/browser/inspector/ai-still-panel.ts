@@ -1,4 +1,4 @@
-import type { GenerateStillResult, ImageRouteState } from '../../common/akari-annotations-protocol';
+import type { GenerateStillResult, ImageRouteState, StillCandidate, StillCandidateBatch } from '../../common/akari-annotations-protocol';
 import { aiActionCatalog } from '../../common/ai-action-catalog';
 import { stillMakerBadge } from './maker-badge';
 
@@ -28,6 +28,9 @@ export const stillRouteGroups = {
     free: stillRoutes.filter(route => route.cost === 'free'),
     paid: stillRoutes.filter(route => route.cost === 'paid')
 };
+export function stillRouteLabel(route: StillRoute): string {
+    return stillRoutes.find(row => row.id === route)?.label ?? route;
+}
 export const stillFalPrices = { low: 0.006, medium: 0.0133, high: 0.0528 } as const;
 export const stillFalPriceAsOf = '2026-09-26';
 export function savedStillRoute(): StillRoute {
@@ -42,6 +45,12 @@ export function rememberStillRoute(route: StillRoute): void {
 }
 export interface AiStillState {
     prompt: string; aspect: StillAspect; routeId?: StillRoute; routes?: ImageRouteState[]; route?: ImageRouteState; probing: boolean;
+    selectedRoutes?: Set<StillRoute>; preferencesLoaded?: boolean; selectionTouched?: boolean; batch?: StillCandidateBatch;
+    timelineProgressKey?: string;
+    polling?: boolean;
+    pickedCandidate?: string; candidatePreview?: string;
+    batchInput?: { prompt: string; aspect: StillAspect; references: string[]; cropToAspect: boolean;
+        quality: 'low' | 'medium' | 'high' };
     probingRoutes?: Set<StillRoute>;
     canvas?: { width: number; height: number }; liveAspectRevision?: number;
     lastAspectPointer?: { aspect: StillAspect; at: number };
@@ -54,6 +63,7 @@ export interface AiStillState {
 }
 export interface AiStillActions {
     change(aspect?: StillAspect): void; probe(): void; generate(): void; cancel(): void;
+    retry(route: StillRoute): void; selectCandidate(candidate: StillCandidate): void; adoptCandidate(): void;
     addReference(path: string): void; chooseReference(): void; captureReference(): void;
     openConnections(): void;
 }
@@ -137,6 +147,9 @@ const make = <K extends keyof HTMLElementTagNameMap>(tag: K, className: string, 
 
 export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, actions: AiStillActions): void {
     const panel = make('div', 'akari-inspector-ai-still-panel');
+    // The progress rows can be the last content while a batch runs. Leave enough scroll room
+    // for scrollIntoView to center them below the inspector's fixed tab strip.
+    if (state.running) panel.style.paddingBottom = '220px';
     const promptLabel = make('label', 'akari-inspector-ai-still-label', '指示文');
     const prompt = make('textarea', 'akari-inspector-ai-still-prompt');
     prompt.setAttribute('data-akari-inspector-ai-prompt', 'true');
@@ -237,11 +250,14 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     cropLabel.append(crop, make('span', '', 'ずれたら選んだ比率に切りそろえる（絵の端が切れることがあります）'));
     panel.appendChild(cropLabel);
     panel.appendChild(make('div', 'akari-inspector-ai-still-label', '手段'));
-    const selectedChecking = (): boolean => state.probingRoutes?.has(state.routeId ?? 'codex') ?? state.probing;
+    const selectedChecking = (): boolean => (state.selectedRoutes?.size ?? 0) > 0
+        ? [...state.selectedRoutes!].some(id => state.probingRoutes?.has(id) ?? state.probing) : state.probing;
     const selectedRoute = (): ImageRouteState | undefined => state.routes?.find(row => row.id === (state.routeId ?? 'codex'))
         ?? ((state.routeId ?? 'codex') === 'codex' ? state.route : undefined);
-    const canGenerate = (): boolean => !selectedChecking() && !stillRouteAvailability(state.routeId ?? 'codex', state.references?.length ?? 0).disabled
-        && (selectedRoute()?.state === 'ready' || selectedRoute()?.state === 'unknown');
+    const selected = (): StillRoute[] => [...(state.selectedRoutes ?? new Set<StillRoute>())].filter(id =>
+        !stillRouteAvailability(id, state.references?.length ?? 0).disabled
+        && ['ready', 'unknown'].includes(state.routes?.find(row => row.id === id)?.state ?? ''));
+    const canGenerate = (): boolean => !selectedChecking() && selected().length > 0;
     const routes = make('div', 'akari-inspector-ai-still-routes');
     for (const [group, groupRoutes] of Object.entries(stillRouteGroups)) {
         const section = make('div', 'akari-inspector-ai-still-route-group');
@@ -255,19 +271,22 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
         label.setAttribute('data-akari-inspector-ai-route', id);
         const availability = stillRouteAvailability(id, state.references?.length ?? 0);
         label.setAttribute('data-akari-inspector-ai-route-disabled', String(availability.disabled));
-        const radio = make('input', 'akari-inspector-ai-still-route-radio');
-        radio.type = 'radio';
-        radio.name = 'akari-inspector-ai-still-route';
-        radio.value = id;
-        radio.disabled = state.running || availability.disabled;
-        radio.checked = (state.routeId ?? 'codex') === id;
-        radio.addEventListener('change', () => {
-            if (!radio.checked) return;
+        const checkbox = make('input', 'akari-inspector-ai-still-route-radio');
+        checkbox.type = 'checkbox';
+        checkbox.value = id;
+        checkbox.setAttribute('data-akari-inspector-ai-route-checkbox', id);
+        checkbox.disabled = state.running || availability.disabled || routeState?.state === 'missing' || routeState?.state === 'signed-out';
+        checkbox.checked = state.selectedRoutes?.has(id) === true && !availability.disabled
+            && routeState?.state !== 'missing' && routeState?.state !== 'signed-out';
+        checkbox.addEventListener('change', () => {
+            state.selectedRoutes ??= new Set();
+            state.selectionTouched = true;
+            if (checkbox.checked) state.selectedRoutes.add(id);
+            else state.selectedRoutes.delete(id);
             state.routeId = id;
-            rememberStillRoute(id);
             actions.change();
         });
-        label.appendChild(radio);
+        label.appendChild(checkbox);
         const name = make('span', 'akari-inspector-ai-still-route-name');
         name.appendChild(stillMakerBadge(declaration.maker ?? id));
         name.appendChild(make('span', '', declaration.label));
@@ -305,7 +324,7 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     details.open = state.detailsOpen === true;
     details.addEventListener('toggle', () => { state.detailsOpen = details.open; });
     details.appendChild(make('summary', '', '詳細'));
-    if (state.routeId === 'fal') {
+    if (state.selectedRoutes?.has('fal')) {
         details.appendChild(make('p', '', 'モデル: GPT Image 2.5 Flare'));
         const quality = make('select', 'akari-inspector-ai-still-quality');
         quality.setAttribute('data-akari-inspector-ai-fal-quality', 'true');
@@ -327,21 +346,81 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     panel.appendChild(refresh);
     if (selectedRoute()?.state !== 'ready' && !selectedChecking() && state.routeId !== 'fal') panel.appendChild(make('p', 'akari-inspector-ai-still-next',
         imageRouteNextText(selectedRoute() ?? { id: state.routeId ?? 'codex', state: 'missing', detail: '' })));
-    const submit = make('button', 'akari-inspector-ai-still-primary', '作る');
+    const selectedCount = selected().length;
+    const estimate = selected().includes('fal') ? stillFalPrices[state.quality ?? 'high'] : 0;
+    const submit = make('button', 'akari-inspector-ai-still-primary', `${selectedCount} 案を作る · ${estimate ? `見積 $${estimate.toFixed(3)}` : '追加料金なし'}`);
     submit.type = 'button';
     submit.disabled = !state.prompt.trim() || !canGenerate() || state.running;
     submit.setAttribute('data-akari-inspector-ai-create', 'true');
+    submit.setAttribute('data-akari-inspector-ai-create-count', String(selectedCount));
     submit.addEventListener('click', actions.generate);
     panel.appendChild(submit);
+    if (state.batch?.routes.length) {
+        const progress = make('div', 'akari-inspector-ai-still-progress');
+        progress.setAttribute('data-akari-inspector-ai-progress', `${state.batch.completed}/${state.batch.routes.length}`);
+        progress.setAttribute('data-akari-inspector-ai-progress-running', String(state.running));
+        for (const id of state.batch.routes) {
+            const result = (state.batch.results ?? state.batch.candidates).find(row => row.route === id);
+            const status = result ? result.ok ? 'done' : 'failed' : 'running';
+            const elapsed = result?.elapsedSeconds ?? Math.max(0, Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000));
+            const row = make('div', 'akari-inspector-ai-still-progress-row', `${status === 'running' ? '◌' : status === 'done' ? '✓' : '×'} ${stillRouteLabel(id)} · ${Math.round(elapsed)} 秒`);
+            row.setAttribute('data-akari-inspector-ai-progress-route', id);
+            row.setAttribute('data-akari-inspector-ai-progress-state', status);
+            row.setAttribute('data-akari-inspector-ai-progress-elapsed', String(Math.round(elapsed)));
+            if (result?.ok && result.thumbnail && result.relativePath) {
+                const thumbnail = make('img', 'akari-inspector-ai-still-progress-thumbnail');
+                thumbnail.src = result.thumbnail;
+                thumbnail.alt = '';
+                thumbnail.setAttribute('data-akari-inspector-ai-progress-thumbnail', result.relativePath);
+                row.appendChild(thumbnail);
+            }
+            progress.appendChild(row);
+        }
+        panel.appendChild(progress);
+    }
     if (state.running) {
-        const elapsed = Math.max(0, Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000));
-        const name = state.routeId === 'antigravity' ? 'Antigravity' : state.routeId === 'grok' ? 'Grok' : state.routeId === 'fal' ? 'fal' : 'ChatGPT';
-        panel.appendChild(make('p', 'akari-inspector-ai-still-progress', `${name} で作っています · ${elapsed} 秒`));
         const cancel = make('button', 'akari-inspector-ai-still-secondary', 'キャンセル');
         cancel.type = 'button';
         cancel.setAttribute('data-akari-inspector-ai-cancel', 'true');
         cancel.addEventListener('click', actions.cancel);
         panel.appendChild(cancel);
+    }
+    if (state.batch?.candidates.length) {
+        const heading = make('div', 'akari-inspector-ai-still-label', '候補（押すと枠に仮に入ります）');
+        panel.appendChild(heading);
+        const candidates = make('div', 'akari-inspector-ai-still-candidates');
+        for (const candidate of state.batch.candidates) {
+            if (!candidate.ok || !candidate.relativePath) {
+                const failed = make('div', 'akari-inspector-ai-still-error', `${stillRouteLabel(candidate.route)} · 失敗 · ${candidate.reason ?? '生成できませんでした。'}`);
+                failed.setAttribute('data-akari-inspector-ai-failed-route', candidate.route);
+                const retry = make('button', 'akari-inspector-ai-still-secondary', '同じ入力でもう一度');
+                retry.type = 'button'; retry.setAttribute('data-akari-inspector-ai-retry-route', candidate.route);
+                retry.disabled = state.running; retry.addEventListener('click', () => actions.retry(candidate.route));
+                failed.appendChild(retry); candidates.appendChild(failed); continue;
+            }
+            const button = make('button', 'akari-inspector-ai-still-candidate');
+            button.type = 'button'; button.setAttribute('data-akari-inspector-ai-candidate', candidate.relativePath);
+            button.setAttribute('data-akari-inspector-ai-candidate-selected', String(state.pickedCandidate === candidate.relativePath));
+            button.setAttribute('aria-pressed', String(state.pickedCandidate === candidate.relativePath));
+            const image = make('img', 'akari-inspector-ai-still-candidate-thumbnail');
+            image.alt = `${stillRouteLabel(candidate.route)} の候補`;
+            image.setAttribute('data-akari-inspector-ai-candidate-thumbnail', candidate.relativePath);
+            if (candidate.thumbnail) image.src = candidate.thumbnail;
+            const maker = candidate.route === 'codex' || candidate.route === 'fal' ? 'openai'
+                : candidate.route === 'antigravity' ? 'google' : 'xai';
+            button.append(image, make('span', '', `${stillRouteLabel(candidate.route)} · ${Math.round(candidate.elapsedSeconds ?? 0)} 秒 · ${candidate.width ?? '?'}×${candidate.height ?? '?'}${candidate.costUsd ? ` · $${candidate.costUsd.toFixed(3)}` : ''}${candidate.croppedFrom ? ' · 切りそろえ' : ''}`), stillMakerBadge(maker));
+            button.addEventListener('click', () => actions.selectCandidate(candidate));
+            candidates.appendChild(button);
+        }
+        panel.appendChild(candidates);
+        const adopt = make('button', 'akari-inspector-ai-still-primary', 'この案を使う');
+        adopt.type = 'button'; adopt.disabled = !state.pickedCandidate || state.running;
+        adopt.setAttribute('data-akari-inspector-ai-adopt', 'true');
+        adopt.addEventListener('click', actions.adoptCandidate);
+        panel.appendChild(adopt);
+        const remainder = make('p', 'akari-inspector-ai-still-next', 'ほかの候補は素材に残ります');
+        remainder.setAttribute('data-akari-inspector-ai-candidates-remain', 'true');
+        panel.appendChild(remainder);
     }
     if (state.error) {
         panel.appendChild(make('p', 'akari-inspector-ai-still-error', state.error));

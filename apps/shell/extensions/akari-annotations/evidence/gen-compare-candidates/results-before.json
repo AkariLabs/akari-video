@@ -1,0 +1,122 @@
+{
+  "phase": "before",
+  "status": "pass",
+  "step": "wait for the first to finish",
+  "observations": {
+    "electronPid": 84168,
+    "frame": "frame-1",
+    "stillPanel": {
+      "routes": [
+        {
+          "id": "codex",
+          "text": "ChatGPT（Codex）使える",
+          "checked": true,
+          "state": "ready"
+        },
+        {
+          "id": "antigravity",
+          "text": "Antigravity使える",
+          "checked": false,
+          "state": "ready"
+        },
+        {
+          "id": "grok",
+          "text": "Grok使える",
+          "checked": false,
+          "state": "ready"
+        },
+        {
+          "id": "fal",
+          "text": "fal · GPT Image 2.5 Flareキーが未設定見積もり $0.053 / 枚キーを設定すると使えます →",
+          "checked": false,
+          "state": "missing"
+        }
+      ],
+      "radios": 4,
+      "imgs": 5
+    },
+    "whileRunning": {
+      "createDisabled": true,
+      "createText": "作る",
+      "radios": [
+        {
+          "value": "codex",
+          "checked": true,
+          "disabled": true
+        },
+        {
+          "value": "antigravity",
+          "checked": false,
+          "disabled": true
+        },
+        {
+          "value": "grok",
+          "checked": false,
+          "disabled": true
+        },
+        {
+          "value": "fal",
+          "checked": false,
+          "disabled": true
+        }
+      ],
+      "cancel": true,
+      "chip": "画像空の枠00:02:15"
+    },
+    "secondStartSameFrame": {
+      "ok": false,
+      "reason": "この枠は生成中です。"
+    },
+    "editAfterFirst": {
+      "id": "frame-1",
+      "name": "空の枠",
+      "at": 15,
+      "duration": 75,
+      "transform": {
+        "x": 0,
+        "y": 0,
+        "scale": 0.5
+      },
+      "source": {
+        "kind": "media",
+        "src": "still-src-1",
+        "in": 0,
+        "out": 2.5
+      }
+    },
+    "stubLog": [
+      {
+        "route": "codex",
+        "started": false,
+        "wrote": false,
+        "args": [
+          "app-server"
+        ]
+      },
+      {
+        "route": "codex",
+        "started": true,
+        "wrote": false
+      },
+      {
+        "route": "codex",
+        "started": false,
+        "wrote": true
+      }
+    ]
+  },
+  "screenshots": [
+    {
+      "name": "00-before-still-panel.png",
+      "bytes": 294891
+    },
+    {
+      "name": "00-before-generating-no-second.png",
+      "bytes": 1067459
+    },
+    {
+      "name": "00-before-after-first.png",
+      "bytes": 949757
+    }
+  ]
+}

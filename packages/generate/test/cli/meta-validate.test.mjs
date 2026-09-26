@@ -90,6 +90,14 @@ test("planned audio is valid; unknown kind remains invalid", async () => {
   assert.equal(validateGenerationMeta(planned).ok, false);
 });
 
+test("candidate_of は完成静止画の枠 id を記録する", async () => {
+  const still = JSON.parse(await readFile(path.join(FIXTURES, "still.json"), "utf8"));
+  still.candidate_of = "clip-1";
+  assert.deepEqual(validateGenerationMeta(still), { ok: true, errors: [] });
+  still.candidate_of = "";
+  assert.match(validateGenerationMeta(still).errors.join("\n"), /candidate_of/u);
+});
+
 test("output.cropped_from accepts original dimensions and rejects malformed values", async () => {
   const still = JSON.parse(await readFile(path.join(FIXTURES, "still.json"), "utf8"));
   still.output.cropped_from = "1254x1254";

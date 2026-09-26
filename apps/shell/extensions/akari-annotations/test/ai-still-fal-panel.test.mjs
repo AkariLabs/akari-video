@@ -24,7 +24,7 @@ test('still sections follow route declarations and keyless fal shows a settings 
     assert.equal(imageRouteBadgeText({ id: 'fal', state: 'ready', detail: 'キーを設定済み' }, false), '使える');
     const parent = new Node('root');
     let settings = 0;
-    appendAiStillPanel(parent, { prompt: 'garden', aspect: '1:1', routeId: 'fal', probing: false, running: false,
+    appendAiStillPanel(parent, { prompt: 'garden', aspect: '1:1', routeId: 'fal', selectedRoutes: new Set(['fal']), probing: false, running: false,
       routes: [{ id: 'fal', state: 'missing', detail: 'キーを設定すると使えます' }] },
     { change() {}, probe() {}, generate() {}, cancel() {}, addReference() {}, chooseReference() {}, captureReference() {},
       openConnections() { settings++; } });

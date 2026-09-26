@@ -169,6 +169,8 @@ export interface ImageRouteState { id: 'codex' | 'antigravity' | 'grok' | 'fal';
 export type StillAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '4:5' | '3:2' | '21:9';
 export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: StillAspect; route?: ImageRouteState['id']; references?: string[]; cropToAspect?: boolean; quality?: 'low' | 'medium' | 'high'; approved?: boolean; }
 export interface GenerateStillResult { ok: boolean; reason?: string; relativePath?: string; width?: number; height?: number; elapsedSeconds?: number; cancelled?: boolean; croppedFrom?: string; }
+export interface StillCandidate extends GenerateStillResult { route: ImageRouteState['id']; costUsd?: number; thumbnail?: string; }
+export interface StillCandidateBatch { routes: ImageRouteState['id'][]; completed: number; candidates: StillCandidate[]; results?: StillCandidate[]; running: boolean; }
 
 export interface GetClipFilmstripChunkRequest {
     projectRootUri: string;
@@ -922,6 +924,9 @@ export interface AkariAnnotationsService {
     probeImageRoutes(routes?: ImageRouteState['id'][]): Promise<ImageRouteState[]>;
     startGenerateStill(request: StartGenerateStillRequest): Promise<GenerateStillResult>;
     cancelGenerateStill(request: GenerationProcessRequest): Promise<void>;
+    startGenerateStillBatch(request: Omit<StartGenerateStillRequest, 'route'> & { routes: ImageRouteState['id'][] }): Promise<StillCandidateBatch>;
+    readStillCandidates(request: GenerationProcessRequest & { includeThumbnails?: boolean }): Promise<StillCandidateBatch>;
+    readStillPreferredRoutes(projectRootUri: string): Promise<ImageRouteState['id'][]>;
     getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
     getClipSilences(request: GetClipSilencesRequest): Promise<GetClipSilencesResult>;

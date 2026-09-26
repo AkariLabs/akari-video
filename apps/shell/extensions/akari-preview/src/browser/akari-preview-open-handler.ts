@@ -2028,6 +2028,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform)
         });
+        const onStillCandidate = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; sourceId?: string | null; itemId?: string; imageUrl?: string | null }>).detail;
+            if (!detail?.editUri || detail.imageUrl !== null &&
+                (typeof detail.imageUrl !== 'string' || !detail.imageUrl.startsWith('data:image/png;base64,'))) return;
+            const key = new URI(detail.editUri).normalizePath().toString();
+            this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-still-candidate',
+                sourceId: detail.sourceId ?? null, itemId: detail.itemId ?? null, imageUrl: detail.imageUrl ?? null });
+        };
+        window.addEventListener('akari.preview.stillCandidate', onStillCandidate);
+        this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.preview.stillCandidate', onStillCandidate) });
         const onAdjustBypass = (event: Event): void => {
             const detail = (event as CustomEvent<{
                 editUri?: string;
@@ -10938,6 +10948,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     return source;
                 };
                 const sources = new Map([...lookahead, ...images]);
+                window.akari.setStillCandidateSource = (sourceId, url) => {
+                    const existing = images.get(sourceId);
+                    if (existing) existing.destroy();
+                    const replacement = new engine.CachedStillImageSource(url);
+                    images.set(sourceId, replacement);
+                    sources.set(sourceId, replacement);
+                };
 
                 const registerLayerMasks = layers => {
                     for (const layer of layers) {
@@ -20778,6 +20795,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     hideGenerationOverlay();
                     return;
                 }
+                if (window.akari.stillCandidatePreviewItemId === String(clip.id)) {
+                    hideGenerationOverlay();
+                    return;
+                }
                 const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding, resolveGenerationStateV1);
                 const description = describeOverlayFn(state, clip.meta, String(clip.name || clip.id || ''), {
                     sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
@@ -21105,6 +21126,63 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             window.addEventListener('message', event => {
                 const message = event.data;
+                if (message?.type === 'akari-preview-still-candidate') {
+                    const sourceId = typeof message.sourceId === 'string' ? message.sourceId : null;
+                    const itemId = typeof message.itemId === 'string' ? message.itemId : null;
+                    // CachedStillImageSource fetches its URL. The webview CSP allows blob: for
+                    // connect-src, while data: is only allowed for img-src.
+                    let candidateUrl = null;
+                    if (typeof message.imageUrl === 'string' && message.imageUrl.startsWith('data:image/png;base64,')) {
+                        const bytes = atob(message.imageUrl.slice('data:image/png;base64,'.length));
+                        const data = Uint8Array.from(bytes, char => char.charCodeAt(0));
+                        candidateUrl = URL.createObjectURL(new Blob([data], { type: 'image/png' }));
+                    }
+                    const priorObjectUrl = window.akari.stillCandidateObjectUrl;
+                    window.akari.stillCandidateObjectUrl = candidateUrl;
+                    if (priorObjectUrl) setTimeout(() => URL.revokeObjectURL(priorObjectUrl), 5000);
+                    window.akari.stillCandidatePreviewItemId = candidateUrl ? itemId : null;
+                    const original = initial.imageSources || {};
+                    const previous = window.akari.stillCandidateSourceId;
+                    const layerIndex = itemId ? layerEntries.findIndex(entry => String(entry.spec.id) === itemId && entry.video.tagName === 'IMG') : -1;
+                    const priorLayer = window.akari.stillCandidateLayer;
+                    if (priorLayer) {
+                        const entry = layerEntries[priorLayer.index];
+                        if (entry) {
+                            entry.spec.src = priorLayer.url;
+                            if (summary.layers?.[priorLayer.index]) summary.layers[priorLayer.index].src = priorLayer.url;
+                            entry.video.src = priorLayer.url;
+                            window.akari.setStillCandidateSource?.('akari-image-layer-' + priorLayer.index + '.png', priorLayer.url);
+                        }
+                        window.akari.stillCandidateLayer = null;
+                    }
+                    if (previous && original[previous] && (previous !== sourceId || layerIndex >= 0)) {
+                        const saved = window.akari.stillCandidateOriginals?.[previous] || original[previous];
+                        original[previous] = saved;
+                        window.akari.setStillCandidateSource?.(previous, saved);
+                    }
+                    if (layerIndex >= 0 && candidateUrl) {
+                        const entry = layerEntries[layerIndex];
+                        const saved = entry.spec.src;
+                        window.akari.stillCandidateLayer = { index: layerIndex, url: saved };
+                        entry.spec.src = candidateUrl;
+                        if (summary.layers?.[layerIndex]) summary.layers[layerIndex].src = candidateUrl;
+                        entry.video.src = candidateUrl;
+                        window.akari.setStillCandidateSource?.('akari-image-layer-' + layerIndex + '.png', candidateUrl);
+                    } else if (sourceId && original[sourceId]) {
+                        window.akari.stillCandidateOriginals ||= {};
+                        window.akari.stillCandidateOriginals[sourceId] ||= original[sourceId];
+                        const url = candidateUrl || window.akari.stillCandidateOriginals[sourceId];
+                        original[sourceId] = url;
+                        window.akari.setStillCandidateSource?.(sourceId, url);
+                        if (stillImage.style.display !== 'none') stillImage.src = url;
+                        window.akari.stillCandidateSourceId = candidateUrl ? sourceId : null;
+                    } else if (!sourceId || layerIndex >= 0) window.akari.stillCandidateSourceId = null;
+                    // Paused frame-engine previews do not redraw on tick alone. Seek the current frame
+                    // after swapping its CachedStillImageSource so the canvas changes immediately.
+                    window.akari.frameEngineClock?.seek(outputTime, isPlaying);
+                    tick(true);
+                    return;
+                }
                 if (message?.type === 'akari-preview-ready-seek') {
                     void readySeek(message).catch(error => console.error('[akari-preview] ready seek failed', error));
                     return;

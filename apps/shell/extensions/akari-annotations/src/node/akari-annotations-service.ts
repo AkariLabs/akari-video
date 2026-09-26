@@ -471,6 +471,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async startGenerateStill(request: StartGenerateStillRequest): Promise<GenerateStillResult> {
         return this.stillGeneration.startGenerateStill(this.fsPath(request.projectRootUri), request);
     }
+    async startGenerateStillBatch(request: Omit<StartGenerateStillRequest, 'route'> & { routes: ImageRouteState['id'][] }) {
+        return this.stillGeneration.startGenerateStillBatch(this.fsPath(request.projectRootUri), request);
+    }
+    async readStillCandidates(request: GenerationProcessRequest & { includeThumbnails?: boolean }) {
+        return this.stillGeneration.readStillCandidates(this.fsPath(request.projectRootUri), request.itemId,
+            request.includeThumbnails !== false);
+    }
+    async readStillPreferredRoutes(projectRootUri: string) {
+        return this.stillGeneration.readStillPreferredRoutes(this.fsPath(projectRootUri));
+    }
     async cancelGenerateStill(request: GenerationProcessRequest): Promise<void> {
         this.stillGeneration.cancelGenerateStill(request.itemId);
     }

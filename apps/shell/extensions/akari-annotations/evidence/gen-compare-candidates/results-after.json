@@ -1,0 +1,1760 @@
+{
+  "phase": "after",
+  "placement": "V1 gap (cut)",
+  "status": "pass",
+  "step": "(viii) paid route → one total approval; deny sends nothing",
+  "checks": [
+    {
+      "name": "既定のチェック = 追加料金なしの 3 手段・fal は外れている",
+      "pass": true,
+      "detail": [
+        {
+          "id": "codex",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "antigravity",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "grok",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "fal",
+          "checked": false,
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "name": "ラジオが無く手段はチェック",
+      "pass": true,
+      "detail": {
+        "radios": 0
+      }
+    },
+    {
+      "name": "ボタン = 「3 案を作る · 追加料金なし」",
+      "pass": true,
+      "detail": {
+        "text": "3 案を作る · 追加料金なし",
+        "disabled": true,
+        "count": "3"
+      }
+    },
+    {
+      "name": "3 手段が同時に走り始める（開始時刻の差 < 4 秒・どの手段も 5 秒の最短より前）",
+      "pass": true,
+      "detail": {
+        "spreadMs": 6
+      }
+    },
+    {
+      "name": "タイムラインの札「3 案作成中 · 1/3」",
+      "pass": true,
+      "detail": {
+        "chip": "札:3 案作成中 · 1/3"
+      }
+    },
+    {
+      "name": "手段ごとの進み具合（1 つ done・2 つ running）",
+      "pass": true,
+      "detail": [
+        {
+          "route": "codex",
+          "state": "done",
+          "elapsed": 5,
+          "text": "✓ ChatGPT（Codex） · 5 秒"
+        },
+        {
+          "route": "antigravity",
+          "state": "running",
+          "elapsed": 5,
+          "text": "◌ Antigravity · 5 秒"
+        },
+        {
+          "route": "grok",
+          "state": "running",
+          "elapsed": 5,
+          "text": "◌ Grok · 5 秒"
+        }
+      ]
+    },
+    {
+      "name": "候補 3 つが assets/generated/candidates/<枠>/<手段>-<時刻>.png + meta（done・candidate_of）",
+      "pass": true,
+      "detail": [
+        {
+          "name": "antigravity-1790463804511-2eykBO.png.meta.json",
+          "status": "done",
+          "candidate_of": "frame-1",
+          "model": "agy:image",
+          "elapsed_s": 11.213,
+          "cost": {
+            "estimate_usd": 0,
+            "actual_usd": null,
+            "unit": "usd_per_image",
+            "source": "estimate"
+          }
+        },
+        {
+          "name": "codex-1790463804511-qHHDQW.png.meta.json",
+          "status": "done",
+          "candidate_of": "frame-1",
+          "model": "codex:image",
+          "elapsed_s": 5.064,
+          "cost": {
+            "estimate_usd": 0,
+            "actual_usd": null,
+            "unit": "usd_per_image",
+            "source": "estimate"
+          }
+        },
+        {
+          "name": "grok-1790463804511-k9F3ml.png.meta.json",
+          "status": "done",
+          "candidate_of": "frame-1",
+          "model": "grok:image",
+          "elapsed_s": 17.216,
+          "cost": {
+            "estimate_usd": 0,
+            "actual_usd": null,
+            "unit": "usd_per_image",
+            "source": "estimate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "edit.json は候補の時点で変わらない",
+      "pass": true,
+      "detail": {
+        "before": "12faf1d787fe20d4",
+        "now": "12faf1d787fe20d4"
+      }
+    },
+    {
+      "name": "札「候補 3」",
+      "pass": true,
+      "detail": {
+        "chip": "札:候補 3"
+      }
+    },
+    {
+      "name": "候補のサムネイルと「ほかの候補は素材に残ります」",
+      "pass": true,
+      "detail": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": false
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": false,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "done",
+            "elapsed": 5,
+            "text": "✓ ChatGPT（Codex） · 5 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "done",
+            "elapsed": 11,
+            "text": "✓ Antigravity · 11 秒"
+          },
+          {
+            "route": "grok",
+            "state": "done",
+            "elapsed": 17,
+            "text": "✓ Grok · 17 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      }
+    },
+    {
+      "name": "候補を押すとプレビューの枠に候補（Grok = 緑）の絵が描かれる・edit.json は変わらない",
+      "pass": true,
+      "detail": {
+        "before": [
+          65,
+          79,
+          89
+        ],
+        "beforeHue": "dark",
+        "grok": [
+          90,
+          164,
+          106
+        ],
+        "grokHue": "green"
+      }
+    },
+    {
+      "name": "別の候補（ChatGPT = 青）を押すとプレビューの絵が入れ替わる",
+      "pass": true,
+      "detail": {
+        "codex": [
+          65,
+          99,
+          197
+        ],
+        "hue": "blue"
+      }
+    },
+    {
+      "name": "もう一度押すと仮表示が外れて元の枠に戻る",
+      "pass": true,
+      "detail": {
+        "unpicked": [
+          65,
+          79,
+          89
+        ],
+        "hue": "dark",
+        "before": "dark"
+      }
+    },
+    {
+      "name": "「この案を使う」で枠の素材が選んだ候補に（変形は残る）",
+      "pass": true,
+      "detail": {
+        "before": {
+          "src": "frame-src-1",
+          "path": "assets/generated/frame-1790463788939-VvB6KN.png"
+        },
+        "after": {
+          "src": "still-src-1",
+          "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png"
+        }
+      }
+    },
+    {
+      "name": "確定後もプレビューは選んだ候補（青）",
+      "pass": true,
+      "detail": {
+        "color": [
+          85,
+          116,
+          204
+        ]
+      }
+    },
+    {
+      "name": "undo 1 回で元の枠へ戻る",
+      "pass": true,
+      "detail": {
+        "beforeAdopt": {
+          "src": "frame-src-1",
+          "path": "assets/generated/frame-1790463788939-VvB6KN.png"
+        },
+        "afterUndo": {
+          "src": "frame-src-1",
+          "path": "assets/generated/frame-1790463788939-VvB6KN.png"
+        }
+      }
+    },
+    {
+      "name": "確定・undo のあとも候補ファイルは全部残る",
+      "pass": true,
+      "detail": {
+        "files": [
+          "antigravity-1790463804511-2eykBO.png",
+          "antigravity-1790463804511-2eykBO.png.meta.json",
+          "codex-1790463804511-qHHDQW.png",
+          "codex-1790463804511-qHHDQW.png.meta.json",
+          "grok-1790463804511-k9F3ml.png",
+          "grok-1790463804511-k9F3ml.png.meta.json"
+        ]
+      }
+    },
+    {
+      "name": "素材パネルに候補が並ぶ",
+      "pass": true,
+      "detail": {
+        "candidateMaterials": [
+          "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+          "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+          "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png"
+        ]
+      }
+    },
+    {
+      "name": "2 回目の実行でも手段ごとの進み具合は今回の分だけ（始めは 3 つとも running）",
+      "pass": true,
+      "detail": [
+        {
+          "route": "codex",
+          "state": "running",
+          "elapsed": 1,
+          "text": "◌ ChatGPT（Codex） · 1 秒"
+        },
+        {
+          "route": "antigravity",
+          "state": "running",
+          "elapsed": 1,
+          "text": "◌ Antigravity · 1 秒"
+        },
+        {
+          "route": "grok",
+          "state": "running",
+          "elapsed": 1,
+          "text": "◌ Grok · 1 秒"
+        }
+      ]
+    },
+    {
+      "name": "1 手段（Antigravity）が失敗しても他の候補は並ぶ",
+      "pass": true,
+      "detail": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": false
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": false,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "done",
+            "elapsed": 5,
+            "text": "✓ ChatGPT（Codex） · 5 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "failed",
+            "elapsed": 17,
+            "text": "× Antigravity · 17 秒"
+          },
+          {
+            "route": "grok",
+            "state": "done",
+            "elapsed": 17,
+            "text": "✓ Grok · 17 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [
+          {
+            "route": "antigravity",
+            "text": "Antigravity · 失敗 · agy stub: 生成に失敗しました（検証用の失敗）同じ入力でもう一度"
+          }
+        ],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      }
+    },
+    {
+      "name": "失敗の回でも edit.json は変わらない",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "「同じ入力でもう一度」で失敗した手段だけ作り直す",
+      "pass": true,
+      "detail": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": false
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": false,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "antigravity",
+            "state": "done",
+            "elapsed": 11,
+            "text": "✓ Antigravity · 11 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463864048-WDwrxq.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      }
+    },
+    {
+      "name": "有料を含むとボタン = 「4 案を作る · 見積 $X」",
+      "pass": true,
+      "detail": {
+        "text": "4 案を作る · 見積 $0.053",
+        "disabled": false,
+        "count": "4"
+      }
+    },
+    {
+      "name": "合計の見積もりで費用承認 1 回",
+      "pass": true,
+      "detail": {
+        "dialogText": "費用承認4 案を同時に作ります。合計見積もり $0.053（as_of 2026-09-26・1024² 基準）。費用承認しますかキャンセル費用承認する | 費用承認4 案を同時に作ります。合計見積もり $0.053（as_of 2026-09-26・1024² 基準）。費用承認しますかキャンセル費用承認する"
+      }
+    },
+    {
+      "name": "断ると何も送らない（CLI スタブ 0 回・fal スタブ 0 回・候補も edit.json も増えない）",
+      "pass": true,
+      "detail": {
+        "stubLogDelta": 0,
+        "falRequestsDelta": 0
+      }
+    },
+    {
+      "name": "承認すると fal へは 1 回だけ送る（偽の鍵・手元のスタブ）",
+      "pass": true,
+      "detail": {
+        "falPosts": [
+          {
+            "at": "2026-09-26T23:04:43.267Z",
+            "method": "POST",
+            "path": "/openai/gpt-image-2.5/flare/text-to-image",
+            "authorizedWithDummyKey": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "fal の候補も並ぶ（料金つき）",
+      "pass": true,
+      "detail": [
+        {
+          "path": "assets/generated/candidates/frame-1/fal-1790463883249-Rzva5r.png",
+          "selected": "false",
+          "text": "fal · GPT Image 2.5 Flare · 4 秒 · 1024×576 · $0.053",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/grok-1790463883247-cubJNI.png",
+          "selected": "false",
+          "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/codex-1790463883245-X6qaAT.png",
+          "selected": "false",
+          "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/antigravity-1790463883245-CJnTM7.png",
+          "selected": "false",
+          "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/antigravity-1790463864048-WDwrxq.png",
+          "selected": "false",
+          "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+          "selected": "false",
+          "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+          "selected": "false",
+          "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+          "selected": "false",
+          "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+          "selected": "false",
+          "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+          "selected": "false",
+          "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        }
+      ]
+    }
+  ],
+  "observations": {
+    "electronPid": 22808,
+    "frame": "frame-1",
+    "timelineItems": [
+      {
+        "kind": "cut",
+        "id": "0",
+        "ui": "timeline:cut:0",
+        "state": "none",
+        "w": 92,
+        "text": "clip.mp400:03:00動画"
+      },
+      {
+        "kind": "cut",
+        "id": "1",
+        "ui": "timeline:cut:1",
+        "state": "none",
+        "w": 62,
+        "text": "静止画photo.png00:02:00画像"
+      },
+      {
+        "kind": "cut",
+        "id": "2",
+        "ui": "timeline:cut:2",
+        "state": "planned",
+        "w": 62,
+        "text": "空の枠空の枠00:02:00画像"
+      }
+    ],
+    "timelineZoom": {
+      "value": 340,
+      "frameWidthPx": 242.8671875
+    },
+    "defaultChecks": {
+      "checkboxes": [
+        {
+          "id": "codex",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "antigravity",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "grok",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "fal",
+          "checked": false,
+          "disabled": false
+        }
+      ],
+      "radios": 0,
+      "create": {
+        "text": "3 案を作る · 追加料金なし",
+        "disabled": true,
+        "count": "3"
+      },
+      "progress": [],
+      "candidates": [],
+      "failed": [],
+      "adopt": null,
+      "remain": null
+    },
+    "editBeforeSha": "12faf1d787fe20d4",
+    "running0": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": true
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": true,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "running",
+            "elapsed": 0,
+            "text": "◌ ChatGPT（Codex） · 0 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "running",
+            "elapsed": 0,
+            "text": "◌ Antigravity · 0 秒"
+          },
+          {
+            "route": "grok",
+            "state": "running",
+            "elapsed": 0,
+            "text": "◌ Grok · 0 秒"
+          }
+        ],
+        "candidates": [],
+        "failed": [],
+        "adopt": null,
+        "remain": null
+      },
+      "chip": "札:3 案作成中 · 0/3",
+      "afterMs": 10141
+    },
+    "stubStartsFirstRun": [
+      {
+        "route": "grok",
+        "started": "2026-09-26T23:03:24.658Z"
+      },
+      {
+        "route": "agy",
+        "started": "2026-09-26T23:03:24.658Z"
+      },
+      {
+        "route": "codex",
+        "started": "2026-09-26T23:03:24.664Z"
+      }
+    ],
+    "running1": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": true
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": true,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "done",
+            "elapsed": 5,
+            "text": "✓ ChatGPT（Codex） · 5 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "running",
+            "elapsed": 5,
+            "text": "◌ Antigravity · 5 秒"
+          },
+          {
+            "route": "grok",
+            "state": "running",
+            "elapsed": 5,
+            "text": "◌ Grok · 5 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      },
+      "chip": "札:3 案作成中 · 1/3",
+      "afterMs": 15411
+    },
+    "done": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": false
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": false,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "done",
+            "elapsed": 5,
+            "text": "✓ ChatGPT（Codex） · 5 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "done",
+            "elapsed": 11,
+            "text": "✓ Antigravity · 11 秒"
+          },
+          {
+            "route": "grok",
+            "state": "done",
+            "elapsed": 17,
+            "text": "✓ Grok · 17 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      },
+      "chip": "札:候補 3",
+      "afterMs": 28142
+    },
+    "candidateFilesAfterFirst": [
+      "antigravity-1790463804511-2eykBO.png",
+      "antigravity-1790463804511-2eykBO.png.meta.json",
+      "codex-1790463804511-qHHDQW.png",
+      "codex-1790463804511-qHHDQW.png.meta.json",
+      "grok-1790463804511-k9F3ml.png",
+      "grok-1790463804511-k9F3ml.png.meta.json"
+    ],
+    "candidateMetas": [
+      {
+        "name": "antigravity-1790463804511-2eykBO.png.meta.json",
+        "status": "done",
+        "candidate_of": "frame-1",
+        "model": "agy:image",
+        "elapsed_s": 11.213,
+        "cost": {
+          "estimate_usd": 0,
+          "actual_usd": null,
+          "unit": "usd_per_image",
+          "source": "estimate"
+        }
+      },
+      {
+        "name": "codex-1790463804511-qHHDQW.png.meta.json",
+        "status": "done",
+        "candidate_of": "frame-1",
+        "model": "codex:image",
+        "elapsed_s": 5.064,
+        "cost": {
+          "estimate_usd": 0,
+          "actual_usd": null,
+          "unit": "usd_per_image",
+          "source": "estimate"
+        }
+      },
+      {
+        "name": "grok-1790463804511-k9F3ml.png.meta.json",
+        "status": "done",
+        "candidate_of": "frame-1",
+        "model": "grok:image",
+        "elapsed_s": 17.216,
+        "cost": {
+          "estimate_usd": 0,
+          "actual_usd": null,
+          "unit": "usd_per_image",
+          "source": "estimate"
+        }
+      }
+    ],
+    "previewLayerBefore": null,
+    "previewLayerGrok": {
+      "found": false,
+      "tag": null,
+      "visible": false,
+      "srcKind": "none",
+      "srcHash": "0:",
+      "center": null
+    },
+    "previewColor": {
+      "before": [
+        65,
+        79,
+        89
+      ],
+      "grok": [
+        90,
+        164,
+        106
+      ],
+      "codex": [
+        65,
+        99,
+        197
+      ],
+      "unpicked": [
+        65,
+        79,
+        89
+      ],
+      "afterAdopt": [
+        85,
+        116,
+        204
+      ]
+    },
+    "previewLayerCodex": {
+      "found": false,
+      "tag": null,
+      "visible": false,
+      "srcKind": "none",
+      "srcHash": "0:",
+      "center": null
+    },
+    "adopt": {
+      "before": {
+        "src": "frame-src-1",
+        "path": "assets/generated/frame-1790463788939-VvB6KN.png"
+      },
+      "after": {
+        "src": "still-src-1",
+        "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png"
+      }
+    },
+    "chipAfterAdopt": "札:静止画",
+    "undo": {
+      "src": "frame-src-1",
+      "path": "assets/generated/frame-1790463788939-VvB6KN.png"
+    },
+    "materialPaths": [
+      "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+      "assets/clip.mp4",
+      "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+      "assets/generated/frame-1790463788939-VvB6KN.png",
+      "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+      "assets/photo.png"
+    ],
+    "failedRunStart": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": true
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": true,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "running",
+            "elapsed": 1,
+            "text": "◌ ChatGPT（Codex） · 1 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "running",
+            "elapsed": 1,
+            "text": "◌ Antigravity · 1 秒"
+          },
+          {
+            "route": "grok",
+            "state": "running",
+            "elapsed": 1,
+            "text": "◌ Grok · 1 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      },
+      "chip": "札:3 案作成中 · 0/3"
+    },
+    "failedRun": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": false
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": false,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "done",
+            "elapsed": 5,
+            "text": "✓ ChatGPT（Codex） · 5 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "failed",
+            "elapsed": 17,
+            "text": "× Antigravity · 17 秒"
+          },
+          {
+            "route": "grok",
+            "state": "done",
+            "elapsed": 17,
+            "text": "✓ Grok · 17 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [
+          {
+            "route": "antigravity",
+            "text": "Antigravity · 失敗 · agy stub: 生成に失敗しました（検証用の失敗）同じ入力でもう一度"
+          }
+        ],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      },
+      "chip": "札:候補 5"
+    },
+    "stubLogFailedRun": [
+      {
+        "route": "grok",
+        "started": true,
+        "failed": false,
+        "wrote": false
+      },
+      {
+        "route": "codex",
+        "started": false,
+        "failed": false,
+        "wrote": false
+      },
+      {
+        "route": "agy",
+        "started": true,
+        "failed": false,
+        "wrote": false
+      },
+      {
+        "route": "codex",
+        "started": true,
+        "failed": false,
+        "wrote": false
+      },
+      {
+        "route": "codex",
+        "started": false,
+        "failed": false,
+        "wrote": true
+      },
+      {
+        "route": "agy",
+        "started": false,
+        "failed": true,
+        "wrote": false
+      },
+      {
+        "route": "grok",
+        "started": false,
+        "failed": false,
+        "wrote": true
+      }
+    ],
+    "retry": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": false
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "3 案を作る · 追加料金なし",
+          "disabled": false,
+          "count": "3"
+        },
+        "progress": [
+          {
+            "route": "antigravity",
+            "state": "done",
+            "elapsed": 11,
+            "text": "✓ Antigravity · 11 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463864048-WDwrxq.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      },
+      "chip": "札:候補 6"
+    },
+    "paidPanel": {
+      "checkboxes": [
+        {
+          "id": "codex",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "antigravity",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "grok",
+          "checked": true,
+          "disabled": false
+        },
+        {
+          "id": "fal",
+          "checked": true,
+          "disabled": false
+        }
+      ],
+      "radios": 0,
+      "create": {
+        "text": "4 案を作る · 見積 $0.053",
+        "disabled": false,
+        "count": "4"
+      },
+      "progress": [
+        {
+          "route": "antigravity",
+          "state": "done",
+          "elapsed": 11,
+          "text": "✓ Antigravity · 11 秒"
+        }
+      ],
+      "candidates": [
+        {
+          "path": "assets/generated/candidates/frame-1/antigravity-1790463864048-WDwrxq.png",
+          "selected": "false",
+          "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+          "selected": "false",
+          "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+          "selected": "false",
+          "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+          "selected": "false",
+          "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+          "selected": "false",
+          "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        },
+        {
+          "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+          "selected": "false",
+          "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+          "thumbnail": true
+        }
+      ],
+      "failed": [],
+      "adopt": {
+        "disabled": true
+      },
+      "remain": "ほかの候補は素材に残ります"
+    },
+    "approvalDialog": "費用承認4 案を同時に作ります。合計見積もり $0.053（as_of 2026-09-26・1024² 基準）。費用承認しますかキャンセル費用承認する | 費用承認4 案を同時に作ります。合計見積もり $0.053（as_of 2026-09-26・1024² 基準）。費用承認しますかキャンセル費用承認する",
+    "deny": {
+      "stubLogDelta": 0,
+      "falRequestsDelta": 0
+    },
+    "falStubRequests": [
+      {
+        "at": "2026-09-26T23:04:43.267Z",
+        "method": "POST",
+        "path": "/openai/gpt-image-2.5/flare/text-to-image",
+        "authorizedWithDummyKey": true
+      },
+      {
+        "at": "2026-09-26T23:04:47.275Z",
+        "method": "GET",
+        "path": "/status/1",
+        "authorizedWithDummyKey": true
+      },
+      {
+        "at": "2026-09-26T23:04:47.276Z",
+        "method": "GET",
+        "path": "/response/1",
+        "authorizedWithDummyKey": true
+      },
+      {
+        "at": "2026-09-26T23:04:47.276Z",
+        "method": "GET",
+        "path": "/image.png",
+        "authorizedWithDummyKey": false
+      }
+    ],
+    "paidRunning": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": true
+          },
+          {
+            "id": "fal",
+            "checked": true,
+            "disabled": true
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "4 案を作る · 見積 $0.053",
+          "disabled": true,
+          "count": "4"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "running",
+            "elapsed": 1,
+            "text": "◌ ChatGPT（Codex） · 1 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "running",
+            "elapsed": 1,
+            "text": "◌ Antigravity · 1 秒"
+          },
+          {
+            "route": "grok",
+            "state": "running",
+            "elapsed": 1,
+            "text": "◌ Grok · 1 秒"
+          },
+          {
+            "route": "fal",
+            "state": "running",
+            "elapsed": 1,
+            "text": "◌ fal · GPT Image 2.5 Flare · 1 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463864048-WDwrxq.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      },
+      "chip": "札:4 案作成中 · 0/4"
+    },
+    "paidDone": {
+      "panel": {
+        "checkboxes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false
+          },
+          {
+            "id": "fal",
+            "checked": true,
+            "disabled": false
+          }
+        ],
+        "radios": 0,
+        "create": {
+          "text": "4 案を作る · 見積 $0.053",
+          "disabled": false,
+          "count": "4"
+        },
+        "progress": [
+          {
+            "route": "codex",
+            "state": "done",
+            "elapsed": 5,
+            "text": "✓ ChatGPT（Codex） · 5 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "done",
+            "elapsed": 11,
+            "text": "✓ Antigravity · 11 秒"
+          },
+          {
+            "route": "grok",
+            "state": "done",
+            "elapsed": 17,
+            "text": "✓ Grok · 17 秒"
+          },
+          {
+            "route": "fal",
+            "state": "done",
+            "elapsed": 4,
+            "text": "✓ fal · GPT Image 2.5 Flare · 4 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/fal-1790463883249-Rzva5r.png",
+            "selected": "false",
+            "text": "fal · GPT Image 2.5 Flare · 4 秒 · 1024×576 · $0.053",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463883247-cubJNI.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463883245-X6qaAT.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463883245-CJnTM7.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463864048-WDwrxq.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463845665-p374lU.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463845665-YIF6FT.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790463804511-k9F3ml.png",
+            "selected": "false",
+            "text": "Grok · 17 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790463804511-qHHDQW.png",
+            "selected": "false",
+            "text": "ChatGPT（Codex） · 5 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790463804511-2eykBO.png",
+            "selected": "false",
+            "text": "Antigravity · 11 秒 · 1254×705 · 切りそろえ",
+            "thumbnail": true
+          }
+        ],
+        "failed": [],
+        "adopt": {
+          "disabled": true
+        },
+        "remain": "ほかの候補は素材に残ります"
+      },
+      "chip": "札:候補 10"
+    },
+    "falStubOutsideHosts": []
+  },
+  "screenshots": [
+    {
+      "name": "01-after-three-routes-checked.png",
+      "bytes": 438235
+    },
+    {
+      "name": "02-after-three-running.png",
+      "bytes": 344948
+    },
+    {
+      "name": "03-after-running-1-of-3.png",
+      "bytes": 360867
+    },
+    {
+      "name": "04-after-candidates.png",
+      "bytes": 489908
+    },
+    {
+      "name": "05-after-pick-grok-in-preview.png",
+      "bytes": 408512
+    },
+    {
+      "name": "06-after-pick-codex-in-preview.png",
+      "bytes": 412060
+    },
+    {
+      "name": "06b-after-unpick-back-to-frame.png",
+      "bytes": 492818
+    },
+    {
+      "name": "07-after-adopt.png",
+      "bytes": 406833
+    },
+    {
+      "name": "08-after-one-undo.png",
+      "bytes": 495215
+    },
+    {
+      "name": "09-after-material-panel.png",
+      "bytes": 495215
+    },
+    {
+      "name": "10-after-one-route-failed.png",
+      "bytes": 515675
+    },
+    {
+      "name": "11-after-retry-failed-route.png",
+      "bytes": 536847
+    },
+    {
+      "name": "12-after-total-approval.png",
+      "bytes": 473364
+    },
+    {
+      "name": "13-after-deny-nothing-sent.png",
+      "bytes": 520476
+    },
+    {
+      "name": "14-after-four-running-with-fal.png",
+      "bytes": 407614
+    },
+    {
+      "name": "15-after-four-candidates-with-fal.png",
+      "bytes": 530955
+    }
+  ]
+}

@@ -45,6 +45,13 @@ test('progress が無い generating は不定バー用に undefined を返す', 
   assert.equal(description.progress, undefined);
 });
 
+test('候補の札は進捗と完了数を示す', () => {
+  assert.equal(describeGenerationChip('generating', { job: { routes: ['codex', 'grok', 'fal'], completed: 1 } }).badge,
+    '3 案作成中 · 1/3');
+  assert.equal(describeGenerationChip('planned', { job: { routes: ['codex', 'grok', 'fal'], candidates: 2 } }).badge,
+    '候補 2');
+});
+
 test('planned は空白だけ・欠落・不正型の prompt でも空の枠、文字があれば予定', () => {
   for (const prompt of [undefined, null, '', ' \n\t　', 42, {}, ' 朝の海 ']) {
     const meta = { kind: 'still', status: 'planned', inputs: { prompt } };
