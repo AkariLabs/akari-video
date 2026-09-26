@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { captionOrientedFrame, captionSideMidpoint, captionWrapAnchorDelta, captionWrapResize,
     captionEditorWrapWidth, captionLineCountFromMetrics, captionEditorFitWidth,
-    captionEditorLines, captionEditorValue, captionEditingNavigationKey
+    captionEditorLines, captionEditorValue, captionEditKeyAction, captionEditingNavigationKey
 } from '../lib/common/caption-edit-geometry.js';
 
 test('the frame corners follow a 30 degree caption', () => {
@@ -82,11 +82,29 @@ test('the editor retains saved and newly inserted line breaks', () => {
     assert.deepEqual(captionEditorLines('一行目\r\n二行目\n三行目'), ['一行目', '二行目', '三行目']);
     assert.equal(captionEditorValue('一行目\n二行目'), '一行目\n二行目');
     assert.equal(captionEditorValue('一行目\n'), '一行目\n');
+    assert.equal(captionEditorValue('一行目\n\n', true), '一行目\n');
+    assert.equal(captionEditorValue('一行目\n\n\n', true), '一行目\n\n');
+    assert.equal(captionEditorValue('一行目\n\n', false), '一行目\n\n');
     assert.equal(captionEditorWrapWidth([120, 180, 90]), 180);
     assert.equal(captionEditorWrapWidth([0, Number.NaN]), undefined);
     assert.equal(captionLineCountFromMetrics(108, 50, 4, 4), 2);
     const fitted = captionEditorFitWidth(200, 2, width => Math.ceil(160 / width));
     assert.ok(fitted < 160 && fitted > 150);
+});
+
+test('caption edit keys follow the platform and leave IME Enter alone', () => {
+    const key = (key, flags = {}) => ({ key, metaKey: false, ctrlKey: false, ...flags });
+    for (const mac of [true, false]) {
+        assert.equal(captionEditKeyAction(key('Enter'), mac), 'line-break');
+        assert.equal(captionEditKeyAction(key('Enter', { shiftKey: true }), mac), 'line-break');
+        assert.equal(captionEditKeyAction(key('Escape'), mac), 'cancel');
+        assert.equal(captionEditKeyAction(key('Enter', { isComposing: true }), mac), 'none');
+        assert.equal(captionEditKeyAction(key('Enter', { keyCode: 229 }), mac), 'none');
+    }
+    assert.equal(captionEditKeyAction(key('Enter', { metaKey: true }), true), 'commit');
+    assert.equal(captionEditKeyAction(key('Enter', { ctrlKey: true }), false), 'commit');
+    assert.equal(captionEditKeyAction(key('Enter', { ctrlKey: true }), true), 'line-break');
+    assert.equal(captionEditKeyAction(key('Enter', { metaKey: true }), false), 'line-break');
 });
 
 test('editing blocks navigation keys while ordinary timeline focus keeps them', () => {

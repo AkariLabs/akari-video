@@ -115,7 +115,7 @@ export function isImeCompositionKeydown(event: CompositionKeydownLike | null | u
 }
 
 /**
- * Theia forwards an inner webview keydown to the host iframe. Stop only destructive editing keys
+ * Theia forwards an inner webview keydown to the host iframe. Stop editing keys
  * before that bridge; do not preventDefault, so the browser still edits the focused text.
  */
 export function shouldStopEditableDeletionKeydown(
@@ -127,7 +127,8 @@ export function shouldStopEditableDeletionKeydown(
     isEditable: (value: EditableTargetLike | null | undefined) => boolean = isEditableEventTarget
 ): boolean {
     const normalizedKey = key.toLowerCase();
-    const destructive = key === 'Delete' || key === 'Backspace'
-        || ((metaKey || ctrlKey) && normalizedKey === 'x');
-    return destructive && (isEditable(target) || isEditable(activeElement));
+    const editingKey = key === 'Delete' || key === 'Backspace'
+        || key === 'Home' || key === 'End' || key.startsWith('Arrow')
+        || ((metaKey || ctrlKey) && ['a', 'c', 'v', 'x', 'd'].includes(normalizedKey));
+    return editingKey && (isEditable(target) || isEditable(activeElement));
 }

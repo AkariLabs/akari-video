@@ -153,7 +153,7 @@ import {
 import { persistCaptionPlateTransform, captionWrapWidthDrag, captionCornerTransform } from '../common/caption-plate-handles';
 import { captionOrientedFrame, captionWrapAnchorDelta, captionWrapResize, captionEditorLines,
     captionEditorWrapWidth, captionLineCountFromMetrics, captionEditorFitWidth,
-    captionEditorValue, captionEditingNavigationKey } from '../common/caption-edit-geometry';
+    captionEditorValue, captionEditKeyAction, captionEditingNavigationKey } from '../common/caption-edit-geometry';
 import { captionWrapPosition } from '../common/caption-wrap-position';
 import { duplicatePreviewCaptionSource, duplicatePreviewItemSource } from '../common/preview-duplicate-fallback';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
@@ -8251,6 +8251,7 @@ body.akari-caption-transforming #caption-select-box .akari-caption-select-tools 
 .caption-row-plate.akari-caption-host--styled .akari-caption__line, .caption-row-plate.akari-caption-host--styled .akari-caption__block { pointer-events: auto; }
 .caption-row-plate [data-akari-caption-editing="true"], .caption-row-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: none; caret-color: currentColor; }
 .caption-row-plate.akari-caption-host--editing[data-selected], .caption-row-plate.akari-caption-host--editing[data-selected] .akari-caption__plate { outline: none; }
+html.akari-gen-capturing [data-akari-caption-edit-hint] { display: none !important; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
@@ -16208,6 +16209,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionLineCountFromMetricsFn = (${captionLineCountFromMetrics.toString()});
             const captionEditorFitWidthFn = (${captionEditorFitWidth.toString()});
             const captionEditorValueFn = (${captionEditorValue.toString()});
+            const captionEditKeyActionFn = (${captionEditKeyAction.toString()});
             const captionEditingNavigationKeyFn = (${captionEditingNavigationKey.toString()});
             const syncCaptionHandleBox = () => {
                 const box = captionSelectBox.querySelector('.akari-caption-handle-box');
@@ -16687,6 +16689,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 else element.setAttribute(name, value);
             };
             const restoreCaptionEditElement = edit => {
+                edit.hint?.remove();
                 restoreCaptionEditAttribute(edit.element, 'contenteditable', edit.contentEditable);
                 restoreCaptionEditAttribute(edit.element, 'spellcheck', edit.spellcheck);
                 restoreCaptionEditAttribute(edit.element, 'style', edit.style);
@@ -16709,7 +16712,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const commitCaptionEdit = async () => {
                 if (!activeCaptionEdit) return;
                 const edit = activeCaptionEdit;
-                const nextText = captionEditorValueFn(edit.element.innerText || '');
+                const nextText = captionEditorValueFn(edit.element.innerText || '', edit.element.lastChild?.nodeName === 'BR');
                 activeCaptionEdit = null;
                 window.akari.reportCaptionEditFocus?.(false);
                 window.akari.syncRunSelection?.();
@@ -16788,7 +16791,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 // styled 字幕の token/行ラッパーは編集開始時だけプレーンな本文へ畳み、
                 // CSS やアニメーション断片を textContent に混入させない。
                 element.replaceChildren(...captionEditorLinesFn(caption.text || '').flatMap((line, index) =>
-                    index ? [document.createElement('br'), document.createTextNode(line)] : [document.createTextNode(line)]));
+                    index ? line ? [document.createElement('br'), document.createTextNode(line)]
+                        : [document.createElement('br')] : [document.createTextNode(line)]));
                 if (layoutPlate && editorWidth) {
                     element.style.width = editorWidth + 'px';
                     element.style.maxWidth = 'none';
@@ -16804,6 +16808,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 element.style.userSelect = 'text';
                 captionPlate.classList.add('akari-caption-host--editing');
                 element.focus({ preventScroll: true });
+                if (document.body) {
+                    const hint = document.createElement('div');
+                    const mac = /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform);
+                    hint.setAttribute('data-akari-caption-edit-hint', '');
+                    hint.textContent = (mac ? '⌘Enter' : 'Ctrl+Enter') + ' で確定・Esc で取り消し';
+                    const bounds = element.getBoundingClientRect();
+                    Object.assign(hint.style, {
+                        position: 'fixed', left: Math.max(8, bounds.left) + 'px',
+                        top: Math.min(window.innerHeight - 24, bounds.bottom + 44) + 'px',
+                        zIndex: '1000', pointerEvents: 'none', padding: '2px 6px',
+                        borderRadius: '3px', background: 'rgba(0,0,0,.72)', color: '#fff',
+                        font: '11px sans-serif', whiteSpace: 'nowrap'
+                    });
+                    document.body.appendChild(hint);
+                    activeCaptionEdit.hint = hint;
+                }
                 window.akari.reportCaptionEditFocus?.(true);
                 placeCaptionCaretAtEnd(element);
                 window.akari.refreshActiveCaptionRuns?.();
@@ -16822,13 +16842,17 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             }, true);
             captionLayer.addEventListener('keydown', event => {
-                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element || event.isComposing) return;
-                if (event.key === 'Enter') {
-                    if (event.shiftKey) return;
+                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element) return;
+                const action = captionEditKeyActionFn(event, /Mac|iPhone|iPad|iPod/.test(window.navigator?.platform));
+                if (action === 'line-break') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    document.execCommand('insertLineBreak');
+                } else if (action === 'commit') {
                     event.preventDefault();
                     event.stopPropagation();
                     void commitCaptionEdit();
-                } else if (event.key === 'Escape') {
+                } else if (action === 'cancel') {
                     event.preventDefault();
                     event.stopPropagation();
                     cancelCaptionEdit();

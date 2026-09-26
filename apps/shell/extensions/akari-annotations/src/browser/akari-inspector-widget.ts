@@ -195,7 +195,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     getEditValue?: (snapshot: TSnapshot) => string;
     /** フィールドの値型に対応した入力 UI。 */
     inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'slider-number'
-        | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'caption-weight' | 'number' | 'color' | 'text' | 'media';
+        | 'caption-toggle' | 'caption-mode' | 'caption-effect' | 'caption-weight' | 'caption-text' | 'number' | 'color' | 'text' | 'media';
     options?: readonly string[];
     optionTitles?: Readonly<Record<string, string>>;
     scrubStep?: number;
@@ -1368,7 +1368,7 @@ function CAPTION_SECTIONS(
             id: 'content', label: '内容',
             fields: [
                 {
-                    name: 'caption-text', label: 'テキスト',
+                    name: 'caption-text', label: 'テキスト', inputKind: 'caption-text',
                     getValue: () => snapshot.text,
                     write: async (_snapshot, nextValue) => {
                         if (!nextValue.trim()) {
@@ -3409,6 +3409,14 @@ export class AkariInspectorWidget extends BaseWidget {
         border-radius: 2px;
         width: 100%;
         box-sizing: border-box;
+    }
+    .akari-inspector-widget textarea.akari-inspector-row-input {
+        min-height: calc(2 * 1.4em + 6px);
+        max-height: calc(6 * 1.4em + 6px);
+        line-height: 1.4;
+        resize: none;
+        overflow-y: auto;
+        white-space: pre-wrap;
     }
     .akari-inspector-widget .akari-caption-slider-number {
         display: flex;
@@ -7547,7 +7555,7 @@ export class AkariInspectorWidget extends BaseWidget {
             return;
         }
 
-        let input: HTMLInputElement | HTMLSelectElement;
+        let input: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
         if (field.inputKind === 'boolean-select' || field.inputKind === 'select') {
             const select = document.createElement('select');
             select.className = 'akari-inspector-row-input';
@@ -7576,6 +7584,18 @@ export class AkariInspectorWidget extends BaseWidget {
                 ? (editValue === 'true' ? 'true' : 'false')
                 : editValue;
             input = select;
+        } else if (field.inputKind === 'caption-text') {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'akari-inspector-row-input';
+            textarea.rows = 2;
+            textarea.value = editValue;
+            const fit = (): void => {
+                textarea.style.height = 'auto';
+                textarea.style.height = `${textarea.scrollHeight}px`;
+            };
+            textarea.addEventListener('input', fit);
+            requestAnimationFrame(fit);
+            input = textarea;
         } else {
             const textInput = document.createElement('input');
             // seed は空欄 = 未設定を保つため、空を 0 に変換する scrub-number を通さない。
@@ -7606,6 +7626,19 @@ export class AkariInspectorWidget extends BaseWidget {
             });
             input.addEventListener('keydown', event => {
                 const key = (event as KeyboardEvent).key;
+                if (field.inputKind === 'caption-text') {
+                    const keyboard = event as KeyboardEvent;
+                    if (keyboard.isComposing || keyboard.keyCode === 229) return;
+                    if (key === 'Enter' && (navigator.platform.includes('Mac') ? keyboard.metaKey : keyboard.ctrlKey)) {
+                        event.preventDefault();
+                        input.blur();
+                    } else if (key === 'Escape') {
+                        event.preventDefault();
+                        input.value = editValue;
+                        input.blur();
+                    }
+                    return;
+                }
                 if (key === 'Enter') {
                     event.preventDefault();
                     (input as HTMLInputElement).blur();

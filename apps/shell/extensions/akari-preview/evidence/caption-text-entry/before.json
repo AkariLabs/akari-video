@@ -1,0 +1,2449 @@
+{
+  "label": "before",
+  "port": 9625,
+  "pid": 50856,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "outer": {
+    "x": 221.9140625,
+    "y": 39,
+    "w": 404,
+    "h": 359
+  },
+  "windowShot": "before-window.png",
+  "results": {
+    "a": {
+      "rows": [
+        {
+          "name": "enter",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 201.76438903808594,
+              "width": 44.95832824707031,
+              "height": 29.0391845703125,
+              "cx": 188.71918487548828,
+              "cy": 216.2839813232422
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "一行目の字幕\n二行目の字幕X",
+            "block": {
+              "left": 166.2481231689453,
+              "top": 209.35110473632812,
+              "width": 44.94212341308594,
+              "height": 10.380401611328125,
+              "cx": 188.71918487548828,
+              "cy": 214.5413055419922
+            },
+            "selectBox": {
+              "left": 164.1875,
+              "top": 209.34375,
+              "width": 49.0546875,
+              "height": 21.4453125,
+              "cx": 188.71484375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shot": "before-a-enter.png",
+          "fileText": "一行目の字幕\n二行目の字幕X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        },
+        {
+          "name": "shift-enter",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 201.76438903808594,
+              "width": 44.95832824707031,
+              "height": 29.0391845703125,
+              "cx": 188.71918487548828,
+              "cy": 216.2839813232422
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X\n\n",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X\n\n",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X\n\n",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 192.43499755859375,
+              "width": 44.95832824707031,
+              "height": 38.36857604980469,
+              "cx": 188.71918487548828,
+              "cy": 211.6192855834961
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shot": "before-a-shift-enter.png",
+          "afterY": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X\nY",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X\nY",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X\nY",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 192.43499755859375,
+              "width": 44.95832824707031,
+              "height": 38.36857604980469,
+              "cx": 188.71918487548828,
+              "cy": 211.6192855834961
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "fileText": "一行目の字幕\n二行目の字幕",
+          "writeEvents": []
+        },
+        {
+          "name": "ctrl-enter",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 201.76438903808594,
+              "width": 44.95832824707031,
+              "height": 29.0391845703125,
+              "cx": 188.71918487548828,
+              "cy": 216.2839813232422
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shotEditing": "before-a-editing-hint.png",
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "一行目の字幕\n二行目の字幕X",
+            "block": {
+              "left": 166.2481231689453,
+              "top": 209.35110473632812,
+              "width": 44.94212341308594,
+              "height": 10.380401611328125,
+              "cx": 188.71918487548828,
+              "cy": 214.5413055419922
+            },
+            "selectBox": {
+              "left": 164.1875,
+              "top": 209.34375,
+              "width": 49.0546875,
+              "height": 21.4453125,
+              "cx": 188.71484375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shot": "before-a-ctrl-enter.png",
+          "fileText": "一行目の字幕\n二行目の字幕X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        },
+        {
+          "name": "meta-enter",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 201.76438903808594,
+              "width": 44.95832824707031,
+              "height": 29.0391845703125,
+              "cx": 188.71918487548828,
+              "cy": 216.2839813232422
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shotEditing": "before-a-editing-hint.png",
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "一行目の字幕\n二行目の字幕X",
+            "block": {
+              "left": 166.2481231689453,
+              "top": 209.35110473632812,
+              "width": 44.94212341308594,
+              "height": 10.380401611328125,
+              "cx": 188.71918487548828,
+              "cy": 214.5413055419922
+            },
+            "selectBox": {
+              "left": 164.1875,
+              "top": 209.34375,
+              "width": 49.0546875,
+              "height": 21.4453125,
+              "cx": 188.71484375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shot": "before-a-meta-enter.png",
+          "fileText": "一行目の字幕\n二行目の字幕X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        },
+        {
+          "name": "escape",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 201.76438903808594,
+              "width": 44.95832824707031,
+              "height": 29.0391845703125,
+              "cx": 188.71918487548828,
+              "cy": 216.2839813232422
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "一行目の字幕\n二行目の字幕",
+            "block": {
+              "left": 166.2481231689453,
+              "top": 209.35110473632812,
+              "width": 44.94212341308594,
+              "height": 10.380401611328125,
+              "cx": 188.71918487548828,
+              "cy": 214.5413055419922
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shot": "before-a-escape.png",
+          "fileText": "一行目の字幕\n二行目の字幕",
+          "writeEvents": []
+        },
+        {
+          "name": "outside-click",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕X",
+            "editorHtml": "一行目の字幕<br>二行目の字幕X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕X",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 201.76438903808594,
+              "width": 44.95832824707031,
+              "height": 29.0391845703125,
+              "cx": 188.71918487548828,
+              "cy": 216.2839813232422
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "一行目の字幕\n二行目の字幕X",
+            "block": {
+              "left": 166.2481231689453,
+              "top": 209.35110473632812,
+              "width": 44.94212341308594,
+              "height": 10.380401611328125,
+              "cx": 188.71918487548828,
+              "cy": 214.5413055419922
+            },
+            "selectBox": {
+              "left": 164.1875,
+              "top": 209.34375,
+              "width": 49.0546875,
+              "height": 21.4453125,
+              "cx": 188.71484375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "shot": "before-a-outside-click.png",
+          "fileText": "一行目の字幕\n二行目の字幕X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        }
+      ],
+      "writeEvents": [
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json"
+      ]
+    },
+    "b": {
+      "rows": [
+        {
+          "name": "backspace-line-start",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [],
+          "shot": "before-b-backspace-line-start.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "backspace-after-newline",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕二行目の字幕",
+            "editorHtml": "一行目の字幕二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [],
+          "shot": "before-b-backspace-after-newline.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "delete-end",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [],
+          "shot": "before-b-delete-end.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "select-all-backspace",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "\n",
+            "editorHtml": "<br>",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 220.4231719970703,
+              "width": 44.95832824707031,
+              "height": 10.380401611328125,
+              "cx": 188.71918487548828,
+              "cy": 225.61337280273438
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [],
+          "shot": "before-b-select-all-backspace.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "meta-a",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [
+            {
+              "type": "keydown",
+              "key": "a",
+              "meta": true,
+              "ctrl": false,
+              "trusted": false,
+              "target": "IFRAME.webview"
+            }
+          ],
+          "shot": "before-b-meta-a.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "meta-c",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [
+            {
+              "type": "keydown",
+              "key": "c",
+              "meta": true,
+              "ctrl": false,
+              "trusted": false,
+              "target": "IFRAME.webview"
+            }
+          ],
+          "shot": "before-b-meta-c.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "clipboard": "一行目の字幕\n二行目の字幕",
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "meta-x",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "\n",
+            "editorHtml": "<br>",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 220.4231719970703,
+              "width": 44.95832824707031,
+              "height": 10.380401611328125,
+              "cx": 188.71918487548828,
+              "cy": 225.61337280273438
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [],
+          "shot": "before-b-meta-x.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "clipboard": "一行目の字幕\n二行目の字幕",
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "meta-v",
+          "clipboardBefore": "{\n  \"kind\": \"akari-video/edit-item\",\n  \"version\": 1,\n  \"fps\": 30,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080\n  ",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": false,
+            "hostText": "一行目の字幕\n二行目の字幕{\n  \"kind\": \n\"akari-video/edit-it\nem\",\n  \"version\": 1,\n  \"fps\": 30,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080\n  },\n  \"item\": {\n    \"id\": \"box-a\",\n    \"at\": 0,\n    \"duration\": 360,\n    \"transform\": {\n      \"x\": 1500,\n      \"y\": 260\n    },\n    \"source\": {\n      \"kind\": \n\"shape\",\n      \"shape\": \n\"rect\",\n      \"params\": {\n        \"width\": \n240,\n        \"height\": \n160,\n        \"fill\": \n\"#3b82f6\"\n      }\n    }\n  },\n  \"sources\": []\n}",
+            "block": {
+              "left": 166.2481231689453,
+              "top": -167.0992889404297,
+              "width": 44.94212341308594,
+              "height": 10.380416870117188,
+              "cx": 188.71918487548828,
+              "cy": -161.9090805053711
+            },
+            "selectBox": null,
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [
+            {
+              "type": "keydown",
+              "key": "v",
+              "meta": true,
+              "ctrl": false,
+              "trusted": false,
+              "target": "IFRAME.webview"
+            }
+          ],
+          "shot": "before-b-meta-v.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕{\n  \"kind\": \"akari-video/edit-item\",\n  \"version\": 1,\n  \"fps\": 30,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080\n  },\n  \"item\": {\n    \"id\": \"box-a\",\n    \"at\": 0,\n    \"duration\": 360,\n    \"transform\": {\n      \"x\": 1500,\n      \"y\": 260\n    },\n    \"source\": {\n      \"kind\": \"shape\",\n      \"shape\": \"rect\",\n      \"params\": {\n        \"width\": 240,\n        \"height\": 160,\n        \"fill\": \"#3b82f6\"\n      }\n    }\n  },\n  \"sources\": []\n}"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 5,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions",
+              "box-a-copy-1"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 1,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "timeline:overlay:box-a-copy-1",
+            "tab:inspector-video"
+          ],
+          "writeEvents": [
+            "edit.json",
+            "captions.json"
+          ]
+        },
+        {
+          "name": "meta-d",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [
+            {
+              "type": "keydown",
+              "key": "d",
+              "meta": true,
+              "ctrl": false,
+              "trusted": false,
+              "target": "IFRAME.webview"
+            }
+          ],
+          "shot": "before-b-meta-d.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        },
+        {
+          "name": "arrow-left",
+          "start": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "after": {
+            "editing": true,
+            "editorText": "一行目の字幕\n二行目の字幕",
+            "editorHtml": "一行目の字幕<br>二行目の字幕",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "一行目の字幕二行目の字幕",
+            "block": {
+              "left": 166.24002075195312,
+              "top": 211.09378051757812,
+              "width": 44.95832824707031,
+              "height": 19.709793090820312,
+              "cx": 188.71918487548828,
+              "cy": 220.94867706298828
+            },
+            "selectBox": {
+              "left": 166.2421875,
+              "top": 209.34375,
+              "width": 44.9375,
+              "height": 21.4453125,
+              "cx": 188.7109375,
+              "cy": 220.06640625
+            },
+            "hint": [],
+            "seek": 1
+          },
+          "seekDelta": 0,
+          "hostKeys": [],
+          "shot": "before-b-arrow-left.png",
+          "files": {
+            "captions": [
+              {
+                "id": "c-0001",
+                "text": "一行目の字幕\n二行目の字幕"
+              },
+              {
+                "id": "c-0002",
+                "text": "一行だけの字幕"
+              },
+              {
+                "id": "c-0101",
+                "text": "置いた文字"
+              }
+            ],
+            "itemCount": 4,
+            "items": [
+              "cut-1",
+              "box-a",
+              "ov-plain",
+              "captions"
+            ],
+            "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+          },
+          "itemCountDelta": 0,
+          "captionCountDelta": 0,
+          "hostSelected": [
+            "素材",
+            "プロジェクト",
+            "一行目の字幕\n二行目の字幕",
+            "tab:inspector-text"
+          ],
+          "writeEvents": []
+        }
+      ],
+      "writeEvents": [
+        "edit.json",
+        "captions.json",
+        "edit.json",
+        "captions.json"
+      ]
+    },
+    "c": {
+      "start": {
+        "editing": true,
+        "editorText": "一行目の字幕\n二行目の字幕",
+        "editorHtml": "一行目の字幕<br>二行目の字幕",
+        "activeIsEditor": true,
+        "selected": true,
+        "hostText": "一行目の字幕二行目の字幕",
+        "block": {
+          "left": 166.24002075195312,
+          "top": 211.09378051757812,
+          "width": 44.95832824707031,
+          "height": 19.709793090820312,
+          "cx": 188.71918487548828,
+          "cy": 220.94867706298828
+        },
+        "selectBox": {
+          "left": 166.2421875,
+          "top": 209.34375,
+          "width": 44.9375,
+          "height": 21.4453125,
+          "cx": 188.7109375,
+          "cy": 220.06640625
+        },
+        "hint": [],
+        "seek": 1
+      },
+      "afterEnter": {
+        "editing": false,
+        "editorText": null,
+        "editorHtml": null,
+        "activeIsEditor": false,
+        "selected": true,
+        "hostText": "一行目の字幕\n二行目の字幕",
+        "block": {
+          "left": 166.2481231689453,
+          "top": 209.35110473632812,
+          "width": 44.94212341308594,
+          "height": 10.380401611328125,
+          "cx": 188.71918487548828,
+          "cy": 214.5413055419922
+        },
+        "selectBox": {
+          "left": 166.2421875,
+          "top": 209.34375,
+          "width": 44.9375,
+          "height": 21.4453125,
+          "cx": 188.7109375,
+          "cy": 220.06640625
+        },
+        "hint": [],
+        "seek": 1
+      },
+      "shotAfterEnter": "before-c-after-enter.png",
+      "afterBackspace": {
+        "editing": false,
+        "editorText": null,
+        "editorHtml": null,
+        "activeIsEditor": false,
+        "selected": true,
+        "hostText": "一行目の字幕\n二行目の字幕X",
+        "block": {
+          "left": 166.2481231689453,
+          "top": 209.35110473632812,
+          "width": 44.94212341308594,
+          "height": 10.380401611328125,
+          "cx": 188.71918487548828,
+          "cy": 214.5413055419922
+        },
+        "selectBox": {
+          "left": 164.1875,
+          "top": 209.34375,
+          "width": 49.0546875,
+          "height": 21.4453125,
+          "cx": 188.71484375,
+          "cy": 220.06640625
+        },
+        "hint": [],
+        "seek": 1
+      },
+      "hostKeys": [
+        {
+          "type": "keydown",
+          "key": "Backspace",
+          "meta": false,
+          "ctrl": false,
+          "trusted": false,
+          "target": "IFRAME.webview"
+        }
+      ],
+      "shot": "before-c-after-backspace.png",
+      "files": {
+        "captions": [
+          {
+            "id": "c-0002",
+            "text": "一行だけの字幕"
+          },
+          {
+            "id": "c-0101",
+            "text": "置いた文字"
+          }
+        ],
+        "itemCount": 4,
+        "items": [
+          "cut-1",
+          "box-a",
+          "ov-plain",
+          "captions"
+        ],
+        "overlayHtml": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>"
+      },
+      "captionCountDelta": -1,
+      "itemCountDelta": 0,
+      "writeEvents": [
+        "captions.json",
+        "captions.json"
+      ]
+    },
+    "d": {
+      "field": {
+        "found": true,
+        "tag": "INPUT",
+        "type": "text",
+        "value": "一行目の字幕二行目の字幕",
+        "rows": null,
+        "x": 722,
+        "y": 307.5,
+        "w": 318,
+        "h": 24,
+        "lineHeight": "18px",
+        "overflowY": "clip"
+      },
+      "shotSelected": "before-d-inspector-selected.png",
+      "focused": {
+        "tag": "INPUT",
+        "value": "一行目の字幕二行目の字幕"
+      },
+      "shotFocused": "before-d-inspector-focused.png",
+      "afterBlurActive": "BODY",
+      "writeEventsBlur": [
+        "captions.json"
+      ],
+      "textBefore": "一行目の字幕\n二行目の字幕",
+      "textAfter": "一行目の字幕二行目の字幕",
+      "fileChanged": true,
+      "shot": "before-d-inspector-after-blur.png",
+      "writeEvents": [
+        "captions.json"
+      ]
+    },
+    "e-placed": {
+      "rows": [
+        {
+          "name": "enter",
+          "start": {
+            "editing": true,
+            "editorText": "置いた文字",
+            "editorHtml": "置いた文字",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 38.38751220703125,
+              "height": 10.380401611328125,
+              "cx": 204.59375,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "置いた文字X",
+            "editorHtml": "置いた文字X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 131.30760192871094,
+              "width": 38.38751220703125,
+              "height": 19.709793090820312,
+              "cx": 204.59375,
+              "cy": 141.1624984741211
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 42.48887634277344,
+              "height": 10.380401611328125,
+              "cx": 206.6444320678711,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 42.484375,
+              "height": 10.375,
+              "cx": 206.640625,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shot": "before-e-placed-enter.png",
+          "fileText": "置いた文字X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        },
+        {
+          "name": "shift-enter",
+          "start": {
+            "editing": true,
+            "editorText": "置いた文字",
+            "editorHtml": "置いた文字",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 38.38751220703125,
+              "height": 10.380401611328125,
+              "cx": 204.59375,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "置いた文字X",
+            "editorHtml": "置いた文字X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 131.30760192871094,
+              "width": 38.38751220703125,
+              "height": 19.709793090820312,
+              "cx": 204.59375,
+              "cy": 141.1624984741211
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "after": {
+            "editing": true,
+            "editorText": "置いた文字X\n\n",
+            "editorHtml": "置いた文字X\n\n",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X\n\n",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 126.64290618896484,
+              "width": 38.38751220703125,
+              "height": 29.03919219970703,
+              "cx": 204.59375,
+              "cy": 141.16250228881836
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shot": "before-e-placed-shift-enter.png",
+          "afterY": {
+            "editing": true,
+            "editorText": "置いた文字X\nY",
+            "editorHtml": "置いた文字X\nY",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X\nY",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 126.64290618896484,
+              "width": 38.38751220703125,
+              "height": 29.03919219970703,
+              "cx": 204.59375,
+              "cy": 141.16250228881836
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "fileText": "置いた文字",
+          "writeEvents": []
+        },
+        {
+          "name": "ctrl-enter",
+          "start": {
+            "editing": true,
+            "editorText": "置いた文字",
+            "editorHtml": "置いた文字",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 38.38751220703125,
+              "height": 10.380401611328125,
+              "cx": 204.59375,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "置いた文字X",
+            "editorHtml": "置いた文字X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 131.30760192871094,
+              "width": 38.38751220703125,
+              "height": 19.709793090820312,
+              "cx": 204.59375,
+              "cy": 141.1624984741211
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shotEditing": "before-e-placed-editing-hint.png",
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 42.48887634277344,
+              "height": 10.380401611328125,
+              "cx": 206.6444320678711,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 42.484375,
+              "height": 10.375,
+              "cx": 206.640625,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shot": "before-e-placed-ctrl-enter.png",
+          "fileText": "置いた文字X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        },
+        {
+          "name": "meta-enter",
+          "start": {
+            "editing": true,
+            "editorText": "置いた文字",
+            "editorHtml": "置いた文字",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 38.38751220703125,
+              "height": 10.380401611328125,
+              "cx": 204.59375,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "置いた文字X",
+            "editorHtml": "置いた文字X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 131.30760192871094,
+              "width": 38.38751220703125,
+              "height": 19.709793090820312,
+              "cx": 204.59375,
+              "cy": 141.1624984741211
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shotEditing": "before-e-placed-editing-hint.png",
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 42.48887634277344,
+              "height": 10.380401611328125,
+              "cx": 206.6444320678711,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 42.484375,
+              "height": 10.375,
+              "cx": 206.640625,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shot": "before-e-placed-meta-enter.png",
+          "fileText": "置いた文字X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        },
+        {
+          "name": "escape",
+          "start": {
+            "editing": true,
+            "editorText": "置いた文字",
+            "editorHtml": "置いた文字",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 38.38751220703125,
+              "height": 10.380401611328125,
+              "cx": 204.59375,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "置いた文字X",
+            "editorHtml": "置いた文字X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 131.30760192871094,
+              "width": 38.38751220703125,
+              "height": 19.709793090820312,
+              "cx": 204.59375,
+              "cy": 141.1624984741211
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "置いた文字",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 38.37129211425781,
+              "height": 10.380401611328125,
+              "cx": 204.58563995361328,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shot": "before-e-placed-escape.png",
+          "fileText": "置いた文字",
+          "writeEvents": []
+        },
+        {
+          "name": "outside-click",
+          "start": {
+            "editing": true,
+            "editorText": "置いた文字",
+            "editorHtml": "置いた文字",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 38.38751220703125,
+              "height": 10.380401611328125,
+              "cx": 204.59375,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "置いた文字X",
+            "editorHtml": "置いた文字X",
+            "activeIsEditor": true,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 131.30760192871094,
+              "width": 38.38751220703125,
+              "height": 19.709793090820312,
+              "cx": 204.59375,
+              "cy": 141.1624984741211
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 38.3671875,
+              "height": 10.375,
+              "cx": 204.58203125,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "activeIsEditor": false,
+            "selected": true,
+            "hostText": "置いた文字X",
+            "block": {
+              "left": 185.39999389648438,
+              "top": 135.9722900390625,
+              "width": 42.48887634277344,
+              "height": 10.380401611328125,
+              "cx": 206.6444320678711,
+              "cy": 141.16249084472656
+            },
+            "selectBox": {
+              "left": 185.3984375,
+              "top": 135.96875,
+              "width": 42.484375,
+              "height": 10.375,
+              "cx": 206.640625,
+              "cy": 141.15625
+            },
+            "hint": [],
+            "seek": 9
+          },
+          "shot": "before-e-placed-outside-click.png",
+          "fileText": "置いた文字X",
+          "writeEvents": [
+            "captions.json"
+          ]
+        }
+      ],
+      "writeEvents": [
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json",
+        "captions.json"
+      ]
+    },
+    "e-overlay": {
+      "rows": [
+        {
+          "name": "enter",
+          "start": {
+            "editing": true,
+            "editorText": "断片の文字",
+            "editorHtml": "断片の文字",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 55.333335876464844,
+              "height": 16.599998474121094,
+              "cx": 84.41666793823242,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字",
+            "selected": "true"
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "断片の文字X",
+            "editorHtml": "断片の文字X",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 63.323974609375,
+              "height": 16.599998474121094,
+              "cx": 88.4119873046875,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字X",
+            "selected": "true"
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 63.323974609375,
+              "height": 16.599998474121094,
+              "cx": 88.4119873046875,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字X",
+            "selected": "true"
+          },
+          "shot": "before-e-overlay-enter.png",
+          "files": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字X</div>",
+          "writeEvents": []
+        },
+        {
+          "name": "shift-enter",
+          "start": {
+            "editing": true,
+            "editorText": "断片の文字",
+            "editorHtml": "断片の文字",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 55.333335876464844,
+              "height": 16.599998474121094,
+              "cx": 84.41666793823242,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字",
+            "selected": "true"
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "断片の文字X",
+            "editorHtml": "断片の文字X",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 63.323974609375,
+              "height": 16.599998474121094,
+              "cx": 88.4119873046875,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字X",
+            "selected": "true"
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 63.323974609375,
+              "height": 16.599998474121094,
+              "cx": 88.4119873046875,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字X",
+            "selected": "true"
+          },
+          "shot": "before-e-overlay-shift-enter.png",
+          "files": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字X</div>",
+          "writeEvents": []
+        },
+        {
+          "name": "meta-enter",
+          "start": {
+            "editing": true,
+            "editorText": "断片の文字",
+            "editorHtml": "断片の文字",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 55.333335876464844,
+              "height": 16.599998474121094,
+              "cx": 84.41666793823242,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字",
+            "selected": "true"
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "断片の文字X",
+            "editorHtml": "断片の文字X",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 63.323974609375,
+              "height": 16.599998474121094,
+              "cx": 88.4119873046875,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字X",
+            "selected": "true"
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 63.323974609375,
+              "height": 16.599998474121094,
+              "cx": 88.4119873046875,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字X",
+            "selected": "true"
+          },
+          "shot": "before-e-overlay-meta-enter.png",
+          "files": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字X</div>",
+          "writeEvents": []
+        },
+        {
+          "name": "escape",
+          "start": {
+            "editing": true,
+            "editorText": "断片の文字",
+            "editorHtml": "断片の文字",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 55.333335876464844,
+              "height": 16.599998474121094,
+              "cx": 84.41666793823242,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字",
+            "selected": "true"
+          },
+          "typed": {
+            "editing": true,
+            "editorText": "断片の文字X",
+            "editorHtml": "断片の文字X",
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 63.323974609375,
+              "height": 16.599998474121094,
+              "cx": 88.4119873046875,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字X",
+            "selected": "true"
+          },
+          "after": {
+            "editing": false,
+            "editorText": null,
+            "editorHtml": null,
+            "textRect": {
+              "left": 56.75,
+              "top": 72.6875,
+              "width": 55.333335876464844,
+              "height": 16.599998474121094,
+              "cx": 84.41666793823242,
+              "cy": 80.98749923706055
+            },
+            "text": "断片の文字",
+            "selected": "true"
+          },
+          "shot": "before-e-overlay-escape.png",
+          "files": "<div style=\"position:absolute;left:120px;top:90px;color:#fff;font:64px sans-serif;white-space:pre\">断片の文字</div>",
+          "writeEvents": []
+        }
+      ],
+      "writeEvents": []
+    }
+  },
+  "allConsoleErrors": [
+    "Error: 複製する要素が見つかりません: c-0001\n    at q2c (file://<repo>/apps/shell/lib/frontend/bundle.js:17130:2168)\n    at file://<repo>/apps/shell/lib/frontend/bundle.js:17130:18945\n    at c3n.performEditMutation (file://<repo>/apps/shell/"
+  ],
+  "note_d": "d は欄の引き当てを直して別起動で再測定"
+}
