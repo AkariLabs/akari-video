@@ -25869,7 +25869,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
   };
 }
 function isLayerActiveAt(layer, timeUs, fps) {
-  const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
+  const frame = Math.floor(timeUs / 1e6 * fps + fps * 1e-6);
   const startFrame = Math.max(0, Math.ceil(finite3(layer.t, 0) * fps - 1e-6));
   const endFrame = Math.max(startFrame, Math.ceil((finite3(layer.t, 0) + Math.max(0, finite3(layer.duration, 0))) * fps - 1e-6));
   return frame >= startFrame && frame < endFrame;
