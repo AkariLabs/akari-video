@@ -36,6 +36,13 @@ const PORTRAIT_MAX_CHARACTERS = 10;
 const PORTRAIT_FONT_SIZE_RATIO = 0.06;
 const DEFAULT_FONT_SIZE_PX = 38;
 
+function captionPlateMarginVars(style) {
+  if (Number.isFinite(style?.position?.x)) return { '--caption-plate-margin': '0' };
+  if (style?.text_anchor?.[1] === 'l') return { '--caption-plate-margin': '0 auto' };
+  if (style?.text_anchor?.[1] === 'r') return { '--caption-plate-margin': 'auto 0' };
+  return {};
+}
+
 // 焼き込みキャプションのフォント固定（win2-fonts-wire）。CI/Docker 等 Hiragino も Noto CJK も
 // 無い/バージョン違いの環境でも同一グリフでレンダリングされるよう、同梱済み Noto Sans JP
 // （win2-fonts-assets、assets/font/noto-sans-jp/、可変フォント 1 本）を @font-face で固定する。
@@ -224,6 +231,12 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       );
     }
     for (const [index, range] of ranges.entries()) {
+      const runs = Array.isArray(caption.runs)
+        ? typeof caption.runSourceText === "string"
+          ? sliceCaptionRuns(caption.runSourceText, caption.runs, caption.runTextStart, caption.runTextEnd)
+          : caption.runs
+        : undefined;
+      const sizeToInk = runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
       const words = style || emphasisWords.length > 0
         ? clipWordsToRange(projectedCaption.words, range.sourceStart, range.sourceEnd)
         : [];
@@ -248,6 +261,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               textStyleActive: textStyle !== null,
               backgroundMode: textStyle?.background?.mode,
               backgroundFit: textStyle?.background?.fit,
+              wrapWidth: textStyle?.wrap_width_pct,
+              sizeToInk,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
               animator: caption.animator,
@@ -259,15 +274,14 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               textStyleActive: textStyle !== null,
               backgroundMode: textStyle?.background?.mode,
               backgroundFit: textStyle?.background?.fit,
+              wrapWidth: textStyle?.wrap_width_pct,
+              sizeToInk,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
               animator: caption.animator,
               words: allWords,
             });
-      if (Array.isArray(caption.runs) && caption.runs.length > 0) {
-        const runs = typeof caption.runSourceText === "string"
-          ? sliceCaptionRuns(caption.runSourceText, caption.runs, caption.runTextStart, caption.runTextEnd)
-          : caption.runs;
+      if (runs?.length) {
         html = applyCaptionRunsToHtml(html, displayText, runs);
       }
       overlays.push({
@@ -276,7 +290,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         start: range.start,
         duration: range.duration,
         transform: captionTransform(),
-        vars: { ...textStyleVars, ...captionTransformVars(textStyle) },
+        vars: { ...textStyleVars, ...(sizeToInk ? captionPlateMarginVars(textStyle) : {}), ...captionTransformVars(textStyle) },
         generatedFrom: caption.id,
       });
     }
@@ -296,7 +310,8 @@ export function generateResolvedCaptionOverlays(displayResult) {
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
-    vars: { ...(cue.style_vars ?? {}), ...captionTransformVars(cue.text_style) },
+    vars: { ...(cue.style_vars ?? {}), ...(cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+      ? captionPlateMarginVars(cue.text_style) : {}), ...captionTransformVars(cue.text_style) },
     generatedFrom: cue.source_cue_id,
     sourceCueId: cue.source_cue_id,
     displayCue: cue,
@@ -322,6 +337,7 @@ function finiteNumber(value) {
 }
 
 export function renderResolvedSingleLineCaption(text, lines, cue) {
+  const sizeToInk = cue?.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
   const renderedText = hasWordStyles
@@ -333,6 +349,10 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
   const framePlateCss = cue?.style_vars?.['--caption-plate-fit'] === 'frame'
     ? `    .akari-caption--single-line .akari-caption__plate { left: 4%; right: 4%; width: auto; box-sizing: border-box; }
     .akari-caption--single-line .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; margin: 0; background: var(--plate-bg, var(--plate-ext-bg, transparent)); border-radius: var(--plate-radius, var(--plate-ext-radius, 0)); }
+` : '';
+  const wrapCss = sizeToInk && cue?.style_vars?.['--caption-wrap-width']
+    ? `    .akari-caption--single-line .akari-caption__plate { width: var(--caption-wrap-width); }
+    .akari-caption--single-line .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }
 ` : '';
   return `<div class="akari-caption akari-caption--single-line">
   <style>
@@ -365,8 +385,8 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
       left:var(--caption-left,0);
       right:var(--caption-right,0);
       bottom:var(--caption-bottom,7%);
-      width:var(--caption-width,auto);
-      max-width:100%;
+      width:var(--caption-width,${sizeToInk ? 'max-content' : 'auto'});
+${sizeToInk ? '      margin-inline:var(--caption-plate-margin,auto);\n' : ''}      max-width:${sizeToInk ? 'none' : '100%'};
       display:flex;
       flex-direction:column;
       justify-content:var(--caption-justify-content,flex-start);
@@ -391,7 +411,7 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
       animation:none;
       transform:none;
     }
-${wordPresetCss}${framePlateCss}  </style>
+${wordPresetCss}${wrapCss}${framePlateCss}  </style>
   <div class="akari-caption__plate"><p class="akari-caption__line">${renderedText}</p></div>
 </div>`;
 }
@@ -726,6 +746,7 @@ function isValidWord(word) {
 export function renderCaptionFragment(text, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
   const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
+  const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
       translate: var(--caption-translate, none);
@@ -739,9 +760,9 @@ export function renderCaptionFragment(text, options = {}) {
 `
     : "";
   const linePlacementCss = options.textStyleActive
-    ? `      max-width: var(--caption-line-max-width, 92%);
+    ? `      max-width: var(--caption-line-max-width, ${lineMaxWidth});
       margin: var(--caption-line-margin, 0 auto);`
-    : `      max-width: 92%;
+    : `      max-width: ${lineMaxWidth};
       margin: 0 auto;`;
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
@@ -786,7 +807,7 @@ export function renderCaptionFragment(text, options = {}) {
       display: flex;
       flex-direction: column;
       width: max-content;
-      max-width: var(--caption-line-max-width, 92%);
+      max-width: var(--caption-line-max-width, ${lineMaxWidth});
       margin: var(--caption-line-margin, 0 auto);
       gap: var(--plate-gap, 4px);
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
@@ -828,6 +849,16 @@ export function renderCaptionFragment(text, options = {}) {
     .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }`
     : "";
 
+  const wrapCss = options.sizeToInk && options.wrapWidth
+    ? `
+    .akari-caption__plate { width: var(--caption-wrap-width); }
+    .akari-caption__line, .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }`
+    : "";
+  const sizedPlateCss = options.sizeToInk
+    ? `
+    .akari-caption__plate { width: var(--caption-width, max-content); margin-inline: var(--caption-plate-margin, auto); }`
+    : "";
+
   return `<div class="akari-caption">
   <style>
     ${fontFaceCss}
@@ -863,7 +894,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${framePlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
       to { opacity: 1; transform: translateY(0); }
@@ -885,6 +916,7 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${framePlateCss}
 export function renderStyledCaptionFragment(words, style, options = {}) {
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
   const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
+  const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
       translate: var(--caption-translate, none);
@@ -898,9 +930,9 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
 `
     : "";
   const linePlacementCss = options.textStyleActive
-    ? `      max-width: var(--caption-line-max-width, 92%);
+    ? `      max-width: var(--caption-line-max-width, ${lineMaxWidth});
       margin: var(--caption-line-margin, 0 auto);`
-    : `      max-width: 92%;
+    : `      max-width: ${lineMaxWidth};
       margin: 0 auto;`;
   const lineTextAlignCss = options.textStyleActive
     ? "      text-align: var(--caption-text-align, center);\n"
@@ -975,7 +1007,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
       display: flex;
       flex-direction: column;
       width: max-content;
-      max-width: var(--caption-line-max-width, 92%);
+      max-width: var(--caption-line-max-width, ${lineMaxWidth});
       margin: var(--caption-line-margin, 0 auto);
       gap: var(--plate-gap, 4px);
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
@@ -1018,6 +1050,15 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     : "";
 
   const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
+  const wrapCss = options.sizeToInk && options.wrapWidth
+    ? `
+    .akari-caption__plate { width: var(--caption-wrap-width); }
+    .akari-caption__line, .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }`
+    : "";
+  const sizedPlateCss = options.sizeToInk
+    ? `
+    .akari-caption__plate { width: var(--caption-width, max-content); margin-inline: var(--caption-plate-margin, auto); }`
+    : "";
   const revealWordCss = effectiveStyle === REVEAL_WORD_STYLE ? renderRevealWordCss() : "";
   const revealCss = effectiveStyle === REVEAL_STYLE ? renderRevealCss() : "";
 
@@ -1056,7 +1097,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${framePlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}
     .akari-caption__tok {
       display: inline-block;
       vertical-align: baseline;

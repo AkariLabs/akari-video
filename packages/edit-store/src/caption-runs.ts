@@ -254,6 +254,7 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
     const segment = (value: string): string[] => Array.from(
         new Segmenter(undefined, { granularity: 'grapheme' }).segment(value), item => item.segment);
     const chars = segment(displayText);
+    const defaultStroke = html.includes('akari-caption--single-line') ? '0 transparent' : '0.14em rgba(0,0,0,.9)';
     if (!runs.some(run => Number.isInteger(run?.from) && Number.isInteger(run?.to)
         && run.from >= 0 && run.to <= chars.length && run.from < run.to)) return html;
     const resolved = chars.map((value, index) => ({ text: value, index, style: {} as Record<string, unknown>, role: '' }));
@@ -281,9 +282,18 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
             }
             const style = item.style;
             const css: string[] = ['display:inline-block', 'vertical-align:baseline', 'line-height:1'];
+            const scale = typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale > 0
+                ? style.scale : 1;
+            if (scale !== 1) css.push(`font-size:${scale}em`);
+            // Re-resolve em values on the run: inherited computed lengths stay at the parent's px size.
+            if (typeof style.letter_spacing_em === 'number' && Number.isFinite(style.letter_spacing_em)) {
+                css.push(`letter-spacing:${style.letter_spacing_em}em`);
+            } else if (scale !== 1) {
+                css.push('letter-spacing:var(--caption-letter-spacing,normal)');
+            }
+            if (scale !== 1) css.push(`-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,${defaultStroke}))`);
             if (typeof style.color === 'string' && /^#(?:[\da-fA-F]{3}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(style.color)) css.push(`color:${style.color}`);
             if (Number.isInteger(style.font_weight) && (style.font_weight as number) >= 1 && (style.font_weight as number) <= 1000) css.push(`font-weight:${style.font_weight}`);
-            if (typeof style.letter_spacing_em === 'number' && Number.isFinite(style.letter_spacing_em)) css.push(`letter-spacing:${style.letter_spacing_em}em`);
             if (style.italic === true) css.push('font-style:italic');
             if (style.underline === true) css.push('text-decoration:underline');
             const stroke = style.stroke as { color?: string; width_px?: number } | undefined;
@@ -295,9 +305,9 @@ export function applyCaptionRunsToHtml(html: string, displayText: string, runs?:
                 ? style.baseline_shift_em : 0;
             const rotate = typeof style.rotate_deg === 'number' && Number.isFinite(style.rotate_deg)
                 ? style.rotate_deg : 0;
-            const scale = typeof style.scale === 'number' && Number.isFinite(style.scale) && style.scale > 0
-                ? style.scale : 1;
-            if (shift || rotate || scale !== 1) css.push(`transform:translateY(${shift}em) rotate(${rotate}deg) scale(${scale})`);
+            if (shift || rotate) css.push(scale === 1
+                ? `transform:translateY(${shift}em) rotate(${rotate}deg) scale(1)`
+                : `transform:translateY(${shift / scale}em) rotate(${rotate}deg)`);
             return `<span class="akari-caption__run"${item.role ? ` data-role="${escape(item.role)}"` : ''} style="${css.join(';')}">${escape(character)}</span>`;
         }).join('');
     };

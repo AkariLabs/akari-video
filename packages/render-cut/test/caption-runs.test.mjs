@@ -20,7 +20,8 @@ test('resolved caption wraps a run across lines and retains text style', () => {
   assert.equal((html.match(/data-role="emphasis"/g) ?? []).length, 2);
   assert.match(html, /color:#ff5a5f/);
   assert.match(html, /font-weight:900/);
-  assert.match(html, /translateY\(-0.1em\) rotate\(8deg\) scale\(1.3\)/);
+  assert.match(html, /font-size:1.3em/);
+  assert.match(html, /translateY\(-0.07692307692307693em\) rotate\(8deg\)/);
 });
 
 test('legacy fragments project a run to both windows', () => {

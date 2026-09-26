@@ -1,0 +1,345 @@
+[
+  {
+    "key": "a",
+    "label": "(a) 話した言葉「今日はいい天気」の「いい」",
+    "t": 1.8,
+    "preview": {
+      "left": 507,
+      "right": 769,
+      "top": 616,
+      "bottom": 658,
+      "width": 262,
+      "height": 42,
+      "count": 3440,
+      "blobs": 6,
+      "gaps": [
+        7,
+        9,
+        4,
+        4,
+        5
+      ]
+    },
+    "gpu": {
+      "left": 508,
+      "right": 772,
+      "top": 623,
+      "bottom": 665,
+      "width": 264,
+      "height": 42,
+      "count": 3999,
+      "blobs": 5,
+      "gaps": [
+        7,
+        8,
+        4,
+        3
+      ]
+    },
+    "osr": {
+      "left": 508,
+      "right": 772,
+      "top": 623,
+      "bottom": 665,
+      "width": 264,
+      "height": 42,
+      "count": 4030,
+      "blobs": 5,
+      "gaps": [
+        7,
+        8,
+        4,
+        3
+      ]
+    },
+    "diff_gpu": {
+      "cx": 0.0016,
+      "cy": 0.0097,
+      "width": 0.0016,
+      "height": 0
+    },
+    "diff_osr": {
+      "cx": 0.0016,
+      "cy": 0.0097,
+      "width": 0.0016,
+      "height": 0
+    },
+    "screenshot": "before-compare-a.png"
+  },
+  {
+    "key": "c",
+    "label": "(c) 英数字 \"Hello World\" の \"llo\"",
+    "t": 5.8,
+    "preview": {
+      "left": 533,
+      "right": 744,
+      "top": 612,
+      "bottom": 657,
+      "width": 211,
+      "height": 45,
+      "count": 2882,
+      "blobs": 8,
+      "gaps": [
+        6,
+        5,
+        3,
+        6,
+        3,
+        5,
+        4
+      ]
+    },
+    "gpu": {
+      "left": 534,
+      "right": 747,
+      "top": 618,
+      "bottom": 665,
+      "width": 213,
+      "height": 47,
+      "count": 3485,
+      "blobs": 6,
+      "gaps": [
+        5,
+        4,
+        7,
+        4,
+        3
+      ]
+    },
+    "osr": {
+      "left": 534,
+      "right": 747,
+      "top": 618,
+      "bottom": 665,
+      "width": 213,
+      "height": 47,
+      "count": 3504,
+      "blobs": 6,
+      "gaps": [
+        5,
+        4,
+        6,
+        4,
+        3
+      ]
+    },
+    "diff_gpu": {
+      "cx": 0.0016,
+      "cy": 0.0097,
+      "width": 0.0016,
+      "height": 0.0028
+    },
+    "diff_osr": {
+      "cx": 0.0016,
+      "cy": 0.0097,
+      "width": 0.0016,
+      "height": 0.0028
+    },
+    "screenshot": "before-compare-c.png"
+  },
+  {
+    "key": "b1",
+    "label": "(b) 置いた文字・折り返し幅なし の「いい」",
+    "t": 9.8,
+    "preview": {
+      "left": 507,
+      "right": 769,
+      "top": 344,
+      "bottom": 381,
+      "width": 262,
+      "height": 37,
+      "count": 3382,
+      "blobs": 6,
+      "gaps": [
+        7,
+        9,
+        3,
+        4,
+        3
+      ]
+    },
+    "gpu": {
+      "left": 508,
+      "right": 772,
+      "top": 346,
+      "bottom": 383,
+      "width": 264,
+      "height": 37,
+      "count": 3808,
+      "blobs": 4,
+      "gaps": [
+        7,
+        8,
+        3
+      ]
+    },
+    "osr": {
+      "left": 508,
+      "right": 772,
+      "top": 346,
+      "bottom": 383,
+      "width": 264,
+      "height": 37,
+      "count": 3829,
+      "blobs": 4,
+      "gaps": [
+        7,
+        8,
+        3
+      ]
+    },
+    "diff_gpu": {
+      "cx": 0.0016,
+      "cy": 0.0028,
+      "width": 0.0016,
+      "height": 0
+    },
+    "diff_osr": {
+      "cx": 0.0016,
+      "cy": 0.0028,
+      "width": 0.0016,
+      "height": 0
+    },
+    "screenshot": "before-compare-b1.png"
+  },
+  {
+    "key": "b2",
+    "label": "(b) 置いた文字・折り返し幅 30% の「いい」",
+    "t": 13.8,
+    "preview": {
+      "left": 113,
+      "right": 375,
+      "top": 344,
+      "bottom": 381,
+      "width": 262,
+      "height": 37,
+      "count": 3532,
+      "blobs": 5,
+      "gaps": [
+        6,
+        9,
+        3,
+        4
+      ]
+    },
+    "gpu": {
+      "left": 508,
+      "right": 772,
+      "top": 346,
+      "bottom": 383,
+      "width": 264,
+      "height": 37,
+      "count": 3808,
+      "blobs": 4,
+      "gaps": [
+        7,
+        8,
+        3
+      ]
+    },
+    "osr": {
+      "left": 508,
+      "right": 772,
+      "top": 346,
+      "bottom": 383,
+      "width": 264,
+      "height": 37,
+      "count": 3829,
+      "blobs": 4,
+      "gaps": [
+        7,
+        8,
+        3
+      ]
+    },
+    "diff_gpu": {
+      "cx": 0.3094,
+      "cy": 0.0028,
+      "width": 0.0016,
+      "height": 0
+    },
+    "diff_osr": {
+      "cx": 0.3094,
+      "cy": 0.0028,
+      "width": 0.0016,
+      "height": 0
+    },
+    "screenshot": "before-compare-b2.png"
+  },
+  {
+    "key": "d",
+    "label": "(d) 字幕全体を 1.5 倍（text_style.scale）",
+    "t": 17.8,
+    "preview": {
+      "left": 442,
+      "right": 834,
+      "top": 608,
+      "bottom": 662,
+      "width": 392,
+      "height": 54,
+      "count": 6912,
+      "blobs": 9,
+      "gaps": [
+        11,
+        14,
+        3,
+        8,
+        4,
+        10,
+        5,
+        5
+      ]
+    },
+    "gpu": {
+      "left": 442,
+      "right": 838,
+      "top": 615,
+      "bottom": 670,
+      "width": 396,
+      "height": 55,
+      "count": 8023,
+      "blobs": 8,
+      "gaps": [
+        10,
+        14,
+        7,
+        3,
+        9,
+        3,
+        5
+      ]
+    },
+    "osr": {
+      "left": 442,
+      "right": 838,
+      "top": 615,
+      "bottom": 670,
+      "width": 396,
+      "height": 55,
+      "count": 8045,
+      "blobs": 8,
+      "gaps": [
+        10,
+        14,
+        7,
+        4,
+        9,
+        4,
+        5
+      ]
+    },
+    "diff_gpu": {
+      "cx": 0.0016,
+      "cy": 0.0104,
+      "width": 0.0031,
+      "height": 0.0014
+    },
+    "diff_osr": {
+      "cx": 0.0016,
+      "cy": 0.0104,
+      "width": 0.0031,
+      "height": 0.0014
+    },
+    "screenshot": "before-compare-d.png"
+  }
+]
