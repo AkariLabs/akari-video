@@ -8,6 +8,7 @@ import {
 } from '../common/context-bar-edit';
 import type { EditV2Document } from '../common/edit-v2-mutations';
 import { runCaptionStyleWrite } from '../common/caption-context-edit';
+import { captionEditFocusWithinMarkedWidget } from '../common/caption-edit-focus';
 import type { AkariAnnotationsWidget } from './akari-annotations-widget';
 import type { TimelineSelectionModel } from './timeline-selection-model';
 
@@ -433,6 +434,8 @@ export class ContextBarController implements Disposable {
 
     protected handleKeydown(event: KeyboardEvent): void {
         if (event.defaultPrevented || isImeCompositionKeydown(event)) return;
+        if (captionEditFocusWithinMarkedWidget(document.activeElement,
+            Array.from(document.querySelectorAll('[data-akari-caption-editing-focus="true"]')))) return;
         const target = event.target instanceof Element ? event.target : null;
         const focused = document.activeElement instanceof Element ? document.activeElement : null;
         if ((target instanceof HTMLElement && isEditableEventTarget(target)) || (focused instanceof HTMLElement && isEditableEventTarget(focused))) return;

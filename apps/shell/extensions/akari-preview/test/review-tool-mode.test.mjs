@@ -86,6 +86,14 @@ test('Delete, Backspace, and command-cut stop at an editable webview target with
     assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'x', true, false), true);
     assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'x', false, true), true);
     assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'x', false, false), false);
+    for (const key of ['a', 'c', 'v', 'd']) {
+        assert.equal(shouldStopEditableDeletionKeydown(editable, null, key, true, false), true);
+        assert.equal(shouldStopEditableDeletionKeydown(editable, null, key, false, true), true);
+        assert.equal(shouldStopEditableDeletionKeydown(editable, null, key, false, false), false);
+    }
+    for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
+        assert.equal(shouldStopEditableDeletionKeydown(editable, null, key, false, false), true);
+    }
     assert.equal(shouldStopEditableDeletionKeydown(
         { tagName: 'INPUT', type: 'range' }, null, 'Delete', false, false
     ), false);
