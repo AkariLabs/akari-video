@@ -1,0 +1,106 @@
+{
+  "checkedAt": "2026-09-26T16:51:17.016Z",
+  "r1_placeTextAndUndo": {
+    "clicked": {
+      "label": "テキスト",
+      "disabled": false
+    },
+    "before": 0,
+    "afterClick": 1,
+    "afterUndo": 0,
+    "placed": true,
+    "undoneInOneStep": true
+  },
+  "r2_openLists": {
+    "image": {
+      "clicked": {
+        "label": "画像",
+        "disabled": false
+      },
+      "home": false,
+      "catalogCards": 161,
+      "crumb": "← ライブラリ 画像 161",
+      "opened": true,
+      "backHome": true
+    },
+    "bgm": {
+      "clicked": {
+        "label": "BGM",
+        "disabled": false
+      },
+      "home": false,
+      "catalogCards": 124,
+      "crumb": "← ライブラリ BGM 124",
+      "opened": true,
+      "backHome": true
+    }
+  },
+  "r2_soonTiles": [
+    {
+      "label": "イラスト",
+      "disabled": true,
+      "ariaDisabled": "true"
+    },
+    {
+      "label": "エフェクト",
+      "disabled": true,
+      "ariaDisabled": "true"
+    },
+    {
+      "label": "モーション",
+      "disabled": true,
+      "ariaDisabled": "true"
+    },
+    {
+      "label": "マイスタイル",
+      "disabled": true,
+      "ariaDisabled": "true"
+    },
+    {
+      "label": "ひな形",
+      "disabled": true,
+      "ariaDisabled": "true"
+    }
+  ],
+  "r2_soonClickKeepsHome": {
+    "clicked": {
+      "label": "イラスト",
+      "disabled": true
+    },
+    "stillHome": true
+  },
+  "r3_bgmDrop": {
+    "item": "audio/bgm-glitchpop-135",
+    "payload": "{\"kind\":\"asset\",\"key\":\"audio/bgm-glitchpop-135\",\"id\":\"bgm-glitchpop-135\",\"category\":\"audio\",\"title\":\"bgm-glitchpop-135\",\"thumb\":\"https://raw.githubusercontent.com/AkariLabs/akari-sounds/v0/previews/bg",
+    "at": {
+      "x": 361,
+      "y": 592
+    },
+    "before": {
+      "cut": 1
+    },
+    "after": {
+      "audio": 1,
+      "cut": 1
+    },
+    "added": true
+  },
+  "r4_details": {
+    "groups": [
+      "文字の見た目",
+      "マイ"
+    ],
+    "rows": [
+      "A スタイル・動き・フォント 選んだ文字に当てる 13·47·31",
+      "★ お気に入り 近日",
+      "◈ ブランドキット 近日"
+    ],
+    "duplicatedWithTiles": []
+  },
+  "r5_projectFace": {
+    "materialCards": 2,
+    "menuButton": true,
+    "lintText": "Lint 1 件",
+    "menuItems": []
+  }
+}
