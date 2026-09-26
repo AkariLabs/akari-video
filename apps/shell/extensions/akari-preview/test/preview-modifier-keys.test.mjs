@@ -46,7 +46,7 @@ test('caption rotation previews and persists the same 45-degree patch; Alt targe
 test('caption Escape cancels without writes or deselection, ignores IME; Enter and active blur save', () => {
   const edit = between(source, /const\s+restoreCaptionEditAttribute\s*=/, /const\s+beginCaptionHandleDrag\s*=/);
   const cancel = between(edit, /const\s+cancelCaptionEdit\s*=\s*\(\s*\)\s*=>\s*\{/, /\}\s*;\s*const\s+commitCaptionEdit\s*=/);
-  assert.match(cancel, /^\s*if\s*\(\s*!activeCaptionEdit\s*\)\s*return\s*;\s*const\s+edit\s*=\s*activeCaptionEdit\s*;\s*activeCaptionEdit\s*=\s*null\s*;\s*window\.akari\.syncRunSelection\?\.\(\)\s*;\s*restoreCaptionEditElement\s*\(\s*edit\s*\)\s*;\s*rerenderCaptionAfterEdit\s*\(\s*\)\s*;\s*$/);
+  assert.match(cancel, /^\s*if\s*\(\s*!activeCaptionEdit\s*\)\s*return\s*;\s*const\s+edit\s*=\s*activeCaptionEdit\s*;\s*activeCaptionEdit\s*=\s*null\s*;\s*window\.akari\.reportCaptionEditFocus\?\.\(false\)\s*;\s*window\.akari\.syncRunSelection\?\.\(\)\s*;\s*restoreCaptionEditElement\s*\(\s*edit\s*\)\s*;\s*rerenderCaptionAfterEdit\s*\(\s*\)\s*;\s*$/);
   assert.doesNotMatch(cancel, /captionWrite|deselectCaption/);
 
   const keydown = between(edit, /captionLayer\.addEventListener\s*\(\s*'keydown'\s*,\s*event\s*=>\s*\{/, /\}\s*\)\s*;/);

@@ -143,6 +143,9 @@ import {
     type CaptionToolStylePatch
 } from '../common/caption-zone-write';
 import { persistCaptionPlateTransform, captionWrapWidthDrag, captionCornerTransform } from '../common/caption-plate-handles';
+import { captionOrientedFrame, captionWrapAnchorDelta, captionWrapResize, captionEditorLines,
+    captionEditorWrapWidth, captionLineCountFromMetrics, captionEditorFitWidth,
+    captionEditorValue, captionEditingNavigationKey } from '../common/caption-edit-geometry';
 import { captionWrapPosition } from '../common/caption-wrap-position';
 import { duplicatePreviewCaptionSource, duplicatePreviewItemSource } from '../common/preview-duplicate-fallback';
 import { PreviewCaptionWrite, previewCaptionWrite } from '../common/preview-caption-write';
@@ -3456,6 +3459,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.addEventListener('akari.motion.draw', onMotionDraw);
         disposables.push(Disposable.create(() => window.removeEventListener('akari.motion.draw', onMotionDraw)));
         let lastAudioMeterFrame: AudioMeterFrame | undefined;
+        widget.disposed.connect(() => { if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus; });
         widget.disposed.connect(() => this.forwardAudioMeterFrame(widget, {
             type: 'akari-preview-audio-meter', peak: [0, 0], rms: [0, 0], clip: false,
             playing: false, channels: lastAudioMeterFrame?.channels ?? 2,
@@ -3464,6 +3468,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let collapsedBagSummary: EditSummary | undefined;
         let projectedBagSummary: EditSummary | undefined;
         disposables.push(widget.onMessage(message => {
+            if (message?.type === 'akari-preview-caption-edit-focus' && kind === 'output') {
+                widget.node.dataset.akariCaptionEditingFocus = message.focused ? 'true' : 'false';
+                return;
+            }
             if (message?.type === PREVIEW_CONTEXT_BOX_MESSAGE) {
                 contextBar?.receive(message);
                 return;
@@ -4830,6 +4838,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         diagnostics?.restartPageStages();
         widget.akariPreviewPlaybackPageId = `${widget.id}:${++this.playbackPageSequence}`;
         this.noteSwapReload(widget, 'reload_start');
+        if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus;
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream?.url ?? '',
@@ -5093,6 +5102,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
         widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
         widget.setContentOptions({ allowScripts: false, allowForms: false });
+        if (widget.node?.dataset) delete widget.node.dataset.akariCaptionEditingFocus;
         widget.setHTML(this.prepareMessageHtml(message));
     }
 
@@ -9752,6 +9762,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 else if (selectedPrimary?.kind === 'caption') selectedPrimary = null;
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
             };
+            window.akari.reportCaptionEditFocus = focused =>
+                vscode.postMessage({ type: 'akari-preview-caption-edit-focus', focused });
             window.akari.requestCaptionInspector = field => {
                 vscode.postMessage({ type: 'akari-preview-caption-inspector', field });
             };
@@ -15764,7 +15776,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const caption = captions.find(item => (item.sourceCueId || item.id) === edit.captionId);
                 if (!caption) return;
                 const element = edit.element;
-                const text = element.textContent || '';
+                const text = element.innerText || '';
                 // Leave in-progress typing and IME composition alone until the text is committed.
                 if (text !== caption.text) return;
                 const selection = window.getSelection();
@@ -15880,7 +15892,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 plate.style.transform = 'none';
                 plate.style.rotate = 'none';
                 plate.style.scale = 'none';
-                try { return captionVisualRect(captionPlate); }
+                try {
+                    const ink = captionVisualRect(captionPlate);
+                    const bounds = plate.getBoundingClientRect();
+                    const a = captionOutputPoint(bounds.left, bounds.top);
+                    const b = captionOutputPoint(bounds.right, bounds.bottom);
+                    return { ...ink, pivot: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+                }
                 finally {
                     plate.style.transform = previousTransform;
                     plate.style.rotate = previousRotate;
@@ -15897,6 +15915,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
             };
             const captionControlScaleFn = (${captionControlScale.toString()});
+            const captionOrientedFrameFn = (${captionOrientedFrame.toString()});
+            const captionWrapAnchorDeltaFn = (${captionWrapAnchorDelta.toString()});
+            const captionWrapResizeFn = (${captionWrapResize.toString()});
+            const captionEditorLinesFn = (${captionEditorLines.toString()});
+            const captionEditorWrapWidthFn = (${captionEditorWrapWidth.toString()});
+            const captionLineCountFromMetricsFn = (${captionLineCountFromMetrics.toString()});
+            const captionEditorFitWidthFn = (${captionEditorFitWidth.toString()});
+            const captionEditorValueFn = (${captionEditorValue.toString()});
+            const captionEditingNavigationKeyFn = (${captionEditingNavigationKey.toString()});
             const syncCaptionHandleBox = (captionPlate = selectedCaptionPlate()) => {
                 const box = captionPlate.querySelector('.akari-caption-handle-box');
                 if (!box) return;
@@ -15911,19 +15938,20 @@ body { display: grid; place-items: center; padding: 32px; }
                     box.style.inset = '0';
                     box.style.width = '';
                     box.style.height = '';
+                    box.style.transform = '';
                     return;
                 }
-                // styled の #caption-plate はステージ全面だがローカル px は表示 px。
-                // client 矩形を祖先の表示倍率で割り戻して文字の外接矩形へ合わせる。
-                const block = captionPlate.querySelector('.akari-caption__block');
-                const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
-                const rects = (elements.length > 0 ? elements : [captionPlate])
-                    .map(element => element.getBoundingClientRect());
+                const layout = captionLayoutRect(captionPlate);
+                const transform = captionTransformValues(captionPlate);
+                const oriented = captionOrientedFrameFn(layout, transform.scale, transform.rotate);
+                const frame = window.akari.computeOutputFrameRect();
+                const frameScale = window.akari.stageScale() || 1;
+                const stageClient = stage.getBoundingClientRect();
                 const ink = {
-                    left: Math.min(...rects.map(rect => rect.left)),
-                    right: Math.max(...rects.map(rect => rect.right)),
-                    top: Math.min(...rects.map(rect => rect.top)),
-                    bottom: Math.max(...rects.map(rect => rect.bottom))
+                    left: stageClient.left + frame.x + (oriented.center.x - oriented.width / 2) * frameScale,
+                    right: stageClient.left + frame.x + (oriented.center.x + oriented.width / 2) * frameScale,
+                    top: stageClient.top + frame.y + (oriented.center.y - oriented.height / 2) * frameScale,
+                    bottom: stageClient.top + frame.y + (oriented.center.y + oriented.height / 2) * frameScale
                 };
                 const hostRect = captionPlate.getBoundingClientRect();
                 const rawX = captionPlate.offsetWidth > 0 ? hostRect.width / captionPlate.offsetWidth : 1;
@@ -15935,6 +15963,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 box.style.top = ((ink.top - hostRect.top) / scaleY) + 'px';
                 box.style.width = Math.max(0, (ink.right - ink.left) / scaleX) + 'px';
                 box.style.height = Math.max(0, (ink.bottom - ink.top) / scaleY) + 'px';
+                box.style.transform = 'rotate(' + transform.rotate + 'deg)';
             };
             const setRectStyle = (element, rect) => {
                 element.style.left = rect.left + 'px';
@@ -15988,6 +16017,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 syncCaptionHandleBox();
                 if (!selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
+                    captionSelectBox.style.transform = '';
                     captionPalette.hidden = true;
                     captionRowBox.classList.remove('is-active');
                     updateCaptionSelectTools();
@@ -15995,12 +16025,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const frameRect = window.akari.computeOutputFrameRect();
                 const frameScale = window.akari.stageScale() || 1;
+                const selectedPlate = selectedCaptionPlate();
+                const captionTransform = captionTransformValues(selectedPlate);
+                const oriented = captionOrientedFrameFn(captionLayoutRect(selectedPlate),
+                    captionTransform.scale, captionTransform.rotate);
                 setRectStyle(captionSelectBox, {
-                    left: frameRect.x + rect.left * frameScale,
-                    right: frameRect.x + rect.right * frameScale,
-                    top: frameRect.y + rect.top * frameScale,
-                    bottom: frameRect.y + rect.bottom * frameScale
+                    left: frameRect.x + (oriented.center.x - oriented.width / 2) * frameScale,
+                    right: frameRect.x + (oriented.center.x + oriented.width / 2) * frameScale,
+                    top: frameRect.y + (oriented.center.y - oriented.height / 2) * frameScale,
+                    bottom: frameRect.y + (oriented.center.y + oriented.height / 2) * frameScale
                 });
+                captionSelectBox.style.transform = 'rotate(' + captionTransform.rotate + 'deg)';
+                captionSelectBox.style.setProperty('--caption-box-rotate', captionTransform.rotate + 'deg');
                 captionSelectBox.classList.add('is-active');
                 updateCaptionSelectTools();
                 window.akari.layoutCaptionRunTools?.();
@@ -16398,6 +16434,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!activeCaptionEdit) return;
                 const edit = activeCaptionEdit;
                 activeCaptionEdit = null;
+                window.akari.reportCaptionEditFocus?.(false);
                 window.akari.syncRunSelection?.();
                 restoreCaptionEditElement(edit);
                 rerenderCaptionAfterEdit();
@@ -16405,8 +16442,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const commitCaptionEdit = async () => {
                 if (!activeCaptionEdit) return;
                 const edit = activeCaptionEdit;
-                const nextText = (edit.element.textContent || '').normalize('NFC').trim();
+                const nextText = captionEditorValueFn(edit.element.innerText || '');
                 activeCaptionEdit = null;
+                window.akari.reportCaptionEditFocus?.(false);
                 window.akari.syncRunSelection?.();
                 restoreCaptionEditElement(edit);
                 // Restore styled lines/tokens immediately, including while the write is pending.
@@ -16452,6 +16490,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (isPlaying) togglePlayback();
                 selectCaption(captionId);
+                const displayLines = [...captionPlate.querySelectorAll('.akari-caption__line')];
+                const lineCount = line => {
+                    const style = getComputedStyle(line);
+                    return captionLineCountFromMetricsFn(line.offsetHeight, parseFloat(style.lineHeight),
+                        parseFloat(style.paddingTop) || 0, parseFloat(style.paddingBottom) || 0);
+                };
+                const targetLines = displayLines.reduce((count, line) => count + lineCount(line), 0);
+                const editorWidth = captionEditorWrapWidthFn(displayLines.map(line => line.offsetWidth));
                 const layoutPlate = captionPlate.querySelector('.akari-caption__plate');
                 // Keep the full-width layout wrapper pointer-transparent. Editing only the ink
                 // line lets a click beside the text blur/commit and release the selection.
@@ -16474,11 +16520,24 @@ body { display: grid; place-items: center; padding: 32px; }
                 element.setAttribute('data-akari-caption-editing', 'true');
                 // styled 字幕の token/行ラッパーは編集開始時だけプレーンな本文へ畳み、
                 // CSS やアニメーション断片を textContent に混入させない。
-                element.textContent = caption.text || '';
+                element.replaceChildren(...captionEditorLinesFn(caption.text || '').flatMap((line, index) =>
+                    index ? [document.createElement('br'), document.createTextNode(line)] : [document.createTextNode(line)]));
+                if (layoutPlate && editorWidth) {
+                    element.style.width = editorWidth + 'px';
+                    element.style.maxWidth = 'none';
+                    element.style.boxSizing = 'border-box';
+                    element.style.whiteSpace = 'pre-wrap';
+                    element.style.overflowWrap = 'anywhere';
+                    element.style.width = captionEditorFitWidthFn(editorWidth, targetLines, width => {
+                        element.style.width = width + 'px';
+                        return lineCount(element);
+                    }) + 'px';
+                }
                 element.style.pointerEvents = 'auto';
                 element.style.userSelect = 'text';
                 captionPlate.classList.add('akari-caption-host--editing');
                 element.focus({ preventScroll: true });
+                window.akari.reportCaptionEditFocus?.(true);
                 placeCaptionCaretAtEnd(element);
                 window.akari.refreshActiveCaptionRuns?.();
                 window.akari.syncRunSelection?.();
@@ -16498,6 +16557,7 @@ body { display: grid; place-items: center; padding: 32px; }
             captionLayer.addEventListener('keydown', event => {
                 if (!activeCaptionEdit || event.target !== activeCaptionEdit.element || event.isComposing) return;
                 if (event.key === 'Enter') {
+                    if (event.shiftKey) return;
                     event.preventDefault();
                     event.stopPropagation();
                     void commitCaptionEdit();
@@ -16505,6 +16565,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     event.preventDefault();
                     event.stopPropagation();
                     cancelCaptionEdit();
+                } else if (captionEditingNavigationKeyFn(true, event.key)) {
+                    event.stopPropagation();
                 }
             });
             const beginCaptionHandleDrag = (event, handle, caption, cueId) => {
@@ -16533,6 +16595,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 const currentRotate = parseFloat(currentStyle.getPropertyValue('--caption-rotate'));
                 const baseScale = Number.isFinite(currentScale) ? currentScale : 1;
                 const baseRotate = Number.isFinite(currentRotate) ? currentRotate : 0;
+                const fixedSide = kind === 'e' ? 'w' : 'e';
+                const startCorners = (kind === 'e' || kind === 'w')
+                    ? captionOrientedFrameFn(layoutRect, baseScale, baseRotate).corners : null;
                 const originalWrap = captionPlate.style.getPropertyValue('--caption-wrap-width');
                 const originalLeft = captionPlate.style.getPropertyValue('--caption-left');
                 const originalTop = captionPlate.style.getPropertyValue('--caption-top');
@@ -16601,21 +16666,25 @@ body { display: grid; place-items: center; padding: 32px; }
                     } else if (kind === 'e' || kind === 'w') {
                         const outputWidth = Number(summary.output?.width) || 1280;
                         const outputHeight = Number(summary.output?.height) || 720;
-                        const wrap = captionWrapWidthDragFn(kind, rect, now.x - start.x, outputWidth);
-                        const left = wrap.centerX - wrap.widthPct / 100 * outputWidth / 2;
-                        const plateRect = captionPlate.querySelector('.akari-caption__plate')?.getBoundingClientRect()
-                            || captionPlate.getBoundingClientRect();
-                        const plateTop = captionOutputPoint(plateRect.left, plateRect.top).y;
-                        const placement = captionWrapPositionFn(left, plateTop, outputWidth, outputHeight);
+                        const wrap = captionWrapResizeFn(kind, layoutRect,
+                            { x: now.x - start.x, y: now.y - start.y }, baseRotate, baseScale, outputWidth);
+                        captionPlate.style.setProperty('--caption-wrap-width', wrap.widthPct + '%');
+                        captionPlate.style.setProperty('--caption-left', wrap.left / outputWidth * 100 + '%');
+                        captionPlate.style.setProperty('--caption-top', layoutRect.top / outputHeight * 100 + '%');
+                        captionPlate.style.setProperty('--caption-bottom', 'auto');
+                        captionPlate.style.setProperty('--caption-translate', 'none');
+                        const movedCorners = captionOrientedFrameFn(
+                            captionLayoutRect(captionPlate), baseScale, baseRotate).corners;
+                        const anchorDelta = captionWrapAnchorDeltaFn(startCorners, movedCorners, fixedSide);
+                        const placement = captionWrapPositionFn(wrap.left + anchorDelta.x,
+                            layoutRect.top + anchorDelta.y,
+                            outputWidth, outputHeight);
                         patch = { wrapWidthPct: wrap.widthPct,
                             cuePosition: { captionId: cueId, value: {
                                 ...placement
                             } } };
-                        captionPlate.style.setProperty('--caption-wrap-width', patch.wrapWidthPct + '%');
                         captionPlate.style.setProperty('--caption-left', placement.position.x * 100 + '%');
                         captionPlate.style.setProperty('--caption-top', placement.position.y * 100 + '%');
-                        captionPlate.style.setProperty('--caption-bottom', 'auto');
-                        captionPlate.style.setProperty('--caption-translate', 'none');
                     } else {
                         const next = captionCornerTransformFn(kind, layoutRect, baseScale, baseRotate, now, start);
                         const outputWidth = Number(summary.output?.width) || 1280;

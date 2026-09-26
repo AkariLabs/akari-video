@@ -1,0 +1,11 @@
+{
+  "label": "before-v2-osr",
+  "port": 9577,
+  "osr": {
+    "status": 0,
+    "frame": "before-v2-osr-osr.png",
+    "sha256": "ce5f9db69fd057900d6f2915703e506aae319ba40194844cc533ea1d37604f7b"
+  },
+  "results": {},
+  "allConsoleErrors": []
+}

@@ -4,6 +4,7 @@ import test from 'node:test';
 import { launchBrowser } from '../../../../../packages/overlay-runtime/test-harness/fixtures/browser.mjs';
 import { captionControlScale } from '../lib/common/caption-control-scale.js';
 import { captionWrapWidthDrag } from '../lib/common/caption-plate-handles.js';
+import { captionOrientedFrame, captionWrapAnchorDelta, captionWrapResize } from '../lib/common/caption-edit-geometry.js';
 import { captionWrapPosition } from '../lib/common/caption-wrap-position.js';
 import { captionAnchorPositionVars } from '@akari-video/edit-store';
 import { previewSelectionHandlesStyle } from '../lib/browser/preview-selection-handles-style.js';
@@ -41,7 +42,7 @@ test('a selected output caption keeps its grabbed edge and writes wrap width wit
           </div>
         </div>
       </div>`);
-    await page.evaluate(({ handleDragSource, wrapSource, positionSource }) => {
+    await page.evaluate(({ handleDragSource, wrapSource, positionSource, frameSource, anchorSource, resizeSource }) => {
       window.__writes = [];
       window.akari = { engine: { captionWrite: async (_id, patch) => { window.__writes.push(patch); } },
         showWriteError: error => { throw error; } };
@@ -62,13 +63,17 @@ test('a selected output caption keeps its grabbed edge and writes wrap width wit
         const summary={output:{width:1920,height:1080}},CLICK_THRESHOLD_PX=4;
         const updateCaptionSelectBoxForRect=()=>{},updateCaptionSelectBox=()=>{};
         const captionWrapWidthDragFn=(${wrapSource});
+        const captionOrientedFrameFn=(${frameSource});
+        const captionWrapAnchorDeltaFn=(${anchorSource});
+        const captionWrapResizeFn=(${resizeSource});
         const captionWrapPositionFn=(${positionSource});
         ${handleDragSource}
         captionLayer.addEventListener('pointerdown',event=>{const handle=event.target.closest('.akari-caption-handle');if(handle)beginCaptionHandleDrag(event,handle,caption,'c1')});
       `;
       new Function('window', 'document', setup)(window, document);
     }, { handleDragSource, wrapSource: captionWrapWidthDrag.toString(),
-      positionSource: captionWrapPosition.toString() });
+      positionSource: captionWrapPosition.toString(), frameSource: captionOrientedFrame.toString(),
+      anchorSource: captionWrapAnchorDelta.toString(), resizeSource: captionWrapResize.toString() });
     const before = await page.$eval('[data-h="e"]', node => node.getBoundingClientRect().toJSON());
     const initial = await page.$eval('.akari-caption__line', node => node.getBoundingClientRect().toJSON());
     await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
