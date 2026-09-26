@@ -165,9 +165,9 @@ export interface GenerationProcessResult {
     stderr?: string;
     exitCode?: number | null;
 }
-export interface ImageRouteState { id: 'codex' | 'antigravity' | 'grok'; state: 'ready' | 'signed-out' | 'missing' | 'unknown'; detail: string; }
+export interface ImageRouteState { id: 'codex' | 'antigravity' | 'grok' | 'fal'; state: 'ready' | 'signed-out' | 'missing' | 'unknown'; detail: string; }
 export type StillAspect = '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '4:5' | '3:2' | '21:9';
-export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: StillAspect; route?: ImageRouteState['id']; references?: string[]; cropToAspect?: boolean; }
+export interface StartGenerateStillRequest { projectRootUri: string; itemId: string; prompt: string; aspect: StillAspect; route?: ImageRouteState['id']; references?: string[]; cropToAspect?: boolean; quality?: 'low' | 'medium' | 'high'; approved?: boolean; }
 export interface GenerateStillResult { ok: boolean; reason?: string; relativePath?: string; width?: number; height?: number; elapsedSeconds?: number; cancelled?: boolean; croppedFrom?: string; }
 
 export interface GetClipFilmstripChunkRequest {

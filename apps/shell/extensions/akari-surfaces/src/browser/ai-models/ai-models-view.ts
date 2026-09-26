@@ -6,6 +6,7 @@ import {
     capabilityState, capabilityText, comparisonKeys, filterAiModels, formatAiModelPrice, groupRepresentative,
     INPUT_LABELS, OUTPUT_LABELS, otherVariantCount, radarAxes
 } from '../../common/ai-models-model';
+import { makerBadge } from '../settings/maker-badge';
 
 const KIND_LABELS: Record<AiModelKind, string> = { image: '静止画', video: '動画', voice: '声', transcribe: '文字起こし' };
 const LICENSE_LABELS: Record<string, string> = { 'commercial-ok': '商用 OK', conditional: '条件つき', 'credit-required': '要クレジット', unknown: '未確認' };
@@ -29,19 +30,7 @@ const button = (text: string, attr: string, value: string, click: () => void): H
 };
 
 function badge(catalog: AiModelCatalog, model: AiModel): HTMLElement {
-    const maker = catalog.makers[model.maker];
-    const wrap = node('span', 'akari-ai-maker');
-    const icon = node('span', 'akari-ai-maker-icon', maker?.initials || model.maker.slice(0, 1).toUpperCase());
-    icon.style.background = maker?.background || '#526177';
-    icon.style.color = maker?.color || '#fff';
-    if (maker?.logo) {
-        const image = node('img') as HTMLImageElement;
-        image.src = maker.logo;
-        image.alt = '';
-        icon.replaceChildren(image);
-    }
-    wrap.append(icon, node('span', '', maker?.name || model.maker));
-    return wrap;
+    return makerBadge(catalog.makers, model.maker);
 }
 
 function fieldPills(values: Record<string, unknown>, labels: Record<string, string>, keys: readonly string[]): HTMLElement {

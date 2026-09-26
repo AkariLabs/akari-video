@@ -1,0 +1,50 @@
+{
+  "phase": "before",
+  "status": "pass",
+  "step": "open settings › connections",
+  "observations": {
+    "electronPid": 8698,
+    "frame": "frame-1",
+    "stillPanel": {
+      "routes": [
+        {
+          "id": "codex",
+          "text": "Codex · サインインの範囲使える",
+          "checked": true,
+          "state": "ready"
+        },
+        {
+          "id": "antigravity",
+          "text": "Antigravity · サインインの範囲使える",
+          "checked": false,
+          "state": "ready"
+        },
+        {
+          "id": "grok",
+          "text": "Grok · サインインの範囲使える",
+          "checked": false,
+          "state": "ready"
+        }
+      ],
+      "radios": 3,
+      "imgs": 0
+    },
+    "connections": {
+      "headings": [
+        "接続と API キー"
+      ],
+      "text": "接続と API キー外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。読み上げに使う API キーもここで登録できます。AKARI Store の接続は「Akari アカウント」へ移りました。 Akari アカウントを開く画像の AIfal · キーを設定すると使えますサービス既定: fal。高画質化と背景生成に使います。falキーこの PC の鍵の保存先に記録します。保存接続サービスへ軽い読み取りの問い合わせをします。接続を確かめる生成サービスfal.ai未接続おすすめ1 つのキーで画像生成・動画生成・文字起こし。既定モデル（静止画 / 動画）もここで選びます残高を見る未接続既定モデル: 静止画OpenAI GPT Image · codex:imageOpenAI GPT Image · codex:image見積不可 · 音声なし · 2026-09-12 時点Nano Banana Pro · fal:nano-banana-pro-edit見積不可 · 音声なし · 2026-09-12 時点既定既定モデル: 動画MiniMax H3 · fal:h3-i2vMiniMax H3 · fal:h3-i2v$0.05〜0.16/秒 · 音声つき（固定） · 2026-09-12 時点MiniMax H3 · fal:h3-ref$0.05〜0.16/秒 · 音声つき（固定） · 2026-09-22 時点Kling Video v3 Standard · fal:kling-v3-standard-i2v見積不可 · 音声つき（切替） · 2026-09-12 時点Kling Video v3 Pro · fal:kling-v3-pro-i2v$0.112/秒（音声つき ×1.5） · 音声つき（切替） · 2026-09-12 時点Veo 3.1 · fal:veo-3.1-flf$0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点Veo 3.1 · fal:veo-3.1-ref$0.2〜0.4/秒（音声つき ×2） · 音声つき（切替） · 2026-09-12 時点Seedance 2.0 · fal:seedance-2.0-i2v$0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点Seedance 2.0 · fal:seedance-2.0-ref$0.3034〜0.682/秒 · 音声つき（切替） · 2026-09-12 時点Seedance 2.5 · fal:seedance-2.5-i2v$0.2205〜0.473/秒 · 音声つき（切替） · 2026-09-12 時点Wan 2.7 · fal:wan-2.7-i2v$0.1/秒 · 音声なし · 2026-09-12 時点Grok Imagine Video · fal:grok-imagine-i2v見積不可 · 音声なし · 2026-09-12 時点Vidu Q3 · fal:vidu-q3-i2v見積不可 · 音声つき（切替） · 2026-09-12 時点既定「静止画を作る」「動画にする」で最初に選ばれるモデル。作業場の .akari/connections.json に保存します。鍵が未登録でも選べます保存管理画面キーを取得FFish Audio未接続Fish Audio の日本語読み上げと本人同意済みの声の参照。保存キーを取得",
+      "imgs": 5
+    }
+  },
+  "screenshots": [
+    {
+      "name": "00-before-still-panel.png",
+      "bytes": 268441
+    },
+    {
+      "name": "00-before-settings-connections.png",
+      "bytes": 263508
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import type { GenerateStillResult, ImageRouteState } from '../../common/akari-annotations-protocol';
 import { aiActionCatalog } from '../../common/ai-action-catalog';
+import { stillMakerBadge } from './maker-badge';
 
 export type StillAspect = import('../../common/akari-annotations-protocol').StillAspect;
 export type StillRoute = ImageRouteState['id'];
@@ -22,7 +23,13 @@ export function savedStillCrop(): boolean {
 export function rememberStillCrop(value: boolean): void {
     try { localStorage.setItem(cropStorageKey, String(value)); } catch { /* Keep in memory. */ }
 }
-export const stillRouteIds: readonly StillRoute[] = ['codex', 'antigravity', 'grok'];
+export const stillRouteIds: readonly StillRoute[] = stillRoutes.map(route => route.id as StillRoute);
+export const stillRouteGroups = {
+    free: stillRoutes.filter(route => route.cost === 'free'),
+    paid: stillRoutes.filter(route => route.cost === 'paid')
+};
+export const stillFalPrices = { low: 0.006, medium: 0.0133, high: 0.0528 } as const;
+export const stillFalPriceAsOf = '2026-09-26';
 export function savedStillRoute(): StillRoute {
     try {
         const value = localStorage.getItem(routeStorageKey);
@@ -42,10 +49,13 @@ export interface AiStillState {
     references?: Array<{ path: string; thumbnail?: string }>;
     choosingReference?: boolean; availableReferences?: string[];
     cropToAspect?: boolean; croppedNotice?: string;
+    quality?: 'low' | 'medium' | 'high';
+    detailsOpen?: boolean;
 }
 export interface AiStillActions {
     change(aspect?: StillAspect): void; probe(): void; generate(): void; cancel(): void;
     addReference(path: string): void; chooseReference(): void; captureReference(): void;
+    openConnections(): void;
 }
 
 export function nearestStillAspect(width: number, height: number): StillAspect {
@@ -85,6 +95,7 @@ export function imageRouteBadgeText(route: ImageRouteState | undefined, probing:
     if (probing) return '確かめています…';
     if (route?.state === 'unknown') return '確かめられませんでした';
     if (route?.detail.includes('確かめられませんでした')) return '確かめられませんでした';
+    if (route?.id === 'fal') return route.state === 'ready' ? '使える' : 'キーが未設定';
     return route?.state === 'ready' ? '使える' : route?.state === 'signed-out' ? 'サインインが必要' : '入っていない';
 }
 
@@ -92,6 +103,7 @@ export function imageRouteNextText(route: ImageRouteState | undefined): string {
     if (route?.state === 'unknown') return '状態を確かめ直すか、そのまま作ってみてください';
     if (route?.detail.includes('確かめられませんでした')) return route.detail;
     const id = route?.id ?? 'codex';
+    if (id === 'fal') return 'キーを設定すると使えます →';
     if (route?.state === 'signed-out') return id === 'antigravity'
         ? 'ターミナルで agy を起動してサインインしてください'
         : id === 'grok' ? 'ターミナルで grok login を実行してサインインしてください'
@@ -231,7 +243,13 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     const canGenerate = (): boolean => !selectedChecking() && !stillRouteAvailability(state.routeId ?? 'codex', state.references?.length ?? 0).disabled
         && (selectedRoute()?.state === 'ready' || selectedRoute()?.state === 'unknown');
     const routes = make('div', 'akari-inspector-ai-still-routes');
-    for (const id of stillRouteIds) {
+    for (const [group, groupRoutes] of Object.entries(stillRouteGroups)) {
+        const section = make('div', 'akari-inspector-ai-still-route-group');
+        section.setAttribute('data-akari-inspector-ai-route-group', group);
+        section.appendChild(make('div', 'akari-inspector-ai-still-label', group === 'free'
+            ? '追加料金なし — いま使っているサブスク' : '使った分だけ — API キー'));
+        for (const declaration of groupRoutes) {
+        const id = declaration.id as StillRoute;
         const routeState = state.routes?.find(row => row.id === id) ?? (id === 'codex' ? state.route : undefined);
         const label = make('label', 'akari-inspector-ai-still-route');
         label.setAttribute('data-akari-inspector-ai-route', id);
@@ -250,7 +268,11 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
             actions.change();
         });
         label.appendChild(radio);
-        label.appendChild(make('span', 'akari-inspector-ai-still-route-name', `${id === 'antigravity' ? 'Antigravity' : id === 'grok' ? 'Grok' : 'Codex'} · サインインの範囲`));
+        const name = make('span', 'akari-inspector-ai-still-route-name');
+        name.appendChild(stillMakerBadge(declaration.maker ?? id));
+        name.appendChild(make('span', '', declaration.label));
+        if (id === 'fal') name.appendChild(stillMakerBadge('fal', true));
+        label.appendChild(name);
         const checking = state.probingRoutes?.has(id) ?? state.probing;
         const badge = make('span', 'akari-inspector-ai-still-badge', imageRouteBadgeText(routeState, checking));
         badge.setAttribute('data-akari-inspector-ai-route-state', checking ? 'checking' : routeState?.state ?? 'checking');
@@ -263,16 +285,47 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
             const note = make('span', 'akari-inspector-ai-still-route-note', availability.note);
             note.setAttribute('data-akari-inspector-ai-route-note', id); label.appendChild(note);
         }
-        routes.appendChild(label);
+        if (id === 'fal') {
+            label.appendChild(make('span', 'akari-inspector-ai-still-route-price',
+                `見積もり $${stillFalPrices[state.quality ?? 'high'].toFixed(3)} / 枚`));
+            if (routeState?.state !== 'ready') {
+                const link = make('button', 'akari-inspector-ai-still-secondary', 'キーを設定すると使えます →');
+                link.type = 'button'; link.setAttribute('data-akari-inspector-ai-fal-settings', 'true');
+                link.addEventListener('click', event => { event.preventDefault(); actions.openConnections(); });
+                label.appendChild(link);
+            }
+        }
+        section.appendChild(label);
+        }
+        routes.appendChild(section);
     }
     panel.appendChild(routes);
+    const details = make('details', 'akari-inspector-ai-still-details');
+    details.setAttribute('data-akari-inspector-ai-details', 'true');
+    details.open = state.detailsOpen === true;
+    details.addEventListener('toggle', () => { state.detailsOpen = details.open; });
+    details.appendChild(make('summary', '', '詳細'));
+    if (state.routeId === 'fal') {
+        details.appendChild(make('p', '', 'モデル: GPT Image 2.5 Flare'));
+        const quality = make('select', 'akari-inspector-ai-still-quality');
+        quality.setAttribute('data-akari-inspector-ai-fal-quality', 'true');
+        for (const [value, text] of [['low', '低'], ['medium', '中'], ['high', '高']] as const) {
+            const option = make('option', '', `${text} · $${stillFalPrices[value].toFixed(3)} / 枚`);
+            option.value = value; option.selected = (state.quality ?? 'high') === value;
+            quality.appendChild(option);
+        }
+        quality.addEventListener('change', () => { state.quality = quality.value as AiStillState['quality']; actions.change(); });
+        details.appendChild(quality);
+        details.appendChild(make('small', '', `${stillFalPriceAsOf} 時点の 1024² の料金。画角・参照画像で実額は変わる場合があります。`));
+    } else details.appendChild(make('p', '', '指示文・画角・参照画像のほかに設定できる項目はありません'));
+    panel.appendChild(details);
     const refresh = make('button', 'akari-inspector-ai-still-secondary', '状態を確かめ直す');
     refresh.type = 'button';
     refresh.disabled = state.probing || state.running;
     refresh.setAttribute('data-akari-inspector-ai-refresh', 'true');
     refresh.addEventListener('click', actions.probe);
     panel.appendChild(refresh);
-    if (selectedRoute()?.state !== 'ready' && !selectedChecking()) panel.appendChild(make('p', 'akari-inspector-ai-still-next',
+    if (selectedRoute()?.state !== 'ready' && !selectedChecking() && state.routeId !== 'fal') panel.appendChild(make('p', 'akari-inspector-ai-still-next',
         imageRouteNextText(selectedRoute() ?? { id: state.routeId ?? 'codex', state: 'missing', detail: '' })));
     const submit = make('button', 'akari-inspector-ai-still-primary', '作る');
     submit.type = 'button';
@@ -282,7 +335,7 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     panel.appendChild(submit);
     if (state.running) {
         const elapsed = Math.max(0, Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000));
-        const name = state.routeId === 'antigravity' ? 'Antigravity' : state.routeId === 'grok' ? 'Grok' : 'Codex';
+        const name = state.routeId === 'antigravity' ? 'Antigravity' : state.routeId === 'grok' ? 'Grok' : state.routeId === 'fal' ? 'fal' : 'ChatGPT';
         panel.appendChild(make('p', 'akari-inspector-ai-still-progress', `${name} で作っています · ${elapsed} 秒`));
         const cancel = make('button', 'akari-inspector-ai-still-secondary', 'キャンセル');
         cancel.type = 'button';

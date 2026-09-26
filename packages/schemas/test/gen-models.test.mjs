@@ -15,9 +15,9 @@ const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const validate = new Ajv2020({ allErrors: true, strict: true }).compile(schema);
 
-test("14 行のカタログが strict スキーマに適合する", () => {
+test("15 行のカタログが strict スキーマに適合する", () => {
   assert.equal(catalog.version, 1);
-  assert.equal(catalog.models.length, 14);
+  assert.equal(catalog.models.length, 15);
   assert.equal(validate(catalog), true, JSON.stringify(validate.errors, null, 2));
 
   const withUnknownField = structuredClone(catalog);

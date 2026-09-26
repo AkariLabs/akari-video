@@ -1,0 +1,314 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "step": "settings AI models",
+  "observations": {
+    "falNetwork": {
+      "stubHost": "127.0.0.1",
+      "stubPort": 19641,
+      "redirectEnvironment": "AKARI_FAL_STUB_URL",
+      "productGuard": "falStillFetch rejects non-stub host",
+      "outsideFalHosts": []
+    },
+    "keylessElectronPid": 5510,
+    "frame": "frame-1",
+    "stillPanel": {
+      "routes": [
+        {
+          "id": "codex",
+          "text": "ChatGPT（Codex）使える",
+          "checked": true,
+          "state": "ready"
+        },
+        {
+          "id": "antigravity",
+          "text": "Antigravity使える",
+          "checked": false,
+          "state": "ready"
+        },
+        {
+          "id": "grok",
+          "text": "Grok使える",
+          "checked": false,
+          "state": "ready"
+        },
+        {
+          "id": "fal",
+          "text": "fal · GPT Image 2.5 Flareキーが未設定見積もり $0.053 / 枚キーを設定すると使えます →",
+          "checked": false,
+          "state": "missing"
+        }
+      ],
+      "radios": 4,
+      "imgs": 5
+    },
+    "keylessFal": {
+      "state": "missing",
+      "groups": [
+        "追加料金なし — いま使っているサブスクChatGPT（Codex）使えるAntigravity使えるGrok使える",
+        "使った分だけ — API キーfal · GPT Image 2.5 Flareキーが未設定見積もり $0.053 / 枚キーを設定すると使"
+      ],
+      "makerImages": 5,
+      "keyLink": true
+    },
+    "keyedElectronPid": 6475,
+    "keyedFal": {
+      "state": "ready",
+      "credentialSource": "isolated AKARI_HOME/credentials.env",
+      "dummyKey": true
+    },
+    "stubRequests": [
+      {
+        "method": "POST",
+        "path": "/openai/gpt-image-2.5/flare/text-to-image",
+        "authorizedWithDummyKey": true,
+        "input": {
+          "image_size": "landscape_16_9",
+          "quality": "high",
+          "num_images": 1,
+          "referenceCount": 0
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/status/1",
+        "authorizedWithDummyKey": true
+      },
+      {
+        "method": "GET",
+        "path": "/response/1",
+        "authorizedWithDummyKey": true
+      },
+      {
+        "method": "GET",
+        "path": "/image.png",
+        "authorizedWithDummyKey": false
+      }
+    ],
+    "generated": {
+      "modelId": "fal:gpt-image-2.5-flare",
+      "modelAsOf": "2026-09-26",
+      "provider": "fal",
+      "cost": {
+        "estimate_usd": 0.0528,
+        "actual_usd": null,
+        "unit": "usd_per_image",
+        "source": "estimate"
+      },
+      "keySource": "file:credentials.env",
+      "resultSha256": "bc3c65432c6c57e5683552e0165137f8ceba99abb0b213139ac2f07729596ec7",
+      "imageInFrame": true,
+      "expectedSha256": "bc3c65432c6c57e5683552e0165137f8ceba99abb0b213139ac2f07729596ec7",
+      "actualSha256": "bc3c65432c6c57e5683552e0165137f8ceba99abb0b213139ac2f07729596ec7"
+    },
+    "deniedSubmitCount": 0,
+    "connections": {
+      "subscriptions": 3,
+      "fal": true,
+      "logoImages": 8,
+      "groups": true
+    },
+    "aiModels": {
+      "openai": {
+        "id": "codex:image",
+        "name": "ChatGPT",
+        "logoIsDataUri": true,
+        "maker": "OpenAI"
+      },
+      "qwen": {
+        "id": "tts:fal-qwen3",
+        "name": "fal Qwen3-TTS",
+        "initials": "Q",
+        "hasLogo": false,
+        "maker": "QQwen"
+      },
+      "captureKinds": [
+        "image",
+        "voice"
+      ]
+    }
+  },
+  "checks": [
+    {
+      "name": "keyless route groups and logos",
+      "pass": true,
+      "measured": {
+        "state": "missing",
+        "groups": [
+          "追加料金なし — いま使っているサブスクChatGPT（Codex）使えるAntigravity使えるGrok使える",
+          "使った分だけ — API キーfal · GPT Image 2.5 Flareキーが未設定見積もり $0.053 / 枚キーを設定すると使"
+        ],
+        "makerImages": 5,
+        "keyLink": true
+      }
+    },
+    {
+      "name": "keyless phase sends no fal requests",
+      "pass": true,
+      "measured": {
+        "requestCount": 0
+      }
+    },
+    {
+      "name": "approval precedes submit",
+      "pass": true,
+      "measured": {
+        "requestsBeforeApproval": 0
+      }
+    },
+    {
+      "name": "generated image enters selected frame",
+      "pass": true,
+      "measured": {
+        "sourceCreated": true,
+        "frameUsesSource": true
+      }
+    },
+    {
+      "name": "generated image matches stub PNG",
+      "pass": true,
+      "measured": {
+        "expectedSha256": "bc3c65432c6c57e5683552e0165137f8ceba99abb0b213139ac2f07729596ec7",
+        "actualSha256": "bc3c65432c6c57e5683552e0165137f8ceba99abb0b213139ac2f07729596ec7",
+        "bytes": 8611
+      }
+    },
+    {
+      "name": "canonical generation meta validation",
+      "pass": true,
+      "measured": {
+        "exitCode": 0,
+        "output": "OK: <TMP>/project/assets/generated/still-1790454470782-GczfK6.png.meta.json"
+      }
+    },
+    {
+      "name": "fal generation meta fields",
+      "pass": true,
+      "measured": {
+        "modelId": "fal:gpt-image-2.5-flare",
+        "modelAsOf": "2026-09-26",
+        "provider": "fal",
+        "cost": {
+          "estimate_usd": 0.0528,
+          "actual_usd": null,
+          "unit": "usd_per_image",
+          "source": "estimate"
+        },
+        "keySource": "file:credentials.env",
+        "resultSha256": "bc3c65432c6c57e5683552e0165137f8ceba99abb0b213139ac2f07729596ec7"
+      }
+    },
+    {
+      "name": "one approved fal submit with dummy authorization",
+      "pass": true,
+      "measured": {
+        "submitCount": 1,
+        "submitAuthorizationWasDummy": true
+      }
+    },
+    {
+      "name": "denied approval sends no submit after 3 seconds",
+      "pass": true,
+      "measured": {
+        "waitMs": 3000,
+        "postsBeforeDeny": 1,
+        "postsAfterDeny": 1
+      }
+    },
+    {
+      "name": "settings connections have both groups and fal",
+      "pass": true,
+      "measured": {
+        "subscriptions": 3,
+        "fal": true,
+        "logoImages": 8,
+        "groups": true
+      }
+    },
+    {
+      "name": "AI Models shows ChatGPT logo and Qwen initials",
+      "pass": true,
+      "measured": {
+        "openai": {
+          "id": "codex:image",
+          "name": "ChatGPT",
+          "logoIsDataUri": true,
+          "maker": "OpenAI"
+        },
+        "qwen": {
+          "id": "tts:fal-qwen3",
+          "name": "fal Qwen3-TTS",
+          "initials": "Q",
+          "hasLogo": false,
+          "maker": "QQwen"
+        },
+        "captureKinds": [
+          "image",
+          "voice"
+        ]
+      }
+    },
+    {
+      "name": "AI Models composite screenshot recorded",
+      "pass": true,
+      "measured": {
+        "name": "09-ai-models-logo-and-fallback.png",
+        "bytes": 133036
+      }
+    },
+    {
+      "name": "fal traffic stays on local stub",
+      "pass": true,
+      "measured": {
+        "stubRequests": 4,
+        "outsideFalHosts": []
+      }
+    },
+    {
+      "name": "all recorded checks passed",
+      "pass": true,
+      "measured": {
+        "count": 13
+      }
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "01-route-groups-and-logos.png",
+      "bytes": 438678
+    },
+    {
+      "name": "02-fal-without-key.png",
+      "bytes": 438678
+    },
+    {
+      "name": "03-estimate-and-approval.png",
+      "bytes": 317413
+    },
+    {
+      "name": "04-stub-image-in-frame.png",
+      "bytes": 354216
+    },
+    {
+      "name": "05-deny-approval.png",
+      "bytes": 288710
+    },
+    {
+      "name": "06-fal-details.png",
+      "bytes": 374138
+    },
+    {
+      "name": "07-settings-connections.png",
+      "bytes": 270037
+    },
+    {
+      "name": "08-settings-api-key.png",
+      "bytes": 282167
+    },
+    {
+      "name": "09-ai-models-logo-and-fallback.png",
+      "bytes": 133036,
+      "note": "AI モデルの静止画・声の実機画面を縦に連結"
+    }
+  ]
+}

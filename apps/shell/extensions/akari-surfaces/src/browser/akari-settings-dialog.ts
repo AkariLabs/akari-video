@@ -40,6 +40,8 @@ import { falKeyAvailable, settingsVoiceEngineValue, voiceAvatarLabel, voiceSetti
 import { createGeminiConsentPrompt } from 'akari-annotations/lib/browser/voice-clone/gemini-consent-step';
 import { geminiConsentCanNext, geminiConsentStatus,
     type GeminiConsentCheck } from 'akari-annotations/lib/common/voice-clone-model';
+import { AkariAnnotationsService,
+    type ImageRouteState } from 'akari-annotations/lib/common/akari-annotations-protocol';
 import {
     AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_AUTO_CUTS, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET,
     AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL,
@@ -75,6 +77,10 @@ import {
 import {
     PROVIDER_DISPLAY, PROVIDER_GROUP_LABELS, providerBillingUrl, providerGroup, providerInitial, providerLogo, ProviderGroup
 } from './settings/provider-catalog';
+import { makerBadge } from './settings/maker-badge';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const CONNECTION_MAKERS = require('../../../../../../packages/schemas/ai-makers.json');
 
 const ENGINE_LABELS: Record<string, string> = {
     'speech-analyzer': 'SpeechAnalyzer（この Mac）', 'whisper-cpp': 'Whisper.cpp（ローカル）',
@@ -109,6 +115,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected readonly transcribe = element('section');
     protected readonly connections = element('section');
     protected readonly providerList = element('div');
+    protected readonly subscriptionList = element('div');
     protected readonly imageAiRow = element('div');
     protected readonly storage = element('div');
     protected libraryStatus: AkariLibraryStatus | undefined;
@@ -128,6 +135,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected compareEnabled: boolean;
     protected compareDraft: string[];
     protected connectionSummary: { configured: number; total: number } | undefined;
+    protected imageRouteStates: ImageRouteState[] = [];
+    protected imageRoutesService?: AkariAnnotationsService;
     protected readonly searchInput = element('input');
     protected storageSnapshot: StorageSnapshot | undefined;
     protected diagnosticPath = '';
@@ -208,6 +217,20 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         });
     }
 
+    setImageRoutesService(service: AkariAnnotationsService): void {
+        this.imageRoutesService = service;
+        void service.probeImageRoutes(['codex', 'antigravity', 'grok']).then(states => {
+            if (!this.isDisposed) { this.imageRouteStates = states; this.renderSubscriptions(); }
+        }).catch(() => {
+            if (!this.isDisposed) {
+                this.imageRouteStates = ['codex', 'antigravity', 'grok'].map(id => ({
+                    id: id as ImageRouteState['id'], state: 'unknown' as const, detail: '状態を確かめられませんでした'
+                }));
+                this.renderSubscriptions();
+            }
+        });
+    }
+
     get value(): void { return undefined; }
     focusSearch(): void { this.searchInput.focus(); }
     refreshPrivacy(): void { if (!this.isDisposed) { this.renderSection('privacy'); } }
@@ -274,7 +297,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         // AKARI Store は「Akari アカウント」節へ移した（2026-09-22）。接続と API キーの末尾には置かない。
         const storeMoved = settingsNote('読み上げに使う API キーもここで登録できます。AKARI Store の接続は「Akari アカウント」へ移りました。');
         storeMoved.append(' ', inlineLink('Akari アカウントを開く', () => this.showSection('account')));
-        this.connections.append(...this.sectionHeading('connections'), storeMoved, this.imageAiRow, this.providerList, this.storage);
+        this.connections.append(...this.sectionHeading('connections'), storeMoved, this.subscriptionList,
+            element('h3', '使った分だけ — API キー'), this.providerList, this.imageAiRow, this.storage);
         this.providerList.append(settingsNote('接続を読み込んでいます…'));
         this.renderStore();
         this.contentNode.append(nav, this.body);
@@ -1454,6 +1478,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
         try {
             const list = await this.service.listConnections();
             if (this.isDisposed) { return; }
+            this.renderSubscriptions();
             this.renderProviders(list.providers);
             await this.renderImageAi();
             this.renderStorage(list.credentials);
@@ -1487,9 +1512,8 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 .catch(() => { result.textContent = '接続を確認できませんでした。'; })
                 .finally(() => { check.disabled = false; });
         }, { small: true });
-        const card = groupCard('画像の AI', status,
-            settingRow('サービス', '既定: fal。高画質化と背景生成に使います。', element('span', 'fal')),
-            settingRow('キー', 'この PC の鍵の保存先に記録します。', input, save));
+        const card = element('div');
+        card.append(status, settingRow('画像の AI のキー', 'この PC の鍵の保存先に記録します。', input, save));
         if (state.narrationKeyAvailable) {
             const reuse = action(state.useNarrationKey ? '同じキーを使用中' : '同じキーを使う', () => {
                 reuse.disabled = true;
@@ -1517,6 +1541,32 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             return card;
         }));
         this.updateConnectionSummary(providers);
+    }
+
+    protected renderSubscriptions(): void {
+        const entries = [
+            { id: 'codex', label: 'ChatGPT（Codex）', maker: 'openai', guide: 'ターミナルで codex login を実行してください' },
+            { id: 'antigravity', label: 'Antigravity', maker: 'google', guide: 'ターミナルで agy を起動してサインインしてください' },
+            { id: 'grok', label: 'Grok', maker: 'xai', guide: 'ターミナルで grok login を実行してください' }
+        ] as const;
+        const rows = entries.map(entry => {
+            const state = this.imageRouteStates.find(row => row.id === entry.id);
+            const row = element('div'); row.className = 'akari-set-prov';
+            row.setAttribute('data-akari-subscription', entry.id);
+            const logo = element('div'); logo.className = 'akari-set-logo';
+            logo.appendChild(makerBadge(CONNECTION_MAKERS, entry.maker, false));
+            const detail = element('div');
+            detail.style.minWidth = '0';
+            const name = element('div'); name.className = 'akari-set-prov-name';
+            name.append(element('span', entry.label));
+            const status = state?.state === 'ready' ? '使える' : state?.state === 'signed-out' ? 'サインインが必要'
+                : state?.state === 'missing' ? '入っていない' : state?.state === 'unknown' ? '確かめられませんでした' : '確かめています';
+            name.append(statusPill(status, state?.state === 'ready' ? 'ok' : 'neutral'));
+            detail.append(name, element('div', state?.state === 'ready' ? 'サインイン済み · 静止画' : entry.guide));
+            row.append(logo, detail);
+            return row;
+        });
+        this.subscriptionList.replaceChildren(groupCard('追加料金なし — いま使っているサブスク', ...rows));
     }
 
     protected updateConnectionSummary(providers: ConnectionRow[]): void {
@@ -2020,6 +2070,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
     @inject(PreferenceService) protected readonly preferences!: PreferenceService;
     @inject(PreferenceSchemaService) protected readonly preferenceSchemas!: PreferenceSchemaService;
     @inject(AkariConnectionsService) protected readonly connections!: AkariConnectionsService;
+    @inject(AkariAnnotationsService) protected readonly imageRoutes!: AkariAnnotationsService;
     @inject(AkariNarrationEnginesService) protected readonly narrationEngines!: AkariNarrationEnginesService;
     @inject(AkariProjectService) protected readonly store!: AkariProjectService;
     @inject(WindowService) protected readonly windows!: WindowService;
@@ -2160,6 +2211,7 @@ export class AkariSettingsCommandContribution implements CommandContribution {
         const root = this.workspaceService.tryGetRoots()[0]?.resource.path.fsPath();
         const aiModels = this.connectionsProvider.createProxy<AkariAiModelsService>(AKARI_AI_MODELS_SERVICE_PATH);
         const dialog = new AkariSettingsDialog(this.preferences, this.connections, this.store, this.windows, this.commands, this.tools, this.files, this.env, this.fileDialogs, this.maintenance, root, this.widgetManager, this.shell, this.pluginServer, this.narrationEngines, this.keybindingRegistry, this.commandRegistry, this.keymapsService, this.keyboardLayout, aiModels, this.requestedSection);
+        dialog.setImageRoutesService(this.imageRoutes);
         this.dialog = dialog;
         try { await dialog.open(); }
         finally {

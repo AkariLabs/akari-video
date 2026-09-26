@@ -66,8 +66,8 @@ test('出所の 3 値を表示する', () => {
     assert.equal(generationSourceLabel('default'), '既定');
 });
 
-test('実カタログは画像 2 行・動画 12 行で全行に as_of がある', () => {
-    assert.equal(catalog.models.filter(model => model.kind === 'image').length, 2);
+test('実カタログは画像 3 行・動画 12 行で全行に as_of がある', () => {
+    assert.equal(catalog.models.filter(model => model.kind === 'image').length, 3);
     assert.equal(catalog.models.filter(model => model.kind === 'video').length, 12);
     assert.ok(catalog.models.every(model => typeof model.as_of === 'string' && model.as_of.length > 0));
 });

@@ -40,7 +40,7 @@ test('entire normalized rows are stable across all kinds and a standalone route'
   const expected = {
     "codex:image": {
       "kind": "image",
-      "name": "OpenAI GPT Image",
+      "name": "ChatGPT",
       "family": "OpenAI GPT Image",
       "via": "subscription",
       "provider": "codex",

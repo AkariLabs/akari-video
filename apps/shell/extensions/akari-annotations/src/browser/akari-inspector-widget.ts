@@ -50,7 +50,7 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
-import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillCroppedNotice, stillDimensionMismatch, stillMismatchNotice, stillRouteAvailability, stillRouteIds, type AiStillState, type StillAspect } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillCroppedNotice, stillDimensionMismatch, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillFalPrices, stillFalPriceAsOf, type AiStillState, type StillAspect } from './inspector/ai-still-panel';
 import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
@@ -6320,7 +6320,8 @@ export class AkariInspectorWidget extends BaseWidget {
             cancel: () => { void this.cancelStillGeneration(identity); },
             addReference: path => { void this.addStillReference(identity.key, path); },
             chooseReference: () => { void this.chooseStillReference(identity.key); },
-            captureReference: () => { void this.captureStillReference(identity.key); }
+            captureReference: () => { void this.captureStillReference(identity.key); },
+            openConnections: () => { void this.commandRegistry.executeCommand('akari.settings.open', 'connections'); }
         });
     }
 
@@ -6568,6 +6569,13 @@ export class AkariInspectorWidget extends BaseWidget {
         if (!state || !root || state.running || state.probingRoutes?.has(selectedRoute) ||
             (routeState !== 'ready' && routeState !== 'unknown') || !state.prompt.trim()
             || stillRouteAvailability(selectedRoute, state.references?.length ?? 0).disabled) return;
+        if (selectedRoute === 'fal') {
+            const amount = `$${stillFalPrices[state.quality ?? 'high'].toFixed(3)} / 枚`;
+            const approved = await new ConfirmDialog({ title: '費用承認',
+                msg: `fal · GPT Image 2.5 Flare に送ります。見積もり ${amount}（as_of ${stillFalPriceAsOf}・1024² 基準）。費用承認しますか`,
+                ok: '費用承認する', cancel: 'キャンセル' }).open();
+            if (!approved) return;
+        }
         state.running = true;
         state.startedAt = Date.now();
         state.error = undefined;
@@ -6581,7 +6589,8 @@ export class AkariInspectorWidget extends BaseWidget {
         try {
             const result = await this.layerAudioService.startGenerateStill({ projectRootUri: root.toString(),
                 itemId: identity.itemId, prompt: state.prompt, aspect: state.aspect, route: state.routeId ?? 'codex',
-                references: state.references?.map(row => row.path), cropToAspect: state.cropToAspect !== false });
+                references: state.references?.map(row => row.path), cropToAspect: state.cropToAspect !== false,
+                quality: state.quality ?? 'high', approved: selectedRoute === 'fal' });
             if (!state.running) return;
             if (!result.ok || !result.relativePath) throw new Error(result.reason || '生成できませんでした。');
             state.mismatch = stillDimensionMismatch(state.aspect, result);

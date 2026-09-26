@@ -62,7 +62,24 @@ async function waitForAttempt(dir, route, count) {
 }
 
 test('手段ごとの既定上限', () => {
-  assert.deepEqual(IMAGE_PROBE_TIMEOUT_MS, { codex: 5000, antigravity: 20000, grok: 20000 });
+  assert.deepEqual(IMAGE_PROBE_TIMEOUT_MS, { codex: 5000, antigravity: 20000, grok: 20000, fal: 5000 });
+});
+
+test('fal はキー状態を示し、費用承認を断ると送信処理へ進まない', async () => {
+  const dir = await workspace();
+  try {
+    const noKey = manager(dir, { FAL_KEY: '', AKARI_CREDENTIALS_FILE: join(dir, 'missing-credentials.env') });
+    assert.equal((await noKey.probeImageRoutes(['fal']))[0].state, 'missing');
+    const withKey = manager(dir, { FAL_KEY: 'stub-key' });
+    assert.equal((await withKey.probeImageRoutes(['fal']))[0].state, 'ready');
+    assert.equal((await manager(dir, { FAL_KEY: '', AKARI_IMAGE_AI_FAL_KEY: 'stub-image-key' }).probeImageRoutes(['fal']))[0].state, 'ready');
+    const credentialsFile = join(dir, 'credentials.env');
+    await writeFile(credentialsFile, 'AKARI_IMAGE_AI_FAL_KEY=stub-image-file-key\n', { mode: 0o600 });
+    assert.equal((await manager(dir, { FAL_KEY: '', AKARI_CREDENTIALS_FILE: credentialsFile }).probeImageRoutes(['fal']))[0].state, 'ready');
+    assert.deepEqual(await withKey.startGenerateStill(dir, { ...request, route: 'fal', approved: false }),
+      { ok: false, reason: '費用承認が必要です。' });
+    assert.equal(await readFile(join(dir, 'calls.jsonl'), 'utf8').catch(() => ''), '');
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('3 手段の ready / signed-out / missing と Grok の一回再確認', async t => {
@@ -248,7 +265,7 @@ test('パネルは手段ごとの確認中と unknown の案内・作成可否�
     const walk = node => [node, ...node.children.flatMap(walk)];
     const nodes = walk(parent);
     const radios = nodes.filter(x => x.type === 'radio');
-    assert.equal(radios.length, 3);
+    assert.equal(radios.length, 4);
     assert.equal(nodes.find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, false);
     radios[2].checked = true; radios[2].listeners.get('change')();
     assert.equal(savedStillRoute(), 'grok');
@@ -272,8 +289,8 @@ test('パネルは手段ごとの確認中と unknown の案内・作成可否�
     const checking = new Node('root');
     appendAiStillPanel(checking, state, { change() {}, probe() {}, generate() {}, cancel() {} });
     const badges = walk(checking).filter(x => x.className === 'akari-inspector-ai-still-badge');
-    assert.deepEqual(badges.map(x => x.textContent), ['使える', '確かめています…', '確かめられませんでした']);
-    assert.deepEqual(badges.map(x => x.attributes.get('data-akari-inspector-ai-route-state')), ['ready', 'checking', 'unknown']);
+    assert.deepEqual(badges.map(x => x.textContent), ['使える', '確かめています…', '確かめられませんでした', '入っていない']);
+    assert.deepEqual(badges.map(x => x.attributes.get('data-akari-inspector-ai-route-state')), ['ready', 'checking', 'unknown', 'checking']);
     assert.equal(walk(checking).find(x => x.attributes.get('data-akari-inspector-ai-refresh') === 'true').disabled, true);
     assert.equal(walk(checking).find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, false);
   } finally {

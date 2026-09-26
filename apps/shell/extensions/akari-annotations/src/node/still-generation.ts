@@ -15,10 +15,10 @@ const redact = (value: unknown): string => String(value ?? '')
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, '<email>')
     .replaceAll(homedir(), '<HOME>');
 const brief = (value: unknown, lines = 2): string => redact(value).split(/\r?\n/u).map(line => line.trim()).filter(Boolean).slice(-lines).join(' / ').slice(0, 500);
-const keyNames = ['FAL_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'XAI_API_KEY'];
+const keyNames = ['FAL_KEY', 'AKARI_IMAGE_AI_FAL_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'XAI_API_KEY'];
 type Route = ImageRouteState['id'];
 export const IMAGE_PROBE_TIMEOUT_MS: Readonly<Record<Route, number>> = {
-    codex: 5000, antigravity: 20000, grok: 20000
+    codex: 5000, antigravity: 20000, grok: 20000, fal: 5000
 };
 export const stillAspectText: Readonly<Record<StartGenerateStillRequest['aspect'], string>> = {
     '16:9': '横長 16:9 の画像。', '9:16': '縦長 9:16 の画像。', '1:1': '正方形 1:1 の画像。',
@@ -57,6 +57,21 @@ export class StillGenerationManager {
         return env;
     }
 
+    private async falKey(): Promise<{ key: string; key_source: string } | undefined> {
+        const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+        if (this.env.AKARI_IMAGE_AI_FAL_KEY?.trim()) {
+            return { key: this.env.AKARI_IMAGE_AI_FAL_KEY.trim(), key_source: 'env:AKARI_IMAGE_AI_FAL_KEY' };
+        }
+        const creator = await importEsm(pathToFileURL(await this.findAsset('packages/creator-root/src/index.mjs')).toString());
+        const imageKey = creator.readCredentials(this.env).values.get('AKARI_IMAGE_AI_FAL_KEY')?.trim();
+        if (imageKey) return { key: imageKey, key_source: 'file:credentials.env' };
+        const credentials = await importEsm(pathToFileURL(await this.findAsset('packages/generate/src/cli/credentials.mjs')).toString());
+        try { return credentials.resolveFalKey({ env: this.env }); } catch (error) {
+            if (error?.name === 'CredentialsError') return undefined;
+            throw error;
+        }
+    }
+
     async resolveCli(route: Route): Promise<string | undefined> {
         const name = route === 'antigravity' ? 'agy' : route;
         const explicit = this.env[route === 'antigravity' ? 'AKARI_AGY_BIN' : route === 'grok' ? 'AKARI_GROK_BIN' : 'AKARI_CODEX_BIN'];
@@ -76,6 +91,10 @@ export class StillGenerationManager {
     }
 
     private async probeRoute(route: Route): Promise<ImageRouteState> {
+        if (route === 'fal') {
+            const key = await this.falKey();
+            return { id: route, state: key ? 'ready' : 'missing', detail: key ? 'キーを設定済み' : 'キーを設定すると使えます →' };
+        }
         const cli = await this.resolveCli(route);
         const label = route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex';
         if (!cli) return { id: route, state: 'missing', detail: `${label} CLI が見つかりません` };
@@ -123,7 +142,8 @@ export class StillGenerationManager {
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(request.itemId)) return { ok: false, reason: 'itemId が不正です。' };
         if (this.active.has(request.itemId)) return { ok: false, reason: 'この枠は生成中です。' };
         const route = request.route ?? 'codex';
-        if (!(['codex', 'antigravity', 'grok'] as const).includes(route)) return { ok: false, reason: '手段が不正です。' };
+        if (!(['codex', 'antigravity', 'grok', 'fal'] as const).includes(route)) return { ok: false, reason: '手段が不正です。' };
+        if (route === 'fal' && request.approved !== true) return { ok: false, reason: '費用承認が必要です。' };
         const maxReferences = aiActionCatalog([]).find(action => action.id === 'still')!.routes.find(row => row.id === route)!
             .inputs!.reference_images!.max;
         if (!Array.isArray(request.references ?? []) || (request.references?.length ?? 0) > maxReferences) {
@@ -142,8 +162,10 @@ export class StillGenerationManager {
             references.push({ path: relative(root, absolutePath).split(sep).join('/'), absolutePath,
                 sha256: createHash('sha256').update(await fs.readFile(absolutePath)).digest('hex') });
         }
-        const cli = await this.resolveCli(route);
-        if (!cli) return { ok: false, reason: `${route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex'} CLI が見つかりません。` };
+        const cli = route === 'fal' ? undefined : await this.resolveCli(route);
+        if (route !== 'fal' && !cli) return { ok: false, reason: `${route === 'antigravity' ? 'Antigravity' : route === 'grok' ? 'Grok' : 'Codex'} CLI が見つかりません。` };
+        const falKey = route === 'fal' ? await this.falKey() : undefined;
+        if (route === 'fal' && !falKey) return { ok: false, reason: 'fal のキーを設定してください。' };
         const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
         if (edit.version !== 2) return { ok: false, reason: 'v2 へ変換してから編集してください。' };
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
@@ -171,7 +193,7 @@ export class StillGenerationManager {
         try {
             const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
             const load = async (name: string): Promise<any> => importEsm(pathToFileURL(await this.findAsset(`packages/generate/src/cli/${name}.mjs`)).toString());
-            const [generator, metas, validator] = await Promise.all([load(route === 'codex' ? 'codex-image' : route === 'antigravity' ? 'agy-image' : 'grok-image'), load('meta-still'), load('meta-validate')]);
+            const [generator, metas, validator] = await Promise.all([load(route === 'codex' ? 'codex-image' : route === 'antigravity' ? 'agy-image' : route === 'fal' ? 'fal-still' : 'grok-image'), load('meta-still'), load('meta-validate')]);
             const prompt = `${request.prompt.trim()}\n\n${stillAspectText[request.aspect]}`;
             oldMetaPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
             oldMetaText = await fs.readFile(oldMetaPath, 'utf8').catch(error => {
@@ -193,7 +215,10 @@ export class StillGenerationManager {
                 if (run.cancelled) child.kill('SIGTERM');
                 return child;
             }) as SpawnProcess;
-            const result = route === 'codex' ? (await generator.generateCodexImages({ projectDir: root, parallel: 1,
+            const result = route === 'fal' ? await generator.generateFalStill({ prompt: request.prompt.trim(), aspect: request.aspect,
+                quality: request.quality ?? 'high', referencePaths: references.map(row => row.absolutePath),
+                dest: join(staging, 'image.png'), key: falKey!.key, env: this.env })
+                : route === 'codex' ? (await generator.generateCodexImages({ projectDir: root, parallel: 1,
                 items: [{ id, path: stageRelative, prompt, references: references.map(row => row.absolutePath) }], env: { ...this.spawnEnv(cli), AKARI_CODEX_BIN: cli },
                 spawnProcess,
                 log: () => undefined, logError: () => undefined
@@ -233,11 +258,20 @@ export class StillGenerationManager {
             let meta = metas.doneStillMeta({ prompt, duration_s, at, asOf: route === 'codex' ? await metas.readCodexModelAsOf() : at.slice(0, 10),
                 path: relativePath, image, elapsed_s: result.elapsed_s, references, croppedFrom, aspect: request.aspect });
             if (route !== 'codex') {
-                const name = route === 'antigravity' ? 'agy' : 'grok';
+                const name = route === 'antigravity' ? 'agy' : route;
                 meta.model.id = `${name}:image`;
                 meta.job.provider = name;
                 meta.provenance.tool = `akari generate still --${name}`;
                 meta.provenance.key_source = `login:${name}`;
+            }
+            if (route === 'fal') {
+                meta.model.id = generator.FAL_STILL_MODEL;
+                meta.model.as_of = generator.FAL_STILL_AS_OF;
+                meta.cost.estimate_usd = generator.falStillEstimate(request.quality ?? 'high').usd;
+                meta.job.request_id = result.request_id;
+                meta.job.status_url = result.status_url;
+                meta.job.response_url = result.response_url;
+                meta.provenance.key_source = falKey!.key_source;
             }
             if (oldMeta?.next?.kind === 'video') {
                 const next = oldMeta.next;

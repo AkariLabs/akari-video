@@ -208,6 +208,7 @@
     },
     {
       "id": "codex:image",
+      "name": "ChatGPT",
       "kind": "image",
       "maker": "openai",
       "group": "chatgpt-image",
@@ -904,7 +905,7 @@
       },
       "verified": "documented",
       "measured_ref": null,
-      "callable": false,
+      "callable": true,
       "name": "GPT Image 2.5 Flare",
       "family": "GPT Image 2.5 Flare",
       "via": "api",

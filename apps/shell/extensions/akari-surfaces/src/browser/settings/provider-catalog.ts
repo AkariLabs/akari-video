@@ -16,7 +16,7 @@ export const PROVIDER_GROUP_LABELS: Record<ProviderGroup, string> = {
 };
 
 export const PROVIDER_DISPLAY: Readonly<Record<string, { group: ProviderGroup; description: string; highlight?: string }>> = {
-    fal: { group: 'generate', description: '1 つのキーで画像生成・動画生成・文字起こし。既定モデル（静止画 / 動画）もここで選びます' },
+    fal: { group: 'generate', description: 'おすすめ · 1 本のキーで画像・動画・読み上げ・BGM を使えます' },
     openrouter: {
         group: 'generate', description: 'いろいろな会社のモデルを 1 つのキーで。',
         highlight: 'つなぐと Akari Vibe（声で話しかけて動画を編集）が使えます'

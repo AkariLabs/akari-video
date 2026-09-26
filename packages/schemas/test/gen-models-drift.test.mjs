@@ -42,6 +42,8 @@ const fieldMap = {
   "fal:grok-imagine-i2v": { first: "image_url" },
   "fal:vidu-q3-i2v": { first: "image_url", last: "end_image_url" },
   "fal:nano-banana-pro-edit": { references: { reference_images: "image_urls" } },
+  // This catalog row documents text-to-image; the /edit adapter accepts image_urls separately.
+  "fal:gpt-image-2.5-flare": {},
 };
 
 for (const model of catalog.models.filter((row) => row.provider === "fal")) {
