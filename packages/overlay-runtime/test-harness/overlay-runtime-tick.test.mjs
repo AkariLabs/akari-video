@@ -5,6 +5,9 @@
 //     呼ばれず、可視化フリップと 250ms 経過で引き直されること（[data-akari-active] ゲートは維持）
 // (c) 3D 断片でも同じ CSS アニメ同期を通すこと（three のシーンと断片の CSS は別物で、
 //     後者を進めるのは tick の仕事。回帰: 2026-09-04）
+// (d) 再生中は CSS アニメを走らせたままにし、ずれが閾値を超えたときだけ書き戻すこと。
+//     停止・スクラブ中は従来どおり pause + currentTime で固定し、保留（pending）の pause が
+//     後から時刻を進めても書き戻すこと（issue #86）
 // 実 DOM（CSS animation の生成・three の描画）は扱わない。実ブラウザでの挙動は
 // entry-animation-hit-region.test.mjs / premount.test.mjs が担う。
 // 実行: node --test packages/overlay-runtime/test-harness/overlay-runtime-tick.test.mjs
@@ -127,6 +130,25 @@ function createHost({ animations = () => [] } = {}) {
   return host;
 }
 
+// Web Animations の Animation のうち、runtime が触る面だけを持つフェイク。時間は自走しない
+// （currentTime はテストが書いた値のまま）。writes は currentTime への書き込み回数。
+function fakeAnimation({ endTime = 800, playState = "running" } = {}) {
+  let currentTime = null;
+  return {
+    playState,
+    pending: false,
+    playbackRate: 1,
+    writes: 0,
+    plays: 0,
+    pauses: 0,
+    get currentTime() { return currentTime; },
+    set currentTime(value) { currentTime = value; this.writes += 1; },
+    pause() { this.playState = "paused"; this.pauses += 1; },
+    play() { this.playState = "running"; this.plays += 1; },
+    effect: { getComputedTiming: () => ({ endTime }) },
+  };
+}
+
 // vm 側の realm で作られたオブジェクトは prototype が異なり deepEqual が落ちるため、
 // own プロパティだけを外側 realm へ写してから比較する。
 const own = (object) => ({ ...object });
@@ -188,12 +210,7 @@ test("maxRenderSize は mount(summary, options) / configure / factory で上書�
 });
 
 test("非 3D 断片の getAnimations は 250ms 以内の連続 tick で 1 回だけ呼ぶ", async () => {
-  const animation = {
-    paused: false,
-    currentTime: null,
-    pause() { this.paused = true; },
-    effect: { getComputedTiming: () => ({ endTime: 800 }) },
-  };
+  const animation = fakeAnimation({ endTime: 800 });
   const host = createHost({ animations: () => [animation] });
   await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 10, html: CAPTION_HTML }] });
   const container = host.stage.children[0];
@@ -207,8 +224,8 @@ test("非 3D 断片の getAnimations は 250ms 以内の連続 tick で 1 回だ
   host.runtime.tick(0.3, true);
   assert.equal(captionCalls(), 1, "250ms 以内の 3 tick で getAnimations は 1 回");
   assert.deepEqual(own(host.getAnimationsCalls[0].options), { subtree: true });
-  assert.equal(animation.paused, true);
-  assert.equal(animation.currentTime, 300, "キャッシュ済みの Animation にも毎 tick currentTime を書く");
+  assert.equal(animation.playState, "running", "再生中は走らせたまま");
+  assert.equal(animation.currentTime, 300, "キャッシュ済みの Animation もずれ（100ms > 閾値）を書き戻す");
   assert.equal(container.hasAttribute("data-akari-active"), true, "可視中は data-akari-active ゲートを付ける");
   assert.equal(host.renderCalls.length, 0, "非 3D 断片は threeRuntime.render を呼ばない");
 
@@ -230,11 +247,7 @@ test("非 3D 断片の getAnimations は 250ms 以内の連続 tick で 1 回だ
 });
 
 test("入場アニメの確定判定（hitPolicyPending）もキャッシュ済み一覧で行う", async () => {
-  const animation = {
-    currentTime: null,
-    pause() {},
-    effect: { getComputedTiming: () => ({ endTime: 800 }) },
-  };
+  const animation = fakeAnimation({ endTime: 800 });
   const host = createHost({ animations: () => [animation] });
   await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 10, html: CAPTION_HTML }] });
   const container = host.stage.children[0];
@@ -264,26 +277,21 @@ test("入場アニメの確定判定（hitPolicyPending）もキャッシュ済�
 
 // 回帰（2026-09-04 実機報告「3D モデルがずっと画面に残る」）:
 // 3D 分岐が CSS アニメ同期の手前で continue していたため、3D 宣言を含む断片の CSS アニメが
-// 1 本も pause / currentTime されず、壁時計で走り切って animation-fill-mode の最終姿勢へ
+// 1 本も同期されず、壁時計で走り切って animation-fill-mode の最終姿勢へ
 // 張り付いていた。実機の S4 断片は 3D ステージの出入りを 45 秒の CSS アニメだけで持って
 // いるので、最終姿勢 = 画面中央に居座る絵になっていた。
 // 書き出し（render-cut の rasterize.mjs）は __akariSyncAnimations を 3D コンテナにも等しく
 // 掛けているため、飛ばすとプレビューと書き出しで絵が食い違う。
 test("3D 断片の CSS アニメもタイムラインへ同期する（three の描画とは別口）", async () => {
-  const animation = {
-    paused: false,
-    currentTime: null,
-    pause() { this.paused = true; },
-    effect: { getComputedTiming: () => ({ endTime: 800 }) },
-  };
+  const animation = fakeAnimation({ endTime: 60000 });
   const host = createHost({ animations: () => [animation] });
   await host.runtime.mount({ overlays: [{ id: "cube", start: 0, duration: 10, html: THREE_HTML }] });
   const container = host.stage.children[0];
   const cubeCalls = () => host.getAnimationsCalls.filter((call) => call.element === container).length;
 
   host.clock = 1000;
-  host.runtime.tick(1.5, true);
-  assert.equal(animation.paused, true, "3D 断片の CSS アニメも pause する（壁時計で走らせない）");
+  host.runtime.tick(1.5, false);
+  assert.equal(animation.playState, "paused", "3D 断片の CSS アニメも停止中は pause する（壁時計で走らせない）");
   assert.equal(animation.currentTime, 1500, "currentTime は断片のローカル時刻（= tick 時刻 - start）");
   assert.equal(cubeCalls(), 1);
   assert.deepEqual(own(host.getAnimationsCalls[0].options), { subtree: true });
@@ -322,4 +330,127 @@ test('animated overlay keeps the pointer position during a live move', async () 
   delete container.dataset.akariMotionDragging;
   host.runtime.tick(.5, false);
   assert.equal(container.style.getPropertyValue('--x'), '0px');
+});
+
+test("再生中は走らせたまま、ずれが閾値（50ms）以下なら currentTime を書かない", async () => {
+  const animation = fakeAnimation({ endTime: 60000 });
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 10, html: CAPTION_HTML }] });
+
+  host.clock = 1000;
+  host.runtime.tick(1, true);
+  assert.equal(animation.currentTime, 1000, "初回の可視 tick で時刻を合わせる");
+  const writes = animation.writes;
+
+  // フェイクは自走しないので、Animation 側が 1016ms まで進んだことにする（ずれ 0）
+  animation.currentTime = 1016;
+  const baseline = animation.writes;
+  host.clock = 1016;
+  host.runtime.tick(1.03, true); // ずれ 14ms ≤ 50ms
+  assert.equal(animation.writes, baseline, "閾値以内なら書かない（毎フレームのシークをしない）");
+  assert.equal(animation.pauses, 0, "再生中は pause しない");
+  assert.equal(animation.playState, "running");
+  assert.ok(writes >= 1);
+
+  host.clock = 1032;
+  host.runtime.tick(1.5, true); // ずれ 484ms > 50ms（動画側の飛び・停滞の後など）
+  assert.equal(animation.currentTime, 1500, "閾値を超えたら書き戻す");
+});
+
+test("停止・スクラブ中は pause + currentTime で固定し、同じ値は書き直さない", async () => {
+  const animation = fakeAnimation({ endTime: 60000 });
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 10, html: CAPTION_HTML }] });
+
+  host.runtime.tick(1, true);
+  animation.currentTime = 1037; // 走っていた Animation が少し先へ進んでいる
+  host.clock = 1016;
+  host.runtime.tick(1.02, false);
+  assert.equal(animation.playState, "paused");
+  assert.equal(animation.currentTime, 1020, "停止したタイムライン時刻へ正確に合わせる");
+  const writes = animation.writes;
+  host.clock = 1032;
+  host.runtime.tick(1.02, false);
+  assert.equal(animation.writes, writes, "同じ時刻の停止 tick では書き直さない");
+  host.runtime.tick(2.25, false);
+  assert.equal(animation.currentTime, 2250, "スクラブは毎 tick その時刻へ");
+});
+
+test("保留（pending）の pause が解けて時刻が進んでも、止めた時刻へ書き戻す", async () => {
+  const animation = fakeAnimation({ endTime: 60000 });
+  let resolveReady;
+  // 実機（Chrome）の観測: コンポジタで走っていた Animation の pause() が保留のまま残り、
+  // 次のフレームで保留が解けると currentTime が 1 フレーム分進む。
+  animation.pause = function pause() {
+    this.playState = "paused";
+    this.pending = true;
+    this.ready = new Promise((resolve) => { resolveReady = resolve; });
+  };
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 10, html: CAPTION_HTML }] });
+
+  host.runtime.tick(1, true);
+  host.clock = 1016;
+  host.runtime.tick(1.6124, false);
+  assert.equal(animation.currentTime, 1612.4);
+  animation.currentTime = 1628.1; // 保留の解決で 1 フレーム進む
+  animation.pending = false;
+  resolveReady();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(animation.currentTime, 1612.4, "ready 後に止めた時刻へ戻す");
+
+  // 再生へ戻った後に古い ready が解けても、再生中の時刻は上書きしない
+  host.clock = 1032;
+  host.runtime.tick(2, false);
+  const staleResolve = resolveReady;
+  host.clock = 1048;
+  host.runtime.tick(2.1, true);
+  animation.currentTime = 2110;
+  staleResolve();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(animation.currentTime, 2110);
+});
+
+test("有限アニメの終端以降は play() せず、巻き戻したら走らせ直す", async () => {
+  const animation = fakeAnimation({ endTime: 600 });
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 10, html: CAPTION_HTML }] });
+
+  host.runtime.tick(0.3, true);
+  animation.playState = "finished"; // 走り切った
+  animation.currentTime = 600;
+  host.clock = 1016;
+  host.runtime.tick(0.9, true);
+  assert.equal(animation.playState, "paused", "finished への play() は先頭へ巻き戻るので呼ばない");
+  assert.equal(animation.currentTime, 900);
+  const plays = animation.plays;
+  const writes = animation.writes;
+  host.clock = 1032;
+  host.runtime.tick(1.2, true);
+  assert.equal(animation.writes, writes, "終端以降は fill の姿勢のままで、書き直さない");
+
+  host.clock = 1048;
+  host.runtime.tick(0.2, true); // 巻き戻し
+  assert.equal(animation.playState, "running");
+  assert.equal(animation.plays, plays + 1);
+  assert.equal(animation.currentTime, 200);
+});
+
+test("再生速度を tick の進みから推定し、走らせる Animation の playbackRate に反映する", async () => {
+  const animation = fakeAnimation({ endTime: 60000 });
+  const host = createHost({ animations: () => [animation] });
+  await host.runtime.mount({ overlays: [{ id: "cap", start: 0, duration: 20, html: CAPTION_HTML }] });
+
+  for (let frame = 0; frame <= 20; frame += 1) {
+    host.clock = 1000 + frame * 16;
+    host.runtime.tick(1 + (frame * 16 * 2) / 1000, true); // 2 倍速
+  }
+  assert.equal(animation.playbackRate, 2);
+
+  host.runtime.tick(5, false); // 停止で観測をやり直す（推定値は保持）
+  for (let frame = 0; frame <= 20; frame += 1) {
+    host.clock = 2000 + frame * 16;
+    host.runtime.tick(6 + (frame * 16) / 1000, true);
+  }
+  assert.equal(animation.playbackRate, 1);
 });

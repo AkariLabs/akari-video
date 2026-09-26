@@ -16,7 +16,7 @@ import {
 } from '../common/akari-partner-protocol';
 import { buildPartnerConnectionMarker } from '../common/partner-connection-marker';
 import { bootstrapRunner } from './bootstrap-runner';
-import { buildCliPathEnv, ensureCli as provisionCli } from './cli-provisioner';
+import { buildCliPathEnv, buildPrivateNodePathEnv, ensureCli as provisionCli } from './cli-provisioner';
 import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
@@ -110,13 +110,20 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
 
     async prepareLaunch(agent: PartnerAgentId, resolvedExecutablePath?: string): Promise<PartnerLaunchPlan> {
         const processLaunch = resolvePartnerProcessLaunch(agent, resolvedExecutablePath);
+        const cliPathEnv = this.resolveCliPathEnv();
+        const privateNodePathEnv = agent === 'commandcode' ? buildPrivateNodePathEnv({
+            akariHome: resolveAkariHomeDir(),
+            platform: process.platform,
+            existingPath: cliPathEnv.PATH ?? process.env.PATH
+        }) : {};
         return {
             agent,
             ...processLaunch,
             log: [],
             env: {
                 ...this.resolveMediaBinEnv(),
-                ...this.resolveCliPathEnv()
+                ...cliPathEnv,
+                ...privateNodePathEnv
             }
         };
     }

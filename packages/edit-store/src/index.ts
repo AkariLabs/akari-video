@@ -47,3 +47,69 @@ export * from './adjust-css-visual';
 
 export { effectiveScale, normalizeTransform } from './transform';
 export * from './transform-keyframe-edit';
+
+// write-gate.ts の SAVED_BY_PATH と同値に保つ。
+export const SAVED_BY_PATH = '.akari/saved-by.json';
+const SAVED_BY_SCHEMA_VERSION = 1;
+
+export interface SavedByStamp {
+    version: 1;
+    app: 'akari-video';
+    appVersion: string;
+    savedAt: string;
+}
+
+export function parseSavedBy(text: string | undefined): SavedByStamp | undefined {
+    if (!text) return undefined;
+    try {
+        const value: unknown = JSON.parse(text);
+        if (!value || typeof value !== 'object') return undefined;
+        const stamp = value as Partial<SavedByStamp>;
+        return stamp.version === SAVED_BY_SCHEMA_VERSION && stamp.app === 'akari-video'
+            && typeof stamp.appVersion === 'string' && /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(stamp.appVersion)
+            && typeof stamp.savedAt === 'string' && !Number.isNaN(Date.parse(stamp.savedAt))
+            ? stamp as SavedByStamp : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function compareSavedByVersions(left: string, right: string): number {
+    const leftParts = left.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    const rightParts = right.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    if (!leftParts || !rightParts) return 0;
+    for (let i = 1; i <= 3; i++) {
+        const a = Number(leftParts[i]);
+        const b = Number(rightParts[i]);
+        if (a !== b) return a < b ? -1 : 1;
+    }
+    return 0;
+}
+
+export function newerSavedByVersion(
+    text: string | undefined,
+    currentVersion: string | undefined
+): string | undefined {
+    const savedVersion = parseSavedBy(text)?.appVersion;
+    return savedVersion && currentVersion && compareSavedByVersions(savedVersion, currentVersion) > 0
+        ? savedVersion : undefined;
+}
+
+export function isUnknownKeyEditError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /edit\.json[^\n]*未定義キーを使用できません/.test(message);
+}
+
+export function newerVersionOpenNotice(savedVersion: string, currentVersion: string): string {
+    return `このプロジェクトは新しい版の AKARI Video（v${savedVersion}）で保存されています。`
+        + `いまの版（v${currentVersion}）では開けない機能が使われています。AKARI Video を更新してください。`;
+}
+
+export function newerVersionLintPrefix(savedVersion: string): string {
+    return `このプロジェクトは新しい版（v${savedVersion}）で保存されています。`
+        + 'いまの版の検証は新しい機能を知らないため、誤ってエラーを出すことがあります。';
+}
+
+export function withNewerVersionLintPrefix(message: string, savedVersion?: string): string {
+    return savedVersion ? `${newerVersionLintPrefix(savedVersion)} ${message}` : message;
+}

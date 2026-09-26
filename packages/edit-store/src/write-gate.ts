@@ -21,6 +21,18 @@ import { promises as fs, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { tmpdir } from 'os';
+// index.ts の SAVED_BY_PATH と同値に保つ（Node 専用入口は index を import しない）。
+export const SAVED_BY_PATH = '.akari/saved-by.json';
+const SAVED_BY_SCHEMA_VERSION = 1;
+const APP_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/;
+
+function isValidSavedByAppVersion(version: unknown): version is string {
+    return typeof version === 'string' && APP_VERSION_PATTERN.test(version);
+}
+
+function serializeSavedByStamp(appVersion: string, savedAt = new Date().toISOString()): string {
+    return `${JSON.stringify({ version: SAVED_BY_SCHEMA_VERSION, app: 'akari-video', appVersion, savedAt }, null, 2)}\n`;
+}
 
 export interface EditLintFinding {
     severity?: string;
@@ -39,6 +51,8 @@ export interface EditLintGateResult {
 export type LintCandidates = Record<string, string | null>;
 
 export interface DeferredLintOptions {
+    /** edit.json を保存した AKARI Video の版。不明なら既存スタンプを消す。 */
+    appVersion?: string;
     debounceMs?: number;
     onLintResult?: (result: EditLintGateResult) => void | Promise<void>;
     /** Deterministic test seam; production callers use runEditLint. */
@@ -260,7 +274,26 @@ export async function assertLintPasses(projectRoot: string, candidates: LintCand
     }
 }
 
+let defaultSavedByAppVersion: string | undefined;
+
+/** CLI / preview-server 等のプロセス内で書き手の版を 1 回だけ設定する。 */
+export function setDefaultSavedByAppVersion(version: string | undefined): void {
+    defaultSavedByAppVersion = isValidSavedByAppVersion(version) ? version : undefined;
+}
+
+/** CLI の既存 edit.json 保存直後に、スタンプだけを atomic に更新する。 */
+export async function writeSavedByStamp(projectRoot: string, appVersion: string | undefined): Promise<void> {
+    const destination = join(projectRoot, SAVED_BY_PATH);
+    if (isValidSavedByAppVersion(appVersion)) {
+        await writeAtomic(destination, serializeSavedByStamp(appVersion));
+    } else {
+        // 版不明の書き手は、以前の書き手の版を主張できない。
+        await fs.rm(destination, { force: true });
+    }
+}
+
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
+
 export async function writeProjectFilesGuarded(
     projectRoot: string,
     candidates: LintCandidates,
@@ -276,7 +309,16 @@ export async function writeProjectFilesGuarded(
         }
         const destination = join(projectRoot, name);
         await writeAtomic(destination, text);
-        // rename 完了直後に同期で通知する。lint スケジュールより前に出すことで、
+        if (name === 'edit.json') {
+            const version = options.appVersion ?? defaultSavedByAppVersion;
+            if (isValidSavedByAppVersion(version)) {
+                await writeAtomic(join(projectRoot, SAVED_BY_PATH), serializeSavedByStamp(version));
+            } else {
+                // An unknown writer cannot keep a previous writer's version claim.
+                await fs.rm(join(projectRoot, SAVED_BY_PATH), { force: true });
+            }
+        }
+        // edit.json とスタンプの rename が完了したら同期で通知する。lint スケジュールより前に出すことで、
         // 購読側が watcher（実測 42〜1183ms のばらつき）を待たずに済む。
         if (options.onDidWrite) {
             try {

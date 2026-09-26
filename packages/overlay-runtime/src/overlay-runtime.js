@@ -35,6 +35,12 @@ const PREVIEW_3D_MAX_RENDER_SIZE = 720;
 // getAnimations() 一覧のキャッシュ寿命（ms。app.js と同値）。詳細は tick() の注記。
 const ANIMATIONS_CACHE_MS = 250;
 
+// 再生中の CSS アニメは走らせたままにし、タイムラインとのずれがこの幅を超えたときだけ
+// currentTime を書き戻す（ms。出力 30fps の 1.5 フレーム相当）。詳細は syncAnimation() の注記。
+const PLAYBACK_DRIFT_MS = 50;
+// 再生速度の推定に使う最短の観測窓（ms）。これより短い区間の Δ時刻/Δ壁時計 はフレーム量子化で暴れる。
+const PLAYBACK_RATE_WINDOW_MS = 200;
+
 // maxRenderSize の正規化: 未指定 → 既定 720 / null・0・false → 無効（等倍） /
 // 正の有限数 → その値。それ以外の不正値（負数・NaN・文字列）は既定へ戻す。
 function resolveMaxRenderSize(value) {
@@ -128,6 +134,82 @@ function createOverlayRuntime(options = {}) {
       if (!Number.isFinite(currentTime) || currentTime < endTime) return false;
     }
     return true;
+  }
+
+  // CSS アニメ 1 本をタイムラインのローカル時刻へ合わせる。
+  //
+  // 停止・スクラブ中は従来どおり pause + currentTime で毎 tick その時刻の姿勢に固定する
+  // （シーク後の絵の決定性はここで担保する）。
+  //
+  // 再生中は毎フレームのシークをやめ、Animation を走らせたまま（play）にする。毎フレーム
+  // currentTime を書くとアニメがメインスレッド駆動になり、拡大縮小を含む層が毎フレーム
+  // ラスタし直される（実測: CSS アニメ 339 本の合成断片で GPU ラスタ ~115 回/フレーム・
+  // 60Hz 表示で 30〜34fps。走らせたままにすると ~58fps・ラスタ 1/4.5）。ずれが
+  // PLAYBACK_DRIFT_MS を超えたとき（動画側の停滞・速度変更の直後など）だけ書き戻す。
+  //
+  // 有限アニメの終端以降は play() しない（finished な Animation への play() は先頭へ
+  // 巻き戻る）。pause して fill の姿勢で止め、以後は同じ値を書き直さない。
+  //
+  // 走っていた Animation の pause() / play() は次のフレームまで保留（pending）され、保留が
+  // 解けたときの時刻で currentTime が上書きされることがある（実測: 巻き戻し再生の直後に
+  // 止めると、まれに 1 フレーム 16.6ms 進んだ姿勢で止まる）。止めた時刻を pausedTargets に
+  // 記録し、保留が解けた（ready）後にもう一度書き戻す。再生へ戻ったら記録を消す。
+  const pausedTargets = new WeakMap();
+  function holdPausedTime(animation, localTimeMs) {
+    pausedTargets.set(animation, localTimeMs);
+    if (!animation.pending || !animation.ready?.then) return;
+    animation.ready.then(() => {
+      if (pausedTargets.get(animation) !== localTimeMs || animation.playState !== "paused") return;
+      if (Number(animation.currentTime) !== localTimeMs) animation.currentTime = localTimeMs;
+    }, () => {});
+  }
+
+  function syncAnimation(animation, localTimeMs, playing, playbackRate) {
+    const endTime = Number(animation.effect?.getComputedTiming?.().endTime);
+    const current = Number(animation.currentTime);
+    if (playing && !(localTimeMs >= endTime)) {
+      pausedTargets.delete(animation);
+      if (animation.playState !== "running") {
+        animation.currentTime = localTimeMs;
+        animation.playbackRate = playbackRate;
+        animation.play();
+        return;
+      }
+      if (animation.playbackRate !== playbackRate) animation.playbackRate = playbackRate;
+      if (!Number.isFinite(current) || Math.abs(current - localTimeMs) > PLAYBACK_DRIFT_MS) {
+        animation.currentTime = localTimeMs;
+      }
+      return;
+    }
+    if (playing && animation.playState === "paused" && current >= endTime) return;
+    if (animation.playState !== "paused") animation.pause();
+    if (current !== localTimeMs) animation.currentTime = localTimeMs;
+    holdPausedTime(animation, localTimeMs);
+  }
+
+  // 再生速度（タイムライン秒 / 壁時計秒）の推定。ホストは tick(t, playing) しか渡さないので、
+  // 再生中の連続 tick から測る。停止・逆行・大きな飛び（シーク）で観測をやり直す。
+  let playbackAnchor = null;
+  let playbackRate = 1;
+  function observePlaybackRate(timelineTime, playing, nowMs) {
+    if (!playing) {
+      playbackAnchor = null;
+      return playbackRate;
+    }
+    const expected = playbackAnchor
+      ? playbackAnchor.time + ((nowMs - playbackAnchor.wall) / 1000) * playbackRate
+      : timelineTime;
+    if (!playbackAnchor || timelineTime < playbackAnchor.time || Math.abs(timelineTime - expected) > 1) {
+      playbackAnchor = { time: timelineTime, wall: nowMs };
+      return playbackRate;
+    }
+    const elapsed = nowMs - playbackAnchor.wall;
+    if (elapsed >= PLAYBACK_RATE_WINDOW_MS) {
+      const measured = Math.round(((timelineTime - playbackAnchor.time) * 1000 / elapsed) * 20) / 20;
+      if (measured > 0 && Number.isFinite(measured)) playbackRate = measured;
+      playbackAnchor = { time: timelineTime, wall: nowMs };
+    }
+    return playbackRate;
   }
 
   function unmount() {
@@ -324,6 +406,7 @@ function createOverlayRuntime(options = {}) {
   function tick(t, playing) {
     const timelineTime = finiteNumber(t, 0);
     if (premount && !premountConfigured) applyPremountConfiguration();
+    const rate = observePlaybackRate(timelineTime, Boolean(playing), performance.now());
 
     for (const overlay of mountedOverlays) {
       const visible =
@@ -386,7 +469,7 @@ function createOverlayRuntime(options = {}) {
       // 総数」にほぼ比例する（上の注記）。断片のアニメは `[data-akari-active]` ゲートで宣言する
       // 規約なので、可視の間は顔ぶれが変わらない。毎 tick 引き直さず、可視化フリップ直後の
       // tick と 250ms ごとだけ引き直す（遅れて生える animation も拾える。app.js と同じ）。
-      // Animation オブジェクトはライブなので、キャッシュ済みでも pause / currentTime の書き込みと
+      // Animation オブジェクトはライブなので、キャッシュ済みでも syncAnimation() の書き込みと
       // 下の entryAnimationsSettled() の読み取りは現在値で動く。
       //
       // 3D 断片も必ずここを通す。three のシーンは three 側が時刻を持つ（mixer.setTime）が、
@@ -405,10 +488,7 @@ function createOverlayRuntime(options = {}) {
         overlay.animationsAt = nowMs;
       }
       const animations = overlay.animations;
-      for (const animation of animations) {
-        animation.pause();
-        animation.currentTime = localTimeMs;
-      }
+      for (const animation of animations) syncAnimation(animation, localTimeMs, Boolean(playing), rate);
       for (const runtime of renderingRuntimes(overlay.container)) {
         // playing はランタイム側の動画テクスチャの同期方式（再生中は <video> を走らせ、停止・スクラブ中はシーク）に使う
         runtime.render(overlay.container, localTimeMs / 1000, { syncVideos: true, maxRenderSize, playing: Boolean(playing) });

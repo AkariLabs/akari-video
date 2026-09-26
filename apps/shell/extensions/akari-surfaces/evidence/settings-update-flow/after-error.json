@@ -1,0 +1,196 @@
+{
+  "scenario": "after-error",
+  "withRestart": false,
+  "startedAt": "2026-09-26T04:15:15.375Z",
+  "checks": {
+    "mainProbe": {
+      "ok": true,
+      "isPackaged": false,
+      "version": "0.1.86"
+    },
+    "capabilities": {
+      "isPackaged": false,
+      "updateUiEnabled": true
+    },
+    "lastEventAtStart": null,
+    "about:opened": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: まだ確認していません",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": false,
+          "x": 960.859375,
+          "y": 280.6953125
+        }
+      ],
+      "screenshot": "after-error-01-opened.png"
+    },
+    "immediatelyAfterClick": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "更新を確認できませんでした: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください",
+        "アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください） · 最後に確かめた: まだ確認していません",
+        "もう一度確かめる",
+        "ブラウザで入手"
+      ],
+      "buttons": [
+        {
+          "text": "もう一度確かめる",
+          "disabled": false,
+          "x": 854.5,
+          "y": 309.0390625
+        },
+        {
+          "text": "ブラウザで入手",
+          "disabled": false,
+          "x": 982,
+          "y": 309.0390625
+        }
+      ]
+    },
+    "immediatelyAfterClickMainLastEvent": {
+      "kind": "error",
+      "message": "net::ERR_CONNECTION_REFUSED",
+      "reason": "更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください"
+    },
+    "about:failed": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "更新を確認できませんでした: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください",
+        "アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください） · 最後に確かめた: まだ確認していません",
+        "もう一度確かめる",
+        "ブラウザで入手"
+      ],
+      "buttons": [
+        {
+          "text": "もう一度確かめる",
+          "disabled": false,
+          "x": 854.5,
+          "y": 309.0390625
+        },
+        {
+          "text": "ブラウザで入手",
+          "disabled": false,
+          "x": 982,
+          "y": 309.0390625
+        }
+      ],
+      "screenshot": "after-error-03-failed.png"
+    },
+    "browserButton": {
+      "text": "ブラウザで入手",
+      "disabled": false,
+      "x": 982,
+      "y": 309.0390625
+    },
+    "openExternalCalls": [
+      {
+        "url": "https://github.com/AkariLabs/akari-video/releases",
+        "at": "2026-09-26T04:15:22.908Z"
+      },
+      {
+        "url": "https://github.com/AkariLabs/akari-video/releases",
+        "at": "2026-09-26T04:15:23.272Z"
+      }
+    ],
+    "retryImmediate": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "更新を確認できませんでした: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください",
+        "アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください） · 最後に確かめた: まだ確認していません",
+        "もう一度確かめる",
+        "ブラウザで入手"
+      ],
+      "buttons": [
+        {
+          "text": "もう一度確かめる",
+          "disabled": false,
+          "x": 854.5,
+          "y": 309.0390625
+        },
+        {
+          "text": "ブラウザで入手",
+          "disabled": false,
+          "x": 982,
+          "y": 309.0390625
+        }
+      ]
+    },
+    "about:failed-again": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "更新を確認できませんでした: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください",
+        "アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください） · 最後に確かめた: まだ確認していません",
+        "もう一度確かめる",
+        "ブラウザで入手"
+      ],
+      "buttons": [
+        {
+          "text": "もう一度確かめる",
+          "disabled": false,
+          "x": 854.5,
+          "y": 309.0390625
+        },
+        {
+          "text": "ブラウザで入手",
+          "disabled": false,
+          "x": 982,
+          "y": 309.0390625
+        }
+      ],
+      "screenshot": "after-error-04-failed-again.png"
+    },
+    "summary": {
+      "checking": false,
+      "failedText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "更新を確認できませんでした: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください",
+        "アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: 更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください） · 最後に確かめた: まだ確認していません",
+        "もう一度確かめる",
+        "ブラウザで入手"
+      ],
+      "retryChecking": false
+    },
+    "updaterLogTail": [
+      "2026-09-26T04:15:22.895Z 手動更新確認: channel=prerelease",
+      "2026-09-26T04:15:22.905Z electron-updater error: net::ERR_CONNECTION_REFUSED",
+      "2026-09-26T04:15:22.905Z checkForUpdates に失敗しました: net::ERR_CONNECTION_REFUSED",
+      "2026-09-26T04:15:24.817Z 手動更新確認: channel=prerelease",
+      "2026-09-26T04:15:24.819Z electron-updater error: net::ERR_CONNECTION_REFUSED",
+      "2026-09-26T04:15:24.819Z checkForUpdates に失敗しました: net::ERR_CONNECTION_REFUSED"
+    ]
+  },
+  "feedRequests": [],
+  "exceptions": [],
+  "consoleErrors": [],
+  "env": {
+    "AKARI_UPDATER_TEST_FEED_URL": "http://127.0.0.1:48912/",
+    "AKARI_UPDATE_FEED_URL": "http://127.0.0.1:48912/latest.json"
+  },
+  "pid": 37450,
+  "status": "PASS",
+  "finishedAt": "2026-09-26T04:15:30.124Z"
+}

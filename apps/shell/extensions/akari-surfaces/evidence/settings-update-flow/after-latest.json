@@ -1,0 +1,115 @@
+{
+  "scenario": "after-latest",
+  "withRestart": false,
+  "startedAt": "2026-09-26T04:15:01.044Z",
+  "checks": {
+    "mainProbe": {
+      "ok": true,
+      "isPackaged": false,
+      "version": "0.1.86"
+    },
+    "capabilities": {
+      "isPackaged": false,
+      "updateUiEnabled": true
+    },
+    "lastEventAtStart": null,
+    "about:opened": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: 2026/9/26 13:15:06",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": false,
+          "x": 945.859375,
+          "y": 280.6953125
+        }
+      ],
+      "screenshot": "after-latest-01-opened.png"
+    },
+    "immediatelyAfterClick": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "確認しています…",
+        "最後に確かめた: 2026/9/26 13:15:06",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": true,
+          "x": 945.859375,
+          "y": 280.6953125
+        }
+      ]
+    },
+    "immediatelyAfterClickMainLastEvent": {
+      "kind": "checking-for-update"
+    },
+    "about:latest": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "最新です（v0.1.86）",
+        "最後に確かめた: 2026/9/26 13:15:09",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": false,
+          "x": 945.859375,
+          "y": 280.6953125
+        }
+      ],
+      "screenshot": "after-latest-03-latest.png"
+    },
+    "summary": {
+      "checking": true,
+      "latestText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "最新です（v0.1.86）",
+        "最後に確かめた: 2026/9/26 13:15:09",
+        "アップデートを確認"
+      ],
+      "expected": "最新です（v0.1.86）"
+    },
+    "updaterLogTail": [
+      "2026-09-26T04:15:07.670Z 手動更新確認: channel=prerelease",
+      "2026-09-26T04:15:09.726Z 手動更新結果: available=false version=0.0.1"
+    ]
+  },
+  "feedRequests": [
+    {
+      "url": "/latest.json",
+      "at": "2026-09-26T04:15:06.744Z"
+    },
+    {
+      "url": "/latest-mac.yml",
+      "at": "2026-09-26T04:15:07.720Z"
+    }
+  ],
+  "exceptions": [],
+  "consoleErrors": [],
+  "env": {
+    "AKARI_UPDATER_TEST_FEED_URL": "http://127.0.0.1:48911/",
+    "AKARI_UPDATE_FEED_URL": "http://127.0.0.1:48911/latest.json"
+  },
+  "pid": 36178,
+  "status": "PASS",
+  "finishedAt": "2026-09-26T04:15:15.150Z"
+}

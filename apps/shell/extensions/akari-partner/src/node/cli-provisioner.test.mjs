@@ -5,8 +5,10 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { bootstrapRunner } from '../../lib/node/bootstrap-runner.js';
 import {
     buildCliPathEnv,
+    buildPrivateNodePathEnv,
     buildShimScript,
     cliShimFilePath,
     compareVersionTriplets,
@@ -196,6 +198,35 @@ test('buildCliPathEnv: シム未配備なら PATH を一切変更しない', asy
     const home = await tempDir('akari-cli-path-missing-');
     const env = buildCliPathEnv({ akariHome: home, platform: 'darwin', existingPath: '/usr/bin:/bin' });
     assert.deepEqual(env, {});
+});
+
+test('buildPrivateNodePathEnv: 専用 Node 導入時だけシムと共存して先頭へ加える', () => {
+    const akariHome = '/tmp/akari-private-node-test';
+    const root = path.join(akariHome, 'runtime/node/v24.21.0');
+    const files = new Set([path.join(root, 'command-code-installed'), path.join(root, 'bin/node'), path.join(root, 'bin/npm')]);
+    const options = { akariHome, platform: 'darwin', existingPath: '/tmp/akari/cli/bin:/usr/bin', exists: file => files.has(file) };
+    assert.deepEqual(buildPrivateNodePathEnv(options), { PATH: `${path.join(root, 'bin')}:/tmp/akari/cli/bin:/usr/bin` });
+    files.delete(path.join(root, 'command-code-installed'));
+    assert.deepEqual(buildPrivateNodePathEnv(options), {});
+});
+
+test('buildPrivateNodePathEnv: Windows は ; 区切りで専用 Node を前置する', () => {
+    const akariHome = '/tmp/akari-win-node-test';
+    const root = path.join(akariHome, 'runtime/node/v24.21.0');
+    const files = new Set([path.join(root, 'command-code-installed'), path.join(root, 'node.exe'), path.join(root, 'npm.cmd')]);
+    const result = buildPrivateNodePathEnv({ akariHome, platform: 'win32', existingPath: 'C:\\Akari\\cli;C:\\Windows', exists: file => files.has(file) });
+    assert.deepEqual(result, { PATH: `${root};C:\\Akari\\cli;C:\\Windows` });
+});
+
+test('起動 PATH の専用 Node 版は bootstrap runner の固定版と一致する', () => {
+    const match = /const nodeVersion = '([^']+)'/.exec(bootstrapRunner.toString());
+    assert.ok(match, 'runner の固定 Node.js 版を読み取れること');
+    const akariHome = '/tmp/akari-node-version-contract';
+    const root = path.join(akariHome, 'runtime', 'node', `v${match[1]}`);
+    const binDir = path.join(root, 'bin');
+    const files = new Set([path.join(root, 'command-code-installed'), path.join(binDir, 'node'), path.join(binDir, 'npm')]);
+    assert.deepEqual(buildPrivateNodePathEnv({ akariHome, platform: 'darwin', existingPath: '/usr/bin', exists: file => files.has(file) }),
+        { PATH: `${binDir}:/usr/bin` });
 });
 
 // --- Electron 実行体判定 ---------------------------------------------------------

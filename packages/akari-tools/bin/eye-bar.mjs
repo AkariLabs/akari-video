@@ -44,7 +44,13 @@
 //   --layer-id-prefix <s>         レイヤー id の接頭辞（既定 eye-bar）
 //   --apply                       edit.json へ追記する（省略時は stdout の JSON のみ）
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
+const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
+const writerVersion = (() => {
+  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
+  catch { return undefined; }
+})();
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -307,6 +313,9 @@ async function main() {
         printJson({ ok: false, reason: applied.reason });
         process.exitCode = 1;
         return;
+      }
+      if (basename(options.edit) === "edit.json") {
+        await writeSavedByStamp(dirname(options.edit), writerVersion);
       }
       const validation = spawnSync(process.execPath, [validateEditScript, options.edit], { encoding: "utf8" });
       output.applied = { addedIds: applied.addedIds };

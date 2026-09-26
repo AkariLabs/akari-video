@@ -57,7 +57,12 @@ import { AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, STATUS_BAR_KEYS, AK
 import { PARTNER_CLI_ICON_CLASSES, PARTNER_CATALOG } from 'akari-partner/lib/browser/partner-catalog';
 import { installPartnerTerminalStyle } from 'akari-partner/lib/browser/partner-terminal-style';
 import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH, PartnerDetail, StorageSnapshot, StorageEntry, StorageCleanTarget } from '../common/settings-maintenance-protocol';
-import { compareVersions } from '../common/update-feed';
+import { parseUpdateCache, resolveUpdateDownloadUrl } from '../common/update-feed';
+import {
+    applyImmediateUpdaterFallback, applyShellUpdaterEvent, beginUserInitiatedUpdaterCheck,
+    FALLBACK_FEED_OPTIONS, INITIAL_SHELL_UPDATER_UI_STATE, ShellUpdaterEvent, ShellUpdaterUiState, shouldOpenUpdaterBrowserFallback
+} from '../common/shell-update-applier';
+import { resolveSettingsUpdateView } from '../common/settings-update-view';
 import { settingsIcon, SettingsIconName } from './settings/settings-icons';
 import { ShortcutsSettingsView } from './settings/shortcuts-settings';
 import {
@@ -135,6 +140,15 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected voicevoxPreviewSrc = '';
     protected partnerDetails: Record<string, PartnerDetail> | undefined;
     protected extensionVersions: Record<string, string> | undefined;
+    protected aboutUpdaterUnsubscribe?: () => void;
+    protected aboutUpdateRow?: HTMLElement;
+    protected aboutUpdaterState: ShellUpdaterUiState = INITIAL_SHELL_UPDATER_UI_STATE;
+    protected aboutLastEventKind?: ShellUpdaterEvent['kind'];
+    protected aboutCurrentVersion?: string;
+    protected aboutCheckedAt?: string;
+    protected aboutDownloadUrl?: string;
+    protected aboutUpdateGeneration = 0;
+    protected aboutEventSequence = 0;
 
     constructor(
         protected readonly preferences: PreferenceService,
@@ -196,6 +210,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     protected override handleEnter(_event: KeyboardEvent): boolean { return false; }
 
     override close(): void {
+        this.stopAboutUpdaterEvents();
         for (const input of Array.from(this.node.querySelectorAll<HTMLInputElement>('input[type=password]'))) { input.value = ''; }
         super.close();
     }
@@ -265,6 +280,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     showSection(section: SettingsSectionId): void {
+        if (section !== 'about') { this.stopAboutUpdaterEvents(); }
         const navTarget = this.contentNode.querySelector<HTMLElement>(`[data-settings-nav="${section}"]`);
         if (navTarget?.hidden && this.searchInput.value) { this.searchInput.value = ''; this.filterSections(); }
         for (const [id, node] of this.sections) {
@@ -278,6 +294,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             else { item.removeAttribute('aria-current'); }
         }
         this.highlightSearch(section);
+        if (section === 'about' && this.sections.get('about')?.childElementCount) { this.renderSection('about'); }
         if (section === 'narration') { void this.refreshNarrationState(); }
     }
 
@@ -760,10 +777,30 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     protected renderAbout(section: HTMLElement): void {
+        this.stopAboutUpdaterEvents();
+        this.aboutUpdateRow = undefined;
+        this.aboutUpdaterState = INITIAL_SHELL_UPDATER_UI_STATE;
+        this.aboutLastEventKind = undefined;
+        this.aboutCurrentVersion = undefined;
+        this.aboutCheckedAt = undefined;
+        this.aboutDownloadUrl = undefined;
+        const generation = this.aboutUpdateGeneration;
+        const eventSequence = this.aboutEventSequence;
+        if (!section.hidden) {
+            this.aboutUpdaterUnsubscribe = window.electronAkariUpdater?.onEvent(event => {
+                if (this.isDisposed || section.hidden || generation !== this.aboutUpdateGeneration) { return; }
+                this.aboutEventSequence += 1;
+                this.applyAboutUpdaterEvent(event);
+            });
+        }
         section.append(groupCard('AKARI Video', settingsNote('バージョンとビルド情報を調べています…')));
         void Promise.all([this.maintenance.appInfo(), window.electronAkariUpdater?.getLastEvent(), this.maintenance.getUpdateSettings().catch(() => undefined),
-            window.electronAkariUpdater?.getCapabilities().catch(() => ({ updateUiEnabled: false }))]).then(([info, update, updateSettings, capabilities]) => {
-            if (this.isDisposed || !section.isConnected) { return; }
+            window.electronAkariUpdater?.getCapabilities().catch(() => ({ updateUiEnabled: false })), this.resolveAboutUpdateDownloadUrl()]).then(([info, update, updateSettings, capabilities, downloadUrl]) => {
+            if (this.isDisposed || !section.isConnected || generation !== this.aboutUpdateGeneration) { return; }
+            this.aboutCurrentVersion = info.version;
+            this.aboutCheckedAt ??= info.lastChecked;
+            this.aboutDownloadUrl = downloadUrl ?? `https://github.com/${FALLBACK_FEED_OPTIONS.owner}/${FALLBACK_FEED_OPTIONS.repo}/releases`;
+            if (update && eventSequence === this.aboutEventSequence) { this.applyAboutUpdaterEvent(update, true); }
             section.replaceChildren(...this.sectionHeading('about'));
             const icon = element('img'); icon.src = info.icon || AKARI_APP_ICON; icon.alt = 'AKARI Video'; icon.width = 64; icon.height = 64;
             icon.onerror = () => { const logo = element('strong', 'AKARI'); logo.style.width = '64px'; icon.replaceWith(logo); };
@@ -771,12 +808,10 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             const identity = element('div'); identity.append(element('h3', 'AKARI Video'),
                 element('p', `v${info.version} · ${info.buildDate} ビルド · ${info.os}`));
             hero.append(icon, identity);
-            const status = update?.kind === 'update-not-available' || (info.recentChanges && compareVersions(info.version, info.recentChanges.version) >= 0) ? '最新です'
-                : update?.kind === 'update-available' || update?.kind === 'update-downloaded' ? '更新があります' : 'アップデートを確認できます';
-            const checked = info.lastChecked ? new Date(info.lastChecked).toLocaleString('ja-JP') : 'まだ確認していません';
             const updateRow = capabilities && !capabilities.updateUiEnabled
                 ? settingsNote('開発版のため更新は確認できません')
-                : settingRow(status, `最後に確かめた: ${checked}`, action('アップデートを確認', () => void window.electronAkariUpdater?.checkForUpdatesNow({ userInitiated: true }), { small: true, icon: 'refresh' }));
+                : this.createAboutUpdateRow();
+            this.aboutUpdateRow = capabilities && !capabilities.updateUiEnabled ? undefined : updateRow;
             const main = groupCard(undefined, hero,
                 updateRow,
                 settingRow('受け取る版', 'プレリリースは新しい機能が早く届くかわりに不安定なことがある', segmentedControl({ label: '受け取る版', options: [{ value: 'stable', label: '安定版' }, { value: 'prerelease', label: 'プレリリースも' }],
@@ -800,6 +835,77 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
                 ...[['公式サイト', 'https://akari.video'], ['GitHub', 'https://github.com/akari-video/akari-video'], ['ライセンス', 'https://github.com/akari-video/akari-video/blob/main/LICENSE']].map(([label, url]) =>
                     action(label, () => this.windows.openNewWindow(url, { external: true }), { small: true })))));
         }).catch(() => { this.notice.textContent = 'アプリ情報を読み込めませんでした。'; });
+    }
+
+    protected stopAboutUpdaterEvents(): void {
+        this.aboutUpdateGeneration += 1;
+        this.aboutUpdaterUnsubscribe?.();
+        this.aboutUpdaterUnsubscribe = undefined;
+    }
+
+    protected applyAboutUpdaterEvent(event: ShellUpdaterEvent, replay = false): void {
+        const openFallback = !replay && shouldOpenUpdaterBrowserFallback(this.aboutUpdaterState, event) && this.aboutDownloadUrl;
+        this.aboutUpdaterState = applyShellUpdaterEvent(this.aboutUpdaterState, event);
+        this.aboutLastEventKind = event.kind;
+        if (!replay && (event.kind === 'update-not-available' || event.kind === 'update-available' || event.kind === 'update-downloaded')) {
+            this.aboutCheckedAt = new Date().toISOString();
+        }
+        this.refreshAboutUpdateRow();
+        if (openFallback) { this.windows.openNewWindow(openFallback, { external: true }); }
+    }
+
+    protected refreshAboutUpdateRow(): void {
+        if (!this.aboutUpdateRow || this.isDisposed || this.sections.get('about')?.hidden) { return; }
+        const next = this.createAboutUpdateRow();
+        this.aboutUpdateRow.replaceWith(next);
+        this.aboutUpdateRow = next;
+    }
+
+    protected createAboutUpdateRow(): HTMLElement {
+        const view = resolveSettingsUpdateView({
+            state: this.aboutUpdaterState,
+            lastEventKind: this.aboutLastEventKind,
+            currentVersion: this.aboutCurrentVersion ?? '',
+            lastChecked: this.aboutCheckedAt ? new Date(this.aboutCheckedAt).toLocaleString('ja-JP') : 'まだ確認していません',
+            downloadUrl: this.aboutDownloadUrl
+        });
+        const button = action(view.button.label, () => {
+            if (view.button.kind === 'restart') {
+                void window.electronAkariUpdater?.restartAndInstall();
+                return;
+            }
+            this.aboutUpdaterState = beginUserInitiatedUpdaterCheck(this.aboutUpdaterState);
+            this.aboutLastEventKind = 'checking-for-update';
+            this.refreshAboutUpdateRow();
+            const api = window.electronAkariUpdater;
+            if (!api) {
+                this.aboutUpdaterState = applyImmediateUpdaterFallback(this.aboutUpdaterState, 'アプリ内更新機能を利用できませんでした');
+                this.refreshAboutUpdateRow();
+                if (this.aboutDownloadUrl) { this.windows.openNewWindow(this.aboutDownloadUrl, { external: true }); }
+                return;
+            }
+            const generation = this.aboutUpdateGeneration;
+            void api.checkForUpdatesNow({ userInitiated: true }).catch(() => {
+                if (this.isDisposed || this.sections.get('about')?.hidden || generation !== this.aboutUpdateGeneration) { return; }
+                this.applyAboutUpdaterEvent({ kind: 'error', reason: '更新処理を開始できませんでした' });
+            });
+        }, { small: true, variant: view.button.primary ? 'primary' : 'ghost', icon: view.button.kind === 'check' ? 'refresh' : undefined });
+        button.disabled = view.button.disabled;
+        const controls = [button];
+        if (view.browserFallback && this.aboutDownloadUrl) {
+            controls.push(action('ブラウザで入手', () => this.windows.openNewWindow(this.aboutDownloadUrl!, { external: true }), { small: true }));
+        }
+        return settingRow(view.label, view.detail, ...controls);
+    }
+
+    protected async resolveAboutUpdateDownloadUrl(): Promise<string | undefined> {
+        try {
+            const home = await this.env.getValue('AKARI_HOME');
+            const base = home?.value ? URI.fromFilePath(home.value) : new URI(await this.env.getHomeDirUri()).resolve('.akari');
+            const cache = parseUpdateCache((await this.files.readFile(base.resolve('update-check.json'))).value.toString());
+            const platform = OS.type() === OS.Type.OSX ? 'mac' : OS.type() === OS.Type.Windows ? 'win' : undefined;
+            return resolveUpdateDownloadUrl(cache?.feed, platform);
+        } catch { return undefined; }
     }
 
     async refreshLibraryStatus(): Promise<void> {
@@ -1770,6 +1876,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
     }
 
     override dispose(): void {
+        this.stopAboutUpdaterEvents();
         this.shortcutsView?.dispose();
         super.dispose();
     }

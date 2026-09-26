@@ -11,6 +11,7 @@ export function bootstrapRunner(): void {
     const path = require('path') as typeof import('path');
     const { spawn } = require('child_process') as typeof import('child_process');
     const { gunzipSync, inflateRawSync } = require('zlib') as typeof import('zlib');
+    const { createHash } = require('crypto') as typeof import('crypto');
 
     const claudeInstallUrl = process.env.AKARI_PARTNER_CLAUDE_INSTALL_URL
         || (process.platform === 'win32' ? 'https://claude.ai/install.ps1' : 'https://claude.ai/install.sh');
@@ -31,6 +32,14 @@ export function bootstrapRunner(): void {
     // installCodexBinary below (F46: partner connect must not reinstall CLIs
     // that are already present).
     const forceReinstall = process.env.AKARI_PARTNER_FORCE_REINSTALL === '1';
+    const ignoreSystemNode = process.env.AKARI_PARTNER_IGNORE_SYSTEM_NODE === '1';
+    const nodeVersion = '24.21.0';
+    const nodeSha256: Record<string, string> = {
+        'node-v24.21.0-darwin-arm64.tar.gz': 'bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057',
+        'node-v24.21.0-darwin-x64.tar.gz': '1462cb3b3046b815cf8ea436d3da450ec1a9f11dac7e5a46b0ada5305d7e8097',
+        'node-v24.21.0-win-arm64.zip': '8779b1bde1d39f8d420e3b57aa657b39891af434d3de44a919044cec06785921',
+        'node-v24.21.0-win-x64.zip': '158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541'
+    };
     // task/2026-07-25-partner-plugin-autowire: the connecting project's workspace
     // root (filesystem path, set by AkariPartnerServerImpl#bootstrap). `--scope
     // project` writes to cwd-relative .claude/settings.json, so plugin wiring
@@ -59,6 +68,7 @@ export function bootstrapRunner(): void {
         // true when an already-installed binary was reused instead of running
         // the installer/downloader.
         reused: boolean;
+        nodeSource?: 'system' | 'private';
     }
 
     function claudeCandidates(): string[] {
@@ -134,6 +144,7 @@ export function bootstrapRunner(): void {
     }
 
     function npmCandidates(): string[] {
+        if (ignoreSystemNode) { return []; }
         const executable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
         const wellKnown = process.platform === 'win32'
             ? [
@@ -148,6 +159,7 @@ export function bootstrapRunner(): void {
     }
 
     function nodeCandidates(npmExecutable?: string): string[] {
+        if (ignoreSystemNode) { return []; }
         const executable = process.platform === 'win32' ? 'node.exe' : 'node';
         const sibling = npmExecutable ? [path.join(path.dirname(npmExecutable), executable)] : [];
         const wellKnown = process.platform === 'win32'
@@ -505,11 +517,143 @@ export function bootstrapRunner(): void {
             // the GUI-launched Electron backend. Without this, a successful grok
             // install is structurally undetectable (task/2026-08-17-partner-grok-install-detection).
             extraCandidatePaths: [path.join(os.homedir(), '.grok', 'bin', 'grok')],
-            manualInstallCommand: 'curl -fsSL https://x.ai/cli/install.sh | bash（または npm install -g @xai-official/grok）'
+            manualInstallCommand: 'curl -fsSL https://x.ai/cli/install.sh | bash（または npm install -g @xai-official/grok）',
+            manualInstallCommandWin32: 'powershell -c "irm https://x.ai/cli/install.ps1 | iex"（または npm install -g @xai-official/grok）'
         }
     };
 
     const commandCodeManualInstall = 'npm install -g command-code（Node.js 22 以上が必要）';
+
+    interface NodeRuntime {
+        nodeExecutable: string;
+        npmExecutable: string;
+        binDir: string;
+        source: 'system' | 'private';
+        reused: boolean;
+    }
+
+    interface NodeRuntimePurpose {
+        purposeLabel: string;
+        manualInstall: string;
+    }
+
+    function privateNodeDir(): string {
+        return path.join(process.env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'runtime', 'node', `v${nodeVersion}`);
+    }
+
+    function privateNodePaths(root: string): Pick<NodeRuntime, 'nodeExecutable' | 'npmExecutable' | 'binDir'> {
+        const binDir = process.platform === 'win32' ? root : path.join(root, 'bin');
+        return {
+            nodeExecutable: path.join(binDir, process.platform === 'win32' ? 'node.exe' : 'node'),
+            npmExecutable: path.join(binDir, process.platform === 'win32' ? 'npm.cmd' : 'npm'),
+            binDir
+        };
+    }
+
+    function nodeRuntimeEnv(binDir: string): NodeJS.ProcessEnv {
+        const delimiter = process.platform === 'win32' ? ';' : ':';
+        return { ...process.env, PATH: [binDir, process.env.PATH ?? '', explicitSystemPath].filter(Boolean).join(delimiter) };
+    }
+
+    async function preparedPrivateNode(): Promise<NodeRuntime | undefined> {
+        const paths = privateNodePaths(privateNodeDir());
+        if (!await firstExecutable([paths.nodeExecutable]) || !await firstExecutable([paths.npmExecutable])) {
+            return undefined;
+        }
+        try {
+            const version = (await runCapture(paths.nodeExecutable, ['-p', 'process.versions.node'], nodeRuntimeEnv(paths.binDir))).trim();
+            if (version === nodeVersion) {
+                return { ...paths, source: 'private', reused: true };
+            }
+        } catch {
+            // Incomplete or damaged runtime: download afresh.
+        }
+        return undefined;
+    }
+
+    async function hasSystemNode22(): Promise<boolean> {
+        for (const nodeExecutable of nodeCandidates()) {
+            if (!await firstExecutable([nodeExecutable])) { continue; }
+            try {
+                const version = (await runCapture(nodeExecutable, ['-p', 'process.versions.node'], nodeRuntimeEnv(path.dirname(nodeExecutable)))).trim();
+                if (Number.parseInt(version.split('.')[0], 10) >= 22) { return true; }
+            } catch {
+                // Continue to the next candidate.
+            }
+        }
+        return false;
+    }
+
+    async function resolveNodeRuntime({ purposeLabel, manualInstall }: NodeRuntimePurpose): Promise<NodeRuntime> {
+        if (!ignoreSystemNode) {
+            for (const nodeExecutable of nodeCandidates()) {
+                if (!await firstExecutable([nodeExecutable])) { continue; }
+                const binDir = path.dirname(nodeExecutable);
+                try {
+                    const version = (await runCapture(nodeExecutable, ['-p', 'process.versions.node'], nodeRuntimeEnv(binDir))).trim();
+                    if (Number.parseInt(version.split('.')[0], 10) < 22) { continue; }
+                    const npmExecutable = await firstExecutable([
+                        path.join(binDir, process.platform === 'win32' ? 'npm.cmd' : 'npm'),
+                        ...npmCandidates()
+                    ]);
+                    if (npmExecutable) {
+                        return { nodeExecutable, npmExecutable, binDir, source: 'system', reused: true };
+                    }
+                } catch {
+                    // Continue to the next candidate.
+                }
+            }
+        }
+        const prepared = await preparedPrivateNode();
+        if (prepared) {
+            console.log(`用意済みの AKARI 専用 Node.js を使います: ${privateNodeDir()}`);
+            return prepared;
+        }
+        const suffix = process.platform === 'darwin' ? 'tar.gz' : process.platform === 'win32' ? 'zip' : undefined;
+        const archivePlatform = process.platform === 'win32' ? 'win' : process.platform;
+        const assetName = suffix && (process.arch === 'arm64' || process.arch === 'x64')
+            ? `node-v${nodeVersion}-${archivePlatform}-${process.arch}.${suffix}` : undefined;
+        if (!assetName || !nodeSha256[assetName]) {
+            throw new Error(`${purposeLabel} は ${process.platform}-${process.arch} で Node.js を自動取得できません。手動でインストールしてください: ${manualInstall}`);
+        }
+        const root = privateNodeDir();
+        const parent = path.dirname(root);
+        const distBaseUrl = process.env.AKARI_PARTNER_NODE_DIST_BASE_URL;
+        const url = `${(distBaseUrl || 'https://nodejs.org/dist').replace(/\/$/, '')}/v${nodeVersion}/${assetName}`;
+        console.log(`${purposeLabel} に必要な Node.js を AKARI 専用の場所に用意しています: ${root}`);
+        console.log(`Node.js をダウンロードしています: ${url}`);
+        const archive = await request(url, 'application/octet-stream', largeDownloadTimeoutMs);
+        const overrides = distBaseUrl && process.env.AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON
+            ? JSON.parse(process.env.AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON) as Record<string, string> : {};
+        const expected = overrides[assetName] || nodeSha256[assetName];
+        const actual = createHash('sha256').update(archive).digest('hex');
+        if (actual !== expected) {
+            throw new Error(`Node.js archive sha256 mismatch: ${assetName} (expected ${expected}, got ${actual})`);
+        }
+        console.log(`Node.js archive sha256 検証 OK: ${actual}`);
+        await fs.mkdir(parent, { recursive: true });
+        const temporaryDir = await fs.mkdtemp(path.join(parent, '.node-download-'));
+        try {
+            if (suffix === 'tar.gz') {
+                await extractNodeTarArchive(gunzipSync(archive), temporaryDir);
+            } else {
+                await extractZipArchive(archive, temporaryDir);
+            }
+            const extractedRoot = path.join(temporaryDir, `node-v${nodeVersion}-${archivePlatform}-${process.arch}`);
+            const paths = privateNodePaths(extractedRoot);
+            await fs.access(paths.nodeExecutable, fs.constants.X_OK);
+            await fs.access(paths.npmExecutable, fs.constants.F_OK);
+            const version = (await runCapture(paths.nodeExecutable, ['-p', 'process.versions.node'], nodeRuntimeEnv(paths.binDir))).trim();
+            if (version !== nodeVersion) {
+                throw new Error(`Node.js version mismatch: expected ${nodeVersion}, got ${version}`);
+            }
+            await fs.rm(root, { recursive: true, force: true });
+            await fs.rename(extractedRoot, root);
+            return { ...privateNodePaths(root), source: 'private', reused: false };
+        } finally {
+            await fs.rm(temporaryDir, { recursive: true, force: true });
+        }
+    }
 
     async function requireCommandCodeVersion(executable: string, env: NodeJS.ProcessEnv): Promise<string> {
         try {
@@ -521,55 +665,45 @@ export function bootstrapRunner(): void {
 
     async function installCommandCode(): Promise<BootstrapOutcome> {
         const candidates = commandCodeCandidates();
+        const runtimePurpose = { purposeLabel: 'Command Code', manualInstall: commandCodeManualInstall };
+        const privateMarker = path.join(privateNodeDir(), 'command-code-installed');
         if (!forceReinstall) {
             const existing = await firstExecutable(candidates);
             if (existing) {
-                const validationPath = [path.dirname(existing), process.env.PATH ?? '', explicitSystemPath]
+                let privateRuntime = await preparedPrivateNode();
+                if (!privateRuntime && !await hasSystemNode22()) {
+                    privateRuntime = await resolveNodeRuntime(runtimePurpose);
+                }
+                const validationPath = [privateRuntime?.binDir, path.dirname(existing), process.env.PATH ?? '', explicitSystemPath]
                     .filter(Boolean)
                     .join(path.delimiter);
                 const version = await requireCommandCodeVersion(existing, { ...process.env, PATH: validationPath });
                 console.log(`既存の commandcode ${version || '(version unknown)'} を検出: ${existing}`);
-                return { executablePath: existing, reused: true };
+                const markerExists = await fs.access(privateMarker).then(() => true, () => false);
+                const usePrivate = Boolean(privateRuntime && (markerExists || !await hasSystemNode22()));
+                if (usePrivate) {
+                    console.log(`用意済みの AKARI 専用 Node.js を使います: ${privateNodeDir()}`);
+                    await fs.writeFile(privateMarker, 'private\n');
+                }
+                return { executablePath: existing, reused: true, ...(usePrivate ? { nodeSource: 'private' as const } : {}) };
             }
         }
-
-        const npmExecutable = await firstExecutable(npmCandidates());
-        if (!npmExecutable) {
-            throw new Error(`commandcode は npm が見つからないため自動インストールできません。手動でインストールしてください: ${commandCodeManualInstall}`);
-        }
-        const nodeExecutable = await firstExecutable(nodeCandidates(npmExecutable));
-        if (!nodeExecutable) {
-            throw new Error(`commandcode は Node.js が見つからないため自動インストールできません。手動でインストールしてください: ${commandCodeManualInstall}`);
-        }
-
-        const runtimePath = [
-            path.dirname(nodeExecutable),
-            path.dirname(npmExecutable),
-            process.env.PATH ?? '',
-            explicitSystemPath
-        ]
-            .filter(Boolean)
-            .join(path.delimiter);
-        const installEnv = { ...process.env, PATH: runtimePath };
-        let nodeVersion: string;
-        try {
-            nodeVersion = (await runCapture(nodeExecutable, ['-p', 'process.versions.node'], installEnv)).trim();
-        } catch (error) {
-            throw new Error(`commandcode の Node.js バージョン確認に失敗しました。手動でインストールしてください: ${commandCodeManualInstall} (${errorMessage(error)})`);
-        }
-        const nodeMajor = Number.parseInt(nodeVersion.split('.')[0], 10);
-        if (!Number.isFinite(nodeMajor) || nodeMajor < 22) {
-            throw new Error(`Command Code は Node.js 22 以上が必要です（検出: ${nodeVersion || '不明'}）。${commandCodeManualInstall}`);
-        }
+        const runtime = await resolveNodeRuntime(runtimePurpose);
+        const installEnv = nodeRuntimeEnv(runtime.binDir);
 
         const prefix = path.join(os.homedir(), '.local');
         console.log(`Command Code を npm 公式パッケージからユーザー領域へインストールしています: ${prefix}`);
+        const npmArgs = [
+            'install', '--global', '--prefix', prefix,
+            '--no-audit', '--no-fund',
+            'command-code'
+        ];
+        const npmCli = path.join(runtime.binDir, 'node_modules', 'npm', 'bin', 'npm-cli.js');
+        const useWindowsNpmCli = process.platform === 'win32'
+            && await fs.access(npmCli).then(() => true, () => false);
         try {
-            await run(npmExecutable, [
-                'install', '--global', '--prefix', prefix,
-                '--no-audit', '--no-fund',
-                'command-code'
-            ], installEnv);
+            await run(useWindowsNpmCli ? runtime.nodeExecutable : runtime.npmExecutable,
+                useWindowsNpmCli ? [npmCli, ...npmArgs] : npmArgs, installEnv);
         } catch (error) {
             throw new Error(`commandcode のインストールに失敗しました。手動でインストールしてください: ${commandCodeManualInstall} (${errorMessage(error)})`);
         }
@@ -579,8 +713,13 @@ export function bootstrapRunner(): void {
             throw new Error(`npm install は完了しましたが Command Code の実行ファイルが見つかりませんでした。手動でインストールしてください: ${commandCodeManualInstall}`);
         }
         const version = await requireCommandCodeVersion(executable, installEnv);
+        if (runtime.source === 'private') {
+            await fs.writeFile(privateMarker, 'private\n');
+        } else {
+            await fs.rm(privateMarker, { force: true });
+        }
         console.log(`Command Code ${version || '(version unknown)'} を検出: ${executable}`);
-        return { executablePath: executable, reused: false };
+        return { executablePath: executable, reused: false, nodeSource: runtime.source };
     }
 
     function manualInstallGuidance(config: ScriptInstallAgentConfig): string {
@@ -769,6 +908,128 @@ export function bootstrapRunner(): void {
             : [`${stem}.tar.gz`];
     }
 
+    function archiveTarget(destination: string, name: string): string {
+        const normalized = path.posix.normalize(name.replace(/\\/g, '/'));
+        if (!normalized || normalized === '.' || normalized === '..' || normalized.startsWith('../')
+            || path.posix.isAbsolute(normalized) || /^[A-Za-z]:/.test(normalized)) {
+            throw new Error(`Node.js archive contains an unsafe path: ${name}`);
+        }
+        return path.join(destination, ...normalized.split('/'));
+    }
+
+    function paxFields(content: Buffer): Record<string, string> {
+        const fields: Record<string, string> = {};
+        for (let offset = 0; offset < content.length;) {
+            const separator = content.indexOf(0x20, offset);
+            const length = Number(content.subarray(offset, separator).toString());
+            if (separator < 0 || !Number.isInteger(length) || length <= 0 || offset + length > content.length) {
+                throw new Error('Node.js archive has an invalid pax header');
+            }
+            const record = content.subarray(separator + 1, offset + length - 1).toString('utf8');
+            const equals = record.indexOf('=');
+            if (equals > 0) { fields[record.slice(0, equals)] = record.slice(equals + 1); }
+            offset += length;
+        }
+        return fields;
+    }
+
+    async function extractNodeTarArchive(tar: Buffer, destination: string): Promise<void> {
+        let globalPax: Record<string, string> = {};
+        let localPax: Record<string, string> = {};
+        let longName: string | undefined;
+        const links = new Set<string>();
+        for (let offset = 0; offset + 512 <= tar.length;) {
+            const header = tar.subarray(offset, offset + 512);
+            const headerName = [readTarString(header, 345, 155), readTarString(header, 0, 100)].filter(Boolean).join('/');
+            if (!headerName) { break; }
+            const size = Number.parseInt(readTarString(header, 124, 12).trim() || '0', 8);
+            const mode = Number.parseInt(readTarString(header, 100, 8).trim() || '0', 8);
+            if (!Number.isFinite(size) || size < 0 || !Number.isFinite(mode) || mode < 0) {
+                throw new Error('Node.js archive has an invalid tar entry');
+            }
+            const start = offset + 512;
+            const end = start + size;
+            if (end > tar.length) { throw new Error('Node.js archive has a truncated tar entry'); }
+            const content = tar.subarray(start, end);
+            const type = String.fromCharCode(header[156] || 0);
+            if (type === 'g') {
+                globalPax = { ...globalPax, ...paxFields(content) };
+            } else if (type === 'x') {
+                localPax = { ...localPax, ...paxFields(content) };
+            } else if (type === 'L') {
+                longName = content.toString('utf8').replace(/\0.*$/s, '').replace(/\n$/, '');
+            } else {
+                const fields = { ...globalPax, ...localPax };
+                const name = fields.path || longName || headerName;
+                const target = archiveTarget(destination, name);
+                for (let parent = path.dirname(target); parent.startsWith(destination) && parent !== destination; parent = path.dirname(parent)) {
+                    if (links.has(parent)) { throw new Error(`Node.js archive writes through a symlink: ${name}`); }
+                }
+                if (type === '5') {
+                    await fs.mkdir(target, { recursive: true, mode: mode & 0o777 });
+                } else if (type === '0' || type === '\0') {
+                    await fs.mkdir(path.dirname(target), { recursive: true });
+                    await fs.writeFile(target, content, { mode: mode & 0o777 });
+                    await fs.chmod(target, mode & 0o777);
+                } else if (type === '2') {
+                    const linkpath = fields.linkpath || readTarString(header, 157, 100);
+                    const resolved = path.resolve(path.dirname(target), linkpath);
+                    if (path.isAbsolute(linkpath) || path.relative(destination, resolved).startsWith('..')
+                        || path.isAbsolute(path.relative(destination, resolved))) {
+                        throw new Error(`Node.js archive contains an unsafe symlink: ${name} -> ${linkpath}`);
+                    }
+                    await fs.mkdir(path.dirname(target), { recursive: true });
+                    await fs.symlink(linkpath, target);
+                    links.add(target);
+                }
+                localPax = {};
+                longName = undefined;
+            }
+            offset = start + Math.ceil(size / 512) * 512;
+        }
+    }
+
+    async function extractZipArchive(zip: Buffer, destination: string): Promise<void> {
+        let eocd = -1;
+        for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 65535); i--) {
+            if (zip.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+        }
+        if (eocd < 0) { throw new Error('zip: end of central directory record not found'); }
+        const count = zip.readUInt16LE(eocd + 10);
+        let offset = zip.readUInt32LE(eocd + 16);
+        for (let i = 0; i < count; i++) {
+            if (offset + 46 > zip.length || zip.readUInt32LE(offset) !== 0x02014b50) {
+                throw new Error('zip: invalid central directory entry');
+            }
+            const method = zip.readUInt16LE(offset + 10);
+            const compressedSize = zip.readUInt32LE(offset + 20);
+            const uncompressedSize = zip.readUInt32LE(offset + 24);
+            const nameLength = zip.readUInt16LE(offset + 28);
+            const extraLength = zip.readUInt16LE(offset + 30);
+            const commentLength = zip.readUInt16LE(offset + 32);
+            const localOffset = zip.readUInt32LE(offset + 42);
+            const name = zip.subarray(offset + 46, offset + 46 + nameLength).toString('utf8');
+            const target = archiveTarget(destination, name);
+            if (name.endsWith('/')) {
+                await fs.mkdir(target, { recursive: true });
+            } else {
+                if (localOffset + 30 > zip.length || zip.readUInt32LE(localOffset) !== 0x04034b50) {
+                    throw new Error(`zip: invalid local header for ${name}`);
+                }
+                const dataStart = localOffset + 30 + zip.readUInt16LE(localOffset + 26) + zip.readUInt16LE(localOffset + 28);
+                if (dataStart + compressedSize > zip.length) { throw new Error(`zip: truncated entry ${name}`); }
+                const compressed = zip.subarray(dataStart, dataStart + compressedSize);
+                const content = method === 0 ? compressed : method === 8 ? inflateRawSync(compressed) : undefined;
+                if (!content || content.length !== uncompressedSize) {
+                    throw new Error(`zip: invalid content or compression method for ${name}`);
+                }
+                await fs.mkdir(path.dirname(target), { recursive: true });
+                await fs.writeFile(target, content, { mode: 0o755 });
+            }
+            offset += 46 + nameLength + extraLength + commentLength;
+        }
+    }
+
     async function extractTarArchive(tar: Buffer, destination: string): Promise<void> {
         for (let offset = 0; offset + 512 <= tar.length;) {
             const header = tar.subarray(offset, offset + 512);
@@ -831,10 +1092,20 @@ export function bootstrapRunner(): void {
         return undefined;
     }
 
+    function shellInvocation(command: string, args: string[]): { command: string; args: string[]; shell: boolean } {
+        // テストは process.platform だけを win32 に差し替えるため、実 OS も確認する。
+        const shell = process.platform === 'win32' && os.platform() === 'win32' && /\.(cmd|bat)$/i.test(command);
+        if (!shell) { return { command, args, shell }; }
+        const quoted = (value: string): string => `"${value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1')}"`;
+        return { command: quoted(command), args: args.map(quoted), shell };
+    }
+
     async function run(command: string, args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<void> {
         await new Promise<void>((resolve, reject) => {
             // windowsHide: GUI アプリ (Electron backend) からの起動でコンソール窓を出さない。POSIX では無効果。
-            const child = spawn(command, args, { env, cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+            const invocation = shellInvocation(command, args);
+            const child = spawn(invocation.command, invocation.args,
+                { env, cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, shell: invocation.shell });
             let stderr = '';
             child.stdout.on('data', (chunk: Buffer) => process.stdout.write(chunk));
             child.stderr.on('data', (chunk: Buffer) => {
@@ -848,7 +1119,9 @@ export function bootstrapRunner(): void {
 
     async function runCapture(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<string> {
         return new Promise<string>((resolve, reject) => {
-            const child = spawn(command, args, { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+            const invocation = shellInvocation(command, args);
+            const child = spawn(invocation.command, invocation.args,
+                { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, shell: invocation.shell });
             let stdout = '';
             let stderr = '';
             child.stdout.on('data', (chunk: Buffer) => stdout += chunk.toString());

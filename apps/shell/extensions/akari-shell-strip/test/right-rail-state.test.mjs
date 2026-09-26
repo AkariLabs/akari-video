@@ -21,7 +21,7 @@ const fresh = () => S.defaultRightRailState();
 
 test('default: one pane, default groups, no displaced panels', () => {
     const state = fresh();
-    assert.deepEqual(state, { version: 1, groups: {}, split: false, top: null, bottom: null, focus: 'top', ratio: 0.5, displaced: {} });
+    assert.deepEqual(state, { version: 1, groups: {}, order: [], split: false, top: null, bottom: null, focus: 'top', ratio: 0.5, displaced: {} });
     assert.equal(S.rightRailGroupOf(state, CLAUDE), 'agent');
     assert.equal(S.rightRailGroupOf(state, PARTNER), 'agent');
     for (const id of [DAIHON, CUTS, NOTE, INSP, METER]) {
@@ -31,9 +31,30 @@ test('default: one pane, default groups, no displaced panels', () => {
 
 test('readRightRailState: valid data round-trips', () => {
     const saved = { version: 1, groups: { [NOTE]: 'agent' }, split: true, top: NOTE, bottom: INSP, focus: 'bottom', ratio: 0.3, displaced: { [CUTS]: 'main' } };
-    assert.deepEqual(S.readRightRailState(JSON.parse(JSON.stringify(saved))), saved);
+    assert.deepEqual(S.readRightRailState(JSON.parse(JSON.stringify(saved))), { ...saved, order: [] });
     const single = { ...fresh(), groups: { [CLAUDE]: 'lower' }, displaced: { [METER]: 'bottom' } };
-    assert.deepEqual(S.readRightRailState(single), single);
+    assert.deepEqual(S.readRightRailState(single), { ...fresh(), displaced: { [METER]: 'bottom' } },
+        'a stale terminal id cannot move a new terminal below the line');
+});
+
+test('readRightRailState: a valid v1 split with a reused terminal id keeps unrelated settings', () => {
+    const cases = [
+        [CLAUDE, INSP, { [NOTE]: 'agent' }],
+        [NOTE, CLAUDE, { [CLAUDE]: 'lower', [NOTE]: 'agent' }],
+        [CLAUDE, 'terminal-2', { 'terminal-2': 'lower', [NOTE]: 'agent' }]
+    ];
+    for (const [top, bottom, groups] of cases) {
+        const saved = {
+            version: 1, groups,
+            order: [NOTE, CLAUDE, INSP], split: true, top, bottom, focus: 'bottom', ratio: 0.3,
+            displaced: { [CUTS]: 'main', 'terminal-3': 'bottom' }
+        };
+        assert.deepEqual(S.readRightRailState(saved), {
+            version: 1, groups: { [NOTE]: 'agent' }, order: [NOTE, INSP],
+            split: false, top: null, bottom: null, focus: 'top', ratio: 0.3,
+            displaced: { [CUTS]: 'main' }
+        }, `${top} / ${bottom}`);
+    }
 });
 
 test('readRightRailState: missing or broken data falls back to the whole default (1 pane, default groups)', () => {
@@ -53,11 +74,62 @@ test('readRightRailState: missing or broken data falls back to the whole default
         { ...base, top: null },
         { ...base, top: INSP, bottom: INSP },
         { ...base, split: false },
-        { ...base, groups: null }
+        { ...base, groups: null },
+        { ...base, order: 'bad' },
+        { ...base, order: [CUTS, CUTS] },
+        { ...base, order: [CUTS, 42] }
     ];
     for (const raw of broken) {
         assert.deepEqual(S.readRightRailState(raw), fresh(), JSON.stringify(raw));
     }
+});
+
+test('terminal serial ids keep a runtime move but cannot affect a new terminal after save and restore', () => {
+    const state = fresh();
+    S.setRightRailGroup(state, CLAUDE, 'lower');
+    S.insertRightRailItem(state, CLAUDE, null, RAIL);
+    assert.equal(S.rightRailGroupOf(state, CLAUDE), 'lower');
+    assert.ok(state.order.includes(CLAUDE));
+    const saved = S.saveRightRailState(state);
+    assert.equal(saved.groups[CLAUDE], undefined);
+    assert.ok(!saved.order.includes(CLAUDE));
+    const restored = S.readRightRailState(JSON.parse(JSON.stringify(saved)));
+    assert.equal(S.rightRailGroupOf(restored, CLAUDE), 'agent');
+    assert.ok(!S.rightRailOrder(restored, RAIL).includes('missing-terminal'));
+    const split = fresh();
+    S.dropOnRightRail(split, INSP, 'rbottom', { railIds: RAIL, current: CLAUDE });
+    assert.equal(S.saveRightRailState(split).split, false);
+});
+
+test('inserting within each group and across the line persists, then new faces use default positions', () => {
+    const state = fresh();
+    S.insertRightRailItem(state, CUTS, CUTS, RAIL);
+    assert.deepEqual(state.order, [], 'dropping on the upper half of itself does not move it');
+    S.dropOnRightRail(state, CUTS, 'railbottom', { railIds: RAIL, current: CLAUDE }, DAIHON);
+    assert.deepEqual(S.rightRailOrder(state, RAIL).slice(2, 5), [CUTS, DAIHON, NOTE]);
+    S.dropOnRightRail(state, INSP, 'railbottom', { railIds: RAIL, current: CLAUDE }, NOTE);
+    assert.deepEqual(S.rightRailOrder(state, RAIL).slice(2, 6), [CUTS, DAIHON, INSP, NOTE]);
+    S.dropOnRightRail(state, NOTE, 'railtop', { railIds: RAIL, current: CLAUDE }, CLAUDE);
+    assert.equal(S.rightRailGroupOf(state, NOTE), 'agent');
+    assert.deepEqual(S.rightRailOrder(state, RAIL).slice(0, 3), [NOTE, CLAUDE, PARTNER]);
+    const restored = S.readRightRailState(JSON.parse(JSON.stringify(S.saveRightRailState(state))));
+    assert.equal(S.rightRailGroupOf(restored, NOTE), 'agent');
+    const withoutMeter = RAIL.filter(id => id !== METER);
+    assert.deepEqual(S.rightRailOrder(restored, withoutMeter).filter(id => id !== CLAUDE),
+        S.rightRailOrder(state, withoutMeter).filter(id => id !== CLAUDE));
+    const withNew = [...withoutMeter, 'new-panel'];
+    assert.deepEqual(S.rightRailOrder(restored, withNew).slice(-1), ['new-panel']);
+    const withNewAgent = [...withoutMeter, 'terminal-9'];
+    assert.deepEqual(S.rightRailOrder(restored, withNewAgent).slice(0, 3), [CLAUDE, 'terminal-9', NOTE]);
+});
+
+test('moving an open pane across the line keeps the two-pane line rule', () => {
+    const state = fresh();
+    S.dropOnRightRail(state, INSP, 'rbottom', { railIds: RAIL, current: CLAUDE });
+    S.dropOnRightRail(state, INSP, 'railtop', { railIds: RAIL, current: INSP }, PARTNER);
+    assert.equal(state.split, false);
+    assert.equal(S.rightRailGroupOf(state, INSP), 'agent');
+    assert.ok(S.rightRailOrder(state, RAIL).indexOf(INSP) < S.rightRailOrder(state, RAIL).indexOf(PARTNER));
 });
 
 test('setRightRailGroup stores only differences from the default', () => {

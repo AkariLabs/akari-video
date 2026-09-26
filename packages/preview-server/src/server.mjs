@@ -14,6 +14,7 @@ import { applyPreviewProjection, previewReadError, projectPreviewEdit } from './
 // lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
 import {
   lintProjectCandidates,
+  setDefaultSavedByAppVersion,
   writeAtomic,
   writeProjectFilesGuarded,
 } from '../../edit-store/lib/write-gate.js';
@@ -42,6 +43,13 @@ import { resolveCaptionApiPayload } from './caption-api.mjs';
 import { prepareFrameEngineAudioSummary, promotePreviewAudioSummaryAt } from './preview-audio-summary.mjs';
 import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
 import { assertNoSessionAssetUrl, patchFragmentSourceText } from '../../overlay-runtime/src/fragment-source-write.mjs';
+
+// The companion CLI carries the product version in both source and packaged layouts.
+const writerVersion = (() => {
+  try { return JSON.parse(fs.readFileSync(new URL('../../akari-launcher/package.json', import.meta.url), 'utf8')).version; }
+  catch { return undefined; }
+})();
+setDefaultSavedByAppVersion(writerVersion);
 
 const args = process.argv.slice(2);
 let port = 3000;

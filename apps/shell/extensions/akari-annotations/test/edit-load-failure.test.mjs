@@ -29,6 +29,25 @@ test('v2 の未定義 item キーを検証した例外はメッセージ全文�
   assert.match(failure.notice, /未定義キーを使用できません: name/);
 });
 
+test('未定義キーと新しい版の stamp の組だけ更新を案内する', () => {
+  const error = new TypeError('edit.json v2 が不正です: 未定義キーを使用できません: futureKey。案内: 取り除くか .akari/backup/ から復元');
+  const stamp = version => JSON.stringify({ version: 1, app: 'akari-video', appVersion: version, savedAt: '2026-09-26T00:00:00Z' });
+  const context = stampText => ({ stampText, currentVersion: '0.1.86' });
+  const newer = classifyEditLoadFailure(error, context(stamp('9.9.9')));
+  assert.equal(newer.kind, 'invalid');
+  assert.equal(newer.updateAvailable, true);
+  assert.match(newer.notice, /v9\.9\.9.*v0\.1\.86.*更新してください/);
+  assert.doesNotMatch(newer.notice, /取り除く|\.akari\/backup/);
+  for (const input of [context(undefined), context(stamp('0.1.86'))]) {
+    const old = classifyEditLoadFailure(error, input);
+    assert.equal(old.notice, `edit.json を読み込めませんでした: ${error.message}`);
+    assert.equal(old.updateAvailable, undefined);
+  }
+  const syntaxError = new SyntaxError('Unexpected token');
+  assert.equal(classifyEditLoadFailure(syntaxError, context(stamp('9.9.9'))).notice,
+    `edit.json を読み込めませんでした: ${syntaxError.message}`);
+});
+
 test('Theia の 2 種類の NotFound 相当エラーは missing になる', () => {
   assert.deepEqual(classifyEditLoadFailure({ fileOperationResult: 1 }), { kind: 'missing' });
   assert.deepEqual(classifyEditLoadFailure({ code: 'EntryNotFound' }), { kind: 'missing' });
@@ -70,6 +89,6 @@ test('reloadEdit は読み込み例外を分類し、invalid を notice と cons
 
   assert.match(
     method,
-    /catch \(error\) \{[\s\S]*classifyEditLoadFailure\(error\)[\s\S]*failure\.kind === 'invalid'[\s\S]*this\.showNotice\(failure\.notice\)[\s\S]*console\.error\('\[akari-annotations\] edit\.json を読み込めませんでした', error\)/
+    /catch \(error\) \{[\s\S]*classifyEditLoadFailure\(error, versionContext\)[\s\S]*failure\.kind === 'invalid'[\s\S]*this\.showNotice\(failure\.notice, failure\.updateAvailable === true\)[\s\S]*console\.error\('\[akari-annotations\] edit\.json を読み込めませんでした', error\)/
   );
 });
