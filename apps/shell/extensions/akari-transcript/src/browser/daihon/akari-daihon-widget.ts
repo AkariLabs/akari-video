@@ -604,6 +604,7 @@ export class AkariDaihonWidget extends BaseWidget {
         this.title.closable = false; // 右ドック常設。閉じたいときは右ドックごと畳む。
         this.node.classList.add('akari-daihon-widget');
         this.node.setAttribute('data-akari-ui', 'panel:daihon');
+        this.node.setAttribute('data-akari-onboarding-target', 'daihon');
         this.node.setAttribute('data-akari-ui-label', '台本');
         installStyle();
         installDaihonFocusPulseStyle();

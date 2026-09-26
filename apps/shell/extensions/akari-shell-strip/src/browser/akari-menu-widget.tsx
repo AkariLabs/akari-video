@@ -713,6 +713,7 @@ export class AkariMenuWidget extends ReactWidget {
                 <h3 style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>書き出し</h3>
                 <button
                     className='theia-button secondary'
+                    data-akari-onboarding-target='export-button'
                     style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%' }}
                     disabled={!this.editJsonExists}
                     title={!this.editJsonExists ? EDIT_JSON_MISSING_TOOLTIP : undefined}

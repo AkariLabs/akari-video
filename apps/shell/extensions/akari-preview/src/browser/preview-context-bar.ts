@@ -317,6 +317,7 @@ export class PreviewContextBar implements Disposable {
             if (item.kind === 'separator') return '<span class="akari-ctx-sep" aria-hidden="true"></span>';
             const open = item.key === 'captionMore' ? this.moreOpen : this.openWindow === item.key;
             const attrs = `data-akari-bar-item="${item.key}" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.title ?? item.label)}"`
+                + (item.key === 'captionSize' ? ' data-akari-onboarding-target="caption-size"' : '')
                 + (item.kind === 'window' ? ` aria-expanded="${open}"` : '') + (item.disabled ? ' disabled aria-disabled="true"' : '');
             if (item.kind === 'color') {
                 const none = item.paint === 'none';
@@ -434,7 +435,7 @@ export class PreviewContextBar implements Disposable {
         const style = (state.item?.textStyle ?? {}) as Record<string, any>;
         const number = (field: string, label: string, value: number, min: number, max: number, step: number, unit = ''): string =>
             `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span>`
-            + `<input type="range" data-caption-field="${field}" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}">`
+            + `<input type="range" data-caption-field="${field}" ${field === 'sizePx' ? 'data-akari-onboarding-target="caption-size-slider"' : ''} min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}">`
             + `<input type="number" class="akari-ctx-num" data-caption-field="${field}" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}（数値）">`
             + (unit ? `<span class="akari-ctx-unit">${unit}</span>` : '') + '</label>';
         const colors = (field: string, current: string): string =>

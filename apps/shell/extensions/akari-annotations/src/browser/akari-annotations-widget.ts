@@ -1656,6 +1656,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.classList.add('akari-annotations-widget');
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:timeline');
+        this.node.setAttribute('data-akari-onboarding-target', 'timeline');
         this.node.setAttribute('data-akari-ui-label', 'タイムライン');
         Object.assign(this.node.style, {
             display: 'grid',

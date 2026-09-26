@@ -13,8 +13,15 @@ import { AkariSettingsMaintenanceService, AKARI_SETTINGS_MAINTENANCE_PATH } from
 import { AkariSettingsMaintenanceServiceImpl } from './settings-maintenance-service';
 import { AkariNarrationEnginesService, AKARI_NARRATION_ENGINES_SERVICE_PATH } from '../common/narration-engines-protocol';
 import { AkariNarrationEnginesServiceImpl } from './narration-engines';
+import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboarding/protocol';
+import { AkariOnboardingServiceImpl } from './onboarding-service';
 
 export default new ContainerModule(bind => {
+    bind(AkariOnboardingServiceImpl).toSelf().inSingletonScope();
+    bind(AkariOnboardingService).toService(AkariOnboardingServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_ONBOARDING_SERVICE_PATH, () => context.container.get(AkariOnboardingService))
+    ).inSingletonScope();
     bind(AkariNarrationEnginesServiceImpl).toSelf().inSingletonScope();
     bind(AkariNarrationEnginesService).toService(AkariNarrationEnginesServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>

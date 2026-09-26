@@ -4886,6 +4886,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         );
         widget.viewType = 'akari.preview';
         widget.title.label = kind === 'output' ? '出力プレビュー' : '素材プレビュー';
+        widget.node.setAttribute('data-akari-onboarding-target', kind === 'output' ? 'output' : 'material-preview');
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
         widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
         widget.setContentOptions({
@@ -5258,6 +5259,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewTrackedSuffixes = new Set(kind === 'output' ? [this.resourceSuffix(identityUri)] : []);
         widget.viewType = 'akari.preview';
         widget.title.label = kind === 'output' ? '出力プレビュー' : '素材プレビュー';
+        widget.node.setAttribute('data-akari-onboarding-target', kind === 'output' ? 'output' : 'material-preview');
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
         widget.title.iconClass = kind === 'output' ? 'codicon codicon-preview' : 'codicon codicon-camera-video';
         widget.setContentOptions({ allowScripts: false, allowForms: false });

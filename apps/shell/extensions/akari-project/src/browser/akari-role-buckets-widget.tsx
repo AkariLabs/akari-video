@@ -746,6 +746,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         this.node.setAttribute('data-akari-os-file-drop-target', 'true');
         // docs/contract-2026-08-11-review-session-ui-events.md #2: panel:<id> opt-in target.
         this.node.setAttribute('data-akari-ui', 'panel:assets');
+        this.node.setAttribute('data-akari-onboarding-target', 'assets');
         this.node.setAttribute('data-akari-ui-label', '素材パネル');
         this.storeConnectionFlow = new StoreConnectionFlowController(this.projectService, {
             openVerificationUrl: url => this.windowService.openNewWindow(url, { external: true }),
@@ -2775,7 +2776,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      */
     protected handleDragOver(event: DragEvent): void {
         const transfer = event.dataTransfer;
-        if (!transfer || !isOsFileDropInput(transfer.types)) {
+        if (!transfer || (!isOsFileDropInput(transfer.types)
+            && !transfer.types.includes('application/x-akari-onboarding-sample'))) {
             this.setDragActive(false);
             return;
         }
@@ -3355,6 +3357,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={entry.uri.toString()}
                 data-akari-material-path={entry.relativePath}
+                data-akari-onboarding-target={entry.relativePath === 'assets/サンプル動画.mp4' ? 'sample-card' : undefined}
                 data-akari-material-unorganized={entry.unorganized ? 'true' : 'false'}
                 data-akari-material-reference={entry.reference ? 'true' : undefined}
                 data-akari-material-missing={entry.missing ? 'true' : undefined}
@@ -5012,6 +5015,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             <div
                 key={entry.uri.toString()}
                 data-akari-output-path={entry.relativePath}
+                data-akari-onboarding-target={entry.kind === 'export' ? 'export-result' : undefined}
                 data-akari-output-kind={entry.kind}
                 data-akari-output-emphasis={isEditData ? 'edit' : undefined}
                 onClick={() => void this.openFile(entry.uri)}

@@ -45,6 +45,10 @@ export const AkariHomeCommands = {
         id: 'akari.home.openFirstRunSetup',
         label: '初回セットアップを開く'
     } as Command,
+    OPEN_FIRST_VIDEO_GUIDE: {
+        id: 'akari.home.openFirstVideoGuide',
+        label: 'はじめてのガイドをもう一度'
+    } as Command,
     // task 2026-08-25-shell-window-and-notify ②: 別プロジェクトを並行で開くための入口。
     // ワークスペース未指定の既定ウィンドウ（ホーム + ランチャー）が開く。Theia 標準の
     // File > New Window（workbench.action.newWindow・英語ラベル）と重複するため、
@@ -90,6 +94,12 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
             execute: async () => {
                 const widget = await this.revealHome();
                 await widget.openFirstRunSetup();
+            }
+        });
+        registry.registerCommand(AkariHomeCommands.OPEN_FIRST_VIDEO_GUIDE, {
+            execute: async () => {
+                const widget = await this.revealHome();
+                await widget.openFirstVideoGuide();
             }
         });
         for (const [command, stage] of [[AkariHomeCommands.TEST_UPDATE_FOUND, 'found'], [AkariHomeCommands.TEST_UPDATE_DOWNLOADING, 'downloading'], [AkariHomeCommands.TEST_UPDATE_READY, 'ready']] as const) {

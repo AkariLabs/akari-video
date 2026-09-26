@@ -26,8 +26,12 @@ import { AkariSettingsDialogStyleContribution } from './style/akari-settings-dia
 import { AkariConnectionsService, AKARI_CONNECTIONS_SERVICE_PATH } from '../common/akari-connections-protocol';
 import { AkariKitsService, AKARI_KITS_SERVICE_PATH } from '../common/akari-kits-protocol';
 import { AkariNarrationEnginesService, AKARI_NARRATION_ENGINES_SERVICE_PATH } from '../common/narration-engines-protocol';
+import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboarding/protocol';
 
 export default new ContainerModule(bind => {
+    bind(AkariOnboardingService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_ONBOARDING_SERVICE_PATH)
+    ).inSingletonScope();
     bind(AkariNarrationEnginesService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_NARRATION_ENGINES_SERVICE_PATH)
     ).inSingletonScope();

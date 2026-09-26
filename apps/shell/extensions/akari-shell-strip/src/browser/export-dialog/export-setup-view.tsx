@@ -288,7 +288,7 @@ export function ExportSetupView(props: {
             <div className='pf'>
                 <button type='button' className='btn ghost' onClick={() => void session.handOffToPartner()}>パートナーに任せる</button>
                 <span className='fn'>AI チャットに入ります</span><span className='sp' />
-                <button type='button' className='btn primary' onClick={() => void session.start()}>書き出す <small>— {selected.label} · {session.estimate().time}</small></button>
+                <button type='button' className='btn primary' data-akari-onboarding-target='export-submit' onClick={() => void session.start()}>書き出す <small>— {selected.label} · {session.estimate().time}</small></button>
             </div>
         </>
     );

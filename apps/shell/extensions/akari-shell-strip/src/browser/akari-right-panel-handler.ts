@@ -529,6 +529,11 @@ export class AkariRightPanelHandler extends SidePanelHandler {
             return;
         }
         const tabs = Array.from(this.tabBar.contentNode.children) as HTMLElement[];
+        tabs.forEach((tab, index) => {
+            if (this.tabBar.titles[index]?.owner.id === 'akari-daihon-widget') {
+                tab.setAttribute('data-akari-onboarding-target', 'daihon-button');
+            }
+        });
         const agents = tabs.filter(tab => tab.classList.contains(`${RAIL_CLASS_PREFIX}agent`));
         const start = tabs.find(tab => tab.classList.contains(`${RAIL_CLASS_PREFIX}lower-start`));
         const gap = 4;

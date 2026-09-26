@@ -159,6 +159,7 @@ export class AkariPartnerWidget extends ReactWidget {
         this.title.caption = 'パートナーを追加';
         this.title.iconClass = 'codicon codicon-add';
         this.title.closable = false;
+        this.node.setAttribute('data-akari-onboarding-target', 'partner');
 
         this.devMode = this.preferences.get<boolean>(DEVELOPER_MODE_PREFERENCE, false);
         // akari-developer-mode-service.ts と同じ流儀: change イベントの値を
@@ -1132,6 +1133,7 @@ export class AkariPartnerWidget extends ReactWidget {
                                             minWidth: 0
                                         }}
                                         data-partner-entry={entry.id}
+                                        data-akari-onboarding-target={entry.form === 'cli' ? `partner-${entry.agent}` : undefined}
                                         data-partner-form={entry.form}
                                         data-partner-action={this.entryActionLabel(entry)}
                                         disabled={flow.state === 'working'}

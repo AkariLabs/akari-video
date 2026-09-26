@@ -7947,6 +7947,7 @@ export class AkariInspectorWidget extends BaseWidget {
 // project without edit.json, so the event also opens the same widget directly if attach fails.
 let latestMaterialEvent = 0;
 if (typeof window !== 'undefined') window.addEventListener(AKARI_MATERIAL_SELECTED_EVENT, event => {
+    if (document.body.classList.contains('akari-onboarding-active')) return;
     const selection = materialSelectionFromDetail((event as CustomEvent).detail);
     if (!selection) return;
     const sequence = ++latestMaterialEvent;

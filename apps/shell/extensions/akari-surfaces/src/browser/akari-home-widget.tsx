@@ -69,6 +69,9 @@ import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
 import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
+import { AkariOnboardingService } from '../onboarding/protocol';
+import { OnboardingController } from '../onboarding/controller';
+import { shouldResumeOnboarding } from '../onboarding/model';
 import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog';
 import { AkariNewVideoDialog } from './akari-new-video-dialog';
 import { CurrentProjectBand, HomeScrim, homePanelCss } from './home/home-panels';
@@ -293,6 +296,9 @@ export class AkariHomeWidget extends ReactWidget {
     // 初回オンボーディング本体は専用モーダルが所有する。home は開く配線だけを保持する。
     protected firstRunSetupDialog: AkariFirstRunSetupDialog | undefined;
     protected firstRunSetupDialogClosed: Promise<void> | undefined;
+    @inject(AkariOnboardingService)
+    protected readonly onboardingService!: AkariOnboardingService;
+    protected firstVideoGuide: OnboardingController | undefined;
     // セットアップ完了直後はワークスペース root がまだ無くても dashboard へ抜ける。
     protected showDashboardWithoutProject = false;
 
@@ -536,6 +542,11 @@ export class AkariHomeWidget extends ReactWidget {
     protected async initializeFirstRunSetup(): Promise<boolean> {
         const roots = await this.workspaceService.roots;
         const hasProjectHistory = this.creatorRootProjects.length > 0 || this.standaloneProjects.length > 0;
+        const stored = await this.onboardingService.load();
+        if (shouldResumeOnboarding(stored, roots[0]?.resource.toString())) {
+            void this.openFirstVideoGuide(stored);
+            return true;
+        }
         const dialog = this.createFirstRunSetupDialog();
         const willAutoOpen = await dialog.shouldAutoOpen({
             hasOpenProject: roots.length > 0,
@@ -544,9 +555,32 @@ export class AkariHomeWidget extends ReactWidget {
         if (!willAutoOpen) {
             return false;
         }
-        void this.openFirstRunSetupDialog('automatic', dialog);
+        void this.openFirstVideoGuide();
         return true;
     }
+
+    /** 初回ガイドはウィンドウを覆う独立した面として開く。プロジェクト切替後も保存済みの段から戻る。 */
+    openFirstVideoGuide = async (state?: import('../onboarding/model').OnboardingState): Promise<void> => {
+        this.firstVideoGuide ??= new OnboardingController(
+            this.onboardingService,
+            this.fileService,
+            uri => this.workspaceService.openWorkspace(new URI(uri), { preserveWindow: true }),
+            async uri => {
+                const editUri = new URI(uri).resolve('edit.json');
+                if (await this.fileService.exists(editUri)) {
+                    await open(this.openers, editUri);
+                    await this.commands.executeCommand('akari.preview.ensureVisible', { editUri: editUri.toString() });
+                }
+            },
+            async () => { await this.commands.executeCommand('akari.partner.open'); },
+            async (uri, time) => {
+                const editUri = new URI(uri).resolve('edit.json').toString();
+                await this.commands.executeCommand('akari.preview.seekOutput', { editUri, time });
+            },
+            async () => { await this.openProjectLauncher(); }
+        );
+        await this.firstVideoGuide.open(state);
+    };
 
     /**
      * ランチャーの自動表示判定（正本 §3.2）。純ロジックは `launcher-visibility.ts` に

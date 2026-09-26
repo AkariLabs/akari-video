@@ -251,6 +251,14 @@ export class AkariActivityBarCuration implements FrontendApplicationContribution
                 tabBar.insertTab(index, title);
             }
         });
+        requestAnimationFrame(() => {
+            Array.from(tabBar.contentNode.children).forEach((element, index) => {
+                if (!(element instanceof HTMLElement)) return;
+                if (tabBar.titles[index]?.owner.id === MENU_WIDGET_ID) {
+                    element.setAttribute('data-akari-onboarding-target', 'menu-button');
+                }
+            });
+        });
     }
 
     protected leftPanelInternals(): LeftPanelInternals | undefined {
