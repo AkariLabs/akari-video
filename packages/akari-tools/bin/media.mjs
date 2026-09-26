@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
+const writerVersion = (() => {
+  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
+  catch { return undefined; }
+})();
 
 import { filmstripMedia } from "../src/media/filmstrip.mjs";
 import { grabMedia } from "../src/media/grab.mjs";
@@ -45,6 +52,9 @@ export async function runMediaCli(argv, options = {}) {
     const commandOptions = { ...options, ...parsed };
     if (subcommand === "audio-level") {
       const result = await audioLevelProject(target, commandOptions);
+      if (commandOptions.write && result.rows.some(row => row.written)) {
+        await writeSavedByStamp(resolve(target), writerVersion);
+      }
       for (const warning of result.warnings) stderr(warning);
       if (commandOptions.json) stdout(JSON.stringify(result.rows));
       else for (const line of formatAudioLevelTable(result)) stdout(line);

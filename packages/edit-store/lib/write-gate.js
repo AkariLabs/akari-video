@@ -18,9 +18,12 @@
  * ローカル検証が別途残るため安全側は保たれる）。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SAVED_BY_PATH = void 0;
 exports.lintProjectCandidates = lintProjectCandidates;
 exports.lintProjectCandidatesOnDisk = lintProjectCandidatesOnDisk;
 exports.assertLintPasses = assertLintPasses;
+exports.setDefaultSavedByAppVersion = setDefaultSavedByAppVersion;
+exports.writeSavedByStamp = writeSavedByStamp;
 exports.writeProjectFilesGuarded = writeProjectFilesGuarded;
 exports.assertNoCamelCaseTransitionOut = assertNoCamelCaseTransitionOut;
 exports.scheduleProjectLint = scheduleProjectLint;
@@ -32,6 +35,16 @@ const fs_1 = require("fs");
 const path_1 = require("path");
 const url_1 = require("url");
 const os_1 = require("os");
+// index.ts の SAVED_BY_PATH と同値に保つ（Node 専用入口は index を import しない）。
+exports.SAVED_BY_PATH = '.akari/saved-by.json';
+const SAVED_BY_SCHEMA_VERSION = 1;
+const APP_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/;
+function isValidSavedByAppVersion(version) {
+    return typeof version === 'string' && APP_VERSION_PATTERN.test(version);
+}
+function serializeSavedByStamp(appVersion, savedAt = new Date().toISOString()) {
+    return `${JSON.stringify({ version: SAVED_BY_SCHEMA_VERSION, app: 'akari-video', appVersion, savedAt }, null, 2)}\n`;
+}
 /**
  * 「OS / ファイルシステムがリンク作成自体を拒んだ」エラーコード。入力が誤っている系
  * （EEXIST・ENOENT・ENOTDIR 等）は含めない — それらは従来どおり throw して原因を隠さない。
@@ -183,6 +196,22 @@ async function assertLintPasses(projectRoot, candidates) {
         throw new Error(result.errors[0] ?? 'edit-lint が変更を拒否しました');
     }
 }
+let defaultSavedByAppVersion;
+/** CLI / preview-server 等のプロセス内で書き手の版を 1 回だけ設定する。 */
+function setDefaultSavedByAppVersion(version) {
+    defaultSavedByAppVersion = isValidSavedByAppVersion(version) ? version : undefined;
+}
+/** CLI の既存 edit.json 保存直後に、スタンプだけを atomic に更新する。 */
+async function writeSavedByStamp(projectRoot, appVersion) {
+    const destination = (0, path_1.join)(projectRoot, exports.SAVED_BY_PATH);
+    if (isValidSavedByAppVersion(appVersion)) {
+        await writeAtomic(destination, serializeSavedByStamp(appVersion));
+    }
+    else {
+        // 版不明の書き手は、以前の書き手の版を主張できない。
+        await fs_1.promises.rm(destination, { force: true });
+    }
+}
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
 async function writeProjectFilesGuarded(projectRoot, candidates, options = {}) {
     const editCandidate = candidates['edit.json'];
@@ -195,7 +224,17 @@ async function writeProjectFilesGuarded(projectRoot, candidates, options = {}) {
         }
         const destination = (0, path_1.join)(projectRoot, name);
         await writeAtomic(destination, text);
-        // rename 完了直後に同期で通知する。lint スケジュールより前に出すことで、
+        if (name === 'edit.json') {
+            const version = options.appVersion ?? defaultSavedByAppVersion;
+            if (isValidSavedByAppVersion(version)) {
+                await writeAtomic((0, path_1.join)(projectRoot, exports.SAVED_BY_PATH), serializeSavedByStamp(version));
+            }
+            else {
+                // An unknown writer cannot keep a previous writer's version claim.
+                await fs_1.promises.rm((0, path_1.join)(projectRoot, exports.SAVED_BY_PATH), { force: true });
+            }
+        }
+        // edit.json とスタンプの rename が完了したら同期で通知する。lint スケジュールより前に出すことで、
         // 購読側が watcher（実測 42〜1183ms のばらつき）を待たずに済む。
         if (options.onDidWrite) {
             try {

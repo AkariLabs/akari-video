@@ -5,7 +5,13 @@
 // render-cut は変更せず、既存 layers[kind=baked] + transform keyframes だけを出力する。
 
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
+const writerVersion = (() => {
+  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
+  catch { return undefined; }
+})();
 
 import { appendLayersAdditive, loadEditJson } from "../src/eye-bar/edit-apply.mjs";
 import { resolveTargetSourceId } from "../src/eye-bar/resolve-source.mjs";
@@ -131,6 +137,7 @@ async function main() {
     if (options.apply) {
       const applied = appendLayersAdditive(options.edit, plan.layers);
       if (!applied.ok) throw new Error(applied.reason);
+      if (basename(options.edit) === "edit.json") await writeSavedByStamp(dirname(options.edit), writerVersion);
       output.applied = { addedIds: applied.addedIds };
     }
     printJson(output);

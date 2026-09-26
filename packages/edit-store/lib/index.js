@@ -14,7 +14,13 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.normalizeTransform = exports.effectiveScale = exports.LegacyEditVersionError = exports.parseEdit = void 0;
+exports.SAVED_BY_PATH = exports.normalizeTransform = exports.effectiveScale = exports.LegacyEditVersionError = exports.parseEdit = void 0;
+exports.parseSavedBy = parseSavedBy;
+exports.newerSavedByVersion = newerSavedByVersion;
+exports.isUnknownKeyEditError = isUnknownKeyEditError;
+exports.newerVersionOpenNotice = newerVersionOpenNotice;
+exports.newerVersionLintPrefix = newerVersionLintPrefix;
+exports.withNewerVersionLintPrefix = withNewerVersionLintPrefix;
 /**
  * ブラウザ安全なエントリポイント（テキスト手術のみ）。
  * lint ゲート付き書き込み（Node 専用）は './write-gate' を明示的に import すること
@@ -67,3 +73,56 @@ var transform_1 = require("./transform");
 Object.defineProperty(exports, "effectiveScale", { enumerable: true, get: function () { return transform_1.effectiveScale; } });
 Object.defineProperty(exports, "normalizeTransform", { enumerable: true, get: function () { return transform_1.normalizeTransform; } });
 __exportStar(require("./transform-keyframe-edit"), exports);
+// write-gate.ts の SAVED_BY_PATH と同値に保つ。
+exports.SAVED_BY_PATH = '.akari/saved-by.json';
+const SAVED_BY_SCHEMA_VERSION = 1;
+function parseSavedBy(text) {
+    if (!text)
+        return undefined;
+    try {
+        const value = JSON.parse(text);
+        if (!value || typeof value !== 'object')
+            return undefined;
+        const stamp = value;
+        return stamp.version === SAVED_BY_SCHEMA_VERSION && stamp.app === 'akari-video'
+            && typeof stamp.appVersion === 'string' && /^\d+\.\d+\.\d+(?:[-+][\w.-]+)?$/.test(stamp.appVersion)
+            && typeof stamp.savedAt === 'string' && !Number.isNaN(Date.parse(stamp.savedAt))
+            ? stamp : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
+function compareSavedByVersions(left, right) {
+    const leftParts = left.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    const rightParts = right.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    if (!leftParts || !rightParts)
+        return 0;
+    for (let i = 1; i <= 3; i++) {
+        const a = Number(leftParts[i]);
+        const b = Number(rightParts[i]);
+        if (a !== b)
+            return a < b ? -1 : 1;
+    }
+    return 0;
+}
+function newerSavedByVersion(text, currentVersion) {
+    const savedVersion = parseSavedBy(text)?.appVersion;
+    return savedVersion && currentVersion && compareSavedByVersions(savedVersion, currentVersion) > 0
+        ? savedVersion : undefined;
+}
+function isUnknownKeyEditError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return /edit\.json[^\n]*未定義キーを使用できません/.test(message);
+}
+function newerVersionOpenNotice(savedVersion, currentVersion) {
+    return `このプロジェクトは新しい版の AKARI Video（v${savedVersion}）で保存されています。`
+        + `いまの版（v${currentVersion}）では開けない機能が使われています。AKARI Video を更新してください。`;
+}
+function newerVersionLintPrefix(savedVersion) {
+    return `このプロジェクトは新しい版（v${savedVersion}）で保存されています。`
+        + 'いまの版の検証は新しい機能を知らないため、誤ってエラーを出すことがあります。';
+}
+function withNewerVersionLintPrefix(message, savedVersion) {
+    return savedVersion ? `${newerVersionLintPrefix(savedVersion)} ${message}` : message;
+}

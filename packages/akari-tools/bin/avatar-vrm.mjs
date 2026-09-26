@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+const { writeSavedByStamp } = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
+const writerVersion = (() => {
+  try { return JSON.parse(readFileSync(new URL("../../akari-launcher/package.json", import.meta.url), "utf8")).version; }
+  catch { return undefined; }
+})();
 
 import { appendLayersAdditive } from "../src/eye-bar/edit-apply.mjs";
 import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
@@ -112,6 +118,7 @@ async function main() {
     if (options.apply) {
       const applied = appendLayersAdditive(output.editPath, [layer]);
       if (!applied.ok) throw new Error(applied.reason);
+      await writeSavedByStamp(options.project, writerVersion);
       result.applied = { addedIds: applied.addedIds };
     }
     printJson(result);

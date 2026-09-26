@@ -79,6 +79,9 @@ import {
     toAnchorCaptions,
     resolveItemAnchors,
     removeStyleAttachedItems,
+    newerSavedByVersion,
+    SAVED_BY_PATH,
+    withNewerVersionLintPrefix,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
 import type { InternalTrack, ProjectItemV2, TransitionType } from '@akari-video/edit-store';
@@ -103,6 +106,7 @@ import {
     moveLinkedCutAudio, removeCutAudioLinked, type EditV2
 } from '@akari-video/edit-store';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
+import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
 import {
     AudioLoudnessEnvelope,
     AudioWaveformDebounceGate,
@@ -1049,6 +1053,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(MessageService)
     protected readonly messages!: MessageService;
 
+    @inject(ApplicationServer)
+    protected readonly applicationServer!: ApplicationServer;
+
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
 
@@ -1105,6 +1112,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** 素材カード D&D の点線ゴースト（task 2026-08-10-material-dnd-timeline 司令塔裁定5）。 */
     protected readonly materialGhost = document.createElement('div');
     protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-akari-timeline-notice' });
+    protected readonly updateNoticeButton = document.createElement('button');
+    protected currentAppVersionPromise?: Promise<string | undefined>;
+    protected newerVersionAtLoad: string | undefined;
+    protected pendingLintNewerVersion: string | undefined;
+    protected readonly warnedNewerVersionProjects = new Set<string>();
     protected readonly footer = document.createElement('div');
 
     @inject(ReviewModel)
@@ -7967,8 +7979,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
         requestAnimationFrame(() => this.renderStrip());
         this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
             this.recentWrites.set(uri, Date.now());
+            if (uri === this.location?.editUri?.toString() && this.newerVersionAtLoad) {
+                this.pendingLintNewerVersion = this.newerVersionAtLoad;
+                const project = this.location.root.toString();
+                if (!this.warnedNewerVersionProjects.has(project)) {
+                    this.warnedNewerVersionProjects.add(project);
+                    void this.messages.warn(
+                        '新しい版で使われた設定が、この版で保存すると失われることがあります。先に AKARI Video を更新するのがおすすめです',
+                        'アップデートを確認'
+                    ).then(choice => {
+                        if (choice === 'アップデートを確認') {
+                            void this.commands.executeCommand('akari.settings.open', { section: 'about' });
+                        }
+                    });
+                }
+            }
         }));
         this.toDispose.push(this.annotationsClient.onDidWriteEvent(detail => {
+            if (detail.uri === this.location?.editUri?.toString()) {
+                // The first successful edit write consumes the older-version claim for this session.
+                // Keep pendingLintNewerVersion until its deferred result arrives.
+                this.newerVersionAtLoad = undefined;
+            }
             if (detail.uri === this.location?.captionsUri.toString()) {
                 void this.reloadCaptionsIfChanged(detail.content);
             }
@@ -8068,6 +8100,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         findings: readonly UiLintFinding[] = [],
         writtenFiles?: readonly string[]
     ): void {
+        const lintSavedVersion = !pass ? this.pendingLintNewerVersion : undefined;
+        this.pendingLintNewerVersion = undefined;
         if (pass) {
             if (this.deferredLintFooterMessage?.parentElement === this.footer) {
                 this.footer.replaceChildren();
@@ -8084,7 +8118,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.footer.replaceChildren();
         const message = document.createElement('span');
         if (writtenFiles === undefined) {
-            message.textContent = formatLintFailureForUi('保存後の検証で問題が見つかりました', errors, findings);
+            message.textContent = withNewerVersionLintPrefix(
+                formatLintFailureForUi('保存後の検証で問題が見つかりました', errors, findings), lintSavedVersion);
             const undo = document.createElement('button');
             undo.type = 'button';
             undo.textContent = '直前の編集を元に戻す';
@@ -8101,11 +8136,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const formatFinding = (finding: UiLintFinding): string =>
             `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`;
         if (ownErrors.length > 0) {
-            message.textContent = formatLintFailureForUi(
+            message.textContent = withNewerVersionLintPrefix(formatLintFailureForUi(
                 '保存後の検証で問題が見つかりました',
                 ownErrors.map(formatFinding),
                 ownErrors
-            );
+            ), lintSavedVersion);
             const undo = document.createElement('button');
             undo.type = 'button';
             undo.textContent = '直前の編集を元に戻す';
@@ -8116,7 +8151,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } else if (foreignErrors.length > 0) {
             const example = formatFinding(foreignErrors[0]);
             const ellipsis = foreignErrors.length > 1 ? ' …' : '';
-            message.textContent = `このプロジェクトには保存前からの課題が ${foreignErrors.length} 件あります（例: ${example}${ellipsis}）。Lint レポートで確認してください`;
+            message.textContent = withNewerVersionLintPrefix(
+                `このプロジェクトには保存前からの課題が ${foreignErrors.length} 件あります（例: ${example}${ellipsis}）。Lint レポートで確認してください`,
+                lintSavedVersion);
             this.footer.append(message);
         } else {
             this.deferredLintFooterMessage = undefined;
@@ -8266,10 +8303,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly htmlPartsCache = new Map<string, Promise<Array<{ id: string; order: number }>>>();
     protected editMutationTail: Promise<unknown> = Promise.resolve();
 
+    protected async loadSavedByContext(): Promise<{
+        stampText?: string; currentVersion?: string;
+    }> {
+        const root = this.location?.root;
+        const [stampText, currentVersion] = await Promise.all([
+            root ? this.fileService.readFile(root.resolve(SAVED_BY_PATH))
+                .then(file => file.value.toString()).catch(() => undefined) : Promise.resolve(undefined),
+            this.currentAppVersionPromise ??= this.applicationServer.getApplicationInfo()
+                .then(info => info?.version).catch(() => undefined)
+        ]);
+        return { stampText, currentVersion };
+    }
+
     protected async reloadEdit(sourceOverride?: string): Promise<void> {
         const generation = ++this.editReloadGeneration;
         this.timelineEmpty = !!this.location && !this.location.editUri;
         if (this.location?.editUri) {
+            let versionContext: Awaited<ReturnType<AkariAnnotationsWidget['loadSavedByContext']>> | undefined;
+            if (this.applicationServer && typeof this.loadSavedByContext === 'function') {
+                versionContext = await this.loadSavedByContext();
+                this.newerVersionAtLoad = newerSavedByVersion(versionContext.stampText, versionContext.currentVersion);
+            }
             try {
                 const diskSource = sourceOverride ?? (await this.fileService.readFile(this.location.editUri)).value.toString();
                 const source = await this.resolveLegacyEditForOpen(diskSource);
@@ -8400,9 +8455,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.showWarnings(view.warnings);
                 }
             } catch (error) {
-                const failure = classifyEditLoadFailure(error);
+                const failure = classifyEditLoadFailure(error, versionContext);
                 if (failure.kind === 'invalid') {
-                    this.showNotice(failure.notice);
+                    this.showNotice(failure.notice, failure.updateAvailable === true);
                     console.error('[akari-annotations] edit.json を読み込めませんでした', error);
                 }
             }
@@ -18926,9 +18981,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    protected showNotice(message: string): void {
+    protected showNotice(message: string, updateAvailable = false): void {
         if (/^[VAT]\d+ を追加しました$/.test(message)) return;
         this.notice.setMessage(message);
+        if (updateAvailable) {
+            this.updateNoticeButton.type = 'button';
+            this.updateNoticeButton.textContent = 'アップデートを確認';
+            this.updateNoticeButton.setAttribute('data-akari-update-action', '');
+            this.updateNoticeButton.onclick = () => void this.commands.executeCommand('akari.settings.open', { section: 'about' });
+            this.notice.node.insertBefore(this.updateNoticeButton, this.notice.node.lastChild);
+        } else {
+            this.updateNoticeButton?.remove();
+        }
     }
 
     protected hideNotice(): void {
