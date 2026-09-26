@@ -1,0 +1,407 @@
+{
+ "label": "b-inrange-html-b-item",
+ "itemId": "html-b-item",
+ "modifiers": "0",
+ "probe": {
+  "scriptId": "21",
+  "breakpoints": [
+   {
+    "breakpointId": "4:8244:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 8244,
+     "columnNumber": 16
+    }
+   },
+   {
+    "breakpointId": "4:3354:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 3354,
+     "columnNumber": 32
+    }
+   }
+  ]
+ },
+ "steps": [
+  {
+   "label": "start",
+   "at": "2026-09-26T11:44:38.196Z",
+   "closure": {
+    "at": 1790423078191,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "cut-base",
+    "selectedLayerId": null,
+    "cutSelected": true,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [],
+   "timeline": {
+    "selected": [
+     "0"
+    ],
+    "playhead": []
+   },
+   "outputTimeDom": 6
+  },
+  {
+   "label": "after-timeline-select",
+   "at": "2026-09-26T11:44:41.277Z",
+   "closure": {
+    "at": 1790423081269,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "html-b-item",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": "html-b-item",
+    "selectedIds": [
+     "html-b-item"
+    ],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [
+     "html-b-item"
+    ],
+    "selectionFrames": 1
+   },
+   "log": [
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-select-primary",
+     "detail": {
+      "type": "akari-preview-select-primary",
+      "selection": null
+     }
+    },
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-select-primary",
+     "detail": {
+      "type": "akari-preview-select-primary",
+      "selection": null
+     }
+    },
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-set-selected-captions",
+     "detail": {
+      "type": "akari-preview-set-selected-captions",
+      "captionIds": [],
+      "primaryCaptionId": null
+     }
+    },
+    {
+     "t": 1790423078546,
+     "kind": "in:akari-preview-set-selected-captions",
+     "detail": {
+      "type": "akari-preview-set-selected-captions",
+      "captionIds": [],
+      "primaryCaptionId": null
+     }
+    },
+    {
+     "t": 1790423078548,
+     "kind": "in:akari-preview-select-overlay",
+     "detail": {
+      "type": "akari-preview-select-overlay",
+      "overlayId": "html-b-item"
+     }
+    },
+    {
+     "t": 1790423078548,
+     "kind": "in:akari-preview-select-overlay",
+     "detail": {
+      "type": "akari-preview-select-overlay",
+      "overlayId": "html-b-item"
+     }
+    },
+    {
+     "t": 1790423078549,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790423078549,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790423078554,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423078554,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "html-b-item"
+    ],
+    "playhead": []
+   },
+   "outputTimeDom": 6
+  },
+  {
+   "label": "after-preview-click-photo-b",
+   "at": "2026-09-26T11:44:43.645Z",
+   "closure": {
+    "at": 1790423083630,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": "photo-b-item",
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 1,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790423081814,
+     "kind": "out:reportOverlaySelection",
+     "detail": [
+      null
+     ]
+    },
+    {
+     "t": 1790423081815,
+     "kind": "out:reportLayerSelection",
+     "detail": [
+      "photo-b-item"
+     ]
+    },
+    {
+     "t": 1790423081854,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423081854,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423081897,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423081897,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423082028,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423082028,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423082043,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790423082043,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "photo-b-item"
+    ],
+    "playhead": []
+   },
+   "outputTimeDom": 6
+  }
+ ],
+ "z": {
+  "overlays": [
+   {
+    "id": "shape-a",
+    "z": "2",
+    "cz": "2",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "shape-b",
+    "z": "2",
+    "cz": "2",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-a-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-b-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   }
+  ],
+  "planes": [],
+  "layers": [
+   {
+    "id": "photo-a-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "none"
+   },
+   {
+    "id": "photo-b-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "block"
+   }
+  ]
+ }
+}

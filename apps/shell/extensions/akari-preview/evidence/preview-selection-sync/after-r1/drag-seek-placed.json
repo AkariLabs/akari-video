@@ -1,0 +1,933 @@
+{
+ "kind": "placed",
+ "from": [
+  796.7968698947919,
+  117.99476330378148
+ ],
+ "summary": {
+  "moved": {
+   "t": 1,
+   "cap": "c-0003",
+   "layer": null,
+   "cut": false,
+   "ov": null,
+   "ix": null,
+   "tl": [
+    "c-0003"
+   ],
+   "reports": []
+  },
+  "after": {
+   "t": 6,
+   "cap": null,
+   "layer": null,
+   "cut": false,
+   "ov": null,
+   "ix": null,
+   "tl": [],
+   "reports": [
+    "reportCaptionSelection[null]"
+   ]
+  }
+ },
+ "steps": [
+  {
+   "label": "t1-after-drag",
+   "at": "2026-09-26T15:38:07.265Z",
+   "closure": {
+    "at": 1790437087261,
+    "selectedCaptionId": "c-0003",
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 1
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082358,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082890,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-5",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790437082890,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-5",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790437082890,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-5",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790437082890,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-5",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790437082890,
+     "kind": "in:akari-preview-caption-write-response",
+     "detail": {
+      "type": "akari-preview-caption-write-response",
+      "requestId": "akari-preview-5",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082902,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437082910,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.5313,
+          "y": 0.25
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "auto",
+         "--caption-bottom": "75%",
+         "--caption-left": "53.13%",
+         "--caption-right": "-45.13%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    },
+    {
+     "t": 1790437082910,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.5313,
+          "y": 0.25
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "auto",
+         "--caption-bottom": "75%",
+         "--caption-left": "53.13%",
+         "--caption-right": "-45.13%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    },
+    {
+     "t": 1790437082910,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.5313,
+          "y": 0.25
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "auto",
+         "--caption-bottom": "75%",
+         "--caption-left": "53.13%",
+         "--caption-right": "-45.13%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    },
+    {
+     "t": 1790437082910,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.5313,
+          "y": 0.25
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "auto",
+         "--caption-bottom": "75%",
+         "--caption-left": "53.13%",
+         "--caption-right": "-45.13%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    },
+    {
+     "t": 1790437082910,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "text_anchor": "bc",
+         "position": {
+          "x": 0.5313,
+          "y": 0.25
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "auto",
+         "--caption-bottom": "75%",
+         "--caption-left": "53.13%",
+         "--caption-right": "-45.13%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "c-0003"
+    ],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t6-after-seek",
+   "at": "2026-09-26T15:38:10.281Z",
+   "closure": {
+    "at": 1790437090279,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790437087272,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790437087272,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790437087272,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790437087272,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790437087272,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790437087283,
+     "kind": "out:reportCaptionSelection",
+     "detail": [
+      null
+     ]
+    },
+    {
+     "t": 1790437087305,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087305,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087305,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087305,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087305,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087382,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087382,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087382,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087382,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437087382,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [],
+    "playhead": []
+   }
+  }
+ ]
+}

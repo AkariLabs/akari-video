@@ -1,0 +1,422 @@
+{
+ "kind": "shape",
+ "from": [
+  520,
+  240
+ ],
+ "summary": {
+  "moved": {
+   "t": 1,
+   "cap": null,
+   "layer": null,
+   "cut": false,
+   "ov": "shape-a",
+   "ix": "shape-a",
+   "tl": [
+    "shape-a"
+   ],
+   "reports": [
+    "reportOverlaySelection[\"shape-a\"]",
+    "reportOverlaySelection[\"shape-a\"]",
+    "reportOverlaySelection[null]"
+   ]
+  },
+  "after": {
+   "t": 6,
+   "cap": null,
+   "layer": null,
+   "cut": false,
+   "ov": "undefined",
+   "ix": null,
+   "tl": [],
+   "reports": [
+    "reportOverlaySelection[null]",
+    "reportOverlaySelection[null]"
+   ]
+  }
+ },
+ "steps": [
+  {
+   "label": "t1-after-drag",
+   "at": "2026-09-26T15:37:01.433Z",
+   "closure": {
+    "at": 1790437021427,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "shape-a",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 1
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": "shape-a",
+    "selectedIds": [
+     "shape-a"
+    ],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [
+     "shape-a"
+    ],
+    "selectionFrames": 1
+   },
+   "log": [
+    {
+     "t": 1790437016487,
+     "kind": "out:reportOverlaySelection",
+     "detail": [
+      "shape-a"
+     ]
+    },
+    {
+     "t": 1790437016528,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437016544,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437016718,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017020,
+     "kind": "out:reportOverlaySelection",
+     "detail": [
+      "shape-a"
+     ]
+    },
+    {
+     "t": 1790437017050,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017050,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017152,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017152,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017152,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017166,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017174,
+     "kind": "in:akari-preview-overlay-write-response",
+     "detail": {
+      "type": "akari-preview-overlay-write-response",
+      "requestId": "akari-preview-1",
+      "ok": true
+     }
+    },
+    {
+     "t": 1790437017205,
+     "kind": "in:akari-preview-captions-update",
+     "detail": {
+      "type": "akari-preview-captions-update",
+      "captions": [
+       {
+        "id": "c-0001-output-1",
+        "start": 0,
+        "end": 3,
+        "text": "字幕エーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0001"
+       },
+       {
+        "id": "c-0003",
+        "start": 0,
+        "end": 3,
+        "text": "置いた文字エー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.12
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "12%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       },
+       {
+        "id": "c-0002-output-1",
+        "start": 5,
+        "end": 8,
+        "text": "字幕ビーの行",
+        "textStyle": {
+         "zone": "bottom"
+        },
+        "textStyleVars": {},
+        "clockDomain": "output",
+        "clockSourceId": "base",
+        "sourceCueId": "c-0002"
+       },
+       {
+        "id": "c-0004",
+        "start": 5,
+        "end": 8,
+        "text": "置いた文字ビー",
+        "textStyle": {
+         "zone": "bottom",
+         "color": "#ffe14d",
+         "size_px": 40,
+         "position": {
+          "x": 0.5,
+          "y": 0.3
+         }
+        },
+        "textStyleVars": {
+         "--caption-color": "#ffe14d",
+         "--caption-font-size": "40px",
+         "--caption-top": "30%",
+         "--caption-bottom": "auto",
+         "--caption-left": "50%",
+         "--caption-right": "-42%",
+         "--caption-width": "max-content",
+         "--caption-align-items": "flex-start",
+         "--caption-line-margin": "0",
+         "--caption-line-max-width": "100%"
+        },
+        "clockDomain": "output",
+        "timeDomain": "output",
+        "clockSourceId": "base"
+       }
+      ]
+     }
+    },
+    {
+     "t": 1790437017208,
+     "kind": "out:reportOverlaySelection",
+     "detail": [
+      null
+     ]
+    },
+    {
+     "t": 1790437017235,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017249,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017249,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437017249,
+     "kind": "in:akari-preview-select-primary",
+     "detail": {
+      "type": "akari-preview-select-primary",
+      "selection": null
+     }
+    },
+    {
+     "t": 1790437017250,
+     "kind": "in:akari-preview-set-selected-captions",
+     "detail": {
+      "type": "akari-preview-set-selected-captions",
+      "captionIds": [],
+      "primaryCaptionId": null
+     }
+    },
+    {
+     "t": 1790437017251,
+     "kind": "in:akari-preview-select-overlay",
+     "detail": {
+      "type": "akari-preview-select-overlay",
+      "overlayId": "shape-a"
+     }
+    },
+    {
+     "t": 1790437017251,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "shape-a"
+    ],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t6-after-seek",
+   "at": "2026-09-26T15:37:04.456Z",
+   "closure": {
+    "at": 1790437024452,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "undefined",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790437021442,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790437021448,
+     "kind": "out:reportOverlaySelection",
+     "detail": [
+      null
+     ]
+    },
+    {
+     "t": 1790437021451,
+     "kind": "out:reportOverlaySelection",
+     "detail": [
+      null
+     ]
+    },
+    {
+     "t": 1790437021476,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790437021548,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [],
+    "playhead": []
+   }
+  }
+ ]
+}

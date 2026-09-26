@@ -1002,7 +1002,7 @@ function marqueeHits(candidates, rect) {
       return;
     }
     if (!selectedOverlay && selectedId && selectionTree().length) {
-      if (!treeNode(selectedId)) { clearSelection(); publishScopedSelection(false); return; }
+      if (!treeNode(selectedId)) { clearSelection(); publishScopedSelection(); return; }
       const replacement = containerById(selectedId);
       if (replacement) {
         selectedOverlay = replacement;
@@ -1063,6 +1063,7 @@ function marqueeHits(candidates, rect) {
     if (activeRotate?.container === container) cancelRotate();
     if (activeEdit?.container === container) void commitEdit();
     clearSelection();
+    publishScopedSelection();
   }
 
   function selectOverlay(container) {
@@ -1202,7 +1203,10 @@ function marqueeHits(candidates, rect) {
       startSelectionTracking();
     } else if (next.selectId === null) clearSelection();
     else if (!selectOverlay(containerById(next.selectId))) {
-      if (!node?.lazy || lazyBagForScope(tree, scopeId) !== node.parentId) return false;
+      if (!node?.lazy || lazyBagForScope(tree, scopeId) !== node.parentId) {
+        scopeId = previousScopeId;
+        return false;
+      }
       clearSelection();
       selectedId = node.id;
       selectedIds = [node.id];
@@ -2737,7 +2741,7 @@ function marqueeHits(candidates, rect) {
         + '[data-akari-interaction], [data-akari-ui="preview-scope-breadcrumb"], '
         + '.caption-row-plate, #caption-select-box, #layer-select-box, #cut-select-box, '
         + '.transport-controls, [role="menu"]');
-      if (outside && !protectedTarget) { clearSelection(); return; }
+      if (outside && !protectedTarget) { clearSelection(); publishScopedSelection(); return; }
     }
     flushNudge();
     hideHover();

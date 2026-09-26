@@ -1,0 +1,698 @@
+{
+ "label": "b-c-0001",
+ "itemId": "c-0001",
+ "modifiers": "0",
+ "probe": {
+  "scriptId": "21",
+  "breakpoints": [
+   {
+    "breakpointId": "4:8332:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 8332,
+     "columnNumber": 16
+    }
+   },
+   {
+    "breakpointId": "4:3376:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 3376,
+     "columnNumber": 32
+    }
+   }
+  ]
+ },
+ "steps": [
+  {
+   "label": "start",
+   "at": "2026-09-26T15:29:20.655Z",
+   "closure": {
+    "at": 1790436560653,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "cut-base",
+    "selectedLayerId": null,
+    "cutSelected": true,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [],
+   "timeline": {
+    "selected": [
+     "0"
+    ],
+    "playhead": []
+   },
+   "outputTimeDom": 6
+  },
+  {
+   "label": "after-timeline-select",
+   "at": "2026-09-26T15:29:23.735Z",
+   "closure": {
+    "at": 1790436563729,
+    "selectedCaptionId": "c-0001",
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 0
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-select-layer",
+     "detail": {
+      "type": "akari-preview-select-layer",
+      "layerId": null
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561029,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    },
+    {
+     "t": 1790436561030,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 0
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "c-0001"
+    ],
+    "playhead": []
+   },
+   "outputTimeDom": 0
+  },
+  {
+   "label": "after-preview-click-photo-b",
+   "at": "2026-09-26T15:29:25.880Z",
+   "closure": {
+    "at": 1790436565878,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "cut-base",
+    "selectedLayerId": null,
+    "cutSelected": true,
+    "outputTime": 0
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790436564286,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564286,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564286,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564286,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564286,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564286,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564286,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790436564288,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "0"
+    ],
+    "playhead": []
+   },
+   "outputTimeDom": 0
+  }
+ ],
+ "z": {
+  "overlays": [
+   {
+    "id": "shape-a",
+    "z": "2",
+    "cz": "2",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "shape-b",
+    "z": "2",
+    "cz": "2",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-a-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-b-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "shape-a",
+    "z": "90",
+    "cz": "90",
+    "vis": "visible",
+    "parent": "vscode-dark"
+   }
+  ],
+  "planes": [],
+  "layers": [
+   {
+    "id": "photo-a-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "block"
+   },
+   {
+    "id": "photo-b-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "none"
+   }
+  ]
+ }
+}

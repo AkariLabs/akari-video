@@ -1,0 +1,999 @@
+{
+ "label": "a-photo-shape",
+ "move": "photo",
+ "click": "shape",
+ "probe": {
+  "scriptId": "21",
+  "breakpoints": [
+   {
+    "breakpointId": "4:8244:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 8244,
+     "columnNumber": 16
+    }
+   },
+   {
+    "breakpointId": "4:3354:0:21",
+    "actualLocation": {
+     "scriptId": "21",
+     "lineNumber": 3354,
+     "columnNumber": 32
+    }
+   }
+  ]
+ },
+ "from": [
+  220,
+  160
+ ],
+ "drag": {
+  "a": {
+   "x": 403.08447265625,
+   "y": 114.77994791666666
+  },
+  "b": {
+   "x": 418.02880859375,
+   "y": 125.98795572916667
+  }
+ },
+ "target": [
+  520,
+  440
+ ],
+ "clicked": {
+  "x": 515.1669921875,
+  "y": 219.38802083333334
+ },
+ "steps": [
+  {
+   "label": "t1-before",
+   "at": "2026-09-26T11:10:38.851Z",
+   "closure": {
+    "at": 1790421038837,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": "photo-b-item",
+    "cutSelected": false,
+    "outputTime": 1
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [],
+   "timeline": {
+    "selected": [
+     "photo-b-item"
+    ],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t1-after-move",
+   "at": "2026-09-26T11:10:42.030Z",
+   "closure": {
+    "at": 1790421042024,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": "photo-a-item",
+    "cutSelected": false,
+    "outputTime": 1
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": true,
+     "cls": "is-active"
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790421039381,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039381,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039381,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039387,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039436,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    },
+    {
+     "t": 1790421039937,
+     "kind": "in:akari-preview-layer-write-response",
+     "detail": {
+      "type": "akari-preview-layer-write-response",
+      "requestId": "akari-preview-9",
+      "ok": false,
+      "error": "[captions.schema] id must match c- followed by four digits"
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "photo-a-item"
+    ],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t6-after-seek",
+   "at": "2026-09-26T11:10:44.705Z",
+   "closure": {
+    "at": 1790421044700,
+    "selectedCaptionId": null,
+    "requestedOverlayId": null,
+    "requestedCutId": "undefined",
+    "selectedLayerId": "photo-a-item",
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [],
+    "selectionFrames": 0
+   },
+   "log": [
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042397,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042398,
+     "kind": "in:akari-preview-seek",
+     "detail": {
+      "type": "akari-preview-seek",
+      "time": 6
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042439,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421042466,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "photo-a-item"
+    ],
+    "playhead": []
+   }
+  },
+  {
+   "label": "t6-after-click",
+   "at": "2026-09-26T11:10:46.627Z",
+   "closure": {
+    "at": 1790421046625,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "shape-b",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 6
+   },
+   "stateAgeMs": 0,
+   "ix": {
+    "selectedId": "shape-b",
+    "selectedIds": [
+     "shape-b"
+    ],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "dom": {
+    "captionSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "layerSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "cutSelectBox": {
+     "active": false,
+     "cls": ""
+    },
+    "overlaySelected": [
+     "shape-b"
+    ],
+    "selectionFrames": 1
+   },
+   "log": [
+    {
+     "t": 1790421045028,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045028,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045028,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045045,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    },
+    {
+     "t": 1790421045054,
+     "kind": "in:akari-preview-caption-zone-hover",
+     "detail": {
+      "type": "akari-preview-caption-zone-hover",
+      "zone": null
+     }
+    }
+   ],
+   "timeline": {
+    "selected": [
+     "shape-b"
+    ],
+    "playhead": []
+   }
+  }
+ ],
+ "z": {
+  "overlays": [
+   {
+    "id": "shape-a",
+    "z": "2",
+    "cz": "2",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "shape-b",
+    "z": "2",
+    "cz": "2",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-a-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "hidden",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "html-b-item",
+    "z": "3",
+    "cz": "3",
+    "vis": "visible",
+    "parent": "overlay-stage"
+   },
+   {
+    "id": "shape-b",
+    "z": "90",
+    "cz": "90",
+    "vis": "visible",
+    "parent": "vscode-dark"
+   }
+  ],
+  "planes": [],
+  "layers": [
+   {
+    "id": "photo-a-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "none"
+   },
+   {
+    "id": "photo-b-item",
+    "tag": "IMG",
+    "z": "1",
+    "vis": "hidden",
+    "display": "block"
+   }
+  ]
+ }
+}

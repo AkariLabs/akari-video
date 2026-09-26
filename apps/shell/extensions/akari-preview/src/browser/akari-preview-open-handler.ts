@@ -9829,6 +9829,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 audioMeterTap = null;
             }, { once: true });
             window.akari.playbackTick = (time, playing, immediate = false) => {
+                window.akari.expirePreviewSelections?.(time);
                 if (Number.isFinite(time)) contextMenuTimelineT = Math.max(0, time);
                 window.akari.updateEmptyCanvasHint?.(time);
                 const now = performance.now();
@@ -12880,7 +12881,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 ? summary.itemStackZ[itemId] : trackZ;
             const applyCutsZIndex = segment => {
                 if (segment && segment.kind === 'src') {
-                    const z = zForTrack(segment.trackId);
+                    const z = typeof zForItem === 'function'
+                        ? zForItem(segment.id, zForTrack(segment.trackId)) : zForTrack(segment.trackId);
                     // renderTransitionComposite が同じ tick の前段で確定した zSwap を、
                     // applyCutsMuteState の通常 z 同期で巻き戻さない。合成終了時の reset が
                     // video / stillImage を正準 track z へ戻す。
@@ -14664,7 +14666,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     const declaredSize = typeof summary === 'undefined' ? null : summary.output;
                     let order = 0;
                     for (const entry of layerEntries) {
-                        if (entry.video.style.display === 'none') continue;
+                        if (entry.video.style.display === 'none' || entry.video.style.visibility === 'hidden'
+                            || (entry.spec && typeof outputTime === 'number' && Number.isFinite(entry.spec.t)
+                                && (outputTime < entry.spec.t || outputTime >= entry.spec.t + entry.spec.duration))
+                            || (entry.spec && (allTracksHiddenByScope.layers
+                                || hiddenTracksByScope.layers?.has(entry.spec.track)
+                                || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(entry.spec.track))))) continue;
+                        const motionOpacity = entry.spec && typeof motionAtForSpec === 'function'
+                            ? motionAtForSpec(entry.spec, entry.spec.t, entry.spec.duration)?.visible?.opacity : undefined;
+                        if ((Number.isFinite(motionOpacity) ? motionOpacity : entry.spec?.opacity ?? 1) <= 0) continue;
                         const hasSourceSize = (entry.video.videoWidth || entry.video.naturalWidth) > 0
                             && (entry.video.videoHeight || entry.video.naturalHeight) > 0;
                         const size = hasSourceSize
@@ -14707,9 +14717,20 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (candidate === video) return true;
                         if (candidate === stillImage) return true;
                         if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
-                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
+                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none'
+                            && candidate.style.visibility !== 'hidden')) return false;
                         const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
                         if (!candidateEntry) return true;
+                        if (candidateEntry.spec && typeof outputTime === 'number' && Number.isFinite(candidateEntry.spec.t)
+                            && (outputTime < candidateEntry.spec.t
+                                || outputTime >= candidateEntry.spec.t + candidateEntry.spec.duration)) return false;
+                        if (candidateEntry.spec && (allTracksHiddenByScope.layers
+                            || hiddenTracksByScope.layers?.has(candidateEntry.spec.track)
+                            || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(candidateEntry.spec.track)))) return false;
+                        const motionOpacity = candidateEntry.spec && typeof motionAtForSpec === 'function'
+                            ? motionAtForSpec(candidateEntry.spec, candidateEntry.spec.t,
+                                candidateEntry.spec.duration)?.visible?.opacity : undefined;
+                        if ((Number.isFinite(motionOpacity) ? motionOpacity : candidateEntry.spec?.opacity ?? 1) <= 0) return false;
                         const size = { width: candidate.videoWidth || candidate.naturalWidth,
                             height: candidate.videoHeight || candidate.naturalHeight };
                         if (!(size.width > 0 && size.height > 0)) {
@@ -14755,10 +14776,6 @@ body { display: grid; place-items: center; padding: 32px; }
             const handleVisualMediaPointerDown = event => {
                 if (typeof motionDraw !== 'undefined' && motionDraw) return;
                 if (window.akari.shouldStartPreviewMarquee?.(event)) return;
-                // A blank click must release captions before selecting the media behind them.
-                // Otherwise selectCut/selectLayer silently clear the local caption first and
-                // pointerup can no longer notify the host that its caption selection ended.
-                if ((selectedCaptionId || activeCaptionEdit) && isSelectionReleaseTarget(event)) return;
                 // ㉔ クロップモード中は移動/選択切り替えと操作が衝突しないよう、選択中レイヤーの
                 // ボディドラッグを含め本編ステージの通常操作を止める（ハンドルは別要素なので
                 // このガードの影響を受けない）。
@@ -14775,8 +14792,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (penModeActive || rectModeActive) return;
                     if (interactiveTarget) {
                         const domItem = target?.closest?.('[data-overlay-id], #caption-plate');
+                        const captionRow = target?.closest?.('.caption-row-plate');
                         const mediaHit = domItem ? findVisualMediaHitAt(event) : null;
-                        if (!mediaHit || Number(mediaHit.style.zIndex) <= Number(domItem.style.zIndex)) return;
+                        const domZ = captionRow
+                            ? Number(captionRow.style.zIndex || captionLayer.style.zIndex)
+                            : Number(domItem?.style.zIndex);
+                        if (!mediaHit || Number(mediaHit.style.zIndex) <= domZ) return;
                         coveredDomHit = mediaHit;
                         event.stopPropagation();
                     }
@@ -14790,9 +14811,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         && !targetIsEngineStage)) return;
                 const hit = coveredDomHit || findVisualMediaHitAt(event);
                 if (!hit) return;
+                if (activeCaptionEdit) void commitCaptionEdit();
+                if (selectedCaptionId) deselectCaption();
                 if (hit === video || hit === stillImage) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
-                    selectCut();
+                    selectCut({ visibleHit: true });
                     const segment = typeof cutInteractionSegment === 'function' ? cutInteractionSegment() : null;
                     const cutImage = segment?.src && (initial.imageSources || {})[segment.src];
                     const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
@@ -14847,7 +14870,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const entry = findLayerEntry(hit.dataset.akariLayerId);
                 if (!entry) return;
-                selectLayer(entry.spec.id);
+                selectLayer(entry.spec.id, { visibleHit: true });
                 const photo = entry.spec.isImage === true;
                 const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
                 const twice = photo && typeof lastPhotoPointerDown !== 'undefined'
@@ -15224,7 +15247,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '#layer-perspective-panel, .caption-row-plate, [data-overlay-id], [data-akari-interaction], '
                     + 'button, [role="button"], input, textarea, select, a[href]')) return false;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
-                return !!selectedCaptionId || !!activeCaptionEdit || !findVisualMediaHitAt(event);
+                return !!event.target.closest?.('#caption-plate') || !findVisualMediaHitAt(event);
             };
             const releasePreviewSelection = () => {
                 if (activeCaptionEdit) void commitCaptionEdit();
@@ -18792,9 +18815,74 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             };
+            const previewSelectionLeavesRangeFn = (previousTime, time, start, end, hidden = false) =>
+                Number.isFinite(start) && Number.isFinite(end)
+                && previousTime >= start && previousTime < end
+                && (time < start || time >= end || hidden);
+            let previousPreviewSelectionTime = typeof outputTime !== 'undefined' ? outputTime : 0;
+            const overlaySelectionInRange = (id, time) => {
+                const item = typeof summary !== 'undefined'
+                    ? summary.overlays?.find(candidate => candidate.id === id) : undefined;
+                return !!item && time >= item.start && time < item.start + item.duration;
+            };
+            window.akari.expirePreviewSelections = time => {
+                const previousTime = previousPreviewSelectionTime;
+                previousPreviewSelectionTime = time;
+                const currentCaptionId = typeof selectedCaptionId !== 'undefined' ? selectedCaptionId : null;
+                const currentLayerId = typeof selectedLayerId !== 'undefined' ? selectedLayerId : null;
+                const currentCutId = typeof requestedCutId !== 'undefined' ? requestedCutId : undefined;
+                const selectedLayerEntry = currentLayerId && findLayerEntry(currentLayerId);
+                const selectedLayer = selectedLayerEntry?.spec
+                    || (typeof summary !== 'undefined'
+                        ? summary.layers?.find(item => String(item.id) === String(currentLayerId)) : undefined);
+                const selectedOverlayId = (typeof requestedOverlayId !== 'undefined' && requestedOverlayId)
+                    || window.akari.interaction?.selectedId;
+                const selectedOverlay = selectedOverlayId && typeof summary !== 'undefined'
+                    ? summary.overlays?.find(item => item.id === selectedOverlayId) : undefined;
+                const interactionCut = currentCutId !== undefined ? cutInteractionSegment() : undefined;
+                const selectedCut = currentCutId !== undefined
+                    ? (typeof summary !== 'undefined'
+                        ? summary.cuts?.find(item => String(item.id) === String(currentCutId)) : undefined)
+                        || (interactionCut?.id === currentCutId ? interactionCut : undefined)
+                    : undefined;
+                const leaves = (start, end, hidden) => previewSelectionLeavesRangeFn(
+                    previousTime, time, start, end, hidden);
+                const selectedCaptionCues = currentCaptionId
+                    ? captions.filter(item => (item.sourceCueId || item.id) === currentCaptionId) : [];
+                const releaseCaption = selectedCaptionCues.some(item => previousTime >= item.start && previousTime < item.end)
+                    && (captionLayer?.style?.visibility === 'hidden'
+                        || !selectedCaptionCues.some(item => time >= item.start && time < item.end));
+                const releaseLayer = selectedLayer && leaves(selectedLayer.t, selectedLayer.t + selectedLayer.duration,
+                    (typeof allTracksHiddenByScope !== 'undefined' && allTracksHiddenByScope.layers)
+                    || (typeof hiddenTracksByScope !== 'undefined' && hiddenTracksByScope.layers.has(selectedLayer.track))
+                    || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(selectedLayer.track)));
+                const releaseCut = selectedCut && leaves(selectedCut.outStart, selectedCut.outEnd,
+                    (typeof allTracksHiddenByScope !== 'undefined' && allTracksHiddenByScope.cuts)
+                    || (typeof hiddenTracksByScope !== 'undefined' && hiddenTracksByScope.cuts.has(selectedCut.track))
+                    || (typeof hiddenTracks !== 'undefined' && hiddenTracks.has(selectedCut.track)));
+                const releaseOverlay = selectedOverlay && leaves(selectedOverlay.start,
+                    selectedOverlay.start + selectedOverlay.duration,
+                    typeof hiddenTracks !== 'undefined' && hiddenTracks.has(selectedOverlay.track));
+                if (releaseCaption || releaseLayer || releaseCut || releaseOverlay) {
+                    window.akari.reportContextBox?.({ user: 'seek' });
+                }
+                if (releaseCaption) deselectCaption();
+                if (releaseLayer) selectLayer(null);
+                if (releaseCut) {
+                    requestedCutId = undefined;
+                    deselectCut({ report: false });
+                    window.akari.reportCutSelection(null);
+                }
+                if (releaseOverlay) {
+                    requestedOverlayId = undefined;
+                    window.akari.interaction?.clearSelection?.();
+                    window.akari.reportOverlaySelection(null);
+                }
+            };
             const renderCaption = () => {
                 // All preview cues are normalized to output time by the host.
                 const active = window.AkariEditKernel.findActiveCaptions(captions, outputTime);
+                window.akari.expirePreviewSelections?.(outputTime);
                 const activeTrackId = active.find(caption => caption.groupTrackId)?.groupTrackId;
                 const itemStack = typeof summary !== 'undefined' && summary.itemStackZ ? summary : null;
                 if (itemStack && captionLayer?.style) {
@@ -19097,7 +19185,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         video.style.opacity = restoredOpacity;
                     }
                     if (segment && segment.kind === 'src') {
-                        const restoredZ = String(zForTrack(segment.trackId));
+                        const restoredZ = String(typeof zForItem === 'function'
+                            ? zForItem(segment.id, zForTrack(segment.trackId)) : zForTrack(segment.trackId));
                         video.style.zIndex = restoredZ;
                         stillImage.style.zIndex = restoredZ;
                     }
@@ -19179,8 +19268,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     removeTransitionEngineElements();
                     activeTransitionEngine = visual.engine;
                 }
-                const outgoingZ = zForTrack(window.outgoing.trackId);
-                const incomingZ = zForTrack(window.incoming.trackId);
+                const outgoingZ = zForItem(window.outgoing.id, zForTrack(window.outgoing.trackId));
+                const incomingZ = zForItem(window.incoming.id, zForTrack(window.incoming.trackId));
                 const engineZ = Math.max(outgoingZ, incomingZ) + 1;
                 const engineFilters = visual.engine === 'directional-blur'
                     || visual.engine === 'noise-dissolve'
@@ -21106,6 +21195,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-select-overlay'
                     && (typeof message.overlayId === 'string' || message.overlayId === null)) {
                     requestedOverlayId = message.overlayId;
+                    const visible = overlaySelectionInRange(requestedOverlayId, outputTime);
+                    if (requestedOverlayId && !visible) window.akari.interaction?.clearSelection?.();
                     applyRequestedOverlaySelection();
                 }
                 if (message && message.type === 'akari-preview-select-layer'
@@ -21308,17 +21399,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (selectedOverlayId !== lastReportedOverlayId || force === true
                     || selectedOverlayIds.length !== lastReportedOverlayIds.length
                     || selectedOverlayIds.some((id, index) => id !== lastReportedOverlayIds[index])) {
+                    if (!selectedOverlayId && requestedOverlayId
+                        && !overlaySelectionInRange(requestedOverlayId, outputTime)
+                        && !(force && notify)) return;
                     lastReportedOverlayId = selectedOverlayId;
                     lastReportedOverlayIds = [...selectedOverlayIds];
-                    if (!selectedOverlayId && requestedOverlayId) {
-                        const item = summary.overlays.find(candidate => candidate.id === requestedOverlayId);
-                        if (item && (outputTime < item.start || outputTime >= item.start + item.duration)) return;
-                    }
                     if (selectedOverlayId) {
                         requestedCutId = undefined;
                         selectLayer(null, { report: false });
                         deselectCut({ report: false });
-                        deselectCaption({ report: false });
+                        if (selectedCaptionId) deselectCaption();
                     }
                     requestedOverlayId = selectedOverlayId || undefined;
                     if (notify && selectedOverlayId !== applyingOverlaySelection) {

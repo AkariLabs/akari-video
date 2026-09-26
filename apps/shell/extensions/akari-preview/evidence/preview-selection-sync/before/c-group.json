@@ -1,0 +1,321 @@
+{
+ "label": "c-group",
+ "seekSec": "3",
+ "grab": "1100,360",
+ "record": [
+  {
+   "name": "initial",
+   "z": {
+    "overlays": [
+     {
+      "id": "shape-z",
+      "z": "8",
+      "cz": "8",
+      "vis": "visible",
+      "parent": "overlay-stage"
+     }
+    ],
+    "planes": [
+     {
+      "plane": "1",
+      "z": "7",
+      "cz": "7",
+      "parent": "preview-layers",
+      "display": "block"
+     }
+    ],
+    "layers": [
+     {
+      "id": "broll-item",
+      "tag": "IMG",
+      "z": "10",
+      "vis": "hidden",
+      "display": "block"
+     }
+    ]
+   },
+   "closure": {
+    "at": 1790422196883,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "undefined",
+    "requestedCutId": "cut-1",
+    "selectedLayerId": null,
+    "cutSelected": true,
+    "outputTime": 3
+   },
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "tl": [
+    "0"
+   ],
+   "shot": "c-group-0-initial.png"
+  },
+  {
+   "name": "timeline-selected",
+   "z": {
+    "overlays": [
+     {
+      "id": "shape-z",
+      "z": "8",
+      "cz": "8",
+      "vis": "visible",
+      "parent": "overlay-stage"
+     }
+    ],
+    "planes": [
+     {
+      "plane": "1",
+      "z": "7",
+      "cz": "7",
+      "parent": "preview-layers",
+      "display": "block"
+     }
+    ],
+    "layers": [
+     {
+      "id": "broll-item",
+      "tag": "IMG",
+      "z": "10",
+      "vis": "hidden",
+      "display": "block"
+     }
+    ]
+   },
+   "closure": {
+    "at": 1790422200529,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "shape-z",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 3
+   },
+   "ix": {
+    "selectedId": "shape-z",
+    "selectedIds": [
+     "shape-z"
+    ],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "tl": [
+    "shape-z"
+   ],
+   "shot": "c-group-1-timeline-selected.png"
+  },
+  {
+   "name": "mid-drag",
+   "z": {
+    "overlays": [
+     {
+      "id": "shape-z",
+      "z": "8",
+      "cz": "8",
+      "vis": "visible",
+      "parent": "overlay-stage"
+     }
+    ],
+    "planes": [
+     {
+      "plane": "1",
+      "z": "7",
+      "cz": "7",
+      "parent": "preview-layers",
+      "display": "block"
+     }
+    ],
+    "layers": [
+     {
+      "id": "broll-item",
+      "tag": "IMG",
+      "z": "10",
+      "vis": "hidden",
+      "display": "block"
+     }
+    ]
+   },
+   "closure": {
+    "at": 1790422202075,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "shape-z",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 3
+   },
+   "ix": {
+    "selectedId": "shape-z",
+    "selectedIds": [
+     "shape-z"
+    ],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "tl": [
+    "shape-z"
+   ],
+   "shot": "c-group-2-mid-drag.png"
+  },
+  {
+   "name": "just-released",
+   "z": {
+    "overlays": [
+     {
+      "id": "shape-z",
+      "z": "8",
+      "cz": "8",
+      "vis": "visible",
+      "parent": "overlay-stage"
+     }
+    ],
+    "planes": [
+     {
+      "plane": "1",
+      "z": "7",
+      "cz": "7",
+      "parent": "preview-layers",
+      "display": "block"
+     }
+    ],
+    "layers": [
+     {
+      "id": "broll-item",
+      "tag": "IMG",
+      "z": "10",
+      "vis": "hidden",
+      "display": "block"
+     }
+    ]
+   },
+   "closure": {
+    "at": 1790422203363,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "shape-z",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 3
+   },
+   "ix": {
+    "selectedId": "shape-z",
+    "selectedIds": [
+     "shape-z"
+    ],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "tl": [
+    "shape-z"
+   ],
+   "shot": "c-group-3-just-released.png"
+  },
+  {
+   "name": "after-write",
+   "z": {
+    "overlays": [
+     {
+      "id": "shape-z",
+      "z": "8",
+      "cz": "8",
+      "vis": "visible",
+      "parent": "overlay-stage"
+     }
+    ],
+    "planes": [
+     {
+      "plane": "1",
+      "z": "7",
+      "cz": "7",
+      "parent": "preview-layers",
+      "display": "block"
+     }
+    ],
+    "layers": [
+     {
+      "id": "broll-item",
+      "tag": "IMG",
+      "z": "10",
+      "vis": "hidden",
+      "display": "block"
+     }
+    ]
+   },
+   "closure": {
+    "at": 1790422210047,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "shape-z",
+    "requestedCutId": "undefined",
+    "selectedLayerId": null,
+    "cutSelected": false,
+    "outputTime": 3
+   },
+   "ix": {
+    "selectedId": "shape-z",
+    "selectedIds": [
+     "shape-z"
+    ],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "tl": [
+    "shape-z"
+   ],
+   "shot": "c-group-4-after-write.png"
+  },
+  {
+   "name": "after-deselect",
+   "z": {
+    "overlays": [
+     {
+      "id": "shape-z",
+      "z": "8",
+      "cz": "8",
+      "vis": "visible",
+      "parent": "overlay-stage"
+     }
+    ],
+    "planes": [
+     {
+      "plane": "1",
+      "z": "7",
+      "cz": "7",
+      "parent": "preview-layers",
+      "display": "block"
+     }
+    ],
+    "layers": [
+     {
+      "id": "broll-item",
+      "tag": "IMG",
+      "z": "10",
+      "vis": "hidden",
+      "display": "block"
+     }
+    ]
+   },
+   "closure": {
+    "at": 1790422212577,
+    "selectedCaptionId": null,
+    "requestedOverlayId": "undefined",
+    "requestedCutId": "cut-1",
+    "selectedLayerId": null,
+    "cutSelected": true,
+    "outputTime": 3
+   },
+   "ix": {
+    "selectedId": null,
+    "selectedIds": [],
+    "scopeId": null,
+    "kind": "leaf"
+   },
+   "tl": [
+    "0"
+   ],
+   "shot": "c-group-5-after-deselect.png"
+  }
+ ]
+}
