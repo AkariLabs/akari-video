@@ -386,7 +386,9 @@ export function buildResolvedTimelinePlan(
 }
 
 export function isLayerActiveAt(layer: Pick<FrameEngineLayer, 't' | 'duration'>, timeUs: TimelineTimeUs, fps: number): boolean {
-  const frame = Math.floor((timeUs / 1e6) * fps + 1e-9);
+  // timeUs は呼び出し側で整数 µs に丸められている（例: 364/30 秒 → 12133333 µs = 363.99999 フレーム）。
+  // 丸め誤差（最大 0.5 µs）ぶん切り下がって先頭フレームを 1 つ手前と判定しないよう、1 µs 相当の許容を足す。
+  const frame = Math.floor((timeUs / 1e6) * fps + fps * 1e-6);
   const startFrame = Math.max(0, Math.ceil(finite(layer.t, 0) * fps - 1e-6));
   const endFrame = Math.max(startFrame, Math.ceil((finite(layer.t, 0) + Math.max(0, finite(layer.duration, 0))) * fps - 1e-6));
   return frame >= startFrame && frame < endFrame;
