@@ -41,3 +41,25 @@
 1. **回帰**: 写真（photo-a-item）を選んだ状態で、見えている本編（cut）のうち「今は見えていない写真 B / 図形 B の矩形」に当たる位置（例: 出力 (450,420)・(220,420)・(120,480)）をクリックすると何も選ばれない（本編が選べない）。(700,500) のように他の素材の矩形に当たらない位置は選べる。基点のビルド（本票の src 4 ファイルを基点へ戻して再ビルド）では同じ手順で本編が選べる。ログポイントでは `handleVisualMediaPointerDown` が `shouldStartPreviewMarquee` で return しており（メディアの当たりが null → 空のマーキー → 解除だけ）、見えていない素材の矩形でメディアの当たり判定が失われている
 2. 図形 / HTML / 写真を**ドラッグで動かした（書き込み・再読込を伴う）後**に範囲外へシークすると、その選択が解除されない（`after/a-shape-photo.json` 等の `t6-after-seek`: `requestedOverlayId="shape-a"`・タイムライン shape-a）。プレビューとタイムラインは揃っており、次のクリックも 1 回で選べる。クリックだけで選んだ場合は解除・通知される。書き込み後の再読込で「見えていた」記録が失われている見込み
 3. 書き出し（OSR）は frame-engine の canvas を z-index 0、HTML オーバーレイ（図形を含む）を z-index 1 に置くため、トラックの順に関係なく図形が写真・動画の上に描かれる（`export/z-plain-export-3s.png`・`export/z-group-export-3s.png`）。プレビューはトラックの順（オブジェクトツリー契約 §4 = 上の段ほど手前）に揃えたので、この構成ではプレビューと書き出しが食い違う。書き出し側（`packages/osr-export`）は本票のファイル境界の外
+
+## r1（差し戻し r1 の対応）— `after-r1/`
+
+### 手順 0 のやり直し（原因の実測）
+
+| 差し戻し | 実測 | 原因 |
+|---|---|---|
+| 1「写真 A を選んだ状態で (450,420)・(220,420)・(120,480) を押すと本編が選べない（回帰）」 | 押下は webview の内側文書に一度も届いていない（`scripts/stopper2.mjs`）。その位置はホスト側の**選択中の写真のミニのコンテキストバー**（出力 x52〜469・y408〜505。注釈 / ロック / 複製 / 削除 / …）の上（`scripts/efp-host.mjs`）。(120,480) は「注釈を付ける」、(220,420) 付近は「複製」ボタンに当たる。**基点 e2a5eaf34 のビルドでも同じ手順で同じく選べず、ミニバーの位置も同じ**（`after-r1/base-probe-move-bar.txt`）。図形 A を選んだ状態の (450,420) は図形 A 自身の選択ハンドル（`selection-handle`、出力 423〜513 × 343〜433） | 当たり判定の回帰ではない（r0 の「基点では選べた」は手順の違い）。選択中の素材の UI が被っている位置 |
+| 2「ドラッグで動かした後の範囲外シークで選択が残る」 | ドラッグ直後（300ms）にシークすると図形・写真・HTML が残る。3.5 秒待つと解除される（`after-r1/drag-seek-summary.txt` の r1 前の実測は `scripts/drag-seek-order.mjs` の時系列）。① r0 の「見えていた」記録は、書き込み後の再読込で IX が null を報告 → host が DOM の無いうちに選択を送り直す、で「一度も見えていない選択」に置き換わっていた ② それを直しても、webview の解除（null）をタイムラインの安全網 `ContextBarController.shouldRestoreSelection`（文書変更から 3 秒以内に利用者の操作なしで外れた選択を選び直す）が戻していた（`scripts/host-stack.mjs` のスタック: `publish → focusTimelineItem → applySelection`） | ①「見えていた」を記録せず、選択中の素材の時刻範囲と前回・今回の再生位置から毎回計算（前回は範囲内・今回は範囲外 or 非表示のときだけ解除）②範囲外への移動で解除するときは、解除の通知より先に `reportContextBox({ user: 'seek' })`（利用者の操作として安全網に知らせる既存の経路）を送る |
+
+### AFTER（r1 の最終ビルド）
+
+| 観測 | 記録 | 結果 |
+|---|---|---|
+| 1: 0.5 秒で 写真 A / 図形 A / 字幕 A を選んだ状態から、見えていない写真 B / 図形 B / HTML B の矩形の上 7 点をクリック | `after-r1/hit-hidden.json` | 選択中の素材の UI（ミニバー・ハンドル）に当たる点を除き、全部 **本編 cut-base が 1 回で選ばれる**（字幕 A 選択時は 3 点とも本編） |
+| 2: 図形・写真・HTML・字幕・置いた文字を 1 秒でドラッグ → 300ms / 3.5 秒後に 6 秒へ | `after-r1/drag-seek-*.json`・`drag-seek-summary.txt` | 10 通りとも **プレビューの選択・requestedOverlayId・タイムラインの選択が解除**され、report*Selection(null) が通知される |
+| (a) 11 通り | `after-r1/a-*.json`・`a-summary.txt`・`a-caption-photo-*.png` | 全て 6 秒へのシークで解除（ドラッグ後でも）→ クリック 1 回で選べ、タイムラインも 1 つ |
+| (b) 範囲外 5 種 | `after-r1/b-*.json`・`b-c-0001-1-timeline-select.png` | 6 秒 → 0 秒（範囲の先頭）へ移り枠が出る |
+| (b) 条件 6 種 | `after-r1/b2-conditions.json` | 範囲内 1 秒のまま / 範囲外 0 秒へ / Shift・Cmd の追加 6 秒のまま / 再生中は飛ばず選択は残る / 矩形選択 6 秒のまま / undo 6 秒のまま（#6 は r0 と違い、ドラッグ後の 6 秒シークで選択が解除されてから undo する＝差し戻し 2 の修正どおり） |
+| (c) group 字幕あり / なし / 複数 cut | `after-r1/c-z-*.json`・`c-z-group-strip.png` | 図形 8 < 面 10（group）・6 < 7（plain / multi）が初期・選択・ドラッグ中・離した直後・書き込み後・解除後で不変。ドラッグ中・後も B ロールの下 |
+
+- 検証スクリプト: `scripts/` に r1 で足したもの（`hit-hidden.mjs`・`drag-seek*.mjs`・`host-stack.mjs`・`stopper2.mjs`・`efp-*.mjs`・`probe-*.mjs`・`trace*.mjs`・`b2-probe1.mjs`）。`pss.mjs` の `clickTimelineItem` は `PSS_CHIP_RIGHT=1` でチップの右端を押す（1 秒の再生位置の線がチップの左端 +24px に重なり、押下が再生位置の線に当たるため。b2・(c) はこれで採取）

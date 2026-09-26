@@ -1,0 +1,23 @@
+a-caption-photo      seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":null,"ov":null,"layer":"photo-b-item","ix":null,"dom":[false,true,[]],"tl":["photo-b-item"]} 
+a-caption-shape      seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":null,"ov":"shape-b","layer":null,"ix":"shape-b","dom":[false,false,["shape-b"]],"tl":["shape-b"]} OverlaySelection["shape-b"]
+a-caption-caption    seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":"c-0002","ov":null,"layer":null,"ix":null,"dom":[true,false,[]],"tl":["c-0002"]} 
+a-caption-placed     seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":"c-0004","ov":null,"layer":null,"ix":null,"dom":[true,false,[]],"tl":["c-0004"]} 
+a-caption-html       seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":null,"ov":"html-b-item","layer":null,"ix":"html-b-item","dom":[false,false,["html-b-item"]],"tl":["html-b-item"]} 
+a-placed-photo       seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":null,"ov":null,"layer":"photo-b-item","ix":null,"dom":[false,true,[]],"tl":["photo-b-item"]} 
+a-shape-photo        seek6: {"cap":null,"ov":"undefined","layer":null,"ix":null,"tl":[]} 
+    click: {"cap":null,"ov":null,"layer":"photo-b-item","ix":null,"dom":[false,true,[]],"tl":["photo-b-item"]} 
+a-photo-shape        seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":null,"ov":"shape-b","layer":null,"ix":"shape-b","dom":[false,false,["shape-b"]],"tl":["shape-b"]} 
+a-html-photo         seek6: {"cap":null,"ov":"undefined","layer":null,"ix":null,"tl":[]} 
+    click: {"cap":null,"ov":null,"layer":"photo-b-item","ix":null,"dom":[false,true,[]],"tl":["photo-b-item"]} 
+a-shape-caption      seek6: {"cap":null,"ov":"undefined","layer":null,"ix":null,"tl":[]} 
+    click: {"cap":"c-0002","ov":null,"layer":null,"ix":null,"dom":[true,false,[]],"tl":["c-0002"]} 
+a-photo-placed       seek6: {"cap":null,"ov":null,"layer":null,"ix":null,"tl":[]} 
+    click: {"cap":"c-0004","ov":null,"layer":null,"ix":null,"dom":[true,false,[]],"tl":["c-0004"]} 
+MATRIX-DONE

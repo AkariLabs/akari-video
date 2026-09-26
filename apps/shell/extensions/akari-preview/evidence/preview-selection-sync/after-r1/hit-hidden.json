@@ -1,0 +1,483 @@
+{
+ "overlayRects": {
+  "shape-a": {
+   "rect": [
+    420,
+    180,
+    1700,
+    900
+   ],
+   "vis": "hidden"
+  },
+  "shape-b": {
+   "rect": [
+    420,
+    380,
+    1700,
+    1100
+   ],
+   "vis": "visible"
+  },
+  "html-a-item": {
+   "rect": [
+    -706,
+    -43,
+    -706,
+    -43
+   ],
+   "vis": "visible"
+  },
+  "html-b-item": {
+   "rect": [
+    0,
+    0,
+    1280,
+    720
+   ],
+   "vis": "visible"
+  }
+ },
+ "results": [
+  {
+   "pre": "photo",
+   "preSel": [
+    "photo-a-item"
+   ],
+   "point": [
+    450,
+    420
+   ],
+   "hostUiAtPoint": "is-placed",
+   "selected": [
+    "photo-a-item"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": "photo-a-item",
+    "cut": false,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "photo",
+   "preSel": [
+    "photo-a-item"
+   ],
+   "point": [
+    220,
+    420
+   ],
+   "hostUiAtPoint": "is-placed",
+   "selected": [
+    "photo-a-item"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": "photo-a-item",
+    "cut": false,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "photo",
+   "preSel": [
+    "photo-a-item"
+   ],
+   "point": [
+    120,
+    480
+   ],
+   "hostUiAtPoint": "注釈を付ける（この要素に紐づくメモ）",
+   "selected": [
+    "photo-a-item"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": "photo-a-item",
+    "cut": false,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "photo",
+   "preSel": [
+    "photo-a-item"
+   ],
+   "point": [
+    120,
+    360
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "photo",
+   "preSel": [
+    "photo-a-item"
+   ],
+   "point": [
+    330,
+    360
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "photo-a-item"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": "photo-a-item",
+    "cut": false,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "photo",
+   "preSel": [
+    "photo-a-item"
+   ],
+   "point": [
+    1000,
+    420
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "photo",
+   "preSel": [
+    "photo-a-item"
+   ],
+   "point": [
+    1100,
+    300
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "shape",
+   "preSel": [
+    "shape-a"
+   ],
+   "point": [
+    450,
+    420
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "shape-a"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": false,
+    "ov": "shape-a"
+   },
+   "reports": []
+  },
+  {
+   "pre": "shape",
+   "preSel": [
+    "shape-a"
+   ],
+   "point": [
+    220,
+    420
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "shape",
+   "preSel": [
+    "shape-a"
+   ],
+   "point": [
+    120,
+    480
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "shape",
+   "preSel": [
+    "shape-a"
+   ],
+   "point": [
+    120,
+    360
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "shape",
+   "preSel": [
+    "shape-a"
+   ],
+   "point": [
+    330,
+    360
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "shape",
+   "preSel": [
+    "shape-a"
+   ],
+   "point": [
+    1000,
+    420
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "shape",
+   "preSel": [
+    "shape-a"
+   ],
+   "point": [
+    1100,
+    300
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "caption",
+   "preSel": [
+    "c-0001"
+   ],
+   "point": [
+    450,
+    420
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "caption",
+   "preSel": [
+    "c-0001"
+   ],
+   "point": [
+    220,
+    420
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "caption",
+   "preSel": [
+    "c-0001"
+   ],
+   "point": [
+    120,
+    480
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "caption",
+   "preSel": [
+    "c-0001"
+   ],
+   "point": [
+    120,
+    360
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "caption",
+   "preSel": [
+    "c-0001"
+   ],
+   "point": [
+    330,
+    360
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "caption",
+   "preSel": [
+    "c-0001"
+   ],
+   "point": [
+    1000,
+    420
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  },
+  {
+   "pre": "caption",
+   "preSel": [
+    "c-0001"
+   ],
+   "point": [
+    1100,
+    300
+   ],
+   "hostUiAtPoint": null,
+   "selected": [
+    "0"
+   ],
+   "closure": {
+    "cap": null,
+    "layer": null,
+    "cut": true,
+    "ov": null
+   },
+   "reports": []
+  }
+ ]
+}

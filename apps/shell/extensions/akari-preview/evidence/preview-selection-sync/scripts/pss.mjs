@@ -176,7 +176,7 @@ export async function clickTimelineItem(host, id, modifiers = 0) {
     const p = await evalOn(host, `(()=>{const e=document.querySelector(${S(sel)});if(!e)return null;e.scrollIntoView({block:'center',inline:'nearest'});const r=e.getBoundingClientRect();return{x:r.left+Math.min(24,r.width/2),y:r.top+r.height/2}})()`);
     if (!p) throw new Error(`timeline item ${id} not found`);
     await sleep(300);
-    const q = await evalOn(host, `(()=>{const e=document.querySelector(${S(sel)});const r=e.getBoundingClientRect();return{x:r.left+Math.min(24,r.width/2),y:r.top+r.height/2}})()`);
+    const q = await evalOn(host, `(()=>{const e=document.querySelector(${S(sel)});const r=e.getBoundingClientRect();return{x:process.env.PSS_CHIP_RIGHT?r.right-Math.min(16,r.width/2):r.left+Math.min(24,r.width/2),y:r.top+r.height/2}})()`.replace('process.env.PSS_CHIP_RIGHT', String(!!process.env.PSS_CHIP_RIGHT)));
     await realClick(host, q.x, q.y, { modifiers }); await sleep(1200); return q;
 }
 export async function shotStage(host, view, file) {
