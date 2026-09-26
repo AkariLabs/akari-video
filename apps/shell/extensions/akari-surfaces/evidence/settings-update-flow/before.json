@@ -1,0 +1,152 @@
+{
+  "scenario": "before",
+  "withRestart": false,
+  "startedAt": "2026-09-26T02:53:22.088Z",
+  "checks": {
+    "zip": {
+      "name": "AKARI-Video-99.0.0-mac.zip",
+      "size": 108936532
+    },
+    "mainProbe": {
+      "ok": true,
+      "isPackaged": false,
+      "version": "0.1.86"
+    },
+    "capabilities": {
+      "isPackaged": false,
+      "updateUiEnabled": true
+    },
+    "lastEventAtStart": null,
+    "about:opened": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: まだ確認していません",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": false,
+          "x": 960.859375,
+          "y": 280.6953125
+        }
+      ],
+      "screenshot": "before-01-opened.png"
+    },
+    "immediatelyAfterClick": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: まだ確認していません",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": false,
+          "x": 960.859375,
+          "y": 280.6953125
+        }
+      ]
+    },
+    "about:after-3s": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: まだ確認していません",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": false,
+          "x": 960.859375,
+          "y": 280.6953125
+        }
+      ],
+      "screenshot": "before-03-after-3s.png"
+    },
+    "mainLastEvent": {
+      "kind": "update-downloaded",
+      "version": "99.0.0"
+    },
+    "about:after-download": {
+      "updateText": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: まだ確認していません",
+        "アップデートを確認"
+      ],
+      "buttons": [
+        {
+          "text": "アップデートを確認",
+          "disabled": false,
+          "x": 960.859375,
+          "y": 280.6953125
+        }
+      ],
+      "screenshot": "before-04-after-download.png"
+    },
+    "unchanged": {
+      "initial": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: まだ確認していません",
+        "アップデートを確認"
+      ],
+      "final": [
+        "このアプリについて",
+        "バージョンとアップデート。",
+        "AKARI Video",
+        "v0.1.86 · 2026-09-26 ビルド · macOS arm64",
+        "アップデートを確認できます",
+        "最後に確かめた: まだ確認していません",
+        "アップデートを確認"
+      ],
+      "same": true
+    },
+    "updaterLogTail": [
+      "2026-09-26T02:53:54.474Z 手動更新確認: channel=prerelease",
+      "2026-09-26T02:53:54.626Z 手動更新結果: available=true version=99.0.0"
+    ]
+  },
+  "feedRequests": [
+    {
+      "url": "/latest-mac.yml",
+      "at": "2026-09-26T02:53:54.578Z"
+    },
+    {
+      "url": "/AKARI-Video-99.0.0-mac.zip",
+      "at": "2026-09-26T02:53:54.630Z"
+    },
+    {
+      "url": "/latest.json",
+      "at": "2026-09-26T02:53:55.398Z"
+    }
+  ],
+  "exceptions": [],
+  "consoleErrors": [],
+  "env": {
+    "AKARI_UPDATER_TEST_FEED_URL": "http://127.0.0.1:48911/",
+    "AKARI_UPDATE_FEED_URL": "http://127.0.0.1:48911/latest.json"
+  },
+  "pid": 42527,
+  "status": "REPRODUCED",
+  "finishedAt": "2026-09-26T02:54:02.516Z"
+}

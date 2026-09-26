@@ -184,6 +184,18 @@ export function resolveUpdaterCheckChannel(
     return manual && (offeredChannel === 'stable' || offeredChannel === 'prerelease') ? offeredChannel : preference;
 }
 
+/** 手動確認だけ、進行中・適用待ちの更新を再通知してチェックを省く。 */
+export function resolveManualUpdaterCheckEvent(
+    manual: boolean,
+    activeDownloadVersion: string | undefined,
+    downloadedVersion: string | undefined
+): ShellUpdaterEvent | undefined {
+    if (!manual) { return undefined; }
+    if (activeDownloadVersion) { return { kind: 'update-available', version: activeDownloadVersion }; }
+    if (downloadedVersion) { return { kind: 'update-downloaded', version: downloadedVersion }; }
+    return undefined;
+}
+
 /** 通知に新版があるのに updater が「更新なし」と返したら、手動 DL へ引き継ぐ。 */
 export function reconcileVisibleUpdateEvent(
     state: ShellUpdaterUiState,
@@ -237,6 +249,7 @@ export function formatUpdaterFallbackText(state: ShellUpdaterUiState): string {
 
 const APP_TRANSLOCATION_REASON = 'アプリを Applications フォルダへ移動してから再起動してください';
 const OFFLINE_UPDATE_REASON = 'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください';
+const UPDATE_DESTINATION_UNREACHABLE_REASON = '更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください';
 
 /** macOS App Translocation の実行パスを、OS API に依存せず判定する純粋関数。 */
 export function isAppTranslocationPath(executablePath: string | null | undefined): boolean {
@@ -252,6 +265,9 @@ export function resolveShellUpdaterErrorReason(
         return APP_TRANSLOCATION_REASON;
     }
     const normalized = normalizeUpdaterReason(message);
+    if (/\bERR_(?:CONNECTION_(?:REFUSED|RESET|CLOSED|FAILED)|ADDRESS_UNREACHABLE|TIMED_OUT)\b/i.test(normalized)) {
+        return UPDATE_DESTINATION_UNREACHABLE_REASON;
+    }
     if (/(?:offline|network|internet|ENOTFOUND|EAI_AGAIN|ECONN(?:REFUSED|RESET)|ETIMEDOUT|ERR_(?:INTERNET_DISCONNECTED|NETWORK_CHANGED|NAME_NOT_RESOLVED|CONNECTION_TIMED_OUT))/i.test(normalized)) {
         return OFFLINE_UPDATE_REASON;
     }
