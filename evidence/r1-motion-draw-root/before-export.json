@@ -1,0 +1,1165 @@
+{
+  "label": "before",
+  "commandExit": 0,
+  "stdout": "me=738 total=900\nPROGRESS frame=739 total=900\nPROGRESS frame=740 total=900\nPROGRESS frame=741 total=900\nPROGRESS frame=742 total=900\nPROGRESS frame=743 total=900\nPROGRESS frame=744 total=900\nPROGRESS frame=745 total=900\nPROGRESS frame=746 total=900\nPROGRESS frame=747 total=900\nPROGRESS frame=748 total=900\nPROGRESS frame=749 total=900\nPROGRESS frame=750 total=900\nPROGRESS frame=751 total=900\nPROGRESS frame=752 total=900\nPROGRESS frame=753 total=900\nPROGRESS frame=754 total=900\nPROGRESS frame=755 total=900\nPROGRESS frame=756 total=900\nPROGRESS frame=757 total=900\nPROGRESS frame=758 total=900\nPROGRESS frame=759 total=900\nPROGRESS frame=760 total=900\nPROGRESS frame=761 total=900\nPROGRESS frame=762 total=900\nPROGRESS frame=763 total=900\nPROGRESS frame=764 total=900\nPROGRESS frame=765 total=900\nPROGRESS frame=766 total=900\nPROGRESS frame=767 total=900\nPROGRESS frame=768 total=900\nPROGRESS frame=769 total=900\nPROGRESS frame=770 total=900\nPROGRESS frame=771 total=900\nPROGRESS frame=772 total=900\nPROGRESS frame=773 total=900\nPROGRESS frame=774 total=900\nPROGRESS frame=775 total=900\nPROGRESS frame=776 total=900\nPROGRESS frame=777 total=900\nPROGRESS frame=778 total=900\nPROGRESS frame=779 total=900\nPROGRESS frame=780 total=900\nPROGRESS frame=781 total=900\nPROGRESS frame=782 total=900\nPROGRESS frame=783 total=900\nPROGRESS frame=784 total=900\nPROGRESS frame=785 total=900\nPROGRESS frame=786 total=900\nPROGRESS frame=787 total=900\nPROGRESS frame=788 total=900\nPROGRESS frame=789 total=900\nPROGRESS frame=790 total=900\nPROGRESS frame=791 total=900\nPROGRESS frame=792 total=900\nPROGRESS frame=793 total=900\nPROGRESS frame=794 total=900\nPROGRESS frame=795 total=900\nPROGRESS frame=796 total=900\nPROGRESS frame=797 total=900\nPROGRESS frame=798 total=900\nPROGRESS frame=799 total=900\nPROGRESS frame=800 total=900\nPROGRESS frame=801 total=900\nPROGRESS frame=802 total=900\nPROGRESS frame=803 total=900\nPROGRESS frame=804 total=900\nPROGRESS frame=805 total=900\nPROGRESS frame=806 total=900\nPROGRESS frame=807 total=900\nPROGRESS frame=808 total=900\nPROGRESS frame=809 total=900\nPROGRESS frame=810 total=900\nPROGRESS frame=811 total=900\nPROGRESS frame=812 total=900\nPROGRESS frame=813 total=900\nPROGRESS frame=814 total=900\nPROGRESS frame=815 total=900\nPROGRESS frame=816 total=900\nPROGRESS frame=817 total=900\nPROGRESS frame=818 total=900\nPROGRESS frame=819 total=900\nPROGRESS frame=820 total=900\nPROGRESS frame=821 total=900\nPROGRESS frame=822 total=900\nPROGRESS frame=823 total=900\nPROGRESS frame=824 total=900\nPROGRESS frame=825 total=900\nPROGRESS frame=826 total=900\nPROGRESS frame=827 total=900\nPROGRESS frame=828 total=900\nPROGRESS frame=829 total=900\nPROGRESS frame=830 total=900\nPROGRESS frame=831 total=900\nPROGRESS frame=832 total=900\nPROGRESS frame=833 total=900\nPROGRESS frame=834 total=900\nPROGRESS frame=835 total=900\nPROGRESS frame=836 total=900\nPROGRESS frame=837 total=900\nPROGRESS frame=838 total=900\nPROGRESS frame=839 total=900\nPROGRESS frame=840 total=900\nPROGRESS frame=841 total=900\nPROGRESS frame=842 total=900\nPROGRESS frame=843 total=900\nPROGRESS frame=844 total=900\nPROGRESS frame=845 total=900\nPROGRESS frame=846 total=900\nPROGRESS frame=847 total=900\nPROGRESS frame=848 total=900\nPROGRESS frame=849 total=900\nPROGRESS frame=850 total=900\nPROGRESS frame=851 total=900\nPROGRESS frame=852 total=900\nPROGRESS frame=853 total=900\nPROGRESS frame=854 total=900\nPROGRESS frame=855 total=900\nPROGRESS frame=856 total=900\nPROGRESS frame=857 total=900\nPROGRESS frame=858 total=900\nPROGRESS frame=859 total=900\nPROGRESS frame=860 total=900\nPROGRESS frame=861 total=900\nPROGRESS frame=862 total=900\nPROGRESS frame=863 total=900\nPROGRESS frame=864 total=900\nPROGRESS frame=865 total=900\nPROGRESS frame=866 total=900\nPROGRESS frame=867 total=900\nPROGRESS frame=868 total=900\nPROGRESS frame=869 total=900\nPROGRESS frame=870 total=900\nPROGRESS frame=871 total=900\nPROGRESS frame=872 total=900\nPROGRESS frame=873 total=900\nPROGRESS frame=874 total=900\nPROGRESS frame=875 total=900\nPROGRESS frame=876 total=900\nPROGRESS frame=877 total=900\nPROGRESS frame=878 total=900\nPROGRESS frame=879 total=900\nPROGRESS frame=880 total=900\nPROGRESS frame=881 total=900\nPROGRESS frame=882 total=900\nPROGRESS frame=883 total=900\nPROGRESS frame=884 total=900\nPROGRESS frame=885 total=900\nPROGRESS frame=886 total=900\nPROGRESS frame=887 total=900\nPROGRESS frame=888 total=900\nPROGRESS frame=889 total=900\nPROGRESS frame=890 total=900\nPROGRESS frame=891 total=900\nPROGRESS frame=892 total=900\nPROGRESS frame=893 total=900\nPROGRESS frame=894 total=900\nPROGRESS frame=895 total=900\nPROGRESS frame=896 total=900\nPROGRESS frame=897 total=900\nPROGRESS frame=898 total=900\nPROGRESS frame=899 total=900\nPROGRESS frame=900 total=900\nPROGRESS timing name=encoder_flush ms=22\nPROGRESS timing name=osr_ffprobe ms=144\nPROGRESS timing name=window_destroy ms=9\nPROGRESS timing name=child_run_json ms=3\nPROGRESS timing name=window_destroy_to_exit ms=7\nWARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）\nPASS: exports/r1-osr.mp4\n",
+  "stderr": "",
+  "items": [
+    {
+      "id": "top-photo",
+      "color": "red",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 30,
+          "preview": {
+            "x": 320,
+            "y": 180,
+            "count": 17755,
+            "mean": 224.27,
+            "box": {
+              "x": 239,
+              "y": 126,
+              "w": 163,
+              "h": 109
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 17712,
+            "mean": 250.3,
+            "box": {
+              "x": 238,
+              "y": 126,
+              "w": 164,
+              "h": 108
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 33,
+          "preview": {
+            "x": 333.5,
+            "y": 186.5,
+            "count": 17820,
+            "mean": 225.38,
+            "box": {
+              "x": 253,
+              "y": 132,
+              "w": 162,
+              "h": 110
+            }
+          },
+          "rendered": {
+            "x": 333,
+            "y": 186,
+            "count": 17766,
+            "mean": 249.46,
+            "box": {
+              "x": 252,
+              "y": 132,
+              "w": 163,
+              "h": 109
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 41,
+          "outputFrame": 41,
+          "preview": {
+            "x": 380.5,
+            "y": 205,
+            "count": 17658,
+            "mean": 230.56,
+            "box": {
+              "x": 300,
+              "y": 151,
+              "w": 162,
+              "h": 109
+            }
+          },
+          "rendered": {
+            "x": 379.5,
+            "y": 204.5,
+            "count": 18037,
+            "mean": 246.35,
+            "box": {
+              "x": 298,
+              "y": 150,
+              "w": 164,
+              "h": 110
+            }
+          },
+          "delta": {
+            "x": -1,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 51,
+          "outputFrame": 51,
+          "preview": {
+            "x": 438.5,
+            "y": 213.5,
+            "count": 17820,
+            "mean": 228.96,
+            "box": {
+              "x": 358,
+              "y": 159,
+              "w": 162,
+              "h": 110
+            }
+          },
+          "rendered": {
+            "x": 438,
+            "y": 212.5,
+            "count": 17926,
+            "mean": 247.67,
+            "box": {
+              "x": 357,
+              "y": 158,
+              "w": 163,
+              "h": 110
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1
+          }
+        },
+        {
+          "frame": 54,
+          "outputFrame": 54,
+          "preview": {
+            "x": 449.5,
+            "y": 216.5,
+            "count": 17820,
+            "mean": 229.08,
+            "box": {
+              "x": 369,
+              "y": 162,
+              "w": 162,
+              "h": 110
+            }
+          },
+          "rendered": {
+            "x": 449.5,
+            "y": 216.5,
+            "count": 17774,
+            "mean": 249.22,
+            "box": {
+              "x": 368,
+              "y": 162,
+              "w": 164,
+              "h": 110
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "frame": 57,
+          "outputFrame": 57,
+          "preview": {
+            "x": 460,
+            "y": 219.5,
+            "count": 17926,
+            "mean": 227.81,
+            "box": {
+              "x": 379,
+              "y": 165,
+              "w": 163,
+              "h": 110
+            }
+          },
+          "rendered": {
+            "x": 459.5,
+            "y": 218.5,
+            "count": 18036,
+            "mean": 246.19,
+            "box": {
+              "x": 378,
+              "y": 164,
+              "w": 164,
+              "h": 110
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1
+          }
+        }
+      ]
+    },
+    {
+      "id": "top-text",
+      "color": "green",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 180,
+          "preview": {
+            "x": 318,
+            "y": 180,
+            "count": 3259,
+            "mean": 206.94,
+            "box": {
+              "x": 269,
+              "y": 155,
+              "w": 99,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 317,
+            "y": 179,
+            "count": 2853,
+            "mean": 217.46,
+            "box": {
+              "x": 268,
+              "y": 155,
+              "w": 99,
+              "h": 49
+            }
+          },
+          "delta": {
+            "x": -1,
+            "y": -1
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 183,
+          "preview": {
+            "x": 331,
+            "y": 187.5,
+            "count": 3263,
+            "mean": 207.61,
+            "box": {
+              "x": 282,
+              "y": 162,
+              "w": 99,
+              "h": 52
+            }
+          },
+          "rendered": {
+            "x": 330,
+            "y": 187,
+            "count": 2899,
+            "mean": 213.16,
+            "box": {
+              "x": 281,
+              "y": 163,
+              "w": 99,
+              "h": 49
+            }
+          },
+          "delta": {
+            "x": -1,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 190,
+          "preview": {
+            "x": 368.5,
+            "y": 209,
+            "count": 3270,
+            "mean": 207.66,
+            "box": {
+              "x": 319,
+              "y": 184,
+              "w": 100,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 368,
+            "y": 208.5,
+            "count": 2917,
+            "mean": 212.05,
+            "box": {
+              "x": 319,
+              "y": 184,
+              "w": 99,
+              "h": 50
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 52,
+          "outputFrame": 202,
+          "preview": {
+            "x": 436,
+            "y": 233,
+            "count": 3249,
+            "mean": 208.17,
+            "box": {
+              "x": 387,
+              "y": 208,
+              "w": 99,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 436,
+            "y": 232.5,
+            "count": 2901,
+            "mean": 214.2,
+            "box": {
+              "x": 387,
+              "y": 208,
+              "w": 99,
+              "h": 50
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 55,
+          "outputFrame": 205,
+          "preview": {
+            "x": 447,
+            "y": 238,
+            "count": 3252,
+            "mean": 208.5,
+            "box": {
+              "x": 398,
+              "y": 213,
+              "w": 99,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 446,
+            "y": 237.5,
+            "count": 2882,
+            "mean": 214.54,
+            "box": {
+              "x": 397,
+              "y": 213,
+              "w": 99,
+              "h": 50
+            }
+          },
+          "delta": {
+            "x": -1,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 58,
+          "outputFrame": 208,
+          "preview": {
+            "x": 458,
+            "y": 243.5,
+            "count": 3236,
+            "mean": 209.86,
+            "box": {
+              "x": 409,
+              "y": 218,
+              "w": 99,
+              "h": 52
+            }
+          },
+          "rendered": {
+            "x": 457,
+            "y": 242.5,
+            "count": 2854,
+            "mean": 216.86,
+            "box": {
+              "x": 408,
+              "y": 218,
+              "w": 99,
+              "h": 50
+            }
+          },
+          "delta": {
+            "x": -1,
+            "y": -1
+          }
+        }
+      ]
+    },
+    {
+      "id": "top-html",
+      "color": "blue",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 330,
+          "preview": {
+            "x": 320,
+            "y": 180,
+            "count": 6305,
+            "mean": 236.6,
+            "box": {
+              "x": 272,
+              "y": 148,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 6144,
+            "mean": 253.43,
+            "box": {
+              "x": 272,
+              "y": 148,
+              "w": 96,
+              "h": 64
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 333,
+          "preview": {
+            "x": 333,
+            "y": 189,
+            "count": 6304,
+            "mean": 237.6,
+            "box": {
+              "x": 285,
+              "y": 157,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 332.5,
+            "y": 188.5,
+            "count": 6464,
+            "mean": 242.19,
+            "box": {
+              "x": 284,
+              "y": 156,
+              "w": 98,
+              "h": 66
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 340,
+          "preview": {
+            "x": 371,
+            "y": 211.5,
+            "count": 6400,
+            "mean": 235.96,
+            "box": {
+              "x": 323,
+              "y": 179,
+              "w": 97,
+              "h": 66
+            }
+          },
+          "rendered": {
+            "x": 370.5,
+            "y": 211,
+            "count": 6462,
+            "mean": 242.12,
+            "box": {
+              "x": 322,
+              "y": 178,
+              "w": 98,
+              "h": 67
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 51,
+          "outputFrame": 351,
+          "preview": {
+            "x": 438,
+            "y": 239,
+            "count": 6303,
+            "mean": 238.6,
+            "box": {
+              "x": 390,
+              "y": 207,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 438.5,
+            "y": 238.5,
+            "count": 6466,
+            "mean": 242.04,
+            "box": {
+              "x": 390,
+              "y": 206,
+              "w": 98,
+              "h": 66
+            }
+          },
+          "delta": {
+            "x": 0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 54,
+          "outputFrame": 354,
+          "preview": {
+            "x": 449,
+            "y": 245,
+            "count": 6305,
+            "mean": 238.65,
+            "box": {
+              "x": 401,
+              "y": 213,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 448.5,
+            "y": 244.5,
+            "count": 6464,
+            "mean": 241.87,
+            "box": {
+              "x": 400,
+              "y": 212,
+              "w": 98,
+              "h": 66
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 57,
+          "outputFrame": 357,
+          "preview": {
+            "x": 460,
+            "y": 251,
+            "count": 6304,
+            "mean": 238.39,
+            "box": {
+              "x": 412,
+              "y": 219,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 459.5,
+            "y": 250.5,
+            "count": 6336,
+            "mean": 245.99,
+            "box": {
+              "x": 412,
+              "y": 218,
+              "w": 96,
+              "h": 66
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "nested-photo",
+      "color": "red",
+      "frames": [
+        {
+          "frame": 10,
+          "outputFrame": 460,
+          "preview": {
+            "x": 357.5,
+            "y": 155.5,
+            "count": 1031,
+            "mean": 214.85,
+            "box": {
+              "x": 336,
+              "y": 138,
+              "w": 44,
+              "h": 36
+            }
+          },
+          "rendered": {
+            "x": 357,
+            "y": 155.5,
+            "count": 1070,
+            "mean": 231.81,
+            "box": {
+              "x": 335,
+              "y": 138,
+              "w": 45,
+              "h": 36
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 490,
+          "preview": {
+            "x": 357.5,
+            "y": 155.5,
+            "count": 1031,
+            "mean": 214.85,
+            "box": {
+              "x": 336,
+              "y": 138,
+              "w": 44,
+              "h": 36
+            }
+          },
+          "rendered": {
+            "x": 357,
+            "y": 155.5,
+            "count": 1070,
+            "mean": 231.81,
+            "box": {
+              "x": 335,
+              "y": 138,
+              "w": 45,
+              "h": 36
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 75,
+          "outputFrame": 525,
+          "preview": {
+            "x": 357.5,
+            "y": 155.5,
+            "count": 1031,
+            "mean": 214.85,
+            "box": {
+              "x": 336,
+              "y": 138,
+              "w": 44,
+              "h": 36
+            }
+          },
+          "rendered": {
+            "x": 357,
+            "y": 155.5,
+            "count": 1070,
+            "mean": 231.81,
+            "box": {
+              "x": 335,
+              "y": 138,
+              "w": 45,
+              "h": 36
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 110,
+          "outputFrame": 560,
+          "preview": {
+            "x": 357.5,
+            "y": 155.5,
+            "count": 1031,
+            "mean": 214.85,
+            "box": {
+              "x": 336,
+              "y": 138,
+              "w": 44,
+              "h": 36
+            }
+          },
+          "rendered": {
+            "x": 357,
+            "y": 155.5,
+            "count": 1070,
+            "mean": 231.81,
+            "box": {
+              "x": 335,
+              "y": 138,
+              "w": 45,
+              "h": 36
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 140,
+          "outputFrame": 590,
+          "preview": {
+            "x": 357.5,
+            "y": 155.5,
+            "count": 1031,
+            "mean": 214.85,
+            "box": {
+              "x": 336,
+              "y": 138,
+              "w": 44,
+              "h": 36
+            }
+          },
+          "rendered": {
+            "x": 357,
+            "y": 155.5,
+            "count": 1070,
+            "mean": 231.81,
+            "box": {
+              "x": 335,
+              "y": 138,
+              "w": 45,
+              "h": 36
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "nested-text",
+      "color": "green",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 630,
+          "preview": {
+            "x": 411,
+            "y": 140.5,
+            "count": 2127,
+            "mean": 185.81,
+            "box": {
+              "x": 370,
+              "y": 114,
+              "w": 83,
+              "h": 54
+            }
+          },
+          "rendered": {
+            "x": 410.5,
+            "y": 140,
+            "count": 1893,
+            "mean": 212.43,
+            "box": {
+              "x": 370,
+              "y": 114,
+              "w": 82,
+              "h": 53
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 633,
+          "preview": {
+            "x": 418.5,
+            "y": 149,
+            "count": 2145,
+            "mean": 191.51,
+            "box": {
+              "x": 378,
+              "y": 123,
+              "w": 82,
+              "h": 53
+            }
+          },
+          "rendered": {
+            "x": 418.5,
+            "y": 149,
+            "count": 1933,
+            "mean": 207.1,
+            "box": {
+              "x": 378,
+              "y": 123,
+              "w": 82,
+              "h": 53
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 640,
+          "preview": {
+            "x": 441,
+            "y": 173,
+            "count": 2154,
+            "mean": 199.95,
+            "box": {
+              "x": 400,
+              "y": 147,
+              "w": 83,
+              "h": 53
+            }
+          },
+          "rendered": {
+            "x": 440.5,
+            "y": 173,
+            "count": 1909,
+            "mean": 210.1,
+            "box": {
+              "x": 400,
+              "y": 147,
+              "w": 82,
+              "h": 53
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 52,
+          "outputFrame": 652,
+          "preview": {
+            "x": 482.5,
+            "y": 203.5,
+            "count": 2153,
+            "mean": 201.97,
+            "box": {
+              "x": 442,
+              "y": 177,
+              "w": 82,
+              "h": 54
+            }
+          },
+          "rendered": {
+            "x": 482.5,
+            "y": 203,
+            "count": 1902,
+            "mean": 211.6,
+            "box": {
+              "x": 442,
+              "y": 177,
+              "w": 82,
+              "h": 53
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 55,
+          "outputFrame": 655,
+          "preview": {
+            "x": 489,
+            "y": 210,
+            "count": 2151,
+            "mean": 201.88,
+            "box": {
+              "x": 448,
+              "y": 184,
+              "w": 83,
+              "h": 53
+            }
+          },
+          "rendered": {
+            "x": 488.5,
+            "y": 209,
+            "count": 1897,
+            "mean": 211.85,
+            "box": {
+              "x": 448,
+              "y": 183,
+              "w": 82,
+              "h": 53
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1
+          }
+        },
+        {
+          "frame": 58,
+          "outputFrame": 658,
+          "preview": {
+            "x": 495,
+            "y": 215.5,
+            "count": 2145,
+            "mean": 202.79,
+            "box": {
+              "x": 454,
+              "y": 189,
+              "w": 83,
+              "h": 54
+            }
+          },
+          "rendered": {
+            "x": 494.5,
+            "y": 215,
+            "count": 1895,
+            "mean": 212.4,
+            "box": {
+              "x": 454,
+              "y": 189,
+              "w": 82,
+              "h": 53
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "nested-html",
+      "color": "blue",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 780,
+          "preview": {
+            "x": 414,
+            "y": 142.5,
+            "count": 4099,
+            "mean": 214.13,
+            "box": {
+              "x": 371,
+              "y": 108,
+              "w": 87,
+              "h": 70
+            }
+          },
+          "rendered": {
+            "x": 413.5,
+            "y": 142.5,
+            "count": 4117,
+            "mean": 242.56,
+            "box": {
+              "x": 370,
+              "y": 108,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 783,
+          "preview": {
+            "x": 421.5,
+            "y": 151.5,
+            "count": 4089,
+            "mean": 222.43,
+            "box": {
+              "x": 378,
+              "y": 117,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "rendered": {
+            "x": 421.5,
+            "y": 150.5,
+            "count": 4141,
+            "mean": 241.21,
+            "box": {
+              "x": 378,
+              "y": 116,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -1
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 790,
+          "preview": {
+            "x": 442.5,
+            "y": 176.5,
+            "count": 4107,
+            "mean": 232.35,
+            "box": {
+              "x": 399,
+              "y": 142,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "rendered": {
+            "x": 443,
+            "y": 176.5,
+            "count": 4127,
+            "mean": 241.5,
+            "box": {
+              "x": 400,
+              "y": 142,
+              "w": 87,
+              "h": 70
+            }
+          },
+          "delta": {
+            "x": 0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 52,
+          "outputFrame": 802,
+          "preview": {
+            "x": 483.5,
+            "y": 210,
+            "count": 4099,
+            "mean": 234.99,
+            "box": {
+              "x": 440,
+              "y": 175,
+              "w": 88,
+              "h": 71
+            }
+          },
+          "rendered": {
+            "x": 483.5,
+            "y": 208.5,
+            "count": 4143,
+            "mean": 240.86,
+            "box": {
+              "x": 440,
+              "y": 174,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -1.5
+          }
+        },
+        {
+          "frame": 55,
+          "outputFrame": 805,
+          "preview": {
+            "x": 489.5,
+            "y": 216.5,
+            "count": 4109,
+            "mean": 234.5,
+            "box": {
+              "x": 446,
+              "y": 182,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "rendered": {
+            "x": 489.5,
+            "y": 216.5,
+            "count": 4116,
+            "mean": 242.38,
+            "box": {
+              "x": 446,
+              "y": 182,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "frame": 58,
+          "outputFrame": 808,
+          "preview": {
+            "x": 495,
+            "y": 223,
+            "count": 4112,
+            "mean": 234.32,
+            "box": {
+              "x": 451,
+              "y": 188,
+              "w": 89,
+              "h": 71
+            }
+          },
+          "rendered": {
+            "x": 495.5,
+            "y": 222.5,
+            "count": 4117,
+            "mean": 242.53,
+            "box": {
+              "x": 452,
+              "y": 188,
+              "w": 88,
+              "h": 70
+            }
+          },
+          "delta": {
+            "x": 0.5,
+            "y": -0.5
+          }
+        }
+      ]
+    }
+  ],
+  "maxAbsDeltaPx": 1.5
+}

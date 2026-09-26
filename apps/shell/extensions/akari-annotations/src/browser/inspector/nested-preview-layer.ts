@@ -1,5 +1,6 @@
 import { absoluteAt, locate, relativeTransform, worldTransformOfAncestors,
-    type EditableEditV2, type PreviewItemWriteCommand } from '@akari-video/edit-store';
+    type EditableEditV2, type ItemV2, type PreviewItemWriteCommand } from '@akari-video/edit-store';
+import { nestedMotionPath } from './nested-motion-path';
 import { updateTreeV2Item, writeV2ItemTransformAt, type EditV2Document } from '../../common/edit-v2-mutations';
 
 /** The preview receives a flattened world pose; edit.json stores the child's local pose. */
@@ -11,6 +12,12 @@ export function writeNestedPreviewLayer(
     if (!location || location.ancestors.length === 0) return undefined;
     if (location.item.source.kind !== 'media') throw new Error('キャンバス内の写真を選んでください');
     let next = doc;
+    if (command.patch.xyKeyframes) {
+        next = updateTreeV2Item(next, command.itemId, {
+            keyframes: nestedMotionPath(location.item as unknown as ItemV2,
+                location.ancestors as unknown as ItemV2[], command.patch.xyKeyframes)
+        });
+    }
     if (command.patch.transform) {
         const parent = worldTransformOfAncestors(location.ancestors);
         const local = relativeTransform(parent, command.patch.transform);

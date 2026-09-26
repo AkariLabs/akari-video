@@ -1,0 +1,242 @@
+{
+  "label": "before-photo-body",
+  "port": 9575,
+  "httpPort": 49001,
+  "parent": {
+    "x": 180,
+    "y": -80,
+    "scale": 0.8,
+    "rotate": 15
+  },
+  "drawIds": [
+    "top-photo",
+    "top-text",
+    "top-html",
+    "nested-photo",
+    "nested-text",
+    "nested-html"
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "seats": [],
+  "results": {
+    "draw": {},
+    "regression": {
+      "photo-body": {
+        "name": "reg-photo-body-drag",
+        "frame": 20,
+        "seeked": {
+          "actual": 0,
+          "actualFrame": 0
+        },
+        "detail": {
+          "select": {
+            "selected": true,
+            "state": {
+              "layer": null,
+              "cut": {
+                "x": 201.9921875,
+                "y": 150.49609375,
+                "w": 100
+              },
+              "layerHostPresent": false,
+              "overlay": false,
+              "frame": null,
+              "selectedId": null,
+              "handles": []
+            },
+            "via": "timeline",
+            "info": {
+              "layer": false,
+              "cut": true,
+              "tree": false,
+              "overlay": false
+            },
+            "box": {
+              "output": {
+                "x": 0,
+                "y": 1.5
+              },
+              "size": {
+                "w": 489,
+                "h": 312
+              },
+              "page": {
+                "x": 423.9140625,
+                "y": 189.759375
+              },
+              "count": 16689,
+              "mean": 225.6
+            }
+          },
+          "hitChain": [
+            "DIV#preview-stage.",
+            "DIV#zoom-layer.",
+            "DIV#preview-wrapper.",
+            "SECTION.preview-pane",
+            "MAIN.workspace",
+            "BODY.vscode-dark"
+          ],
+          "drag": {
+            "start": {
+              "x": 423.9140625,
+              "y": 189.759375
+            },
+            "target": {
+              "x": 444.6640625,
+              "y": 201.86354166666666
+            }
+          },
+          "expectedDelta": {
+            "x": 120,
+            "y": 70
+          }
+        },
+        "actError": null,
+        "writes": 1,
+        "noWrite": false,
+        "beforeVisible": {
+          "output": {
+            "x": 1.5,
+            "y": 0
+          },
+          "size": {
+            "w": 486,
+            "h": 327
+          },
+          "page": {
+            "x": 424.1734375,
+            "y": 189.5
+          },
+          "count": 17658,
+          "mean": 231.29
+        },
+        "afterVisible": {
+          "output": {
+            "x": 120,
+            "y": 70.5
+          },
+          "size": {
+            "w": 489,
+            "h": 312
+          },
+          "page": {
+            "x": 444.6640625,
+            "y": 201.690625
+          },
+          "count": 16698,
+          "mean": 229.7
+        },
+        "reseekVisible": {
+          "output": {
+            "x": 120,
+            "y": 70.5
+          },
+          "size": {
+            "w": 489,
+            "h": 312
+          },
+          "page": {
+            "x": 444.6640625,
+            "y": 201.690625
+          },
+          "count": 16698,
+          "mean": 229.7
+        },
+        "visibleDelta": {
+          "dx": 118.5,
+          "dy": 70.5,
+          "dw": 3,
+          "dh": -15
+        },
+        "visibleMovedAsExpected": true,
+        "expectedDelta": {
+          "x": 120,
+          "y": 70
+        },
+        "noRevert": true,
+        "pointCreated": false,
+        "pointAtFrame": null,
+        "pointHasX": null,
+        "pointHasY": null,
+        "pointTimes": [],
+        "lastPoint": null,
+        "staticBefore": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.3,
+          "rotate": 0
+        },
+        "staticAfter": {
+          "x": 119.99999999999999,
+          "y": 69.98493975903614,
+          "scale": 0.3,
+          "rotate": 0
+        },
+        "evaluatedAtFrame": {
+          "x": 119.99999999999999,
+          "y": 69.98493975903614,
+          "scale": 0.3,
+          "scaleX": 0.3,
+          "scaleY": 0.3,
+          "rotate": 0
+        },
+        "undoRestored": true,
+        "redoRestored": true,
+        "passed": true,
+        "effect": true
+      }
+    },
+    "writeErrors": [],
+    "hookCheck": {
+      "consoleWrapped": true,
+      "engineWrapped": true,
+      "engineType": "function",
+      "errors": 0,
+      "editPath": "file://<scratch>/project/edit.json"
+    },
+    "compare": {},
+    "motionBagPaths": [],
+    "contextLosses": [],
+    "targetEvents": [
+      {
+        "event": "changed",
+        "targetId": "D07C86E131044E238DFE9176934AD88D",
+        "url": "http://475a197f-3c62-5171-b939-93758bc10166.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T02:32:33.097Z"
+      },
+      {
+        "event": "changed",
+        "targetId": "D07C86E131044E238DFE9176934AD88D",
+        "url": "http://475a197f-3c62-5171-b939-93758bc10166.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T02:32:35.529Z"
+      },
+      {
+        "event": "created",
+        "url": "http://475a197f-3c62-5171-b939-93758bc10166.webview.localhost:49001/webview/serv",
+        "targetId": "1739428AB76A6909821F76C32E09FD2B",
+        "at": "2026-09-26T02:32:35.733Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "1739428AB76A6909821F76C32E09FD2B",
+        "url": "http://475a197f-3c62-5171-b939-93758bc10166.webview.localhost:49001/webview/serv",
+        "at": "2026-09-26T02:33:07.012Z"
+      },
+      {
+        "event": "created",
+        "url": "http://475a197f-3c62-5171-b939-93758bc10166.webview.localhost:49001/webview/serv",
+        "targetId": "D8BDA177A922D40DA63DF014C3BE6224",
+        "at": "2026-09-26T02:33:12.520Z"
+      }
+    ]
+  },
+  "writeErrors": [],
+  "consoleErrors": []
+}

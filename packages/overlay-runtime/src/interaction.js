@@ -3,6 +3,21 @@
 window.akari = window.akari || {};
 
 window.akari.interaction = (() => {
+// A pointer gesture belongs to one controller at a time.
+function canBeginPointerInteraction(owner) { return owner == null; }
+let pointerOwner = null;
+function setPointerOwner(owner) {
+  if (owner == null) { pointerOwner = null; return; }
+  if (pointerOwner != null && pointerOwner !== owner) return false;
+  pointerOwner = owner;
+  return true;
+}
+function releasePointerOwner(owner) {
+  if (pointerOwner !== owner) return false;
+  pointerOwner = null;
+  return true;
+}
+
 // BEGIN selection-scope
 function lineage(tree, id) {
   const nodes = new Map(tree.map(node => [node.id, node]));
@@ -2712,7 +2727,7 @@ function marqueeHits(candidates, rect) {
   }
 
   function onPointerDown(event) {
-    if (!interactionEnabled) return;
+    if (!interactionEnabled || !canBeginPointerInteraction(pointerOwner)) return;
     if (event.button !== 0 || activeDrag || activeResize || activeRotate || activeLine) return;
     if (selectedId && stage && event.target instanceof Element) {
       const bounds = stage.getBoundingClientRect();
@@ -3395,6 +3410,7 @@ function marqueeHits(candidates, rect) {
   }
 
   function onKeyDown(event) {
+    if (!canBeginPointerInteraction(pointerOwner)) return;
     if (event.isComposing) return;
     if (handleNudge(event)) return;
     if (selectionTree().length) {
@@ -3846,6 +3862,11 @@ function marqueeHits(candidates, rect) {
   }
 
   return {
+    get pointerOwner() { return pointerOwner; },
+    get activePointerOperation() { return Boolean(activeDrag || activeResize || activeRotate || activeLine || marqueeFrame); },
+    canBeginPointerInteraction,
+    setPointerOwner,
+    releasePointerOwner,
     get selectedId() { return selectedId; },
     get selectedIds() { return [...selectedIds]; },
     get selectionKind() { return selectionKind(); },

@@ -1,0 +1,239 @@
+{
+  "label": "after-escape-check",
+  "port": 9575,
+  "httpPort": 49001,
+  "parent": {
+    "x": 180,
+    "y": -80,
+    "scale": 0.8,
+    "rotate": 15
+  },
+  "drawIds": [
+    "top-photo",
+    "top-text",
+    "top-html",
+    "nested-photo",
+    "nested-text",
+    "nested-html"
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "seats": [],
+  "results": {
+    "draw": {},
+    "regression": {
+      "after-escape-drag": {
+        "name": "reg-after-escape-drag",
+        "frame": 20,
+        "seeked": {
+          "actual": 35.667,
+          "actualFrame": 20
+        },
+        "detail": {
+          "drag": {
+            "start": {
+              "x": 424.4328125,
+              "y": 188.98125
+            },
+            "target": {
+              "x": 445.1828125,
+              "y": 201.08541666666665
+            }
+          }
+        },
+        "actError": null,
+        "writes": 1,
+        "noWrite": false,
+        "beforeVisible": {
+          "output": {
+            "x": 3,
+            "y": -3
+          },
+          "size": {
+            "w": 285,
+            "h": 189
+          },
+          "page": {
+            "x": 424.4328125,
+            "y": 188.98125
+          },
+          "count": 4830,
+          "mean": 228.94
+        },
+        "afterVisible": {
+          "output": {
+            "x": 141,
+            "y": 99
+          },
+          "size": {
+            "w": 285,
+            "h": 189
+          },
+          "page": {
+            "x": 448.2953125,
+            "y": 206.61875
+          },
+          "count": 4827,
+          "mean": 229.27
+        },
+        "reseekVisible": {
+          "output": {
+            "x": 141,
+            "y": 99
+          },
+          "size": {
+            "w": 285,
+            "h": 189
+          },
+          "page": {
+            "x": 448.2953125,
+            "y": 206.61875
+          },
+          "count": 4827,
+          "mean": 229.27
+        },
+        "visibleDelta": {
+          "dx": 138,
+          "dy": 102,
+          "dw": 0,
+          "dh": 0
+        },
+        "visibleMovedAsExpected": null,
+        "expectedDelta": null,
+        "noRevert": true,
+        "pointCreated": false,
+        "pointAtFrame": null,
+        "pointHasX": null,
+        "pointHasY": null,
+        "pointTimes": [],
+        "lastPoint": null,
+        "staticBefore": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        },
+        "staticAfter": {
+          "x": 143.9999647025602,
+          "y": 96.0000352974397,
+          "scale": 0.6,
+          "rotate": 0
+        },
+        "evaluatedAtFrame": {
+          "x": 143.9999647025602,
+          "y": 96.0000352974397,
+          "scale": 0.6,
+          "scaleX": 0.6,
+          "scaleY": 0.6,
+          "rotate": 0
+        },
+        "undoRestored": true,
+        "redoRestored": true,
+        "passed": true,
+        "effect": true,
+        "ownerArmed": "motion-draw",
+        "ownerReleased": null,
+        "escapeImmediate": {
+          "owner": null,
+          "cursor": ""
+        }
+      }
+    },
+    "writeErrors": [],
+    "hookCheck": {
+      "consoleWrapped": false,
+      "engineWrapped": false,
+      "engineType": "function",
+      "errors": 0,
+      "editPath": "file://<scratch>/project/edit.json"
+    },
+    "compare": {},
+    "motionBagPaths": [],
+    "contextLosses": [
+      {
+        "at": "2026-09-26T04:28:14.124Z",
+        "step": "reg-after-escape-drag",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      },
+      {
+        "at": "2026-09-26T04:28:19.364Z",
+        "step": "read-hooks",
+        "message": "{\"code\":-32000,\"message\":\"Cannot find context with specified id\"}",
+        "health": {
+          "reloadError": null,
+          "writeError": null,
+          "compositeError": null,
+          "hasSummary": true,
+          "ready": "complete"
+        }
+      }
+    ],
+    "targetEvents": [
+      {
+        "event": "changed",
+        "targetId": "42E5B23459F5A369216FF3545BAA804B",
+        "url": "http://b6f3d728-cddf-523a-832c-f757628a33b1.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T04:27:25.070Z"
+      },
+      {
+        "event": "created",
+        "url": "http://b6f3d728-cddf-523a-832c-f757628a33b1.webview.localhost:49001/webview/serv",
+        "targetId": "82839A7798C4D0F9CFCD73B55A5C5C45",
+        "at": "2026-09-26T04:27:25.177Z"
+      },
+      {
+        "event": "changed",
+        "targetId": "42E5B23459F5A369216FF3545BAA804B",
+        "url": "http://b6f3d728-cddf-523a-832c-f757628a33b1.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T04:27:27.577Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "82839A7798C4D0F9CFCD73B55A5C5C45",
+        "url": "http://b6f3d728-cddf-523a-832c-f757628a33b1.webview.localhost:49001/webview/serv",
+        "at": "2026-09-26T04:27:55.387Z"
+      },
+      {
+        "event": "created",
+        "url": "http://b6f3d728-cddf-523a-832c-f757628a33b1.webview.localhost:49001/webview/serv",
+        "targetId": "BEC2668B1B61DD641B48BFC422B1FE93",
+        "at": "2026-09-26T04:28:11.842Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "4D9E0FDF8A2C89FDEB6DE9AAD32875F0",
+        "url": "",
+        "at": "2026-09-26T04:28:13.029Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "D8EBA89350E0BD90424C2DBD9601CD18",
+        "url": "",
+        "at": "2026-09-26T04:28:17.944Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "D7B02C19F475CC6EF18EADABE17FB8B6",
+        "url": "",
+        "at": "2026-09-26T04:28:18.761Z"
+      }
+    ]
+  },
+  "writeErrors": [],
+  "consoleErrors": [
+    "Error: Cannot get key code from the keyboard event: [object KeyboardEvent].\n    at n.i [as toKey] (file://<repo>/apps/shell/lib/frontend/bundle.js:1153:198317)\n    at n.createKeyCode (file://<repo>/apps/shell/lib/frontend/bundle.js:1153:195936)\n    at tL.run (fi"
+  ]
+}

@@ -1,0 +1,595 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "photo-src",
+      "path": "assets/photo.png",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v0",
+      "lane": "visual",
+      "name": "top-photo",
+      "items": [
+        {
+          "id": "top-photo",
+          "at": 0,
+          "duration": 150,
+          "transform": {
+            "x": 119.99999999999999,
+            "y": 69.98493975903614,
+            "scale": 0.3,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 30,
+              "transform": {
+                "x": 119.99999999999999,
+                "y": 69.98493975903614
+              }
+            },
+            {
+              "t": 38,
+              "transform": {
+                "x": 213.1626506024097,
+                "y": 113.26807228915663
+              }
+            },
+            {
+              "t": 43,
+              "transform": {
+                "x": 301.4909638554218,
+                "y": 144.08132530120486
+              }
+            },
+            {
+              "t": 46,
+              "transform": {
+                "x": 355.9789156626507,
+                "y": 155.55722891566268
+              }
+            },
+            {
+              "t": 54,
+              "transform": {
+                "x": 475.6626506024097,
+                "y": 169.78915662650604
+              }
+            },
+            {
+              "t": 61,
+              "transform": {
+                "x": 540,
+                "y": 187.99698795180723
+              }
+            }
+          ],
+          "source": {
+            "kind": "media",
+            "src": "photo-src",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "v1",
+      "lane": "visual",
+      "name": "top-text",
+      "items": [
+        {
+          "id": "top-text",
+          "at": 150,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 30,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "t": 37,
+              "transform": {
+                "x": 93.16265060240971,
+                "y": 56.70180722891564
+              }
+            },
+            {
+              "t": 40,
+              "transform": {
+                "x": 152.8463855421686,
+                "y": 88.05722891566268
+              }
+            },
+            {
+              "t": 44,
+              "transform": {
+                "x": 235.9789156626506,
+                "y": 121.4457831325301
+              }
+            },
+            {
+              "t": 51,
+              "transform": {
+                "x": 355.6626506024096,
+                "y": 158.132530120482
+              }
+            },
+            {
+              "t": 57,
+              "transform": {
+                "x": 420.0000000000001,
+                "y": 189.8042168674699
+              }
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/text.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "lane": "visual",
+      "name": "top-html",
+      "items": [
+        {
+          "id": "top-html",
+          "at": 300,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 30,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "t": 37,
+              "transform": {
+                "x": 93.20783132530119,
+                "y": 60.768072289156635
+              }
+            },
+            {
+              "t": 40,
+              "transform": {
+                "x": 152.84638554216872,
+                "y": 94.83433734939763
+              }
+            },
+            {
+              "t": 45,
+              "transform": {
+                "x": 235.9789156626507,
+                "y": 132.28915662650604
+              }
+            },
+            {
+              "t": 52,
+              "transform": {
+                "x": 355.7078313253012,
+                "y": 175.70783132530119
+              }
+            },
+            {
+              "t": 58,
+              "transform": {
+                "x": 420,
+                "y": 211.40060240963862
+              }
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/box.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "lane": "visual",
+      "name": "nested-photo",
+      "items": [
+        {
+          "id": "parent-nested-photo",
+          "at": 450,
+          "duration": 150,
+          "transform": {
+            "x": 180,
+            "y": -80,
+            "scale": 0.8,
+            "rotate": 15
+          },
+          "source": {
+            "kind": "group"
+          },
+          "items": [
+            {
+              "id": "nested-photo",
+              "at": 0,
+              "duration": 150,
+              "transform": {
+                "x": -80,
+                "y": 30,
+                "scale": 0.3,
+                "rotate": 0
+              },
+              "keyframes": [
+                {
+                  "t": 30,
+                  "transform": {
+                    "x": -80,
+                    "y": 30.000000000000004
+                  }
+                },
+                {
+                  "t": 37,
+                  "transform": {
+                    "x": 12.488163979278099,
+                    "y": 61.171898146994174
+                  }
+                },
+                {
+                  "t": 42,
+                  "transform": {
+                    "x": 95.07969349334647,
+                    "y": 78.97531627523098
+                  }
+                },
+                {
+                  "t": 45,
+                  "transform": {
+                    "x": 141.83358173119177,
+                    "y": 81.29856175479809
+                  }
+                },
+                {
+                  "t": 52,
+                  "transform": {
+                    "x": 234.21136714382754,
+                    "y": 74.96347845534969
+                  }
+                },
+                {
+                  "t": 58,
+                  "transform": {
+                    "x": 283.6887095975898,
+                    "y": 85.26873208623707
+                  }
+                }
+              ],
+              "source": {
+                "kind": "media",
+                "src": "photo-src",
+                "in": 0,
+                "out": 5
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "lane": "visual",
+      "name": "nested-text",
+      "items": [
+        {
+          "id": "parent-nested-text",
+          "at": 600,
+          "duration": 150,
+          "transform": {
+            "x": 180,
+            "y": -80,
+            "scale": 0.8,
+            "rotate": 15
+          },
+          "source": {
+            "kind": "group"
+          },
+          "items": [
+            {
+              "id": "nested-text",
+              "at": 0,
+              "duration": 150,
+              "transform": {
+                "x": -80,
+                "y": 30,
+                "scale": 0.8,
+                "rotate": 0
+              },
+              "keyframes": [
+                {
+                  "t": 30,
+                  "transform": {
+                    "x": 111.96909003503913,
+                    "y": -73.38219905562369
+                  }
+                },
+                {
+                  "t": 37,
+                  "transform": {
+                    "x": 197.22511413142468,
+                    "y": -16.68039182670799
+                  }
+                },
+                {
+                  "t": 40,
+                  "transform": {
+                    "x": 251.5775237699787,
+                    "y": 14.67502986003899
+                  }
+                },
+                {
+                  "t": 45,
+                  "transform": {
+                    "x": 326.75824666154506,
+                    "y": 48.06358407690641
+                  }
+                },
+                {
+                  "t": 52,
+                  "transform": {
+                    "x": 433.20402979407515,
+                    "y": 84.7503310648583
+                  }
+                },
+                {
+                  "t": 58,
+                  "transform": {
+                    "x": 489.5895719627498,
+                    "y": 116.42201781184622
+                  }
+                }
+              ],
+              "source": {
+                "kind": "html",
+                "path": "overlays/text.html"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v5",
+      "lane": "visual",
+      "name": "nested-html",
+      "items": [
+        {
+          "id": "parent-nested-html",
+          "at": 750,
+          "duration": 150,
+          "transform": {
+            "x": 180,
+            "y": -80,
+            "scale": 0.8,
+            "rotate": 15
+          },
+          "source": {
+            "kind": "group"
+          },
+          "items": [
+            {
+              "id": "nested-html",
+              "at": 0,
+              "duration": 150,
+              "transform": {
+                "x": -80,
+                "y": 30,
+                "scale": 0.6,
+                "rotate": 0
+              },
+              "keyframes": [
+                {
+                  "t": 30,
+                  "transform": {
+                    "x": 111.96909003503913,
+                    "y": -73.38219905562369
+                  }
+                },
+                {
+                  "t": 37,
+                  "transform": {
+                    "x": 196.2763189507017,
+                    "y": -12.252680983334528
+                  }
+                },
+                {
+                  "t": 40,
+                  "transform": {
+                    "x": 250.08655991455714,
+                    "y": 21.994306968472756
+                  }
+                },
+                {
+                  "t": 43,
+                  "transform": {
+                    "x": 300.55342738443676,
+                    "y": 48.92201781184622
+                  }
+                },
+                {
+                  "t": 52,
+                  "transform": {
+                    "x": 429.27330690250903,
+                    "y": 103.77141540220771
+                  }
+                },
+                {
+                  "t": 58,
+                  "transform": {
+                    "x": 484.7552346133524,
+                    "y": 139.8256322696775
+                  }
+                }
+              ],
+              "source": {
+                "kind": "html",
+                "path": "overlays/box.html"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v6",
+      "lane": "visual",
+      "name": "reg-text",
+      "items": [
+        {
+          "id": "reg-text",
+          "at": 900,
+          "duration": 150,
+          "transform": {
+            "x": 284.484856757707,
+            "y": 190.69243447806474,
+            "scale": 1.022424473255709,
+            "rotate": -29.957042237950077
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/text.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v7",
+      "lane": "visual",
+      "name": "reg-html",
+      "items": [
+        {
+          "id": "reg-html",
+          "at": 1050,
+          "duration": 150,
+          "transform": {
+            "x": 306.7874665713773,
+            "y": 200.4069638855441,
+            "scale": 0.778281278783176,
+            "rotate": -29.5268045853191
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/box.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v8",
+      "lane": "visual",
+      "name": "reg-photo",
+      "items": [
+        {
+          "id": "reg-photo",
+          "at": 1200,
+          "duration": 150,
+          "transform": {
+            "x": 119.99999999999999,
+            "y": 69.98493975903614,
+            "scale": 0.3,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "media",
+            "src": "photo-src",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "v9",
+      "lane": "visual",
+      "name": "reg-nested-photo",
+      "items": [
+        {
+          "id": "parent-reg-nested-photo",
+          "at": 1350,
+          "duration": 150,
+          "transform": {
+            "x": 180,
+            "y": -80,
+            "scale": 0.8,
+            "rotate": 15
+          },
+          "source": {
+            "kind": "group"
+          },
+          "items": [
+            {
+              "id": "reg-nested-photo",
+              "at": 0,
+              "duration": 150,
+              "transform": {
+                "x": -25.36852795720965,
+                "y": 66.43643210192953,
+                "scale": 0.5274416655264568,
+                "rotate": 0
+              },
+              "source": {
+                "kind": "media",
+                "src": "photo-src",
+                "in": 0,
+                "out": 5
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v10",
+      "lane": "visual",
+      "name": "reg-marquee",
+      "items": [
+        {
+          "id": "reg-marquee",
+          "at": 1500,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/box.html"
+          }
+        }
+      ]
+    }
+  ]
+}

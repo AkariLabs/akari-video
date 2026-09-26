@@ -1,0 +1,409 @@
+{
+  "label": "after-nested-check",
+  "port": 9575,
+  "httpPort": 49001,
+  "parent": {
+    "x": 180,
+    "y": -80,
+    "scale": 0.8,
+    "rotate": 15
+  },
+  "drawIds": [
+    "top-photo",
+    "top-text",
+    "top-html",
+    "nested-photo",
+    "nested-text",
+    "nested-html"
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "seats": [],
+  "results": {
+    "draw": {
+      "nested-photo": {
+        "id": "nested-photo",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 437.92,
+            "y": 173.33
+          },
+          "swingX": 269.6,
+          "swingY": 140,
+          "box": {
+            "output": {
+              "x": 111,
+              "y": -73.5
+            },
+            "size": {
+              "w": 87,
+              "h": 72
+            },
+            "page": {
+              "x": 443.1078125,
+              "y": 176.790625
+            },
+            "count": 392,
+            "mean": 206.78
+          }
+        },
+        "writes": 1,
+        "historyAfter": [
+          "2026-09-26T04-40-34-731Z-プレビューで変形を変更"
+        ],
+        "pointerOwnership": {
+          "ownerArmed": "motion-draw",
+          "ownerAfter": null,
+          "pointerStates": [
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": "motion-draw",
+              "ordinaryActive": false
+            },
+            {
+              "owner": null,
+              "ordinaryActive": false
+            }
+          ],
+          "ordinaryGestureBlocked": true
+        },
+        "nestedCoordinateCheck": {
+          "inputSpace": "world",
+          "parent": {
+            "x": 180,
+            "y": -80,
+            "scale": 0.8,
+            "rotate": 15
+          },
+          "comparisons": [
+            {
+              "frame": 30,
+              "expected": {
+                "x": -80,
+                "y": 30.000000000000004
+              },
+              "saved": {
+                "x": -80,
+                "y": 30.000000000000004
+              },
+              "errorPx": 0
+            },
+            {
+              "frame": 37,
+              "expected": {
+                "x": 12.488163979278095,
+                "y": 61.171898146994174
+              },
+              "saved": {
+                "x": 12.488163979278099,
+                "y": 61.171898146994174
+              },
+              "errorPx": 3.552713678800501e-15
+            },
+            {
+              "frame": 42,
+              "expected": {
+                "x": 95.07969349334647,
+                "y": 78.97531627523098
+              },
+              "saved": {
+                "x": 95.07969349334647,
+                "y": 78.97531627523098
+              },
+              "errorPx": 0
+            },
+            {
+              "frame": 45,
+              "expected": {
+                "x": 141.83358173119177,
+                "y": 81.29856175479809
+              },
+              "saved": {
+                "x": 141.83358173119177,
+                "y": 81.29856175479809
+              },
+              "errorPx": 0
+            },
+            {
+              "frame": 52,
+              "expected": {
+                "x": 234.21136714382754,
+                "y": 74.96347845534969
+              },
+              "saved": {
+                "x": 234.21136714382754,
+                "y": 74.96347845534969
+              },
+              "errorPx": 0
+            },
+            {
+              "frame": 58,
+              "expected": {
+                "x": 283.6887095975898,
+                "y": 85.26873208623707
+              },
+              "saved": {
+                "x": 283.6887095975898,
+                "y": 85.26873208623707
+              },
+              "errorPx": 0
+            }
+          ],
+          "maxErrorPx": 3.552713678800501e-15
+        },
+        "parent": {
+          "x": 180,
+          "y": -80,
+          "scale": 0.8,
+          "rotate": 15
+        },
+        "previewPath": [
+          {
+            "frame": 30,
+            "local": {
+              "x": -80,
+              "y": 30.000000000000004
+            },
+            "visible": {
+              "output": {
+                "x": 111,
+                "y": -73.5
+              },
+              "size": {
+                "w": 87,
+                "h": 72
+              },
+              "page": {
+                "x": 443.1078125,
+                "y": 176.790625
+              },
+              "count": 392,
+              "mean": 206.78
+            }
+          },
+          {
+            "frame": 58,
+            "local": {
+              "x": 283.6887095975898,
+              "y": 85.26873208623707
+            },
+            "visible": {
+              "output": {
+                "x": 381,
+                "y": 46.5
+              },
+              "size": {
+                "w": 87,
+                "h": 72
+              },
+              "page": {
+                "x": 489.7953125,
+                "y": 197.540625
+              },
+              "count": 386,
+              "mean": 214.35
+            }
+          }
+        ],
+        "expectedWorldDelta": {
+          "x": 269.59337349397606,
+          "y": 118.01204819277109
+        },
+        "observedWorldDelta": {
+          "x": 270,
+          "y": 120
+        },
+        "pathErrorPx": 2.03,
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          42,
+          45,
+          52,
+          58
+        ],
+        "everyPointHasXY": true,
+        "positionGroupAligned": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": -80,
+              "y": 30.000000000000004
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 12.488163979278099,
+              "y": 61.171898146994174
+            }
+          },
+          {
+            "t": 42,
+            "transform": {
+              "x": 95.07969349334647,
+              "y": 78.97531627523098
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 141.83358173119177,
+              "y": 81.29856175479809
+            }
+          },
+          {
+            "t": 52,
+            "transform": {
+              "x": 234.21136714382754,
+              "y": 74.96347845534969
+            }
+          },
+          {
+            "t": 58,
+            "transform": {
+              "x": 283.6887095975898,
+              "y": 85.26873208623707
+            }
+          }
+        ],
+        "undoRestored": true,
+        "redoRestored": true
+      }
+    },
+    "regression": {},
+    "writeErrors": [],
+    "hookCheck": {
+      "consoleWrapped": true,
+      "engineWrapped": true,
+      "engineType": "function",
+      "errors": 0,
+      "editPath": "file://<scratch>/project/edit.json"
+    },
+    "compare": {
+      "nested-photo": [
+        30,
+        33,
+        42,
+        52,
+        55,
+        58
+      ]
+    },
+    "motionBagPaths": [],
+    "contextLosses": [],
+    "targetEvents": [
+      {
+        "event": "changed",
+        "targetId": "5F5C377CA38A5145EF130A42029C57C2",
+        "url": "http://a039d914-41a3-55ac-b908-5bee2ee2afe1.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T04:39:56.203Z"
+      },
+      {
+        "event": "created",
+        "url": "http://a039d914-41a3-55ac-b908-5bee2ee2afe1.webview.localhost:49001/webview/serv",
+        "targetId": "BECD496E368EDB70E4EDB043561207CB",
+        "at": "2026-09-26T04:39:56.243Z"
+      },
+      {
+        "event": "changed",
+        "targetId": "5F5C377CA38A5145EF130A42029C57C2",
+        "url": "http://a039d914-41a3-55ac-b908-5bee2ee2afe1.webview.localhost:49001/webview/inde",
+        "at": "2026-09-26T04:39:58.734Z"
+      },
+      {
+        "event": "destroyed",
+        "targetId": "BECD496E368EDB70E4EDB043561207CB",
+        "url": "http://a039d914-41a3-55ac-b908-5bee2ee2afe1.webview.localhost:49001/webview/serv",
+        "at": "2026-09-26T04:40:26.438Z"
+      },
+      {
+        "event": "created",
+        "url": "http://a039d914-41a3-55ac-b908-5bee2ee2afe1.webview.localhost:49001/webview/serv",
+        "targetId": "282F47DB610E13CE0D3EBED749C43DEC",
+        "at": "2026-09-26T04:40:30.204Z"
+      }
+    ]
+  },
+  "writeErrors": [],
+  "consoleErrors": []
+}

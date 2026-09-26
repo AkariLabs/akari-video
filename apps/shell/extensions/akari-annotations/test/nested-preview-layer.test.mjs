@@ -26,6 +26,38 @@ test('canvas photo world move and edge stretch write the local child once', () =
     assert.equal(writeNestedPreviewLayer(before, { kind: 'layer', itemId: 'missing', patch: {} }), undefined);
 });
 
+test('nested photo replaces world XY through translated rotated scaled ancestors', () => {
+    const original = edit();
+    const outer = original.tracks[0].items[0];
+    outer.at = 12;
+    outer.transform = { x: 180, y: -80, scale: .8, rotate: 15 };
+    outer.items = [{ id: 'inner', at: 7, duration: 120, source: { kind: 'group' },
+        transform: { x: 32, y: 24, scale: 1.25, rotate: -30 }, items: outer.items }];
+    const photo = outer.items[0].items[0];
+    photo.at = 3; photo.duration = 100;
+    photo.keyframes = [{ t: 20, opacity: .5, transform: { x: 9, y: 10, rotate: 7 } },
+        { t: 40, transform: { x: 4, y: 5 } }];
+    const forward = (parent, point) => {
+        const angle = parent.rotate * Math.PI / 180;
+        return { x: parent.x + parent.scale * (point.x * Math.cos(angle) - point.y * Math.sin(angle)),
+            y: parent.y + parent.scale * (point.x * Math.sin(angle) + point.y * Math.cos(angle)) };
+    };
+    const points = [20, 30, 40].map((t, i) => ({ t, transform: forward(outer.transform,
+        forward(outer.items[0].transform, { x: 12 + i * 3, y: -7 + i * 2 })) }));
+    const result = writeNestedPreviewLayer(original, { kind: 'layer', itemId: 'photo',
+        patch: { xyKeyframes: points } });
+    const written = result.tracks[0].items[0].items[0].items[0].keyframes;
+    for (const [i, t] of [20, 30, 40].entries()) {
+        const point = written.find(p => p.t === t);
+        assert.ok(Math.abs(point.transform.x - (12 + i * 3)) < 1e-8);
+        assert.ok(Math.abs(point.transform.y - (-7 + i * 2)) < 1e-8);
+    }
+    assert.equal(written.find(p => p.t === 20).opacity, .5);
+    assert.equal(written.find(p => p.t === 20).transform.rotate, 7);
+    assert.ok(Math.abs(written.find(p => p.t === 40).transform.x - 18) < 1e-8);
+    assert.equal(original.tracks[0].items[0].items[0].items[0].keyframes[0].transform.x, 9);
+});
+
 test('canvas photo crop is written to its child', () => {
     const crop = { x: .1, y: .1, w: .8, h: .8 };
     const after = writeNestedPreviewLayer(edit(), { kind: 'layer', itemId: 'photo', patch: { crop } });
