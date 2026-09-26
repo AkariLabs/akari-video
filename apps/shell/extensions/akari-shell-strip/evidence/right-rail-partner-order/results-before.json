@@ -1,0 +1,333 @@
+{
+  "status": "pass",
+  "phase": "before",
+  "startedAt": "2026-09-26T03:51:52.164Z",
+  "port": 9613,
+  "steps": [
+    {
+      "name": "(a) 新しい userData で Claude Code CLI / Codex CLI を接続した直後のレール",
+      "pass": true,
+      "detail": {
+        "initialRail": [
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "claudeId": "terminal-1",
+        "codexId": "terminal-2",
+        "claudeAbove": true,
+        "codexAbove": true,
+        "railIds": [
+          "terminal-1",
+          "terminal-2",
+          "akari-partner-onboarding",
+          "akari-daihon-widget",
+          "akari-cuts-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget"
+        ],
+        "rail": [
+          "terminal-1:agent:partner",
+          "terminal-2:agent:partner",
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "separatorY": 300,
+        "icons": {
+          "claude": {
+            "x": 1072,
+            "y": 10,
+            "w": 48,
+            "h": 48
+          },
+          "codex": {
+            "x": 1072,
+            "y": 62,
+            "w": 48,
+            "h": 48
+          }
+        }
+      },
+      "ms": 23488
+    },
+    {
+      "name": "(c) 拡張形態（Claude Code 拡張 / Codex 拡張）のビューを開いた直後のレール",
+      "pass": true,
+      "detail": {
+        "substitute": true,
+        "ids": [
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer"
+        ],
+        "groups": {
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary": "lower",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer": "lower"
+        },
+        "above": false,
+        "railIds": [
+          "terminal-1",
+          "terminal-2",
+          "akari-partner-onboarding",
+          "akari-daihon-widget",
+          "akari-cuts-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer"
+        ],
+        "rail": [
+          "terminal-1:agent:partner",
+          "terminal-2:agent:partner",
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:lower",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 2560
+    },
+    {
+      "name": "(d) レールのアイコン（カット）を別のアイコン（台本）の上寄りへドラッグ",
+      "pass": true,
+      "detail": {
+        "before": [
+          "terminal-1",
+          "terminal-2",
+          "akari-partner-onboarding",
+          "akari-daihon-widget",
+          "akari-cuts-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer"
+        ],
+        "after": [
+          "terminal-1",
+          "terminal-2",
+          "akari-partner-onboarding",
+          "akari-daihon-widget",
+          "akari-cuts-widget",
+          "akari-review-panel-widget",
+          "akari-inspector-widget",
+          "akari-audio-meter-widget",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer"
+        ],
+        "reordered": false,
+        "during": {
+          "zones": [
+            {
+              "zone": "main",
+              "hot": false,
+              "rect": {
+                "x": 229,
+                "y": 11,
+                "w": 390,
+                "h": 624
+              }
+            },
+            {
+              "zone": "rtop",
+              "hot": false,
+              "rect": {
+                "x": 643,
+                "y": 47,
+                "w": 421,
+                "h": 286
+              }
+            },
+            {
+              "zone": "rbottom",
+              "hot": false,
+              "rect": {
+                "x": 643,
+                "y": 349,
+                "w": 421,
+                "h": 286
+              }
+            },
+            {
+              "zone": "railtop",
+              "hot": false,
+              "rect": {
+                "x": 1068,
+                "y": 8,
+                "w": 52,
+                "h": 267
+              }
+            },
+            {
+              "zone": "railbottom",
+              "hot": true,
+              "rect": {
+                "x": 1068,
+                "y": 279,
+                "w": 52,
+                "h": 267
+              }
+            }
+          ],
+          "marker": null
+        },
+        "rail": [
+          "terminal-1:agent:partner",
+          "terminal-2:agent:partner",
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:lower",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {},
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 5346
+    },
+    {
+      "name": "(b) Claude Code CLI を線の下へ置いて再起動 → 復元後のレール → Codex CLI・Claude Code CLI を接続し直す",
+      "pass": true,
+      "detail": {
+        "claudeMovedGroup": "lower",
+        "savedRail": {
+          "version": 1,
+          "groups": {
+            "terminal-1": "lower"
+          },
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "beforeRestart": [
+          "terminal-2:agent:partner",
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower",
+          "terminal-1:lower:partner",
+          "plugin-view-container:workbench.view.extension.claude-sidebar-secondary:lower",
+          "plugin-view-container:workbench.view.extension.codexSecondaryViewContainer:lower"
+        ],
+        "afterRestart": [
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "restoredRailState": {
+          "version": 1,
+          "groups": {
+            "terminal-1": "lower"
+          },
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        },
+        "reconnected": {
+          "codexId": "terminal-2",
+          "claudeId": "terminal-3",
+          "codexGroup": "agent",
+          "claudeGroup": "agent",
+          "codexAbove": true
+        },
+        "rail": [
+          "terminal-2:agent:partner",
+          "terminal-3:agent:partner",
+          "akari-partner-onboarding:agent",
+          "akari-daihon-widget:lower",
+          "akari-cuts-widget:lower",
+          "akari-review-panel-widget:lower",
+          "akari-inspector-widget:lower",
+          "akari-audio-meter-widget:lower"
+        ],
+        "railState": {
+          "version": 1,
+          "groups": {
+            "terminal-1": "lower"
+          },
+          "split": false,
+          "top": null,
+          "bottom": null,
+          "focus": "top",
+          "ratio": 0.5,
+          "displaced": {}
+        }
+      },
+      "ms": 46106
+    }
+  ],
+  "screenshots": [
+    "before-a-cli-connected.png",
+    "before-c-extension-views.png",
+    "before-d-drag-cuts-onto-daihon.png",
+    "before-d-after-drop.png",
+    "before-b0-claude-moved-below.png",
+    "before-b1-after-restart.png",
+    "before-b2-reconnected.png"
+  ],
+  "launches": [
+    {
+      "label": "1",
+      "readyMs": 18976
+    },
+    {
+      "label": "2",
+      "readyMs": 13389
+    }
+  ],
+  "finishedAt": "2026-09-26T03:53:29.248Z"
+}

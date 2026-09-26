@@ -120,6 +120,7 @@ test('RIGHT_RAIL_FIXED_ORDER mirrors the contribution fixed order (partner → d
         'akari-review-panel-widget', 'akari-inspector-widget', 'akari-audio-meter-widget']);
     const source = readFileSync(new URL('../src/browser/akari-annotations-contribution.ts', import.meta.url), 'utf8');
     // 並び直しは右パネルハンドラーの所属（railGroupOf）に従う。
+    assert.match(source, /handler\.railOrder\?\.\(titles\.map\(title => title\.owner\.id\)\)/);
     assert.match(source, /computeRightPanelOrder\(titles\.map\(title => title\.owner\.id\), RIGHT_PANEL_FIXED_ORDER, groupOf\)/);
     assert.match(source, /handler\.railGroupOf\?\.\(id\) \?\? defaultRightRailGroup\(id\)/);
 });
@@ -134,6 +135,26 @@ test('defaultRightRailGroup: partner onboarding and terminal-<n> are above the l
     for (const [id, group] of table) {
         assert.equal(rail.defaultRightRailGroup(id), group, id);
     }
+});
+
+test('partner extension view ids come from partner-catalog.json and are above the line', () => {
+    const catalog = JSON.parse(readFileSync(new URL('../../akari-partner/src/common/partner-catalog.json', import.meta.url), 'utf8'));
+    const viewIds = catalog.flatMap(entry => entry.viewContainerIds ?? []);
+    assert.ok(viewIds.length > 0);
+    for (const id of viewIds) {
+        assert.equal(rail.defaultRightRailGroup(`plugin-view-container:${id}`), 'agent', id);
+    }
+    assert.equal(rail.defaultRightRailGroup('plugin-view-container:unknown-new-view'), 'lower');
+});
+
+test('saved order can reorder both groups while keeping partner onboarding at the top group tail', () => {
+    const ids = ['terminal-1', 'akari-partner-onboarding', 'akari-daihon-widget', 'akari-cuts-widget', 'akari-review-panel-widget'];
+    const saved = ['terminal-1', 'akari-partner-onboarding', 'akari-review-panel-widget', 'akari-cuts-widget', 'akari-daihon-widget'];
+    assert.deepEqual(rail.computeRightPanelOrder(ids, RAIL_FIXED, rail.defaultRightRailGroup, saved), saved);
+    const crossed = { 'akari-review-panel-widget': 'agent' };
+    assert.deepEqual(rail.computeRightPanelOrder(ids, RAIL_FIXED, id => crossed[id] ?? rail.defaultRightRailGroup(id),
+        ['akari-review-panel-widget', 'terminal-1', 'akari-partner-onboarding', 'akari-cuts-widget', 'akari-daihon-widget']),
+    ['akari-review-panel-widget', 'terminal-1', 'akari-partner-onboarding', 'akari-cuts-widget', 'akari-daihon-widget']);
 });
 
 test('computeRightPanelOrder with groupOf: agents (terminals → partner last) above, fixed lower then loose lower below', () => {

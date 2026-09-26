@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "groups": {
+    "akari-review-panel-widget": "agent"
+  },
+  "order": {
+    "broken": true,
+    "value": 42
+  },
+  "split": false,
+  "top": null,
+  "bottom": null,
+  "focus": "top",
+  "ratio": 0.5,
+  "displaced": {}
+}

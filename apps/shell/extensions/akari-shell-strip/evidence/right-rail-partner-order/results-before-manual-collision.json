@@ -1,0 +1,9 @@
+{
+  "note": "手動の再現（同じ BEFORE ビルド・専用 userData）。L1 スクリプトの (b) では連番が衝突しなかった（terminal-1 に所属が残り、接続し直した Claude は terminal-3）ため、衝突する順序を手で踏んだ記録",
+  "steps": [
+    { "do": "Claude Code CLI を接続（terminal-2）→ レールで線の下へ置く（dnd.drop railbottom）→ レイアウト保存", "rail": ["akari-partner-onboarding|agent", "akari-daihon-widget|lower", "akari-cuts-widget|lower", "akari-review-panel-widget|lower", "terminal-2(Claude Code CLI)|lower"], "groups": { "terminal-2": "lower" }, "screenshot": "before-bm0-manual-terminal2-moved-below.png" },
+    { "do": "再起動（復元時に端末は terminal-0 で作り直され、生きていない端末としてパートナー側が破棄）", "rail": ["akari-partner-onboarding|agent", "akari-daihon-widget|lower", "akari-cuts-widget|lower", "akari-review-panel-widget|lower"], "groups": { "terminal-2": "lower" } },
+    { "do": "Codex CLI を接続 → terminal-1（線の上）", "rail": ["terminal-1(Codex CLI)|agent", "akari-partner-onboarding|agent", "akari-daihon-widget|lower", "akari-cuts-widget|lower", "akari-review-panel-widget|lower"] },
+    { "do": "Claude Code CLI を接続 → terminal-2 が保存済みの terminal-2: lower を拾い、新規接続なのに線の下", "rail": ["terminal-1(Codex CLI)|agent", "akari-partner-onboarding|agent", "akari-daihon-widget|lower", "akari-cuts-widget|lower", "akari-review-panel-widget|lower", "terminal-2(Claude Code CLI)|lower"], "screenshot": "before-bm1-manual-reconnect-terminal2-lands-below.png" }
+  ]
+}

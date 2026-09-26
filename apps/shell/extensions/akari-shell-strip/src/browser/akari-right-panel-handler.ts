@@ -7,10 +7,9 @@ import { SidePanelHandler, SidePanel } from '@theia/core/lib/browser/shell/side-
 import { TheiaDockPanel } from '@theia/core/lib/browser/shell/theia-dock-panel';
 import { DockPanelRendererFactory } from '@theia/core/lib/browser/shell/application-shell';
 import { SideTabBar, TabBarRenderer } from '@theia/core/lib/browser/shell/tab-bars';
-import { computeRightPanelOrder, RIGHT_RAIL_FIXED_ORDER } from 'akari-annotations/lib/browser/right-panel-order';
 import {
     clickRightRail, cloneRightRailState, closeRightRailPane, defaultRightRailState, dropOnRightRail, normalizeRightRail,
-    readRightRailState, rightRailGroupOf, rightRailPaneOf, RightRailSlot, RightRailState, RightRailZone, settleRightRailRatio
+    readRightRailState, rightRailGroupOf, rightRailOrder, rightRailPaneOf, RightRailSlot, RightRailState, RightRailZone, saveRightRailState, settleRightRailRatio
 } from './right-rail-state';
 import { installRightRailStyle, RIGHT_RAIL_CLOSE_ICON_SVG } from './right-rail-style';
 import { installRightRailIconStyle } from './right-rail-icons';
@@ -128,6 +127,11 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         return rightRailGroupOf(this.rail, id);
     }
 
+    /** 復元後の並び直しも利用者の順へ揃える。 */
+    railOrder(ids: readonly string[]): string[] {
+        return rightRailOrder(this.rail, ids);
+    }
+
     /** 現在の状態の写し（L1・テスト用）。 */
     railState(): RightRailState {
         return cloneRightRailState(this.rail);
@@ -142,8 +146,7 @@ export class AkariRightPanelHandler extends SidePanelHandler {
         try {
             const titles = this.tabBar.titles.filter(title => !title.owner.isDisposed);
             const byId = new Map(titles.map(title => [title.owner.id, title]));
-            const ordered = computeRightPanelOrder(titles.map(title => title.owner.id), RIGHT_RAIL_FIXED_ORDER,
-                id => rightRailGroupOf(this.rail, id));
+            const ordered = this.railOrder(titles.map(title => title.owner.id));
             ordered.forEach((id, index) => {
                 if (this.tabBar.titles[index] !== byId.get(id)) {
                     this.tabBar.insertTab(index, byId.get(id)!);
@@ -336,9 +339,9 @@ export class AkariRightPanelHandler extends SidePanelHandler {
      * パネルを置いたとき（置き場所の表示は AkariRightRailDnd）。状態を試作の drop(k, where) で進め、
      * 実際の移動は mover（ApplicationShell.addWidget）に任せる。
      */
-    async dropPanel(widget: Widget, zone: RightRailZone, mover: PanelMover): Promise<void> {
+    async dropPanel(widget: Widget, zone: RightRailZone, mover: PanelMover, beforeId?: string | null): Promise<void> {
         const current = this.tabBar.currentTitle?.owner.id ?? null;
-        const result = dropOnRightRail(this.rail, widget.id, zone, { railIds: this.railIds(), current });
+        const result = dropOnRightRail(this.rail, widget.id, zone, { railIds: this.railIds(), current }, beforeId);
         if (result.moveTo) {
             await mover(widget, result.moveTo);
         }
@@ -601,7 +604,7 @@ export class AkariRightPanelHandler extends SidePanelHandler {
                 this.rail.ratio = Math.min(Math.max(ratio, 0.12), 0.88);
             }
         }
-        return { ...layout, akariRail: cloneRightRailState(this.rail) };
+        return { ...layout, akariRail: saveRightRailState(this.rail) };
     }
 
     override setLayoutData(layout: RailLayoutData): void {

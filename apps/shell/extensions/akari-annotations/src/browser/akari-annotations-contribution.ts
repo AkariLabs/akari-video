@@ -781,6 +781,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     protected reconcileRightPanelOrder(): void {
         const handler = this.shell.rightPanelHandler as typeof this.shell.rightPanelHandler & {
             railGroupOf?(id: string): RightRailGroup;
+            railOrder?(ids: readonly string[]): string[];
         };
         const tabBar = handler.tabBar;
         const titles = Array.from(tabBar.titles).filter(title => !title.owner.isDisposed);
@@ -789,7 +790,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         // 所属はドラッグで入れ替わる。所属は akari-shell-strip の右パネルハンドラーが持つので、それに合わせて 2 区画で並べる
         // （ハンドラーが居ない構成では既定の所属）。
         const groupOf = (id: string) => handler.railGroupOf?.(id) ?? defaultRightRailGroup(id);
-        const targetOrder = computeRightPanelOrder(titles.map(title => title.owner.id), RIGHT_PANEL_FIXED_ORDER, groupOf);
+        const targetOrder = handler.railOrder?.(titles.map(title => title.owner.id))
+            ?? computeRightPanelOrder(titles.map(title => title.owner.id), RIGHT_PANEL_FIXED_ORDER, groupOf);
         targetOrder.forEach((id, index) => {
             const title = titlesById.get(id);
             if (title) {
