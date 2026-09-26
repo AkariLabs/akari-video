@@ -17,7 +17,7 @@ export const ITEM_CLIPBOARD_KIND = 'akari-video/edit-item';
 /** 貼り付け・複製のずらし幅（出力の px）。 */
 export const PASTE_OFFSET_PX = 20;
 
-export type ContextBarKind = 'shape' | 'line' | 'photo' | 'text' | 'canvas' | 'other';
+export type ContextBarKind = 'shape' | 'line' | 'photo' | 'text' | 'caption' | 'canvas' | 'other';
 
 const IMAGE_EXT = /\.(png|jpe?g|webp|bmp|gif|avif|heic)$/iu;
 
@@ -288,6 +288,7 @@ export const STYLE_PATHS: Record<ContextBarKind, readonly string[]> = {
     line: ['source.params.stroke', 'source.params.strokeWidth', 'source.params.dash', 'source.params.lineCap',
         'source.params.startCap', 'source.params.endCap', 'source.params.startCapFilled', 'source.params.endCapFilled', 'opacity'],
     text: ['motion', 'animator', 'opacity'],
+    caption: [],
     photo: ['flip', 'opacity'],
     canvas: ['motion', 'opacity'],
     other: ['opacity']
@@ -583,7 +584,7 @@ export interface LayerList {
 }
 
 const KIND_NAME: Record<ContextBarKind, string> = {
-    shape: '図形', line: 'ライン', photo: '写真', text: '文字', canvas: 'キャンバス', other: '素材'
+    shape: '図形', line: 'ライン', photo: '写真', text: '文字', caption: '字幕', canvas: 'キャンバス', other: '素材'
 };
 
 /**

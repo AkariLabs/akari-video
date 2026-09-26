@@ -193,7 +193,8 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     /** 出力プレビューの上のバー・小さなメニュー（B-1）の書き込み口。 */
     protected getContextBar(): ContextBarController {
         return this.contextBar ??= new ContextBarController({
-            widget: () => this.getShortcutKeybindings().shortcutTimelineWidget(),
+            widget: () => this.selectionModel.inspectorOwner instanceof AkariAnnotationsWidget
+                ? this.selectionModel.inspectorOwner : this.getShortcutKeybindings().shortcutTimelineWidget(),
             selectionModel: this.selectionModel, commands: this.commands, messages: this.messages, clipboard: this.clipboard
         });
     }

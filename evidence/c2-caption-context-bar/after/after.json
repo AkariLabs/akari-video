@@ -1,0 +1,1757 @@
+{
+  "label": "after",
+  "port": 9578,
+  "project": "c2",
+  "theme": "dark",
+  "pid": 24249,
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 1,
+  "results": {
+    "select": {
+      "shot": "after-01-select-caption.png",
+      "win": "after-01-select-caption-window.png",
+      "state": {
+        "editUri": "<file>",
+        "selectedId": "c-0001",
+        "kind": "caption",
+        "item": {
+          "textStyle": {}
+        },
+        "sourcePath": null,
+        "parentId": null,
+        "locked": false,
+        "hasCorners": false,
+        "multi": 0,
+        "styleCopy": null,
+        "output": {
+          "width": 1920,
+          "height": 1080
+        },
+        "lockedIds": []
+      },
+      "chrome": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 72
+          },
+          "items": [
+            {
+              "key": "captionPreset",
+              "label": "字幕のスタイル",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionCushion",
+              "label": "座布団",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionTextColor",
+              "label": "文字の色",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionStrokeColor",
+              "label": "縁取りの色",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionBold",
+              "label": "太字",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "captionFont",
+              "label": "フォント",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionSize",
+              "label": "大きさ",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionSpacing",
+              "label": "行間・字間",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionStroke",
+              "label": "縁取り",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "captionMore",
+              "label": "その他",
+              "disabled": false,
+              "pressed": "false"
+            }
+          ],
+          "bg": "rgb(20, 20, 20)",
+          "radius": "12px"
+        },
+        "menu": null,
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "字幕のメニューの確かめ00:00.0 – 00:05.0 · 字幕字幕のその他の操作マイスタイルに保存…テキスト動き情報時間出力位置00:00:00.000尺5.00 秒内容テキスト話者編集済みはい文字色大きさpx（既定）折り返し幅%太さ普通太字極太行間（既定）字間em（既定）縁取り色太さpx（既定）座布団表示座布団を敷く形行ごとまとめて色不透明度%（既定）余白px（既定）角丸px（既定）角丸を最大にすると文字に沿った丸い座布団（カプセル）になる効果種類AaなしAa影Aa浮き出しAaネオンAa袋文字位置位置タイミングstart00:00:00.000end00:00:05.000尺5.00 秒sourceRef.segment— .akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; } .ak"
+      },
+      "bottom": {
+        "active": true,
+        "rect": {
+          "left": 136.2,
+          "top": 179.9,
+          "width": 105,
+          "height": 36
+        },
+        "all": [
+          "group",
+          "snap",
+          "clamp",
+          "bold",
+          "color",
+          "bigger",
+          "smaller",
+          "up",
+          "down",
+          "rotate-run",
+          "spacing-run",
+          "run-style",
+          "run-role",
+          "cushion",
+          "reset",
+          "inspector",
+          "my-style-save"
+        ],
+        "visible": [
+          {
+            "tool": "group",
+            "label": "全字幕モード",
+            "tip": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+            "on": false
+          },
+          {
+            "tool": "snap",
+            "label": "吸着",
+            "tip": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+            "on": true
+          },
+          {
+            "tool": "clamp",
+            "label": "はみ出し防止",
+            "tip": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+            "on": false
+          }
+        ]
+      }
+    },
+    "bold": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "900",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-bold.png",
+      "win": "after-op-bold-window.png"
+    },
+    "textColor": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(245, 196, 81)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-text-color.png",
+      "win": "after-op-text-color-window.png",
+      "window": {
+        "kind": "captionTextColor",
+        "text": "",
+        "controls": [
+          "color",
+          "color",
+          "color",
+          "color",
+          "color",
+          "color",
+          "color",
+          "color",
+          "color",
+          "color",
+          "color",
+          "color"
+        ]
+      }
+    },
+    "strokeColor": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "3px rgb(77, 163, 255)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-stroke-color.png",
+      "win": "after-op-stroke-color-window.png",
+      "window": {
+        "kind": "captionStrokeColor",
+        "text": "",
+        "controls": [
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor",
+          "strokeColor"
+        ]
+      }
+    },
+    "cushion": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgba(0, 0, 0, 0.75)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-cushion.png",
+      "win": "after-op-cushion-window.png",
+      "window": {
+        "kind": "captionCushion",
+        "text": "座布団を敷く",
+        "controls": [
+          "cushion",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor"
+        ]
+      }
+    },
+    "cushionColor": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(77, 163, 255)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-cushion-color.png",
+      "win": "after-op-cushion-color-window.png",
+      "window": {
+        "kind": "captionCushion",
+        "text": "座布団を敷く",
+        "controls": [
+          "cushion",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor",
+          "backgroundColor"
+        ]
+      }
+    },
+    "preset": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "56px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "79.52px",
+        "letterSpacing": "normal",
+        "stroke": "7.84px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(198, 40, 40)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-preset.png",
+      "win": "after-op-preset-window.png",
+      "window": {
+        "kind": "captionPreset",
+        "text": "標準字幕インタビュー字幕実況テロップニュース風バラエティナレーション字幕",
+        "controls": [
+          "subtitle-standard",
+          "subtitle-interview",
+          "subtitle-commentary",
+          "subtitle-news",
+          "subtitle-variety",
+          "narration-caption"
+        ]
+      }
+    },
+    "font": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"Shippori Mincho\"",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-font.png",
+      "win": "after-op-font-window.png",
+      "window": {
+        "kind": "captionFont",
+        "text": "AKARI Noto Sans JPDela Gothic OneBIZ UDGothicDotGothic16Klee OneM PLUS Rounded 1cNoto Serif JPShippori MinchoZen Maru Gothic",
+        "controls": [
+          "BUTTON",
+          "BUTTON",
+          "BUTTON",
+          "BUTTON",
+          "BUTTON",
+          "BUTTON",
+          "BUTTON",
+          "BUTTON",
+          "BUTTON"
+        ]
+      },
+      "fontButtons": [
+        "AKARI Noto Sans JP",
+        "Dela Gothic One",
+        "BIZ UDGothic",
+        "DotGothic16",
+        "Klee One",
+        "M PLUS Rounded 1c",
+        "Noto Serif JP",
+        "Shippori Mincho",
+        "Zen Maru Gothic"
+      ],
+      "picked": "Shippori Mincho"
+    },
+    "size": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "104px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "147.68px",
+        "letterSpacing": "normal",
+        "stroke": "14.56px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-size.png",
+      "win": "after-op-size-window.png",
+      "window": {
+        "kind": "captionSize",
+        "text": "大きさpx",
+        "controls": [
+          "sizePx",
+          "sizePx"
+        ]
+      },
+      "live": {
+        "start": 48,
+        "during": [
+          {
+            "step": 1,
+            "value": "73",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "73px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "103.66px",
+              "letterSpacing": "normal",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-sizePx-1.png"
+          },
+          {
+            "step": 2,
+            "value": "88",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "88px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "124.96px",
+              "letterSpacing": "normal",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-sizePx-2.png"
+          },
+          {
+            "step": 3,
+            "value": "104",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "104px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "147.68px",
+              "letterSpacing": "normal",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-sizePx-3.png"
+          }
+        ],
+        "writesDuring": 0
+      }
+    },
+    "lineHeight": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "77.9px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-line-height.png",
+      "win": "after-op-line-height-window.png",
+      "window": {
+        "kind": "captionSpacing",
+        "text": "行間字間em",
+        "controls": [
+          "lineHeight",
+          "lineHeight",
+          "letterSpacingEm",
+          "letterSpacingEm"
+        ]
+      },
+      "live": {
+        "start": 1.2,
+        "during": [
+          {
+            "step": 1,
+            "value": "1.7",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "64.6px",
+              "letterSpacing": "normal",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-lineHeight-1.png"
+          },
+          {
+            "step": 2,
+            "value": "1.9",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "72.2px",
+              "letterSpacing": "normal",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-lineHeight-2.png"
+          },
+          {
+            "step": 3,
+            "value": "2.05",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "77.9px",
+              "letterSpacing": "normal",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-lineHeight-3.png"
+          }
+        ],
+        "writesDuring": 0
+      }
+    },
+    "letterSpacing": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "11.4px",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-letter-spacing.png",
+      "win": "after-op-letter-spacing-window.png",
+      "window": {
+        "kind": "captionSpacing",
+        "text": "行間字間em",
+        "controls": [
+          "lineHeight",
+          "lineHeight",
+          "letterSpacingEm",
+          "letterSpacingEm"
+        ]
+      },
+      "live": {
+        "start": 0,
+        "during": [
+          {
+            "step": 1,
+            "value": "0.15",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "53.96px",
+              "letterSpacing": "5.7px",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-letterSpacingEm-1.png"
+          },
+          {
+            "step": 2,
+            "value": "0.22",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "53.96px",
+              "letterSpacing": "8.36px",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-letterSpacingEm-2.png"
+          },
+          {
+            "step": 3,
+            "value": "0.3",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "53.96px",
+              "letterSpacing": "11.4px",
+              "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-letterSpacingEm-3.png"
+          }
+        ],
+        "writesDuring": 0
+      }
+    },
+    "strokeWidth": {
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "24px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-stroke-width.png",
+      "win": "after-op-stroke-width-window.png",
+      "window": {
+        "kind": "captionStroke",
+        "text": "縁取りpx",
+        "controls": [
+          "strokeWidth",
+          "strokeWidth"
+        ]
+      },
+      "live": {
+        "start": 0,
+        "during": [
+          {
+            "step": 1,
+            "value": "6",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "stroke": "6px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-strokeWidth-1.png"
+          },
+          {
+            "step": 2,
+            "value": "9",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "stroke": "9px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-strokeWidth-2.png"
+          },
+          {
+            "step": 3,
+            "value": "12",
+            "look": {
+              "color": "rgb(255, 255, 255)",
+              "fontWeight": "700",
+              "fontSize": "38px",
+              "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+              "lineHeight": "53.96px",
+              "letterSpacing": "normal",
+              "stroke": "12px rgba(0, 0, 0, 0.9)",
+              "plateBg": "rgb(0, 0, 0)",
+              "paintOrder": "stroke",
+              "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+              "plateBox": [
+                332,
+                186.8
+              ]
+            },
+            "writes": 0,
+            "shot": "after-live-strokeWidth-3.png"
+          }
+        ],
+        "writesDuring": 0
+      }
+    },
+    "groupScope": {
+      "groupOn": true,
+      "writes": 1,
+      "files": [
+        "captions.json"
+      ],
+      "cueStyleBefore": null,
+      "cueStyleAfter": null,
+      "otherCueStyleAfter": null,
+      "lookBefore": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfter": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "900",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "lookAfterUndo": {
+        "color": "rgb(255, 255, 255)",
+        "fontWeight": "700",
+        "fontSize": "38px",
+        "fontFamily": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+        "plateBg": "rgb(0, 0, 0)",
+        "paintOrder": "stroke",
+        "textShadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+        "plateBox": [
+          332,
+          186.8
+        ]
+      },
+      "undoBackToStart": true,
+      "shot": "after-op-group-bold.png",
+      "win": "after-op-group-bold-window.png"
+    },
+    "bottom": {
+      "before": {
+        "active": true,
+        "rect": {
+          "left": 136.2,
+          "top": 179.9,
+          "width": 105,
+          "height": 36
+        },
+        "all": [
+          "group",
+          "snap",
+          "clamp",
+          "bold",
+          "color",
+          "bigger",
+          "smaller",
+          "up",
+          "down",
+          "rotate-run",
+          "spacing-run",
+          "run-style",
+          "run-role",
+          "cushion",
+          "reset",
+          "inspector",
+          "my-style-save"
+        ],
+        "visible": [
+          {
+            "tool": "group",
+            "label": "全字幕モード",
+            "tip": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+            "on": false
+          },
+          {
+            "tool": "snap",
+            "label": "吸着",
+            "tip": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+            "on": true
+          },
+          {
+            "tool": "clamp",
+            "label": "はみ出し防止",
+            "tip": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+            "on": false
+          }
+        ]
+      },
+      "toggles": {
+        "snap": {
+          "on0": true,
+          "on1": false,
+          "on2": true,
+          "writes": 0
+        },
+        "clamp": {
+          "on0": false,
+          "on1": true,
+          "on2": false,
+          "writes": 0
+        },
+        "group": {
+          "on0": false,
+          "on1": true,
+          "on2": false,
+          "writes": 0
+        },
+        "snap#2": {
+          "on0": true,
+          "on1": false,
+          "on2": true,
+          "writes": 0
+        }
+      },
+      "moved": {
+        "writes": 1,
+        "cue": {
+          "id": "c-0001",
+          "start": 0,
+          "end": 5,
+          "time_domain": "output",
+          "text": "字幕のメニューの確かめ",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true,
+          "text_style": {
+            "text_anchor": "bc",
+            "position": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          }
+        }
+      },
+      "afterMove": {
+        "active": true,
+        "rect": {
+          "left": 168.9,
+          "top": 99.6,
+          "width": 144,
+          "height": 36
+        },
+        "all": [
+          "group",
+          "snap",
+          "clamp",
+          "bold",
+          "color",
+          "bigger",
+          "smaller",
+          "up",
+          "down",
+          "rotate-run",
+          "spacing-run",
+          "run-style",
+          "run-role",
+          "cushion",
+          "reset",
+          "inspector",
+          "my-style-save"
+        ],
+        "visible": [
+          {
+            "tool": "group",
+            "label": "全字幕モード",
+            "tip": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+            "on": false
+          },
+          {
+            "tool": "snap",
+            "label": "吸着",
+            "tip": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+            "on": true
+          },
+          {
+            "tool": "clamp",
+            "label": "はみ出し防止",
+            "tip": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+            "on": false
+          },
+          {
+            "tool": "reset",
+            "label": "既定に戻す",
+            "tip": "位置と大きさを既定に戻す",
+            "on": false
+          }
+        ]
+      },
+      "shot": "after-bottom-after-move.png",
+      "reset": {
+        "pressed": true,
+        "writes": 1,
+        "cue": {
+          "id": "c-0001",
+          "start": 0,
+          "end": 5,
+          "time_domain": "output",
+          "text": "字幕のメニューの確かめ",
+          "speaker": null,
+          "sourceRef": null,
+          "edited": true
+        }
+      },
+      "resetShot": "after-bottom-after-reset.png",
+      "backToStart": true
+    },
+    "more": {
+      "opened": {
+        "rect": {
+          "left": 383.9,
+          "top": 125,
+          "width": 236,
+          "height": 74
+        },
+        "items": [
+          {
+            "key": "captionMyStyleSave",
+            "label": "マイスタイルに保存",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "captionInspector",
+            "label": "インスペクターを開く",
+            "disabled": false,
+            "pressed": null
+          }
+        ]
+      },
+      "moreItems": [
+        {
+          "key": "captionMyStyleSave",
+          "label": "マイスタイルに保存",
+          "in": "preview-element-more"
+        },
+        {
+          "key": "captionInspector",
+          "label": "インスペクターを開く",
+          "in": "preview-element-more"
+        }
+      ],
+      "menu": null,
+      "shot": "after-more-open.png",
+      "dialog": [
+        {
+          "tag": "DIV",
+          "ui": null,
+          "cls": "",
+          "text": "マイスタイルに保存 名前 使いどころ 保存する部品 見た目 （位置は含めない） 動き（この字幕には動きがありません） 効果音（ひも付いた要素がありません） 画面効果（ひも付いた要素がありません） 装飾（ひも付いた要素がありません） キャンセル保存"
+        }
+      ],
+      "saveShot": "after-more-mystyle-save.png",
+      "writesOnOpen": 0,
+      "inspector": {
+        "visible": true,
+        "activeTab": "テキスト",
+        "focus": "BODY",
+        "text": "字幕のメニューの確かめ00:00.0 – 00:05.0 · 字幕字幕のその他の操作マイスタイルに保存…テキスト動き情報時間出力位置00:00:00.000尺5.00 秒内容テキスト話者編集済みはい文字色大きさpx（既定）折り返し幅%太さ普通太字極太行間（既定）字間em（既定）縁取り色太さpx（既定）座布団表示座布団を敷く形行ごとまとめて色不透明度%（既定）余白px（既定）角丸px（既定）角丸を最大にすると文字に沿った丸い座布団（カプセル）になる効果種類AaなしAa影Aa浮き出しAaネオンAa袋文字位置位置タイミングstart00:00:00.000end00:00:05.000尺5.00 秒"
+      },
+      "inspectorShot": "after-more-inspector.png"
+    },
+    "regress": {
+      "shape": {
+        "state": "shape",
+        "bar": [
+          "fill",
+          "stroke",
+          "weight",
+          "radius",
+          "opacity",
+          "anim",
+          "arrange"
+        ],
+        "menu": [
+          "annotate",
+          "lock",
+          "duplicate",
+          "delete",
+          "more"
+        ],
+        "shot": "after-regress-shape.png"
+      },
+      "photo": {
+        "state": "photo",
+        "bar": [
+          "edit",
+          "replace",
+          "cutout",
+          "eraser",
+          "photoColor",
+          "border",
+          "photoRadius",
+          "crop",
+          "flip",
+          "opacity",
+          "anim",
+          "arrange",
+          "style"
+        ],
+        "menu": [
+          "annotate",
+          "lock",
+          "duplicate",
+          "delete",
+          "more"
+        ],
+        "shot": "after-regress-photo.png"
+      },
+      "text": {
+        "state": "text",
+        "bar": [
+          "opacity",
+          "anim",
+          "arrange",
+          "style"
+        ],
+        "menu": [],
+        "shot": "after-regress-text.png"
+      },
+      "shapeOpacity": {
+        "writes": 1,
+        "opacity": 0.5,
+        "undoBack": true
+      }
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "after-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -520,
+              "y": -260,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1300,
+              "y": 150
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at LCc (<file>)\n    at async $On.reloadResolvedCaptionDisplay (<file>)\n    at async RCc (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

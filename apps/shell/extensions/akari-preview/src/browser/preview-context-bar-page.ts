@@ -21,6 +21,18 @@ export const previewContextBarPageScript = `(() => {
   document.head.appendChild(style);
   window.addEventListener('message', event => {
     const message = event.data;
+    if (message?.type === 'akari-preview-caption-style-live') {
+      const field = message.field;
+      const property = { sizePx: 'font-size', lineHeight: 'line-height', letterSpacingEm: 'letter-spacing',
+        strokeWidth: '-webkit-text-stroke-width' }[field];
+      if (!property) return;
+      const unit = field === 'lineHeight' ? '' : field === 'letterSpacingEm' ? 'em' : 'px';
+      document.querySelectorAll('.caption-row-plate[data-selected] .akari-caption__line').forEach(line => {
+        if (message.value === null) line.style.removeProperty(property);
+        else if (Number.isFinite(message.value)) line.style.setProperty(property, message.value + unit);
+      });
+      return;
+    }
     if (!message || message.type !== 'akari-preview-context-lock') return;
     akari.lockedIds = new Set(Array.isArray(message.ids) ? message.ids.map(String) : []);
     akari.contextSelectedLocked = message.selectedLocked === true;
@@ -59,7 +71,8 @@ export const previewContextBarPageScript = `(() => {
     if (typeof akari.reportContextBox !== 'function') return;
     if (!ready) { ready = true; akari.reportContextBox({ ready: true }); }
     const frame = [document.querySelector('.akari-interaction-selection-frame'),
-      document.getElementById('layer-select-box'), document.getElementById('cut-select-box')].find(shown);
+      document.getElementById('layer-select-box'), document.getElementById('cut-select-box'),
+      document.getElementById('caption-select-box')].find(shown);
     const body = document.body.classList;
     const busy = !!frame && (frame.classList.contains('is-busy') || frame.classList.contains('is-moving'))
       || body.contains('akari-selection-gesture-active') || body.contains('akari-media-transforming')

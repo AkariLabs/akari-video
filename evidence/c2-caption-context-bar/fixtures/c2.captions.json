@@ -1,0 +1,6 @@
+{
+  "captions": [
+    { "id": "c-0001", "start": 0, "end": 5, "time_domain": "output", "text": "字幕のメニューの確かめ", "speaker": null, "sourceRef": null, "edited": true },
+    { "id": "c-0002", "start": 5, "end": 10, "time_domain": "output", "text": "二つ目の字幕", "speaker": null, "sourceRef": null, "edited": true }
+  ]
+}

@@ -7985,7 +7985,10 @@ ${kind === 'raw' ? '.akari-material-chip { position: absolute; top: 8px; left: 8
 #caption-select-box .akari-caption-select-tools { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(100% + 6px); display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #333842; border-radius: 8px; background: rgba(24,26,31,.96); box-shadow: 0 4px 14px #0008; white-space: nowrap; pointer-events: auto; }
 #caption-select-box[data-akari-run-from]:not([data-akari-run-from=""]) .akari-caption-select-tools { width: max-content; max-width: min(88vw, var(--akari-run-toolbar-max, 560px)); flex-wrap: wrap; justify-content: center; }
 .akari-caption-tool-separator { width: 1px; height: 18px; margin: 0 3px; background: #333842; }
+#caption-select-box [data-caption-optional-separator] { display: none; }
+#caption-select-box [data-caption-optional-separator]:has(~ [data-akari-run-tool]:not([hidden]), ~ [data-caption-tool="reset"]:not([hidden])) { display: block; }
 #caption-select-box [data-caption-tool] { position: relative; width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #aab1bd; cursor: pointer; pointer-events: auto; }
+#caption-select-box [data-caption-tool][hidden] { display: none; }
 #caption-select-box [data-caption-tool]:hover { background: #2b2f38; color: #fff; }
 #caption-select-box [data-caption-tool].on { background: #2d3b52; color: #bcdcff; }
 #caption-select-box [data-caption-tool] svg { width: 16px; height: 16px; display: block; }
@@ -8242,9 +8245,9 @@ ${previewSelectionHandlesStyle}
             <span class="akari-caption-tool-separator"></span>
             <button type="button" data-caption-tool="snap" class="on" aria-label="吸着"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/><path d="m5 8 4 4M12 15l4 4"/></svg><span class="akari-caption-tool-tip">吸着のオン・オフ</span></button>
             <button type="button" data-caption-tool="clamp" aria-label="はみ出し防止"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9V7h2M17 9V7h-2M7 15v2h2M17 15v2h-2"/></svg><span class="akari-caption-tool-tip">はみ出し防止のオン・オフ</span></button>
-            <span class="akari-caption-tool-separator"></span>
-            <button type="button" data-caption-tool="bold" aria-label="太字">B<span class="akari-caption-tool-tip">太字のオン・オフ</span></button>
-            <button type="button" data-caption-tool="color" aria-label="色"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.1 2h1.8l4 10.5h-1.9l-1-2.8H6l-1 2.8H3.1L7.1 2zm-.5 6.2h2.8L8 4.4 6.6 8.2z"/></svg><span class="akari-caption-tool-tip">文字・縁取り・座布団の色</span></button>
+            <span class="akari-caption-tool-separator" data-caption-optional-separator></span>
+            <button type="button" data-caption-tool="bold" hidden aria-label="太字">B<span class="akari-caption-tool-tip">太字のオン・オフ</span></button>
+            <button type="button" data-caption-tool="color" hidden aria-label="色"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M7.1 2h1.8l4 10.5h-1.9l-1 2.8H6l-1 2.8H3.1L7.1 2zm-.5 6.2h2.8L8 4.4 6.6 8.2z"/></svg><span class="akari-caption-tool-tip">文字・縁取り・座布団の色</span></button>
             <button type="button" data-caption-tool="bigger" data-akari-run-tool="bigger" hidden aria-label="大きく"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M20 5v8m-4-4h8"/></svg><span class="akari-caption-tool-tip">選択文字を大きく</span></button>
             <button type="button" data-caption-tool="smaller" data-akari-run-tool="smaller" hidden aria-label="小さく"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19 11 5l7 14M6.5 14h9M17 9h7"/></svg><span class="akari-caption-tool-tip">選択文字を小さく</span></button>
             <button type="button" data-caption-tool="up" data-akari-run-tool="up" hidden aria-label="上へ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V4m-6 6 6-6 6 6M4 21h16"/></svg><span class="akari-caption-tool-tip">選択文字を上へ</span></button>
@@ -8253,11 +8256,10 @@ ${previewSelectionHandlesStyle}
             <button type="button" data-caption-tool="spacing-run" data-akari-run-tool="spacing" hidden aria-label="字間"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5v14m16-14v14M7 12h10m-7-3-3 3 3 3m4-6 3 3-3 3"/></svg><span class="akari-caption-tool-tip">選択文字の字間を広げる</span></button>
             <button type="button" data-caption-tool="run-style" data-akari-run-tool="style" hidden aria-label="スタイル"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/></svg><span class="akari-caption-tool-tip">選択文字にスタイルを当てる</span></button>
             <button type="button" data-caption-tool="run-role" data-akari-run-tool="role" hidden aria-label="役割"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14v16H5zM8 9h8m-8 4h6"/></svg><span class="akari-caption-tool-tip">選択文字の役割</span></button>
-            <button type="button" data-caption-tool="cushion" aria-label="座布団"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="3" fill="currentColor" fill-opacity=".25"/><path d="M8 12h8"/></svg><span class="akari-caption-tool-tip">座布団を敷く・外す</span></button>
-            <span class="akari-caption-tool-separator"></span>
+            <button type="button" data-caption-tool="cushion" hidden aria-label="座布団"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="3" fill="currentColor" fill-opacity=".25"/><path d="M8 12h8"/></svg><span class="akari-caption-tool-tip">座布団を敷く・外す</span></button>
             <button type="button" data-caption-tool="reset" aria-label="既定に戻す" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3.5 6.5A5 5 0 1 1 3 9M3 3v3.5h3.5"/></svg><span class="akari-caption-tool-tip">位置と大きさを既定に戻す</span></button>
-            <button type="button" data-caption-tool="inspector" aria-label="インスペクターを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="akari-caption-tool-tip">インスペクターを開く</span></button>
-            <button type="button" data-caption-tool="my-style-save" data-akari-my-style-preview-save aria-label="マイスタイルに保存"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v3h16v-3"/></svg><span class="akari-caption-tool-tip">マイスタイルに保存</span></button>
+            <button type="button" data-caption-tool="inspector" hidden aria-label="インスペクターを開く"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="akari-caption-tool-tip">インスペクターを開く</span></button>
+            <button type="button" data-caption-tool="my-style-save" hidden data-akari-my-style-preview-save aria-label="マイスタイルに保存"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4"/><path d="M4 17v3h16v-3"/></svg><span class="akari-caption-tool-tip">マイスタイルに保存</span></button>
           </div><div data-akari-run-menu hidden></div><div data-caption-palette hidden><div class="akari-caption-palette-tabs"><button type="button" data-palette-tab="text" class="on">文字</button><button type="button" data-palette-tab="stroke">縁取り</button><button type="button" data-palette-tab="background">座布団</button></div><div class="akari-caption-palette-grid" data-palette-colors></div><div class="akari-caption-palette-label">最近使った色</div><div class="akari-caption-palette-grid" data-palette-recent></div><button type="button" data-palette-more>他の色…</button></div></div>
           <canvas id="pen-layer" aria-hidden="true"></canvas>
         </div>
@@ -8544,7 +8546,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const neutralizePressureObserver = (${neutralizePressureObserver.toString()});
             const createPreviewInitTrace = (${createPreviewInitTrace.toString()});
             const recordPreviewDiagnosticEvent = (${recordPreviewDiagnosticEvent.toString()});
-            const markPreviewInitStage = (${markPreviewInitStage.toString()});
+            const markPreviewInitStage = (${markPreviewInitStage.toString().replaceAll(
+                `${recordPreviewDiagnosticEvent.name}(`, 'recordPreviewDiagnosticEvent(')});
             const summarizePreviewInit = (${summarizePreviewInit.toString()});
             const formatPreviewInitReport = (${formatPreviewInitReport.toString()});
             const describeKeyEventConversionFailure = (${describeKeyEventConversionFailure.toString()});
