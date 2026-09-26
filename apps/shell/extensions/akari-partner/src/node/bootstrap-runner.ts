@@ -1155,6 +1155,10 @@ export function bootstrapRunner(candidatePaths: typeof import('./partner-cli-can
         // run() は stderr を既にストリーム出力している。ここでは curl の進捗や ANSI 制御を
         // 二重表示せず、診断に必要な最後の非空行だけを残す。
         const lines = errorMessage(error)
+            // ANSI エスケープの除去は制御文字（ESC = U+001B）そのものを対象にするのが目的なので、
+            // no-control-regex はここでは正しく働かない。`\u001b` と書いても規則はエスケープの
+            // 表記ではなく文字コードを見るため、書き換えでは回避できない。
+            // eslint-disable-next-line no-control-regex
             .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
             .split(/[\r\n]+/)
             .map(line => line.trim())
