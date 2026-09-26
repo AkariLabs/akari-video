@@ -3,7 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { installPreviewFrameCapture } from '../lib/common/preview-frame-controller.js';
+import { installPreviewFrameCapture, PreviewFrameCapturePending } from '../lib/common/preview-frame-controller.js';
 
 function renderer({ clipped = false, broken = false, ready, moving = 0, nodes = [], plate = null, play = null } = {}) {
     const sent = [], raf = [], timers = new Map(), classes = new Set();
@@ -45,6 +45,7 @@ test('capture waits two frames after class changes, uses post-fit geometry, and 
     r.click(); r.click();
     assert.equal(r.sent.length, 1);
     assert.equal(r.sent[0].type, 'akari-preview-capture-frame');
+    assert.equal('startToken' in r.sent[0], false);
     await r.message({ type: 'akari-preview-capture-prepare', requestId: 'stale', pageId: 'page-1' });
     assert.equal(r.raf.length, 0);
     const prepared = r.message(r.command('akari-preview-capture-prepare'));
@@ -69,6 +70,71 @@ test('capture waits two frames after class changes, uses post-fit geometry, and 
     assert.equal(r.button.disabled, false);
     assert.equal(r.timers.size, 0);
     assert.deepEqual(r.counts(), { resumeCalls: 1, freezeCalls: 1 });
+});
+
+test('external start freezes the same frame, prepares, saves, and restores with its token', async () => {
+    const r = renderer();
+    const widget = {};
+    const pending = new PreviewFrameCapturePending();
+    const saved = pending.begin('token-1', widget, 'page-1');
+    await r.message({ type: 'akari-preview-capture-start', pageId: 'page-1', token: 'token-1' });
+    assert.equal(r.counts().freezeCalls, 1);
+    assert.equal(r.button.disabled, true);
+    assert.equal(r.sent[0].type, 'akari-preview-capture-frame');
+    assert.equal(r.sent[0].startToken, 'token-1');
+    assert.equal(pending.take(r.sent[0].startToken, widget, r.sent[0].pageId), true);
+    const preparation = r.message({ type: 'akari-preview-capture-prepare', requestId: r.sent[0].requestId, pageId: 'page-1' });
+    await Promise.resolve();
+    assert(r.classes.has('akari-gen-capturing'));
+    r.raf.shift()(); await Promise.resolve();
+    r.raf.shift()(); await preparation;
+    assert.equal(r.sent[1].type, 'akari-preview-capture-ready');
+    assert.equal(r.sent[1].time, 12.345);
+    const savePreviewFrame = async () => ({ path: 'assets/captures/frame-00m12s345.png' });
+    const result = await savePreviewFrame(r.sent[1]);
+    pending.resolve('token-1', widget, 'page-1', result.path);
+    assert.equal(await saved, result.path);
+    await r.message({ type: 'akari-preview-capture-restore', requestId: r.sent[0].requestId, pageId: 'page-1', success: true });
+    assert.equal(r.sent[2].type, 'akari-preview-capture-restored');
+    assert.deepEqual(r.counts(), { resumeCalls: 1, freezeCalls: 1 });
+    assert.equal(r.button.disabled, false);
+    assert(r.buttonClasses.has('akari-gen-capture-flash'));
+});
+
+test('external start reports busy without a second freeze, and ignores another page', async () => {
+    const r = renderer();
+    await r.message({ type: 'akari-preview-capture-start', pageId: 'other-page', token: 'wrong' });
+    assert.equal(r.sent.length, 0);
+    r.click();
+    await r.message({ type: 'akari-preview-capture-start', pageId: 'page-1', token: 'second' });
+    assert.deepEqual(r.counts(), { resumeCalls: 0, freezeCalls: 1 });
+    assert.equal(r.sent.filter(message => message.type === 'akari-preview-capture-frame').length, 1);
+    assert.equal('startToken' in r.sent[0], false);
+    assert.deepEqual(JSON.parse(JSON.stringify(r.sent[1])),
+        { type: 'akari-preview-capture-busy', pageId: 'page-1', token: 'second' });
+    await r.message(r.command('akari-preview-capture-restore'));
+});
+
+test('pending capture accepts only its widget and page, rejects busy and timeout', async () => {
+    const pending = new PreviewFrameCapturePending();
+    const widget = {}, other = {};
+    const saved = pending.begin('save', widget, 'page-1');
+    assert.equal(pending.take('save', other, 'page-1'), false);
+    assert.equal(pending.take('save', widget, 'other-page'), false);
+    assert.equal(pending.take('save', widget, 'page-1'), true);
+    pending.resolve('save', widget, 'page-1', 'assets/captures/frame.png');
+    assert.equal(await saved, 'assets/captures/frame.png');
+    const busy = pending.begin('busy', widget, 'page-1');
+    pending.reject('busy', widget, 'page-1', new Error('前のコマを保存中です'));
+    await assert.rejects(busy, /前のコマを保存中です/u);
+    const originalTimeout = globalThis.setTimeout;
+    let fireTimeout;
+    globalThis.setTimeout = fn => { fireTimeout = fn; return 1; };
+    try {
+        const timed = pending.begin('timeout', widget, 'page-1');
+        fireTimeout();
+        await assert.rejects(timed, /タイムアウト/u);
+    } finally { globalThis.setTimeout = originalTimeout; }
 });
 
 test('ready resolves before capture CSS, then two browser frames pass before capture; failure never captures', async () => {

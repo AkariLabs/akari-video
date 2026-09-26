@@ -73,6 +73,7 @@ export function doneStillMeta({ prompt, duration_s, at, asOf, path, image, elaps
   const meta = baseMeta({ status: "done", prompt, duration_s, at, asOf });
   meta.output.resolution = `${image.width}x${image.height}`;
   meta.inputs.reference_images = references.map(({ path: referencePath, sha256 }) => ({ path: referencePath, sha256 }));
+  if (croppedFrom) meta.output.cropped_from = croppedFrom;
   if (croppedFrom) meta.history[0].reason = `切りそろえ: cropped_from=${croppedFrom} → ${image.width}x${image.height}${aspect ? `（${aspect}）` : ""}`;
   meta.result = {
     path,

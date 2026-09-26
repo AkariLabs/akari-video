@@ -113,7 +113,7 @@ function validateInputs(value, path, fail, draft = false) {
 
 function validateOutput(value, path, fail) {
   if (!validateObject(value, path, fail)) return;
-  rejectUnknown(value, ["duration_s", "resolution", "aspect", "audio_out"], path, fail);
+  rejectUnknown(value, ["duration_s", "resolution", "aspect", "audio_out", "cropped_from"], path, fail);
   requireKeys(value, ["duration_s"], path, fail);
   if (hasOwn(value, "duration_s")) validateNumber(value.duration_s, `${path}/duration_s`, fail, { exclusiveMinimum: 0 });
   for (const key of ["resolution", "aspect"]) {
@@ -121,6 +121,10 @@ function validateOutput(value, path, fail) {
   }
   if (hasOwn(value, "audio_out") && value.audio_out !== null && typeof value.audio_out !== "boolean") {
     fail(`${path}/audio_out は boolean または null である必要があります`);
+  }
+  if (hasOwn(value, "cropped_from") && (typeof value.cropped_from !== "string"
+    || !/^[1-9][0-9]*x[1-9][0-9]*$/u.test(value.cropped_from))) {
+    fail(`${path}/cropped_from は <w>x<h> 形式である必要があります`);
   }
 }
 

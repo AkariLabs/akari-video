@@ -1,5 +1,51 @@
 import type { PreviewFrameColor, PreviewFrameExpectations } from './preview-frame-check';
 
+/** Tracks a host-initiated capture until the webview starts it and the PNG is saved. */
+export class PreviewFrameCapturePending<Widget> {
+    private readonly entries = new Map<string, {
+        widget: Widget; pageId: string; started: boolean; timer: ReturnType<typeof setTimeout>;
+        resolve: (path: string) => void; reject: (error: Error) => void;
+    }>();
+
+    begin(token: string, widget: Widget, pageId: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => this.reject(token, widget, pageId,
+                new Error('コマの撮影開始がタイムアウトしました')), 5000);
+            this.entries.set(token, { widget, pageId, started: false, timer, resolve, reject });
+        });
+    }
+
+    take(token: string, widget: Widget, pageId: string): boolean {
+        const entry = this.match(token, widget, pageId);
+        if (!entry || entry.started) return false;
+        entry.started = true;
+        clearTimeout(entry.timer);
+        return true;
+    }
+
+    resolve(token: string, widget: Widget, pageId: string, path: string | undefined): void {
+        const entry = this.match(token, widget, pageId);
+        if (!entry || !entry.started) return;
+        this.entries.delete(token);
+        clearTimeout(entry.timer);
+        if (path) entry.resolve(path);
+        else entry.reject(new Error('コマを保存できませんでした'));
+    }
+
+    reject(token: string, widget: Widget, pageId: string, error: Error): void {
+        const entry = this.match(token, widget, pageId);
+        if (!entry) return;
+        this.entries.delete(token);
+        clearTimeout(entry.timer);
+        entry.reject(error);
+    }
+
+    private match(token: string, widget: Widget, pageId: string) {
+        const entry = this.entries.get(token);
+        return entry?.widget === widget && entry.pageId === pageId ? entry : undefined;
+    }
+}
+
 /** Serialized into the preview. Keep self-contained; no preferences or generation overlay state are changed. */
 export function installPreviewFrameCapture(environment: {
     pageId: string;
@@ -38,19 +84,28 @@ export function installPreviewFrameCapture(environment: {
         }
         environment.send({ type: 'akari-preview-capture-restored', requestId: saved.id, pageId: environment.pageId });
     };
-    button.addEventListener('click', () => {
-        if (active) return;
+    const start = (token?: string): void => {
+        if (active) {
+            if (token !== undefined) environment.send({ type: 'akari-preview-capture-busy', pageId: environment.pageId, token });
+            return;
+        }
         const frozen = environment.freeze();
         // Host preparation may arrive on a later task; attach rejection handling immediately.
         void frozen.ready?.catch(() => undefined);
         const id = environment.pageId + ':capture:' + (++sequence);
         active = { id, ...frozen, timer: setTimeout(() => restore(), 30000) };
         button.disabled = true;
-        environment.send({ type: 'akari-preview-capture-frame', requestId: id, pageId: environment.pageId });
-    });
+        environment.send({ type: 'akari-preview-capture-frame', requestId: id, pageId: environment.pageId,
+            ...(token === undefined ? {} : { startToken: token }) });
+    };
+    button.addEventListener('click', () => start());
     window.addEventListener('pagehide', () => restore());
     window.addEventListener('message', async event => {
         const message = event.data;
+        if (message?.type === 'akari-preview-capture-start') {
+            if (message.pageId === environment.pageId && typeof message.token === 'string') start(message.token);
+            return;
+        }
         if (!active || message?.requestId !== active.id || message.pageId !== environment.pageId) return;
         if (message.type === 'akari-preview-capture-restore') { restore(message.keepFrozen === true, message.success === true); return; }
         if (message.type !== 'akari-preview-capture-prepare' || preparing) return;

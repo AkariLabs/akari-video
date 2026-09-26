@@ -14,7 +14,7 @@ import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { captionRunRows } from './inspector/caption-run-rows';
-import { ApplicationShell, BaseWidget, FrontendApplicationContribution } from '@theia/core/lib/browser';
+import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
 import { WidgetManager } from '@theia/core/lib/browser/widget-manager';
 import { ConfirmDialog } from '@theia/core/lib/browser/dialogs';
 import { PreferenceService } from '@theia/core/lib/common/preferences';
@@ -6381,28 +6381,15 @@ export class AkariInspectorWidget extends BaseWidget {
             const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
             if (Number.isFinite(playhead) && playhead >= 0) await this.commandRegistry.executeCommand('akari.preview.seekOutput',
                 { editUri: editUri.toString(), time: playhead, waitForReady: true });
-            const widget = this.stillWidgetManager.getWidgets('plugin-webview').find(candidate => {
-                const preview = candidate as typeof candidate & { akariPreviewEditUri?: URI; akariPreviewPlaybackPageId?: string };
-                return !candidate.isDisposed && preview.akariPreviewEditUri?.toString() === editUri.toString()
-                    && !!preview.akariPreviewPlaybackPageId;
-            }) as unknown as { akariPreviewPlaybackPageId: string } | undefined;
-            if (!widget) throw new Error('出力プレビューを開いてください。');
-            const captures = root.resolve('assets/captures');
-            const names = async (): Promise<string[]> => this.fileService.resolve(captures).then(node =>
-                (node.children ?? []).map(child => child.resource.path.base), () => []);
-            const before = new Set(await names());
-            const container = (window as Window & { theia?: { container?: Container } }).theia?.container;
-            if (!container) throw new Error('プレビューの撮影機能が見つかりません。');
-            const handler = container.getAll(FrontendApplicationContribution).find(candidate =>
-                (candidate as { id?: string }).id === 'akari-preview-open-handler') as { capturePreviewFrame?: (widget: unknown,
-                request: { type: 'akari-preview-capture-frame'; requestId: string; pageId: string }) => Promise<void> } | undefined;
-            if (!handler?.capturePreviewFrame) throw new Error('プレビューの撮影機能が見つかりません。');
-            await handler.capturePreviewFrame(widget, { type: 'akari-preview-capture-frame',
-                    requestId: `still-ref-${Date.now()}`, pageId: widget.akariPreviewPlaybackPageId });
-            const saved = (await names()).find(name => !before.has(name) && /\.png$/iu.test(name));
-            if (!saved) throw new Error('コマを保存できませんでした。');
-            await this.addStillReference(key, `assets/captures/${saved}`);
-        } catch (error) { state.error = error instanceof Error ? error.message : String(error); this.render(); }
+            const saved = await this.commandRegistry.executeCommand<{ path: string }>(
+                'akari.preview.captureFrame', { editUri: editUri.toString() });
+            if (!saved?.path) throw new Error('コマを保存できませんでした。');
+            await this.addStillReference(key, saved.path);
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            state.error = reason.startsWith('コマを保存できませんでした') ? reason : `コマを保存できませんでした: ${reason}`;
+            this.render();
+        }
     }
 
     protected async setEmptyFrameAspect(identity: { key: string; itemId: string; sourcePath: string }, aspect: StillAspect): Promise<void> {

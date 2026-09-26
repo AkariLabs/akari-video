@@ -206,7 +206,7 @@ test('切りそろえオンはフィルタと cropped_from を記録し、オフ
     assert.deepEqual([on.width, on.height], [51, 90]);
     assert.deepEqual(filters, ['crop=51:90:54:0']);
     const meta = JSON.parse(await readFile(join(dir, `${on.relativePath}.meta.json`), 'utf8'));
-    assert.equal('cropped_from' in meta.output, false);
+    assert.equal(meta.output.cropped_from, '160x90');
     assert.match(meta.history.find(entry => entry.status === 'done').reason, /cropped_from=160x90 → 51x90（9:16）/u);
     assert.deepEqual(validateGenerationMeta(meta), { ok: true, errors: [] });
     assertCanonicalMeta(join(dir, `${on.relativePath}.meta.json`));
@@ -231,7 +231,7 @@ test('1254x1254 の切りそろえ理由は正典スキーマ内に記録され�
       croppedFrom: '1254x1254', aspect: '9:16' });
     assert.match(meta.history.find(entry => entry.status === 'done').reason,
       /cropped_from=1254x1254 → 705x1254（9:16）/u);
-    assert.equal('cropped_from' in meta.output, false);
+    assert.equal(meta.output.cropped_from, '1254x1254');
     const path = join(dir, 'still.png.meta.json');
     await writeFile(path, JSON.stringify(meta));
     assertCanonicalMeta(path);

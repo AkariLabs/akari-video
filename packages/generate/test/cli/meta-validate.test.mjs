@@ -90,6 +90,16 @@ test("planned audio is valid; unknown kind remains invalid", async () => {
   assert.equal(validateGenerationMeta(planned).ok, false);
 });
 
+test("output.cropped_from accepts original dimensions and rejects malformed values", async () => {
+  const still = JSON.parse(await readFile(path.join(FIXTURES, "still.json"), "utf8"));
+  still.output.cropped_from = "1254x1254";
+  assert.deepEqual(validateGenerationMeta(still), { ok: true, errors: [] });
+  still.output.cropped_from = "abc";
+  const invalid = validateGenerationMeta(still);
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.errors.join("\n"), /cropped_from/u);
+});
+
 test("静止画・音の空の枠は request_id なしの generating を受理する", async () => {
   const planned = JSON.parse(await readFile(path.join(FIXTURES, "planned.json"), "utf8"));
   for (const kind of ["still", "audio"]) {

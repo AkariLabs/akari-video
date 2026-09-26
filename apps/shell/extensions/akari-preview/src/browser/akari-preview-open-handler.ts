@@ -13,7 +13,7 @@ import { composePreviewTransforms, previewTransformAxes } from '../common/previe
 import { canvasCaptionZPlan } from '../common/canvas-caption-z';
 import { canvasDropTargets } from '../common/canvas-drop-target';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
-import { installPreviewFrameCapture } from '../common/preview-frame-controller';
+import { installPreviewFrameCapture, PreviewFrameCapturePending } from '../common/preview-frame-controller';
 import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
 import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
 import { requestReadyPreviewSeek, createReadySeekResponder } from '../common/preview-ready-seek';
@@ -1160,6 +1160,7 @@ const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
 // label なし = コマンドパレット非表示（ATTACH_AKARI_ANNOTATIONS_PASSIVE と同じパターン）。
 const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisible' };
 const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
+const CAPTURE_OUTPUT_PREVIEW_FRAME_COMMAND: Command = { id: 'akari.preview.captureFrame' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
 const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
 const ANNOTATE_PREVIEW_AT_POINT_COMMAND: Command = { id: 'akari.preview.annotateAtPoint' };
@@ -1368,6 +1369,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly previewGestureGuards = new WeakMap<PreviewWidgetMarker, PreviewGestureGuard>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
+    protected readonly pendingFrameCaptures = new PreviewFrameCapturePending<PreviewWidgetMarker>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
@@ -1637,6 +1639,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerSeekHandler();
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
+        this.lifecycleDisposables.push(this.commandRegistry.registerCommand(CAPTURE_OUTPUT_PREVIEW_FRAME_COMMAND, {
+            execute: async (request?: { editUri: string }): Promise<{ path: string }> => {
+                if (!request?.editUri) throw new Error('出力プレビューを開いてください');
+                const widget = this.openOutputPreviews.get(new URI(request.editUri).normalizePath().toString());
+                const pageId = widget?.akariPreviewPlaybackPageId;
+                if (!widget || widget.isDisposed || !pageId) throw new Error('出力プレビューを開いてください');
+                const token = globalThis.crypto.randomUUID();
+                const pending = this.pendingFrameCaptures.begin(token, widget, pageId);
+                try {
+                    widget.sendMessage({ type: 'akari-preview-capture-start', pageId, token });
+                } catch (error) {
+                    this.pendingFrameCaptures.reject(token, widget, pageId,
+                        error instanceof Error ? error : new Error(String(error)));
+                }
+                return { path: await pending };
+            }
+        }));
         this.registerTogglePlaybackCommand();
         this.registerCompactTracksCommand();
         this.registerSetPreviewFullscreenCommand();
@@ -3697,7 +3716,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             if (message?.type === 'akari-preview-capture-frame') {
-                void this.capturePreviewFrame(widget, message);
+                const token = message.startToken;
+                if (token === undefined) void this.capturePreviewFrame(widget, message);
+                else if (typeof token === 'string' && typeof message.pageId === 'string'
+                    && this.pendingFrameCaptures.take(token, widget, message.pageId)) {
+                    void this.capturePreviewFrame(widget, message).then(path =>
+                        this.pendingFrameCaptures.resolve(token, widget, message.pageId, path), error =>
+                        this.pendingFrameCaptures.reject(token, widget, message.pageId,
+                            error instanceof Error ? error : new Error(String(error))));
+                }
+                return;
+            }
+            if (message?.type === 'akari-preview-capture-busy' && typeof message.token === 'string'
+                && typeof message.pageId === 'string') {
+                this.pendingFrameCaptures.reject(message.token, widget, message.pageId,
+                    new Error('前のコマを保存中です'));
                 return;
             }
             if (message?.type === 'akari-preview-expand-bag' && kind === 'output'
@@ -8635,7 +8668,7 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     /** Pair messages by page and request, including restoration before the slower node write. */
-    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<void> {
+    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<string | undefined> {
         const pageId = widget.akariPreviewPlaybackPageId;
         if (request.pageId !== pageId || typeof request.requestId !== 'string') return;
         const send = (type: PreviewFrameCommand['type'], options: { keepFrozen?: boolean; success?: boolean } = {}): void => {
@@ -8651,6 +8684,7 @@ body { display: grid; place-items: center; padding: 32px; }
         let timer: ReturnType<typeof setTimeout> | undefined;
         let captureId: number | undefined;
         let success = false;
+        let savedPath: string | undefined;
         try {
             const editUri = widget.akariPreviewEditUri;
             if (!editUri || !widget.akariPreviewSummary) throw new Error('出力プレビューでコマを保存してください');
@@ -8731,6 +8765,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 },
                 save: async ({ captured, time }) => {
                     const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image });
+                    savedPath = saved.path;
                     void this.messages.info('コマを保存しました: ' + saved.path, { timeout: 3000 });
                     if (captured.reduced) void this.messages.info(
                         '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
@@ -8746,6 +8781,7 @@ body { display: grid; place-items: center; padding: 32px; }
             widget.akariPreviewFrameCaptureRequest = undefined;
             send('akari-preview-capture-restore', { success });
         }
+        return savedPath;
     }
 
     /**
