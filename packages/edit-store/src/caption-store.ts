@@ -75,6 +75,9 @@ export interface CaptionTextStyle {
     weight?: number;
     italic?: boolean;
     underline?: boolean;
+    strikethrough?: boolean;
+    list?: 'bullet' | null;
+    opacity?: number;
     letterSpacingEm?: number;
     lineHeight?: number;
     align?: CaptionAlign;
@@ -1267,7 +1270,7 @@ function isFiniteInRange(value: unknown, min: number, max: number): value is num
 // captions.schema.json の $defs/textStyle が受理する全プロパティ名（2026-08-10 拡張）。
 // これ以外のキーは「未知」として個別に無視する（行やスタイル全体は破棄しない）。
 const TEXT_STYLE_KEYS = new Set([
-    'color', 'size_px', 'reference_height_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline',
+    'color', 'size_px', 'reference_height_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline', 'strikethrough', 'list', 'opacity',
     'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
     'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor', 'position', 'scale', 'rotate', 'shadow', 'glow',
     'animation', 'stroke', 'background', 'zone', 'layout'
@@ -1317,6 +1320,9 @@ function normalizeTextStyle(
     if (typeof value.underline === 'boolean') {
         style.underline = value.underline;
     }
+    if (typeof value.strikethrough === 'boolean') style.strikethrough = value.strikethrough;
+    if (value.list === 'bullet' || value.list === null) style.list = value.list;
+    if (isFiniteNumber(value.opacity) && value.opacity >= 0 && value.opacity <= 1) style.opacity = value.opacity;
     if (isFiniteNumber(value.letter_spacing_em)) {
         style.letterSpacingEm = value.letter_spacing_em;
     }
@@ -1563,6 +1569,9 @@ function textStyleToJson(style: CaptionTextStyle): Record<string, unknown> {
         ...(style.weight !== undefined ? { weight: style.weight } : {}),
         ...(style.italic !== undefined ? { italic: style.italic } : {}),
         ...(style.underline !== undefined ? { underline: style.underline } : {}),
+        ...(style.strikethrough !== undefined ? { strikethrough: style.strikethrough } : {}),
+        ...(style.list !== undefined ? { list: style.list } : {}),
+        ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
         ...(style.letterSpacingEm !== undefined ? { letter_spacing_em: style.letterSpacingEm } : {}),
         ...(style.lineHeight !== undefined ? { line_height: style.lineHeight } : {}),
         ...(style.align !== undefined ? { align: style.align } : {}),

@@ -1,0 +1,240 @@
+{
+  "label": "before",
+  "port": 9632,
+  "project": "landscape",
+  "aspect": "landscape",
+  "theme": "dark",
+  "pid": 8370,
+  "timelineOpen": {
+    "ok": false,
+    "error": "Error: CDP Runtime.evaluate timed out"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "編集パネル"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "編集パネル"
+  ],
+  "mounted": 1,
+  "results": {
+    "bar": {
+      "picked": {
+        "cx": 188.7191925048828,
+        "cy": 225.61337280273438
+      },
+      "bar": {
+        "rect": {
+          "left": 229.9,
+          "top": 47,
+          "width": 388,
+          "height": 72
+        },
+        "items": [
+          {
+            "key": "captionPreset",
+            "label": "字幕のスタイル",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionCushion",
+            "label": "座布団",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionTextColor",
+            "label": "文字の色",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionStrokeColor",
+            "label": "縁取りの色",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionBold",
+            "label": "太字",
+            "disabled": false,
+            "pressed": null
+          },
+          {
+            "key": "captionFont",
+            "label": "フォント",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionSize",
+            "label": "大きさ",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionSpacing",
+            "label": "行間・字間",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionStroke",
+            "label": "縁取り",
+            "disabled": false,
+            "pressed": "false"
+          },
+          {
+            "key": "captionMore",
+            "label": "その他",
+            "disabled": false,
+            "pressed": "false"
+          }
+        ],
+        "bg": "rgb(20, 20, 20)",
+        "radius": "12px"
+      },
+      "window": null,
+      "rows": null,
+      "barShot": "before-landscape-bar.png",
+      "previewShot": "before-landscape-caption-selected.png",
+      "windowShot": "before-landscape-caption-selected-window.png"
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "before-landscape-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -520,
+              "y": -260,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1300,
+              "y": 150
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Nxc (<file>)\n    at async P3n.reloadResolvedCaptionDisplay (<file>)\n    at async Lxc (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

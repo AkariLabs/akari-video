@@ -1,0 +1,118 @@
+{
+  "label": "after-vertical",
+  "engines": {
+    "osr": {
+      "status": 0,
+      "seconds": 7.9,
+      "tail": [
+        "PROGRESS frame=120 total=120",
+        "PROGRESS timing name=encoder_flush ms=84",
+        "PROGRESS timing name=osr_ffprobe ms=146",
+        "PROGRESS timing name=window_destroy ms=7",
+        "PROGRESS timing name=child_run_json ms=5",
+        "PROGRESS timing name=window_destroy_to_exit ms=6",
+        "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+        "PASS: exports/osr.mp4"
+      ],
+      "provenance": {
+        "engine": "osr",
+        "osrTier": 2,
+        "gpuTier": null,
+        "keys": [
+          "audio",
+          "sources",
+          "proxy_used",
+          "render_tmp_dir",
+          "rasterizer",
+          "environment",
+          "engine_requested",
+          "engine",
+          "codec",
+          "osr"
+        ]
+      },
+      "frames": [
+        {
+          "id": "c-0201",
+          "t": 0.5,
+          "file": "after-vertical-osr-c-0201.png"
+        },
+        {
+          "id": "c-0202",
+          "t": 1.5,
+          "file": "after-vertical-osr-c-0202.png"
+        },
+        {
+          "id": "c-0203",
+          "t": 2.5,
+          "file": "after-vertical-osr-c-0203.png"
+        },
+        {
+          "id": "c-0204",
+          "t": 3.5,
+          "file": "after-vertical-osr-c-0204.png"
+        }
+      ]
+    },
+    "gpu": {
+      "status": 0,
+      "seconds": 3.8,
+      "tail": [
+        "PROGRESS preview=60 path=<path>",
+        "PROGRESS frame=90 total=120",
+        "PROGRESS preview=90 path=<path>",
+        "PROGRESS frame=120 total=120",
+        "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）",
+        "PASS: exports/gpu.mp4",
+        "[OpenH264] this = 0x0x114050208a0, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.",
+        "sysctlbyname for kern.hv_vmm_present failed with status -1"
+      ],
+      "provenance": {
+        "engine": "gpu",
+        "osrTier": null,
+        "gpuTier": 2,
+        "keys": [
+          "audio",
+          "sources",
+          "proxy_used",
+          "render_tmp_dir",
+          "rasterizer",
+          "environment",
+          "engine_requested",
+          "engine",
+          "codec",
+          "gpu"
+        ]
+      },
+      "frames": [
+        {
+          "id": "c-0201",
+          "t": 0.5,
+          "file": "after-vertical-gpu-c-0201.png"
+        },
+        {
+          "id": "c-0202",
+          "t": 1.5,
+          "file": "after-vertical-gpu-c-0202.png"
+        },
+        {
+          "id": "c-0203",
+          "t": 2.5,
+          "file": "after-vertical-gpu-c-0203.png"
+        },
+        {
+          "id": "c-0204",
+          "t": 3.5,
+          "file": "after-vertical-gpu-c-0204.png"
+        }
+      ]
+    }
+  },
+  "lint": {
+    "status": 0,
+    "tail": [
+      "PASS: <path> (1 findings, 5 skipped)",
+      "- [warning] geometry.fit-compat: fit 互換モードで描画中。`normalize-geometry` で実寸基準へ移行できます (edit.json#output.geometry)"
+    ]
+  }
+}
