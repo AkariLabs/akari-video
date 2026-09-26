@@ -45,7 +45,6 @@ test('price が null の行に em dash が出る', () => {
   const nullPriceIds = catalog.models.filter((model) => model.price === null).map((model) => model.id);
   assert.deepEqual(nullPriceIds, [
     'fal:kling-v3-standard-i2v',
-    'fal:seedance-2.5-i2v',
     'fal:grok-imagine-i2v',
     'fal:vidu-q3-i2v',
     'codex:image',
