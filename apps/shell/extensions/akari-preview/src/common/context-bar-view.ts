@@ -3,8 +3,9 @@
  * 状態（選んだ item・種類）は akari-annotations が `akari.contextBar.state` で配る（拡張をまたぐので型は複製）。
  * 値の正本は edit.json（タイムラインの文書）で、ここは表示用に読むだけ。
  */
+import { captionBarItems } from './caption-context-bar';
 
-export type ContextBarKind = 'shape' | 'line' | 'photo' | 'text' | 'canvas' | 'other';
+export type ContextBarKind = 'shape' | 'line' | 'photo' | 'text' | 'caption' | 'canvas' | 'other';
 
 export interface ContextBarState {
     editUri: string;
@@ -106,6 +107,7 @@ function params(state: ContextBarState): Record<string, any> {
 /** 選んだものの種類で変わる、上のバーの項目。 */
 export function barItems(state: ContextBarState): BarItem[] {
     if (!state.selectedId || !state.kind) return [];
+    if (state.kind === 'caption') return captionBarItems(state);
     const p = params(state);
     const common = (withStyle = false): BarItem[] => [
         { key: 'opacity', label: '不透明度', kind: 'window' },

@@ -7,6 +7,7 @@ import {
     resizeShapeTo, serializeItemClipboard, setCornerRadius, setItemLocked, StyleClip, styleClipOf, swapLineEnds
 } from '../common/context-bar-edit';
 import type { EditV2Document } from '../common/edit-v2-mutations';
+import { runCaptionStyleWrite } from '../common/caption-context-edit';
 import type { AkariAnnotationsWidget } from './akari-annotations-widget';
 import type { TimelineSelectionModel } from './timeline-selection-model';
 
@@ -38,6 +39,7 @@ export interface ContextBarSource {
     fps: number;
     playhead: number;
     sourcePath(id: string): string | undefined;
+    caption?: { id: string; textStyle: object };
 }
 
 export interface ContextBarState {
@@ -69,6 +71,7 @@ export interface ContextBarRequest {
     width?: number;
     height?: number;
     keepRatio?: boolean;
+    field?: string;
 }
 
 export interface ContextBarDeps {
@@ -134,13 +137,15 @@ export class ContextBarController implements Disposable {
         if (!source) return undefined;
         const place = source.selectedId && source.multi === 0 ? findItemPlace(source.doc, source.selectedId) : undefined;
         const item = place?.item;
+        const caption = source.multi === 0 ? source.caption : undefined;
         const src = item?.source && typeof item.source.src === 'string' ? source.sourcePath(item.source.src) : undefined;
         const output = (source.doc.output ?? {}) as { width?: number; height?: number };
         return {
             editUri: source.editUri,
-            selectedId: place ? String(item!.id) : null,
-            kind: place ? contextBarKind(item, src) : null,
-            item: item ? JSON.parse(JSON.stringify(item)) : null,
+            selectedId: caption?.id ?? (place ? String(item!.id) : null),
+            kind: caption ? 'caption' : place ? contextBarKind(item, src) : null,
+            item: caption ? { textStyle: JSON.parse(JSON.stringify(caption.textStyle ?? {})) }
+                : item ? JSON.parse(JSON.stringify(item)) : null,
             sourcePath: src ?? null,
             parentId: place?.parent ? String(place.parent.id) : null,
             locked: item?.locked === true,
@@ -210,7 +215,7 @@ export class ContextBarController implements Disposable {
         const widget = this.deps.widget();
         if (!source || !widget) return { ok: false, message: 'タイムラインを開いてください。' };
         if (request.editUri && request.editUri !== source.editUri) return { ok: false, message: '別のプロジェクトです。' };
-        const id = request.id ?? source.selectedId;
+        const id = request.id ?? source.caption?.id ?? source.selectedId;
         const guardLocked = (): Result | undefined => id && isItemLocked(source.doc, id)
             ? { ok: false, message: 'ロック中です。鍵を押すと外せます。' } : undefined;
         try {
@@ -223,6 +228,24 @@ export class ContextBarController implements Disposable {
                     if (!WRITABLE_PATH.test(request.path)) return { ok: false, message: `書けない項目です: ${request.path}` };
                     return await write({ kind: 'item-field', id, path: request.path as never, value: request.value as never }) as Result;
                 }
+                case 'captionStyle': {
+                    if (!source.caption || id !== source.caption.id || !request.field) return { ok: false };
+                    const targetIds = this.deps.selectionModel.selectedCaptionIds;
+                    const write = this.deps.selectionModel.requestWrite;
+                    if (!write) return { ok: false };
+                    return await runCaptionStyleWrite(id, request.field, request.value,
+                        targetIds.length > 0 ? targetIds : [id], operation => write(operation as never)) as Result
+                        ?? { ok: false };
+                }
+                case 'captionPreset': {
+                    if (!source.caption || id !== source.caption.id || typeof request.value !== 'string') return { ok: false };
+                    return await widget.applyContextCaptionPreset(id, request.value,
+                        this.deps.selectionModel.selectedCaptionIds);
+                }
+                case 'captionMyStyleSave':
+                    if (!source.caption || id !== source.caption.id) return { ok: false };
+                    window.dispatchEvent(new CustomEvent('akari.mystyle.open-save', { detail: { captionId: id } }));
+                    return { ok: true };
                 case 'radius':
                     return this.commit('角の丸みを変更', doc => setCornerRadius(doc, id!, Number(request.value)));
                 case 'swapEnds':

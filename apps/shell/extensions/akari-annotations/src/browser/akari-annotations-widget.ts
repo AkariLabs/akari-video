@@ -400,6 +400,7 @@ import { objectKeyframeValue } from './timeline/object-keyframe-value';
 import { createAkariNoticeBanner } from './akari-notice-banner';
 import { matchesPreviewZOrderSelection, NudgeCommitSession, planZOrderMove, ZOrderOperation } from './inspector/keyboard-shortcuts';
 import type { ContextBarSource } from './context-bar-controller';
+import { applyCaptionContextPreset, contextCaptionId } from '../common/caption-context-edit';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
 import { validateInspectorPerspective } from './inspector/perspective-fields';
@@ -5438,8 +5439,29 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const selection = this.multiSelection.length === 0 ? this.selection : undefined;
         const selectedId = selection?.kind === 'cut' ? this.cutItemId(selection.index)
             : selection && 'id' in selection && selection.kind !== 'caption' ? selection.id : undefined;
+        const selectedCaptionId = contextCaptionId(selection && 'id' in selection ? selection : undefined,
+            this.selectionModel.snapshot && 'id' in this.selectionModel.snapshot ? this.selectionModel.snapshot : undefined);
+        const caption = selectedCaptionId ? this.captions.find(item => item.id === selectedCaptionId) : undefined;
         return { editUri, doc: this.editDocument, selectedId, multi: this.multiSelection.length, fps: this.fps,
-            playhead: this.playheadT, sourcePath: id => this.sourceMap.get(id)?.path };
+            playhead: this.playheadT, sourcePath: id => this.sourceMap.get(id)?.path,
+            caption: caption ? { id: caption.id, textStyle: mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle) ?? {} } : undefined };
+    }
+
+    async applyContextCaptionPreset(id: string, presetId: string, targetIds: readonly string[]): Promise<{ ok: boolean }> {
+        const location = this.location;
+        if (!location?.captionsUri || !location.editUri) return { ok: false };
+        const captionsUri = location.captionsUri.toString();
+        const projectRootUri = location.root.toString();
+        const editUri = location.editUri.toString();
+        return applyCaptionContextPreset(id, presetId, targetIds, {
+            readSource: async () => (await this.fileService.readFile(location.captionsUri)).value.toString(),
+            setPreset: (ids, value) => this.annotationsService.setCaptionStylePreset({
+                captionsUri, projectRootUri, captionIds: ids, presetId: value }),
+            writeSource: async source => { await this.annotationsService.writeEditSnapshot({
+                editUri, projectRootUri, captionsUri, captionsSource: source }); },
+            recordHistory: entry => this.pushHistory(entry),
+            reload: () => this.reloadCaptions()
+        });
     }
 
     commitContextBarEdit(label: string, mutate: (doc: EditV2Document) => EditV2Document): Promise<void> {

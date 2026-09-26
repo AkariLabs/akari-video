@@ -1,0 +1,438 @@
+{
+  "label": "before",
+  "port": 9578,
+  "project": "c2",
+  "theme": "dark",
+  "pid": 13002,
+  "timelineOpen": {
+    "ok": false,
+    "error": "Error: CDP Runtime.evaluate timed out"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "インスペクター"
+  ],
+  "mounted": 1,
+  "results": {
+    "caption": {
+      "box": {
+        "left": 149.821044921875,
+        "top": 220.4231719970703,
+        "width": 77.79629516601562,
+        "height": 10.380401611328125,
+        "cx": 188.7191925048828,
+        "cy": 225.61337280273438
+      },
+      "shot": "before-01-select-caption.png",
+      "win": "before-01-select-caption-window.png",
+      "chrome": {
+        "bar": null,
+        "menu": null,
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "字幕のメニューの確かめ00:00.0 – 00:05.0 · 字幕字幕のその他の操作マイスタイルに保存…テキスト動き情報時間出力位置00:00:00.000尺5.00 秒内容テキスト話者編集済みはい文字色大きさpx（既定）折り返し幅%太さ普通太字極太行間（既定）字間em（既定）縁取り色太さpx（既定）座布団表示座布団を敷く形行ごとまとめて色不透明度%（既定）余白px（既定）角丸px（既定）角丸を最大にすると文字に沿った丸い座布団（カプセル）になる効果種類AaなしAa影Aa浮き出しAaネオンAa袋文字位置位置タイミングstart00:00:00.000end00:00:05.000尺5.00 秒sourceRef.segment— .akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; } .ak"
+      },
+      "bottom": {
+        "active": true,
+        "rect": {
+          "left": 52.2,
+          "top": 179.9,
+          "width": 273,
+          "height": 36
+        },
+        "all": [
+          "group",
+          "snap",
+          "clamp",
+          "bold",
+          "color",
+          "bigger",
+          "smaller",
+          "up",
+          "down",
+          "rotate-run",
+          "spacing-run",
+          "run-style",
+          "run-role",
+          "cushion",
+          "reset",
+          "inspector",
+          "my-style-save"
+        ],
+        "visible": [
+          {
+            "tool": "group",
+            "label": "全字幕モード",
+            "tip": "この字幕だけ動く — 押すと全字幕をまとめて動かす（⌥ドラッグでも可）",
+            "on": false
+          },
+          {
+            "tool": "snap",
+            "label": "吸着",
+            "tip": "吸着 ON — 近づくと中央・端に吸い付く。⌥ドラッグで一時的に無効",
+            "on": true
+          },
+          {
+            "tool": "clamp",
+            "label": "はみ出し防止",
+            "tip": "はみ出し防止 OFF — ON で画面の内側に押し戻す",
+            "on": false
+          },
+          {
+            "tool": "bold",
+            "label": "太字",
+            "tip": "太字のオン・オフ",
+            "on": false
+          },
+          {
+            "tool": "color",
+            "label": "色",
+            "tip": "文字・縁取り・座布団の色",
+            "on": false
+          },
+          {
+            "tool": "cushion",
+            "label": "座布団",
+            "tip": "座布団 OFF — 形・余白・角丸はインスペクターで",
+            "on": false
+          },
+          {
+            "tool": "inspector",
+            "label": "インスペクターを開く",
+            "tip": "インスペクターを開く",
+            "on": false
+          },
+          {
+            "tool": "my-style-save",
+            "label": "マイスタイルに保存",
+            "tip": "マイスタイルに保存",
+            "on": false
+          }
+        ]
+      }
+    },
+    "shape": {
+      "shot": "before-02-select-shape.png",
+      "chrome": {
+        "bar": null,
+        "menu": null,
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "タイムラインで項目を選択してください。 .akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; } .akari-inspector-ai-group { min-width: 0; } .akari-inspector-widget .akari-inspector-ai-heading { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--akari-muted); } .akari-inspector-ai-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .akari-inspector-w"
+      }
+    },
+    "photo": {
+      "shot": "before-03-select-photo.png",
+      "chrome": {
+        "bar": {
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 388,
+            "height": 104
+          },
+          "items": [
+            {
+              "key": "edit",
+              "label": "編集",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "replace",
+              "label": "置き換え",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "cutout",
+              "label": "背景透過",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "eraser",
+              "label": "消しゴム",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "photoColor",
+              "label": "写真の色",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "border",
+              "label": "枠線",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "photoRadius",
+              "label": "角の丸み",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "crop",
+              "label": "切り抜き",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "flip",
+              "label": "反転",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "opacity",
+              "label": "不透明度",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "anim",
+              "label": "アニメーション",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "arrange",
+              "label": "配置",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "style",
+              "label": "スタイルをコピー",
+              "disabled": false,
+              "pressed": null
+            }
+          ],
+          "bg": "rgb(20, 20, 20)",
+          "radius": "12px"
+        },
+        "menu": {
+          "rect": {
+            "left": 256.2,
+            "top": 210.5,
+            "width": 156,
+            "height": 36
+          },
+          "items": [
+            {
+              "key": "annotate",
+              "label": "注釈を付ける（この要素に紐づくメモ）",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "lock",
+              "label": "ロック（動かない・変形しない・消えない）",
+              "disabled": false,
+              "pressed": "false"
+            },
+            {
+              "key": "duplicate",
+              "label": "複製（⌘D）",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "delete",
+              "label": "削除",
+              "disabled": false,
+              "pressed": null
+            },
+            {
+              "key": "more",
+              "label": "その他",
+              "disabled": false,
+              "pressed": "false"
+            }
+          ]
+        },
+        "window": null,
+        "more": null,
+        "styleCopy": null,
+        "frame": {
+          "left": 221.9,
+          "top": 39,
+          "width": 404,
+          "height": 359
+        },
+        "inspectorColorPanel": false,
+        "inspectorText": "photo.png00:00.0 – 00:10.0 · 素材映像色音声編集動き情報時間出力位置00:00:00.000尺10.00 秒変形XpxYpx拡縮%回転°クロップ左%上%幅%高さ%パース（4 隅）左上 X%左上 Y%右上 X%右上 Y%左下 X%左下 Y%右下 X%右下 Y%解除解除動き現在の動きなし詳しい設定動きタブで開く外観不透明度%ブレンドモードnormalscreenmultiplyadddifferencedarkenlightenoverlayhardlightsoftlightクロマキー色—類似度—境界ぼかし—音声音声鳴らすミュート音量dB .akari-inspector-ai-list { display: grid; gap: 0; padding: 0; min-width: 0; } .akari-inspector-ai-group { min-widt"
+      }
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "before-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -520,
+              "y": -260,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 520,
+              "y": -240
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "Error: Another channel with the id '/services/akari-preview-server' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-statusbar-resources' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-surfaces-connections' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-project' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-export-thumbnail' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-surfaces-new-project' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-partner' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-companion' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-world-view' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-surfaces-narration-engines' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/search-in-workspace' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-project-clean' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/akari-surfaces-kits' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "Error: Another channel with the id '/services/vsx-environment' is already open.\n    at GSi.open (<file>)\n    at PHe.openChannel (<file>)",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

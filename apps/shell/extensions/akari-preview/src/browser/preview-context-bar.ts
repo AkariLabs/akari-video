@@ -4,6 +4,7 @@ import {
     alignDelta, AlignMode, BarItem, barItems, CAP_OPTIONS, ContextBarState, ContextLayerList, DASH_OPTIONS,
     elementMenuPosition, formatRange, geometryValues, parseContextBarState, shortcutLabel, windowValues
 } from '../common/context-bar-view';
+import { CAPTION_COLORS, CAPTION_PRESETS, captionFontChoices, captionMoreItems } from '../common/caption-context-bar';
 
 /**
  * 出力プレビューの上のバー（中央上に浮いて固定）・押すと開く窓・選んだものの上の小さなメニュー・⋯ のメニュー。
@@ -70,6 +71,13 @@ const ICON: Record<string, string> = {
     'align-bottom': svg(`<path d="M3 17h14" ${stroke}/><rect x="5" y="4" width="3.5" height="10" rx="1" ${stroke}/><rect x="11.5" y="8" width="3.5" height="6" rx="1" ${stroke}/>`),
     fit: svg(`<path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" ${stroke}/><rect x="6.5" y="6.5" width="7" height="7" rx="1" ${stroke}/>`)
 };
+ICON.captionCushion = svg(`<rect x="2" y="5" width="16" height="10" rx="2" ${stroke}/><path d="M5 10h10" ${stroke}/>`);
+ICON.captionBold = svg('<text x="3" y="16" font-size="16" font-weight="900" fill="currentColor">B</text>');
+ICON.captionSize = svg('<text x="2" y="15" font-size="14" font-weight="700" fill="currentColor">A</text>');
+ICON.captionFont = ICON.style;
+ICON.captionStroke = ICON.weight;
+ICON.captionSpacing = ICON.dash;
+ICON.captionMore = ICON.more;
 
 const ALIGN_LABEL: Record<AlignMode, string> = {
     left: '左に揃える', center: '左右の中央', right: '右に揃える', top: '上に揃える', middle: '上下の中央', bottom: '下に揃える'
@@ -285,20 +293,20 @@ export class PreviewContextBar implements Disposable {
         this.renderHint();
         this.renderPop();
         // 窓を開いている間は、要素の上の小さなメニューを出さない（窓と重ならないように）
-        this.renderMenu(selected && !this.openWindow);
+        this.renderMenu(selected && !this.openWindow && state?.kind !== 'caption');
         this.renderMore();
         this.position();
         if (this.lockMessageSignature() !== this.lockSignature) this.sendLock();
     }
 
     protected renderBar(items: BarItem[]): void {
-        const signature = JSON.stringify([items, this.openWindow]);
+        const signature = JSON.stringify([items, this.openWindow, this.moreOpen]);
         if (signature === this.barSignature) return;
         this.barSignature = signature;
         this.bar.hidden = items.length === 0;
         this.bar.innerHTML = items.map(item => {
             if (item.kind === 'separator') return '<span class="akari-ctx-sep" aria-hidden="true"></span>';
-            const open = this.openWindow === item.key;
+            const open = item.key === 'captionMore' ? this.moreOpen : this.openWindow === item.key;
             const attrs = `data-akari-bar-item="${item.key}" aria-label="${escapeHtml(item.label)}" title="${escapeHtml(item.title ?? item.label)}"`
                 + (item.kind === 'window' ? ` aria-expanded="${open}"` : '') + (item.disabled ? ' disabled aria-disabled="true"' : '');
             if (item.kind === 'color') {
@@ -347,7 +355,12 @@ export class PreviewContextBar implements Disposable {
         if (!show || !state) return;
         const row = (key: string, label: string, icon: string, keys: string, disabled = false): string =>
             `<button type="button" role="menuitem" data-akari-menu-item="${key}" ${disabled ? 'disabled aria-disabled="true"' : ''}>`
-            + `${ICON[icon]}<span>${label}</span><kbd>${keys}</kbd></button>`;
+            + `${ICON[icon]}<span>${label}</span>${keys ? `<kbd>${keys}</kbd>` : ''}</button>`;
+        if (state.kind === 'caption') {
+            this.more.innerHTML = captionMoreItems().map(item => row(item.key, item.label,
+                item.key === 'captionMyStyleSave' ? 'style' : 'weight', '')).join('');
+            return;
+        }
         this.more.innerHTML = [
             row('copy', 'コピー', 'dup', shortcutLabel('C', { mac: this.mac })),
             row('copyStyle', 'スタイルをコピー', 'style', shortcutLabel('C', { mac: this.mac, alt: true })),
@@ -376,6 +389,7 @@ export class PreviewContextBar implements Disposable {
     }
 
     protected popHtml(key: string, state: ContextBarState): string {
+        if (state.kind === 'caption') return this.captionPopHtml(key, state);
         const values = windowValues(state);
         const slider = (name: string, label: string, min: number, max: number, value: number, unit = ''): string =>
             `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span>`
@@ -403,6 +417,37 @@ export class PreviewContextBar implements Disposable {
                 return `<div class="akari-ctx-choices">${choice('flip.h', values.flipH ? 'off' : 'on', '左右に反転', values.flipH)}`
                     + `${choice('flip.v', values.flipV ? 'off' : 'on', '上下に反転', values.flipV)}</div>`;
             case 'arrange': return this.arrangeHtml(state);
+            default: return '';
+        }
+    }
+
+    protected captionPopHtml(key: string, state: ContextBarState): string {
+        const style = (state.item?.textStyle ?? {}) as Record<string, any>;
+        const number = (field: string, label: string, value: number, min: number, max: number, step: number, unit = ''): string =>
+            `<label class="akari-ctx-row"><span class="akari-ctx-label">${label}</span>`
+            + `<input type="range" data-caption-field="${field}" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}">`
+            + `<input type="number" class="akari-ctx-num" data-caption-field="${field}" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}（数値）">`
+            + (unit ? `<span class="akari-ctx-unit">${unit}</span>` : '') + '</label>';
+        const colors = (field: string, current: string): string =>
+            `<div class="akari-ctx-choices is-row">${CAPTION_COLORS.map(color =>
+                `<button type="button" class="akari-ctx-color-choice" data-caption-color="${field}" data-value="${color}"`
+                + ` aria-label="${color}" aria-pressed="${current.toLowerCase() === color}"><span style="background:${color}"></span></button>`).join('')}</div>`;
+        switch (key) {
+            case 'captionPreset': return `<div class="akari-ctx-choices">${CAPTION_PRESETS.map(preset =>
+                `<button type="button" class="akari-ctx-choice" data-caption-preset="${preset.key}">${preset.label}</button>`).join('')}</div>`;
+            case 'captionCushion': return `<div class="akari-ctx-choices">`
+                + `<button type="button" class="akari-ctx-choice" data-caption-toggle="cushion" aria-pressed="${Number(style.background?.opacity) > 0}">`
+                + `${Number(style.background?.opacity) > 0 ? '座布団を外す' : '座布団を敷く'}</button></div>`
+                + colors('backgroundColor', style.background?.color ?? '#000000');
+            case 'captionTextColor': return colors('color', style.color ?? '#ffffff');
+            case 'captionStrokeColor': return colors('strokeColor', style.stroke?.color ?? '#000000');
+            case 'captionFont': return `<div class="akari-ctx-choices">${captionFontChoices(style.fontFamily).map(family =>
+                `<button type="button" class="akari-ctx-choice" data-caption-font="${escapeHtml(family)}"`
+                + ` aria-pressed="${family === style.fontFamily}">${escapeHtml(family)}</button>`).join('')}</div>`;
+            case 'captionSize': return number('sizePx', '大きさ', Number(style.sizePx) || 48, 1, 160, 1, 'px');
+            case 'captionSpacing': return number('lineHeight', '行間', Number(style.lineHeight) || 1.2, .9, 2.2, .05)
+                + number('letterSpacingEm', '字間', Number(style.letterSpacingEm) || 0, -.1, .4, .01, 'em');
+            case 'captionStroke': return number('strokeWidth', '縁取り', Number(style.stroke?.widthPx) || 0, 0, 20, .5, 'px');
             default: return '';
         }
     }
@@ -482,7 +527,15 @@ export class PreviewContextBar implements Disposable {
                 this.more.style.top = `${below + height <= node.height - 4 ? below : above >= barBottom + 4 ? above : Math.max(4, node.height - height - 4)}px`;
             }
         }
-        this.more.classList.toggle('is-placed', showMenu);
+        const captionMoreShown = this.state?.kind === 'caption' && !this.more.hidden;
+        if (captionMoreShown) {
+            const anchor = this.bar.querySelector('[data-akari-bar-item="captionMore"]')?.getBoundingClientRect();
+            const width = this.more.offsetWidth || 240;
+            const center = anchor ? anchor.left - node.left + anchor.width / 2 : offset.left + area.width / 2;
+            this.more.style.left = `${Math.max(offset.left + 6, Math.min(center - width / 2, offset.left + area.width - width - 6))}px`;
+            this.more.style.top = `${barBottom + 6}px`;
+        }
+        this.more.classList.toggle('is-placed', showMenu || captionMoreShown);
         const menuBox = showMenu ? this.menu.getBoundingClientRect() : null;
         const menuRect = menuBox ? { left: menuBox.left - area.left, top: menuBox.top - area.top,
             width: menuBox.width, height: menuBox.height } : null;
@@ -502,6 +555,12 @@ export class PreviewContextBar implements Disposable {
         const key = button.dataset.akariBarItem!;
         const item = barItems(state).find(entry => entry.key === key);
         if (!item) return;
+        if (key === 'captionMore') {
+            this.moreOpen = !this.moreOpen;
+            this.openWindow = null;
+            this.render();
+            return;
+        }
         this.moreOpen = false;
         if (item.kind === 'color') {
             this.openWindow = null;
@@ -514,7 +573,10 @@ export class PreviewContextBar implements Disposable {
             void this.commands.executeCommand(OPEN_INSPECTOR_COMMAND, item.inspector ?? {});
         } else if (item.kind === 'action') {
             this.openWindow = null;
-            void this.run({ action: key === 'style' ? 'copyStyle' : key });
+            if (key === 'captionBold') {
+                const style = (state.item?.textStyle ?? {}) as Record<string, any>;
+                void this.run({ action: 'captionStyle', field: 'weight', value: Number(style.weight ?? style.fontWeight) === 900 ? 400 : 900 });
+            } else void this.run({ action: key === 'style' ? 'copyStyle' : key });
         } else if (item.kind === 'window') {
             this.openWindow = this.openWindow === key ? null : key;
             if (this.openWindow === 'arrange') void this.loadLayers();
@@ -549,11 +611,23 @@ export class PreviewContextBar implements Disposable {
         if (!button || button.disabled) return;
         this.moreOpen = false;
         this.render();
+        if (button.dataset.akariMenuItem === 'captionInspector') {
+            void this.commands.executeCommand('akari.inspector.revealField', { field: 'caption-style' });
+            return;
+        }
         void this.run({ action: button.dataset.akariMenuItem! });
     }
 
     protected onPopInput(event: Event): void {
         const input = event.target as HTMLInputElement;
+        const captionField = input.dataset.captionField;
+        if (captionField && input.type === 'range') {
+            this.pop.querySelectorAll<HTMLInputElement>(`input[data-caption-field="${captionField}"]`).forEach(twin => {
+                if (twin !== input) twin.value = input.value;
+            });
+            this.host.sendMessage({ type: 'akari-preview-caption-style-live', field: captionField, value: Number(input.value) });
+            return;
+        }
         const field = input.dataset.field;
         if (!field || input.type !== 'range') return;
         const twin = this.pop.querySelector<HTMLInputElement>(`input[type="number"][data-field="${field}"]`);
@@ -564,6 +638,14 @@ export class PreviewContextBar implements Disposable {
         const input = event.target as HTMLInputElement | HTMLSelectElement;
         const state = this.state;
         if (!state?.selectedId) return;
+        const captionField = input.dataset.captionField;
+        if (state.kind === 'caption' && captionField) {
+            const value = input.type === 'text' ? input.value.trim() : Number(input.value);
+            this.host.sendMessage({ type: 'akari-preview-caption-style-live', field: captionField, value: null });
+            if (value !== '' && (typeof value === 'string' || Number.isFinite(value)))
+                void this.run({ action: 'captionStyle', field: captionField, value });
+            return;
+        }
         const field = input.dataset.field;
         const geo = (input as HTMLElement).dataset.geo;
         const value = Number(input.value);
@@ -600,6 +682,30 @@ export class PreviewContextBar implements Disposable {
         const target = event.target as Element;
         const state = this.state;
         if (!state?.selectedId) return;
+        if (state.kind === 'caption') {
+            const color = target.closest<HTMLButtonElement>('[data-caption-color]');
+            if (color) {
+                void this.run({ action: 'captionStyle', field: color.dataset.captionColor, value: color.dataset.value });
+                return;
+            }
+            const preset = target.closest<HTMLButtonElement>('[data-caption-preset]');
+            if (preset) {
+                const choice = CAPTION_PRESETS.find(item => item.key === preset.dataset.captionPreset);
+                if (choice) void this.run({ action: 'captionPreset', value: choice.key });
+                return;
+            }
+            const font = target.closest<HTMLButtonElement>('[data-caption-font]');
+            if (font) {
+                void this.run({ action: 'captionStyle', field: 'fontFamily', value: font.dataset.captionFont });
+                return;
+            }
+            if (target.closest('[data-caption-toggle="cushion"]')) {
+                const style = (state.item?.textStyle ?? {}) as Record<string, any>;
+                void this.run({ action: 'captionStyle', field: 'backgroundOpacity',
+                    value: Number(style.background?.opacity) > 0 ? 0 : .75 });
+                return;
+            }
+        }
         const choice = target.closest<HTMLButtonElement>('[data-choice]');
         if (choice) {
             const name = choice.dataset.choice!;
@@ -713,6 +819,10 @@ const PREVIEW_CONTEXT_BAR_STYLE = `
 .akari-ctx-choice, .akari-ctx-wide, .akari-ctx-icon { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--theia-editorWidget-border, var(--theia-widget-border, rgba(128,128,128,.35))); background: transparent; cursor: pointer; }
 .akari-ctx-choice:hover:not(:disabled), .akari-ctx-wide:hover, .akari-ctx-icon:hover:not(:disabled) { background: var(--theia-toolbar-hoverBackground); }
 .akari-ctx-choice[aria-pressed="true"] { border-color: var(--theia-focusBorder); color: var(--theia-focusBorder); }
+.akari-ctx-color-choice { display: grid; place-items: center; width: 34px; height: 34px; padding: 4px; border: 1px solid var(--theia-editorWidget-border, var(--theia-widget-border, rgba(128,128,128,.35))); border-radius: 8px; background: transparent; cursor: pointer; }
+.akari-ctx-color-choice span { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theia-foreground) 30%, transparent); }
+.akari-ctx-color-choice[aria-pressed="true"] { border-color: var(--theia-focusBorder); }
+.akari-ctx-row input[type="text"] { flex: 1; min-width: 0; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--theia-input-border, var(--theia-editorWidget-border, transparent)); background: var(--theia-input-background); }
 .akari-ctx-choice:disabled, .akari-ctx-icon:disabled, .akari-ctx-num:disabled { opacity: .45; cursor: default; }
 .akari-ctx-wide { width: 100%; margin-top: 6px; }
 .akari-ctx-icon { padding: 4px; width: 30px; height: 30px; }
