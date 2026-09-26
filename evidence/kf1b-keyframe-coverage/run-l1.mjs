@@ -1,0 +1,1099 @@
+#!/usr/bin/env node
+// KF-1b L1。写真（media）・テキスト（HTML テキスト）・HTML（タイトル）の 3 種で
+//   目的 1: 位置のまとまりが動きを持つ状態から、キーフレームの無い時刻に つまみの拡縮 / 回転つまみ /
+//          矢印キーのナッジ / コンテキストバー（nudge・fit・resize・write transform.x）を 1 操作ずつ。
+//   目的 2: 「動きを描く」（インスペクター → プレビューで描く）を実機で通す。
+//   目的 3: スタイルをコピー → 当てる（不透明度が動きを持つ当て先）。
+//   目的 4: --export で 3 種（+ 描いた item）のプレビューと render-cut の OSR 書き出しを比べる。
+// 使い方:
+//   node evidence/kf1b-keyframe-coverage/run-l1.mjs --label before|after            … アプリを起動して操作・撮影
+//   node evidence/kf1b-keyframe-coverage/run-l1.mjs --label before|after --export   … 保存結果を OSR で書き出して比較
+//   node evidence/kf1b-keyframe-coverage/run-l1.mjs --fixture-only                  … 合成プロジェクトの schema / edit-lint だけ確かめる（アプリは起動しない）
+// 呼び出し側が heavy-slot の枠を持つこと。CDP 9574 / HTTP 48991・一時ディレクトリはこの票専用。
+import { spawn, spawnSync } from 'node:child_process';
+import { closeSync, createWriteStream, openSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
+
+const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : fallback; };
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const require = createRequire(import.meta.url);
+const { evaluatedItemTransform, evaluatedItemOpacity } = require(path.join(repo, 'packages/edit-store/lib/index.js'));
+const shellDir = path.join(repo, 'apps/shell');
+const outDir = path.join(repo, 'evidence/kf1b-keyframe-coverage');
+const label = arg('label', 'before');
+const only = (arg('only', '') || '').split(',').map(token => token.trim()).filter(Boolean);
+const onlyHas = token => only.length === 0 || only.includes(token);
+const port = 9574;
+const httpPort = 48991;
+const electron = path.join(shellDir, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+const ffmpeg = process.env.FFMPEG ?? 'ffmpeg';
+const W = 640, H = 360, FPS = 30;
+
+const scratch = await realpath(await mkdtemp(path.join(os.tmpdir(), '2026-09-26-libcanvas-kf1b-keyframe-coverage-')));
+const project = path.join(scratch, 'project');
+const editPath = path.join(project, 'edit.json');
+const editUri = pathToFileURL(editPath).href;
+const clean = v => String(v).replaceAll(repo, '<repo>').replaceAll(scratch, '<scratch>').replace(/\/Users\/[^\s"')]+/g, '<local>')
+  .replace(/\/(private\/)?(tmp|var)\/[^\s"')]+/g, '<tmp>');
+const readEditText = () => readFile(editPath, 'utf8');
+const readEdit = async () => JSON.parse(await readEditText());
+const findItem = (edit, id) => { for (const track of edit.tracks ?? []) for (const item of track.items ?? []) if (item.id === id) return item; };
+const round2 = v => Math.round(v * 100) / 100;
+
+// ---- fixture: 3 種 × （操作・動きを描く・スタイル）を時間で並べる（同時に 1 つだけ見える） ------------------
+const KIND_IDS = { photo: 'photo-1', text: 'text-1', html: 'html-1' };
+const DRAW_IDS = { photo: 'photo-draw', text: 'text-draw', html: 'html-draw' };
+const STYLE_SRC = { photo: 'photo-style-src', text: 'text-style-src', html: 'html-style-src' };
+const STYLE_DST = { photo: 'photo-style-dst', text: 'text-style-dst', html: 'html-style-dst' };
+const COMPARE = [
+  { id: KIND_IDS.photo, color: 'red' }, { id: KIND_IDS.text, color: 'green' }, { id: KIND_IDS.html, color: 'blue' },
+  { id: DRAW_IDS.photo, color: 'red' }, { id: DRAW_IDS.text, color: 'green' }, { id: DRAW_IDS.html, color: 'blue' }
+];
+const COMPARE_IDS = COMPARE.map(entry => entry.id);
+const ORDER = [KIND_IDS.photo, KIND_IDS.text, KIND_IDS.html, DRAW_IDS.photo, DRAW_IDS.text, DRAW_IDS.html,
+  STYLE_SRC.photo, STYLE_DST.photo, STYLE_SRC.text, STYLE_DST.text, STYLE_SRC.html, STYLE_DST.html];
+const atOf = id => ORDER.indexOf(id) * 150;
+const frameTime = (id, frame) => (atOf(id) + frame) / FPS;
+const itemAt = id => atOf(id);
+
+// 1 ファイル = 1 つの balanced root（edit-lint の overlays.html-root）かつ、interaction.js の
+// fragmentRoot が最初の子を見るので、描く要素そのものを唯一のルートにする（style 要素を置かない）。
+const TEXT_HTML = '<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);'
+  + 'color:#00ff00;font:900 200px/1 sans-serif;white-space:nowrap">動き</div>';
+const BOX_HTML = '<div style="position:absolute;left:50%;top:50%;width:480px;height:320px;'
+  + 'transform:translate(-50%,-50%);background:#0000ff"></div>';
+
+const photoItem = (id, extra = {}) => ({ id, at: itemAt(id), duration: 150,
+  source: { kind: 'media', src: 'photo-src-1', in: 0, out: 5 },
+  transform: { x: 0, y: 0, scale: 0.55, rotate: 0 }, ...extra });
+const textItem = (id, extra = {}) => ({ id, at: itemAt(id), duration: 150,
+  source: { kind: 'html', path: 'overlays/kf1b-text-green.html' },
+  transform: { x: 0, y: 0, scale: 1, rotate: 0 }, ...extra });
+const htmlItem = (id, extra = {}) => ({ id, at: itemAt(id), duration: 150,
+  source: { kind: 'html', path: 'overlays/kf1b-box-blue.html' },
+  transform: { x: 0, y: 0, scale: 0.6, rotate: 0 }, ...extra });
+// スタイルの当て先: 不透明度の動き（fixture で 2 点）を最初から持たせる
+const opacityMotion = [{ t: 0, opacity: 1 }, { t: 149, opacity: 0.2 }];
+
+async function makeFixture() {
+  await mkdir(path.join(project, '.akari'), { recursive: true });
+  await mkdir(path.join(project, 'assets'), { recursive: true });
+  await mkdir(path.join(project, 'overlays'), { recursive: true });
+  writeFileSyncChecked(spawnSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi',
+    '-i', 'color=c=0xFF0000:s=480x320', '-frames:v', '1', path.join(project, 'assets', 'kf1b-photo-red.png')]));
+  await writeFile(path.join(project, 'overlays', 'kf1b-text-green.html'), TEXT_HTML);
+  await writeFile(path.join(project, 'overlays', 'kf1b-box-blue.html'), BOX_HTML);
+  await writeFile(path.join(project, 'captions.json'), '{\n  "captions": []\n}\n');
+  await writeFile(path.join(project, '.akari', 'lint.json'), '{"version":1,"verdict":"pass"}\n');
+  const edit = {
+    version: 2, output: { width: 1920, height: 1080, fps: FPS },
+    sources: [{ id: 'photo-src-1', path: 'assets/kf1b-photo-red.png', proxy: null }],
+    tracks: [
+      { id: 'k1', lane: 'visual', name: 'KF photo', items: [photoItem(KIND_IDS.photo)] },
+      { id: 'k2', lane: 'visual', name: 'KF text', items: [textItem(KIND_IDS.text)] },
+      { id: 'k3', lane: 'visual', name: 'KF html', items: [htmlItem(KIND_IDS.html)] },
+      { id: 'k4', lane: 'visual', name: 'KF draw photo', items: [photoItem(DRAW_IDS.photo, { transform: { x: 0, y: 0, scale: 0.5, rotate: 0 } })] },
+      { id: 'k5', lane: 'visual', name: 'KF draw text', items: [textItem(DRAW_IDS.text, { transform: { x: 0, y: 0, scale: 0.8, rotate: 0 } })] },
+      { id: 'k6', lane: 'visual', name: 'KF draw html', items: [htmlItem(DRAW_IDS.html, { transform: { x: 0, y: 0, scale: 0.6, rotate: 0 } })] },
+      { id: 'k7', lane: 'visual', name: 'KF style photo', items: [
+        photoItem(STYLE_SRC.photo, { opacity: 0.4, transform: { x: 0, y: 0, scale: 0.45, rotate: 0 } }),
+        photoItem(STYLE_DST.photo, { keyframes: opacityMotion, transform: { x: 0, y: 0, scale: 0.45, rotate: 0 } })
+      ] },
+      { id: 'k8', lane: 'visual', name: 'KF style text', items: [
+        textItem(STYLE_SRC.text, { opacity: 0.4, transform: { x: 0, y: 0, scale: 0.8, rotate: 0 } }),
+        textItem(STYLE_DST.text, { keyframes: opacityMotion, transform: { x: 0, y: 0, scale: 0.8, rotate: 0 } })
+      ] },
+      { id: 'k9', lane: 'visual', name: 'KF style html', items: [
+        htmlItem(STYLE_SRC.html, { opacity: 0.4, transform: { x: 0, y: 0, scale: 0.6, rotate: 0 } }),
+        htmlItem(STYLE_DST.html, { keyframes: opacityMotion, transform: { x: 0, y: 0, scale: 0.6, rotate: 0 } })
+      ] }
+    ]
+  };
+  await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+}
+function writeFileSyncChecked(result) {
+  if (result.status !== 0) throw new Error(`ffmpeg failed: ${result.stderr?.toString().slice(0, 400)}`);
+}
+
+// 合成プロジェクトの事前検証（アプリを起動しない。schema と edit-lint だけ通す）
+if (process.argv.includes('--fixture-only')) {
+  await makeFixture();
+  const schema = spawnSync(process.execPath, [path.join(repo, 'packages/schemas/bin/validate-edit.mjs'), editPath],
+    { encoding: 'utf8', maxBuffer: 20_000_000, timeout: 120000 });
+  const lint = spawnSync(process.execPath, [path.join(repo, 'packages/edit-lint/bin/edit-lint.mjs'), project, '--no-reports', '--json'],
+    { encoding: 'utf8', maxBuffer: 20_000_000, timeout: 300000 });
+  console.log(JSON.stringify({ schemaExit: schema.status, schema: clean(schema.stdout ?? '').slice(-2000),
+    lintExit: lint.status, lint: clean(lint.stdout ?? '').slice(-4000), lintErr: clean(lint.stderr ?? '').slice(-2000) }, null, 2));
+  if (!process.argv.includes('--keep')) await rm(scratch, { recursive: true, force: true });
+  process.exit(schema.status === 0 && lint.status === 0 ? 0 : 1);
+}
+
+// 点の読み出し（keyframes は配列 or motion 袋 {path,count}）
+async function pointsOfItem(item) {
+  if (!item?.keyframes) return [];
+  if (Array.isArray(item.keyframes)) return item.keyframes;
+  try {
+    const bag = JSON.parse(await readFile(path.join(project, item.keyframes.path), 'utf8'));
+    return Array.isArray(bag?.items?.[item.id]) ? bag.items[item.id] : [];
+  } catch { return []; }
+}
+const realPoints = points => points.filter(point => point.transform || point.opacity !== undefined
+  || point.crop || point.perspective || point.animator || point.gain_db !== undefined);
+const nearestPoint = (points, frame) => {
+  const real = points.filter(point => point.transform || point.opacity !== undefined);
+  return real.find(point => point.t === frame) ?? real.find(point => Math.abs(point.t - frame) <= 1) ?? null;
+};
+
+// ---- export mode（目的 4） -----------------------------------------------------------------
+const rgb = (file, seconds, extraInput = []) => {
+  const input = seconds === undefined ? ['-i', file] : ['-ss', String(seconds), '-i', file, '-frames:v', '1'];
+  const decoded = spawnSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', ...extraInput, ...input,
+    '-vf', 'scale=640:360:flags=area', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { maxBuffer: 640 * 360 * 4 });
+  if (decoded.status !== 0 || decoded.stdout.length !== 640 * 360 * 3) throw new Error(`frame decode failed: ${file}`);
+  return decoded.stdout;
+};
+// 不透明度が低い画素も拾える色判定。プレビューのスクショは色管理で純色からずれる
+// （緑 #00ff00 → 実測 (116,251,76) / 赤 #ff0000 → 実測 (139,30,21)）ため、色相の差で見る。
+// 選択枠のオレンジ (255,139,44) とつまみのシアン (53,184,231) は除外する。
+const colorMatch = color => color === 'red'
+  ? (r, g, b) => r > 40 && r - g > 15 && r - b > 15 && g < r * 0.5
+  : color === 'green'
+    ? (r, g, b) => g > 40 && g - r > 15 && g - b > 15 && r < g * 0.7
+    : (r, g, b) => b > 40 && b - r > 15 && b - g > 15 && g < b * 0.5;
+const colorBounds = (buffer, color) => {
+  const match = colorMatch(color);
+  let minX = W, minY = H, maxX = -1, maxY = -1, count = 0, sum = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const index = (y * W + x) * 3;
+    const r = buffer[index], g = buffer[index + 1], b = buffer[index + 2];
+    if (!match(r, g, b)) continue;
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y); count++;
+    sum += color === 'red' ? r : color === 'green' ? g : b;
+  }
+  return maxX < 0 ? null : { x: (minX + maxX) / 2, y: (minY + maxY) / 2, count, mean: round2(sum / count),
+    box: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } };
+};
+const decodePngBuffer = buffer => {
+  const decoded = spawnSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', 'pipe:0',
+    '-vf', 'scale=640:360:flags=area', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], { input: buffer, maxBuffer: 640 * 360 * 4 });
+  if (decoded.status !== 0 || decoded.stdout.length !== 640 * 360 * 3) throw new Error('stage png decode failed');
+  return decoded.stdout;
+};
+if (process.argv.includes('--export')) {
+  await mkdir(outDir, { recursive: true });
+  let mainReport;
+  try { mainReport = JSON.parse(await readFile(path.join(outDir, `${label}.json`), 'utf8')); } catch {
+    console.error(`先に --label ${label} でアプリを回して ${label}.json を作ってください。`);
+    await rm(scratch, { recursive: true, force: true });
+    process.exit(2);
+  }
+  const framesByItem = mainReport?.results?.compare ?? {};
+  const bagFile = path.join(outDir, `${label}-final-motion-bags.json`);
+  let bags = {};
+  try { bags = JSON.parse(await readFile(bagFile, 'utf8')); } catch { bags = {}; }
+  await makeFixture();
+  const saved = JSON.parse(await readFile(path.join(outDir, `${label}-final-edit.json`), 'utf8'));
+  saved.tracks = (saved.tracks ?? []).filter(track => (track.items ?? []).some(item => COMPARE_IDS.includes(item.id)));
+  await writeFile(editPath, `${JSON.stringify(saved, null, 2)}\n`);
+  for (const [relative, content] of Object.entries(bags)) {
+    const target = path.join(project, relative);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, content);
+  }
+  const home = path.join(scratch, 'akari-home');
+  await mkdir(home, { recursive: true });
+  await mkdir(path.join(project, 'exports'), { recursive: true });
+  const mp4 = path.join(project, 'exports', 'kf1b-osr.mp4');
+  const command = spawnSync(process.execPath, [path.join(repo, 'packages/render-cut/bin/render-cut.mjs'), project,
+    '--out', mp4, '--engine', 'osr', '--scale-to', '640x360', '--preview', 'off', '--no-verify-blank', '--force'],
+  { cwd: repo, env: { ...process.env, AKARI_HOME: home, AKARI_OSR_ELECTRON: '',
+    THEIA_CONFIG_DIR: path.join(scratch, 'config') }, encoding: 'utf8', maxBuffer: 20_000_000, timeout: 1_800_000 });
+  const report = { label, commandExit: command.status, stdout: clean(command.stdout ?? '').slice(-5000),
+    stderr: clean(command.stderr ?? '').slice(-5000), items: [] };
+  if (command.status === 0) for (const { id, color } of COMPARE) {
+    const frames = framesByItem[id];
+    if (!Array.isArray(frames) || !frames.length) continue;
+    const rows = [];
+    for (const frame of frames) {
+      const outputFrame = atOf(id) + frame;
+      const previewName = `${label}-preview-${id}-${frame}.png`;
+      try {
+        const preview = colorBounds(rgb(path.join(outDir, previewName)), color);
+        const rendered = colorBounds(rgb(mp4, outputFrame / FPS), color);
+        rows.push({ frame, outputFrame, preview, rendered,
+          delta: preview && rendered ? { x: round2(rendered.x - preview.x), y: round2(rendered.y - preview.y) } : null });
+        spawnSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(outputFrame / FPS),
+          '-i', mp4, '-frames:v', '1', path.join(outDir, `${label}-osr-${id}-${frame}.png`)]);
+      } catch (error) { rows.push({ frame, outputFrame, error: clean(error?.message ?? error) }); }
+    }
+    report.items.push({ id, color, frames: rows });
+  }
+  const deltas = report.items.flatMap(item => item.frames.map(row => row.delta)).filter(Boolean);
+  report.maxAbsDeltaPx = deltas.length ? Math.max(...deltas.flatMap(delta => [Math.abs(delta.x), Math.abs(delta.y)])) : null;
+  await writeFile(path.join(outDir, `${label}-export.json`), `${JSON.stringify(report, null, 2)}\n`);
+  await rm(scratch, { recursive: true, force: true });
+  console.log(JSON.stringify({ label, exportExit: command.status, maxAbsDeltaPx: report.maxAbsDeltaPx,
+    items: report.items.length }));
+  process.exit(command.status === 0 ? 0 : 1);
+}
+
+// ---- CDP ----------------------------------------------------------------------------------
+class CDP {
+  constructor(url) { this.url = url; this.id = 0; this.pending = new Map(); this.listeners = new Map(); }
+  async connect() {
+    this.socket = new WebSocket(this.url);
+    await new Promise((res, rej) => { this.socket.addEventListener('open', res, { once: true }); this.socket.addEventListener('error', rej, { once: true }); });
+    this.socket.addEventListener('message', event => {
+      const m = JSON.parse(event.data);
+      if (m.id && this.pending.has(m.id)) { const p = this.pending.get(m.id); this.pending.delete(m.id); m.error ? p.reject(new Error(JSON.stringify(m.error))) : p.resolve(m.result); }
+      else if (m.method) for (const l of this.listeners.get(m.method) ?? []) l(m.params, m.sessionId);
+    });
+  }
+  send(method, params = {}, sessionId) {
+    const id = ++this.id;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { if (this.pending.delete(id)) reject(new Error(`CDP ${method} timed out`)); }, 60000);
+      this.pending.set(id, { resolve: v => { clearTimeout(timer); resolve(v); }, reject: e => { clearTimeout(timer); reject(e); } });
+      this.socket.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
+    });
+  }
+  on(method, fn) { this.listeners.set(method, [...(this.listeners.get(method) ?? []), fn]); }
+  close() { this.socket?.close(); }
+}
+async function evaluate(cdp, expression, contextId, sessionId) {
+  const r = await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true, ...(contextId === undefined ? {} : { contextId }) }, sessionId);
+  if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails).slice(0, 800));
+  return r.result.value;
+}
+async function waitForJson(url, pred, ms = 120000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { try { const v = await (await fetch(url)).json(); if (pred(v)) return v; } catch {} await sleep(300); }
+  throw new Error(`timeout ${url}`);
+}
+const contexts = new Map();
+const consoleErrors = [];
+// プレビューの実行コンテキストが消えた事実（回数・直前の操作）と、webview ターゲットの増減
+const contextLosses = [];
+const targetEvents = [];
+let currentStep = 'startup';
+// webview は書き込みのたびに setHTML で作り直される。新しい文書にもフックを仕込む。
+const WRITE_ERROR_HOOK = `(() => {
+    if (window.__kf1bWriteErrors) return true;
+    window.__kf1bWriteErrors = [];
+    const record = text => {
+      window.__kf1bWriteErrors.push(text);
+      try { sessionStorage.setItem('kf1bWriteErrors', JSON.stringify(window.__kf1bWriteErrors.slice(-20))); } catch {}
+    };
+    window.addEventListener('message', event => {
+      const m = event.data;
+      if (m && typeof m.type === 'string' && /-write(-batch)?-response$/.test(m.type) && m.ok === false) {
+        record(m.type + ': ' + String(m.error));
+      }
+    }, true);
+    const originalError = console.error.bind(console);
+    console.error = (...args) => {
+      record(args.map(a => {
+        if (typeof a === 'string') return a;
+        try { return JSON.stringify(a, Object.getOwnPropertyNames(a ?? {})) ?? String(a); } catch { return String(a); }
+      }).join(' '));
+      originalError(...args);
+    };
+    return true; })();`;
+function track(cdp) {
+  cdp.on('Runtime.executionContextCreated', (p, s) => { if (!p?.context?.auxData?.isDefault) return; contexts.set(s, [...(contexts.get(s) ?? []), p.context.id]); });
+  cdp.on('Runtime.executionContextsCleared', (_p, s) => contexts.delete(s));
+  cdp.on('Runtime.exceptionThrown', p => consoleErrors.push(String(p.exceptionDetails?.exception?.description ?? p.exceptionDetails?.text ?? '').slice(0, 400)));
+  cdp.on('Runtime.consoleAPICalled', p => { if (p.type === 'error') consoleErrors.push(p.args.map(a => {
+    if (a.value !== undefined) return typeof a.value === 'string' ? a.value : JSON.stringify(a.value).slice(0, 300);
+    if (a.preview) return JSON.stringify(a.preview).slice(0, 300);
+    return a.description ?? a.unserializableValue ?? '';
+  }).join(' ').slice(0, 700)); });
+}
+let main, browser, view, child;
+let electronLogFd;
+let electronLog;
+const targetUrls = new Map();
+const HEALTH_EXPR = `(() => { const banner = document.getElementById('reload-error-card');
+    const write = document.getElementById('write-error-banner');
+    const composite = document.getElementById('composite-error-banner');
+    return { reloadError: banner && !banner.hidden ? String(banner.innerText).slice(0, 200) : null,
+      writeError: write && !write.hidden ? String(write.innerText).slice(0, 200) : null,
+      compositeError: composite && !composite.hidden ? String(composite.innerText).slice(0, 200) : null,
+      hasSummary: Boolean(window.akari?.state?.summary), ready: document.readyState }; })()`;
+function trackTargets(cdp) {
+  const stamp = () => new Date().toISOString();
+  const urlOf = p => String(p?.targetInfo?.url ?? '');
+  cdp.on('Target.targetCreated', p => {
+    const url = urlOf(p);
+    if (p?.targetInfo?.targetId) targetUrls.set(p.targetInfo.targetId, url);
+    if (url.includes('webview')) targetEvents.push({ event: 'created', url: url.slice(0, 80), targetId: p?.targetInfo?.targetId, at: stamp() });
+  });
+  cdp.on('Target.targetDestroyed', p => targetEvents.push({ event: 'destroyed', targetId: p?.targetId,
+    url: String(targetUrls.get(p?.targetId) ?? '').slice(0, 80), at: stamp() }));
+  cdp.on('Target.targetInfoChanged', p => {
+    const url = urlOf(p);
+    if (p?.targetInfo?.targetId) targetUrls.set(p.targetInfo.targetId, url);
+    if (url.includes('webview')) targetEvents.push({ event: 'changed', targetId: p?.targetInfo?.targetId, url: url.slice(0, 80), at: stamp() });
+  });
+  cdp.on('Inspector.targetCrashed', p => targetEvents.push({ event: 'crashed', targetId: p?.targetId, at: stamp() }));
+}
+async function findPreview(ms = 20000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    const all = await browser.send('Target.getTargets').catch(() => undefined);
+    for (const info of all?.targetInfos ?? []) {
+      if (!['iframe', 'page', 'webview'].includes(info.type) || !String(info.url ?? '').includes('webview')) continue;
+      try {
+        const { sessionId } = await browser.send('Target.attachToTarget', { targetId: info.targetId, flatten: true });
+        contexts.delete(sessionId);
+        await browser.send('Page.enable', {}, sessionId).catch(() => {}); await browser.send('Runtime.enable', {}, sessionId).catch(() => {});
+        await browser.send('Inspector.enable', {}, sessionId).catch(() => {});
+        await browser.send('Page.addScriptToEvaluateOnNewDocument', { source: WRITE_ERROR_HOOK }, sessionId).catch(() => {});
+        await sleep(300);
+        for (const contextId of contexts.get(sessionId) ?? []) {
+          try { if (await evaluate(browser, `Boolean(document.getElementById('preview-stage') && document.getElementById('seek'))`, contextId, sessionId)) return { sessionId, contextId }; } catch {}
+        }
+      } catch {}
+    }
+    await sleep(500);
+  }
+  return undefined;
+}
+// プレビューが作り直されて実行コンテキストが消えたら、見つけ直して 1 回だけやり直す。
+// 消えた事実は contextLosses に残す（製品の回帰を隠さない）。
+const pv = async expr => {
+  try {
+    return await evaluate(browser, expr, view.contextId, view.sessionId);
+  } catch (error) {
+    const message = String(error?.message ?? error);
+    if (!/Cannot find context/i.test(message)) throw error;
+    contextLosses.push({ at: new Date().toISOString(), step: currentStep, message: message.slice(0, 200) });
+    const found = await findPreview(20000).catch(() => undefined);
+    if (!found) throw error;
+    view = found;
+    contextLosses[contextLosses.length - 1].health = await evaluate(browser, HEALTH_EXPR, found.contextId, found.sessionId).catch(() => null);
+    return evaluate(browser, expr, view.contextId, view.sessionId);
+  }
+};
+async function command(id, value) {
+  return evaluate(main, `(async () => { try {
+    const d = window.theia?.container?._bindingDictionary; const keys = d?._map ? [...d._map.keys()] : [];
+    const C = keys.find(k => typeof k === 'function' && k.prototype && typeof k.prototype.executeCommand === 'function' && typeof k.prototype.registerCommand === 'function');
+    if (!C) return { ok: false, error: 'no registry' };
+    const v = await window.theia.container.get(C).executeCommand(${JSON.stringify(id)}, ${JSON.stringify(value)});
+    let plain = null; try { plain = v === undefined ? null : JSON.parse(JSON.stringify(v)); } catch { plain = typeof v; }
+    return { ok: true, value: plain };
+  } catch (e) { return { ok: false, error: e?.message ?? String(e) }; } })()`);
+}
+async function seek(seconds) {
+  for (let i = 0; i < 4; i++) {
+    await command('akari.preview.seekOutput', { editUri, time: seconds });
+    await sleep(900);
+    const actual = await pv(`Number(document.getElementById('seek')?.value)`).catch(() => NaN);
+    if (Math.abs(actual - seconds) < 0.04) { await sleep(600); return actual; }
+  }
+  return pv(`Number(document.getElementById('seek')?.value)`);
+}
+const seekItem = async (id, frame) => {
+  const actual = await seek(frameTime(id, frame));
+  return { actual, actualFrame: Number.isFinite(actual) ? Math.round(actual * FPS) - atOf(id) : null };
+};
+async function stageRect() {
+  const inner = await pv(`(() => { const r = document.getElementById('preview-stage').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })()`);
+  const host = await evaluate(main, `(() => { const f = [...document.querySelectorAll('iframe')].filter(f => /webview/.test(f.src || '')).map(f => f.getBoundingClientRect()).filter(r => r.width > 100 && r.height > 100).sort((a, b) => b.width * b.height - a.width * a.height)[0]; return f ? { x: f.x, y: f.y, w: f.width, h: f.height } : null; })()`);
+  return { x: host.x + inner.x, y: host.y + inner.y, w: inner.w, h: inner.h, hostX: host.x, hostY: host.y };
+}
+async function stagePng() {
+  const rect = await stageRect();
+  const dpr = await evaluate(main, 'window.devicePixelRatio');
+  const { data } = await main.send('Page.captureScreenshot', { format: 'png', clip: { x: rect.x, y: rect.y, width: rect.w, height: rect.h, scale: W / rect.w / dpr } });
+  return { buffer: Buffer.from(data, 'base64'), rect };
+}
+async function stageShot(name) {
+  const { buffer } = await stagePng();
+  const file = path.join(outDir, `${label}-${name}.png`);
+  await writeFile(file, buffer);
+  return file;
+}
+// 色（赤 = 写真 / 緑 = テキスト / 青 = HTML）の外接箱で見えている位置・大きさを測る。
+// DOM の箱は overlay の全画面の器を測ってしまうため使わない（BEFORE の実測で 1920x1080 になった）。
+async function colorVisible(id, color) {
+  if (!color) return null;
+  const { buffer, rect } = await stagePng();
+  const bounds = colorBounds(decodePngBuffer(buffer), color);
+  if (!bounds) return null;
+  return { output: { x: round2(bounds.x * 3 - 960), y: round2(bounds.y * 3 - 540) },
+    size: { w: round2(bounds.box.w * 3), h: round2(bounds.box.h * 3) },
+    page: { x: rect.x + bounds.x * rect.w / W, y: rect.y + bounds.y * rect.h / H },
+    count: bounds.count, mean: bounds.mean };
+}
+const itemColor = id => COMPARE.find(entry => entry.id === id)?.color
+  ?? (id.includes('-style-') ? (id.includes('photo') ? 'red' : id.includes('text') ? 'green' : 'blue') : undefined);
+// プレビューが書き込み後に作り直されている間は色が消えるので、出るまで待つ
+async function waitColorBox(id, color, ms = 15000) {
+  const end = Date.now() + ms;
+  let last = null;
+  while (Date.now() < end) {
+    try { last = await colorVisible(id, color); } catch { last = null; }
+    if (last && last.count > 30) return last;
+    await sleep(400);
+  }
+  try { await stageShot(`missing-${id}`); } catch { /* keep going */ }
+  return last;
+}
+// プレビューは書き込みごとに作り直されるので、書き込みの直前にもフックを張り直す
+async function installWriteHook() {
+  return pv(`(() => {
+    const record = text => {
+      (window.__kf1bWriteErrors ??= []).push(text);
+      try { sessionStorage.setItem('kf1bWriteErrors', JSON.stringify(window.__kf1bWriteErrors.slice(-20))); } catch {}
+    };
+    if (!window.__kf1bConsoleWrapped) {
+      window.__kf1bConsoleWrapped = true;
+      const originalError = console.error.bind(console);
+      console.error = (...args) => {
+        record('console.error: ' + args.map(a => {
+          if (typeof a === 'string') return a;
+          try { return JSON.stringify(a, Object.getOwnPropertyNames(a ?? {})) ?? String(a); } catch { return String(a); }
+        }).join(' '));
+        originalError(...args);
+      };
+    }
+    const engine = window.akari?.engine;
+    if (!engine || engine.__kf1bWrapped) return false;
+    engine.__kf1bWrapped = true;
+    for (const name of ['overlayWrite', 'layerWrite', 'cutWrite']) {
+      const original = engine[name]?.bind(engine);
+      if (!original) continue;
+      engine[name] = (...args) => original(...args).catch(error => {
+        let detail = '';
+        try { detail = JSON.stringify(error, Object.getOwnPropertyNames(error ?? {})); } catch { detail = String(error); }
+        record(name + ': ' + String(error?.message ?? error) + ' | ' + detail);
+        throw error;
+      });
+    }
+    return true; })()`).catch(() => false);
+}
+async function previewDiagnostic(id) {
+  try {
+    const dom = await pv(`(() => {
+      const el = document.querySelector('[data-akari-layer-id="${id}"], [data-overlay-id="${id}"]');
+      const stage = document.getElementById('preview-stage');
+      const r = el ? el.getBoundingClientRect() : null;
+      const cs = el ? getComputedStyle(el) : null;
+      const frame = document.querySelector('[data-akari-interaction="selection-frame"]');
+      return { seek: Number(document.getElementById('seek')?.value || 0), engine: stage?.dataset.frameEngineActive ?? null,
+        el: el ? { tag: el.tagName, cls: String(el.className).slice(0, 60), rect: r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } : null,
+          display: cs.display, visibility: cs.visibility, opacity: cs.opacity } : null,
+        frame: frame ? { hidden: frame.hidden, w: Math.round(frame.getBoundingClientRect().width) } : null,
+        overlays: [...document.querySelectorAll('[data-overlay-id]')].map(o => o.getAttribute('data-overlay-id')).slice(0, 20),
+        layers: [...document.querySelectorAll('[data-akari-layer-id]')].map(o => o.getAttribute('data-akari-layer-id')).slice(0, 20) }; })()`);
+    const rect = await stageRect();
+    return { ...dom, rect };
+  } catch (error) { return { error: clean(error?.message ?? error) }; }
+}
+async function mouse(type, pt, buttons = 0) {
+  await main.send('Input.dispatchMouseEvent', { type, x: pt.x, y: pt.y, button: type === 'mouseMoved' && !buttons ? 'none' : 'left', buttons, clickCount: type === 'mouseMoved' ? 0 : 1 });
+}
+async function key(keyName, code, vk, modifiers = 0, commands) {
+  await main.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: keyName, code, windowsVirtualKeyCode: vk, modifiers, ...(commands ? { commands } : {}) });
+  await main.send('Input.dispatchKeyEvent', { type: 'keyUp', key: keyName, code, windowsVirtualKeyCode: vk, modifiers });
+}
+// 見えている位置（出力の中心原点の px）・大きさ・不透明度（computed opacity の積）
+async function visible(id) {
+  const inner = await pv(`(() => {
+    const el = document.querySelector('[data-akari-layer-id="${id}"], [data-overlay-id="${id}"]');
+    const stage = document.getElementById('preview-stage');
+    if (!el || !stage) return null;
+    const painted = el.matches('img, video') ? el : el.querySelector('img, video, svg');
+    let target = painted && painted.getBoundingClientRect().width > 2 ? painted : el;
+    let r = target.getBoundingClientRect();
+    if (!(r.width > 1) || !(r.height > 1)) {
+      const fallback = document.querySelector('#layer-select-box.is-active')
+        || [...document.querySelectorAll('[data-akari-interaction="selection-frame"]')].find(e => !e.hidden);
+      if (!fallback) return null;
+      target = fallback; r = fallback.getBoundingClientRect();
+    }
+    const s = stage.getBoundingClientRect();
+    if (!(r.width > 1) || !(r.height > 1)) return null;
+    let opacity = 1; for (let n = target; n && n !== stage; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+    return { x: r.x - s.x + r.width / 2, y: r.y - s.y + r.height / 2, w: r.width, h: r.height, stageW: s.width, stageH: s.height, opacity };
+  })()`);
+  if (!inner) return null;
+  const stage = await stageRect();
+  const k = 1920 / inner.stageW;
+  return { output: { x: round2(inner.x * k - 960), y: round2(inner.y * 1080 / inner.stageH - 540) },
+    size: { w: round2(inner.w * k), h: round2(inner.h * 1080 / inner.stageH) }, opacity: round2(inner.opacity),
+    page: { x: stage.x + inner.x, y: stage.y + inner.y } };
+}
+async function historyCount() {
+  try { return (await readdir(path.join(project, '.akari', 'history'))).length; } catch { return 0; }
+}
+async function historyLabels() {
+  try {
+    const names = await readdir(path.join(project, '.akari', 'history'));
+    const labels = [];
+    for (const name of names.slice(-80)) {
+      try {
+        const entry = JSON.parse(await readFile(path.join(project, '.akari', 'history', name), 'utf8'));
+        labels.push(String(entry?.label ?? name));
+      } catch { labels.push(name); }
+    }
+    return labels.slice(-12);
+  } catch { return []; }
+}
+// 1 回の操作: 書き込み回数（履歴の増分）・その時刻の点・点が x と y を両方持つか・戻らない・undo 1 回・redo
+async function operation(id, name, frame, act) {
+  currentStep = name;
+  const color = itemColor(id);
+  const seeked = await seekItem(id, frame);
+  const beforeText = await readEditText();
+  const beforeHistory = await historyCount();
+  const beforeVisible = await waitColorBox(id, color);
+  await installWriteHook();
+  let detail, actError = null;
+  try { detail = await act({ beforeVisible, beforeItem: findItem(JSON.parse(beforeText), id) }); }
+  catch (error) { actError = clean(error?.message ?? error); detail = { error: actError }; }
+  const actFailed = Boolean(actError) || detail?.result?.value?.ok === false || detail?.result?.ok === false;
+  let afterText = beforeText;
+  for (let n = 0; n < (actFailed ? 3 : 50) && afterText === beforeText; n++) { await sleep(200); afterText = await readEditText(); }
+  await sleep(1200);
+  afterText = await readEditText();
+  const writes = (await historyCount()) - beforeHistory;
+  const afterVisible = await waitColorBox(id, color);
+  await stageShot(`${name}-after`);
+  // 戻らない: 別の時刻へ行って戻っても見えている値が変わらない
+  await seekItem(id, 0); await seekItem(id, frame);
+  const reseekVisible = await waitColorBox(id, color);
+  const afterItem = findItem(JSON.parse(afterText), id);
+  const beforeItem = findItem(JSON.parse(beforeText), id);
+  const points = await pointsOfItem(afterItem);
+  const seat = nearestPoint(points, frame);
+  const visibleDelta = beforeVisible && afterVisible ? {
+    dx: round2(afterVisible.output.x - beforeVisible.output.x), dy: round2(afterVisible.output.y - beforeVisible.output.y),
+    dw: round2(afterVisible.size.w - beforeVisible.size.w), dh: round2(afterVisible.size.h - beforeVisible.size.h)
+  } : null;
+  const expected = detail?.expectedDelta ?? null;
+  // スナップ（8px 吸着）と、回転後の字形の外接箱オフセットがあるので 12px まで許す
+  const visibleMovedAsExpected = !expected || !visibleDelta ? null
+    : Math.abs(visibleDelta.dx - (expected.x ?? 0)) <= 12 && Math.abs(visibleDelta.dy - (expected.y ?? 0)) <= 12;
+  const noWrite = writes === 0 && afterText === beforeText;
+  let undoRestored = null, redoRestored = null, undoneText = afterText, redoText = afterText;
+  if (!noWrite) {
+    await evaluate(main, `(() => { document.activeElement?.blur?.(); return true; })()`);
+    await key('z', 'KeyZ', 90, 4, ['undo']);
+    for (let n = 0; n < 40 && await readEditText() === afterText; n++) await sleep(200);
+    await sleep(600);
+    undoneText = await readEditText();
+    undoRestored = JSON.stringify(JSON.parse(undoneText)) === JSON.stringify(JSON.parse(beforeText));
+    await key('z', 'KeyZ', 90, 12, ['redo']);
+    for (let n = 0; n < 40 && await readEditText() === undoneText; n++) await sleep(200);
+    await sleep(600);
+    redoText = await readEditText();
+    redoRestored = JSON.stringify(JSON.parse(redoText)) === JSON.stringify(JSON.parse(afterText));
+    if (!redoRestored) { await writeFile(editPath, afterText); await sleep(2500); }
+  }
+  const real = realPoints(points);
+  const last = real[real.length - 1] ?? null;
+  return { name, frame, seeked, detail, actError, writes, noWrite, beforeVisible, afterVisible, reseekVisible, visibleDelta,
+    visibleMovedAsExpected, expectedDelta: expected,
+    noRevert: afterVisible && reseekVisible
+      ? Math.hypot(afterVisible.output.x - reseekVisible.output.x, afterVisible.output.y - reseekVisible.output.y) <= 1.5
+        && Math.abs(afterVisible.size.w - reseekVisible.size.w) <= 1.5 && Math.abs(afterVisible.size.h - reseekVisible.size.h) <= 1.5
+      : null,
+    pointCreated: Boolean(seat), pointAtFrame: seat, pointHasX: seat?.transform ? Number.isFinite(seat.transform.x) : null,
+    pointHasY: seat?.transform ? Number.isFinite(seat.transform.y) : null,
+    pointTimes: real.map(point => point.t), lastPoint: last,
+    staticBefore: beforeItem?.transform ?? null, staticAfter: afterItem?.transform ?? null,
+    evaluatedAtFrame: afterItem ? evaluatedItemTransform(afterItem, frame) : null,
+    undoRestored, redoRestored };
+}
+async function focusItem(id) {
+  await command('akari.timeline.focusItem', { itemId: id, reveal: true });
+  await sleep(500);
+  await evaluate(main, `(() => { document.querySelector('[data-akari-ui="tab:inspector-video"]')?.click(); return true; })()`);
+  await sleep(500);
+}
+async function pressSeat(id, frame, field) {
+  await seekItem(id, frame);
+  await focusItem(id);
+  const beforeHistory = await historyCount();
+  const beforeText = await readEditText();
+  const pressed = await evaluate(main, `(() => { const b = document.querySelector('[data-akari-ui="inspector-kf-seat:${field}"]');
+    if (!b) return { found: false, seats: [...document.querySelectorAll('[data-akari-ui^="inspector-kf-seat:"]')].map(e => e.getAttribute('data-akari-ui')) };
+    const old = b.getAttribute('aria-pressed'); b.click(); return { found: true, old, title: b.title }; })()`);
+  for (let n = 0; n < 40 && await readEditText() === beforeText; n++) await sleep(200);
+  await sleep(900);
+  const after = await evaluate(main, `(() => { const b = document.querySelector('[data-akari-ui="inspector-kf-seat:${field}"]');
+    return b ? { pressed: b.getAttribute('aria-pressed'), title: b.title } : null; })()`);
+  const item = findItem(await readEdit(), id);
+  return { pressed, after, writes: (await historyCount()) - beforeHistory, item,
+    points: (await pointsOfItem(item)).filter(point => point.transform || point.opacity !== undefined) };
+}
+async function handleCenter(selector) {
+  const rect = await stageRect();
+  // つまみの中心がステージの外（下）に出ていることがあるので、elementFromPoint で
+  // 実際に押せる点（つまみ自身が最前面）を探す
+  const found = await pv(`(() => { const s = document.getElementById('preview-stage').getBoundingClientRect();
+    const candidates = [...document.querySelectorAll(${JSON.stringify(selector)})]
+      .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).display !== 'none'; });
+    for (const e of candidates) {
+      const r = e.getBoundingClientRect();
+      for (const [fx, fy] of [[0.5, 0.5], [0.5, 0.25], [0.25, 0.5], [0.5, 0.75], [0.75, 0.5], [0.5, 0.1], [0.5, 0.9]]) {
+        const x = r.x + r.width * fx, y = r.y + r.height * fy;
+        const hit = document.elementFromPoint(x, y);
+        if (hit && (hit === e || e.contains(hit))) return { x: x - s.x, y: y - s.y, fx, fy };
+      }
+    }
+    return null; })()`);
+  return found ? { x: rect.x + found.x, y: rect.y + found.y, sample: { fx: found.fx, fy: found.fy } } : null;
+}
+async function drag(start, target, steps = 12) {
+  await mouse('mouseMoved', start); await sleep(100); await mouse('mousePressed', start, 1); await sleep(120);
+  for (let n = 1; n <= steps; n++) {
+    await mouse('mouseMoved', typeof target === 'function' ? target(n / steps)
+      : { x: start.x + (target.x - start.x) * n / steps, y: start.y + (target.y - start.y) * n / steps }, 1);
+    await sleep(35);
+  }
+  const end = typeof target === 'function' ? target(1) : target;
+  await mouse('mouseReleased', end); await sleep(120);
+  await mouse('mouseMoved', { x: end.x + 3, y: end.y + 3 });
+}
+// 選択の状態（cut / layer の箱 / overlay の選択 / interaction の選択枠とつまみ）
+async function selectionState(id) {
+  return pv(`(() => {
+    const box = document.querySelector('#layer-select-box.is-active');
+    const cutBox = document.querySelector('#cut-select-box.is-active');
+    const host = document.querySelector('[data-akari-layer-id="${id}"]');
+    const rectOf = el => { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2, w: Math.round(r.width) }; };
+    const layer = box ? rectOf(box) : null;
+    const cut = cutBox ? rectOf(cutBox) : null;
+    const overlay = document.querySelector('[data-overlay-id="${id}"][data-akari-interaction-selected="true"]');
+    const frame = document.querySelector('[data-akari-interaction="selection-frame"]');
+    const handles = [...document.querySelectorAll('[data-akari-interaction="selection-handle"]')].map(e => {
+      const r = e.getBoundingClientRect();
+      return { cls: String(e.className).slice(0, 48), w: Math.round(r.width * 100) / 100, h: Math.round(r.height * 100) / 100, display: getComputedStyle(e).display };
+    });
+    return { layer, cut, layerHostPresent: Boolean(host), overlay: !!overlay,
+      frame: frame ? { hidden: frame.hidden, connected: frame.isConnected, w: Math.round(frame.getBoundingClientRect().width * 100) / 100 } : null,
+      selectedId: window.akari.interaction?.selectedId ?? null, handles: handles.slice(0, 14) }; })()`);
+}
+// 色の箱の中心を押して選択する（overlay）。写真（media layer）は素のクリックだと pointerup の
+// blank-click で選択が外れるので、タイムラインの選択（akari-preview-select-layer）を使う。
+async function selectOnStage(id, color) {
+  const info = await pv(`(() => { const s = window.akari.state?.summary; const has = (list, key) =>
+    (list || []).some(entry => entry && entry[key] === ${JSON.stringify(id)});
+    return { layer: has(s?.layers, 'id'), cut: has(s?.cuts, 'id'), tree: has(s?.tree, 'id'), overlay: has(s?.overlays, 'id') }; })()`).catch(() => null);
+  const isVisual = info && (info.layer || info.cut || info.tree);
+  if (isVisual) {
+    await focusItem(id);
+    await sleep(500);
+    let state = await selectionState(id);
+    let via = (state.layer || state.cut) ? 'timeline' : null;
+    if (!state.layer && !state.cut) {
+      // タイムライン選択がプレビューへ届かないときは、アプリ自身のイベントを直接発火する
+      const dispatch = info.cut
+        ? `window.dispatchEvent(new CustomEvent('akari.timeline.primarySelected', { detail: { editUri: ${JSON.stringify(editUri)},
+            selection: { kind: 'cut', id: ${JSON.stringify(id)} } } }))`
+        : `window.dispatchEvent(new CustomEvent('akari.timeline.layerSelected', { detail: { editUri: ${JSON.stringify(editUri)},
+            layerId: ${JSON.stringify(id)} } }))`;
+      await evaluate(main, `(() => { ${dispatch}; return true; })()`);
+      await sleep(700);
+      state = await selectionState(id);
+      via = (state.layer || state.cut) ? 'event' : 'none';
+    }
+    return { selected: Boolean(state.layer || state.cut), state, via, info, box: await waitColorBox(id, color, 6000) };
+  }
+  const box = await waitColorBox(id, color);
+  if (!box) return { selected: false, reason: 'color box not found', diagnostic: await previewDiagnostic(id) };
+  await mouse('mouseMoved', box.page); await mouse('mousePressed', box.page, 1); await sleep(60); await mouse('mouseReleased', box.page);
+  await sleep(560);
+  const state = await selectionState(id);
+  return { selected: Boolean(state.overlay || (state.frame && !state.frame.hidden && state.frame.connected)), state, box };
+}
+async function dragBody(id, color, dx, dy) {
+  const box = await waitColorBox(id, color);
+  if (!box) return { error: `color box ${id} missing`, diagnostic: await previewDiagnostic(id) };
+  const rect = await stageRect();
+  const start = box.page;
+  const target = { x: start.x + dx * rect.w / 1920, y: start.y + dy * rect.h / 1080 };
+  await drag(start, target);
+  return { start, target };
+}
+async function hitChainAt(page) {
+  const rect = await stageRect();
+  const x = page.x - rect.hostX, y = page.y - rect.hostY;
+  return pv(`(() => { const el = document.elementFromPoint(${x}, ${y}); const chain = [];
+    for (let n = el; n && chain.length < 6; n = n.parentElement) chain.push(n.tagName + (n.id ? '#' + n.id : '') + '.' + String(n.className).slice(0, 40));
+    return chain; })()`).catch(() => null);
+}
+async function bar(request) { return command('akari.contextBar.run', { editUri, ...request }); }
+
+const SE_HANDLE = '#layer-select-box.is-active .akari-layer-handle-se, #cut-select-box.is-active .akari-cut-handle-se, .akari-interaction-handle.is-se';
+const ROTATE_HANDLE = '#layer-select-box.is-active .akari-layer-handle-rotate, #cut-select-box.is-active .akari-cut-handle-rotate, .akari-interaction-action.is-rotate';
+
+// ---- 目的 1: キーフレームの無い時刻の操作 ----------------------------------------------------
+const P1_FRAMES = { resize: 45, rotate: 60, nudge: 75, barNudge: 85, barWrite: 95, barResize: 105, barFit: 130 };
+async function purpose1(kind, id) {
+  const color = itemColor(id);
+  const seat = await pressSeat(id, 120, 'transform-x');
+  const firstDrag = await operation(id, `p1-${kind}-drag-20`, 20, async context => {
+    const select = await selectOnStage(id, color);
+    const dragResult = await dragBody(id, color, 240, 110);
+    return { drag: [240, 110], expectedDelta: { x: 240, y: 110 }, select, dragResult };
+  });
+  const ops = [];
+  ops.push(await operation(id, `p1-${kind}-resize-${P1_FRAMES.resize}`, P1_FRAMES.resize, async () => {
+    const select = await selectOnStage(id, color);
+    const se = await handleCenter(SE_HANDLE);
+    if (!se) return { handle: null, select, handleDiagnostic: select.state };
+    const rect = await stageRect();
+    const before = await waitColorBox(id, color);
+    await drag(se, { x: se.x + 90 * rect.w / 1920, y: se.y + 90 * rect.h / 1080 });
+    return { handle: 'se', select, boxBeforeDrag: before };
+  }));
+  ops.push(await operation(id, `p1-${kind}-rotate-${P1_FRAMES.rotate}`, P1_FRAMES.rotate, async () => {
+    const select = await selectOnStage(id, color);
+    const box = await waitColorBox(id, color);
+    const handle = await handleCenter(ROTATE_HANDLE);
+    if (!handle || !box) return { handle: null, select, box };
+    const cx = box.page.x, cy = box.page.y;
+    const r0 = Math.hypot(handle.x - cx, handle.y - cy), a0 = Math.atan2(handle.y - cy, handle.x - cx);
+    const hitChain = await hitChainAt(handle);
+    const probe = await pv(`(() => { const e = document.querySelector('#cut-select-box.is-active .akari-cut-handle-rotate');
+      if (!e) return { found: false };
+      const r = e.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return { found: true, rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
+        display: getComputedStyle(e).display, visibility: getComputedStyle(e).visibility,
+        hit: hit ? hit.tagName + '.' + String(hit.className).slice(0, 40) : null }; })()`).catch(() => null);
+    await drag(handle, u => ({ x: cx + r0 * Math.cos(a0 - u * Math.PI / 6), y: cy + r0 * Math.sin(a0 - u * Math.PI / 6) }), 16);
+    await sleep(400);
+    const after = await selectionState(id);
+    const cutRotate = await pv(`(() => { const box = document.querySelector('#cut-select-box'); const layer = document.querySelector('#layer-select-box');
+      return { cut: box ? box.style.transform : null, layer: layer ? layer.style.transform : null }; })()`).catch(() => null);
+    return { handle: 'rotate', degrees: -30, select, handleAt: handle, pivot: { x: round2(cx), y: round2(cy) }, r0: round2(r0), hitChain, probe, after, cutRotate };
+  }));
+  ops.push(await operation(id, `p1-${kind}-nudge-${P1_FRAMES.nudge}`, P1_FRAMES.nudge, async context => {
+    if (kind === 'photo') {
+      // 写真（media layer）はプレビューの素の矢印ナッジが無いので、タイムラインの Alt+矢印（位置を 1px）。
+      // 1 押し = 1 書き込みとして記録する（複数押しだと keyup ごとに書く）
+      await focusItem(id);
+      await key('ArrowRight', 'ArrowRight', 39, 1);
+      await sleep(800);
+      return { keys: 'Alt+ArrowRight×1', path: 'timeline', expectedDelta: { x: 1, y: 0 } };
+    }
+    await selectOnStage(id, color);
+    for (let n = 0; n < 3; n++) { await key('ArrowRight', 'ArrowRight', 39); await sleep(60); }
+    for (let n = 0; n < 2; n++) { await key('ArrowDown', 'ArrowDown', 40); await sleep(60); }
+    await sleep(700);
+    return { keys: 'ArrowRight×3 ArrowDown×2', path: 'preview', expectedDelta: { x: 3, y: 2 } };
+  }));
+  if (kind !== 'photo') {
+    // テキスト・HTML でも写真と同じ入口（タイムラインの Alt+矢印）を 1 操作ずつ記録する
+    ops.push(await operation(id, `p1-${kind}-nudge-timeline-70`, 70, async () => {
+      await focusItem(id);
+      await key('ArrowRight', 'ArrowRight', 39, 1);
+      await sleep(800);
+      return { keys: 'Alt+ArrowRight×1', path: 'timeline', expectedDelta: { x: 1, y: 0 } };
+    }));
+  }
+  ops.push(await operation(id, `p1-${kind}-bar-nudge-${P1_FRAMES.barNudge}`, P1_FRAMES.barNudge, async () => {
+    await focusItem(id);
+    const request = { action: 'nudge', dx: 40, dy: -30 };
+    return { request, result: await bar(request), expectedDelta: { x: 40, y: -30 } };
+  }));
+  ops.push(await operation(id, `p1-${kind}-bar-write-${P1_FRAMES.barWrite}`, P1_FRAMES.barWrite, async context => {
+    await focusItem(id);
+    const request = { action: 'write', path: 'transform.x', value: -150 };
+    const current = context.beforeItem ? evaluatedItemTransform(context.beforeItem, P1_FRAMES.barWrite).x : 0;
+    return { request, result: await bar(request), expectedDelta: { x: round2(-150 - current), y: 0 } };
+  }));
+  ops.push(await operation(id, `p1-${kind}-bar-resize-${P1_FRAMES.barResize}`, P1_FRAMES.barResize, async () => {
+    await focusItem(id);
+    const request = { action: 'resize', width: 300, keepRatio: true };
+    return { request, result: await bar(request) };
+  }));
+  ops.push(await operation(id, `p1-${kind}-bar-fit-${P1_FRAMES.barFit}`, P1_FRAMES.barFit, async context => {
+    await focusItem(id);
+    const request = { action: 'fit' };
+    const pose = context.beforeItem ? evaluatedItemTransform(context.beforeItem, P1_FRAMES.barFit) : { x: 0, y: 0 };
+    return { request, result: await bar(request), expectedDelta: { x: round2(-pose.x), y: round2(-pose.y) } };
+  }));
+  const final = findItem(await readEdit(), id);
+  const points = realPoints(await pointsOfItem(final));
+  return { id, color, seat: { writes: seat.writes, after: seat.after, points: seat.points.map(point => point.t) },
+    firstDrag, ops, finalPoints: points, finalStatic: final.transform,
+    everyPointHasXY: points.filter(point => point.transform).every(point => Number.isFinite(point.transform.x) && Number.isFinite(point.transform.y)),
+    pointCount: points.length };
+}
+
+// ---- 目的 2: 動きを描く ---------------------------------------------------------------------
+async function motionDraw(kind, id) {
+  currentStep = `p2:${kind}`;
+  const frame = 30;
+  const color = itemColor(id);
+  await seekItem(id, frame);
+  await focusItem(id);
+  await installWriteHook();
+  const beforeText = await readEditText();
+  const beforeHistory = await historyCount();
+  // 「動きを描く」はインスペクターの「動き」タブ（assignSectionToTab が motion:* を motion へ割り当てる）。
+  // 先に動きの区画を開き、それでも見つからなければ animations widget の motion-draw 分岐と同じ
+  // イベント（akari.motion.draw）を直接発火する。
+  const openedMotion = await evaluate(main, `(() => {
+    const tab = document.querySelector('[data-akari-ui="tab:inspector-motion"]');
+    if (tab) { tab.click(); return 'tab'; }
+    const open = document.querySelector('[data-akari-ui="action:inspector-motion-open"]');
+    if (open) { open.click(); return 'action'; }
+    return null; })()`);
+  await sleep(700);
+  let triggered = await evaluate(main, `(() => { const b = document.querySelector('[data-akari-ui="action:inspector-motion-draw"]');
+    if (!b) return { found: false, via: 'inspector', openedMotion: ${JSON.stringify(openedMotion)},
+      actions: [...document.querySelectorAll('[data-akari-ui^="action:inspector-"]')].map(e => e.getAttribute('data-akari-ui')).slice(0, 60),
+      tabs: [...document.querySelectorAll('[data-akari-ui^="tab:inspector-"]')].map(e => e.getAttribute('data-akari-ui')) };
+    b.click(); return { found: true, via: 'inspector', label: b.textContent }; })()`);
+  if (!triggered.found) {
+    const dispatched = await evaluate(main, `(() => { window.dispatchEvent(new CustomEvent('akari.motion.draw',
+      { detail: { editUri: ${JSON.stringify(editUri)}, itemId: ${JSON.stringify(id)} } })); return true; })()`);
+    triggered = { ...triggered, via: 'event', dispatched };
+  }
+  let armed = false;
+  for (let n = 0; n < 50 && !armed; n++) {
+    armed = await pv(`document.querySelector('.preview-pane')?.style.cursor === 'crosshair'`).catch(() => false);
+    if (!armed) await sleep(200);
+  }
+  const box = armed ? await waitColorBox(id, color, 8000) : null;
+  let stroke = null;
+  if (armed && box) {
+    const rect = await stageRect();
+    const start = { x: box.page.x - 30 * rect.w / 1920, y: box.page.y - 20 * rect.h / 1080 };
+    const swingX = Math.max(140, Math.min(420, box.size.w * 0.8 + 200));
+    const swingY = Math.max(90, Math.min(260, box.size.h * 0.6 + 120));
+    await drag(start, u => ({ x: start.x + u * swingX * rect.w / 1920 + Math.sin(u * Math.PI) * 26 * rect.w / 1920,
+      y: start.y + u * swingY * rect.h / 1080 + Math.sin(u * Math.PI * 1.5) * 22 * rect.h / 1080 }), 16);
+    stroke = { start: { x: round2(start.x), y: round2(start.y) }, swingX, swingY, box };
+  } else {
+    stroke = { armed: false, box };
+  }
+  let afterText = beforeText;
+  for (let n = 0; n < 60 && afterText === beforeText; n++) { await sleep(200); afterText = await readEditText(); }
+  await sleep(1200);
+  afterText = await readEditText();
+  const writes = (await historyCount()) - beforeHistory;
+  const historyAfter = await historyLabels();
+  const afterItem = findItem(JSON.parse(afterText), id);
+  const points = realPoints(await pointsOfItem(afterItem));
+  const withTransform = points.filter(point => point.transform);
+  await stageShot(`p2-${kind}-after`);
+  let undoRestored = null, redoRestored = null;
+  await evaluate(main, `(() => { document.activeElement?.blur?.(); return true; })()`);
+  await key('z', 'KeyZ', 90, 4, ['undo']);
+  for (let n = 0; n < 40 && await readEditText() === afterText; n++) await sleep(200);
+  await sleep(600);
+  const undoneText = await readEditText();
+  undoRestored = JSON.stringify(JSON.parse(undoneText)) === JSON.stringify(JSON.parse(beforeText));
+  await key('z', 'KeyZ', 90, 12, ['redo']);
+  for (let n = 0; n < 40 && await readEditText() === undoneText; n++) await sleep(200);
+  await sleep(600);
+  const redoText = await readEditText();
+  redoRestored = JSON.stringify(JSON.parse(redoText)) === JSON.stringify(JSON.parse(afterText));
+  if (!redoRestored) { await writeFile(editPath, afterText); await sleep(2500); }
+  return { id, frame, triggered, armed, stroke, writes, historyAfter,
+    keyframesForm: Array.isArray(afterItem?.keyframes) ? 'array' : 'bag',
+    pointCount: points.length, pointTimes: points.map(point => point.t),
+    everyPointHasXY: withTransform.length > 0 && withTransform.every(point => Number.isFinite(point.transform.x) && Number.isFinite(point.transform.y)),
+    firstPoints: points.slice(0, 6), undoRestored, redoRestored };
+}
+
+// ---- 目的 3: スタイルをコピー → 当てる -------------------------------------------------------
+async function styleApply(kind) {
+  currentStep = `p3:${kind}`;
+  const srcId = STYLE_SRC[kind], dstId = STYLE_DST[kind];
+  const frame = 75;
+  const color = itemColor(dstId);
+  const seeked = await seekItem(dstId, frame);
+  await focusItem(srcId);
+  await installWriteHook();
+  const beforeText = await readEditText();
+  const beforeHistory = await historyCount();
+  const beforeVisible = await visible(dstId);
+  const beforeItem = findItem(JSON.parse(beforeText), dstId);
+  const beforePng = await stagePng();
+  const beforeShot = path.join(outDir, `${label}-p3-${kind}-before.png`);
+  await writeFile(beforeShot, beforePng.buffer);
+  const beforeMetric = color ? colorBounds(decodePngBuffer(beforePng.buffer), color) : null;
+  const beforeBox = await waitColorBox(dstId, color, 8000);
+  const copy = await bar({ action: 'copyStyle', id: srcId });
+  await sleep(500);
+  const select = await bar({ action: 'selectLayer', targetId: dstId });
+  let afterText = beforeText;
+  for (let n = 0; n < 50 && afterText === beforeText; n++) { await sleep(200); afterText = await readEditText(); }
+  await sleep(1200);
+  afterText = await readEditText();
+  const writes = (await historyCount()) - beforeHistory;
+  const afterVisible = await visible(dstId);
+  const afterItem = findItem(JSON.parse(afterText), dstId);
+  const points = await pointsOfItem(afterItem);
+  const seat = nearestPoint(points, frame);
+  const afterPng = await stagePng();
+  const afterShot = path.join(outDir, `${label}-p3-${kind}-after.png`);
+  await writeFile(afterShot, afterPng.buffer);
+  const afterMetric = color ? colorBounds(decodePngBuffer(afterPng.buffer), color) : null;
+  const afterBox = await waitColorBox(dstId, color, 8000);
+  let undoRestored = null, redoRestored = null;
+  await evaluate(main, `(() => { document.activeElement?.blur?.(); return true; })()`);
+  await key('z', 'KeyZ', 90, 4, ['undo']);
+  for (let n = 0; n < 40 && await readEditText() === afterText; n++) await sleep(200);
+  await sleep(600);
+  const undoneText = await readEditText();
+  undoRestored = JSON.stringify(JSON.parse(undoneText)) === JSON.stringify(JSON.parse(beforeText));
+  await key('z', 'KeyZ', 90, 12, ['redo']);
+  for (let n = 0; n < 40 && await readEditText() === undoneText; n++) await sleep(200);
+  await sleep(600);
+  const redoText = await readEditText();
+  redoRestored = JSON.stringify(JSON.parse(redoText)) === JSON.stringify(JSON.parse(afterText));
+  if (!redoRestored) { await writeFile(editPath, afterText); await sleep(2500); }
+  return { kind, srcId, dstId, frame, seeked, copy, select, writes,
+    beforeShot: path.basename(beforeShot), afterShot: path.basename(afterShot),
+    beforeMetric, afterMetric, beforeBox, afterBox,
+    meanBefore: beforeMetric?.mean ?? null, meanAfter: afterMetric?.mean ?? null,
+    meanDropped: beforeMetric && afterMetric ? round2(afterMetric.mean - beforeMetric.mean) : null,
+    beforeVisible, afterVisible, beforeOpacityStatic: beforeItem?.opacity ?? null, afterOpacityStatic: afterItem?.opacity ?? null,
+    pointCreated: Boolean(seat), pointAtFrame: seat, pointTimes: realPoints(points).map(point => point.t),
+    pointOpacityAtFrame: seat?.opacity ?? null,
+    opacityBecameTarget: afterItem ? Math.abs(evaluatedItemOpacity(afterItem, frame) - 0.4) <= 0.01 : null,
+    evaluatedOpacityBefore: beforeItem ? evaluatedItemOpacity(beforeItem, frame) : null,
+    evaluatedOpacityAfter: afterItem ? evaluatedItemOpacity(afterItem, frame) : null,
+    undoRestored, redoRestored };
+}
+
+// ---- フレームの選択（点の時刻と点の間を混ぜて 6 つ） -------------------------------------------
+function chooseFrames(points) {
+  const times = [...new Set(points.map(point => point.t))].sort((a, b) => a - b);
+  if (!times.length) return [10, 40, 75, 110, 140];
+  const mids = times.slice(1).map((t, i) => Math.floor((times[i] + t) / 2));
+  const wanted = [];
+  const push = frame => { if (frame >= 0 && frame <= 149 && !wanted.includes(frame)) wanted.push(frame); };
+  push(times[0]);
+  push(times[Math.floor(times.length / 3)]);
+  push(mids[0] ?? times[0]);
+  push(times[Math.floor(times.length * 2 / 3)]);
+  push(mids[mids.length - 1] ?? times[times.length - 1]);
+  push(times[times.length - 1]);
+  return wanted.sort((a, b) => a - b);
+}
+const COMPARE_GROUP = {
+  [KIND_IDS.photo]: 'p1:photo', [KIND_IDS.text]: 'p1:text', [KIND_IDS.html]: 'p1:html',
+  [DRAW_IDS.photo]: 'p2:photo', [DRAW_IDS.text]: 'p2:text', [DRAW_IDS.html]: 'p2:html'
+};
+async function captureCompareFrames() {
+  const edit = await readEdit();
+  const compare = {};
+  for (const { id } of COMPARE) {
+    if (!onlyHas(COMPARE_GROUP[id])) continue;
+    const item = findItem(edit, id);
+    const points = realPoints(await pointsOfItem(item));
+    const frames = chooseFrames(points);
+    compare[id] = frames;
+    for (const frame of frames) {
+      currentStep = `capture:${id}:${frame}`;
+      await seekItem(id, frame);
+      await evaluate(main, `(() => { document.activeElement?.blur?.(); return true; })()`).catch(() => {});
+      await stageShot(`preview-${id}-${frame}`);
+    }
+  }
+  return compare;
+}
+
+// ---- launch / run ---------------------------------------------------------------------------
+const results = { p1: {}, p2: {}, p3: {} };
+async function scenario(bucket, key, fn) {
+  currentStep = `${bucket}:${key}`;
+  try { results[bucket][key] = await fn(); } catch (error) { results[bucket][key] = { error: clean(error?.stack ?? error).slice(0, 1600) }; }
+}
+const report = { label, port, httpPort, kinds: KIND_IDS };
+try {
+  await mkdir(outDir, { recursive: true });
+  try { await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(1000) });
+    throw new Error(`CDP port ${port} already occupied`); } catch (error) { if (String(error).includes('already occupied')) throw error; }
+  await makeFixture();
+  const profile = path.join(scratch, 'profile'), config = path.join(scratch, 'config'), home = path.join(scratch, 'akari-home');
+  await Promise.all([mkdir(profile), mkdir(config), mkdir(home)]);
+  // Electron の stdout/stderr（Theia ロガー・webview のクラッシュ等）を残す（最後に clean() する）
+  electronLog = path.join(outDir, `${label}-electron.log`);
+  electronLogFd = openSync(electronLog, 'w');
+  child = spawn(electron, [shellDir, project, `--remote-debugging-port=${port}`, '--hostname=127.0.0.1', `--port=${httpPort}`,
+    `--user-data-dir=${profile}`, '--no-sandbox'], { cwd: shellDir, env: { ...process.env, THEIA_CONFIG_DIR: config, AKARI_HOME: home }, stdio: ['ignore', electronLogFd, electronLogFd], detached: true });
+  const isShell = v => v.type === 'page' && v.url && !v.url.startsWith('devtools:');
+  const target = (await waitForJson(`http://127.0.0.1:${port}/json/list`, v => v.find(isShell))).find(isShell);
+  main = new CDP(target.webSocketDebuggerUrl); await main.connect(); track(main); await main.send('Runtime.enable'); await main.send('Page.enable');
+  const version = await waitForJson(`http://127.0.0.1:${port}/json/version`, v => v.webSocketDebuggerUrl);
+  browser = new CDP(version.webSocketDebuggerUrl); await browser.connect(); track(browser); trackTargets(browser);
+  await browser.send('Target.setDiscoverTargets', { discover: true }).catch(() => {});
+  try { const { windowId } = await browser.send('Browser.getWindowForTarget', { targetId: target.id });
+    await browser.send('Browser.setWindowBounds', { windowId, bounds: { left: 0, top: 0, width: 1680, height: 1040, windowState: 'normal' } }); } catch {}
+  await sleep(9000);
+  const openOnly = () => evaluate(main, `(() => { const b = [...document.querySelectorAll('button')].find(e => ['開くだけ', '後で'].includes(e.textContent?.trim())); if (b) b.click(); return !!b; })()`);
+  const soft = (id, value) => Promise.race([command(id, value).catch(e => ({ ok: false, error: String(e) })), sleep(5000).then(() => ({ ok: false, error: 'pending' }))]);
+  for (let i = 0; i < 50; i++) { await openOnly().catch(() => {}); report.timelineOpen = await soft('akari.annotations.open'); if (report.timelineOpen.ok) break; await sleep(1600); }
+  for (let i = 0; i < 40 && !view; i++) { await openOnly().catch(() => {}); await soft('akari.preview.ensureVisible', { editUri }); await sleep(2600); view = await findPreview(12000); }
+  if (!view) throw new Error('preview not found');
+  for (let i = 0; i < 60; i++) { if (await pv(`Number(document.getElementById('seek')?.max || 0) >= 59`).catch(() => false)) break; await sleep(500); }
+  // 書き込みの失敗理由（本体 → webview の応答 error）を拾う（findPreview が新規文書へも仕込む）
+  try {
+    await pv(WRITE_ERROR_HOOK);
+  } catch (error) { report.writeHookError = clean(error?.message ?? error); }
+  report.inspectorOpen = await command('akari.inspector.open'); await sleep(900);
+  report.seats = await evaluate(main, `(() => [...document.querySelectorAll('[data-akari-ui^="inspector-kf-seat:"]')].map(e => e.getAttribute('data-akari-ui')))()`);
+
+  for (const kind of ['photo', 'text', 'html']) if (onlyHas(`p1:${kind}`)) await scenario('p1', kind, () => purpose1(kind, KIND_IDS[kind]));
+  for (const kind of ['photo', 'text', 'html']) if (onlyHas(`p2:${kind}`)) await scenario('p2', kind, () => motionDraw(kind, DRAW_IDS[kind]));
+  for (const kind of ['photo', 'text', 'html']) if (onlyHas(`p3:${kind}`)) await scenario('p3', kind, () => styleApply(kind));
+  // フックの記録は Electron を止める前に読む（止めた後の pv は失敗する）
+  currentStep = 'read-hooks';
+  results.writeErrors = await pv(`(() => { try { return JSON.parse(sessionStorage.getItem('kf1bWriteErrors') ?? '[]'); }
+    catch { return window.__kf1bWriteErrors ?? []; } })()`).catch(() => []);
+  results.hookCheck = await pv(`(() => ({ consoleWrapped: window.__kf1bConsoleWrapped === true,
+    engineWrapped: window.akari?.engine?.__kf1bWrapped === true, engineType: typeof window.akari?.engine?.overlayWrite,
+    errors: (window.__kf1bWriteErrors ?? []).length, editPath: window.akari?.state?.editPath ?? null }))()`).catch(() => null);
+  currentStep = 'capture';
+  results.compare = await captureCompareFrames();
+  results.finalEdit = await readEdit();
+  const bags = {};
+  for (const track of results.finalEdit.tracks ?? []) for (const item of track.items ?? []) {
+    if (item.keyframes && !Array.isArray(item.keyframes) && typeof item.keyframes.path === 'string') {
+      try { bags[item.keyframes.path] = await readFile(path.join(project, item.keyframes.path), 'utf8'); } catch {}
+    }
+  }
+  results.motionBagPaths = Object.keys(bags);
+  if (Object.keys(bags).length) await writeFile(path.join(outDir, `${label}-final-motion-bags.json`), `${JSON.stringify(bags, null, 2)}\n`);
+} catch (error) { report.error = clean(error?.stack ?? error); }
+finally {
+  main?.close(); browser?.close();
+  if (child?.pid) { try { process.kill(-child.pid, 'SIGTERM'); } catch {} await sleep(1800); try { process.kill(-child.pid, 'SIGKILL'); } catch {} }
+  try { closeSync(electronLogFd); } catch {}
+  await sleep(300);
+  try { if (electronLog) await writeFile(electronLog, clean(await readFile(electronLog, "utf8"))); } catch {}
+  const owned = spawnSync('ps', ['-axo', 'pid=,command='], { encoding: 'utf8' }).stdout ?? '';
+  for (const line of owned.split('\n')) {
+    if (!line.includes(scratch) || !line.includes('Electron Helper')) continue;
+    const pid = Number(line.trim().split(/\s+/)[0]);
+    if (Number.isInteger(pid) && pid > 0) try { process.kill(pid, 'SIGKILL'); } catch {}
+  }
+}
+report.results = results;
+report.writeErrors = results.writeErrors ?? [];
+results.contextLosses = contextLosses;
+results.targetEvents = targetEvents.slice(-60);
+report.consoleErrors = [...new Set(consoleErrors.map(clean))].slice(-20);
+if (results.finalEdit) { await writeFile(path.join(outDir, `${label}-final-edit.json`), `${JSON.stringify(results.finalEdit, null, 2)}\n`); delete results.finalEdit; }
+await writeFile(path.join(outDir, `${label}.json`), `${clean(JSON.stringify(report, null, 2))}\n`);
+if (!process.argv.includes('--keep')) await rm(scratch, { recursive: true, force: true });
+console.log(JSON.stringify({ label, error: report.error ?? null, p1: Object.keys(results.p1), p2: Object.keys(results.p2), p3: Object.keys(results.p3) }));

@@ -25,6 +25,7 @@ import { previewDomOpacity } from '../common/preview-motion-opacity';
 import { withPreviewPosition } from '../common/preview-motion-write';
 import { previewMotionGeometryTransform, previewMotionBoxHitAt } from '../common/preview-motion-geometry';
 import { motionDrawFinishTransition } from '../common/preview-motion-draw-finish';
+import { motionDrawWriteGuard } from '../common/motion-draw-write-guard';
 import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchClip } from '../common/audio-meter-model';
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
@@ -20829,11 +20830,22 @@ body { display: grid; place-items: center; padding: 32px; }
 
             let motionDraw = null;
             let motionStroke = null;
+            // 描画中と描画直後の同じ pointerup 処理の間、通常ドラッグの transform 書き込みを捨てる
+            let motionDrawWriteSuppress = false;
             const motionDrawFps = Number(summary.output.fps) || 30;
             const motionDrawFinishTransitionFn = (${motionDrawFinishTransition.toString()});
+            const motionDrawWriteGuardFn = (${motionDrawWriteGuard.toString()});
+            const motionDrawOverlayWrite = window.akari.engine.overlayWrite;
+            window.akari.engine.overlayWrite = (editPath, overlayId, patch) =>
+                (motionDraw || motionDrawWriteSuppress) && motionDrawWriteGuardFn(patch)
+                    ? Promise.resolve() : motionDrawOverlayWrite(editPath, overlayId, patch);
             let motionDrawFinishState = { pointerId: null, claimed: false };
             const stopMotionDraw = () => {
                 motionDrawFinishState = { pointerId: null, claimed: true };
+                // interaction.js の通常ドラッグは pointerup の capture で先に走り、書き込みを
+                // マイクロタスクへ積む。その 1 回だけを捨てる（次のタスクで解除）。
+                motionDrawWriteSuppress = true;
+                window.setTimeout(() => { motionDrawWriteSuppress = false; }, 0);
                 if (motionStroke && previewPane.hasPointerCapture?.(motionStroke.pointerId)) {
                     previewPane.releasePointerCapture(motionStroke.pointerId);
                 }

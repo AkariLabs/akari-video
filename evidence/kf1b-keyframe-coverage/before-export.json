@@ -1,0 +1,1197 @@
+{
+  "label": "before",
+  "commandExit": 0,
+  "stdout": "738 total=900\nPROGRESS frame=739 total=900\nPROGRESS frame=740 total=900\nPROGRESS frame=741 total=900\nPROGRESS frame=742 total=900\nPROGRESS frame=743 total=900\nPROGRESS frame=744 total=900\nPROGRESS frame=745 total=900\nPROGRESS frame=746 total=900\nPROGRESS frame=747 total=900\nPROGRESS frame=748 total=900\nPROGRESS frame=749 total=900\nPROGRESS frame=750 total=900\nPROGRESS frame=751 total=900\nPROGRESS frame=752 total=900\nPROGRESS frame=753 total=900\nPROGRESS frame=754 total=900\nPROGRESS frame=755 total=900\nPROGRESS frame=756 total=900\nPROGRESS frame=757 total=900\nPROGRESS frame=758 total=900\nPROGRESS frame=759 total=900\nPROGRESS frame=760 total=900\nPROGRESS frame=761 total=900\nPROGRESS frame=762 total=900\nPROGRESS frame=763 total=900\nPROGRESS frame=764 total=900\nPROGRESS frame=765 total=900\nPROGRESS frame=766 total=900\nPROGRESS frame=767 total=900\nPROGRESS frame=768 total=900\nPROGRESS frame=769 total=900\nPROGRESS frame=770 total=900\nPROGRESS frame=771 total=900\nPROGRESS frame=772 total=900\nPROGRESS frame=773 total=900\nPROGRESS frame=774 total=900\nPROGRESS frame=775 total=900\nPROGRESS frame=776 total=900\nPROGRESS frame=777 total=900\nPROGRESS frame=778 total=900\nPROGRESS frame=779 total=900\nPROGRESS frame=780 total=900\nPROGRESS frame=781 total=900\nPROGRESS frame=782 total=900\nPROGRESS frame=783 total=900\nPROGRESS frame=784 total=900\nPROGRESS frame=785 total=900\nPROGRESS frame=786 total=900\nPROGRESS frame=787 total=900\nPROGRESS frame=788 total=900\nPROGRESS frame=789 total=900\nPROGRESS frame=790 total=900\nPROGRESS frame=791 total=900\nPROGRESS frame=792 total=900\nPROGRESS frame=793 total=900\nPROGRESS frame=794 total=900\nPROGRESS frame=795 total=900\nPROGRESS frame=796 total=900\nPROGRESS frame=797 total=900\nPROGRESS frame=798 total=900\nPROGRESS frame=799 total=900\nPROGRESS frame=800 total=900\nPROGRESS frame=801 total=900\nPROGRESS frame=802 total=900\nPROGRESS frame=803 total=900\nPROGRESS frame=804 total=900\nPROGRESS frame=805 total=900\nPROGRESS frame=806 total=900\nPROGRESS frame=807 total=900\nPROGRESS frame=808 total=900\nPROGRESS frame=809 total=900\nPROGRESS frame=810 total=900\nPROGRESS frame=811 total=900\nPROGRESS frame=812 total=900\nPROGRESS frame=813 total=900\nPROGRESS frame=814 total=900\nPROGRESS frame=815 total=900\nPROGRESS frame=816 total=900\nPROGRESS frame=817 total=900\nPROGRESS frame=818 total=900\nPROGRESS frame=819 total=900\nPROGRESS frame=820 total=900\nPROGRESS frame=821 total=900\nPROGRESS frame=822 total=900\nPROGRESS frame=823 total=900\nPROGRESS frame=824 total=900\nPROGRESS frame=825 total=900\nPROGRESS frame=826 total=900\nPROGRESS frame=827 total=900\nPROGRESS frame=828 total=900\nPROGRESS frame=829 total=900\nPROGRESS frame=830 total=900\nPROGRESS frame=831 total=900\nPROGRESS frame=832 total=900\nPROGRESS frame=833 total=900\nPROGRESS frame=834 total=900\nPROGRESS frame=835 total=900\nPROGRESS frame=836 total=900\nPROGRESS frame=837 total=900\nPROGRESS frame=838 total=900\nPROGRESS frame=839 total=900\nPROGRESS frame=840 total=900\nPROGRESS frame=841 total=900\nPROGRESS frame=842 total=900\nPROGRESS frame=843 total=900\nPROGRESS frame=844 total=900\nPROGRESS frame=845 total=900\nPROGRESS frame=846 total=900\nPROGRESS frame=847 total=900\nPROGRESS frame=848 total=900\nPROGRESS frame=849 total=900\nPROGRESS frame=850 total=900\nPROGRESS frame=851 total=900\nPROGRESS frame=852 total=900\nPROGRESS frame=853 total=900\nPROGRESS frame=854 total=900\nPROGRESS frame=855 total=900\nPROGRESS frame=856 total=900\nPROGRESS frame=857 total=900\nPROGRESS frame=858 total=900\nPROGRESS frame=859 total=900\nPROGRESS frame=860 total=900\nPROGRESS frame=861 total=900\nPROGRESS frame=862 total=900\nPROGRESS frame=863 total=900\nPROGRESS frame=864 total=900\nPROGRESS frame=865 total=900\nPROGRESS frame=866 total=900\nPROGRESS frame=867 total=900\nPROGRESS frame=868 total=900\nPROGRESS frame=869 total=900\nPROGRESS frame=870 total=900\nPROGRESS frame=871 total=900\nPROGRESS frame=872 total=900\nPROGRESS frame=873 total=900\nPROGRESS frame=874 total=900\nPROGRESS frame=875 total=900\nPROGRESS frame=876 total=900\nPROGRESS frame=877 total=900\nPROGRESS frame=878 total=900\nPROGRESS frame=879 total=900\nPROGRESS frame=880 total=900\nPROGRESS frame=881 total=900\nPROGRESS frame=882 total=900\nPROGRESS frame=883 total=900\nPROGRESS frame=884 total=900\nPROGRESS frame=885 total=900\nPROGRESS frame=886 total=900\nPROGRESS frame=887 total=900\nPROGRESS frame=888 total=900\nPROGRESS frame=889 total=900\nPROGRESS frame=890 total=900\nPROGRESS frame=891 total=900\nPROGRESS frame=892 total=900\nPROGRESS frame=893 total=900\nPROGRESS frame=894 total=900\nPROGRESS frame=895 total=900\nPROGRESS frame=896 total=900\nPROGRESS frame=897 total=900\nPROGRESS frame=898 total=900\nPROGRESS frame=899 total=900\nPROGRESS frame=900 total=900\nPROGRESS timing name=encoder_flush ms=19\nPROGRESS timing name=osr_ffprobe ms=153\nPROGRESS timing name=window_destroy ms=11\nPROGRESS timing name=child_run_json ms=3\nPROGRESS timing name=window_destroy_to_exit ms=7\nWARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）\nPASS: exports/kf1b-osr.mp4\n",
+  "stderr": "",
+  "items": [
+    {
+      "id": "photo-1",
+      "color": "red",
+      "frames": [
+        {
+          "frame": 20,
+          "outputFrame": 20,
+          "preview": {
+            "x": 400,
+            "y": 217,
+            "count": 59103,
+            "mean": 232.47,
+            "box": {
+              "x": 252,
+              "y": 118,
+              "w": 297,
+              "h": 199
+            }
+          },
+          "rendered": {
+            "x": 399.5,
+            "y": 215.5,
+            "count": 59504,
+            "mean": 250.65,
+            "box": {
+              "x": 250,
+              "y": 116,
+              "w": 300,
+              "h": 200
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1.5
+          }
+        },
+        {
+          "frame": 32,
+          "outputFrame": 32,
+          "preview": {
+            "x": 398,
+            "y": 217,
+            "count": 64999,
+            "mean": 231.82,
+            "box": {
+              "x": 243,
+              "y": 113,
+              "w": 311,
+              "h": 209
+            }
+          },
+          "rendered": {
+            "x": 397.5,
+            "y": 216.5,
+            "count": 65206,
+            "mean": 251.63,
+            "box": {
+              "x": 242,
+              "y": 112,
+              "w": 312,
+              "h": 210
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 60,
+          "outputFrame": 60,
+          "preview": {
+            "x": 380.5,
+            "y": 198,
+            "count": 68587,
+            "mean": 231.91,
+            "box": {
+              "x": 189,
+              "y": 37,
+              "w": 384,
+              "h": 323
+            }
+          },
+          "rendered": {
+            "x": 380.5,
+            "y": 197.5,
+            "count": 68914,
+            "mean": 250.96,
+            "box": {
+              "x": 188,
+              "y": 36,
+              "w": 386,
+              "h": 324
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 95,
+          "outputFrame": 95,
+          "preview": {
+            "x": 269.5,
+            "y": 185,
+            "count": 63299,
+            "mean": 231.91,
+            "box": {
+              "x": 98,
+              "y": 52,
+              "w": 344,
+              "h": 267
+            }
+          },
+          "rendered": {
+            "x": 269.5,
+            "y": 185.5,
+            "count": 63604,
+            "mean": 250.8,
+            "box": {
+              "x": 98,
+              "y": 52,
+              "w": 344,
+              "h": 268
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": 0.5
+          }
+        },
+        {
+          "frame": 125,
+          "outputFrame": 125,
+          "preview": {
+            "x": 320,
+            "y": 180,
+            "count": 117739,
+            "mean": 232.42,
+            "box": {
+              "x": 111,
+              "y": 40,
+              "w": 419,
+              "h": 281
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 117600,
+            "mean": 252.5,
+            "box": {
+              "x": 110,
+              "y": 40,
+              "w": 420,
+              "h": 280
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 130,
+          "outputFrame": 130,
+          "preview": {
+            "x": 320,
+            "y": 179.5,
+            "count": 194760,
+            "mean": 230.92,
+            "box": {
+              "x": 50,
+              "y": 0,
+              "w": 541,
+              "h": 360
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 194400,
+            "mean": 253.87,
+            "box": {
+              "x": 50,
+              "y": 0,
+              "w": 540,
+              "h": 360
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "text-1",
+      "color": "green",
+      "frames": [
+        {
+          "frame": 20,
+          "outputFrame": 170,
+          "preview": {
+            "x": 397,
+            "y": 213.5,
+            "count": 4855,
+            "mean": 211.95,
+            "box": {
+              "x": 336,
+              "y": 182,
+              "w": 123,
+              "h": 64
+            }
+          },
+          "rendered": {
+            "x": 396.5,
+            "y": 212.5,
+            "count": 4303,
+            "mean": 222.9,
+            "box": {
+              "x": 336,
+              "y": 182,
+              "w": 122,
+              "h": 62
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1
+          }
+        },
+        {
+          "frame": 32,
+          "outputFrame": 182,
+          "preview": {
+            "x": 395.5,
+            "y": 213.5,
+            "count": 4837,
+            "mean": 212.61,
+            "box": {
+              "x": 334,
+              "y": 182,
+              "w": 124,
+              "h": 64
+            }
+          },
+          "rendered": {
+            "x": 395,
+            "y": 212.5,
+            "count": 4304,
+            "mean": 222.23,
+            "box": {
+              "x": 334,
+              "y": 182,
+              "w": 123,
+              "h": 62
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1
+          }
+        },
+        {
+          "frame": 60,
+          "outputFrame": 210,
+          "preview": {
+            "x": 378,
+            "y": 206.5,
+            "count": 4846,
+            "mean": 211.99,
+            "box": {
+              "x": 317,
+              "y": 175,
+              "w": 123,
+              "h": 64
+            }
+          },
+          "rendered": {
+            "x": 378,
+            "y": 206.5,
+            "count": 4404,
+            "mean": 216.65,
+            "box": {
+              "x": 317,
+              "y": 176,
+              "w": 123,
+              "h": 62
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "frame": 95,
+          "outputFrame": 245,
+          "preview": {
+            "x": 267,
+            "y": 184.5,
+            "count": 4892,
+            "mean": 210.76,
+            "box": {
+              "x": 206,
+              "y": 153,
+              "w": 123,
+              "h": 64
+            }
+          },
+          "rendered": {
+            "x": 266.5,
+            "y": 184,
+            "count": 4399,
+            "mean": 218.35,
+            "box": {
+              "x": 206,
+              "y": 153,
+              "w": 122,
+              "h": 63
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 125,
+          "outputFrame": 275,
+          "preview": {
+            "x": 317,
+            "y": 179.5,
+            "count": 4864,
+            "mean": 211.53,
+            "box": {
+              "x": 256,
+              "y": 148,
+              "w": 123,
+              "h": 64
+            }
+          },
+          "rendered": {
+            "x": 316.5,
+            "y": 179.5,
+            "count": 4292,
+            "mean": 223.93,
+            "box": {
+              "x": 256,
+              "y": 149,
+              "w": 122,
+              "h": 62
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 130,
+          "outputFrame": 280,
+          "preview": {
+            "x": 317,
+            "y": 179.5,
+            "count": 4864,
+            "mean": 211.53,
+            "box": {
+              "x": 256,
+              "y": 148,
+              "w": 123,
+              "h": 64
+            }
+          },
+          "rendered": {
+            "x": 316.5,
+            "y": 179.5,
+            "count": 4292,
+            "mean": 223.93,
+            "box": {
+              "x": 256,
+              "y": 149,
+              "w": 122,
+              "h": 62
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "html-1",
+      "color": "blue",
+      "frames": [
+        {
+          "frame": 20,
+          "outputFrame": 320,
+          "preview": {
+            "x": 399.5,
+            "y": 212.5,
+            "count": 17280,
+            "mean": 241.79,
+            "box": {
+              "x": 320,
+              "y": 159,
+              "w": 160,
+              "h": 108
+            }
+          },
+          "rendered": {
+            "x": 399.5,
+            "y": 211.5,
+            "count": 17280,
+            "mean": 251.17,
+            "box": {
+              "x": 320,
+              "y": 158,
+              "w": 160,
+              "h": 108
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -1
+          }
+        },
+        {
+          "frame": 32,
+          "outputFrame": 332,
+          "preview": {
+            "x": 398,
+            "y": 213.5,
+            "count": 17388,
+            "mean": 240.97,
+            "box": {
+              "x": 318,
+              "y": 160,
+              "w": 161,
+              "h": 108
+            }
+          },
+          "rendered": {
+            "x": 398.5,
+            "y": 213.5,
+            "count": 17380,
+            "mean": 249.51,
+            "box": {
+              "x": 318,
+              "y": 160,
+              "w": 162,
+              "h": 108
+            }
+          },
+          "delta": {
+            "x": 0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 60,
+          "outputFrame": 360,
+          "preview": {
+            "x": 381,
+            "y": 208,
+            "count": 17546,
+            "mean": 238.92,
+            "box": {
+              "x": 301,
+              "y": 154,
+              "w": 161,
+              "h": 109
+            }
+          },
+          "rendered": {
+            "x": 380.5,
+            "y": 207.5,
+            "count": 17496,
+            "mean": 248.3,
+            "box": {
+              "x": 300,
+              "y": 154,
+              "w": 162,
+              "h": 108
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 95,
+          "outputFrame": 395,
+          "preview": {
+            "x": 270,
+            "y": 185,
+            "count": 17546,
+            "mean": 238.91,
+            "box": {
+              "x": 190,
+              "y": 131,
+              "w": 161,
+              "h": 109
+            }
+          },
+          "rendered": {
+            "x": 269.5,
+            "y": 183.5,
+            "count": 17280,
+            "mean": 250.98,
+            "box": {
+              "x": 190,
+              "y": 130,
+              "w": 160,
+              "h": 108
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1.5
+          }
+        },
+        {
+          "frame": 125,
+          "outputFrame": 425,
+          "preview": {
+            "x": 319.5,
+            "y": 180,
+            "count": 17438,
+            "mean": 239.77,
+            "box": {
+              "x": 240,
+              "y": 126,
+              "w": 160,
+              "h": 109
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 17280,
+            "mean": 251.28,
+            "box": {
+              "x": 240,
+              "y": 126,
+              "w": 160,
+              "h": 108
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 130,
+          "outputFrame": 430,
+          "preview": {
+            "x": 319.5,
+            "y": 180,
+            "count": 17438,
+            "mean": 239.77,
+            "box": {
+              "x": 240,
+              "y": 126,
+              "w": 160,
+              "h": 109
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 17280,
+            "mean": 251.28,
+            "box": {
+              "x": 240,
+              "y": 126,
+              "w": 160,
+              "h": 108
+            }
+          },
+          "delta": {
+            "x": 0,
+            "y": -0.5
+          }
+        }
+      ]
+    },
+    {
+      "id": "photo-draw",
+      "color": "red",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 480,
+          "preview": {
+            "x": 320,
+            "y": 180,
+            "count": 49049,
+            "mean": 231.5,
+            "box": {
+              "x": 185,
+              "y": 90,
+              "w": 271,
+              "h": 181
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 48960,
+            "mean": 251.66,
+            "box": {
+              "x": 184,
+              "y": 90,
+              "w": 272,
+              "h": 180
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 483,
+          "preview": {
+            "x": 333.5,
+            "y": 189.5,
+            "count": 49140,
+            "mean": 231.05,
+            "box": {
+              "x": 199,
+              "y": 99,
+              "w": 270,
+              "h": 182
+            }
+          },
+          "rendered": {
+            "x": 333,
+            "y": 188.5,
+            "count": 49318,
+            "mean": 250.07,
+            "box": {
+              "x": 198,
+              "y": 98,
+              "w": 271,
+              "h": 182
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 490,
+          "preview": {
+            "x": 371,
+            "y": 214.5,
+            "count": 49320,
+            "mean": 230.22,
+            "box": {
+              "x": 236,
+              "y": 124,
+              "w": 271,
+              "h": 182
+            }
+          },
+          "rendered": {
+            "x": 370.5,
+            "y": 214,
+            "count": 48868,
+            "mean": 252.17,
+            "box": {
+              "x": 236,
+              "y": 124,
+              "w": 270,
+              "h": 181
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 52,
+          "outputFrame": 502,
+          "preview": {
+            "x": 438.5,
+            "y": 246,
+            "count": 48870,
+            "mean": 232.36,
+            "box": {
+              "x": 304,
+              "y": 156,
+              "w": 270,
+              "h": 181
+            }
+          },
+          "rendered": {
+            "x": 438,
+            "y": 244.5,
+            "count": 49308,
+            "mean": 250.26,
+            "box": {
+              "x": 303,
+              "y": 154,
+              "w": 271,
+              "h": 182
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1.5
+          }
+        },
+        {
+          "frame": 55,
+          "outputFrame": 505,
+          "preview": {
+            "x": 449.5,
+            "y": 253,
+            "count": 48870,
+            "mean": 232.33,
+            "box": {
+              "x": 315,
+              "y": 163,
+              "w": 270,
+              "h": 181
+            }
+          },
+          "rendered": {
+            "x": 449,
+            "y": 252.5,
+            "count": 49312,
+            "mean": 250.01,
+            "box": {
+              "x": 314,
+              "y": 162,
+              "w": 271,
+              "h": 182
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 58,
+          "outputFrame": 508,
+          "preview": {
+            "x": 460,
+            "y": 259.5,
+            "count": 49320,
+            "mean": 230.23,
+            "box": {
+              "x": 325,
+              "y": 169,
+              "w": 271,
+              "h": 182
+            }
+          },
+          "rendered": {
+            "x": 459.5,
+            "y": 258.5,
+            "count": 49501,
+            "mean": 249.05,
+            "box": {
+              "x": 324,
+              "y": 168,
+              "w": 272,
+              "h": 182
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1
+          }
+        }
+      ]
+    },
+    {
+      "id": "text-draw",
+      "color": "green",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 630,
+          "preview": {
+            "x": 318,
+            "y": 180,
+            "count": 3259,
+            "mean": 208.01,
+            "box": {
+              "x": 269,
+              "y": 155,
+              "w": 99,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 316.5,
+            "y": 179,
+            "count": 2692,
+            "mean": 222.29,
+            "box": {
+              "x": 268,
+              "y": 155,
+              "w": 98,
+              "h": 49
+            }
+          },
+          "delta": {
+            "x": -1.5,
+            "y": -1
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 633,
+          "preview": {
+            "x": 331,
+            "y": 187.5,
+            "count": 3264,
+            "mean": 207.97,
+            "box": {
+              "x": 282,
+              "y": 162,
+              "w": 99,
+              "h": 52
+            }
+          },
+          "rendered": {
+            "x": 330.5,
+            "y": 187.5,
+            "count": 2674,
+            "mean": 221.2,
+            "box": {
+              "x": 282,
+              "y": 163,
+              "w": 98,
+              "h": 50
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 640,
+          "preview": {
+            "x": 368.5,
+            "y": 209,
+            "count": 3270,
+            "mean": 207.66,
+            "box": {
+              "x": 319,
+              "y": 184,
+              "w": 100,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 368,
+            "y": 208.5,
+            "count": 2310,
+            "mean": 233.95,
+            "box": {
+              "x": 319,
+              "y": 184,
+              "w": 99,
+              "h": 50
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 52,
+          "outputFrame": 652,
+          "preview": {
+            "x": 436,
+            "y": 233,
+            "count": 3249,
+            "mean": 208.17,
+            "box": {
+              "x": 387,
+              "y": 208,
+              "w": 99,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 435.5,
+            "y": 231.5,
+            "count": 2336,
+            "mean": 235.4,
+            "box": {
+              "x": 388,
+              "y": 208,
+              "w": 96,
+              "h": 48
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1.5
+          }
+        },
+        {
+          "frame": 55,
+          "outputFrame": 655,
+          "preview": {
+            "x": 447,
+            "y": 238,
+            "count": 3252,
+            "mean": 208.5,
+            "box": {
+              "x": 398,
+              "y": 213,
+              "w": 99,
+              "h": 51
+            }
+          },
+          "rendered": {
+            "x": 446.5,
+            "y": 237.5,
+            "count": 2291,
+            "mean": 235.86,
+            "box": {
+              "x": 398,
+              "y": 214,
+              "w": 98,
+              "h": 48
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 58,
+          "outputFrame": 658,
+          "preview": {
+            "x": 458,
+            "y": 243.5,
+            "count": 3236,
+            "mean": 209.86,
+            "box": {
+              "x": 409,
+              "y": 218,
+              "w": 99,
+              "h": 52
+            }
+          },
+          "rendered": {
+            "x": 456.5,
+            "y": 242.5,
+            "count": 2279,
+            "mean": 237.01,
+            "box": {
+              "x": 408,
+              "y": 218,
+              "w": 98,
+              "h": 50
+            }
+          },
+          "delta": {
+            "x": -1.5,
+            "y": -1
+          }
+        }
+      ]
+    },
+    {
+      "id": "html-draw",
+      "color": "blue",
+      "frames": [
+        {
+          "frame": 30,
+          "outputFrame": 780,
+          "preview": {
+            "x": 320,
+            "y": 180,
+            "count": 6305,
+            "mean": 238.78,
+            "box": {
+              "x": 272,
+              "y": 148,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 319.5,
+            "y": 179.5,
+            "count": 6144,
+            "mean": 253.35,
+            "box": {
+              "x": 272,
+              "y": 148,
+              "w": 96,
+              "h": 64
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 33,
+          "outputFrame": 783,
+          "preview": {
+            "x": 333,
+            "y": 189,
+            "count": 6304,
+            "mean": 238.55,
+            "box": {
+              "x": 285,
+              "y": 157,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 332.5,
+            "y": 188.5,
+            "count": 6352,
+            "mean": 244.7,
+            "box": {
+              "x": 284,
+              "y": 156,
+              "w": 98,
+              "h": 66
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -0.5
+          }
+        },
+        {
+          "frame": 40,
+          "outputFrame": 790,
+          "preview": {
+            "x": 371,
+            "y": 211.5,
+            "count": 6400,
+            "mean": 235.96,
+            "box": {
+              "x": 323,
+              "y": 179,
+              "w": 97,
+              "h": 66
+            }
+          },
+          "rendered": {
+            "x": 370.5,
+            "y": 211.5,
+            "count": 6148,
+            "mean": 250.56,
+            "box": {
+              "x": 322,
+              "y": 180,
+              "w": 98,
+              "h": 64
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": 0
+          }
+        },
+        {
+          "frame": 52,
+          "outputFrame": 802,
+          "preview": {
+            "x": 438,
+            "y": 239,
+            "count": 6303,
+            "mean": 238.6,
+            "box": {
+              "x": 390,
+              "y": 207,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 437.5,
+            "y": 237.5,
+            "count": 6140,
+            "mean": 250.7,
+            "box": {
+              "x": 390,
+              "y": 206,
+              "w": 96,
+              "h": 64
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1.5
+          }
+        },
+        {
+          "frame": 55,
+          "outputFrame": 805,
+          "preview": {
+            "x": 449,
+            "y": 245,
+            "count": 6305,
+            "mean": 238.65,
+            "box": {
+              "x": 401,
+              "y": 213,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 449.5,
+            "y": 243.5,
+            "count": 6132,
+            "mean": 250.52,
+            "box": {
+              "x": 402,
+              "y": 212,
+              "w": 96,
+              "h": 64
+            }
+          },
+          "delta": {
+            "x": 0.5,
+            "y": -1.5
+          }
+        },
+        {
+          "frame": 58,
+          "outputFrame": 808,
+          "preview": {
+            "x": 460,
+            "y": 251,
+            "count": 6304,
+            "mean": 238.39,
+            "box": {
+              "x": 412,
+              "y": 219,
+              "w": 97,
+              "h": 65
+            }
+          },
+          "rendered": {
+            "x": 459.5,
+            "y": 249.5,
+            "count": 6144,
+            "mean": 251.62,
+            "box": {
+              "x": 412,
+              "y": 218,
+              "w": 96,
+              "h": 64
+            }
+          },
+          "delta": {
+            "x": -0.5,
+            "y": -1.5
+          }
+        }
+      ]
+    }
+  ],
+  "maxAbsDeltaPx": 1.5
+}

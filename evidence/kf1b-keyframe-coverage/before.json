@@ -1,0 +1,5173 @@
+{
+  "label": "before",
+  "port": 9574,
+  "httpPort": 48991,
+  "kinds": {
+    "photo": "photo-1",
+    "text": "text-1",
+    "html": "html-1"
+  },
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "seats": [],
+  "results": {
+    "p1": {
+      "photo": {
+        "id": "photo-1",
+        "color": "red",
+        "seat": {
+          "writes": 1,
+          "after": {
+            "pressed": "true",
+            "title": "現在時刻のキーフレームを消す"
+          },
+          "points": [
+            120
+          ]
+        },
+        "firstDrag": {
+          "name": "p1-photo-drag-20",
+          "frame": 20,
+          "seeked": {
+            "actual": 0.667,
+            "actualFrame": 20
+          },
+          "detail": {
+            "drag": [
+              240,
+              110
+            ],
+            "expectedDelta": {
+              "x": 240,
+              "y": 110
+            },
+            "select": {
+              "selected": true,
+              "state": {
+                "layer": null,
+                "cut": {
+                  "x": 201.9921875,
+                  "y": 150.49609375,
+                  "w": 183
+                },
+                "layerHostPresent": false,
+                "overlay": false,
+                "frame": null,
+                "selectedId": null,
+                "handles": []
+              },
+              "via": "timeline",
+              "info": {
+                "layer": false,
+                "cut": true,
+                "tree": false,
+                "overlay": false
+              },
+              "box": {
+                "output": {
+                  "x": 0,
+                  "y": 33
+                },
+                "size": {
+                  "w": 891,
+                  "h": 513
+                },
+                "page": {
+                  "x": 423.9140625,
+                  "y": 195.20625
+                },
+                "count": 50685,
+                "mean": 222.64
+              }
+            },
+            "dragResult": {
+              "start": {
+                "x": 423.9140625,
+                "y": 195.20625
+              },
+              "target": {
+                "x": 465.4140625,
+                "y": 214.22708333333335
+              }
+            }
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 0,
+              "y": 33
+            },
+            "size": {
+              "w": 891,
+              "h": 513
+            },
+            "page": {
+              "x": 423.9140625,
+              "y": 195.20625
+            },
+            "count": 50685,
+            "mean": 222.64
+          },
+          "afterVisible": {
+            "output": {
+              "x": 240,
+              "y": 111
+            },
+            "size": {
+              "w": 891,
+              "h": 585
+            },
+            "page": {
+              "x": 465.4140625,
+              "y": 208.69375
+            },
+            "count": 57662,
+            "mean": 228.07
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 240,
+              "y": 111
+            },
+            "size": {
+              "w": 891,
+              "h": 585
+            },
+            "page": {
+              "x": 465.4140625,
+              "y": 208.69375
+            },
+            "count": 57662,
+            "mean": 228.07
+          },
+          "visibleDelta": {
+            "dx": 240,
+            "dy": 78,
+            "dw": 0,
+            "dh": 72
+          },
+          "visibleMovedAsExpected": false,
+          "expectedDelta": {
+            "x": 240,
+            "y": 110
+          },
+          "noRevert": true,
+          "pointCreated": true,
+          "pointAtFrame": {
+            "t": 20,
+            "transform": {
+              "x": 240,
+              "y": 110.01506024096383,
+              "scale": 0.55,
+              "rotate": 0
+            }
+          },
+          "pointHasX": true,
+          "pointHasY": true,
+          "pointTimes": [
+            20,
+            120
+          ],
+          "lastPoint": {
+            "t": 120,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            }
+          },
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.55,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.55,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 240,
+            "y": 110.01506024096383,
+            "scale": 0.55,
+            "scaleX": 0.55,
+            "scaleY": 0.55,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        "ops": [
+          {
+            "name": "p1-photo-resize-45",
+            "frame": 45,
+            "seeked": {
+              "actual": 1.5,
+              "actualFrame": 45
+            },
+            "detail": {
+              "handle": "se",
+              "select": {
+                "selected": true,
+                "state": {
+                  "layer": null,
+                  "cut": {
+                    "x": 243.4921875,
+                    "y": 169.51953125,
+                    "w": 183
+                  },
+                  "layerHostPresent": false,
+                  "overlay": false,
+                  "frame": null,
+                  "selectedId": null,
+                  "handles": []
+                },
+                "via": "timeline",
+                "info": {
+                  "layer": false,
+                  "cut": true,
+                  "tree": false,
+                  "overlay": false
+                },
+                "box": {
+                  "output": {
+                    "x": 180,
+                    "y": 84
+                  },
+                  "size": {
+                    "w": 891,
+                    "h": 597
+                  },
+                  "page": {
+                    "x": 455.0390625,
+                    "y": 204.025
+                  },
+                  "count": 58250,
+                  "mean": 225.11
+                }
+              },
+              "boxBeforeDrag": {
+                "output": {
+                  "x": 180,
+                  "y": 84
+                },
+                "size": {
+                  "w": 891,
+                  "h": 597
+                },
+                "page": {
+                  "x": 455.0390625,
+                  "y": 204.025
+                },
+                "count": 58250,
+                "mean": 225.11
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 180,
+                "y": 84
+              },
+              "size": {
+                "w": 891,
+                "h": 597
+              },
+              "page": {
+                "x": 455.0390625,
+                "y": 204.025
+              },
+              "count": 58250,
+              "mean": 225.11
+            },
+            "afterVisible": {
+              "output": {
+                "x": 228,
+                "y": 111
+              },
+              "size": {
+                "w": 981,
+                "h": 645
+              },
+              "page": {
+                "x": 463.3390625,
+                "y": 208.69375
+              },
+              "count": 70047,
+              "mean": 226.02
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 228,
+                "y": 111
+              },
+              "size": {
+                "w": 981,
+                "h": 645
+              },
+              "page": {
+                "x": 463.3390625,
+                "y": 208.69375
+              },
+              "count": 70047,
+              "mean": 226.02
+            },
+            "visibleDelta": {
+              "dx": 48,
+              "dy": 27,
+              "dw": 90,
+              "dh": 48
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 45,
+              "transform": {
+                "x": 227.34286485028326,
+                "y": 109.77352558331518,
+                "scale": 0.6056379821958457,
+                "rotate": 0
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 227.34286485028326,
+              "y": 109.77352558331518,
+              "scale": 0.6056379821958457,
+              "scaleX": 0.6056379821958457,
+              "scaleY": 0.6056379821958457,
+              "rotate": 0
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-photo-rotate-60",
+            "frame": 60,
+            "seeked": {
+              "actual": 2,
+              "actualFrame": 60
+            },
+            "detail": {
+              "handle": "rotate",
+              "degrees": -30,
+              "select": {
+                "selected": true,
+                "state": {
+                  "layer": null,
+                  "cut": {
+                    "x": 233.4453125,
+                    "y": 165.68359375,
+                    "w": 197
+                  },
+                  "layerHostPresent": false,
+                  "overlay": false,
+                  "frame": null,
+                  "selectedId": null,
+                  "handles": []
+                },
+                "via": "timeline",
+                "info": {
+                  "layer": false,
+                  "cut": true,
+                  "tree": false,
+                  "overlay": false
+                },
+                "box": {
+                  "output": {
+                    "x": 181.5,
+                    "y": 90
+                  },
+                  "size": {
+                    "w": 966,
+                    "h": 627
+                  },
+                  "page": {
+                    "x": 455.2984375,
+                    "y": 205.0625
+                  },
+                  "count": 67041,
+                  "mean": 223.94
+                }
+              },
+              "handleAt": {
+                "x": 441.359375,
+                "y": 277.9453125,
+                "sample": {
+                  "fx": 0.5,
+                  "fy": 0.25
+                }
+              },
+              "pivot": {
+                "x": 455.3,
+                "y": 205.06
+              },
+              "r0": 74.2,
+              "hitChain": [
+                "BUTTON.akari-cut-handle akari-cut-handle-rotate",
+                "DIV#cut-select-box.is-active",
+                "DIV#preview-stage.",
+                "DIV#zoom-layer.",
+                "DIV#preview-wrapper.",
+                "SECTION.preview-pane"
+              ],
+              "probe": {
+                "found": true,
+                "rect": {
+                  "x": 207,
+                  "y": 233,
+                  "w": 25,
+                  "h": 25
+                },
+                "display": "grid",
+                "visibility": "visible",
+                "hit": "DIV."
+              },
+              "after": {
+                "layer": null,
+                "cut": {
+                  "x": 233.44532012939453,
+                  "y": 165.68360137939453,
+                  "w": 226
+                },
+                "layerHostPresent": false,
+                "overlay": false,
+                "frame": null,
+                "selectedId": null,
+                "handles": []
+              },
+              "cutRotate": {
+                "cut": "rotate(-29.8489deg)",
+                "layer": ""
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 181.5,
+                "y": 90
+              },
+              "size": {
+                "w": 966,
+                "h": 627
+              },
+              "page": {
+                "x": 455.2984375,
+                "y": 205.0625
+              },
+              "count": 67041,
+              "mean": 223.94
+            },
+            "afterVisible": {
+              "output": {
+                "x": 181.5,
+                "y": 157.5
+              },
+              "size": {
+                "w": 1146,
+                "h": 762
+              },
+              "page": {
+                "x": 455.2984375,
+                "y": 216.734375
+              },
+              "count": 61596,
+              "mean": 226.9
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 181.5,
+                "y": 157.5
+              },
+              "size": {
+                "w": 1146,
+                "h": 762
+              },
+              "page": {
+                "x": 455.2984375,
+                "y": 216.734375
+              },
+              "count": 61596,
+              "mean": 226.9
+            },
+            "visibleDelta": {
+              "dx": 0,
+              "dy": 67.5,
+              "dw": 180,
+              "dh": 135
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 60,
+              "transform": {
+                "x": 181.87429188022662,
+                "y": 87.81882046665214,
+                "scale": 0.5945103857566766,
+                "rotate": -29.848851363950075
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 181.87429188022662,
+              "y": 87.81882046665214,
+              "scale": 0.5945103857566766,
+              "scaleX": 0.5945103857566766,
+              "scaleY": 0.5945103857566766,
+              "rotate": -29.848851363950075
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-photo-nudge-75",
+            "frame": 75,
+            "seeked": {
+              "actual": 2.5,
+              "actualFrame": 75
+            },
+            "detail": {
+              "keys": "Alt+ArrowRight×1",
+              "path": "timeline",
+              "expectedDelta": {
+                "x": 1,
+                "y": 0
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 136.5,
+                "y": 154.5
+              },
+              "size": {
+                "w": 1110,
+                "h": 756
+              },
+              "page": {
+                "x": 447.5171875,
+                "y": 216.215625
+              },
+              "count": 59995,
+              "mean": 226.18
+            },
+            "afterVisible": {
+              "output": {
+                "x": 1.5,
+                "y": 156
+              },
+              "size": {
+                "w": 1110,
+                "h": 759
+              },
+              "page": {
+                "x": 424.1734375,
+                "y": 216.475
+              },
+              "count": 60101,
+              "mean": 226.08
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 1.5,
+                "y": 156
+              },
+              "size": {
+                "w": 1110,
+                "h": 759
+              },
+              "page": {
+                "x": 424.1734375,
+                "y": 216.475
+              },
+              "count": 60101,
+              "mean": 226.08
+            },
+            "visibleDelta": {
+              "dx": -135,
+              "dy": 1.5,
+              "dw": 0,
+              "dh": 3
+            },
+            "visibleMovedAsExpected": false,
+            "expectedDelta": {
+              "x": 1,
+              "y": 0
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 75,
+              "transform": {
+                "x": 1,
+                "y": 65.8641153499891,
+                "scale": 0.5833827893175074,
+                "rotate": -22.386638522962556
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 1,
+              "y": 65.8641153499891,
+              "scale": 0.5833827893175074,
+              "scaleX": 0.5833827893175074,
+              "scaleY": 0.5833827893175074,
+              "rotate": -22.386638522962556
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-photo-bar-nudge-85",
+            "frame": 85,
+            "seeked": {
+              "actual": 2.833,
+              "actualFrame": 85
+            },
+            "detail": {
+              "request": {
+                "action": "nudge",
+                "dx": 40,
+                "dy": -30
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": 40,
+                "y": -30
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 0,
+                "y": 129
+              },
+              "size": {
+                "w": 1071,
+                "h": 705
+              },
+              "page": {
+                "x": 423.9140625,
+                "y": 211.80625
+              },
+              "count": 58503,
+              "mean": 225.27
+            },
+            "afterVisible": {
+              "output": {
+                "x": 40.5,
+                "y": 115.5
+              },
+              "size": {
+                "w": 1074,
+                "h": 678
+              },
+              "page": {
+                "x": 430.9171875,
+                "y": 209.471875
+              },
+              "count": 56649,
+              "mean": 224.03
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 40.5,
+                "y": 115.5
+              },
+              "size": {
+                "w": 1074,
+                "h": 678
+              },
+              "page": {
+                "x": 430.9171875,
+                "y": 209.471875
+              },
+              "count": 56649,
+              "mean": 224.03
+            },
+            "visibleDelta": {
+              "dx": 40.5,
+              "dy": -13.5,
+              "dw": 3,
+              "dh": -27
+            },
+            "visibleMovedAsExpected": false,
+            "expectedDelta": {
+              "x": 40,
+              "y": -30
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 85,
+              "transform": {
+                "x": 40.78,
+                "y": 21.23,
+                "scale": 0.5759643916913947,
+                "rotate": -17.41182996230421
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 40.78,
+              "y": 21.230000000000004,
+              "scale": 0.5759643916913947,
+              "scaleX": 0.5759643916913947,
+              "scaleY": 0.5759643916913947,
+              "rotate": -17.41182996230421
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-photo-bar-write-95",
+            "frame": 95,
+            "seeked": {
+              "actual": 3.167,
+              "actualFrame": 95
+            },
+            "detail": {
+              "request": {
+                "action": "write",
+                "path": "transform.x",
+                "value": -150
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": -179.13,
+                "y": 0
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 28.5,
+                "y": 94.5
+              },
+              "size": {
+                "w": 1026,
+                "h": 636
+              },
+              "page": {
+                "x": 428.8421875,
+                "y": 205.840625
+              },
+              "count": 55266,
+              "mean": 223.18
+            },
+            "afterVisible": {
+              "output": {
+                "x": -150,
+                "y": 94.5
+              },
+              "size": {
+                "w": 1029,
+                "h": 636
+              },
+              "page": {
+                "x": 397.9765625,
+                "y": 205.840625
+              },
+              "count": 55266,
+              "mean": 223.18
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -150,
+                "y": 94.5
+              },
+              "size": {
+                "w": 1029,
+                "h": 636
+              },
+              "page": {
+                "x": 397.9765625,
+                "y": 205.840625
+              },
+              "count": 55266,
+              "mean": 223.18
+            },
+            "visibleDelta": {
+              "dx": -178.5,
+              "dy": 0,
+              "dw": 3,
+              "dh": 0
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": -179.13,
+              "y": 0
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 95,
+              "transform": {
+                "x": -150,
+                "y": 15.164285714285715,
+                "scale": 0.568545994065282,
+                "rotate": -12.437021401645865
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": -150,
+              "y": 15.164285714285715,
+              "scale": 0.568545994065282,
+              "scaleX": 0.568545994065282,
+              "scaleY": 0.568545994065282,
+              "rotate": -12.437021401645865
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-photo-bar-resize-105",
+            "frame": 105,
+            "seeked": {
+              "actual": 3.5,
+              "actualFrame": 105
+            },
+            "detail": {
+              "request": {
+                "action": "resize",
+                "width": 300,
+                "keepRatio": true
+              },
+              "result": {
+                "ok": false,
+                "error": "図形を選んでください。"
+              }
+            },
+            "actError": null,
+            "writes": 0,
+            "noWrite": true,
+            "beforeVisible": {
+              "output": {
+                "x": -90,
+                "y": 70.5
+              },
+              "size": {
+                "w": 981,
+                "h": 588
+              },
+              "page": {
+                "x": 408.3515625,
+                "y": 201.690625
+              },
+              "count": 53821,
+              "mean": 222.66
+            },
+            "afterVisible": {
+              "output": {
+                "x": -90,
+                "y": 70.5
+              },
+              "size": {
+                "w": 981,
+                "h": 588
+              },
+              "page": {
+                "x": 408.3515625,
+                "y": 201.690625
+              },
+              "count": 53821,
+              "mean": 222.66
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -90,
+                "y": 70.5
+              },
+              "size": {
+                "w": 981,
+                "h": 588
+              },
+              "page": {
+                "x": 408.3515625,
+                "y": 201.690625
+              },
+              "count": 53821,
+              "mean": 222.66
+            },
+            "visibleDelta": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0,
+              "dh": 0
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": false,
+            "pointAtFrame": null,
+            "pointHasX": null,
+            "pointHasY": null,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": -90,
+              "y": 9.098571428571429,
+              "scale": 0.5611275964391692,
+              "scaleX": 0.5611275964391692,
+              "scaleY": 0.5611275964391692,
+              "rotate": -7.462212840987519
+            },
+            "undoRestored": null,
+            "redoRestored": null
+          },
+          {
+            "name": "p1-photo-bar-fit-130",
+            "frame": 130,
+            "seeked": {
+              "actual": 4.333,
+              "actualFrame": 130
+            },
+            "detail": {
+              "request": {
+                "action": "fit"
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 0,
+                "y": 33
+              },
+              "size": {
+                "w": 891,
+                "h": 513
+              },
+              "page": {
+                "x": 423.9140625,
+                "y": 195.20625
+              },
+              "count": 50685,
+              "mean": 222.64
+            },
+            "afterVisible": {
+              "output": {
+                "x": 0,
+                "y": 157.5
+              },
+              "size": {
+                "w": 1623,
+                "h": 762
+              },
+              "page": {
+                "x": 423.9140625,
+                "y": 216.734375
+              },
+              "count": 137248,
+              "mean": 225.55
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 0,
+                "y": 157.5
+              },
+              "size": {
+                "w": 1623,
+                "h": 762
+              },
+              "page": {
+                "x": 423.9140625,
+                "y": 216.734375
+              },
+              "count": 137248,
+              "mean": 225.55
+            },
+            "visibleDelta": {
+              "dx": 0,
+              "dy": 124.5,
+              "dw": 732,
+              "dh": 249
+            },
+            "visibleMovedAsExpected": false,
+            "expectedDelta": {
+              "x": 0,
+              "y": 0
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 130,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 1,
+                "rotate": 0
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120,
+              130
+            ],
+            "lastPoint": {
+              "t": 130,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 1,
+                "rotate": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 0,
+              "y": 0,
+              "scale": 1,
+              "scaleX": 1,
+              "scaleY": 1,
+              "rotate": 0
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          }
+        ],
+        "finalPoints": [
+          {
+            "t": 20,
+            "transform": {
+              "x": 240,
+              "y": 110.01506024096383,
+              "scale": 0.55,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 227.34286485028326,
+              "y": 109.77352558331518,
+              "scale": 0.6056379821958457,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 60,
+            "transform": {
+              "x": 181.87429188022662,
+              "y": 87.81882046665214,
+              "scale": 0.5945103857566766,
+              "rotate": -29.848851363950075
+            }
+          },
+          {
+            "t": 75,
+            "transform": {
+              "x": 1,
+              "y": 65.8641153499891,
+              "scale": 0.5833827893175074,
+              "rotate": -22.386638522962556
+            }
+          },
+          {
+            "t": 85,
+            "transform": {
+              "x": 40.78,
+              "y": 21.230000000000004,
+              "scale": 0.5759643916913947,
+              "rotate": -17.41182996230421
+            }
+          },
+          {
+            "t": 95,
+            "transform": {
+              "x": -150,
+              "y": 15.164285714285715,
+              "scale": 0.568545994065282,
+              "rotate": -12.437021401645865
+            }
+          },
+          {
+            "t": 120,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.55,
+              "rotate": 0
+            }
+          },
+          {
+            "t": 130,
+            "transform": {
+              "x": 0,
+              "y": 0,
+              "scale": 1,
+              "rotate": 0
+            }
+          }
+        ],
+        "finalStatic": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.55,
+          "rotate": 0
+        },
+        "everyPointHasXY": true,
+        "pointCount": 8
+      },
+      "text": {
+        "id": "text-1",
+        "color": "green",
+        "seat": {
+          "writes": 1,
+          "after": {
+            "pressed": "true",
+            "title": "現在時刻のキーフレームを消す"
+          },
+          "points": [
+            120
+          ]
+        },
+        "firstDrag": {
+          "name": "p1-text-drag-20",
+          "frame": 20,
+          "seeked": {
+            "actual": 5.667,
+            "actualFrame": 20
+          },
+          "detail": {
+            "drag": [
+              240,
+              110
+            ],
+            "expectedDelta": {
+              "x": 240,
+              "y": 110
+            },
+            "select": {
+              "selected": true,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 69.16
+                },
+                "selectedId": "text-1",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "box": {
+                "output": {
+                  "x": -9,
+                  "y": 0
+                },
+                "size": {
+                  "w": 369,
+                  "h": 189
+                },
+                "page": {
+                  "x": 422.3578125,
+                  "y": 189.5
+                },
+                "count": 4645,
+                "mean": 204.64
+              }
+            },
+            "dragResult": {
+              "start": {
+                "x": 422.3578125,
+                "y": 189.5
+              },
+              "target": {
+                "x": 463.8578125,
+                "y": 208.52083333333334
+              }
+            }
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": -9,
+              "y": 0
+            },
+            "size": {
+              "w": 369,
+              "h": 189
+            },
+            "page": {
+              "x": 422.3578125,
+              "y": 189.5
+            },
+            "count": 4645,
+            "mean": 204.64
+          },
+          "afterVisible": {
+            "output": {
+              "x": 231,
+              "y": 100.5
+            },
+            "size": {
+              "w": 369,
+              "h": 186
+            },
+            "page": {
+              "x": 463.8578125,
+              "y": 206.878125
+            },
+            "count": 4623,
+            "mean": 204.86
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 231,
+              "y": 100.5
+            },
+            "size": {
+              "w": 369,
+              "h": 186
+            },
+            "page": {
+              "x": 463.8578125,
+              "y": 206.878125
+            },
+            "count": 4623,
+            "mean": 204.86
+          },
+          "visibleDelta": {
+            "dx": 240,
+            "dy": 100.5,
+            "dw": 0,
+            "dh": -3
+          },
+          "visibleMovedAsExpected": true,
+          "expectedDelta": {
+            "x": 240,
+            "y": 110
+          },
+          "noRevert": true,
+          "pointCreated": true,
+          "pointAtFrame": {
+            "t": 20,
+            "transform": {
+              "x": 240,
+              "y": 100.00002941453306
+            }
+          },
+          "pointHasX": true,
+          "pointHasY": true,
+          "pointTimes": [
+            20,
+            120
+          ],
+          "lastPoint": {
+            "t": 120,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 240,
+            "y": 100.00002941453306,
+            "scale": 1,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        "ops": [
+          {
+            "name": "p1-text-resize-45",
+            "frame": 45,
+            "seeked": {
+              "actual": 6.5,
+              "actualFrame": 45
+            },
+            "detail": {
+              "handle": "se",
+              "select": {
+                "selected": true,
+                "state": {
+                  "layer": null,
+                  "cut": null,
+                  "layerHostPresent": false,
+                  "overlay": true,
+                  "frame": {
+                    "hidden": false,
+                    "connected": true,
+                    "w": 69.16
+                  },
+                  "selectedId": "text-1",
+                  "handles": [
+                    {
+                      "cls": "akari-interaction-handle is-nw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-ne",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-se",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-sw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-n",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-e",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-s",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-w",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-start",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-end",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    }
+                  ]
+                },
+                "box": {
+                  "output": {
+                    "x": 171,
+                    "y": 75
+                  },
+                  "size": {
+                    "w": 369,
+                    "h": 189
+                  },
+                  "page": {
+                    "x": 453.4828125,
+                    "y": 202.46875
+                  },
+                  "count": 4653,
+                  "mean": 204.74
+                }
+              },
+              "boxBeforeDrag": {
+                "output": {
+                  "x": 171,
+                  "y": 75
+                },
+                "size": {
+                  "w": 369,
+                  "h": 189
+                },
+                "page": {
+                  "x": 453.4828125,
+                  "y": 202.46875
+                },
+                "count": 4653,
+                "mean": 204.74
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 171,
+                "y": 75
+              },
+              "size": {
+                "w": 369,
+                "h": 189
+              },
+              "page": {
+                "x": 453.4828125,
+                "y": 202.46875
+              },
+              "count": 4653,
+              "mean": 204.74
+            },
+            "afterVisible": {
+              "output": {
+                "x": 219,
+                "y": 100.5
+              },
+              "size": {
+                "w": 465,
+                "h": 240
+              },
+              "page": {
+                "x": 461.7828125,
+                "y": 206.878125
+              },
+              "count": 7107,
+              "mean": 213.92
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 219,
+                "y": 100.5
+              },
+              "size": {
+                "w": 465,
+                "h": 240
+              },
+              "page": {
+                "x": 461.7828125,
+                "y": 206.878125
+              },
+              "count": 7107,
+              "mean": 213.92
+            },
+            "visibleDelta": {
+              "dx": 48,
+              "dy": 25.5,
+              "dw": 96,
+              "dh": 51
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 45,
+              "transform": {
+                "x": 230.50609481124644,
+                "y": 100.25306389547269
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 1,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 230.50609481124644,
+              "y": 100.25306389547269,
+              "scale": 1.2525305111965677,
+              "scaleX": 1.2525305111965677,
+              "scaleY": 1.2525305111965677,
+              "rotate": 0
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-text-rotate-60",
+            "frame": 60,
+            "seeked": {
+              "actual": 7,
+              "actualFrame": 60
+            },
+            "detail": {
+              "handle": "rotate",
+              "degrees": -30,
+              "select": {
+                "selected": true,
+                "state": {
+                  "layer": null,
+                  "cut": null,
+                  "layerHostPresent": false,
+                  "overlay": true,
+                  "frame": {
+                    "hidden": false,
+                    "connected": true,
+                    "w": 86.63
+                  },
+                  "selectedId": "text-1",
+                  "handles": [
+                    {
+                      "cls": "akari-interaction-handle is-nw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-ne",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-se",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-sw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-n",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-e",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-s",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-w",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-start",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-end",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    }
+                  ]
+                },
+                "box": {
+                  "output": {
+                    "x": 172.5,
+                    "y": 81
+                  },
+                  "size": {
+                    "w": 462,
+                    "h": 237
+                  },
+                  "page": {
+                    "x": 453.7421875,
+                    "y": 203.50625
+                  },
+                  "count": 7163,
+                  "mean": 213.14
+                }
+              },
+              "handleAt": {
+                "x": 441.2890625,
+                "y": 249.515625,
+                "sample": {
+                  "fx": 0.5,
+                  "fy": 0.5
+                }
+              },
+              "pivot": {
+                "x": 453.74,
+                "y": 203.51
+              },
+              "r0": 47.66,
+              "hitChain": [
+                "svg.[object SVGAnimatedString]",
+                "BUTTON.akari-interaction-handle akari-interacti",
+                "DIV.akari-interaction-selection-frame",
+                "BODY.vscode-dark",
+                "HTML."
+              ],
+              "probe": {
+                "found": false
+              },
+              "after": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 96.7
+                },
+                "selectedId": "text-1",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 15.02,
+                    "h": 15.02,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 15.02,
+                    "h": 15.02,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 15.02,
+                    "h": 15.02,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 15.02,
+                    "h": 15.02,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 22.82,
+                    "h": 19.5,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 19.5,
+                    "h": 22.82,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 22.82,
+                    "h": 19.5,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 19.5,
+                    "h": 22.82,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 34.13,
+                    "h": 34.13,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 34.13,
+                    "h": 34.13,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "cutRotate": {
+                "cut": "rotate(0deg)",
+                "layer": ""
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 172.5,
+                "y": 81
+              },
+              "size": {
+                "w": 462,
+                "h": 237
+              },
+              "page": {
+                "x": 453.7421875,
+                "y": 203.50625
+              },
+              "count": 7163,
+              "mean": 213.14
+            },
+            "afterVisible": {
+              "output": {
+                "x": 172.5,
+                "y": 85.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 453.7421875,
+                "y": 204.284375
+              },
+              "count": 7127,
+              "mean": 220.02
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 172.5,
+                "y": 85.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 453.7421875,
+                "y": 204.284375
+              },
+              "count": 7127,
+              "mean": 220.02
+            },
+            "visibleDelta": {
+              "dx": 0,
+              "dy": 4.5,
+              "dw": 6,
+              "dh": 153
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 60,
+              "transform": {
+                "x": 184.40488767918265,
+                "y": 80.20248430148816
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "evaluatedAtFrame": {
+              "x": 184.40488767918265,
+              "y": 80.20248430148816,
+              "scale": 1.2525305111965677,
+              "scaleX": 1.2525305111965677,
+              "scaleY": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-text-nudge-75",
+            "frame": 75,
+            "seeked": {
+              "actual": 7.5,
+              "actualFrame": 75
+            },
+            "detail": {
+              "keys": "ArrowRight×3 ArrowDown×2",
+              "path": "preview",
+              "expectedDelta": {
+                "x": 3,
+                "y": 2
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 124.5,
+                "y": 67.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 445.4421875,
+                "y": 201.171875
+              },
+              "count": 7146,
+              "mean": 219.55
+            },
+            "afterVisible": {
+              "output": {
+                "x": 127.5,
+                "y": 69
+              },
+              "size": {
+                "w": 468,
+                "h": 387
+              },
+              "page": {
+                "x": 445.9609375,
+                "y": 201.43125
+              },
+              "count": 7143,
+              "mean": 219.7
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 127.5,
+                "y": 69
+              },
+              "size": {
+                "w": 468,
+                "h": 387
+              },
+              "page": {
+                "x": 445.9609375,
+                "y": 201.43125
+              },
+              "count": 7143,
+              "mean": 219.7
+            },
+            "visibleDelta": {
+              "dx": 3,
+              "dy": 1.5,
+              "dw": 0,
+              "dh": -3
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": 3,
+              "y": 2
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 75,
+              "transform": {
+                "x": 141.303665759387,
+                "y": 62.15186322611612
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "evaluatedAtFrame": {
+              "x": 141.303665759387,
+              "y": 62.15186322611612,
+              "scale": 1.2525305111965677,
+              "scaleX": 1.2525305111965677,
+              "scaleY": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-text-bar-nudge-85",
+            "frame": 85,
+            "seeked": {
+              "actual": 7.833,
+              "actualFrame": 85
+            },
+            "detail": {
+              "request": {
+                "action": "nudge",
+                "dx": 40,
+                "dy": -30
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": 40,
+                "y": -30
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 97.5,
+                "y": 55.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 440.7734375,
+                "y": 199.096875
+              },
+              "count": 7142,
+              "mean": 219.75
+            },
+            "afterVisible": {
+              "output": {
+                "x": 136.5,
+                "y": 25.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 447.5171875,
+                "y": 193.909375
+              },
+              "count": 7139,
+              "mean": 219.86
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 136.5,
+                "y": 25.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 447.5171875,
+                "y": 193.909375
+              },
+              "count": 7139,
+              "mean": 219.86
+            },
+            "visibleDelta": {
+              "dx": 39,
+              "dy": -30,
+              "dw": 0,
+              "dh": 0
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": 40,
+              "y": -30
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 85,
+              "transform": {
+                "x": 149.9,
+                "y": 18.34
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "evaluatedAtFrame": {
+              "x": 149.9,
+              "y": 18.340000000000003,
+              "scale": 1.2525305111965677,
+              "scaleX": 1.2525305111965677,
+              "scaleY": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-text-bar-write-95",
+            "frame": 95,
+            "seeked": {
+              "actual": 8.167,
+              "actualFrame": 95
+            },
+            "detail": {
+              "request": {
+                "action": "write",
+                "path": "transform.x",
+                "value": -150
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": -257.07,
+                "y": 0
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 94.5,
+                "y": 19.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 440.2546875,
+                "y": 192.871875
+              },
+              "count": 7129,
+              "mean": 220.05
+            },
+            "afterVisible": {
+              "output": {
+                "x": -163.5,
+                "y": 19.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 395.6421875,
+                "y": 192.871875
+              },
+              "count": 7152,
+              "mean": 219.56
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -163.5,
+                "y": 19.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 395.6421875,
+                "y": 192.871875
+              },
+              "count": 7152,
+              "mean": 219.56
+            },
+            "visibleDelta": {
+              "dx": -258,
+              "dy": 0,
+              "dw": 0,
+              "dh": 0
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": -257.07,
+              "y": 0
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 95,
+              "transform": {
+                "x": -150,
+                "y": 13.100000000000001
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "evaluatedAtFrame": {
+              "x": -149.99999999999997,
+              "y": 13.100000000000001,
+              "scale": 1.2525305111965677,
+              "scaleX": 1.2525305111965677,
+              "scaleY": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-text-bar-resize-105",
+            "frame": 105,
+            "seeked": {
+              "actual": 8.5,
+              "actualFrame": 105
+            },
+            "detail": {
+              "request": {
+                "action": "resize",
+                "width": 300,
+                "keepRatio": true
+              },
+              "result": {
+                "ok": false,
+                "error": "図形を選んでください。"
+              }
+            },
+            "actError": null,
+            "writes": 0,
+            "noWrite": true,
+            "beforeVisible": {
+              "output": {
+                "x": -103.5,
+                "y": 13.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 406.0171875,
+                "y": 191.834375
+              },
+              "count": 7151,
+              "mean": 219.47
+            },
+            "afterVisible": {
+              "output": {
+                "x": -103.5,
+                "y": 13.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 406.0171875,
+                "y": 191.834375
+              },
+              "count": 7151,
+              "mean": 219.47
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -103.5,
+                "y": 13.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 406.0171875,
+                "y": 191.834375
+              },
+              "count": 7151,
+              "mean": 219.47
+            },
+            "visibleDelta": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0,
+              "dh": 0
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": false,
+            "pointAtFrame": null,
+            "pointHasX": null,
+            "pointHasY": null,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "evaluatedAtFrame": {
+              "x": -90,
+              "y": 7.86,
+              "scale": 1.2525305111965677,
+              "scaleX": 1.2525305111965677,
+              "scaleY": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "undoRestored": null,
+            "redoRestored": null
+          },
+          {
+            "name": "p1-text-bar-fit-130",
+            "frame": 130,
+            "seeked": {
+              "actual": 9.333,
+              "actualFrame": 130
+            },
+            "detail": {
+              "request": {
+                "action": "fit"
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": -13.5,
+                "y": 7.5
+              },
+              "size": {
+                "w": 468,
+                "h": 390
+              },
+              "page": {
+                "x": 421.5796875,
+                "y": 190.796875
+              },
+              "count": 7151,
+              "mean": 219.86
+            },
+            "afterVisible": {
+              "output": {
+                "x": -9,
+                "y": 0
+              },
+              "size": {
+                "w": 369,
+                "h": 189
+              },
+              "page": {
+                "x": 422.3578125,
+                "y": 189.5
+              },
+              "count": 4645,
+              "mean": 204.64
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -9,
+                "y": 0
+              },
+              "size": {
+                "w": 369,
+                "h": 189
+              },
+              "page": {
+                "x": 422.3578125,
+                "y": 189.5
+              },
+              "count": 4645,
+              "mean": 204.64
+            },
+            "visibleDelta": {
+              "dx": 4.5,
+              "dy": -7.5,
+              "dw": -99,
+              "dh": -201
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": 0,
+              "y": 0
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 130,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120,
+              130
+            ],
+            "lastPoint": {
+              "t": 130,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 1.2525305111965677,
+              "rotate": -29.85891107326256
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 0,
+              "y": 0,
+              "scale": 1,
+              "scaleX": 1,
+              "scaleY": 1,
+              "rotate": 0
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          }
+        ],
+        "finalPoints": [
+          {
+            "t": 20,
+            "transform": {
+              "x": 240,
+              "y": 100.00002941453306
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 230.50609481124644,
+              "y": 100.25306389547269
+            }
+          },
+          {
+            "t": 60,
+            "transform": {
+              "x": 184.40488767918265,
+              "y": 80.20248430148816
+            }
+          },
+          {
+            "t": 75,
+            "transform": {
+              "x": 141.303665759387,
+              "y": 62.15186322611612
+            }
+          },
+          {
+            "t": 85,
+            "transform": {
+              "x": 149.9,
+              "y": 18.340000000000003
+            }
+          },
+          {
+            "t": 95,
+            "transform": {
+              "x": -149.99999999999997,
+              "y": 13.100000000000001
+            }
+          },
+          {
+            "t": 120,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 130,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        ],
+        "finalStatic": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        },
+        "everyPointHasXY": true,
+        "pointCount": 8
+      },
+      "html": {
+        "id": "html-1",
+        "color": "blue",
+        "seat": {
+          "writes": 1,
+          "after": {
+            "pressed": "true",
+            "title": "現在時刻のキーフレームを消す"
+          },
+          "points": [
+            120
+          ]
+        },
+        "firstDrag": {
+          "name": "p1-html-drag-20",
+          "frame": 20,
+          "seeked": {
+            "actual": 10.667,
+            "actualFrame": 20
+          },
+          "detail": {
+            "drag": [
+              240,
+              110
+            ],
+            "expectedDelta": {
+              "x": 240,
+              "y": 110
+            },
+            "select": {
+              "selected": true,
+              "state": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 49.8
+                },
+                "selectedId": "html-1",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 11,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 20,
+                    "h": 11,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 11,
+                    "h": 20,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 25,
+                    "h": 25,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "box": {
+                "output": {
+                  "x": 3,
+                  "y": -3
+                },
+                "size": {
+                  "w": 285,
+                  "h": 189
+                },
+                "page": {
+                  "x": 424.4328125,
+                  "y": 188.98125
+                },
+                "count": 4830,
+                "mean": 228.92
+              }
+            },
+            "dragResult": {
+              "start": {
+                "x": 424.4328125,
+                "y": 188.98125
+              },
+              "target": {
+                "x": 465.9328125,
+                "y": 208.00208333333333
+              }
+            }
+          },
+          "actError": null,
+          "writes": 1,
+          "noWrite": false,
+          "beforeVisible": {
+            "output": {
+              "x": 3,
+              "y": -3
+            },
+            "size": {
+              "w": 285,
+              "h": 189
+            },
+            "page": {
+              "x": 424.4328125,
+              "y": 188.98125
+            },
+            "count": 4830,
+            "mean": 228.92
+          },
+          "afterVisible": {
+            "output": {
+              "x": 243,
+              "y": 100.5
+            },
+            "size": {
+              "w": 285,
+              "h": 192
+            },
+            "page": {
+              "x": 465.9328125,
+              "y": 206.878125
+            },
+            "count": 4871,
+            "mean": 227.64
+          },
+          "reseekVisible": {
+            "output": {
+              "x": 243,
+              "y": 100.5
+            },
+            "size": {
+              "w": 285,
+              "h": 192
+            },
+            "page": {
+              "x": 465.9328125,
+              "y": 206.878125
+            },
+            "count": 4871,
+            "mean": 227.64
+          },
+          "visibleDelta": {
+            "dx": 240,
+            "dy": 103.5,
+            "dw": 0,
+            "dh": 3
+          },
+          "visibleMovedAsExpected": true,
+          "expectedDelta": {
+            "x": 240,
+            "y": 110
+          },
+          "noRevert": true,
+          "pointCreated": true,
+          "pointAtFrame": {
+            "t": 20,
+            "transform": {
+              "x": 240,
+              "y": 96.00003529743981
+            }
+          },
+          "pointHasX": true,
+          "pointHasY": true,
+          "pointTimes": [
+            20,
+            120
+          ],
+          "lastPoint": {
+            "t": 120,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          "staticBefore": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "staticAfter": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "evaluatedAtFrame": {
+            "x": 240,
+            "y": 96.00003529743981,
+            "scale": 0.6,
+            "scaleX": 0.6,
+            "scaleY": 0.6,
+            "rotate": 0
+          },
+          "undoRestored": true,
+          "redoRestored": true
+        },
+        "ops": [
+          {
+            "name": "p1-html-resize-45",
+            "frame": 45,
+            "seeked": {
+              "actual": 11.5,
+              "actualFrame": 45
+            },
+            "detail": {
+              "handle": "se",
+              "select": {
+                "selected": true,
+                "state": {
+                  "layer": null,
+                  "cut": null,
+                  "layerHostPresent": false,
+                  "overlay": true,
+                  "frame": {
+                    "hidden": false,
+                    "connected": true,
+                    "w": 49.8
+                  },
+                  "selectedId": "html-1",
+                  "handles": [
+                    {
+                      "cls": "akari-interaction-handle is-nw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-ne",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-se",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-sw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-n",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-e",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-s",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-w",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-start",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-end",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    }
+                  ]
+                },
+                "box": {
+                  "output": {
+                    "x": 183,
+                    "y": 73.5
+                  },
+                  "size": {
+                    "w": 285,
+                    "h": 198
+                  },
+                  "page": {
+                    "x": 455.5578125,
+                    "y": 202.209375
+                  },
+                  "count": 4834,
+                  "mean": 228.6
+                }
+              },
+              "boxBeforeDrag": {
+                "output": {
+                  "x": 183,
+                  "y": 73.5
+                },
+                "size": {
+                  "w": 285,
+                  "h": 198
+                },
+                "page": {
+                  "x": 455.5578125,
+                  "y": 202.209375
+                },
+                "count": 4834,
+                "mean": 228.6
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 183,
+                "y": 73.5
+              },
+              "size": {
+                "w": 285,
+                "h": 198
+              },
+              "page": {
+                "x": 455.5578125,
+                "y": 202.209375
+              },
+              "count": 4834,
+              "mean": 228.6
+            },
+            "afterVisible": {
+              "output": {
+                "x": 232.5,
+                "y": 103.5
+              },
+              "size": {
+                "w": 384,
+                "h": 264
+              },
+              "page": {
+                "x": 464.1171875,
+                "y": 207.396875
+              },
+              "count": 9552,
+              "mean": 233.05
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 232.5,
+                "y": 103.5
+              },
+              "size": {
+                "w": 384,
+                "h": 264
+              },
+              "page": {
+                "x": 464.1171875,
+                "y": 207.396875
+              },
+              "count": 9552,
+              "mean": 233.05
+            },
+            "visibleDelta": {
+              "dx": 49.5,
+              "dy": 30,
+              "dw": 99,
+              "dh": 66
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 45,
+              "transform": {
+                "x": 228.55329662666352,
+                "y": 104.36889584978923
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.6,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 228.55329662666352,
+              "y": 104.36889584978923,
+              "scale": 0.8023054522004349,
+              "scaleX": 0.8023054522004349,
+              "scaleY": 0.8023054522004349,
+              "rotate": 0
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-html-rotate-60",
+            "frame": 60,
+            "seeked": {
+              "actual": 12,
+              "actualFrame": 60
+            },
+            "detail": {
+              "handle": "rotate",
+              "degrees": -30,
+              "select": {
+                "selected": true,
+                "state": {
+                  "layer": null,
+                  "cut": null,
+                  "layerHostPresent": false,
+                  "overlay": true,
+                  "frame": {
+                    "hidden": false,
+                    "connected": true,
+                    "w": 66.59
+                  },
+                  "selectedId": "html-1",
+                  "handles": [
+                    {
+                      "cls": "akari-interaction-handle is-nw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-ne",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-se",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-sw",
+                      "w": 11,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-n",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-e",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-s",
+                      "w": 20,
+                      "h": 11,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-edge is-w",
+                      "w": 11,
+                      "h": 20,
+                      "display": "block"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-start",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle is-line-end",
+                      "w": 0,
+                      "h": 0,
+                      "display": "none"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    },
+                    {
+                      "cls": "akari-interaction-handle akari-interaction-actio",
+                      "w": 25,
+                      "h": 25,
+                      "display": "grid"
+                    }
+                  ]
+                },
+                "box": {
+                  "output": {
+                    "x": 178.5,
+                    "y": 82.5
+                  },
+                  "size": {
+                    "w": 384,
+                    "h": 264
+                  },
+                  "page": {
+                    "x": 454.7796875,
+                    "y": 203.765625
+                  },
+                  "count": 9670,
+                  "mean": 233.03
+                }
+              },
+              "handleAt": {
+                "x": 441.0234375,
+                "y": 250.625,
+                "sample": {
+                  "fx": 0.5,
+                  "fy": 0.5
+                }
+              },
+              "pivot": {
+                "x": 454.78,
+                "y": 203.77
+              },
+              "r0": 48.84,
+              "hitChain": [
+                "svg.[object SVGAnimatedString]",
+                "BUTTON.akari-interaction-handle akari-interacti",
+                "DIV.akari-interaction-selection-frame",
+                "BODY.vscode-dark",
+                "HTML."
+              ],
+              "probe": {
+                "found": false
+              },
+              "after": {
+                "layer": null,
+                "cut": null,
+                "layerHostPresent": false,
+                "overlay": true,
+                "frame": {
+                  "hidden": false,
+                  "connected": true,
+                  "w": 79.87
+                },
+                "selectedId": "html-1",
+                "handles": [
+                  {
+                    "cls": "akari-interaction-handle is-nw",
+                    "w": 15.03,
+                    "h": 15.03,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-ne",
+                    "w": 15.03,
+                    "h": 15.03,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-se",
+                    "w": 15.03,
+                    "h": 15.03,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-sw",
+                    "w": 15.03,
+                    "h": 15.03,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-n",
+                    "w": 22.82,
+                    "h": 19.54,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-e",
+                    "w": 19.54,
+                    "h": 22.82,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-s",
+                    "w": 22.82,
+                    "h": 19.54,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-edge is-w",
+                    "w": 19.54,
+                    "h": 22.82,
+                    "display": "block"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-start",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle is-line-end",
+                    "w": 0,
+                    "h": 0,
+                    "display": "none"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 34.16,
+                    "h": 34.16,
+                    "display": "grid"
+                  },
+                  {
+                    "cls": "akari-interaction-handle akari-interaction-actio",
+                    "w": 34.16,
+                    "h": 34.16,
+                    "display": "grid"
+                  }
+                ]
+              },
+              "cutRotate": {
+                "cut": "rotate(0deg)",
+                "layer": ""
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 178.5,
+                "y": 82.5
+              },
+              "size": {
+                "w": 384,
+                "h": 264
+              },
+              "page": {
+                "x": 454.7796875,
+                "y": 203.765625
+              },
+              "count": 9670,
+              "mean": 233.03
+            },
+            "afterVisible": {
+              "output": {
+                "x": 181.5,
+                "y": 84
+              },
+              "size": {
+                "w": 426,
+                "h": 381
+              },
+              "page": {
+                "x": 455.2984375,
+                "y": 204.025
+              },
+              "count": 9609,
+              "mean": 238.77
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 181.5,
+                "y": 84
+              },
+              "size": {
+                "w": 426,
+                "h": 381
+              },
+              "page": {
+                "x": 455.2984375,
+                "y": 204.025
+              },
+              "count": 9609,
+              "mean": 238.77
+            },
+            "visibleDelta": {
+              "dx": 3,
+              "dy": 1.5,
+              "dw": 42,
+              "dh": 117
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 60,
+              "transform": {
+                "x": 182.84266187068457,
+                "y": 83.49513265421848
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": 0
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "evaluatedAtFrame": {
+              "x": 182.84266187068457,
+              "y": 83.49513265421848,
+              "scale": 0.8023054522004349,
+              "scaleX": 0.8023054522004349,
+              "scaleY": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-html-nudge-75",
+            "frame": 75,
+            "seeked": {
+              "actual": 12.5,
+              "actualFrame": 75
+            },
+            "detail": {
+              "keys": "ArrowRight×3 ArrowDown×2",
+              "path": "preview",
+              "expectedDelta": {
+                "x": 3,
+                "y": 2
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 136.5,
+                "y": 61.5
+              },
+              "size": {
+                "w": 426,
+                "h": 378
+              },
+              "page": {
+                "x": 447.5171875,
+                "y": 200.134375
+              },
+              "count": 9614,
+              "mean": 238.61
+            },
+            "afterVisible": {
+              "output": {
+                "x": 139.5,
+                "y": 63
+              },
+              "size": {
+                "w": 426,
+                "h": 375
+              },
+              "page": {
+                "x": 448.0359375,
+                "y": 200.39375
+              },
+              "count": 9610,
+              "mean": 238.72
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 139.5,
+                "y": 63
+              },
+              "size": {
+                "w": 426,
+                "h": 375
+              },
+              "page": {
+                "x": 448.0359375,
+                "y": 200.39375
+              },
+              "count": 9610,
+              "mean": 238.72
+            },
+            "visibleDelta": {
+              "dx": 3,
+              "dy": 1.5,
+              "dw": 0,
+              "dh": -3
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": 3,
+              "y": 2
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 75,
+              "transform": {
+                "x": 140.13199640301343,
+                "y": 64.62134949066386
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "evaluatedAtFrame": {
+              "x": 140.13199640301343,
+              "y": 64.62134949066386,
+              "scale": 0.8023054522004349,
+              "scaleX": 0.8023054522004349,
+              "scaleY": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-html-bar-nudge-85",
+            "frame": 85,
+            "seeked": {
+              "actual": 12.833,
+              "actualFrame": 85
+            },
+            "detail": {
+              "request": {
+                "action": "nudge",
+                "dx": 40,
+                "dy": -30
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": 40,
+                "y": -30
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 109.5,
+                "y": 51
+              },
+              "size": {
+                "w": 426,
+                "h": 381
+              },
+              "page": {
+                "x": 442.8484375,
+                "y": 198.31875
+              },
+              "count": 9617,
+              "mean": 238.48
+            },
+            "afterVisible": {
+              "output": {
+                "x": 148.5,
+                "y": 19.5
+              },
+              "size": {
+                "w": 426,
+                "h": 378
+              },
+              "page": {
+                "x": 449.5921875,
+                "y": 192.871875
+              },
+              "count": 9625,
+              "mean": 238.97
+            },
+            "reseekVisible": {
+              "output": {
+                "x": 148.5,
+                "y": 19.5
+              },
+              "size": {
+                "w": 426,
+                "h": 378
+              },
+              "page": {
+                "x": 449.5921875,
+                "y": 192.871875
+              },
+              "count": 9625,
+              "mean": 238.97
+            },
+            "visibleDelta": {
+              "dx": 39,
+              "dy": -31.5,
+              "dw": 0,
+              "dh": -3
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": 40,
+              "y": -30
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 85,
+              "transform": {
+                "x": 148.99,
+                "y": 20.26
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "evaluatedAtFrame": {
+              "x": 148.99,
+              "y": 20.260000000000005,
+              "scale": 0.8023054522004349,
+              "scaleX": 0.8023054522004349,
+              "scaleY": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-html-bar-write-95",
+            "frame": 95,
+            "seeked": {
+              "actual": 13.167,
+              "actualFrame": 95
+            },
+            "detail": {
+              "request": {
+                "action": "write",
+                "path": "transform.x",
+                "value": -150
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": -256.42,
+                "y": 0
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 106.5,
+                "y": 15
+              },
+              "size": {
+                "w": 426,
+                "h": 381
+              },
+              "page": {
+                "x": 442.3296875,
+                "y": 192.09375
+              },
+              "count": 9609,
+              "mean": 238.96
+            },
+            "afterVisible": {
+              "output": {
+                "x": -148.5,
+                "y": 12
+              },
+              "size": {
+                "w": 426,
+                "h": 375
+              },
+              "page": {
+                "x": 398.2359375,
+                "y": 191.575
+              },
+              "count": 9646,
+              "mean": 238.76
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -148.5,
+                "y": 12
+              },
+              "size": {
+                "w": 426,
+                "h": 375
+              },
+              "page": {
+                "x": 398.2359375,
+                "y": 191.575
+              },
+              "count": 9646,
+              "mean": 238.76
+            },
+            "visibleDelta": {
+              "dx": -255,
+              "dy": -3,
+              "dw": 0,
+              "dh": -6
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": -256.42,
+              "y": 0
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 95,
+              "transform": {
+                "x": -150,
+                "y": 14.471428571428573
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "evaluatedAtFrame": {
+              "x": -150,
+              "y": 14.471428571428573,
+              "scale": 0.8023054522004349,
+              "scaleX": 0.8023054522004349,
+              "scaleY": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          },
+          {
+            "name": "p1-html-bar-resize-105",
+            "frame": 105,
+            "seeked": {
+              "actual": 13.5,
+              "actualFrame": 105
+            },
+            "detail": {
+              "request": {
+                "action": "resize",
+                "width": 300,
+                "keepRatio": true
+              },
+              "result": {
+                "ok": false,
+                "error": "図形を選んでください。"
+              }
+            },
+            "actError": null,
+            "writes": 0,
+            "noWrite": true,
+            "beforeVisible": {
+              "output": {
+                "x": -87,
+                "y": 7.5
+              },
+              "size": {
+                "w": 423,
+                "h": 378
+              },
+              "page": {
+                "x": 408.8703125,
+                "y": 190.796875
+              },
+              "count": 9608,
+              "mean": 239.2
+            },
+            "afterVisible": {
+              "output": {
+                "x": -87,
+                "y": 7.5
+              },
+              "size": {
+                "w": 423,
+                "h": 378
+              },
+              "page": {
+                "x": 408.8703125,
+                "y": 190.796875
+              },
+              "count": 9608,
+              "mean": 239.2
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -87,
+                "y": 7.5
+              },
+              "size": {
+                "w": 423,
+                "h": 378
+              },
+              "page": {
+                "x": 408.8703125,
+                "y": 190.796875
+              },
+              "count": 9608,
+              "mean": 239.2
+            },
+            "visibleDelta": {
+              "dx": 0,
+              "dy": 0,
+              "dw": 0,
+              "dh": 0
+            },
+            "visibleMovedAsExpected": null,
+            "expectedDelta": null,
+            "noRevert": true,
+            "pointCreated": false,
+            "pointAtFrame": null,
+            "pointHasX": null,
+            "pointHasY": null,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120
+            ],
+            "lastPoint": {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "evaluatedAtFrame": {
+              "x": -90,
+              "y": 8.682857142857143,
+              "scale": 0.8023054522004349,
+              "scaleX": 0.8023054522004349,
+              "scaleY": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "undoRestored": null,
+            "redoRestored": null
+          },
+          {
+            "name": "p1-html-bar-fit-130",
+            "frame": 130,
+            "seeked": {
+              "actual": 14.333,
+              "actualFrame": 130
+            },
+            "detail": {
+              "request": {
+                "action": "fit"
+              },
+              "result": {
+                "ok": true,
+                "value": {
+                  "ok": true
+                }
+              },
+              "expectedDelta": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "actError": null,
+            "writes": 1,
+            "noWrite": false,
+            "beforeVisible": {
+              "output": {
+                "x": 3,
+                "y": -1.5
+              },
+              "size": {
+                "w": 423,
+                "h": 378
+              },
+              "page": {
+                "x": 424.4328125,
+                "y": 189.240625
+              },
+              "count": 9606,
+              "mean": 239.1
+            },
+            "afterVisible": {
+              "output": {
+                "x": -3,
+                "y": 0
+              },
+              "size": {
+                "w": 477,
+                "h": 327
+              },
+              "page": {
+                "x": 423.3953125,
+                "y": 189.5
+              },
+              "count": 15460,
+              "mean": 236.43
+            },
+            "reseekVisible": {
+              "output": {
+                "x": -3,
+                "y": 0
+              },
+              "size": {
+                "w": 477,
+                "h": 327
+              },
+              "page": {
+                "x": 423.3953125,
+                "y": 189.5
+              },
+              "count": 15460,
+              "mean": 236.43
+            },
+            "visibleDelta": {
+              "dx": -6,
+              "dy": 1.5,
+              "dw": 54,
+              "dh": -51
+            },
+            "visibleMovedAsExpected": true,
+            "expectedDelta": {
+              "x": 0,
+              "y": 0
+            },
+            "noRevert": true,
+            "pointCreated": true,
+            "pointAtFrame": {
+              "t": 130,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "pointHasX": true,
+            "pointHasY": true,
+            "pointTimes": [
+              20,
+              45,
+              60,
+              75,
+              85,
+              95,
+              120,
+              130
+            ],
+            "lastPoint": {
+              "t": 130,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            "staticBefore": {
+              "x": 0,
+              "y": 0,
+              "scale": 0.8023054522004349,
+              "rotate": -30.08058030663358
+            },
+            "staticAfter": {
+              "x": 0,
+              "y": 0,
+              "scale": 1,
+              "rotate": 0
+            },
+            "evaluatedAtFrame": {
+              "x": 0,
+              "y": 0,
+              "scale": 1,
+              "scaleX": 1,
+              "scaleY": 1,
+              "rotate": 0
+            },
+            "undoRestored": true,
+            "redoRestored": true
+          }
+        ],
+        "finalPoints": [
+          {
+            "t": 20,
+            "transform": {
+              "x": 240,
+              "y": 96.00003529743981
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 228.55329662666352,
+              "y": 104.36889584978923
+            }
+          },
+          {
+            "t": 60,
+            "transform": {
+              "x": 182.84266187068457,
+              "y": 83.49513265421848
+            }
+          },
+          {
+            "t": 75,
+            "transform": {
+              "x": 140.13199640301343,
+              "y": 64.62134949066386
+            }
+          },
+          {
+            "t": 85,
+            "transform": {
+              "x": 148.99,
+              "y": 20.260000000000005
+            }
+          },
+          {
+            "t": 95,
+            "transform": {
+              "x": -150,
+              "y": 14.471428571428573
+            }
+          },
+          {
+            "t": 120,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 130,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        ],
+        "finalStatic": {
+          "x": 0,
+          "y": 0,
+          "scale": 1,
+          "rotate": 0
+        },
+        "everyPointHasXY": true,
+        "pointCount": 8
+      }
+    },
+    "p2": {
+      "photo": {
+        "id": "photo-draw",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 418.73,
+            "y": 189.67
+          },
+          "swingX": 420,
+          "swingY": 260,
+          "box": {
+            "output": {
+              "x": 0,
+              "y": 21
+            },
+            "size": {
+              "w": 813,
+              "h": 489
+            },
+            "page": {
+              "x": 423.9140625,
+              "y": 193.13125
+            },
+            "count": 44030,
+            "mean": 221.21
+          }
+        },
+        "writes": 1,
+        "historyAfter": [
+          "2026-09-25T23-03-44-999Z-位置を揃える",
+          "2026-09-25T23-03-53-993Z-クリップの変形を変更",
+          "2026-09-25T23-04-10-684Z-画面に合わせる",
+          "2026-09-25T23-04-19-601Z-キーフレームを打つ",
+          "2026-09-25T23-04-24-022Z-プレビューで変形を変更",
+          "2026-09-25T23-04-33-674Z-プレビューで変形を変更",
+          "2026-09-25T23-04-43-595Z-プレビューで変形を変更",
+          "2026-09-25T23-04-53-403Z-プレビューで変形を変更",
+          "2026-09-25T23-05-02-849Z-位置を揃える",
+          "2026-09-25T23-05-11-818Z-クリップの変形を変更",
+          "2026-09-25T23-05-28-492Z-画面に合わせる",
+          "2026-09-25T23-05-39-487Z-プレビューで変形を変更"
+        ],
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          40,
+          43,
+          52,
+          58
+        ],
+        "everyPointHasXY": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 93.16265060240971,
+              "y": 65.73795180722891
+            }
+          },
+          {
+            "t": 40,
+            "transform": {
+              "x": 152.84638554216872,
+              "y": 103.14759036144585
+            }
+          },
+          {
+            "t": 43,
+            "transform": {
+              "x": 209.23192771084337,
+              "y": 133.14759036144585
+            }
+          },
+          {
+            "t": 52,
+            "transform": {
+              "x": 355.6626506024097,
+              "y": 197.25903614457832
+            }
+          },
+          {
+            "t": 58,
+            "transform": {
+              "x": 420,
+              "y": 237.9668674698795
+            }
+          }
+        ],
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "text": {
+        "id": "text-draw",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 417.69,
+            "y": 186.04
+          },
+          "swingX": 420,
+          "swingY": 211.8,
+          "box": {
+            "output": {
+              "x": -6,
+              "y": 0
+            },
+            "size": {
+              "w": 291,
+              "h": 153
+            },
+            "page": {
+              "x": 422.8765625,
+              "y": 189.5
+            },
+            "count": 2953,
+            "mean": 198.32
+          }
+        },
+        "writes": 2,
+        "historyAfter": [
+          "2026-09-25T23-04-10-684Z-画面に合わせる",
+          "2026-09-25T23-04-19-601Z-キーフレームを打つ",
+          "2026-09-25T23-04-24-022Z-プレビューで変形を変更",
+          "2026-09-25T23-04-33-674Z-プレビューで変形を変更",
+          "2026-09-25T23-04-43-595Z-プレビューで変形を変更",
+          "2026-09-25T23-04-53-403Z-プレビューで変形を変更",
+          "2026-09-25T23-05-02-849Z-位置を揃える",
+          "2026-09-25T23-05-11-818Z-クリップの変形を変更",
+          "2026-09-25T23-05-28-492Z-画面に合わせる",
+          "2026-09-25T23-05-39-487Z-プレビューで変形を変更",
+          "2026-09-25T23-05-47-336Z-プレビューで変形を変更",
+          "2026-09-25T23-05-47-460Z-プレビューで変形を変更"
+        ],
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          40,
+          45,
+          52,
+          58
+        ],
+        "everyPointHasXY": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 93.16265060240971,
+              "y": 56.70180722891564
+            }
+          },
+          {
+            "t": 40,
+            "transform": {
+              "x": 152.8463855421686,
+              "y": 88.05722891566268
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 235.9789156626506,
+              "y": 121.4457831325301
+            }
+          },
+          {
+            "t": 52,
+            "transform": {
+              "x": 355.6626506024096,
+              "y": 158.132530120482
+            }
+          },
+          {
+            "t": 58,
+            "transform": {
+              "x": 420.0000000000001,
+              "y": 189.8042168674699
+            }
+          }
+        ],
+        "undoRestored": false,
+        "redoRestored": true
+      },
+      "html": {
+        "id": "html-draw",
+        "frame": 30,
+        "triggered": {
+          "found": true,
+          "via": "inspector",
+          "label": "プレビューで描く"
+        },
+        "armed": true,
+        "stroke": {
+          "start": {
+            "x": 419.25,
+            "y": 185.52
+          },
+          "swingX": 420,
+          "swingY": 233.39999999999998,
+          "box": {
+            "output": {
+              "x": 3,
+              "y": -3
+            },
+            "size": {
+              "w": 285,
+              "h": 189
+            },
+            "page": {
+              "x": 424.4328125,
+              "y": 188.98125
+            },
+            "count": 4830,
+            "mean": 228.92
+          }
+        },
+        "writes": 2,
+        "historyAfter": [
+          "2026-09-25T23-04-24-022Z-プレビューで変形を変更",
+          "2026-09-25T23-04-33-674Z-プレビューで変形を変更",
+          "2026-09-25T23-04-43-595Z-プレビューで変形を変更",
+          "2026-09-25T23-04-53-403Z-プレビューで変形を変更",
+          "2026-09-25T23-05-02-849Z-位置を揃える",
+          "2026-09-25T23-05-11-818Z-クリップの変形を変更",
+          "2026-09-25T23-05-28-492Z-画面に合わせる",
+          "2026-09-25T23-05-39-487Z-プレビューで変形を変更",
+          "2026-09-25T23-05-47-336Z-プレビューで変形を変更",
+          "2026-09-25T23-05-47-460Z-プレビューで変形を変更",
+          "2026-09-25T23-05-54-949Z-プレビューで変形を変更",
+          "2026-09-25T23-05-55-038Z-プレビューで変形を変更"
+        ],
+        "keyframesForm": "array",
+        "pointCount": 6,
+        "pointTimes": [
+          30,
+          37,
+          40,
+          45,
+          52,
+          58
+        ],
+        "everyPointHasXY": true,
+        "firstPoints": [
+          {
+            "t": 30,
+            "transform": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "t": 37,
+            "transform": {
+              "x": 93.20783132530119,
+              "y": 60.768072289156635
+            }
+          },
+          {
+            "t": 40,
+            "transform": {
+              "x": 152.84638554216872,
+              "y": 94.83433734939763
+            }
+          },
+          {
+            "t": 45,
+            "transform": {
+              "x": 235.9789156626507,
+              "y": 132.28915662650604
+            }
+          },
+          {
+            "t": 52,
+            "transform": {
+              "x": 355.7078313253012,
+              "y": 175.70783132530119
+            }
+          },
+          {
+            "t": 58,
+            "transform": {
+              "x": 420,
+              "y": 211.40060240963862
+            }
+          }
+        ],
+        "undoRestored": false,
+        "redoRestored": true
+      }
+    },
+    "p3": {
+      "photo": {
+        "kind": "photo",
+        "srcId": "photo-style-src",
+        "dstId": "photo-style-dst",
+        "frame": 75,
+        "seeked": {
+          "actual": 37.5,
+          "actualFrame": 75
+        },
+        "copy": {
+          "ok": true,
+          "value": {
+            "ok": true
+          }
+        },
+        "select": {
+          "ok": true,
+          "value": {
+            "ok": true
+          }
+        },
+        "writes": 1,
+        "beforeShot": "before-p3-photo-before.png",
+        "afterShot": "before-p3-photo-after.png",
+        "beforeMetric": {
+          "x": 320,
+          "y": 183.5,
+          "count": 37908,
+          "mean": 132.1,
+          "box": {
+            "x": 199,
+            "y": 106,
+            "w": 243,
+            "h": 156
+          }
+        },
+        "afterMetric": {
+          "x": 320,
+          "y": 182.5,
+          "count": 37274,
+          "mean": 132.12,
+          "box": {
+            "x": 199,
+            "y": 106,
+            "w": 243,
+            "h": 154
+          }
+        },
+        "beforeBox": {
+          "output": {
+            "x": 0,
+            "y": 10.5
+          },
+          "size": {
+            "w": 729,
+            "h": 468
+          },
+          "page": {
+            "x": 423.9140625,
+            "y": 191.315625
+          },
+          "count": 37908,
+          "mean": 132.1
+        },
+        "afterBox": {
+          "output": {
+            "x": 0,
+            "y": 7.5
+          },
+          "size": {
+            "w": 729,
+            "h": 462
+          },
+          "page": {
+            "x": 423.9140625,
+            "y": 190.796875
+          },
+          "count": 37274,
+          "mean": 132.12
+        },
+        "meanBefore": 132.1,
+        "meanAfter": 132.12,
+        "meanDropped": 0.02,
+        "beforeVisible": null,
+        "afterVisible": null,
+        "beforeOpacityStatic": null,
+        "afterOpacityStatic": 0.4,
+        "pointCreated": false,
+        "pointAtFrame": null,
+        "pointTimes": [
+          0,
+          149
+        ],
+        "evaluatedOpacityBefore": 0.5973154362416107,
+        "evaluatedOpacityAfter": 0.5973154362416107,
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "text": {
+        "kind": "text",
+        "srcId": "text-style-src",
+        "dstId": "text-style-dst",
+        "frame": 75,
+        "seeked": {
+          "actual": 47.5,
+          "actualFrame": 75
+        },
+        "copy": {
+          "ok": true,
+          "value": {
+            "ok": true
+          }
+        },
+        "select": {
+          "ok": true,
+          "value": {
+            "ok": true
+          }
+        },
+        "writes": 1,
+        "beforeShot": "before-p3-text-before.png",
+        "afterShot": "before-p3-text-after.png",
+        "beforeMetric": {
+          "x": 318,
+          "y": 180,
+          "count": 3102,
+          "mean": 128.99,
+          "box": {
+            "x": 269,
+            "y": 155,
+            "w": 99,
+            "h": 51
+          }
+        },
+        "afterMetric": {
+          "x": 318,
+          "y": 180,
+          "count": 2788,
+          "mean": 123.37,
+          "box": {
+            "x": 270,
+            "y": 156,
+            "w": 97,
+            "h": 49
+          }
+        },
+        "beforeBox": {
+          "output": {
+            "x": -6,
+            "y": 0
+          },
+          "size": {
+            "w": 297,
+            "h": 153
+          },
+          "page": {
+            "x": 422.8765625,
+            "y": 189.5
+          },
+          "count": 3102,
+          "mean": 128.99
+        },
+        "afterBox": {
+          "output": {
+            "x": -6,
+            "y": 0
+          },
+          "size": {
+            "w": 291,
+            "h": 147
+          },
+          "page": {
+            "x": 422.8765625,
+            "y": 189.5
+          },
+          "count": 2788,
+          "mean": 123.37
+        },
+        "meanBefore": 128.99,
+        "meanAfter": 123.37,
+        "meanDropped": -5.62,
+        "beforeVisible": {
+          "output": {
+            "x": 0,
+            "y": 0
+          },
+          "size": {
+            "w": 1536,
+            "h": 864
+          },
+          "opacity": 0.6,
+          "page": {
+            "x": 423.91404724121094,
+            "y": 189.5
+          }
+        },
+        "afterVisible": {
+          "output": {
+            "x": 0,
+            "y": 0
+          },
+          "size": {
+            "w": 1536,
+            "h": 864
+          },
+          "opacity": 0.6,
+          "page": {
+            "x": 423.91404724121094,
+            "y": 189.5
+          }
+        },
+        "beforeOpacityStatic": null,
+        "afterOpacityStatic": 0.4,
+        "pointCreated": false,
+        "pointAtFrame": null,
+        "pointTimes": [
+          0,
+          149
+        ],
+        "evaluatedOpacityBefore": 0.5973154362416107,
+        "evaluatedOpacityAfter": 0.5973154362416107,
+        "undoRestored": true,
+        "redoRestored": true
+      },
+      "html": {
+        "kind": "html",
+        "srcId": "html-style-src",
+        "dstId": "html-style-dst",
+        "frame": 75,
+        "seeked": {
+          "actual": 57.5,
+          "actualFrame": 75
+        },
+        "copy": {
+          "ok": true,
+          "value": {
+            "ok": true
+          }
+        },
+        "select": {
+          "ok": true,
+          "value": {
+            "ok": true
+          }
+        },
+        "writes": 1,
+        "beforeShot": "before-p3-html-before.png",
+        "afterShot": "before-p3-html-after.png",
+        "beforeMetric": {
+          "x": 320,
+          "y": 180,
+          "count": 6304,
+          "mean": 142.31,
+          "box": {
+            "x": 272,
+            "y": 148,
+            "w": 97,
+            "h": 65
+          }
+        },
+        "afterMetric": {
+          "x": 320,
+          "y": 180,
+          "count": 4736,
+          "mean": 138.63,
+          "box": {
+            "x": 274,
+            "y": 150,
+            "w": 93,
+            "h": 61
+          }
+        },
+        "beforeBox": {
+          "output": {
+            "x": 0,
+            "y": 0
+          },
+          "size": {
+            "w": 291,
+            "h": 195
+          },
+          "page": {
+            "x": 423.9140625,
+            "y": 189.5
+          },
+          "count": 6304,
+          "mean": 142.31
+        },
+        "afterBox": {
+          "output": {
+            "x": 0,
+            "y": 0
+          },
+          "size": {
+            "w": 279,
+            "h": 183
+          },
+          "page": {
+            "x": 423.9140625,
+            "y": 189.5
+          },
+          "count": 4736,
+          "mean": 138.63
+        },
+        "meanBefore": 142.31,
+        "meanAfter": 138.63,
+        "meanDropped": -3.68,
+        "beforeVisible": {
+          "output": {
+            "x": 0,
+            "y": 0
+          },
+          "size": {
+            "w": 1152,
+            "h": 648
+          },
+          "opacity": 0.6,
+          "page": {
+            "x": 423.91407012939453,
+            "y": 189.49999618530273
+          }
+        },
+        "afterVisible": {
+          "output": {
+            "x": 0,
+            "y": 0
+          },
+          "size": {
+            "w": 1152,
+            "h": 648
+          },
+          "opacity": 0.6,
+          "page": {
+            "x": 423.91407012939453,
+            "y": 189.49999618530273
+          }
+        },
+        "beforeOpacityStatic": null,
+        "afterOpacityStatic": 0.4,
+        "pointCreated": false,
+        "pointAtFrame": null,
+        "pointTimes": [
+          0,
+          149
+        ],
+        "evaluatedOpacityBefore": 0.5973154362416107,
+        "evaluatedOpacityAfter": 0.5973154362416107,
+        "undoRestored": true,
+        "redoRestored": true
+      }
+    },
+    "compare": {
+      "photo-1": [
+        20,
+        32,
+        60,
+        95,
+        125,
+        130
+      ],
+      "text-1": [
+        20,
+        32,
+        60,
+        95,
+        125,
+        130
+      ],
+      "html-1": [
+        20,
+        32,
+        60,
+        95,
+        125,
+        130
+      ],
+      "photo-draw": [
+        30,
+        33,
+        40,
+        52,
+        55,
+        58
+      ],
+      "text-draw": [
+        30,
+        33,
+        40,
+        52,
+        55,
+        58
+      ],
+      "html-draw": [
+        30,
+        33,
+        40,
+        52,
+        55,
+        58
+      ]
+    },
+    "writeErrors": [],
+    "hookCheck": {
+      "consoleWrapped": true,
+      "engineWrapped": true,
+      "engineType": "function",
+      "errors": 0,
+      "editPath": "file://<scratch>/project/edit.json"
+    },
+    "motionBagPaths": []
+  },
+  "writeErrors": [],
+  "consoleErrors": []
+}

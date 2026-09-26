@@ -1,0 +1,533 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "photo-src-1",
+      "path": "assets/kf1b-photo-red.png",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    {
+      "id": "k1",
+      "lane": "visual",
+      "name": "KF photo",
+      "items": [
+        {
+          "id": "photo-1",
+          "at": 0,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.55,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 20,
+              "transform": {
+                "x": 240,
+                "y": 110.01506024096383,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            {
+              "t": 45,
+              "transform": {
+                "x": 227.34286485028326,
+                "y": 109.77352558331518,
+                "scale": 0.6056379821958457,
+                "rotate": 0
+              }
+            },
+            {
+              "t": 60,
+              "transform": {
+                "x": 181.87429188022662,
+                "y": 87.81882046665214,
+                "scale": 0.5945103857566766,
+                "rotate": -29.848851363950075
+              }
+            },
+            {
+              "t": 75,
+              "transform": {
+                "x": 137.40571891016998,
+                "y": 65.8641153499891,
+                "scale": 0.5833827893175074,
+                "rotate": -22.386638522962556
+              }
+            },
+            {
+              "t": 85,
+              "transform": {
+                "x": 146.87,
+                "y": 21.230000000000004,
+                "scale": 0.5759643916913947,
+                "rotate": -17.41182996230421
+              }
+            },
+            {
+              "t": 95,
+              "transform": {
+                "x": -150,
+                "y": 15.164285714285715,
+                "scale": 0.568545994065282,
+                "rotate": -12.437021401645865
+              }
+            },
+            {
+              "t": 120,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.55,
+                "rotate": 0
+              }
+            },
+            {
+              "t": 130,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 1,
+                "rotate": 0
+              }
+            }
+          ],
+          "source": {
+            "kind": "media",
+            "src": "photo-src-1",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "k2",
+      "lane": "visual",
+      "name": "KF text",
+      "items": [
+        {
+          "id": "text-1",
+          "at": 150,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "keyframes": {
+            "path": "motion/text-1.json",
+            "count": 9
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-text-green.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "k3",
+      "lane": "visual",
+      "name": "KF html",
+      "items": [
+        {
+          "id": "html-1",
+          "at": 300,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "keyframes": {
+            "path": "motion/html-1.json",
+            "count": 9
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-box-blue.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "k4",
+      "lane": "visual",
+      "name": "KF draw photo",
+      "items": [
+        {
+          "id": "photo-draw",
+          "at": 450,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 30,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "t": 37,
+              "transform": {
+                "x": 93.16265060240971,
+                "y": 65.73795180722891
+              }
+            },
+            {
+              "t": 40,
+              "transform": {
+                "x": 152.84638554216872,
+                "y": 103.14759036144585
+              }
+            },
+            {
+              "t": 43,
+              "transform": {
+                "x": 209.23192771084337,
+                "y": 133.14759036144585
+              }
+            },
+            {
+              "t": 52,
+              "transform": {
+                "x": 355.6626506024097,
+                "y": 197.25903614457832
+              }
+            },
+            {
+              "t": 58,
+              "transform": {
+                "x": 420,
+                "y": 237.9668674698795
+              }
+            }
+          ],
+          "source": {
+            "kind": "media",
+            "src": "photo-src-1",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "k5",
+      "lane": "visual",
+      "name": "KF draw text",
+      "items": [
+        {
+          "id": "text-draw",
+          "at": 600,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 30,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "t": 37,
+              "transform": {
+                "x": 93.16265060240971,
+                "y": 56.70180722891564
+              }
+            },
+            {
+              "t": 40,
+              "transform": {
+                "x": 152.8463855421686,
+                "y": 88.05722891566268
+              }
+            },
+            {
+              "t": 45,
+              "transform": {
+                "x": 235.9789156626506,
+                "y": 121.4457831325301
+              }
+            },
+            {
+              "t": 52,
+              "transform": {
+                "x": 355.6626506024096,
+                "y": 158.132530120482
+              }
+            },
+            {
+              "t": 58,
+              "transform": {
+                "x": 420.0000000000001,
+                "y": 189.8042168674699
+              }
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-text-green.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "k6",
+      "lane": "visual",
+      "name": "KF draw html",
+      "items": [
+        {
+          "id": "html-draw",
+          "at": 750,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 30,
+              "transform": {
+                "x": 0,
+                "y": 0
+              }
+            },
+            {
+              "t": 37,
+              "transform": {
+                "x": 93.20783132530119,
+                "y": 60.768072289156635
+              }
+            },
+            {
+              "t": 40,
+              "transform": {
+                "x": 152.84638554216872,
+                "y": 94.83433734939763
+              }
+            },
+            {
+              "t": 45,
+              "transform": {
+                "x": 235.9789156626507,
+                "y": 132.28915662650604
+              }
+            },
+            {
+              "t": 52,
+              "transform": {
+                "x": 355.7078313253012,
+                "y": 175.70783132530119
+              }
+            },
+            {
+              "t": 58,
+              "transform": {
+                "x": 420,
+                "y": 211.40060240963862
+              }
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-box-blue.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "k7",
+      "lane": "visual",
+      "name": "KF style photo",
+      "items": [
+        {
+          "id": "photo-style-src",
+          "at": 900,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.45,
+            "rotate": 0
+          },
+          "opacity": 0.4,
+          "source": {
+            "kind": "media",
+            "src": "photo-src-1",
+            "in": 0,
+            "out": 5
+          }
+        },
+        {
+          "id": "photo-style-dst",
+          "at": 1050,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.45,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 0,
+              "opacity": 1
+            },
+            {
+              "t": 75,
+              "transform": {
+                "x": 0,
+                "y": 0,
+                "scale": 0.45,
+                "rotate": 0
+              },
+              "opacity": 0.4
+            },
+            {
+              "t": 149,
+              "opacity": 0.2
+            }
+          ],
+          "source": {
+            "kind": "media",
+            "src": "photo-src-1",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "k8",
+      "lane": "visual",
+      "name": "KF style text",
+      "items": [
+        {
+          "id": "text-style-src",
+          "at": 1200,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8,
+            "rotate": 0
+          },
+          "opacity": 0.4,
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-text-green.html"
+          }
+        },
+        {
+          "id": "text-style-dst",
+          "at": 1350,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.8,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 0,
+              "opacity": 1
+            },
+            {
+              "t": 75,
+              "opacity": 0.4
+            },
+            {
+              "t": 149,
+              "opacity": 0.2
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-text-green.html"
+          }
+        }
+      ]
+    },
+    {
+      "id": "k9",
+      "lane": "visual",
+      "name": "KF style html",
+      "items": [
+        {
+          "id": "html-style-src",
+          "at": 1500,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "opacity": 0.4,
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-box-blue.html"
+          }
+        },
+        {
+          "id": "html-style-dst",
+          "at": 1650,
+          "duration": 150,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          },
+          "keyframes": [
+            {
+              "t": 0,
+              "opacity": 1
+            },
+            {
+              "t": 75,
+              "opacity": 0.4
+            },
+            {
+              "t": 149,
+              "opacity": 0.2
+            }
+          ],
+          "source": {
+            "kind": "html",
+            "path": "overlays/kf1b-box-blue.html"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import { placeTextCaption, PLACE_TEXT_COMMAND_ID, type PlaceTextOptions } from '../common/place-text';
+import { itemFrameAtPlayhead, nextNudgeValue, type NudgeValue } from '../common/nudge-value';
 import { captionLibraryApplyFeedback, planLibraryApply, shouldShowTextPlaceBand, timelineApplyTarget,
     type ApplyPayload, type ApplyTarget } from './library-apply-plan';
 import { centeredPreviewTextPlacement } from '../common/preview-text-placement';
@@ -2578,7 +2579,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(this.keybindings.onKeybindingsChanged(() => this.refreshShortcutsHelp()));
         this.toolbar.addEventListener('mouseenter', () => this.refreshShortcutsHelp());
         const nudgeSession = new NudgeCommitSession();
-        let nudgeValue: { id: string; path: 'transform.x' | 'transform.y'; value: number } | undefined;
+        let nudgeValue: NudgeValue | undefined;
         const selectedVisualItemId = (): string | undefined => {
             if (!this.selection || (this.selection.kind !== 'cut' && this.selection.kind !== 'layer'
                 && this.selection.kind !== 'overlay' && this.selection.kind !== 'item')) return undefined;
@@ -2673,20 +2674,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const path: 'transform.x' | 'transform.y' = lowerKey === 'arrowleft' || lowerKey === 'arrowright'
                     ? 'transform.x' : 'transform.y';
                 const field = path.endsWith('.x') ? 'x' : 'y';
-                const initial = raw.transform && typeof raw.transform === 'object'
-                    && typeof raw.transform[field] === 'number' ? raw.transform[field] as number : 0;
-                const current = nudgeValue?.id === id && nudgeValue.path === path ? nudgeValue.value : initial;
+                // 最初の値は再生位置で見えている値（位置が動きを持つとき、静的値だとそこへ跳ぶ）
+                const itemStart = this.expandedTimelineTreeRows?.find(row => row.id === id)?.at
+                    ?? (this.rawKeyframeItem?.(id)?.at ?? 0) / this.fps;
+                const itemFrame = itemFrameAtPlayhead({ playheadSeconds: this.playheadT, itemStartSeconds: itemStart,
+                    durationFrames: raw.duration, fps: this.fps });
                 const direction = lowerKey === 'arrowright' || lowerKey === 'arrowdown' ? 1 : -1;
-                const value = current + direction * (event.shiftKey ? 10 : 1);
-                nudgeValue = { id, path, value };
-                nudgeSession.apply(id, path, value);
+                const next = nextNudgeValue({ item: raw as never, frame: itemFrame, id, path, direction,
+                    step: event.shiftKey ? 10 : 1, previous: nudgeValue });
+                nudgeValue = next;
+                nudgeSession.apply(next.id, next.path, next.value);
                 if (this.selection?.kind === 'cut') {
                     this.selectionModel.requestLivePreview?.({
-                        target: { kind: 'cut', index: this.selection.index }, field, value
+                        target: { kind: 'cut', index: this.selection.index }, field, value: next.value
                     });
                 } else if (this.selection?.kind === 'layer') {
                     this.selectionModel.requestLivePreview?.({
-                        target: { kind: 'layer', id: this.selection.id }, field, value
+                        target: { kind: 'layer', id: this.selection.id }, field, value: next.value
                     });
                 }
                 return;
