@@ -2,6 +2,24 @@
   // ../overlay-runtime/src/interaction.js
   window.akari = window.akari || {};
   window.akari.interaction = (() => {
+    function canBeginPointerInteraction(owner) {
+      return owner == null;
+    }
+    let pointerOwner = null;
+    function setPointerOwner(owner) {
+      if (owner == null) {
+        pointerOwner = null;
+        return;
+      }
+      if (pointerOwner != null && pointerOwner !== owner) return false;
+      pointerOwner = owner;
+      return true;
+    }
+    function releasePointerOwner(owner) {
+      if (pointerOwner !== owner) return false;
+      pointerOwner = null;
+      return true;
+    }
     function lineage(tree, id) {
       const nodes = new Map(tree.map((node) => [node.id, node]));
       const result = [], visited = /* @__PURE__ */ new Set();
@@ -2497,7 +2515,7 @@
       return Number.isFinite(event.clientX) && Number.isFinite(event.clientY) && event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
     }
     function onPointerDown(event) {
-      if (!interactionEnabled) return;
+      if (!interactionEnabled || !canBeginPointerInteraction(pointerOwner)) return;
       if (event.button !== 0 || activeDrag || activeResize || activeRotate || activeLine) return;
       if (selectedId && stage && event.target instanceof Element) {
         const bounds = stage.getBoundingClientRect();
@@ -3088,6 +3106,7 @@
       );
     }
     function onKeyDown(event) {
+      if (!canBeginPointerInteraction(pointerOwner)) return;
       if (event.isComposing) return;
       if (handleNudge(event)) return;
       if (selectionTree().length) {
@@ -3484,6 +3503,15 @@
       return null;
     }
     return {
+      get pointerOwner() {
+        return pointerOwner;
+      },
+      get activePointerOperation() {
+        return Boolean(activeDrag || activeResize || activeRotate || activeLine || marqueeFrame);
+      },
+      canBeginPointerInteraction,
+      setPointerOwner,
+      releasePointerOwner,
       get selectedId() {
         return selectedId;
       },
