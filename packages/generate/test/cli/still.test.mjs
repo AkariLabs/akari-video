@@ -259,6 +259,10 @@ test("still: 注入した writeMeta の外側で planned / done / failed を検�
 for (const placeholder of [false, true]) {
   test(`still --spec は video 指定のあるビートだけ next を保存する (${placeholder ? '文字カード' : '静止画'})`, async (t) => {
     const projectDir = await temporaryProject(t, minimalEdit());
+    await mkdir(join(projectDir, '.akari'), { recursive: true });
+    await writeFile(join(projectDir, '.akari/connections.json'), JSON.stringify({ defaults: { generate: {
+      still: 'codex:image', video: 'fal:seedance-2.5-i2v'
+    } } }));
     const spec = await writeSpec(projectDir, [
       { id: 'one', prompt: '一枚目', duration_s: 6, video: { prompt: '二枚目へ動く', last: 'next' } },
       { id: 'two', prompt: '二枚目', duration_s: 5 },
@@ -289,6 +293,7 @@ for (const placeholder of [false, true]) {
     }
     assert.equal(metas.one.status, placeholder ? 'planned' : 'done');
     assert.equal(metas.one.next.kind, 'video');
+    assert.equal(metas.one.next.model.id, 'fal:seedance-2.5-i2v');
     assert.equal(metas.one.next.status, 'planned');
     assert.equal(metas.one.next.inputs.first_frame.path, 'assets/generated/one.png');
     assert.equal(metas.one.next.inputs.last_frame.path, 'assets/generated/two.png');

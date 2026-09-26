@@ -482,6 +482,7 @@ export class AiModelsView {
         row('手段', model => model.via === 'api' ? `API（${model.provider || '直接'}）` : model.via === 'local' ? 'この Mac' : 'サブスク');
         row('料金', formatAiModelPrice);
         row('商用', model => LICENSE_LABELS[model.license?.badge || 'unknown'] || '未確認');
+        if (this.kind === 'transcribe') row('入力: 指示文', () => '—');
         for (const key of comparisonKeys(catalog.models, this.kind, 'inputs', INPUT_LABELS)) {
             row(`入力: ${INPUT_LABELS[key]}`, model => capabilityText(key, model.inputs[key]));
         }

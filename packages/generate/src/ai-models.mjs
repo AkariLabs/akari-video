@@ -68,7 +68,9 @@ export async function loadAiModels({ repoRoot = defaultRoot } = {}) {
     }
     const { ref, observed, price_as_of, ...metadata } = row;
     const resolved = { ...base, ...metadata };
-    resolved.inputs = { ...inputSlots, ...resolved.inputs };
+    resolved.inputs = { ...inputSlots, ...resolved.inputs,
+      ...(resolved.kind === 'image' || resolved.kind === 'video' || resolved.kind === 'voice'
+        ? { prompt: true } : resolved.kind === 'transcribe' ? { prompt: false } : {}) };
     if (price_as_of && resolved.price) resolved.price = { ...resolved.price, as_of: price_as_of };
     if (observed) resolved.outputs = { ...resolved.outputs, ...observed };
     resolved.speed_s ??= null;

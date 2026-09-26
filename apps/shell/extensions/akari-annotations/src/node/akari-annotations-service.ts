@@ -824,6 +824,20 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const path = await this.findGenerationAsset('packages/schemas/gen-models.json');
         const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as ReadGenerationCatalogResult;
         if (!Array.isArray(parsed.models)) throw new Error('生成モデルカタログの models[] がありません。');
+        try {
+            const stillPath = await this.findGenerationAsset('packages/schemas/ai-models.json');
+            const stillModels = JSON.parse(await fs.readFile(stillPath, 'utf8')) as { models?: Array<{
+                id: string; price?: { unit?: string; by_quality_1024?: { low: number; medium: number; high: number }; as_of?: string }
+            }> };
+            const price = stillModels.models?.find(row => row.id === 'fal:gpt-image-2.5-flare')?.price;
+            const prices = price?.by_quality_1024;
+            if (price?.unit === 'usd_per_image' && typeof price.as_of === 'string' && price.as_of
+                && prices && (['low', 'medium', 'high'] as const).every(key =>
+                    typeof prices[key] === 'number' && Number.isFinite(prices[key]))) {
+                const catalog = { models: parsed.models, stillEstimate: { prices, asOf: price.as_of } };
+                return catalog;
+            }
+        } catch { /* The optional still estimate must not hide the generation catalog. */ }
         return { models: parsed.models };
     }
 

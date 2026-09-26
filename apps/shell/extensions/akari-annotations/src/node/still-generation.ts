@@ -111,12 +111,10 @@ export class StillGenerationManager {
         const [app, project] = await Promise.all([read(appPath), read(projectPath)]);
         const ids = [...(Array.isArray(app?.favorites?.image) ? app.favorites.image : []),
             project?.defaults?.image || app?.defaults?.image];
-        const modelIds: Record<Route, string[]> = {
-            codex: ['codex:image'], antigravity: ['still:antigravity'],
-            grok: ['still:grok'], fal: ['fal:gpt-image-2.5-flare']
-        };
+        const modelIds = new Map(aiActionCatalog([]).find(action => action.id === 'still')!.routes
+            .map(route => [route.id, route.modelId]));
         const requested = (['codex', 'antigravity', 'grok'] as Route[])
-            .filter(route => ids.some(id => modelIds[route].includes(id)));
+            .filter(route => ids.includes(modelIds.get(route)));
         const available = await this.probeImageRoutes(['codex', 'antigravity', 'grok', 'fal']);
         const usable = (route: Route): boolean => available.some(row => row.id === route && row.state === 'ready');
         const preferred = requested.filter(usable);

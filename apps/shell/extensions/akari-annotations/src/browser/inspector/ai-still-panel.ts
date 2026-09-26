@@ -31,8 +31,7 @@ export const stillRouteGroups = {
 export function stillRouteLabel(route: StillRoute): string {
     return stillRoutes.find(row => row.id === route)?.label ?? route;
 }
-export const stillFalPrices = { low: 0.006, medium: 0.0133, high: 0.0528 } as const;
-export const stillFalPriceAsOf = '2026-09-26';
+export interface StillFalEstimate { prices: { low: number; medium: number; high: number }; asOf: string }
 export function savedStillRoute(): StillRoute {
     try {
         const value = localStorage.getItem(routeStorageKey);
@@ -59,6 +58,7 @@ export interface AiStillState {
     choosingReference?: boolean; availableReferences?: string[];
     cropToAspect?: boolean; croppedNotice?: string;
     quality?: 'low' | 'medium' | 'high';
+    falEstimate?: StillFalEstimate;
     detailsOpen?: boolean;
 }
 export interface AiStillActions {
@@ -84,7 +84,7 @@ export function stillDimensionMismatch(aspect: StillAspect, result: GenerateStil
 
 export function stillCroppedNotice(aspect: StillAspect, croppedFrom: string): string {
     const [width, height] = croppedFrom.split('x').map(Number);
-    return `${aspect} を頼んで ${width === height ? '正方形' : `${width}×${height}`} → 切りそろえました`;
+    return `${aspect} を頼んで${width === height ? '正方形' : `${width}×${height}`} → 切りそろえました`;
 }
 
 /** A completed size warning belongs only to the currently selected frame. */
@@ -305,8 +305,8 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
             note.setAttribute('data-akari-inspector-ai-route-note', id); label.appendChild(note);
         }
         if (id === 'fal') {
-            label.appendChild(make('span', 'akari-inspector-ai-still-route-price',
-                `見積もり $${stillFalPrices[state.quality ?? 'high'].toFixed(3)} / 枚`));
+            label.appendChild(make('span', 'akari-inspector-ai-still-route-price', state.falEstimate
+                ? `見積もり $${state.falEstimate.prices[state.quality ?? 'high'].toFixed(3)} / 枚` : '見積もりを確認中'));
             if (routeState?.state !== 'ready') {
                 const link = make('button', 'akari-inspector-ai-still-secondary', 'キーを設定すると使えます →');
                 link.type = 'button'; link.setAttribute('data-akari-inspector-ai-fal-settings', 'true');
@@ -329,13 +329,14 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
         const quality = make('select', 'akari-inspector-ai-still-quality');
         quality.setAttribute('data-akari-inspector-ai-fal-quality', 'true');
         for (const [value, text] of [['low', '低'], ['medium', '中'], ['high', '高']] as const) {
-            const option = make('option', '', `${text} · $${stillFalPrices[value].toFixed(3)} / 枚`);
+            const option = make('option', '', state.falEstimate
+                ? `${text} · $${state.falEstimate.prices[value].toFixed(3)} / 枚` : text);
             option.value = value; option.selected = (state.quality ?? 'high') === value;
             quality.appendChild(option);
         }
         quality.addEventListener('change', () => { state.quality = quality.value as AiStillState['quality']; actions.change(); });
         details.appendChild(quality);
-        details.appendChild(make('small', '', `${stillFalPriceAsOf} 時点の 1024² の料金。画角・参照画像で実額は変わる場合があります。`));
+        if (state.falEstimate) details.appendChild(make('small', '', `${state.falEstimate.asOf} 時点の 1024² の料金。画角・参照画像で実額は変わる場合があります。`));
     } else details.appendChild(make('p', '', '指示文・画角・参照画像のほかに設定できる項目はありません'));
     panel.appendChild(details);
     const refresh = make('button', 'akari-inspector-ai-still-secondary', '状態を確かめ直す');
@@ -347,10 +348,11 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
     if (selectedRoute()?.state !== 'ready' && !selectedChecking() && state.routeId !== 'fal') panel.appendChild(make('p', 'akari-inspector-ai-still-next',
         imageRouteNextText(selectedRoute() ?? { id: state.routeId ?? 'codex', state: 'missing', detail: '' })));
     const selectedCount = selected().length;
-    const estimate = selected().includes('fal') ? stillFalPrices[state.quality ?? 'high'] : 0;
-    const submit = make('button', 'akari-inspector-ai-still-primary', `${selectedCount} 案を作る · ${estimate ? `見積 $${estimate.toFixed(3)}` : '追加料金なし'}`);
+    const needsEstimate = selected().includes('fal');
+    const estimate = needsEstimate ? state.falEstimate?.prices[state.quality ?? 'high'] : 0;
+    const submit = make('button', 'akari-inspector-ai-still-primary', `${selectedCount} 案を作る · ${estimate === undefined ? '見積確認中' : estimate ? `見積 $${estimate.toFixed(3)}` : '追加料金なし'}`);
     submit.type = 'button';
-    submit.disabled = !state.prompt.trim() || !canGenerate() || state.running;
+    submit.disabled = !state.prompt.trim() || !canGenerate() || state.running || needsEstimate && !state.falEstimate;
     submit.setAttribute('data-akari-inspector-ai-create', 'true');
     submit.setAttribute('data-akari-inspector-ai-create-count', String(selectedCount));
     submit.addEventListener('click', actions.generate);
@@ -408,7 +410,13 @@ export function appendAiStillPanel(parent: HTMLElement, state: AiStillState, act
             if (candidate.thumbnail) image.src = candidate.thumbnail;
             const maker = candidate.route === 'codex' || candidate.route === 'fal' ? 'openai'
                 : candidate.route === 'antigravity' ? 'google' : 'xai';
-            button.append(image, make('span', '', `${stillRouteLabel(candidate.route)} · ${Math.round(candidate.elapsedSeconds ?? 0)} 秒 · ${candidate.width ?? '?'}×${candidate.height ?? '?'}${candidate.costUsd ? ` · $${candidate.costUsd.toFixed(3)}` : ''}${candidate.croppedFrom ? ' · 切りそろえ' : ''}`), stillMakerBadge(maker));
+            button.append(image, make('span', '', `${stillRouteLabel(candidate.route)} · ${Math.round(candidate.elapsedSeconds ?? 0)} 秒 · ${candidate.width ?? '?'}×${candidate.height ?? '?'}${candidate.costUsd ? ` · $${candidate.costUsd.toFixed(3)}` : ''}`), stillMakerBadge(maker));
+            if (candidate.croppedFrom && candidate.width && candidate.height) {
+                const notice = make('span', 'akari-inspector-ai-still-cropped',
+                    stillCroppedNotice(nearestStillAspect(candidate.width, candidate.height), candidate.croppedFrom));
+                notice.setAttribute('data-akari-inspector-ai-cropped', 'true');
+                button.appendChild(notice);
+            }
             button.addEventListener('click', () => actions.selectCandidate(candidate));
             candidates.appendChild(button);
         }

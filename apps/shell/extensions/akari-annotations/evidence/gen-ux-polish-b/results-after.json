@@ -1,0 +1,1169 @@
+{
+  "phase": "after",
+  "status": "pass",
+  "step": "2) settings › ai models › compare",
+  "checks": [
+    {
+      "name": "枠は V1 とは別のトラック（V2 のレイヤー）に書かれる",
+      "pass": true,
+      "measured": {
+        "id": "frame-1",
+        "track": "v1",
+        "lane": "visual",
+        "tracks": [
+          {
+            "id": "visual-main",
+            "lane": "visual",
+            "items": [
+              "clip-video",
+              "clip-photo"
+            ]
+          },
+          {
+            "id": "v1",
+            "lane": "visual",
+            "items": [
+              "frame-1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "(i) 空の枠（V2 のレイヤー）の札 = 淡いオーロラ（planned・オーロラの層あり）",
+      "pass": true,
+      "measured": [
+        {
+          "cls": [
+            "akari-annotations-strip-layer",
+            "akari-annotations-strip-clip",
+            "akari-generation-planned",
+            "akari-generation-chip-layout",
+            "akari-annotations-strip-hit-target"
+          ],
+          "kind": "layer",
+          "state": "planned",
+          "badge": "空の枠",
+          "aurora": true,
+          "auroraAnimation": {
+            "opacity": "1",
+            "animation": "none",
+            "beforeAnimation": "none"
+          },
+          "progress": null,
+          "spinner": {
+            "content": "\"✦\"",
+            "animation": "none"
+          },
+          "visible": true
+        }
+      ]
+    },
+    {
+      "name": "追加料金なしの 3 手段（ChatGPT・Grok・Antigravity）が選ばれている",
+      "pass": true,
+      "measured": [
+        {
+          "id": "codex",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "antigravity",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "grok",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "fal",
+          "checked": false,
+          "disabled": true,
+          "state": "missing"
+        }
+      ]
+    },
+    {
+      "name": "(ii) 生成中の枠（V2 のレイヤー）: generating・流れるオーロラ・くるくる（進み具合の帯）",
+      "pass": true,
+      "measured": {
+        "cls": [
+          "akari-annotations-strip-layer",
+          "akari-annotations-strip-clip",
+          "akari-generation-generating",
+          "akari-generation-chip-layout",
+          "akari-annotations-strip-hit-target"
+        ],
+        "kind": "layer",
+        "state": "generating",
+        "badge": "3 案作成中 · 1/3",
+        "aurora": true,
+        "auroraAnimation": {
+          "opacity": "1",
+          "animation": "akari-generation-aurora",
+          "beforeAnimation": "none"
+        },
+        "progress": "akari-generation-progress akari-generation-progress-indeterminate",
+        "spinner": {
+          "content": "\"\"",
+          "animation": "akari-generation-spin"
+        },
+        "visible": true
+      }
+    },
+    {
+      "name": "(ii) 札「3 案作成中 · 1/3」",
+      "pass": true,
+      "measured": {
+        "badge": "3 案作成中 · 1/3"
+      }
+    },
+    {
+      "name": "(ii) 生成中のレイヤーに経過秒の更新のタイマーが付く（applyGenerationChip の経路）",
+      "pass": true,
+      "measured": {
+        "timer": "3511",
+        "state": "generating"
+      }
+    },
+    {
+      "name": "(iii) 札「候補 3」",
+      "pass": true,
+      "measured": {
+        "cls": [
+          "akari-annotations-strip-layer",
+          "akari-annotations-strip-clip",
+          "akari-generation-planned",
+          "akari-generation-chip-layout",
+          "akari-annotations-strip-hit-target"
+        ],
+        "kind": "layer",
+        "state": "planned",
+        "badge": "候補 3",
+        "aurora": true,
+        "auroraAnimation": {
+          "opacity": "1",
+          "animation": "none",
+          "beforeAnimation": "none"
+        },
+        "progress": null,
+        "spinner": {
+          "content": "\"✦\"",
+          "animation": "none"
+        },
+        "visible": true
+      }
+    },
+    {
+      "name": "1) 完了後も静止画の専用パネルが開いたまま",
+      "pass": true,
+      "measured": {
+        "stillPanel": true,
+        "header": "frame-1790466565919-xn9b1b.png00:00.5 – 00:06.5 · 素材"
+      }
+    },
+    {
+      "name": "1) 専用パネルの中の ChatGPT の候補の横に「9:16 を頼んで正方形 → 切りそろえました」（「頼んで」と「正方形」の間に空白なし）",
+      "pass": true,
+      "measured": [
+        {
+          "text": "9:16 を頼んで正方形 → 切りそろえました",
+          "inStillPanel": true,
+          "candidate": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+          "progressRoute": null,
+          "attrs": [
+            "data-akari-inspector-ai-cropped"
+          ],
+          "cls": "akari-inspector-ai-still-cropped"
+        },
+        {
+          "text": "9:16 を頼んで正方形 → 切りそろえました",
+          "inStillPanel": true,
+          "candidate": "assets/generated/candidates/frame-1/antigravity-1790466574961-m9LdfJ.png",
+          "progressRoute": null,
+          "attrs": [
+            "data-akari-inspector-ai-cropped"
+          ],
+          "cls": "akari-inspector-ai-still-cropped"
+        }
+      ]
+    },
+    {
+      "name": "1) 1 手段で完了しても専用パネルが開いたまま",
+      "pass": true,
+      "measured": {
+        "stillPanel": true,
+        "header": "frame-1790466565919-xn9b1b.png00:00.5 – 00:06.5 · 素材"
+      }
+    },
+    {
+      "name": "1) 1 手段: 専用パネルの中に「9:16 を頼んで正方形 → 切りそろえました」",
+      "pass": true,
+      "measured": [
+        {
+          "text": "9:16 を頼んで正方形 → 切りそろえました",
+          "inStillPanel": true,
+          "candidate": "assets/generated/candidates/frame-1/codex-1790466599139-rjnfb5.png",
+          "progressRoute": null,
+          "attrs": [
+            "data-akari-inspector-ai-cropped"
+          ],
+          "cls": "akari-inspector-ai-still-cropped"
+        },
+        {
+          "text": "9:16 を頼んで正方形 → 切りそろえました",
+          "inStillPanel": true,
+          "candidate": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+          "progressRoute": null,
+          "attrs": [
+            "data-akari-inspector-ai-cropped"
+          ],
+          "cls": "akari-inspector-ai-still-cropped"
+        },
+        {
+          "text": "9:16 を頼んで正方形 → 切りそろえました",
+          "inStillPanel": true,
+          "candidate": "assets/generated/candidates/frame-1/antigravity-1790466574961-m9LdfJ.png",
+          "progressRoute": null,
+          "attrs": [
+            "data-akari-inspector-ai-cropped"
+          ],
+          "cls": "akari-inspector-ai-still-cropped"
+        }
+      ]
+    },
+    {
+      "name": "3) パネルの fal の見積もりが「$0.053 / 枚」（高品質・ai-models.json の値。変更前と同じ）",
+      "pass": true,
+      "measured": {
+        "create": "1 案を作る · 追加料金なし",
+        "estimateTexts": [
+          "見積もり $0.053 / 枚"
+        ],
+        "fal": {
+          "id": "fal",
+          "checked": false,
+          "disabled": true,
+          "state": "missing"
+        }
+      }
+    },
+    {
+      "name": "2) image: 「入力: 指示文」が全モデル「可」",
+      "pass": true,
+      "measured": {
+        "models": [
+          "ChatGPT",
+          "Nano Banana Pro",
+          "Antigravity"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "可",
+          "可",
+          "可"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 参照画像",
+          "出力: 画角",
+          "出力: 解像度",
+          "出力: シード",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "速さ",
+          "参照画像",
+          "画角の自由度",
+          "解像度"
+        ]
+      }
+    },
+    {
+      "name": "2) video: 「入力: 指示文」が全モデル「可」",
+      "pass": true,
+      "measured": {
+        "models": [
+          "MiniMax H3",
+          "MiniMax H3",
+          "Kling Video v3 Standard"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "可",
+          "可",
+          "可"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 最初のコマ",
+          "入力: 最後のコマ",
+          "入力: 参照画像",
+          "入力: 参照動画",
+          "入力: 参照音声",
+          "入力: 元動画",
+          "入力: 避けたいもの",
+          "出力: 画角",
+          "出力: 解像度",
+          "出力: 尺",
+          "出力: 音声",
+          "出力: シード",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "最長の尺",
+          "入力の幅",
+          "画角の自由度",
+          "解像度"
+        ]
+      }
+    },
+    {
+      "name": "2) voice: 「入力: 指示文」が全モデル「可」",
+      "pass": true,
+      "measured": {
+        "models": [
+          "Gemini 2.5 Flash TTS",
+          "fal Qwen3-TTS",
+          "Gemini 3.1 Flash TTS（既製の声）"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "可",
+          "可",
+          "可"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 文章",
+          "入力: 言い方の指示",
+          "入力: 自分の声",
+          "入力: 速さ",
+          "出力: 音声",
+          "出力: 声の選択肢",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "声の選択肢",
+          "言い方の指示",
+          "自分の声",
+          "手元で動く"
+        ]
+      }
+    },
+    {
+      "name": "2) 文字起こし: 「入力: 指示文」は「—」（行があれば全部「—」、無ければ行ごと出ない）",
+      "pass": true,
+      "measured": {
+        "models": [
+          "SpeechAnalyzer",
+          "Whisper large-v3-turbo",
+          "ElevenLabs Scribe"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "—",
+          "—",
+          "—"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 音声",
+          "入力: 動画",
+          "出力: 文字",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "手元で動く"
+        ]
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 47951,
+    "frame": {
+      "id": "frame-1",
+      "track": "v1",
+      "lane": "visual",
+      "tracks": [
+        {
+          "id": "visual-main",
+          "lane": "visual",
+          "items": [
+            "clip-video",
+            "clip-photo"
+          ]
+        },
+        {
+          "id": "v1",
+          "lane": "visual",
+          "items": [
+            "frame-1"
+          ]
+        }
+      ]
+    },
+    "emptyLayerChip": [
+      {
+        "cls": [
+          "akari-annotations-strip-layer",
+          "akari-annotations-strip-clip",
+          "akari-generation-planned",
+          "akari-generation-chip-layout",
+          "akari-annotations-strip-hit-target"
+        ],
+        "kind": "layer",
+        "state": "planned",
+        "badge": "空の枠",
+        "aurora": true,
+        "auroraAnimation": {
+          "opacity": "1",
+          "animation": "none",
+          "beforeAnimation": "none"
+        },
+        "progress": null,
+        "spinner": {
+          "content": "\"✦\"",
+          "animation": "none"
+        },
+        "visible": true
+      }
+    ],
+    "panelOpened": {
+      "stillPanel": true,
+      "routes": [
+        {
+          "id": "codex",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "antigravity",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "grok",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "fal",
+          "checked": false,
+          "disabled": true,
+          "state": "missing"
+        }
+      ],
+      "create": "3 案を作る · 追加料金なし",
+      "progress": null,
+      "progressRows": [],
+      "candidates": [],
+      "cropLines": [],
+      "cropped": null,
+      "estimateTexts": [
+        "見積もり $0.053 / 枚"
+      ],
+      "header": "frame-1790466559380-3VoGha.png00:00.5 – 00:06.5 · 素材",
+      "homeNotices": []
+    },
+    "promptTyping": [
+      {
+        "attempt": 1,
+        "kept": true
+      },
+      {
+        "attempt": 1,
+        "kept": true
+      }
+    ],
+    "beforeRun": {
+      "stillPanel": true,
+      "routes": [
+        {
+          "id": "codex",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "antigravity",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "grok",
+          "checked": true,
+          "disabled": false,
+          "state": "ready"
+        },
+        {
+          "id": "fal",
+          "checked": false,
+          "disabled": true,
+          "state": "missing"
+        }
+      ],
+      "create": "3 案を作る · 追加料金なし",
+      "progress": null,
+      "progressRows": [],
+      "candidates": [],
+      "cropLines": [],
+      "cropped": null,
+      "estimateTexts": [
+        "見積もり $0.053 / 枚"
+      ],
+      "header": "frame-1790466565919-xn9b1b.png00:00.5 – 00:06.5 · 素材",
+      "homeNotices": []
+    },
+    "runningStart": {
+      "badge": "3 案作成中 · 0/3",
+      "chip": [
+        {
+          "cls": [
+            "akari-annotations-strip-layer",
+            "akari-annotations-strip-clip",
+            "akari-generation-generating",
+            "akari-generation-chip-layout",
+            "akari-annotations-strip-hit-target"
+          ],
+          "kind": "layer",
+          "state": "generating",
+          "badge": "3 案作成中 · 0/3",
+          "aurora": true,
+          "auroraAnimation": {
+            "opacity": "1",
+            "animation": "akari-generation-aurora",
+            "beforeAnimation": "none"
+          },
+          "progress": "akari-generation-progress akari-generation-progress-indeterminate",
+          "spinner": {
+            "content": "\"\"",
+            "animation": "akari-generation-spin"
+          },
+          "visible": true
+        }
+      ],
+      "panel": {
+        "stillPanel": true,
+        "routes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": true,
+            "state": "ready"
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": true,
+            "state": "ready"
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": true,
+            "state": "ready"
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": true,
+            "state": "missing"
+          }
+        ],
+        "create": "3 案を作る · 追加料金なし",
+        "progress": "0/3",
+        "progressRows": [
+          {
+            "route": "codex",
+            "state": "running",
+            "text": "◌ ChatGPT（Codex） · 0 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "running",
+            "text": "◌ Antigravity · 0 秒"
+          },
+          {
+            "route": "grok",
+            "state": "running",
+            "text": "◌ Grok · 0 秒"
+          }
+        ],
+        "candidates": [],
+        "cropLines": [],
+        "cropped": null,
+        "estimateTexts": [
+          "見積もり $0.053 / 枚"
+        ],
+        "header": "frame-1790466565919-xn9b1b.png00:00.5 – 00:06.5 · 素材",
+        "homeNotices": []
+      }
+    },
+    "running1of3": {
+      "badge": "3 案作成中 · 1/3",
+      "chip": [
+        {
+          "cls": [
+            "akari-annotations-strip-layer",
+            "akari-annotations-strip-clip",
+            "akari-generation-generating",
+            "akari-generation-chip-layout",
+            "akari-annotations-strip-hit-target"
+          ],
+          "kind": "layer",
+          "state": "generating",
+          "badge": "3 案作成中 · 1/3",
+          "aurora": true,
+          "auroraAnimation": {
+            "opacity": "1",
+            "animation": "akari-generation-aurora",
+            "beforeAnimation": "none"
+          },
+          "progress": "akari-generation-progress akari-generation-progress-indeterminate",
+          "spinner": {
+            "content": "\"\"",
+            "animation": "akari-generation-spin"
+          },
+          "visible": true
+        }
+      ],
+      "panel": {
+        "stillPanel": true,
+        "routes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": true,
+            "state": "ready"
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": true,
+            "state": "ready"
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": true,
+            "state": "ready"
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": true,
+            "state": "missing"
+          }
+        ],
+        "create": "3 案を作る · 追加料金なし",
+        "progress": "1/3",
+        "progressRows": [
+          {
+            "route": "codex",
+            "state": "done",
+            "text": "✓ ChatGPT（Codex） · 3 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "running",
+            "text": "◌ Antigravity · 3 秒"
+          },
+          {
+            "route": "grok",
+            "state": "running",
+            "text": "◌ Grok · 3 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+            "text": "ChatGPT（Codex） · 3 秒 · 705×12549:16 を頼んで正方形 → 切りそろえました"
+          }
+        ],
+        "cropLines": [
+          {
+            "text": "9:16 を頼んで正方形 → 切りそろえました",
+            "inStillPanel": true,
+            "candidate": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+            "progressRoute": null,
+            "attrs": [
+              "data-akari-inspector-ai-cropped"
+            ],
+            "cls": "akari-inspector-ai-still-cropped"
+          }
+        ],
+        "cropped": "9:16 を頼んで正方形 → 切りそろえました",
+        "estimateTexts": [
+          "見積もり $0.053 / 枚"
+        ],
+        "header": "frame-1790466565919-xn9b1b.png00:00.5 – 00:06.5 · 素材",
+        "homeNotices": []
+      },
+      "cuts": [
+        {
+          "id": "frame-1",
+          "kind": "layer",
+          "state": "generating",
+          "badge": "3 案作成中 · 1/3",
+          "aurora": true
+        },
+        {
+          "id": "0",
+          "kind": "cut",
+          "state": "none",
+          "badge": null,
+          "aurora": false
+        },
+        {
+          "id": "1",
+          "kind": "cut",
+          "state": "none",
+          "badge": "静止画",
+          "aurora": false
+        }
+      ]
+    },
+    "elapsedTimer": {
+      "timer": "3511",
+      "state": "generating"
+    },
+    "candidates": {
+      "badge": "候補 3",
+      "chip": [
+        {
+          "cls": [
+            "akari-annotations-strip-layer",
+            "akari-annotations-strip-clip",
+            "akari-generation-planned",
+            "akari-generation-chip-layout",
+            "akari-annotations-strip-hit-target"
+          ],
+          "kind": "layer",
+          "state": "planned",
+          "badge": "候補 3",
+          "aurora": true,
+          "auroraAnimation": {
+            "opacity": "1",
+            "animation": "none",
+            "beforeAnimation": "none"
+          },
+          "progress": null,
+          "spinner": {
+            "content": "\"✦\"",
+            "animation": "none"
+          },
+          "visible": true
+        }
+      ],
+      "panel": {
+        "stillPanel": true,
+        "routes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false,
+            "state": "ready"
+          },
+          {
+            "id": "antigravity",
+            "checked": true,
+            "disabled": false,
+            "state": "ready"
+          },
+          {
+            "id": "grok",
+            "checked": true,
+            "disabled": false,
+            "state": "ready"
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": true,
+            "state": "missing"
+          }
+        ],
+        "create": "3 案を作る · 追加料金なし",
+        "progress": "3/3",
+        "progressRows": [
+          {
+            "route": "codex",
+            "state": "done",
+            "text": "✓ ChatGPT（Codex） · 3 秒"
+          },
+          {
+            "route": "antigravity",
+            "state": "done",
+            "text": "✓ Antigravity · 20 秒"
+          },
+          {
+            "route": "grok",
+            "state": "done",
+            "text": "✓ Grok · 12 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790466574961-kbIWs4.png",
+            "text": "Grok · 12 秒 · 720×1280"
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+            "text": "ChatGPT（Codex） · 3 秒 · 705×12549:16 を頼んで正方形 → 切りそろえました"
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790466574961-m9LdfJ.png",
+            "text": "Antigravity · 20 秒 · 705×12549:16 を頼んで正方形 → 切りそろえました"
+          }
+        ],
+        "cropLines": [
+          {
+            "text": "9:16 を頼んで正方形 → 切りそろえました",
+            "inStillPanel": true,
+            "candidate": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+            "progressRoute": null,
+            "attrs": [
+              "data-akari-inspector-ai-cropped"
+            ],
+            "cls": "akari-inspector-ai-still-cropped"
+          },
+          {
+            "text": "9:16 を頼んで正方形 → 切りそろえました",
+            "inStillPanel": true,
+            "candidate": "assets/generated/candidates/frame-1/antigravity-1790466574961-m9LdfJ.png",
+            "progressRoute": null,
+            "attrs": [
+              "data-akari-inspector-ai-cropped"
+            ],
+            "cls": "akari-inspector-ai-still-cropped"
+          }
+        ],
+        "cropped": "9:16 を頼んで正方形 → 切りそろえました",
+        "estimateTexts": [
+          "見積もり $0.053 / 枚"
+        ],
+        "header": "frame-1790466565919-xn9b1b.png00:00.5 – 00:06.5 · 素材",
+        "homeNotices": []
+      },
+      "stub": [
+        {
+          "route": "codex",
+          "wrote": {
+            "width": 1254,
+            "height": 1254,
+            "delayMs": 3000
+          }
+        },
+        {
+          "route": "grok",
+          "wrote": {
+            "width": 720,
+            "height": 1280,
+            "delayMs": 12000
+          }
+        },
+        {
+          "route": "agy",
+          "wrote": {
+            "width": 1254,
+            "height": 1254,
+            "delayMs": 20000
+          }
+        }
+      ]
+    },
+    "single": {
+      "panel": {
+        "stillPanel": true,
+        "routes": [
+          {
+            "id": "codex",
+            "checked": true,
+            "disabled": false,
+            "state": "ready"
+          },
+          {
+            "id": "antigravity",
+            "checked": false,
+            "disabled": false,
+            "state": "ready"
+          },
+          {
+            "id": "grok",
+            "checked": false,
+            "disabled": false,
+            "state": "ready"
+          },
+          {
+            "id": "fal",
+            "checked": false,
+            "disabled": true,
+            "state": "missing"
+          }
+        ],
+        "create": "1 案を作る · 追加料金なし",
+        "progress": "1/1",
+        "progressRows": [
+          {
+            "route": "codex",
+            "state": "done",
+            "text": "✓ ChatGPT（Codex） · 3 秒"
+          }
+        ],
+        "candidates": [
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790466599139-rjnfb5.png",
+            "text": "ChatGPT（Codex） · 3 秒 · 705×12549:16 を頼んで正方形 → 切りそろえました"
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/grok-1790466574961-kbIWs4.png",
+            "text": "Grok · 12 秒 · 720×1280"
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+            "text": "ChatGPT（Codex） · 3 秒 · 705×12549:16 を頼んで正方形 → 切りそろえました"
+          },
+          {
+            "path": "assets/generated/candidates/frame-1/antigravity-1790466574961-m9LdfJ.png",
+            "text": "Antigravity · 20 秒 · 705×12549:16 を頼んで正方形 → 切りそろえました"
+          }
+        ],
+        "cropLines": [
+          {
+            "text": "9:16 を頼んで正方形 → 切りそろえました",
+            "inStillPanel": true,
+            "candidate": "assets/generated/candidates/frame-1/codex-1790466599139-rjnfb5.png",
+            "progressRoute": null,
+            "attrs": [
+              "data-akari-inspector-ai-cropped"
+            ],
+            "cls": "akari-inspector-ai-still-cropped"
+          },
+          {
+            "text": "9:16 を頼んで正方形 → 切りそろえました",
+            "inStillPanel": true,
+            "candidate": "assets/generated/candidates/frame-1/codex-1790466574961-dH1Nr8.png",
+            "progressRoute": null,
+            "attrs": [
+              "data-akari-inspector-ai-cropped"
+            ],
+            "cls": "akari-inspector-ai-still-cropped"
+          },
+          {
+            "text": "9:16 を頼んで正方形 → 切りそろえました",
+            "inStillPanel": true,
+            "candidate": "assets/generated/candidates/frame-1/antigravity-1790466574961-m9LdfJ.png",
+            "progressRoute": null,
+            "attrs": [
+              "data-akari-inspector-ai-cropped"
+            ],
+            "cls": "akari-inspector-ai-still-cropped"
+          }
+        ],
+        "cropped": "9:16 を頼んで正方形 → 切りそろえました",
+        "estimateTexts": [
+          "見積もり $0.053 / 枚"
+        ],
+        "header": "frame-1790466565919-xn9b1b.png00:00.5 – 00:06.5 · 素材",
+        "homeNotices": []
+      },
+      "badge": "候補 4",
+      "edit": [
+        {
+          "id": "frame-1",
+          "src": "still-src-1"
+        }
+      ]
+    },
+    "falEstimate": {
+      "create": "1 案を作る · 追加料金なし",
+      "estimateTexts": [
+        "見積もり $0.053 / 枚"
+      ],
+      "fal": {
+        "id": "fal",
+        "checked": false,
+        "disabled": true,
+        "state": "missing"
+      }
+    },
+    "compare": {
+      "image": {
+        "models": [
+          "ChatGPT",
+          "Nano Banana Pro",
+          "Antigravity"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "可",
+          "可",
+          "可"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 参照画像",
+          "出力: 画角",
+          "出力: 解像度",
+          "出力: シード",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "速さ",
+          "参照画像",
+          "画角の自由度",
+          "解像度"
+        ]
+      },
+      "video": {
+        "models": [
+          "MiniMax H3",
+          "MiniMax H3",
+          "Kling Video v3 Standard"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "可",
+          "可",
+          "可"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 最初のコマ",
+          "入力: 最後のコマ",
+          "入力: 参照画像",
+          "入力: 参照動画",
+          "入力: 参照音声",
+          "入力: 元動画",
+          "入力: 避けたいもの",
+          "出力: 画角",
+          "出力: 解像度",
+          "出力: 尺",
+          "出力: 音声",
+          "出力: シード",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "最長の尺",
+          "入力の幅",
+          "画角の自由度",
+          "解像度"
+        ]
+      },
+      "voice": {
+        "models": [
+          "Gemini 2.5 Flash TTS",
+          "fal Qwen3-TTS",
+          "Gemini 3.1 Flash TTS（既製の声）"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "可",
+          "可",
+          "可"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 文章",
+          "入力: 言い方の指示",
+          "入力: 自分の声",
+          "入力: 速さ",
+          "出力: 音声",
+          "出力: 声の選択肢",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "声の選択肢",
+          "言い方の指示",
+          "自分の声",
+          "手元で動く"
+        ]
+      },
+      "transcribe": {
+        "models": [
+          "SpeechAnalyzer",
+          "Whisper large-v3-turbo",
+          "ElevenLabs Scribe"
+        ],
+        "prompt": [
+          "入力: 指示文",
+          "—",
+          "—",
+          "—"
+        ],
+        "labels": [
+          "項目",
+          "手段",
+          "料金",
+          "商用",
+          "入力: 指示文",
+          "入力: 音声",
+          "入力: 動画",
+          "出力: 文字",
+          "公開日",
+          "確かめ方",
+          "安さ",
+          "手元で動く"
+        ]
+      }
+    }
+  },
+  "screenshots": [
+    "after-05i-layer-empty-aurora.png",
+    "after-05i-layer-empty-aurora-panel.png",
+    "after-05ii-layer-running-1-of-3.png",
+    "after-05ii-layer-running-1-of-3-panel.png",
+    "after-05iii-layer-candidates-3.png",
+    "after-05iii-layer-candidates-3-panel.png",
+    "after-01a-crop-line-three-routes.png",
+    "after-01a-crop-line-three-routes-panel.png",
+    "after-01b-crop-line-one-route.png",
+    "after-01b-crop-line-one-route-panel.png",
+    "after-03-fal-estimate.png",
+    "after-03-fal-estimate-panel.png",
+    "after-02-compare-image.png",
+    "after-02-compare-video.png",
+    "after-02-compare-voice.png",
+    "after-02-compare-transcribe.png"
+  ],
+  "notes": []
+}

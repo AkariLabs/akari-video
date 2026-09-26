@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { capabilityState, capabilityText, comparisonKeys, filterAiModels, groupRepresentative,
     otherVariantCount, applyAiModelSet, radarAxes, aiModelPriceValue, formatAiModelPrice } from '../../lib/common/ai-models-model.js';
@@ -90,4 +91,14 @@ test('null は未確認、明示的な不可だけを取り消し線の対象に
     assert.equal(capabilityText('aspects', ['16:9', '4:3']), '2 種類');
     assert.equal(capabilityText('resolutions', ['720P', '4K']), '〜4K');
     assert.equal(capabilityText('duration', { min: 4, max: 15 }), '4〜15 秒');
+});
+
+test('比べるの指示文は画像・動画・声で可、文字起こしで—を描く', () => {
+    for (const kind of ['image', 'video', 'voice']) {
+        const item = model(kind, { kind, inputs: { prompt: true } });
+        assert.deepEqual(comparisonKeys([item], kind, 'inputs', { prompt: '指示文' }), ['prompt']);
+        assert.equal(capabilityText('prompt', item.inputs.prompt), '可');
+    }
+    const view = readFileSync(new URL('../browser/ai-models/ai-models-view.ts', import.meta.url), 'utf8');
+    assert.match(view, /if \(this\.kind === 'transcribe'\) row\('入力: 指示文', \(\) => '—'\)/u);
 });

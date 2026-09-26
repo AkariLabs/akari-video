@@ -50,7 +50,7 @@ import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appe
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
-import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, stillFalPrices, stillFalPriceAsOf, type AiStillState, type StillAspect } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, type AiStillState, type StillAspect, type StillFalEstimate } from './inspector/ai-still-panel';
 import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
@@ -3101,6 +3101,8 @@ export class AkariInspectorWidget extends BaseWidget {
     protected gapAiOpening?: { gap: TimelineGapSelection; view: 'still' | 'video' };
     protected aiStillSelectionClipKey?: string;
     protected readonly aiStillStates = new Map<string, AiStillState>();
+    protected stillFalEstimate?: StillFalEstimate;
+    protected stillFalEstimateLoading?: Promise<void>;
     protected previewedStillItemId?: string;
     protected aiStillTick?: number;
     protected transcribeKey?: string;
@@ -6299,6 +6301,20 @@ export class AkariInspectorWidget extends BaseWidget {
         return this.aiCatalogLoading;
     }
 
+    protected ensureStillFalEstimate(): void {
+        if (this.stillFalEstimateLoading) return;
+        this.stillFalEstimateLoading = this.layerAudioService.readGenerationCatalog().then(catalog => {
+            const estimate = (catalog as typeof catalog & { stillEstimate?: StillFalEstimate }).stillEstimate;
+            if (!estimate) return;
+            this.stillFalEstimate = estimate;
+            const current = this.aiView === 'still' ? this.generationIdentity(this.model.snapshot) : undefined;
+            const visibleState = current && this.aiStillStates.get(current.key);
+            const shouldRender = !!visibleState && !visibleState.falEstimate;
+            for (const state of this.aiStillStates.values()) state.falEstimate = estimate;
+            if (shouldRender) this.render();
+        }).catch(() => undefined);
+    }
+
     protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
         let state = this.aiStillStates.get(identity.key);
         if (!state) {
@@ -6308,10 +6324,11 @@ export class AkariInspectorWidget extends BaseWidget {
                 ? nearestStillAspect(cardWidth, cardHeight) : '16:9');
             state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true,
                 selectedRoutes: new Set(),
-                running: false, references: [], cropToAspect: savedStillCrop() };
+                running: false, references: [], cropToAspect: savedStillCrop(), falEstimate: this.stillFalEstimate };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
+                this.ensureStillFalEstimate();
                 void this.fileService.read(root.resolve('edit.json')).then(file => {
                     const output = JSON.parse(file.value.toString()).output;
                     if (this.aiStillStates.get(identity.key) === state && output?.width > 0 && output?.height > 0) {
@@ -6616,10 +6633,11 @@ export class AkariInspectorWidget extends BaseWidget {
             || !routes.length || !input.prompt.trim()
             || routes.some(route => stillRouteAvailability(route, input.references.length).disabled
                 || !['ready', 'unknown'].includes(state.routes?.find(row => row.id === route)?.state ?? ''))) return;
-        const estimate = routes.includes('fal') ? stillFalPrices[input.quality] : 0;
+        if (routes.includes('fal') && !state.falEstimate) return;
+        const estimate = routes.includes('fal') ? state.falEstimate!.prices[input.quality] : 0;
         if (estimate > 0) {
             const approved = await new ConfirmDialog({ title: '費用承認',
-                msg: `${routes.length} 案を同時に作ります。合計見積もり $${estimate.toFixed(3)}（as_of ${stillFalPriceAsOf}・1024² 基準）。費用承認しますか`,
+                msg: `${routes.length} 案を同時に作ります。合計見積もり $${estimate.toFixed(3)}（as_of ${state.falEstimate!.asOf}・1024² 基準）。費用承認しますか`,
                 ok: '費用承認する', cancel: 'キャンセル' }).open();
             if (!approved) return;
         }

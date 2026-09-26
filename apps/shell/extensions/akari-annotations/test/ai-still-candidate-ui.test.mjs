@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-import { appendAiStillPanel, replaceStillInEdit, stillRouteAvailability, stillRouteLabel, stillFalPrices, stillFalPriceAsOf } from '../lib/browser/inspector/ai-still-panel.js';
+import { appendAiStillPanel, replaceStillInEdit, stillRouteAvailability, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
 
 const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('widget.ts', source, ts.ScriptTarget.Latest, true);
@@ -13,6 +13,68 @@ const code = ts.transpileModule(`class CandidateWidget { ${methods} }`,
   { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
 const CandidateWidget = new Function('replaceStillInEdit', `${code}; return CandidateWidget;`)(replaceStillInEdit);
 
+test('見積もりの読込 Promise と値を共有し、新しい静止画状態では再読込・再描画しない', async () => {
+  const ensure = widget.members.find(row => row.name?.getText(ast) === 'ensureStillFalEstimate').getText(ast);
+  const script = ts.transpileModule(`class EstimateWidget { ${ensure} }`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+  const EstimateWidget = new Function(`${script}; return EstimateWidget;`)();
+  const instance = new EstimateWidget();
+  const first = { falEstimate: undefined };
+  instance.aiStillStates = new Map([['first', first]]);
+  instance.aiView = 'still';
+  instance.model = { snapshot: {} };
+  instance.generationIdentity = () => ({ key: 'first' });
+  let reads = 0;
+  let finish;
+  instance.layerAudioService = { readGenerationCatalog: () => {
+    reads++;
+    return new Promise(resolve => { finish = resolve; });
+  } };
+  let renders = 0;
+  instance.render = () => { renders++; };
+  instance.ensureStillFalEstimate();
+  const pending = instance.stillFalEstimateLoading;
+  instance.ensureStillFalEstimate();
+  assert.equal(reads, 1);
+  assert.equal(instance.stillFalEstimateLoading, pending);
+  const second = { falEstimate: instance.stillFalEstimate };
+  instance.aiStillStates.set('second', second);
+  instance.generationIdentity = () => ({ key: 'second' });
+  const estimate = { prices: { low: 0.006, medium: 0.0133, high: 0.0528 }, asOf: '2026-09-26' };
+  finish({ models: [], stillEstimate: estimate });
+  await pending;
+  assert.equal(renders, 1);
+  assert.equal(first.falEstimate, estimate);
+  assert.equal(second.falEstimate, estimate);
+  const next = { falEstimate: instance.stillFalEstimate };
+  assert.equal(next.falEstimate, estimate);
+  instance.ensureStillFalEstimate();
+  assert.equal(reads, 1);
+  assert.equal(renders, 1);
+  assert.match(source, /cropToAspect: savedStillCrop\(\), falEstimate: this\.stillFalEstimate/u);
+});
+
+test('見積もり読込後の再描画は未設定の静止画パネルが表示中のときだけ', async () => {
+  const ensure = widget.members.find(row => row.name?.getText(ast) === 'ensureStillFalEstimate').getText(ast);
+  const script = ts.transpileModule(`class EstimateWidget { ${ensure} }`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
+  const EstimateWidget = new Function(`${script}; return EstimateWidget;`)();
+  for (const [view, alreadyPriced] of [['tiles', false], ['still', true]]) {
+    const instance = new EstimateWidget();
+    const estimate = { prices: { low: 1, medium: 2, high: 3 }, asOf: 'test' };
+    instance.aiStillStates = new Map([['current', { falEstimate: alreadyPriced ? estimate : undefined }]]);
+    instance.aiView = view;
+    instance.model = { snapshot: {} };
+    instance.generationIdentity = () => ({ key: 'current' });
+    instance.layerAudioService = { readGenerationCatalog: async () => ({ models: [], stillEstimate: estimate }) };
+    let renders = 0;
+    instance.render = () => { renders++; };
+    instance.ensureStillFalEstimate();
+    await instance.stillFalEstimateLoading;
+    assert.equal(renders, 0, `${view}/${alreadyPriced}`);
+  }
+});
+
 test('有料を含む複数案は合計を一度だけ承認し、拒否では送信しない', async () => {
   const start = widget.members.find(row => row.name?.getText(ast) === 'startStillGeneration').getText(ast);
   const script = ts.transpileModule(`class StartWidget { ${start} }`,
@@ -20,10 +82,11 @@ test('有料を含む複数案は合計を一度だけ承認し、拒否では�
   let confirmations = 0;
   let message = '';
   const ConfirmDialog = class { constructor(options) { confirmations++; message = options.msg; } async open() { return false; } };
-  const StartWidget = new Function('ConfirmDialog', 'stillRouteAvailability', 'stillFalPrices', 'stillFalPriceAsOf',
-    `${script}; return StartWidget;`)(ConfirmDialog, stillRouteAvailability, stillFalPrices, stillFalPriceAsOf);
+  const StartWidget = new Function('ConfirmDialog', 'stillRouteAvailability',
+    `${script}; return StartWidget;`)(ConfirmDialog, stillRouteAvailability);
   const instance = new StartWidget();
   const state = { prompt: 'garden', aspect: '16:9', selectedRoutes: new Set(['codex', 'fal']),
+    falEstimate: { prices: { low: 0.006, medium: 0.0133, high: 0.0528 }, asOf: '2026-09-26' },
     routes: [{ id: 'codex', state: 'ready' }, { id: 'fal', state: 'ready' }], running: false };
   instance.aiStillStates = new Map([['clip-1', state]]);
   instance.workspaceService = { tryGetRoots: () => [{ resource: { toString: () => 'file:///project' } }] };
@@ -39,8 +102,8 @@ test('失敗行の再試行はフォームを変更しても最初の入力を�
   const start = widget.members.find(row => row.name?.getText(ast) === 'startStillGeneration').getText(ast);
   const script = ts.transpileModule(`class StartWidget { ${start} }`,
     { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-  const StartWidget = new Function('stillRouteAvailability', 'stillFalPrices', 'stillFalPriceAsOf',
-    `${script}; return StartWidget;`)(stillRouteAvailability, stillFalPrices, stillFalPriceAsOf);
+  const StartWidget = new Function('stillRouteAvailability',
+    `${script}; return StartWidget;`)(stillRouteAvailability);
   const previousWindow = globalThis.window;
   globalThis.window = { setInterval: () => 1, clearInterval: () => {} };
   try {
@@ -84,7 +147,9 @@ test('実行中のチェックは選択を示したまま無効になり、完�
       routes: ['codex', 'antigravity', 'grok', 'fal'].map(id => ({ id, state: 'ready', detail: '' })),
       batch: { routes: ['codex', 'antigravity', 'grok'], completed: 1, running: true,
         results: [{ ok: true, route: 'codex', relativePath: 'assets/generated/candidates/x/codex-1.png',
-          thumbnail: 'data:image/png;base64,YQ==' }], candidates: [] }
+          thumbnail: 'data:image/png;base64,YQ==' }], candidates: [{ ok: true, route: 'codex',
+          relativePath: 'assets/generated/candidates/x/codex-1.png', width: 705, height: 1254,
+          croppedFrom: '1254x1254' }] }
     }, { change() {}, probe() {}, generate() {}, cancel() {} });
     const walk = node => [node, ...node.children.flatMap(walk)];
     const nodes = walk(parent);
@@ -97,6 +162,8 @@ test('実行中のチェックは選択を示したまま無効になり、完�
     assert.equal(nodes.find(node => node.attributes.has('data-akari-inspector-ai-progress-running'))
       ?.attributes.get('data-akari-inspector-ai-progress-running'), 'true');
     assert.equal(nodes.filter(node => node.attributes.has('data-akari-inspector-ai-progress-thumbnail')).length, 1);
+    assert.equal(nodes.find(node => node.attributes.has('data-akari-inspector-ai-cropped'))?.textContent,
+      '9:16 を頼んで正方形 → 切りそろえました');
   } finally { if (previous) Object.defineProperty(globalThis, 'document', previous); else delete globalThis.document; }
 });
 
@@ -105,8 +172,8 @@ test('毎秒の読込で途中結果を描き、経過秒とスクロール位�
   const preserve = widget.members.find(row => row.name?.getText(ast) === 'renderStillProgress').getText(ast);
   const script = ts.transpileModule(`class StartWidget { ${start}\n${preserve} }`,
     { compilerOptions: { target: ts.ScriptTarget.ES2021 } }).outputText;
-  const StartWidget = new Function('stillRouteAvailability', 'stillRouteLabel', 'stillFalPrices', 'stillFalPriceAsOf',
-    `${script}; return StartWidget;`)(stillRouteAvailability, stillRouteLabel, stillFalPrices, stillFalPriceAsOf);
+  const StartWidget = new Function('stillRouteAvailability', 'stillRouteLabel',
+    `${script}; return StartWidget;`)(stillRouteAvailability, stillRouteLabel);
   const previousWindow = globalThis.window;
   let tick;
   globalThis.window = { setInterval: callback => { tick = callback; return 1; }, clearInterval: () => {} };

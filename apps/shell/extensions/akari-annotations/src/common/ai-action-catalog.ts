@@ -15,6 +15,7 @@ export type AiActionGroup = 'make' | 'refine';
 export type AiImage = 'video' | 'still' | 'transcribe' | 'narration';
 export interface AiRoute {
     id: string;
+    modelId?: string;
     label: string;
     kind: 'cli' | 'api' | 'local';
     cost: 'free' | 'paid';
@@ -48,10 +49,10 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
         visibleFor: ['empty-frame', 'still', 'video', 'generated-video', 'gap'],
         accepts: ['empty-frame', 'still', 'gap'],
         reasonWhenDisabled: '空の枠か静止画で使えます', output: 'image', placement: 'replace',
-        routes: [{ id: 'codex', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
-            { id: 'antigravity', label: 'Antigravity', maker: 'google', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 0 } } },
-            { id: 'grok', label: 'Grok', maker: 'xai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 1, note: '参照は縮めて送られます' } } },
-            { id: 'fal', label: 'fal · GPT Image 2.5 Flare', maker: 'openai', kind: 'api', cost: 'paid', inputs: { reference_images: { max: 16 } } }]
+        routes: [{ id: 'codex', modelId: 'codex:image', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
+            { id: 'antigravity', modelId: 'still:antigravity', label: 'Antigravity', maker: 'google', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 0 } } },
+            { id: 'grok', modelId: 'still:grok', label: 'Grok', maker: 'xai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 1, note: '参照は縮めて送られます' } } },
+            { id: 'fal', modelId: 'fal:gpt-image-2.5-flare', label: 'fal · GPT Image 2.5 Flare', maker: 'openai', kind: 'api', cost: 'paid', inputs: { reference_images: { max: 16 } } }]
     }, {
         id: 'video', group: 'make', label: '動画にする', image: 'video',
         visibleFor: ['still', 'empty-frame', 'video', 'generated-video', 'gap', 'material-image'],

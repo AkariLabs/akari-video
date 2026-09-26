@@ -173,7 +173,7 @@ test('8 画角の寸法と切りそろえ閾値', () => {
     assert.ok(stillAspectText[aspect].includes(aspect));
   }
   assert.deepEqual(stillCropPlan(1254, 1254, '9:16'), { width: 705, height: 1254, filter: 'crop=705:1254:274:0' });
-  assert.equal(stillCroppedNotice('9:16', '1254x1254'), '9:16 を頼んで 正方形 → 切りそろえました');
+  assert.equal(stillCroppedNotice('9:16', '1254x1254'), '9:16 を頼んで正方形 → 切りそろえました');
   assert.equal(stillCropPlan(1376, 768, '16:9'), undefined);
 });
 

@@ -35,6 +35,11 @@ test('normalized inventory resolves source references and has expected kind coun
   assert.equal(rows.find(row => row.id === 'tts:elevenlabs-v3').price.value, 0.10);
 });
 
+test('指示文の入力は画像・動画・声で可、文字起こしで不可', async () => {
+  const rows = await loadAiModels();
+  for (const row of rows) assert.equal(row.inputs.prompt, row.kind === 'transcribe' ? false : true, row.id);
+});
+
 test('entire normalized rows are stable across all kinds and a standalone route', async () => {
   const rows = await loadAiModels();
   const expected = {
@@ -45,7 +50,7 @@ test('entire normalized rows are stable across all kinds and a standalone route'
       "via": "subscription",
       "provider": "codex",
       "inputs": {
-        "prompt": null,
+        "prompt": true,
         "first_frame": "none",
         "last_frame": "none",
         "reference_images": {
@@ -116,7 +121,7 @@ test('entire normalized rows are stable across all kinds and a standalone route'
       "via": "api",
       "provider": "fal",
       "inputs": {
-        "prompt": null,
+        "prompt": true,
         "first_frame": "optional",
         "last_frame": "optional",
         "reference_images": {
@@ -195,7 +200,7 @@ test('entire normalized rows are stable across all kinds and a standalone route'
       "via": "api",
       "provider": "fal",
       "inputs": {
-        "prompt": null,
+        "prompt": true,
         "first_frame": null,
         "last_frame": null,
         "reference_images": null,
@@ -271,7 +276,7 @@ test('entire normalized rows are stable across all kinds and a standalone route'
       "via": "local",
       "provider": "whisper-cpp",
       "inputs": {
-        "prompt": null,
+        "prompt": false,
         "first_frame": null,
         "last_frame": null,
         "reference_images": null,

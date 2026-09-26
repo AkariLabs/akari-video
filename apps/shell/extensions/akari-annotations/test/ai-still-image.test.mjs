@@ -20,10 +20,10 @@ test('カタログの順序と対象ごとの押下可否', () => {
   const catalog = aiActionCatalog(models);
   assert.deepEqual(catalog.map(row => row.id), ['still', 'video', 'transcribe']);
   assert.deepEqual(catalog[0].routes, [
-    { id: 'codex', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
-    { id: 'antigravity', label: 'Antigravity', maker: 'google', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 0 } } },
-    { id: 'grok', label: 'Grok', maker: 'xai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 1, note: '参照は縮めて送られます' } } },
-    { id: 'fal', label: 'fal · GPT Image 2.5 Flare', maker: 'openai', kind: 'api', cost: 'paid', inputs: { reference_images: { max: 16 } } }
+    { id: 'codex', modelId: 'codex:image', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
+    { id: 'antigravity', modelId: 'still:antigravity', label: 'Antigravity', maker: 'google', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 0 } } },
+    { id: 'grok', modelId: 'still:grok', label: 'Grok', maker: 'xai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 1, note: '参照は縮めて送られます' } } },
+    { id: 'fal', modelId: 'fal:gpt-image-2.5-flare', label: 'fal · GPT Image 2.5 Flare', maker: 'openai', kind: 'api', cost: 'paid', inputs: { reference_images: { max: 16 } } }
   ]);
   for (const target of ['empty-frame', 'still']) {
     assert.equal(describeAiTiles(catalog, target)[0].tiles[0].enabled, true);

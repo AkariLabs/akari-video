@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } from '../lib/node/still-generation.js';
+import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
 import { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 
@@ -301,6 +302,10 @@ test('パネルは手段ごとの確認中と unknown の案内・作成可否�
 });
 
 test('既定チェックは G8 の静止画 id・無料のお気に入り・利用可否を守り、有料を外す', async () => {
+  assert.deepEqual(aiActionCatalog([]).find(action => action.id === 'still').routes.map(({ id, modelId }) => [id, modelId]), [
+    ['codex', 'codex:image'], ['antigravity', 'still:antigravity'],
+    ['grok', 'still:grok'], ['fal', 'fal:gpt-image-2.5-flare']
+  ]);
   const dir = await workspace();
   const home = join(dir, 'isolated-home');
   try {
