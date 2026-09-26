@@ -1,5 +1,12 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandRegistry, MessageService } from '@theia/core/lib/common';
+import { AkariPreviewService, type OverlayRuntimeAssetUrls } from 'akari-preview/lib/common/akari-preview-protocol';
+import { createCaptionPanel, CAPTION_PANEL_CSS, type CaptionPanelMyStyle, type CaptionPanelViewState } from './inspector/caption-panels';
+import { CAPTION_PANEL_FONTS } from '../common/caption-panel-catalog';
+import { captionPanelChangedDetail, captionPanelFontWrite, captionPanelLookWrite, nextCaptionPanel, retainCaptionPanel, type CaptionPanel } from '../common/caption-panel-state';
+import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
+    type CaptionPanelPreviewAction, type CaptionPanelPreviewState } from '../common/caption-panel-preview-state';
+import { CAPTION_FONT_FAMILY, CAPTION_FONT_LOAD_DESCRIPTOR, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine } from '../common/akari-annotations-protocol';
@@ -12,7 +19,7 @@ import { PreferenceService } from '@theia/core/lib/common/preferences';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
-import { inject, injectable, postConstruct, type Container } from '@theia/core/shared/inversify';
+import { inject, injectable, optional, postConstruct, type Container } from '@theia/core/shared/inversify';
 import {
     InspectorWriteRequest,
     InspectorWriteResult,
@@ -31,7 +38,8 @@ import {
     TimelineSelectionTarget,
     TimelineTreeItemSnapshot,
     TimelineWorldSelection,
-    TimelineGapSelection
+    TimelineGapSelection,
+    captionIdForTreeSelection
 } from './timeline-selection-model';
 import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
@@ -2886,6 +2894,10 @@ function ADJUST_SECTIONS(
  */
 @injectable()
 export class AkariInspectorWidget extends BaseWidget {
+    @inject(AkariPreviewService)
+    @optional()
+    protected readonly captionPreviewService?: import('akari-preview/lib/common/akari-preview-protocol').AkariPreviewService;
+
     @inject(AkariAnnotationsService)
     protected readonly layerAudioService!: AkariAnnotationsService;
 
@@ -2931,6 +2943,98 @@ export class AkariInspectorWidget extends BaseWidget {
     protected soloSelectionKey?: string;
 
     protected readonly body = document.createElement('div');
+    protected captionPanel: CaptionPanel | null = null;
+    protected readonly captionPanelState: CaptionPanelViewState = {
+        query: '', filtersOpen: false, filters: new Set(), recentFonts: [], recentStyles: []
+    };
+    protected captionPanelMyStyles: CaptionPanelMyStyle[] = [];
+    protected captionPanelFontFaces = new Map<string, string>();
+    protected captionPanelFontsLoaded = false;
+    protected captionPanelPreview: CaptionPanelPreviewState = { active: null };
+
+    protected runCaptionPanelPreview(action: CaptionPanelPreviewAction): { close: boolean; commit: boolean } {
+        const transition = advanceCaptionPanelPreview(this.captionPanelPreview, action);
+        this.captionPanelPreview = transition.state;
+        if (transition.detail) window.dispatchEvent(new CustomEvent('akari-caption-panel-preview', {
+            detail: transition.detail
+        }));
+        return { close: transition.close, commit: transition.commit };
+    }
+
+    public toggleCaptionPanel(panel: CaptionPanel): boolean {
+        const snapshot = this.model.snapshot;
+        const hasText = snapshot?.kind === 'caption'
+            || snapshot?.kind === 'item' && snapshot.itemKind === 'caption'
+                && !!(this.model.selectedCaptionIds[0] ?? captionIdForTreeSelection(snapshot));
+        if (!hasText) return false;
+        if (snapshot.kind === 'caption') {
+            const currentFamily = snapshot.effectiveTextStyle?.fontFamily ?? snapshot.textStyle?.fontFamily;
+            const current = CAPTION_PANEL_FONTS.find(font => this.captionPanelFontFaces.get(font.id) === currentFamily
+                || font.id === 'noto-sans-jp' && currentFamily === CAPTION_FONT_FAMILY);
+            if (current && !this.captionPanelState.recentFonts.includes(current.id)) {
+                this.captionPanelState.recentFonts.unshift(current.id);
+            }
+        }
+        this.captionPanel = nextCaptionPanel(this.captionPanel, panel, true);
+        this.runCaptionPanelPreview({ type: 'leave' });
+        this.notifyCaptionPanel();
+        if (this.captionPanel) void this.loadCaptionPanelData();
+        this.render();
+        return true;
+    }
+
+    public closeCaptionPanel(): void {
+        if (!this.captionPanel) return;
+        this.runCaptionPanelPreview({ type: 'leave' });
+        this.captionPanel = null;
+        this.notifyCaptionPanel();
+        this.render();
+    }
+
+    protected notifyCaptionPanel(): void {
+        window.dispatchEvent(new CustomEvent('akari-caption-panel-changed', {
+            detail: captionPanelChangedDetail(this.captionPanel)
+        }));
+    }
+
+    protected async loadCaptionPanelData(): Promise<void> {
+        try {
+            const results = await Promise.all([
+                this.captionPreviewService?.getOverlayRuntimeAssetUrls(),
+                this.commandRegistry.executeCommand<CaptionPanelMyStyle[]>('akari.library.listMyStyles').catch(() => [])
+            ]);
+            this.captionPanelMyStyles = Array.isArray(results[1]) ? results[1] : [];
+            if (results[0]) this.registerCaptionPanelFonts(results[0]);
+            if (this.captionPanel) this.render();
+        } catch (error) {
+            this.showFieldNotice(String(error));
+        }
+    }
+
+    protected registerCaptionPanelFonts(assets: OverlayRuntimeAssetUrls): void {
+        if (this.captionPanelFontsLoaded) return;
+        this.captionPanelFontsLoaded = true;
+        const faces = [...assets.bundledCaptionFontFaces,
+            { id: 'noto-sans-jp', family: CAPTION_FONT_FAMILY, weight: '100 900', file: '', url: assets.captionFontUrl }];
+        const css = document.createElement('style');
+        css.setAttribute('data-akari-caption-panel-fonts', '');
+        css.textContent = faces.filter(face => face.id !== 'noto-sans-jp').map(face => {
+            const weight = face.id === 'noto-serif-jp' ? '200 900' : face.weight;
+            return `@font-face{font-family:${JSON.stringify(face.family)};src:url(${JSON.stringify(face.url)}) format('truetype');font-weight:${weight};font-style:normal;font-display:swap}`;
+        }).join('\n') + '\n' + captionFontFaceCss(assets.captionFontUrl);
+        document.head.append(css);
+        this.toDispose.push({ dispose: () => css.remove() });
+        void Promise.all(faces.map(async face => {
+            const weight = face.id === 'noto-serif-jp' ? '200' : face.weight.split(' ')[0];
+            const descriptor = face.id === 'noto-sans-jp' ? CAPTION_FONT_LOAD_DESCRIPTOR
+                : `${weight} 19px ${JSON.stringify(face.family)}`;
+            try {
+                if ((await document.fonts.load(descriptor, 'Aa あいう')).length > 0) {
+                    this.captionPanelFontFaces.set(face.id, face.family);
+                }
+            } catch { /* A failed font is not offered as an applicable row. */ }
+        })).then(() => { if (this.captionPanel === 'font') this.render(); });
+    }
     protected readonly fieldNotice = document.createElement('div');
     protected fieldNoticeTimer: number | undefined;
     protected lastWriteError?: { message: string; at: number };
@@ -4110,6 +4214,9 @@ export class AkariInspectorWidget extends BaseWidget {
 
 `;
         this.node.appendChild(style);
+        const captionPanelStyle = document.createElement('style');
+        captionPanelStyle.textContent = CAPTION_PANEL_CSS;
+        this.node.appendChild(captionPanelStyle);
 
         const clearSoloShortcut = (): void => {
             if (!this.node.contains(document.activeElement) || !this.clearSolo()) return;
@@ -4117,6 +4224,14 @@ export class AkariInspectorWidget extends BaseWidget {
         };
         window.addEventListener('akari.inspector.clearSoloShortcut', clearSoloShortcut);
         this.toDispose.push({ dispose: () => window.removeEventListener('akari.inspector.clearSoloShortcut', clearSoloShortcut) });
+        const onCaptionPanelPreviewEscape = (event: KeyboardEvent): void => {
+            if (!shouldCaptureCaptionPanelPreviewEscape(this.captionPanelPreview, event.key)) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.runCaptionPanelPreview({ type: 'escape' });
+        };
+        window.addEventListener('keydown', onCaptionPanelPreviewEscape, true);
+        this.toDispose.push({ dispose: () => window.removeEventListener('keydown', onCaptionPanelPreviewEscape, true) });
         // Input-local Escape still reaches this widget after the input restores its own value.
         this.node.addEventListener('keydown', event => {
             if (event.key !== 'Escape' || !(event.target instanceof HTMLElement)
@@ -4130,6 +4245,16 @@ export class AkariInspectorWidget extends BaseWidget {
             if (this.materialSelection) {
                 this.materialSelection = undefined;
                 this.aiView = undefined;
+            }
+            if (this.captionPanel) {
+                const selection = this.model.snapshot;
+                const retained = retainCaptionPanel(this.captionPanel, selection?.kind === 'caption'
+                    || selection?.kind === 'item' && selection.itemKind === 'caption'
+                        && !!(this.model.selectedCaptionIds[0] ?? captionIdForTreeSelection(selection)));
+                if (retained !== this.captionPanel) {
+                    this.runCaptionPanelPreview({ type: 'leave' });
+                    this.captionPanel = retained; this.notifyCaptionPanel();
+                }
             }
             this.liveValues = undefined;
             this.lutGeneration++;
@@ -4690,6 +4815,47 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         this.body.appendChild(createSelectionHeader(snapshot, path => this.generationThumbnail(path),
             () => window.dispatchEvent(new CustomEvent('akari.mystyle.open-save'))));
+        const panelCaptionId = snapshot.kind === 'caption' ? snapshot.id
+            : snapshot.kind === 'item' && snapshot.itemKind === 'caption'
+                ? this.model.selectedCaptionIds[0] ?? captionIdForTreeSelection(snapshot) : undefined;
+        if (this.captionPanel && panelCaptionId) {
+            this.body.append(createCaptionPanel(document, this.captionPanel, this.captionPanelState,
+                this.captionPanelMyStyles, this.captionPanelFontFaces, {
+                    close: () => this.closeCaptionPanel(),
+                    switchTo: panel => {
+                        if (this.captionPanel === panel) return;
+                        this.runCaptionPanelPreview({ type: 'leave' });
+                        this.captionPanel = panel; this.notifyCaptionPanel(); this.render();
+                    },
+                    font: (family, weight, id) => {
+                        const request = captionPanelFontWrite(panelCaptionId, family, weight);
+                        void this.commitWrite(request).then(result => {
+                                if (result.ok && id) this.captionPanelState.recentFonts = [id,
+                                    ...this.captionPanelState.recentFonts.filter(other => other !== id)].slice(0, 8);
+                            });
+                    },
+                    style: (style, id) => {
+                        const request = { ...captionPanelLookWrite(panelCaptionId, style),
+                            libraryApplyKind: id.startsWith('mystyle/') ? 'mystyle' as const : 'textstyle' as const };
+                        void this.commitWrite(request).then(result => {
+                                if (result.ok) this.captionPanelState.recentStyles = [id,
+                                    ...this.captionPanelState.recentStyles.filter(other => other !== id)].slice(0, 8);
+                            });
+                    },
+                    save: () => window.dispatchEvent(new CustomEvent('akari.mystyle.open-save',
+                        { detail: { captionId: panelCaptionId } })),
+                    openLibrary: () => { void this.commandRegistry.executeCommand('akari.catalog.open',
+                        { tab: 'library', category: 'font' }); },
+                    rerender: () => { this.runCaptionPanelPreview({ type: 'leave' }); this.render(); },
+                    preview: textStyle => this.runCaptionPanelPreview(textStyle
+                        ? { type: 'enter', captionId: panelCaptionId, textStyle } : { type: 'leave' }),
+                    confirm: () => { this.runCaptionPanelPreview({ type: 'confirm', captionId: panelCaptionId }); },
+                    escape: () => {
+                        if (this.runCaptionPanelPreview({ type: 'escape' }).close) this.closeCaptionPanel();
+                    }
+                }));
+            return;
+        }
         if (snapshot.kind === 'gap') {
             if (this.gapAiOpening && (this.gapAiOpening.gap.trackId !== snapshot.trackId
                 || this.gapAiOpening.gap.startSeconds !== snapshot.startSeconds
