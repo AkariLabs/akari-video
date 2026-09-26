@@ -17,7 +17,6 @@ type FileErrorShape = {
 export function classifyEditLoadFailure(error: unknown, context?: {
     stampText?: string;
     currentVersion?: string;
-    compareVersions: (left: string, right: string) => number;
 }): EditLoadFailure {
     if (error instanceof ReportedEditLoadFailure) {
         return { kind: 'reported' };
@@ -31,7 +30,7 @@ export function classifyEditLoadFailure(error: unknown, context?: {
     }
     const message = error instanceof Error ? error.message : String(error);
     const newerVersion = context && isUnknownKeyEditError(error)
-        ? newerSavedByVersion(context.stampText, context.currentVersion, context.compareVersions)
+        ? newerSavedByVersion(context.stampText, context.currentVersion)
         : undefined;
     if (newerVersion && context?.currentVersion) {
         return { kind: 'invalid', notice: newerVersionOpenNotice(newerVersion, context.currentVersion), updateAvailable: true };

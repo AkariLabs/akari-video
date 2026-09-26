@@ -93,9 +93,22 @@ function parseSavedBy(text) {
         return undefined;
     }
 }
-function newerSavedByVersion(text, currentVersion, compareVersions) {
+function compareSavedByVersions(left, right) {
+    const leftParts = left.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    const rightParts = right.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    if (!leftParts || !rightParts)
+        return 0;
+    for (let i = 1; i <= 3; i++) {
+        const a = Number(leftParts[i]);
+        const b = Number(rightParts[i]);
+        if (a !== b)
+            return a < b ? -1 : 1;
+    }
+    return 0;
+}
+function newerSavedByVersion(text, currentVersion) {
     const savedVersion = parseSavedBy(text)?.appVersion;
-    return savedVersion && currentVersion && compareVersions(savedVersion, currentVersion) > 0
+    return savedVersion && currentVersion && compareSavedByVersions(savedVersion, currentVersion) > 0
         ? savedVersion : undefined;
 }
 function isUnknownKeyEditError(error) {

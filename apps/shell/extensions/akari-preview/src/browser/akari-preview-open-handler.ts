@@ -30,7 +30,6 @@ import { AudioMeterFrame, isAudioMeterFrame, measureBlock, linearToDbfs, latchCl
 import { AkariAudioMeterWidget } from './akari-audio-meter-widget';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
-import { compareVersions } from 'akari-surfaces/lib/common/update-feed';
 import { selectPreviewAudioItemsAt } from '../common/preview-audio-priority';
 import { previewAudioTrimOf } from '../common/preview-audio-trim';
 import { Command, CommandRegistry, CommandService, Emitter, Event as TheiaEvent, MenuModelRegistry, MessageService } from '@theia/core/lib/common';
@@ -3302,7 +3301,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.currentAppVersionPromise ??= this.applicationServer.getApplicationInfo()
                     .then(info => info?.version).catch(() => undefined)
             ]);
-            const newerVersion = newerSavedByVersion(stampText, currentVersion, compareVersions);
+            const newerVersion = newerSavedByVersion(stampText, currentVersion);
             if (newerVersion && currentVersion) {
                 const choice = await this.messages.error(
                     `${uri.path.base}: 動画プレビューを開けませんでした — ${newerVersionOpenNotice(newerVersion, currentVersion)}`,

@@ -107,7 +107,6 @@ import {
 } from '@akari-video/edit-store';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
 import { ApplicationServer } from '@theia/core/lib/common/application-protocol';
-import { compareVersions } from 'akari-surfaces/lib/common/update-feed';
 import {
     AudioLoudnessEnvelope,
     AudioWaveformDebounceGate,
@@ -8305,7 +8304,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected editMutationTail: Promise<unknown> = Promise.resolve();
 
     protected async loadSavedByContext(): Promise<{
-        stampText?: string; currentVersion?: string; compareVersions: typeof compareVersions;
+        stampText?: string; currentVersion?: string;
     }> {
         const root = this.location?.root;
         const [stampText, currentVersion] = await Promise.all([
@@ -8314,7 +8313,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.currentAppVersionPromise ??= this.applicationServer.getApplicationInfo()
                 .then(info => info?.version).catch(() => undefined)
         ]);
-        return { stampText, currentVersion, compareVersions };
+        return { stampText, currentVersion };
     }
 
     protected async reloadEdit(sourceOverride?: string): Promise<void> {
@@ -8324,9 +8323,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let versionContext: Awaited<ReturnType<AkariAnnotationsWidget['loadSavedByContext']>> | undefined;
             if (this.applicationServer && typeof this.loadSavedByContext === 'function') {
                 versionContext = await this.loadSavedByContext();
-                this.newerVersionAtLoad = newerSavedByVersion(
-                    versionContext.stampText, versionContext.currentVersion, compareVersions
-                );
+                this.newerVersionAtLoad = newerSavedByVersion(versionContext.stampText, versionContext.currentVersion);
             }
             try {
                 const diskSource = sourceOverride ?? (await this.fileService.readFile(this.location.editUri)).value.toString();

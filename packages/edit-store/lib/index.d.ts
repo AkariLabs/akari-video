@@ -50,7 +50,7 @@ export interface SavedByStamp {
     savedAt: string;
 }
 export declare function parseSavedBy(text: string | undefined): SavedByStamp | undefined;
-export declare function newerSavedByVersion(text: string | undefined, currentVersion: string | undefined, compareVersions: (left: string, right: string) => number): string | undefined;
+export declare function newerSavedByVersion(text: string | undefined, currentVersion: string | undefined): string | undefined;
 export declare function isUnknownKeyEditError(error: unknown): boolean;
 export declare function newerVersionOpenNotice(savedVersion: string, currentVersion: string): string;
 export declare function newerVersionLintPrefix(savedVersion: string): string;

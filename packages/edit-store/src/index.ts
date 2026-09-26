@@ -74,13 +74,24 @@ export function parseSavedBy(text: string | undefined): SavedByStamp | undefined
     }
 }
 
+function compareSavedByVersions(left: string, right: string): number {
+    const leftParts = left.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    const rightParts = right.trim().match(/^(\d+)\.(\d+)\.(\d+)/);
+    if (!leftParts || !rightParts) return 0;
+    for (let i = 1; i <= 3; i++) {
+        const a = Number(leftParts[i]);
+        const b = Number(rightParts[i]);
+        if (a !== b) return a < b ? -1 : 1;
+    }
+    return 0;
+}
+
 export function newerSavedByVersion(
     text: string | undefined,
-    currentVersion: string | undefined,
-    compareVersions: (left: string, right: string) => number
+    currentVersion: string | undefined
 ): string | undefined {
     const savedVersion = parseSavedBy(text)?.appVersion;
-    return savedVersion && currentVersion && compareVersions(savedVersion, currentVersion) > 0
+    return savedVersion && currentVersion && compareSavedByVersions(savedVersion, currentVersion) > 0
         ? savedVersion : undefined;
 }
 

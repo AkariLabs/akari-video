@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../lib/common/edit-load-failure.js';
-import { compareVersions } from 'akari-surfaces/lib/common/update-feed.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturePath = new URL('../../../../../packages/edit-store/test/fixtures/edit-v2.json', import.meta.url);
@@ -33,7 +32,7 @@ test('v2 の未定義 item キーを検証した例外はメッセージ全文�
 test('未定義キーと新しい版の stamp の組だけ更新を案内する', () => {
   const error = new TypeError('edit.json v2 が不正です: 未定義キーを使用できません: futureKey。案内: 取り除くか .akari/backup/ から復元');
   const stamp = version => JSON.stringify({ version: 1, app: 'akari-video', appVersion: version, savedAt: '2026-09-26T00:00:00Z' });
-  const context = stampText => ({ stampText, currentVersion: '0.1.86', compareVersions });
+  const context = stampText => ({ stampText, currentVersion: '0.1.86' });
   const newer = classifyEditLoadFailure(error, context(stamp('9.9.9')));
   assert.equal(newer.kind, 'invalid');
   assert.equal(newer.updateAvailable, true);

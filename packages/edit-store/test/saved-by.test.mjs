@@ -7,7 +7,6 @@ import { SAVED_BY_PATH as WRITE_GATE_SAVED_BY_PATH, setDefaultSavedByAppVersion,
 import {
   SAVED_BY_PATH, parseSavedBy, newerSavedByVersion, withNewerVersionLintPrefix
 } from '../lib/index.js';
-import { compareVersions } from '../../akari-launcher/src/update-check.mjs';
 
 test('ブラウザ入口と Node 書き込み口のスタンプ相対パスは一致する', () => {
   assert.equal(SAVED_BY_PATH, WRITE_GATE_SAVED_BY_PATH);
@@ -37,12 +36,25 @@ test('edit.json の保存だけが writer stamp を更新し、版不明の保�
 
 test('新しい版だけを検出し、検証前置きは版があるときだけ付く', () => {
   const text = JSON.stringify({ version: 1, app: 'akari-video', appVersion: '9.9.9', savedAt: '2026-09-26T00:00:00.000Z' });
-  assert.equal(newerSavedByVersion(text, '0.1.86', compareVersions), '9.9.9');
-  assert.equal(newerSavedByVersion(text, '9.9.9', compareVersions), undefined);
-  assert.equal(newerSavedByVersion(undefined, '0.1.86', compareVersions), undefined);
+  assert.equal(newerSavedByVersion(text, '0.1.86'), '9.9.9');
+  assert.equal(newerSavedByVersion(text, '9.9.9'), undefined);
+  assert.equal(newerSavedByVersion(undefined, '0.1.86'), undefined);
   const message = '保存後の検証で問題が見つかりました: [v2.mask-video]';
   assert.equal(withNewerVersionLintPrefix(message), message);
   assert.match(withNewerVersionLintPrefix(message, '9.9.9'), /^このプロジェクトは新しい版（v9\.9\.9）で保存されています。.*保存後の検証で問題が見つかりました/s);
+});
+
+test('saved-by の版は major.minor.patch を数値で比較する', () => {
+  const stamp = appVersion => JSON.stringify({
+    version: 1, app: 'akari-video', appVersion, savedAt: '2026-09-26T00:00:00.000Z'
+  });
+  assert.equal(newerSavedByVersion(stamp('0.1.86'), '0.1.82'), '0.1.86');
+  assert.equal(newerSavedByVersion(stamp('0.1.10'), '0.1.9'), '0.1.10');
+  assert.equal(newerSavedByVersion(stamp('0.1.86'), '0.1.86'), undefined);
+  assert.equal(newerSavedByVersion(stamp('1.0.0-beta'), '1.0.0'), undefined);
+  assert.equal(newerSavedByVersion(stamp('1.0.0'), '1.0.0+build'), undefined);
+  assert.equal(newerSavedByVersion(stamp('unreadable'), '0.1.82'), undefined);
+  assert.equal(newerSavedByVersion(stamp('0.1.86'), 'unreadable'), undefined);
 });
 
 test('プロセス既定の版は options 未指定の保存に使われ、明示版が優先する', async () => {
