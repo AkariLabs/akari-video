@@ -5,6 +5,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlin
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 import { autoUpdater, UpdateCheckResult, UpdateInfo } from 'electron-updater';
+import { compareVersions } from '../common/update-feed';
 import {
     buildFallbackAppUpdateYml,
     FALLBACK_APP_UPDATE_YML_FILENAME,
@@ -13,6 +14,7 @@ import {
     resolveUpdaterCheckChannel,
     resolveUpdateChannel,
     resolveShellUpdaterErrorReason,
+    resolveManualUpdaterCheckEvent,
     resolveUpdateUiEnabled,
     ShellUpdaterEvent,
     shouldApplyFeedUrlFallback
@@ -49,6 +51,7 @@ const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 @injectable()
 export class AkariUpdaterElectronMain implements ElectronMainApplicationContribution {
     protected lastEvent: ShellUpdaterEvent | undefined;
+    protected downloadedVersion: string | undefined;
     protected activeDownload: { version: string; timer: ReturnType<typeof setInterval>; startedAt: number; result: UpdateCheckResult; cancelling: boolean } | undefined;
     protected readonly updaterRequests = new UpdaterRequestTracker();
     protected requestTrackingInstalled = false;
@@ -62,7 +65,8 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
                 testFeedUrlSet: !!process.env.AKARI_UPDATER_TEST_FEED_URL
             })
         }));
-        ipcMain.handle(CHANNEL_UPDATER_GET_STATE, async (): Promise<ShellUpdaterEvent | undefined> => this.lastEvent);
+        ipcMain.handle(CHANNEL_UPDATER_GET_STATE, async (): Promise<ShellUpdaterEvent | undefined> =>
+            resolveManualUpdaterCheckEvent(true, this.activeDownload?.version, this.downloadedVersion) ?? this.lastEvent);
         ipcMain.handle(CHANNEL_UPDATER_RESTART, async (): Promise<void> => {
             // quitAndInstall はアプリを終了させる副作用を持つため await しない（呼び出し元の
             // IPC ハンドラを待たせても意味がなく、終了自体が「結果」になる）。
@@ -163,8 +167,9 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
     }
 
     protected safeCheck(manual = false, offeredChannel?: unknown): void {
+        const currentEvent = resolveManualUpdaterCheckEvent(manual, this.activeDownload?.version, this.downloadedVersion);
+        if (currentEvent) { this.emit(currentEvent); return; }
         if (this.activeDownload) {
-            if (manual) { this.emit({ kind: 'update-available', version: this.activeDownload.version }); }
             return;
         }
         const settings = this.readUpdateSettings();
@@ -274,6 +279,9 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
     }
 
     protected emit(event: ShellUpdaterEvent): void {
+        if (event.kind === 'update-downloaded' && event.version) { this.downloadedVersion = event.version; }
+        if (event.kind === 'update-available' && event.version && this.downloadedVersion
+            && compareVersions(event.version, this.downloadedVersion) > 0) { this.downloadedVersion = undefined; }
         this.lastEvent = event;
         for (const browserWindow of BrowserWindow.getAllWindows()) {
             if (!browserWindow.isDestroyed()) {

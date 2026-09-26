@@ -22,6 +22,7 @@ import {
     INITIAL_SHELL_UPDATER_UI_STATE,
     isAppTranslocationPath,
     reconcileVisibleUpdateEvent,
+    resolveManualUpdaterCheckEvent,
     resolveAllowPrerelease,
     resolveShellUpdaterErrorReason,
     resolveUpdaterCheckChannel,
@@ -182,7 +183,14 @@ test('failed 中の更新ボタンも API があればまず再試行し、明�
 
 test('設定画面のアップデート確認ボタンは利用者の明示操作として保存済み channel で確認する', () => {
     const source = readFileSync(new URL('../browser/akari-settings-dialog.ts', import.meta.url), 'utf8');
-    assert.match(source, /action\('アップデートを確認',\s*\(\) => void window\.electronAkariUpdater\?\.checkForUpdatesNow\(\{ userInitiated: true \}\)/);
+    assert.match(source, /api\.checkForUpdatesNow\(\{ userInitiated: true \}\)/);
+});
+
+test('手動確認は DL 中・DL 済みを版つきで再通知し、それ以外は再チェックへ進む', () => {
+    assert.deepEqual(resolveManualUpdaterCheckEvent(true, '0.1.87', '0.1.86'), { kind: 'update-available', version: '0.1.87' });
+    assert.deepEqual(resolveManualUpdaterCheckEvent(true, undefined, '0.1.86'), { kind: 'update-downloaded', version: '0.1.86' });
+    assert.equal(resolveManualUpdaterCheckEvent(true, undefined, undefined), undefined);
+    assert.equal(resolveManualUpdaterCheckEvent(false, '0.1.87', '0.1.86'), undefined);
 });
 
 test('安定版設定でも、通知でプレリリースを明示ダウンロードしたときはその channel を確認する', () => {
@@ -240,6 +248,24 @@ test('ネットワーク系エラーは再試行方法を含む理由へ整形�
         'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください'
     );
     assert.equal(resolveShellUpdaterErrorReason('signature validation failed', '/Applications/AKARI Video.app'), 'signature validation failed');
+});
+
+test('Chromium の配信先への接続失敗はオフラインと区別した理由にする', () => {
+    const reason = '更新の配信先に接続できませんでした。時間をおいてもう一度確かめてください';
+    for (const code of [
+        'ERR_CONNECTION_REFUSED', 'ERR_CONNECTION_RESET', 'ERR_CONNECTION_CLOSED',
+        'ERR_CONNECTION_FAILED', 'ERR_ADDRESS_UNREACHABLE', 'ERR_TIMED_OUT'
+    ]) {
+        assert.equal(resolveShellUpdaterErrorReason(`net::${code}`, '/Applications/AKARI Video.app'), reason, code);
+    }
+    assert.equal(
+        resolveShellUpdaterErrorReason('net::ERR_INTERNET_DISCONNECTED', '/Applications/AKARI Video.app'),
+        'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください'
+    );
+    assert.equal(
+        resolveShellUpdaterErrorReason('ECONNREFUSED', '/Applications/AKARI Video.app'),
+        'オフラインのため確認できませんでした。ネットワーク接続後にもう一度押すか、アプリを再起動してください'
+    );
 });
 
 test('applyShellUpdaterEvent: DL 済み状態から再度 update-available / error が来ても downloaded は維持される（DL 済みバナーが消えない）', () => {
