@@ -1,0 +1,94 @@
+# AFTER: Node.js を AKARI 専用の場所に用意して Command Code を入れる（L1・darwin-arm64）
+# 条件: 01 と同一（一時 HOME・システム Node を sandbox で隠す・テスト用 env 無し）
+# 固定版: Node.js v24.21.0 (LTS Krypton, 2026-09-07) / 取得元 https://nodejs.org/dist/v24.21.0/
+# sha256 の出典: https://nodejs.org/dist/v24.21.0/SHASUMS256.txt（SHASUMS256.txt.asc を nodejs/release-keys の鍵束で gpg 検証: Good signature, key 5BE8A3F6C8A5C01D106C0AD820B1A390B168D356）
+bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057  node-v24.21.0-darwin-arm64.tar.gz
+1462cb3b3046b815cf8ea436d3da450ec1a9f11dac7e5a46b0ada5305d7e8097  node-v24.21.0-darwin-x64.tar.gz
+8779b1bde1d39f8d420e3b57aa657b39891af434d3de44a919044cec06785921  node-v24.21.0-win-arm64.zip
+158f7685b44de51f6c0df1d153526cbcd3e1bc739a8dfc607721cef75de9e541  node-v24.21.0-win-x64.zip
+
+## run 1（初回: 取得 → 検証 → 展開 → npm install）
+Command Code に必要な Node.js を AKARI 専用の場所に用意しています: <TMP_HOME>/.akari/runtime/node/v24.21.0
+Node.js をダウンロードしています: https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-arm64.tar.gz
+Node.js archive sha256 検証 OK: bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057
+Command Code を npm 公式パッケージからユーザー領域へインストールしています: <TMP_HOME>/.local
+
+added 291 packages in 3m
+Command Code 1.66.0 を検出: <TMP_HOME>/.local/bin/command-code
+{"executablePath":"<TMP_HOME>/.local/bin/command-code","reused":false,"nodeSource":"private"}
+[driver] exit=0 elapsed_ms=267827
+
+## 所要時間: run 1 = 267827 ms（Node.js アーカイブ 52,909,993 B の取得・検証・展開 + npm install 291 packages の合計。npm 自体の表示は "added 291 packages in 3m"）
+
+## command-code --version (PATH=<private node bin>:/usr/bin:/bin, system node hidden by sandbox)
+1.66.0
+exit=0
+## node -v
+v24.21.0
+## which node
+<TMP_HOME>/.akari/runtime/node/v24.21.0/bin/node
+## without private node on PATH (control)
+env: node: No such file or directory
+exit=127
+
+## run 2（再度 bootstrap: 再取得しないこと）
+既存の commandcode 1.66.0 を検出: <TMP_HOME>/.local/bin/command-code
+用意済みの AKARI 専用 Node.js を使います: <TMP_HOME>/.akari/runtime/node/v24.21.0
+{"executablePath":"<TMP_HOME>/.local/bin/command-code","reused":true,"nodeSource":"private"}
+[driver] exit=0 elapsed_ms=2068
+
+## 置き場の一覧
+## $AKARI_HOME/runtime/node
+total 0
+drwxr-xr-x@  3 <user>  wheel   96 Sep 26 12:48 .
+drwxr-xr-x@  3 <user>  wheel   96 Sep 26 12:47 ..
+drwxr-xr-x@ 10 <user>  wheel  320 Sep 26 12:50 v24.21.0
+## v24.21.0 top
+total 1856
+drwxr-xr-x@ 10 <user>  wheel     320 Sep 26 12:50 .
+drwxr-xr-x@  3 <user>  wheel      96 Sep 26 12:48 ..
+drwxr-xr-x@  6 <user>  wheel     192 Sep 26 12:48 bin
+-rw-r--r--@  1 <user>  wheel  741086 Sep 26 12:47 CHANGELOG.md
+-rw-r--r--@  1 <user>  wheel       8 Sep 26 12:51 command-code-installed
+drwxr-xr-x@  3 <user>  wheel      96 Sep 26 12:47 include
+drwxr-xr-x@  3 <user>  wheel      96 Sep 26 12:47 lib
+-rw-r--r--@  1 <user>  wheel  157609 Sep 26 12:47 LICENSE
+-rw-r--r--@  1 <user>  wheel   41791 Sep 26 12:47 README.md
+drwxr-xr-x@  4 <user>  wheel     128 Sep 26 12:47 share
+## bin
+total 238536
+drwxr-xr-x@  6 <user>  wheel        192 Sep 26 12:48 .
+drwxr-xr-x@ 10 <user>  wheel        320 Sep 26 12:50 ..
+lrwxr-xr-x@  1 <user>  wheel         45 Sep 26 12:48 corepack -> ../lib/node_modules/corepack/dist/corepack.js
+-rwxr-xr-x@  1 <user>  wheel  122129232 Sep 26 12:48 node
+lrwxr-xr-x@  1 <user>  wheel         38 Sep 26 12:48 npm -> ../lib/node_modules/npm/bin/npm-cli.js
+lrwxr-xr-x@  1 <user>  wheel         38 Sep 26 12:48 npx -> ../lib/node_modules/npm/bin/npx-cli.js
+## du
+199M	<TMP_HOME>/.akari/runtime/node/v24.21.0
+## ~/.local/bin
+total 0
+drwxr-xr-x@ 6 <user>  wheel  192 Sep 26 12:50 .
+drwxr-xr-x@ 4 <user>  wheel  128 Sep 26 12:50 ..
+lrwxr-xr-x@ 1 <user>  wheel   47 Sep 26 12:50 cmd -> ../lib/node_modules/command-code/dist/index.mjs
+lrwxr-xr-x@ 1 <user>  wheel   47 Sep 26 12:50 cmdc -> ../lib/node_modules/command-code/dist/index.mjs
+lrwxr-xr-x@ 1 <user>  wheel   47 Sep 26 12:50 command-code -> ../lib/node_modules/command-code/dist/index.mjs
+lrwxr-xr-x@ 1 <user>  wheel   47 Sep 26 12:50 commandcode -> ../lib/node_modules/command-code/dist/index.mjs
+## leftover temp dirs
+none
+
+## PTY 起動時の PATH（lib/node/cli-provisioner.js の buildPrivateNodePathEnv を上の AKARI_HOME で呼んだ結果）
+## buildPrivateNodePathEnv (private-installed AKARI_HOME)
+{"PATH":"<TMP_HOME>/.akari/runtime/node/v24.21.0/bin:/usr/bin:/bin"}
+## buildPrivateNodePathEnv (empty AKARI_HOME = system-node user)
+{}
+
+## 対照: システム Node 22+ が見える一時 HOME（PATH=/opt/homebrew/bin:/usr/bin:/bin・sandbox 無し・system node v26.3.0）
+Command Code を npm 公式パッケージからユーザー領域へインストールしています: <TMP_HOME2>/.local
+
+added 291 packages in 2m
+Command Code 1.66.0 を検出: <TMP_HOME2>/.local/bin/command-code
+{"executablePath":"<TMP_HOME2>/.local/bin/command-code","reused":false,"nodeSource":"system"}
+[driver] exit=0 elapsed_ms=137619
+runtime dir: (作られない — ls: <TMP_HOME2>/.akari/runtime: No such file or directory)
+
+## 後片付け: 一時 HOME は検証後に削除。オーナーの ~/.akari/runtime は存在しないまま、~/.local/bin/command-code は 2026-09-05 のまま（未変更）

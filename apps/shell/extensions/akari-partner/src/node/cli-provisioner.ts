@@ -221,6 +221,28 @@ export function buildCliPathEnv(options: BuildCliPathEnvOptions): Record<string,
     return { PATH: existingPath ? `${shimDir}${delimiter}${existingPath}` : shimDir };
 }
 
+export interface BuildPrivateNodePathEnvOptions extends BuildCliPathEnvOptions {
+    /** テストではファイル状態を注入する。 */
+    exists?: (filePath: string) => boolean;
+}
+
+/** Command Code を AKARI 専用 Node で導入した場合だけ PTY の PATH に前置する。 */
+export function buildPrivateNodePathEnv(options: BuildPrivateNodePathEnvOptions): Record<string, string> {
+    const root = join(options.akariHome, 'runtime', 'node', 'v24.21.0');
+    const binDir = options.platform === 'win32' ? root : join(root, 'bin');
+    const exists = options.exists ?? existsSync;
+    if (!exists(join(root, 'command-code-installed'))
+        || !exists(join(binDir, options.platform === 'win32' ? 'node.exe' : 'node'))
+        || !exists(join(binDir, options.platform === 'win32' ? 'npm.cmd' : 'npm'))) {
+        return {};
+    }
+    const delimiter = options.pathDelimiter ?? (options.platform === 'win32' ? ';' : ':');
+    const existingPath = options.existingPath ?? '';
+    return { PATH: existingPath.split(delimiter)[0] === binDir
+        ? existingPath
+        : existingPath ? `${binDir}${delimiter}${existingPath}` : binDir };
+}
+
 // --- Electron 実行体判定 -------------------------------------------------------
 
 /**

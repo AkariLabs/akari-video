@@ -1,0 +1,5 @@
+# BEFORE（origin/main 8ceb375e のまま・コード無変更）: commandcode bootstrap
+# 条件: 00-method.txt のとおり（一時 HOME・システム Node を sandbox で隠す）
+
+commandcode は npm が見つからないため自動インストールできません。手動でインストールしてください: npm install -g command-code（Node.js 22 以上が必要）
+[driver] exit=1 elapsed_ms=799

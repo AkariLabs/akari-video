@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { gzipSync } from 'node:zlib';
+import { deflateRawSync, gzipSync } from 'node:zlib';
 import { bootstrapRunner } from '../../lib/node/bootstrap-runner.js';
 
 const VERSION = '0.149.1';
@@ -32,7 +33,7 @@ function writeTarOctal(header, offset, length, value) {
     writeTarString(header, offset, length, value.toString(8).padStart(length - 1, '0'));
 }
 
-function tarEntry(name, content = Buffer.alloc(0), mode = 0o644, type = '0') {
+function tarEntry(name, content = Buffer.alloc(0), mode = 0o644, type = '0', linkpath = '') {
     const body = Buffer.isBuffer(content) ? content : Buffer.from(content);
     const header = Buffer.alloc(512);
     writeTarString(header, 0, 100, name);
@@ -43,6 +44,7 @@ function tarEntry(name, content = Buffer.alloc(0), mode = 0o644, type = '0') {
     writeTarOctal(header, 136, 12, 0);
     header.fill(0x20, 148, 156);
     writeTarString(header, 156, 1, type);
+    writeTarString(header, 157, 100, linkpath);
     writeTarString(header, 257, 6, 'ustar');
     writeTarString(header, 263, 2, '00');
     const checksum = header.reduce((sum, byte) => sum + byte, 0);
@@ -53,7 +55,7 @@ function tarEntry(name, content = Buffer.alloc(0), mode = 0o644, type = '0') {
 
 function makeTar(entries) {
     return Buffer.concat([
-        ...entries.map(entry => tarEntry(entry.name, entry.content, entry.mode, entry.type)),
+        ...entries.map(entry => tarEntry(entry.name, entry.content, entry.mode, entry.type, entry.linkpath)),
         Buffer.alloc(1024)
     ]);
 }
@@ -113,16 +115,27 @@ async function startFixtureServer(fixtures) {
     }
 }
 
-async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', arch = 'arm64', force = false, pathEnv = '' }) {
+async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', arch = 'arm64', force = false, pathEnv = '', extraEnv = {} }) {
     const sourceLines = [
+        `const hostPlatform = process.platform;`,
+        `Object.defineProperty(require('os'), 'platform', { value: () => hostPlatform });`,
         `Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} });`,
         `Object.defineProperty(process, 'arch', { value: ${JSON.stringify(arch)} });`
     ];
+    if (mock.hideWellKnownNode) {
+        sourceLines.push(
+            `const originalAccess = require('fs').promises.access;`,
+            `require('fs').promises.access = (file, ...args) =>`,
+            `  /^\\/(?:opt\\/homebrew\\/bin|usr\\/local\\/bin|usr\\/bin)\\/(?:node|npm)$/.test(String(file))`,
+            `    ? Promise.reject(Object.assign(new Error('not found'), { code: 'ENOENT' })) : originalAccess(file, ...args);`
+        );
+    }
     if (mock.fixtures) {
         const encoded = Buffer.from(JSON.stringify(mock.fixtures)).toString('base64');
         sourceLines.push(
             `const fixtures = JSON.parse(Buffer.from('${encoded}', 'base64').toString());`,
             `globalThis.fetch = async value => {`,
+            ...(mock.requestLogPath ? [`  require('fs').appendFileSync(${JSON.stringify(mock.requestLogPath)}, String(value) + '\\n');`] : []),
             `  const selected = fixtures[new URL(String(value)).pathname] || { status: 404, contentType: 'text/plain', body: '' };`,
             `  const original = Buffer.from(selected.body, 'base64');`,
             `  const body = selected.contentType === 'application/json'`,
@@ -139,10 +152,15 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
         HOME: home,
         LOCALAPPDATA: path.join(home, 'local-app-data'),
         PATH: pathEnv,
+        AKARI_HOME: home,
         AKARI_PARTNER_CODEX_RELEASE_API_URL: `${mock.origin}/latest`,
         AKARI_PARTNER_CODEX_RELEASE_TAG_API_URL_TEMPLATE: `${mock.origin}/tags/{tag}`,
-        ...(force ? { AKARI_PARTNER_FORCE_REINSTALL: '1' } : {})
+        ...(force ? { AKARI_PARTNER_FORCE_REINSTALL: '1' } : {}),
+        ...extraEnv
     };
+    if (!Object.hasOwn(extraEnv, 'AKARI_PARTNER_NODE_DIST_BASE_URL')) {
+        delete env.AKARI_PARTNER_NODE_DIST_BASE_URL;
+    }
     return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, ['-e', source, agent], { env, stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = '';
@@ -152,6 +170,71 @@ async function runBootstrap({ home, mock, agent = 'codex', platform = 'darwin', 
         child.on('error', reject);
         child.on('exit', code => resolve({ code, stdout, stderr }));
     });
+}
+
+const NODE_VERSION = '24.21.0';
+const NODE_ASSET = `node-v${NODE_VERSION}-darwin-arm64.tar.gz`;
+const NODE_ROOT = `node-v${NODE_VERSION}-darwin-arm64`;
+const fakeNodeScript = `#!/bin/sh
+if [ "$1" = "-p" ]; then echo ${NODE_VERSION}; else exec ${JSON.stringify(process.execPath)} "$@"; fi
+`;
+const fakeNpmScript = `#!/bin/sh
+/bin/mkdir -p "$HOME/.local/bin"
+printf '%s\\n' '#!/bin/sh' 'echo 1.45.0' > "$HOME/.local/bin/command-code"
+/bin/chmod +x "$HOME/.local/bin/command-code"
+printf '%s\\n' '#!/bin/sh' 'echo 1.45.0' > "$HOME/.local/command-code.cmd"
+/bin/chmod +x "$HOME/.local/command-code.cmd"
+`;
+
+function privateNodeArchive() {
+    return gzipSync(makeTar([
+        { name: `${NODE_ROOT}/`, type: '5', mode: 0o755 },
+        { name: `${NODE_ROOT}/bin/`, type: '5', mode: 0o755 },
+        { name: `${NODE_ROOT}/bin/node`, content: fakeNodeScript, mode: 0o755 },
+        { name: `${NODE_ROOT}/lib/node_modules/npm/bin/`, type: '5', mode: 0o755 },
+        { name: `${NODE_ROOT}/lib/node_modules/npm/bin/npm-cli.js`, content: fakeNpmScript, mode: 0o755 },
+        { name: `${NODE_ROOT}/bin/npm`, type: '2', linkpath: '../lib/node_modules/npm/bin/npm-cli.js', mode: 0o777 }
+    ]));
+}
+
+function paxRecord(key, value) {
+    const body = ` ${key}=${value}\n`;
+    let length = Buffer.byteLength(body) + 1;
+    while (Buffer.byteLength(`${length}${body}`) !== length) {
+        length = Buffer.byteLength(`${length}${body}`);
+    }
+    return `${length}${body}`;
+}
+
+function privateNodePaxArchive() {
+    return gzipSync(makeTar([
+        { name: `${NODE_ROOT}/`, type: '5', mode: 0o755 },
+        { name: `${NODE_ROOT}/bin/`, type: '5', mode: 0o755 },
+        { name: 'pax-node', type: 'x', content: paxRecord('path', `${NODE_ROOT}/bin/node`) },
+        { name: `${NODE_ROOT}/bin/placeholder`, content: fakeNodeScript, mode: 0o755 },
+        { name: `${NODE_ROOT}/lib/node_modules/npm/bin/`, type: '5', mode: 0o755 },
+        { name: `${NODE_ROOT}/lib/node_modules/npm/bin/npm-cli.js`, content: fakeNpmScript, mode: 0o755 },
+        { name: 'pax-link', type: 'x', content: paxRecord('linkpath', '../lib/node_modules/npm/bin/npm-cli.js') },
+        { name: `${NODE_ROOT}/bin/npm`, type: '2', linkpath: '../../outside', mode: 0o777 }
+    ]));
+}
+
+function nodeMock(archive, asset = NODE_ASSET, requestLogPath) {
+    return {
+        origin: 'http://example.test',
+        fixtures: { [`/v${NODE_VERSION}/${asset}`]: fixture(archive) },
+        requestLogPath
+    };
+}
+
+function nodeEnv(archive, asset = NODE_ASSET) {
+    return {
+        AKARI_PARTNER_IGNORE_SYSTEM_NODE: '1',
+        AKARI_PARTNER_NODE_DIST_BASE_URL: 'http://example.test',
+        AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON: JSON.stringify({
+            [asset]: createHash('sha256').update(archive).digest('hex')
+        })
+    };
 }
 
 test('PATH 上の既存 Command Code を再利用する', async () => {
@@ -211,7 +294,7 @@ chmod +x "$HOME/.local/bin/command-code"
     }
 });
 
-test('Command Code は Node.js 22 未満ならインストール前に案内付きで停止する', async () => {
+test('Command Code は Node.js 22 未満なら専用 Node を取得してインストールする', async () => {
     const home = await makeHome('akari-commandcode-node20-home-');
     const toolsDir = await makeHome('akari-commandcode-node20-tools-');
     const fakeNode = path.join(toolsDir, 'node');
@@ -219,22 +302,219 @@ test('Command Code は Node.js 22 未満ならインストール前に案内付�
     await writeFile(fakeNode, '#!/bin/sh\necho 20.19.0\n');
     await writeFile(fakeNpm, '#!/bin/sh\nexit 99\n');
     await Promise.all([chmod(fakeNode, 0o755), chmod(fakeNpm, 0o755)]);
+    const archive = privateNodeArchive();
     try {
         const result = await runBootstrap({
             home,
-            mock: { origin: 'http://example.test' },
+            mock: { ...nodeMock(archive), hideWellKnownNode: true },
             agent: 'commandcode',
             force: true,
-            pathEnv: toolsDir
+            pathEnv: toolsDir,
+            extraEnv: {
+                AKARI_PARTNER_NODE_DIST_BASE_URL: 'http://example.test',
+                AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON: nodeEnv(archive).AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON
+            }
         });
-        assert.equal(result.code, 1, result.stdout);
-        assert.match(result.stderr, /Command Code は Node\.js 22 以上が必要です（検出: 20\.19\.0）/);
-        assert.match(result.stderr, /npm install -g command-code/);
-        await assert.rejects(readFile(path.join(home, 'npm-args.txt')));
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /Node.js archive sha256 検証 OK/);
+        assert.match(result.stdout, /"nodeSource":"private"/);
+        assert.equal(await readFile(path.join(home, 'runtime/node', `v${NODE_VERSION}`, 'command-code-installed'), 'utf8'), 'private\n');
     } finally {
         await rm(home, { recursive: true, force: true });
         await rm(toolsDir, { recursive: true, force: true });
     }
+});
+
+test('Command Code はシステム Node が使えれば専用 Node を取得しない', async () => {
+    const home = await makeHome('akari-commandcode-system-home-');
+    const toolsDir = await makeHome('akari-commandcode-system-tools-');
+    const requestLogPath = path.join(home, 'requests.txt');
+    await writeFile(path.join(toolsDir, 'node'), `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} "$@"\n`, { mode: 0o755 });
+    await writeFile(path.join(toolsDir, 'npm'), fakeNpmScript, { mode: 0o755 });
+    try {
+        const result = await runBootstrap({ home, mock: { origin: 'http://example.test', fixtures: {}, requestLogPath },
+            agent: 'commandcode', pathEnv: toolsDir, force: true });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /"nodeSource":"system"/);
+        await assert.rejects(readFile(requestLogPath));
+    } finally {
+        await rm(home, { recursive: true, force: true });
+        await rm(toolsDir, { recursive: true, force: true });
+    }
+});
+
+test('Command Code はシステム Node が無ければ専用 Node を取得し、次回は再取得しない', async () => {
+    const home = await makeHome('akari-commandcode-private-home-');
+    const archive = privateNodeArchive();
+    const requestLogPath = path.join(home, 'requests.txt');
+    try {
+        const first = await runBootstrap({ home, mock: nodeMock(archive, NODE_ASSET, requestLogPath),
+            agent: 'commandcode', extraEnv: nodeEnv(archive) });
+        assert.equal(first.code, 0, first.stderr || first.stdout);
+        assert.match(first.stdout, /"nodeSource":"private"/);
+        assert.equal((await lstat(path.join(home, 'runtime/node', `v${NODE_VERSION}`, 'bin/npm'))).isSymbolicLink(), true);
+        assert.equal((await readFile(requestLogPath, 'utf8')).trim().split('\n').length, 1);
+        await rm(requestLogPath);
+        const second = await runBootstrap({ home, mock: nodeMock(archive, NODE_ASSET, requestLogPath),
+            agent: 'commandcode', extraEnv: nodeEnv(archive) });
+        assert.equal(second.code, 0, second.stderr || second.stdout);
+        assert.match(second.stdout, /用意済みの AKARI 専用 Node.js を使います/);
+        assert.match(second.stdout, /"reused":true/);
+        await assert.rejects(readFile(requestLogPath));
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('既存の Command Code も Node が無ければ専用 Node を用意して再利用する', async () => {
+    const home = await makeHome('akari-commandcode-existing-private-home-');
+    const archive = privateNodeArchive();
+    const executable = path.join(home, '.local/bin/command-code');
+    await mkdir(path.dirname(executable), { recursive: true });
+    await writeFile(executable, '#!/usr/bin/env node\nconsole.log("1.45.0")\n', { mode: 0o755 });
+    try {
+        const result = await runBootstrap({ home, mock: nodeMock(archive), agent: 'commandcode', extraEnv: nodeEnv(archive) });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /"reused":true,"nodeSource":"private"/);
+        assert.equal(await readFile(path.join(home, 'runtime/node', `v${NODE_VERSION}`, 'command-code-installed'), 'utf8'), 'private\n');
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('専用 Node tar は pax の path と linkpath を使って展開する', async () => {
+    const home = await makeHome('akari-commandcode-pax-home-');
+    const archive = privateNodePaxArchive();
+    try {
+        const result = await runBootstrap({ home, mock: nodeMock(archive), agent: 'commandcode', extraEnv: nodeEnv(archive) });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.equal((await lstat(path.join(home, 'runtime/node', `v${NODE_VERSION}`, 'bin/npm'))).isSymbolicLink(), true);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('専用 Node の sha256 不一致は確定ディレクトリを作らない', async () => {
+    const home = await makeHome('akari-commandcode-hash-home-');
+    const archive = privateNodeArchive();
+    try {
+        const result = await runBootstrap({ home, mock: nodeMock(archive), agent: 'commandcode',
+            extraEnv: { ...nodeEnv(archive), AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON: JSON.stringify({ [NODE_ASSET]: '0'.repeat(64) }) } });
+        assert.equal(result.code, 1);
+        assert.match(result.stderr, /sha256 mismatch/);
+        await assert.rejects(stat(path.join(home, 'runtime/node', `v${NODE_VERSION}`)));
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('配布元 URL の上書きなしでは sha256 上書きを無視し、固定値で検証する', async () => {
+    const home = await makeHome('akari-commandcode-pinned-hash-home-');
+    const archive = privateNodeArchive();
+    const requestLogPath = path.join(home, 'requests.txt');
+    try {
+        const result = await runBootstrap({ home, mock: {
+            ...nodeMock(archive, NODE_ASSET, requestLogPath),
+            fixtures: { [`/dist/v${NODE_VERSION}/${NODE_ASSET}`]: fixture(archive) }
+        }, agent: 'commandcode',
+            extraEnv: {
+                AKARI_PARTNER_IGNORE_SYSTEM_NODE: '1',
+                AKARI_PARTNER_NODE_SHA256_OVERRIDE_JSON: JSON.stringify({
+                    [NODE_ASSET]: createHash('sha256').update(archive).digest('hex')
+                })
+            } });
+        assert.equal(result.code, 1);
+        assert.match(result.stderr, /sha256 mismatch/);
+        assert.match(result.stderr, /bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057/);
+        assert.equal(await readFile(requestLogPath, 'utf8'), `https://nodejs.org/dist/v${NODE_VERSION}/${NODE_ASSET}\n`);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+function makeZip(entries) {
+    const local = [];
+    const central = [];
+    let offset = 0;
+    for (const { name, content, method = 0 } of entries) {
+        const nameBytes = Buffer.from(name);
+        const raw = Buffer.from(content);
+        const compressed = method === 8 ? deflateRawSync(raw) : raw;
+        const header = Buffer.alloc(30);
+        header.writeUInt32LE(0x04034b50, 0);
+        header.writeUInt16LE(method, 8);
+        header.writeUInt32LE(compressed.length, 18);
+        header.writeUInt32LE(raw.length, 22);
+        header.writeUInt16LE(nameBytes.length, 26);
+        local.push(header, nameBytes, compressed);
+        const record = Buffer.alloc(46);
+        record.writeUInt32LE(0x02014b50, 0);
+        record.writeUInt16LE(method, 10);
+        record.writeUInt32LE(compressed.length, 20);
+        record.writeUInt32LE(raw.length, 24);
+        record.writeUInt16LE(nameBytes.length, 28);
+        record.writeUInt32LE(offset, 42);
+        central.push(record, nameBytes);
+        offset += header.length + nameBytes.length + compressed.length;
+    }
+    const directory = Buffer.concat(central);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0);
+    end.writeUInt16LE(entries.length, 8);
+    end.writeUInt16LE(entries.length, 10);
+    end.writeUInt32LE(directory.length, 12);
+    end.writeUInt32LE(offset, 16);
+    return Buffer.concat([...local, directory, end]);
+}
+
+test('Windows の専用 Node zip は全ファイルを展開する', async () => {
+    const home = await makeHome('akari-commandcode-win-node-home-');
+    const asset = `node-v${NODE_VERSION}-win-x64.zip`;
+    const root = `node-v${NODE_VERSION}-win-x64`;
+    const archive = makeZip([
+        { name: `${root}/node.exe`, content: fakeNodeScript },
+        { name: `${root}/npm.cmd`, content: fakeNpmScript, method: 8 },
+        { name: `${root}/node_modules/npm/package.json`, content: '{"name":"npm"}', method: 8 }
+    ]);
+    try {
+        const result = await runBootstrap({ home, mock: nodeMock(archive, asset), agent: 'commandcode',
+            platform: 'win32', arch: 'x64', extraEnv: nodeEnv(archive, asset) });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.equal(await readFile(path.join(home, 'runtime/node', `v${NODE_VERSION}`, 'node_modules/npm/package.json'), 'utf8'), '{"name":"npm"}');
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows の専用 Node zip はディレクトリ外への書き込みを拒否する', async () => {
+    const home = await makeHome('akari-commandcode-win-zipslip-home-');
+    const asset = `node-v${NODE_VERSION}-win-x64.zip`;
+    const archive = makeZip([{ name: '../escape.txt', content: 'unsafe' }]);
+    try {
+        const result = await runBootstrap({ home, mock: nodeMock(archive, asset), agent: 'commandcode',
+            platform: 'win32', arch: 'x64', extraEnv: nodeEnv(archive, asset) });
+        assert.equal(result.code, 1);
+        assert.match(result.stderr, /unsafe path/);
+        await assert.rejects(stat(path.join(home, 'runtime/node', `v${NODE_VERSION}`)));
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
+
+test('Windows の .cmd 起動は空白入りの command と各引数を引用する', () => {
+    const source = bootstrapRunner.toString();
+    const start = source.indexOf('function shellInvocation(');
+    const end = source.indexOf('async function run(', start);
+    assert.ok(start >= 0 && end > start);
+    const shellInvocation = new Function('process', 'os', `${source.slice(start, end)}\nreturn shellInvocation;`)(
+        { platform: 'win32' }, { platform: () => 'win32' }
+    );
+    const command = 'C:\\Users\\A B\\.local\\command-code.cmd';
+    const prefix = 'C:\\Users\\A B\\.local';
+    assert.deepEqual(shellInvocation(command, ['--prefix', prefix]), {
+        command: `"${command}"`, args: ['"--prefix"', `"${prefix}"`], shell: true
+    });
+    assert.equal(shellInvocation('C:\\A"B\\npm.cmd', []).command, '"C:\\A\\"B\\npm.cmd"');
 });
 
 function latestRelease(origin = '__ORIGIN__') {

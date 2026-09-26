@@ -1,0 +1,28 @@
+# partner-private-node — 検証方法（L1・darwin-arm64・2026-09-26）
+
+## 「システム Node が見えない」状態の作り方
+- 一時 HOME / 一時 AKARI_HOME（mktemp -d）、PATH=/usr/bin:/bin（macOS の /usr/bin に node は無い）
+- runner の実行体 = apps/shell/node_modules の Electron（ELECTRON_RUN_AS_NODE=1。製品の bootstrap() と同じ electron-as-node）
+- Electron を sandbox-exec で包み、/opt/homebrew と /usr/local の読み取りを拒否（既存コードが定数で探す /opt/homebrew/bin/node 等を物理的に隠す）
+- BEFORE（01）と AFTER（02）はまったく同じ条件。AFTER でもテスト用 env（AKARI_PARTNER_IGNORE_SYSTEM_NODE）は使っていない
+
+## sandbox プロファイル（deny-system-node.sb）
+(version 1)
+(allow default)
+(deny file-read* file-read-metadata (subpath "/opt/homebrew") (subpath "/usr/local"))
+
+## ドライバー（run-bootstrap.mjs — akari-partner-server.ts の bootstrap() と同じく `(${bootstrapRunner.toString()})()` を -e で渡す）
+// verification driver: runs bootstrapRunner like akari-partner-server.bootstrap() does
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+const [,, libPath, runtime, agent] = process.argv;
+const require = createRequire(import.meta.url);
+const { bootstrapRunner } = require(libPath);
+const src = `(${bootstrapRunner.toString()})()`;
+const t0 = Date.now();
+const child = spawn(runtime, ['-e', src, agent], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'inherit', 'inherit'] });
+child.on('exit', code => { console.log(`[driver] exit=${code} elapsed_ms=${Date.now() - t0}`); process.exitCode = code ?? 1; });
+
+## Electron ラッパー（sbx-electron.sh）
+#!/bin/sh
+exec /usr/bin/sandbox-exec -f <SCRATCH>/deny-system-node.sb "<REPO>/apps/shell/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron" "$@"
