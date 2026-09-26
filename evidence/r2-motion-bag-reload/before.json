@@ -1,0 +1,2579 @@
+{
+  "label": "before",
+  "cdpPort": 9576,
+  "httpPort": 49011,
+  "fixture": {
+    "items": [
+      {
+        "id": "shape-1",
+        "kind": "shape",
+        "color": "blue",
+        "at": 0
+      },
+      {
+        "id": "photo-1",
+        "kind": "photo",
+        "color": "red",
+        "at": 180
+      }
+    ],
+    "pointFrames": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60,
+      70,
+      80,
+      90,
+      100,
+      110
+    ]
+  },
+  "operations": [
+    {
+      "kind": "shape",
+      "number": 1,
+      "frame": 0,
+      "time": 0,
+      "action": {
+        "ok": true,
+        "via": "inspector-kf-seat:transform-x",
+        "pressed": "false"
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 1,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 0,
+        "transform": {
+          "x": 300,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 0,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -510.5,
+        "y": -189,
+        "count": 48286,
+        "box": {
+          "x": 297,
+          "y": 249,
+          "w": 306,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -510.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "before-shape-1.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 2,
+      "frame": 10,
+      "time": 0.3333333333333333,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "300",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 1,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 2,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 10,
+        "transform": {
+          "x": 310,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 0.333,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -500.5,
+        "y": -189,
+        "count": 48194,
+        "box": {
+          "x": 308,
+          "y": 249,
+          "w": 304,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -500.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 3,
+      "frame": 20,
+      "time": 0.6666666666666666,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "310",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 2,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 3,
+        "inlineRawCount": 3,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 20,
+        "transform": {
+          "x": 320,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 0.667,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -490.5,
+        "y": -188.5,
+        "count": 47892,
+        "box": {
+          "x": 317,
+          "y": 249,
+          "w": 306,
+          "h": 206
+        }
+      },
+      "expected": {
+        "x": -490.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0.5
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 4,
+      "frame": 30,
+      "time": 1,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "320",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 3,
+        "inlineRawCount": 3,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 4,
+        "inlineRawCount": 4,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 30,
+        "transform": {
+          "x": 330,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 1,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -480,
+        "y": -189,
+        "count": 48229,
+        "box": {
+          "x": 329,
+          "y": 249,
+          "w": 303,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -480.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0.5,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 5,
+      "frame": 40,
+      "time": 1.3333333333333333,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "330",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 4,
+        "inlineRawCount": 4,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 5,
+        "inlineRawCount": 5,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 40,
+        "transform": {
+          "x": 340,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 1.333,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -470.5,
+        "y": -189,
+        "count": 47864,
+        "box": {
+          "x": 337,
+          "y": 249,
+          "w": 306,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -470.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 6,
+      "frame": 50,
+      "time": 1.6666666666666667,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "340",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 5,
+        "inlineRawCount": 5,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 6,
+        "inlineRawCount": 6,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 50,
+        "transform": {
+          "x": 350,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 1.667,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -460,
+        "y": -189,
+        "count": 48270,
+        "box": {
+          "x": 349,
+          "y": 249,
+          "w": 303,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -460.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0.5,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 7,
+      "frame": 60,
+      "time": 2,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "350",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 6,
+        "inlineRawCount": 6,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 7,
+        "inlineRawCount": 7,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 60,
+        "transform": {
+          "x": 360,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 2,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -450,
+        "y": -189,
+        "count": 47815,
+        "box": {
+          "x": 358,
+          "y": 249,
+          "w": 305,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -450.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0.5,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 8,
+      "frame": 70,
+      "time": 2.3333333333333335,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "360",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 7,
+        "inlineRawCount": 7,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 8,
+        "inlineRawCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 70,
+        "transform": {
+          "x": 370,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 2.333,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -440,
+        "y": -189,
+        "count": 48234,
+        "box": {
+          "x": 369,
+          "y": 249,
+          "w": 303,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -440.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0.5,
+        "y": 0
+      },
+      "screenshot": "before-shape-8.png",
+      "targetEvents": [
+        {
+          "event": "destroyed",
+          "method": "Target.targetDestroyed",
+          "targetId": "32A40003EED386D8574D7C603F7CFCEF",
+          "webview": true,
+          "at": 1790386241899,
+          "step": "shape-8"
+        }
+      ],
+      "contextLosses": [],
+      "recreated": true
+    },
+    {
+      "kind": "shape",
+      "number": 9,
+      "frame": 80,
+      "time": 2.6666666666666665,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "370",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 8,
+        "inlineRawCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 9
+        },
+        "bagExists": true,
+        "bagCount": 9,
+        "bagRawCount": 9
+      },
+      "point": {
+        "t": 80,
+        "transform": {
+          "x": 380,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 2.667,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -430,
+        "y": -189,
+        "count": 48245,
+        "box": {
+          "x": 378,
+          "y": 249,
+          "w": 305,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -430.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0.5,
+        "y": 0
+      },
+      "screenshot": "before-shape-9.png",
+      "targetEvents": [
+        {
+          "event": "created",
+          "method": "Target.targetCreated",
+          "targetId": "C4487EE84A5E6AD34CDBD27241F24270",
+          "webview": true,
+          "at": 1790386246842,
+          "step": "shape-9"
+        },
+        {
+          "event": "created",
+          "method": "Target.targetCreated",
+          "targetId": "791CD937EAC77D573F4A96F426031C00",
+          "webview": false,
+          "at": 1790386246961,
+          "step": "shape-9"
+        },
+        {
+          "event": "destroyed",
+          "method": "Target.targetDestroyed",
+          "targetId": "DDDA66D79F99FA8FC32A9D3ACA57D43E",
+          "webview": false,
+          "at": 1790386247061,
+          "step": "shape-9"
+        }
+      ],
+      "contextLosses": [
+        {
+          "event": "destroyed",
+          "at": 1790386247072,
+          "step": "shape-9",
+          "session": "DE45A5C6BC16F73C89AEC723482C00CE"
+        },
+        {
+          "event": "evaluate-failed",
+          "at": 1790386248497,
+          "step": "shape-9",
+          "message": "Error: {\"code\":-32000,\"message\":\"Cannot find context with specified id\"}"
+        }
+      ],
+      "recreated": true
+    },
+    {
+      "kind": "shape",
+      "action": "undo 9→8",
+      "after": {
+        "inlineCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 2.667,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -440,
+        "y": -189,
+        "count": 48234,
+        "box": {
+          "x": 369,
+          "y": 249,
+          "w": 303,
+          "h": 205
+        }
+      },
+      "screenshot": "before-shape-undo.png",
+      "targetEvents": [
+        {
+          "event": "created",
+          "method": "Target.targetCreated",
+          "targetId": "2EE104739027D2A9DAC75D28C79B9756",
+          "webview": false,
+          "at": 1790386249130,
+          "step": "shape-undo-9-to-8"
+        },
+        {
+          "event": "destroyed",
+          "method": "Target.targetDestroyed",
+          "targetId": "791CD937EAC77D573F4A96F426031C00",
+          "webview": false,
+          "at": 1790386249171,
+          "step": "shape-undo-9-to-8"
+        }
+      ],
+      "contextLosses": [
+        {
+          "event": "destroyed",
+          "at": 1790386249175,
+          "step": "shape-undo-9-to-8",
+          "session": "BAA4F465801E40D6557D3AD118EE3B10"
+        },
+        {
+          "event": "destroyed",
+          "at": 1790386249175,
+          "step": "shape-undo-9-to-8",
+          "session": "DE45A5C6BC16F73C89AEC723482C00CE"
+        },
+        {
+          "event": "evaluate-failed",
+          "at": 1790386250807,
+          "step": "shape-undo-9-to-8",
+          "message": "Error: {\"code\":-32000,\"message\":\"Cannot find context with specified id\"}"
+        }
+      ],
+      "recreated": true
+    },
+    {
+      "kind": "shape",
+      "number": 9,
+      "frame": 80,
+      "time": 2.6666666666666665,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "370",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 8,
+        "inlineRawCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 9
+        },
+        "bagExists": true,
+        "bagCount": 9,
+        "bagRawCount": 9
+      },
+      "point": {
+        "t": 80,
+        "transform": {
+          "x": 380,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 2.667,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -430,
+        "y": -189,
+        "count": 48245,
+        "box": {
+          "x": 378,
+          "y": 249,
+          "w": 305,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -430.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0.5,
+        "y": 0
+      },
+      "screenshot": "before-shape-9.png",
+      "targetEvents": [
+        {
+          "event": "created",
+          "method": "Target.targetCreated",
+          "targetId": "AA0D0EC592016FE43672C9FB27F30D5F",
+          "webview": false,
+          "at": 1790386253142,
+          "step": "shape-9"
+        },
+        {
+          "event": "destroyed",
+          "method": "Target.targetDestroyed",
+          "targetId": "2EE104739027D2A9DAC75D28C79B9756",
+          "webview": false,
+          "at": 1790386253201,
+          "step": "shape-9"
+        }
+      ],
+      "contextLosses": [
+        {
+          "event": "destroyed",
+          "at": 1790386253202,
+          "step": "shape-9",
+          "session": "BAA4F465801E40D6557D3AD118EE3B10"
+        },
+        {
+          "event": "destroyed",
+          "at": 1790386253202,
+          "step": "shape-9",
+          "session": "62A19216E8AAE432DA22C95C77BEE094"
+        },
+        {
+          "event": "destroyed",
+          "at": 1790386253203,
+          "step": "shape-9",
+          "session": "DE45A5C6BC16F73C89AEC723482C00CE"
+        },
+        {
+          "event": "evaluate-failed",
+          "at": 1790386254762,
+          "step": "shape-9",
+          "message": "Error: {\"code\":-32000,\"message\":\"Cannot find context with specified id\"}"
+        }
+      ],
+      "recreated": true
+    },
+    {
+      "kind": "shape",
+      "number": 10,
+      "frame": 90,
+      "time": 3,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "380",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 9
+        },
+        "bagExists": true,
+        "bagCount": 9,
+        "bagRawCount": 9
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 10
+        },
+        "bagExists": true,
+        "bagCount": 10,
+        "bagRawCount": 10
+      },
+      "point": {
+        "t": 90,
+        "transform": {
+          "x": 390,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 3,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -420.5,
+        "y": -189,
+        "count": 48202,
+        "box": {
+          "x": 388,
+          "y": 249,
+          "w": 304,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -420.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "before-shape-10.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 11,
+      "frame": 100,
+      "time": 3.3333333333333335,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "390",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 10
+        },
+        "bagExists": true,
+        "bagCount": 10,
+        "bagRawCount": 10
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 11
+        },
+        "bagExists": true,
+        "bagCount": 11,
+        "bagRawCount": 11
+      },
+      "point": {
+        "t": 100,
+        "transform": {
+          "x": 400,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 3.333,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -411,
+        "y": -188.5,
+        "count": 48236,
+        "box": {
+          "x": 398,
+          "y": 249,
+          "w": 303,
+          "h": 206
+        }
+      },
+      "expected": {
+        "x": -410.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": -0.5,
+        "y": 0.5
+      },
+      "screenshot": "before-shape-11.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "shape",
+      "number": 12,
+      "frame": 110,
+      "time": 3.6666666666666665,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "400",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 11
+        },
+        "bagExists": true,
+        "bagCount": 11,
+        "bagRawCount": 11
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/shape-1.json",
+          "count": 12
+        },
+        "bagExists": true,
+        "bagCount": 12,
+        "bagRawCount": 12
+      },
+      "point": {
+        "t": 110,
+        "transform": {
+          "x": 410,
+          "y": 250
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "shape-1",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 3.667,
+          "selectedId": "shape-1",
+          "layerSelected": false,
+          "cutSelected": false
+        }
+      },
+      "measured": {
+        "x": -400.5,
+        "y": -189,
+        "count": 48226,
+        "box": {
+          "x": 407,
+          "y": 249,
+          "w": 306,
+          "h": 205
+        }
+      },
+      "expected": {
+        "x": -400.5,
+        "y": -189
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "before-shape-12.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 1,
+      "frame": 0,
+      "time": 6,
+      "action": {
+        "ok": true,
+        "via": "inspector-kf-seat:transform-x",
+        "pressed": "false"
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 1,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 0,
+        "transform": {
+          "x": 0,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 6,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 0,
+        "y": 49.5,
+        "count": 528144,
+        "box": {
+          "x": 474,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 0,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "before-photo-1.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 2,
+      "frame": 10,
+      "time": 6.333333333333333,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "0",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 1,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 2,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 10,
+        "transform": {
+          "x": 10,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 6.333,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 10,
+        "y": 49.5,
+        "count": 528142,
+        "box": {
+          "x": 484,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 10,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 3,
+      "frame": 20,
+      "time": 6.666666666666667,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "10",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 2,
+        "inlineRawCount": 2,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 3,
+        "inlineRawCount": 3,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 20,
+        "transform": {
+          "x": 20,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 6.667,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 20,
+        "y": 49.5,
+        "count": 528146,
+        "box": {
+          "x": 494,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 20,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 4,
+      "frame": 30,
+      "time": 7,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "20",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 3,
+        "inlineRawCount": 3,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 4,
+        "inlineRawCount": 4,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 30,
+        "transform": {
+          "x": 30,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 7,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 30,
+        "y": 49.5,
+        "count": 528143,
+        "box": {
+          "x": 504,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 30,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 5,
+      "frame": 40,
+      "time": 7.333333333333333,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "30",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 4,
+        "inlineRawCount": 4,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 5,
+        "inlineRawCount": 5,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 40,
+        "transform": {
+          "x": 40,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 7.333,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 40,
+        "y": 49.5,
+        "count": 528144,
+        "box": {
+          "x": 514,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 40,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 6,
+      "frame": 50,
+      "time": 7.666666666666667,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "40",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 5,
+        "inlineRawCount": 5,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 6,
+        "inlineRawCount": 6,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 50,
+        "transform": {
+          "x": 50,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 7.667,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 50,
+        "y": 49.5,
+        "count": 528144,
+        "box": {
+          "x": 524,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 50,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 7,
+      "frame": 60,
+      "time": 8,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "50",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 6,
+        "inlineRawCount": 6,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 7,
+        "inlineRawCount": 7,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 60,
+        "transform": {
+          "x": 60,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 8,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 60,
+        "y": 49.5,
+        "count": 528141,
+        "box": {
+          "x": 534,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 60,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": null,
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 8,
+      "frame": 70,
+      "time": 8.333333333333334,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "60",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 7,
+        "inlineRawCount": 7,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 8,
+        "inlineRawCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "point": {
+        "t": 70,
+        "transform": {
+          "x": 70,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 8.333,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 70,
+        "y": 49.5,
+        "count": 528146,
+        "box": {
+          "x": 544,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 70,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "before-photo-8.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 9,
+      "frame": 80,
+      "time": 8.666666666666666,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "70",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 8,
+        "inlineRawCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 9
+        },
+        "bagExists": true,
+        "bagCount": 9,
+        "bagRawCount": 9
+      },
+      "point": {
+        "t": 80,
+        "transform": {
+          "x": 80,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 8.667,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 0,
+        "y": 49.5,
+        "count": 528144,
+        "box": {
+          "x": 474,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 80,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": -80,
+        "y": 0
+      },
+      "screenshot": "before-photo-9.png",
+      "targetEvents": [
+        {
+          "event": "destroyed",
+          "method": "Target.targetDestroyed",
+          "targetId": "C4487EE84A5E6AD34CDBD27241F24270",
+          "webview": true,
+          "at": 1790386297049,
+          "step": "photo-9"
+        }
+      ],
+      "contextLosses": [],
+      "recreated": true
+    },
+    {
+      "kind": "photo",
+      "action": "undo 9→8",
+      "after": {
+        "inlineCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 8.667,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 70,
+        "y": 49.5,
+        "count": 528146,
+        "box": {
+          "x": 544,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "screenshot": "before-photo-undo.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 9,
+      "frame": 80,
+      "time": 8.666666666666666,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "70",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 8,
+        "inlineRawCount": 8,
+        "reference": null,
+        "bagExists": false,
+        "bagCount": 0,
+        "bagRawCount": 0
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 9
+        },
+        "bagExists": true,
+        "bagCount": 9,
+        "bagRawCount": 9
+      },
+      "point": {
+        "t": 80,
+        "transform": {
+          "x": 80,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 8.667,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 0,
+        "y": 49.5,
+        "count": 528144,
+        "box": {
+          "x": 474,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 80,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": -80,
+        "y": 0
+      },
+      "screenshot": "before-photo-9.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 10,
+      "frame": 90,
+      "time": 9,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "80",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 9
+        },
+        "bagExists": true,
+        "bagCount": 9,
+        "bagRawCount": 9
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 10
+        },
+        "bagExists": true,
+        "bagCount": 10,
+        "bagRawCount": 10
+      },
+      "point": {
+        "t": 90,
+        "transform": {
+          "x": 90,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 9,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 86,
+        "y": 49.5,
+        "count": 521962,
+        "box": {
+          "x": 564,
+          "y": 318,
+          "w": 965,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 90,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": -4,
+        "y": 0
+      },
+      "screenshot": "before-photo-10.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 11,
+      "frame": 100,
+      "time": 9.333333333333334,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "90",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 10
+        },
+        "bagExists": true,
+        "bagCount": 10,
+        "bagRawCount": 10
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 11
+        },
+        "bagExists": true,
+        "bagCount": 11,
+        "bagRawCount": 11
+      },
+      "point": {
+        "t": 100,
+        "transform": {
+          "x": 100,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 9.333,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 100,
+        "y": 49.5,
+        "count": 521491,
+        "box": {
+          "x": 574,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 100,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "before-photo-11.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    },
+    {
+      "kind": "photo",
+      "number": 12,
+      "frame": 110,
+      "time": 9.666666666666666,
+      "action": {
+        "ok": true,
+        "via": "inspector-transform-x-step",
+        "before": "100",
+        "shift": true
+      },
+      "before": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 11
+        },
+        "bagExists": true,
+        "bagCount": 11,
+        "bagRawCount": 11
+      },
+      "after": {
+        "inlineCount": 0,
+        "inlineRawCount": 0,
+        "reference": {
+          "path": "motion/photo-1.json",
+          "count": 12
+        },
+        "bagExists": true,
+        "bagCount": 12,
+        "bagRawCount": 12
+      },
+      "point": {
+        "t": 110,
+        "transform": {
+          "x": 110,
+          "y": 0,
+          "scale": 0.6,
+          "rotate": 0
+        }
+      },
+      "state": {
+        "inspector": {
+          "scrollTop": 0,
+          "selected": true,
+          "itemLabel": "photo-red.png",
+          "activeTab": true
+        },
+        "preview": {
+          "seek": 9.667,
+          "selectedId": null,
+          "layerSelected": false,
+          "cutSelected": true
+        }
+      },
+      "measured": {
+        "x": 110,
+        "y": 49.5,
+        "count": 521258,
+        "box": {
+          "x": 584,
+          "y": 318,
+          "w": 973,
+          "h": 544
+        }
+      },
+      "expected": {
+        "x": 110,
+        "y": 49.5
+      },
+      "deltaPx": {
+        "x": 0,
+        "y": 0
+      },
+      "screenshot": "before-photo-12.png",
+      "targetEvents": [],
+      "contextLosses": [],
+      "recreated": false
+    }
+  ],
+  "targetEvents": [
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "61C2E55BB1A0155847B8C19016B784E9",
+      "webview": false,
+      "at": 1790386198568,
+      "step": "startup"
+    },
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "4C6F4D518012D2912D1206BB8B2E0F73",
+      "webview": true,
+      "at": 1790386211671,
+      "step": "startup"
+    },
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "32A40003EED386D8574D7C603F7CFCEF",
+      "webview": true,
+      "at": 1790386211818,
+      "step": "startup"
+    },
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "DDDA66D79F99FA8FC32A9D3ACA57D43E",
+      "webview": false,
+      "at": 1790386211950,
+      "step": "startup"
+    },
+    {
+      "event": "destroyed",
+      "method": "Target.targetDestroyed",
+      "targetId": "32A40003EED386D8574D7C603F7CFCEF",
+      "webview": true,
+      "at": 1790386241899,
+      "step": "shape-8"
+    },
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "C4487EE84A5E6AD34CDBD27241F24270",
+      "webview": true,
+      "at": 1790386246842,
+      "step": "shape-9"
+    },
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "791CD937EAC77D573F4A96F426031C00",
+      "webview": false,
+      "at": 1790386246961,
+      "step": "shape-9"
+    },
+    {
+      "event": "destroyed",
+      "method": "Target.targetDestroyed",
+      "targetId": "DDDA66D79F99FA8FC32A9D3ACA57D43E",
+      "webview": false,
+      "at": 1790386247061,
+      "step": "shape-9"
+    },
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "2EE104739027D2A9DAC75D28C79B9756",
+      "webview": false,
+      "at": 1790386249130,
+      "step": "shape-undo-9-to-8"
+    },
+    {
+      "event": "destroyed",
+      "method": "Target.targetDestroyed",
+      "targetId": "791CD937EAC77D573F4A96F426031C00",
+      "webview": false,
+      "at": 1790386249171,
+      "step": "shape-undo-9-to-8"
+    },
+    {
+      "event": "created",
+      "method": "Target.targetCreated",
+      "targetId": "AA0D0EC592016FE43672C9FB27F30D5F",
+      "webview": false,
+      "at": 1790386253142,
+      "step": "shape-9"
+    },
+    {
+      "event": "destroyed",
+      "method": "Target.targetDestroyed",
+      "targetId": "2EE104739027D2A9DAC75D28C79B9756",
+      "webview": false,
+      "at": 1790386253201,
+      "step": "shape-9"
+    },
+    {
+      "event": "destroyed",
+      "method": "Target.targetDestroyed",
+      "targetId": "C4487EE84A5E6AD34CDBD27241F24270",
+      "webview": true,
+      "at": 1790386297049,
+      "step": "photo-9"
+    }
+  ],
+  "contextLosses": [
+    {
+      "event": "destroyed",
+      "at": 1790386247072,
+      "step": "shape-9",
+      "session": "DE45A5C6BC16F73C89AEC723482C00CE"
+    },
+    {
+      "event": "evaluate-failed",
+      "at": 1790386248497,
+      "step": "shape-9",
+      "message": "Error: {\"code\":-32000,\"message\":\"Cannot find context with specified id\"}"
+    },
+    {
+      "event": "destroyed",
+      "at": 1790386249175,
+      "step": "shape-undo-9-to-8",
+      "session": "BAA4F465801E40D6557D3AD118EE3B10"
+    },
+    {
+      "event": "destroyed",
+      "at": 1790386249175,
+      "step": "shape-undo-9-to-8",
+      "session": "DE45A5C6BC16F73C89AEC723482C00CE"
+    },
+    {
+      "event": "evaluate-failed",
+      "at": 1790386250807,
+      "step": "shape-undo-9-to-8",
+      "message": "Error: {\"code\":-32000,\"message\":\"Cannot find context with specified id\"}"
+    },
+    {
+      "event": "destroyed",
+      "at": 1790386253202,
+      "step": "shape-9",
+      "session": "BAA4F465801E40D6557D3AD118EE3B10"
+    },
+    {
+      "event": "destroyed",
+      "at": 1790386253202,
+      "step": "shape-9",
+      "session": "62A19216E8AAE432DA22C95C77BEE094"
+    },
+    {
+      "event": "destroyed",
+      "at": 1790386253203,
+      "step": "shape-9",
+      "session": "DE45A5C6BC16F73C89AEC723482C00CE"
+    },
+    {
+      "event": "evaluate-failed",
+      "at": 1790386254762,
+      "step": "shape-9",
+      "message": "Error: {\"code\":-32000,\"message\":\"Cannot find context with specified id\"}"
+    }
+  ],
+  "timelineOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "final": {
+    "shape-1": {
+      "inlineCount": 0,
+      "inlineRawCount": 0,
+      "reference": {
+        "path": "motion/shape-1.json",
+        "count": 12
+      },
+      "bagExists": true,
+      "bagCount": 12,
+      "bagRawCount": 12,
+      "points": [
+        {
+          "t": 0,
+          "transform": {
+            "x": 300,
+            "y": 250
+          }
+        },
+        {
+          "t": 10,
+          "transform": {
+            "x": 310,
+            "y": 250
+          }
+        },
+        {
+          "t": 20,
+          "transform": {
+            "x": 320,
+            "y": 250
+          }
+        },
+        {
+          "t": 30,
+          "transform": {
+            "x": 330,
+            "y": 250
+          }
+        },
+        {
+          "t": 40,
+          "transform": {
+            "x": 340,
+            "y": 250
+          }
+        },
+        {
+          "t": 50,
+          "transform": {
+            "x": 350,
+            "y": 250
+          }
+        },
+        {
+          "t": 60,
+          "transform": {
+            "x": 360,
+            "y": 250
+          }
+        },
+        {
+          "t": 70,
+          "transform": {
+            "x": 370,
+            "y": 250
+          }
+        },
+        {
+          "t": 80,
+          "transform": {
+            "x": 380,
+            "y": 250
+          }
+        },
+        {
+          "t": 90,
+          "transform": {
+            "x": 390,
+            "y": 250
+          }
+        },
+        {
+          "t": 100,
+          "transform": {
+            "x": 400,
+            "y": 250
+          }
+        },
+        {
+          "t": 110,
+          "transform": {
+            "x": 410,
+            "y": 250
+          }
+        }
+      ]
+    },
+    "photo-1": {
+      "inlineCount": 0,
+      "inlineRawCount": 0,
+      "reference": {
+        "path": "motion/photo-1.json",
+        "count": 12
+      },
+      "bagExists": true,
+      "bagCount": 12,
+      "bagRawCount": 12,
+      "points": [
+        {
+          "t": 0,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 10,
+          "transform": {
+            "x": 10,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 20,
+          "transform": {
+            "x": 20,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 30,
+          "transform": {
+            "x": 30,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 40,
+          "transform": {
+            "x": 40,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 50,
+          "transform": {
+            "x": 50,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 60,
+          "transform": {
+            "x": 60,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 70,
+          "transform": {
+            "x": 70,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 80,
+          "transform": {
+            "x": 80,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 90,
+          "transform": {
+            "x": 90,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 100,
+          "transform": {
+            "x": 100,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        },
+        {
+          "t": 110,
+          "transform": {
+            "x": 110,
+            "y": 0,
+            "scale": 0.6,
+            "rotate": 0
+          }
+        }
+      ]
+    }
+  }
+}

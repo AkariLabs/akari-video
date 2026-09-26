@@ -226,6 +226,7 @@ import {
     previewModelUpdateAction
 } from '../common/preview-model-diff';
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
+import { previewTrackedResourceSets } from '../common/motion-bag-preview-update';
 import {
     capturePreviewPlaybackTick,
     resolvePreviewRefreshRestore
@@ -4362,6 +4363,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 `${id}=${value.uri.toString()}|proxy=${value.proxyUri?.toString() ?? ''}`),
             assetUris: model.assetUris.map(uri => uri.toString()),
             overlayUris: model.overlayUris.map(uri => uri.toString()),
+            motionBagUris: (model.motionBagUris ?? []).map(uri => uri.toString()),
             output: { ...model.summary.output },
             // URL は内容ハッシュ付きなので、資産の中身が変わればここも変わる（旧: 本文そのもの）。
             overlayRuntimeAssets: [
@@ -4501,6 +4503,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             const updateAction = previewModelUpdateAction(updateKind, frameEngineEnabled);
             if (updateAction === 'none') {
+                if (model.motionBagUris?.length || widget.akariPreviewMotionBagResources?.size) {
+                    Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
+                }
                 if (frameEngineEnabled) {
                     const summary = this.summaryWithPreviousAssetUrls(widget, model);
                     widget.akariPreviewSummary = summary;
@@ -4517,6 +4522,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             if (updateAction === 'legacy-incremental' || updateAction === 'frame-engine-incremental') {
+                if (model.motionBagUris?.length || widget.akariPreviewMotionBagResources?.size) {
+                    Object.assign(widget, previewTrackedResourceSets(model, uri => this.resourceSuffix(uri)));
+                }
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
@@ -5289,6 +5297,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 warnedKinds: new Set<string>(),
                 warn: (message: string): void => console.warn(message)
             };
+            const hydratedMotionBagUris: URI[] = [];
+            await resolvePreviewItemKeyframes(internal, {
+                readText: async path => {
+                    const uri = await this.resolveEditAssetUri(path, editUri);
+                    hydratedMotionBagUris.push(uri);
+                    return this.readText(uri);
+                },
+                onWarning: (message, error) => console.warn(message, error)
+            });
             const cutItems = collectItems(internal, 'cuts', itemWarningState);
             const firstCutSourceId = cutItems
                 .map(item => item.declaration.src)
@@ -5470,6 +5487,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     motionBagUris.push(uri);
                 }
             };
+            for (const uri of hydratedMotionBagUris) registerMotionBagUri(uri);
             // 断片ファイルの読み出しは項目ごとに独立。同じ参照は 1 回だけ読み、木全体を並列に辿る。
             const overlayHtmlTasks = new Map<string, Promise<void>>();
             const loadOverlayTree = async (item: typeof internal.tracks[number]['items'][number], trackId: string): Promise<void> => {
@@ -5512,14 +5530,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 await Promise.all(pending);
             };
             await Promise.all(internal.tracks.flatMap(track => track.items.map(item => loadOverlayTree(item, track.id))));
-            await resolvePreviewItemKeyframes(internal, {
-                readText: async path => {
-                    const bagUri = await this.resolveEditAssetUri(path, editUri);
-                    registerMotionBagUri(bagUri);
-                    return this.readText(bagUri);
-                },
-                onWarning: (message, error) => console.warn(message, error)
-            });
             // BEGIN preview selection tree (overlays only, before flattening loses ancestry)
             type TreeItem = typeof internal.tracks[number]['items'][number];
             // Preserve the shared renderer's single mount for all-scanned bags.

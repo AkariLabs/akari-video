@@ -20,7 +20,7 @@ const itemChildren = (item: InternalItem): readonly InternalItem[] =>
     Array.isArray(item.children) ? item.children : [];
 
 /**
- * HTML item の motion 袋参照を秒単位の inline 配列へ解決する。内部表現の
+ * item の motion 袋参照を秒単位の inline 配列へ解決する。内部表現の
  * inline 点は既に秒単位であり、expandBagOverlays の既定も秒単位。
  * 失敗は警告だけに留め、
  * declaration を変更しないことで overlay-runtime の静的値へフォールバックする。
@@ -51,8 +51,7 @@ export async function resolvePreviewItemKeyframes(
     };
 
     const visit = async (item: InternalItem): Promise<void> => {
-        if (item.source.kind === 'html'
-            && item.keyframesRef
+        if (item.keyframesRef
             && !Array.isArray(item.declaration.keyframes)) {
             const path = typeof item.keyframesRef.path === 'string' ? item.keyframesRef.path : '';
             if (!path) {

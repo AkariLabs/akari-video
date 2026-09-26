@@ -1,7 +1,10 @@
+import { samePageOverlayReferences } from './motion-bag-preview-update';
+
 export interface PreviewModelDiffInput {
     sourceUris: string[];
     assetUris: string[];
     overlayUris: string[];
+    motionBagUris?: string[];
     output: { width: number; height: number; fps?: number };
     overlayRuntimeAssets: string[];
     captions?: unknown;
@@ -79,7 +82,7 @@ export const classifyPreviewModelUpdate = (
     if (!sameJson(previous.sourceUris, next.sourceUris)
         // 素材解決は並列化されて登録順が揺れうる（task/2026-09-02-preview-perf）。集合として比べる。
         || !sameJson([...previous.assetUris].sort(), [...next.assetUris].sort())
-        || !sameJson([...previous.overlayUris].sort(), [...next.overlayUris].sort())
+        || !samePageOverlayReferences(previous, next)
         || !sameJson(previous.output, next.output)
         || !sameJson(previous.overlayRuntimeAssets, next.overlayRuntimeAssets)
         || !sameJson(previous.captions, next.captions)
