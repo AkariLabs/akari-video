@@ -1,0 +1,671 @@
+{
+  "phase": "after",
+  "base": "83afc351c",
+  "checks": [
+    {
+      "name": "2 フォント一覧: 日本語の表示名（その書体・18〜20px）+ 英字名（小さく）/ 日本語でも英字でも検索できる",
+      "pass": true,
+      "ms": 5141,
+      "detail": {
+        "rows": [
+          {
+            "id": "biz-udgothic",
+            "text": "BIZ UDゴシック BIZ UDGothic Aa Bb 123 · 同梱",
+            "name": "BIZ UDゴシック",
+            "nameFont": "BIZ UDGothic",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "BIZ UDGothic",
+            "englishSize": "10px"
+          },
+          {
+            "id": "dela-gothic-one",
+            "text": "Dela Gothic One あ字 Dela Gothic One Aa Bb 123 · 同梱",
+            "name": "Dela Gothic One あ字",
+            "nameFont": "Dela Gothic One",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "Dela Gothic One",
+            "englishSize": "10px"
+          },
+          {
+            "id": "dotgothic16",
+            "text": "ドットゴシック16 DotGothic16 Aa Bb 123 · 同梱",
+            "name": "ドットゴシック16",
+            "nameFont": "DotGothic16",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "DotGothic16",
+            "englishSize": "10px"
+          },
+          {
+            "id": "klee-one",
+            "text": "クレー One Klee One Aa Bb 123 · 同梱",
+            "name": "クレー One",
+            "nameFont": "Klee One",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "Klee One",
+            "englishSize": "10px"
+          },
+          {
+            "id": "mplus-rounded-1c",
+            "text": "M PLUS Rounded 1c あ字 M PLUS Rounded 1c Aa Bb 123 · 同梱",
+            "name": "M PLUS Rounded 1c あ字",
+            "nameFont": "M PLUS Rounded 1c",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "M PLUS Rounded 1c",
+            "englishSize": "10px"
+          },
+          {
+            "id": "noto-sans-jp",
+            "text": "Noto Sans JP あ字 Noto Sans JP Aa Bb 123 · 同梱",
+            "name": "Noto Sans JP あ字",
+            "nameFont": "AKARI Noto Sans JP",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "Noto Sans JP",
+            "englishSize": "10px"
+          },
+          {
+            "id": "noto-serif-jp",
+            "text": "Noto Serif JP あ字 Noto Serif JP Aa Bb 123 · 同梱",
+            "name": "Noto Serif JP あ字",
+            "nameFont": "Noto Serif JP",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "Noto Serif JP",
+            "englishSize": "10px"
+          },
+          {
+            "id": "shippori-mincho",
+            "text": "しっぽり明朝 Shippori Mincho Aa Bb 123 · 同梱",
+            "name": "しっぽり明朝",
+            "nameFont": "Shippori Mincho",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "Shippori Mincho",
+            "englishSize": "10px"
+          },
+          {
+            "id": "zen-maru-gothic",
+            "text": "Zen丸ゴシック Zen Maru Gothic Aa Bb 123 · 同梱",
+            "name": "Zen丸ゴシック",
+            "nameFont": "Zen Maru Gothic",
+            "nameSize": "19px",
+            "faceLoaded": true,
+            "english": "Zen Maru Gothic",
+            "englishSize": "10px"
+          }
+        ],
+        "search": {
+          "明朝": [
+            "shippori-mincho"
+          ],
+          "しっぽり": [
+            "shippori-mincho"
+          ],
+          "Shippori": [
+            "shippori-mincho"
+          ],
+          "ゴシック": [
+            "biz-udgothic",
+            "dotgothic16",
+            "zen-maru-gothic"
+          ],
+          "ドット": [
+            "dotgothic16"
+          ],
+          "DotGothic": [
+            "dotgothic16"
+          ],
+          "丸": [
+            "zen-maru-gothic"
+          ]
+        },
+        "shot": "after-2-font-names.png"
+      }
+    },
+    {
+      "name": "(a-1) 書体のホバー → 出力プレビューの字幕がその書体に（captions.json は不変）",
+      "pass": true,
+      "ms": 631,
+      "detail": {
+        "plateInitial": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "plateDuringHover": {
+          "font": "\"Dela Gothic One\"",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "otherVisiblePlates": [],
+        "shot": "after-a1-font-hover.png"
+      }
+    },
+    {
+      "name": "(a-2) Esc → 元の書体に戻る（書き込みなし）",
+      "pass": true,
+      "ms": 245,
+      "detail": {
+        "plate": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "panel": "font",
+        "shot": "after-a2-font-escape.png"
+      }
+    },
+    {
+      "name": "(a-3) 離れる → 戻る",
+      "pass": true,
+      "ms": 164,
+      "detail": {
+        "during": "\"Shippori Mincho\"",
+        "after": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif"
+      }
+    },
+    {
+      "name": "(a-4) クリックで確定: 書き込み 1 回（font_family だけ）・確定の瞬間にちらつかない（元の書体のフレーム 0）",
+      "pass": true,
+      "ms": 4553,
+      "detail": {
+        "changedKeys": [
+          "font_family"
+        ],
+        "plate": {
+          "font": "\"Dela Gothic One\"",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "frames": {
+          "frames": 234,
+          "runs": [
+            [
+              "Dela Gothic One|900",
+              234
+            ]
+          ]
+        },
+        "shot": "after-a4-font-click-commit.png"
+      }
+    },
+    {
+      "name": "(a-5) undo 1 回（Cmd+Z）で captions.json が元と byte 一致・プレビューも元の書体",
+      "pass": true,
+      "ms": 1201,
+      "detail": {
+        "captionsEqualFixture": true,
+        "plate": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "shot": "after-a5-font-undo.png"
+      }
+    },
+    {
+      "name": "(c) 太さのホバー（BIZ UDゴシック 400）→ プレビューの字幕がその書体・太さに（書き込みなし）→ 離れると戻る",
+      "pass": true,
+      "ms": 1168,
+      "detail": {
+        "plateDuringHover": {
+          "font": "\"BIZ UDGothic\"",
+          "weight": "400",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "plateAfterLeave": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "shot": "after-c-weight-hover.png"
+      }
+    },
+    {
+      "name": "(b) スタイルのホバー → 色・座布団がプレビューに出る（書き込みなし）→ 離れると戻る",
+      "pass": true,
+      "ms": 1520,
+      "detail": {
+        "plateDuringHover": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "700",
+          "color": "rgb(255, 255, 255)",
+          "stroke": "7.84px rgba(0, 0, 0, 0.9)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgb(198, 40, 40)"
+        },
+        "plateAfterLeave": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "shot": "after-b-style-hover.png"
+      }
+    },
+    {
+      "name": "解除: ホバー中にパネルを閉じる / 選択を変える → 一時スタイルが外れる",
+      "pass": true,
+      "ms": 4505,
+      "detail": {
+        "afterClose": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        },
+        "afterSelectionChange": {
+          "c0001": null,
+          "c0002": {
+            "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+            "weight": "700",
+            "color": "rgb(255, 255, 255)",
+            "stroke": "5.32px rgba(0, 0, 0, 0.9)",
+            "shadow": "rgba(0, 0, 0, 0.35) 0px 2px 8px",
+            "bg": "rgba(0, 0, 0, 0)"
+          }
+        },
+        "c0001AfterReselect": {
+          "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+          "weight": "900",
+          "color": "rgb(255, 212, 0)",
+          "stroke": "10px rgb(209, 43, 43)",
+          "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+          "bg": "rgba(30, 58, 138, 0.85)"
+        }
+      }
+    },
+    {
+      "name": "3 「…」の中: アイコン + 名前・オンの項目に印・名前が切れない",
+      "pass": true,
+      "ms": 5563,
+      "detail": {
+        "items": [
+          {
+            "key": "captionBullet",
+            "visibleText": "•☰ 箇条書き",
+            "aria": "箇条書き",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": {
+              "text": "箇条書き",
+              "clipped": false,
+              "overflow": "ellipsis"
+            },
+            "icon": {
+              "w": 25,
+              "overflows": false,
+              "text": "•☰",
+              "svg": false,
+              "overlapsLabel": false
+            }
+          },
+          {
+            "key": "captionSpacing",
+            "visibleText": "↔ 間隔",
+            "aria": "間隔",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": {
+              "text": "間隔",
+              "clipped": false,
+              "overflow": "ellipsis"
+            },
+            "icon": {
+              "w": 25,
+              "overflows": false,
+              "text": "↔",
+              "svg": false,
+              "overlapsLabel": false
+            }
+          },
+          {
+            "key": "captionVertical",
+            "visibleText": "縦書 縦書き",
+            "aria": "縦書き",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": {
+              "text": "縦書き",
+              "clipped": false,
+              "overflow": "ellipsis"
+            },
+            "icon": {
+              "w": 25,
+              "overflows": false,
+              "text": "縦書",
+              "svg": false,
+              "overlapsLabel": false
+            }
+          },
+          {
+            "key": "captionOpacity",
+            "visibleText": "透明度",
+            "aria": "透明度",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": {
+              "text": "透明度",
+              "clipped": false,
+              "overflow": "ellipsis"
+            },
+            "icon": {
+              "w": 25,
+              "overflows": false,
+              "text": "",
+              "svg": true,
+              "overlapsLabel": false
+            }
+          },
+          {
+            "key": "captionEffect",
+            "visibleText": "エフェクト",
+            "aria": "エフェクト",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": {
+              "text": "エフェクト",
+              "clipped": false,
+              "overflow": "ellipsis"
+            },
+            "icon": {
+              "w": 25,
+              "overflows": false,
+              "text": "",
+              "svg": true,
+              "overlapsLabel": false
+            }
+          },
+          {
+            "key": "captionAnimation",
+            "visibleText": "アニメーション",
+            "aria": "アニメーション",
+            "pressed": "false",
+            "cls": "akari-ctx-item akari-ctx-caption-item",
+            "w": 146,
+            "h": 30,
+            "label": {
+              "text": "アニメーション",
+              "clipped": false,
+              "overflow": "ellipsis"
+            },
+            "icon": {
+              "w": 25,
+              "overflows": false,
+              "text": "",
+              "svg": true,
+              "overlapsLabel": false
+            }
+          }
+        ],
+        "pressedItems": [
+          {
+            "key": "captionBullet",
+            "pressed": "true"
+          },
+          {
+            "key": "captionSpacing",
+            "pressed": "false"
+          },
+          {
+            "key": "captionVertical",
+            "pressed": "false"
+          },
+          {
+            "key": "captionOpacity",
+            "pressed": "false"
+          },
+          {
+            "key": "captionEffect",
+            "pressed": "false"
+          },
+          {
+            "key": "captionAnimation",
+            "pressed": "false"
+          }
+        ],
+        "onMark": {
+          "check": "✓",
+          "cls": "akari-ctx-item akari-ctx-caption-item is-open",
+          "color": "rgb(251, 146, 60)",
+          "bg": "rgba(90, 93, 94, 0.31)"
+        },
+        "offMark": {
+          "check": "",
+          "cls": "akari-ctx-item akari-ctx-caption-item",
+          "color": "rgb(204, 204, 204)",
+          "bg": "rgba(0, 0, 0, 0)"
+        },
+        "shots": [
+          "after-3-overflow-open.png",
+          "after-3-overflow-pressed.png"
+        ]
+      }
+    },
+    {
+      "name": "4 エフェクト → 「効果」欄",
+      "pass": true,
+      "ms": 3167,
+      "detail": {
+        "via": "overflow",
+        "tab": "tab:inspector-text",
+        "section": {
+          "id": "style:effect",
+          "open": true,
+          "top": 274,
+          "h": 206,
+          "visiblePx": 206
+        },
+        "flash": [
+          {
+            "cls": "akari-inspector-reveal-flash",
+            "ui": "section:inspector-style:effect"
+          }
+        ],
+        "visible": [
+          "style:background",
+          "style:effect",
+          "style:position",
+          "timing"
+        ],
+        "shot": "after-4-effect.png"
+      }
+    },
+    {
+      "name": "4 アニメーション → 動きの欄",
+      "pass": true,
+      "ms": 3144,
+      "detail": {
+        "via": "overflow",
+        "tab": "tab:inspector-motion",
+        "section": {
+          "id": "animator",
+          "open": true,
+          "top": 124,
+          "h": 76,
+          "visiblePx": 76
+        },
+        "flash": [
+          {
+            "cls": "akari-inspector-reveal-flash",
+            "ui": "section:inspector-animator"
+          }
+        ],
+        "visible": [
+          "animator"
+        ],
+        "shot": "after-4-animation.png"
+      }
+    },
+    {
+      "name": "4 設定をもっと見る → 「文字」欄",
+      "pass": true,
+      "ms": 3851,
+      "detail": {
+        "via": "spacing-window",
+        "tab": "tab:inspector-text",
+        "section": {
+          "id": "style",
+          "open": true,
+          "top": 20,
+          "h": 232,
+          "visiblePx": 232
+        },
+        "flash": [
+          {
+            "cls": "akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          }
+        ],
+        "visible": [
+          "content",
+          "style",
+          "style:stroke",
+          "style:background",
+          "style:effect"
+        ],
+        "shot": "after-4-more-settings.png"
+      }
+    },
+    {
+      "name": "4 エフェクト → 「効果」欄（フォントパネルが開いているとき → 閉じて移る）",
+      "pass": true,
+      "ms": 3629,
+      "detail": {
+        "via": "overflow",
+        "tab": "tab:inspector-text",
+        "section": {
+          "id": "style:effect",
+          "open": true,
+          "top": 274,
+          "h": 206,
+          "visiblePx": 206
+        },
+        "flash": [
+          {
+            "cls": "akari-inspector-reveal-flash",
+            "ui": "section:inspector-style:effect"
+          }
+        ],
+        "visible": [
+          "style:background",
+          "style:effect",
+          "style:position",
+          "timing"
+        ],
+        "shot": "after-4-effect-from-font-panel.png"
+      }
+    },
+    {
+      "name": "4 アニメーション → 動きの欄（フォントパネルが開いているとき）",
+      "pass": true,
+      "ms": 3380,
+      "detail": {
+        "via": "overflow",
+        "tab": "tab:inspector-motion",
+        "section": {
+          "id": "animator",
+          "open": true,
+          "top": 124,
+          "h": 76,
+          "visiblePx": 76
+        },
+        "flash": [
+          {
+            "cls": "akari-inspector-reveal-flash",
+            "ui": "section:inspector-animator"
+          }
+        ],
+        "visible": [
+          "animator"
+        ],
+        "shot": "after-4-animation-from-font-panel.png"
+      }
+    },
+    {
+      "name": "4 設定をもっと見る → 「文字」欄（フォントパネルが開いているとき）",
+      "pass": true,
+      "ms": 4269,
+      "detail": {
+        "via": "spacing-window",
+        "tab": "tab:inspector-text",
+        "section": {
+          "id": "style",
+          "open": true,
+          "top": 20,
+          "h": 232,
+          "visiblePx": 232
+        },
+        "flash": [
+          {
+            "cls": "akari-inspector-reveal-flash",
+            "ui": "section:inspector-style"
+          }
+        ],
+        "visible": [
+          "content",
+          "style",
+          "style:stroke",
+          "style:background",
+          "style:effect"
+        ],
+        "shot": "after-4-more-settings-from-font-panel.png"
+      }
+    }
+  ],
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "plateInitial": {
+    "font": "\"AKARI Noto Sans JP\", \"Noto Sans JP\", sans-serif",
+    "weight": "900",
+    "color": "rgb(255, 212, 0)",
+    "stroke": "10px rgb(209, 43, 43)",
+    "shadow": "rgba(0, 0, 0, 0.6) 0px 6px 6px",
+    "bg": "rgba(30, 58, 138, 0.85)"
+  },
+  "captionsFinalEqualFixture": true,
+  "status": "pass"
+}

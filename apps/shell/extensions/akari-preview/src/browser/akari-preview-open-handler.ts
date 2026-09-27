@@ -2,6 +2,7 @@ import { previewSelectionHandlesStyle } from './preview-selection-handles-style'
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
+import { createCaptionStylePreviewController } from '../common/caption-style-preview';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { previewLiveValues } from '../common/preview-live-values';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
@@ -1785,6 +1786,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged)
         });
+        const onCaptionPanelPreview = (event: Event): void => {
+            const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown; committed?: boolean }>).detail;
+            if (typeof detail?.captionId !== 'string') return;
+            for (const preview of this.openOutputPreviews.values()) {
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', ...detail });
+            }
+        };
+        window.addEventListener('akari-caption-panel-preview', onCaptionPanelPreview);
+        this.lifecycleDisposables.push({ dispose: () =>
+            window.removeEventListener('akari-caption-panel-preview', onCaptionPanelPreview) });
+        const onCaptionPanelChanged = (event: Event): void => {
+            if ((event as CustomEvent<{ panel?: string | null }>).detail?.panel !== null) return;
+            for (const preview of this.openOutputPreviews.values()) {
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: '', textStyle: null });
+            }
+        };
+        window.addEventListener('akari-caption-panel-changed', onCaptionPanelChanged);
+        this.lifecycleDisposables.push({ dispose: () =>
+            window.removeEventListener('akari-caption-panel-changed', onCaptionPanelChanged) });
         const onSelectCaptionRun = (event: Event): void => {
             const detail = (event as CustomEvent<{ captionId?: string; from?: number; to?: number }>).detail;
             if (!detail || typeof detail.captionId !== 'string' || !Number.isInteger(detail.from)
@@ -15885,6 +15905,10 @@ body { display: grid; place-items: center; padding: 32px; }
             // positionFromRects は common/caption-zone-write.ts の純関数と同じ規則を webview 内へ
             // 最小複製する（既存の caption style 変数ミラーと同じ方式）。
             let selectedCaptionId = null;
+            const captionStylePreview = (${createCaptionStylePreviewController.toString()})(
+                (style, output) => window.AkariEditKernel.resolveCaptionLineStyleVars(style, output),
+                family => document.fonts.load('400 19px ' + JSON.stringify(family), 'あ字'),
+                () => renderCaption(), summary.output);
             let pendingCaptionDragReload = false;
             // 表示系の切り替えはプレビューのセッション中だけ保持する。
             const captionClampOverrides = new Map();
@@ -16538,6 +16562,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 selectedCaptionId = captionId;
+                captionStylePreview.selectionChanged(captionId);
                 window.akari.syncRunSelection?.();
                 if (captionId) {
                     selectLayer(null, { report: false });
@@ -18778,6 +18803,7 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             window.addEventListener('blur', () => setCaptionAltAll(false));
             const renderCaptionRow = (caption, row) => {
+                caption = captionStylePreview.resolve(caption, selectedCaptionId);
                 const captionPlate = row.plate;
                 if (activeCaptionEdit?.element.closest('.caption-row-plate') === captionPlate) return;
                 if (caption !== row.renderedCaption) {
@@ -21112,11 +21138,17 @@ body { display: grid; place-items: center; padding: 32px; }
                             { report: false, preserveGroup: true });
                     }
                     applyCaptionSelectionAttrs();
+                    captionStylePreview.selectionChanged(selectedCaptionId);
                     updateCaptionSelectBox();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-caption-style-preview') {
+                    void captionStylePreview.receive(message);
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
                     clearLiveOverride();
+                    captionStylePreview.captionsUpdated();
                     captions = Array.isArray(message.captions) ? message.captions : [];
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();

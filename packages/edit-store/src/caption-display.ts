@@ -1759,6 +1759,11 @@ export function captionAnchorPositionVars(
     return vars;
 }
 
+function cssCaptionFontFamily(value: string): string {
+    if (value.includes(',') || /^(['"]).*\1$/s.test(value.trim())) return value;
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number): Record<string, string> {
     const vars: Record<string, string> = {};
     const px = (value: number): number => scaleCaptionPx(value, scale);
@@ -1787,7 +1792,7 @@ function resolveCaptionLineStyleVarsAtScale(style: UnknownRecord, scale: number)
             ? '--plate-block-radius' : extendedBackground ? '--plate-ext-radius' : '--plate-radius';
         vars[name] = `${px(style.background.radius_px)}px`;
     }
-    if (typeof style.font_family === 'string') vars['--caption-font-family'] = style.font_family;
+    if (typeof style.font_family === 'string') vars['--caption-font-family'] = cssCaptionFontFamily(style.font_family);
     if (finiteNumber(style.weight)) vars['--caption-font-weight'] = String(style.weight);
     else if (Number.isInteger(style.font_weight)) vars['--caption-font-weight'] = String(style.font_weight);
     if (style.italic) vars['--caption-font-style'] = 'italic';
@@ -1927,7 +1932,7 @@ export function resolveCaptionWordStyleVars(
     if (typeof style.color === 'string') vars['--caption-tok-color'] = style.color;
     if (finitePositive(style.size_px)) vars['--caption-tok-font-size'] = `${formatCssNumber(style.size_px * scale)}px`;
     if (typeof style.font_family === 'string' && style.font_family.length > 0) {
-        vars['--caption-tok-font-family'] = style.font_family;
+        vars['--caption-tok-font-family'] = cssCaptionFontFamily(style.font_family);
     }
     if (Number.isInteger(style.weight) && (style.weight as number) >= 100 && (style.weight as number) <= 900) {
         vars['--caption-tok-font-weight'] = String(style.weight);

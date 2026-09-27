@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import * as visual from '../lib/common/caption-visual-contract.js';
 import { PREVIEW_CAPTION_ANIMATION_RECIPES } from '../lib/common/caption-text-animation-recipes.js';
 import { captionEntryAnimationsSettled } from '../lib/common/caption-hit-region.js';
+import { createCaptionStylePreviewController } from '../lib/common/caption-style-preview.js';
 import { outputTimeForSourceClock } from '../lib/common/preview-playback-clock.js';
 const require = createRequire(import.meta.url);
 const { applyCaptionRunsToHtml } = require('../../../../../packages/edit-store/lib/index.js');
@@ -170,6 +171,8 @@ export function harness({ text = source, cues = [], engine = true, available = t
         fps: 30, totalTimelineDuration: 60, videoDuration: () => 60,
         timelineToSource: time => ({ index: 0, kind: 'src', time }), enterSegment: noop, frameEngineMediaIdle: false
     });
+    context.captionStylePreview = createCaptionStylePreviewController(() => ({}), async () => [],
+        () => vm.runInContext('renderCaption();', context), summary.output);
     vm.runInContext(`const captionLayer = document.getElementById('caption-plate');
         const captionRows = new Map();
         const captionSelectBox = { children: [], appendChild(child) { child.parentElement = this; this.children.push(child); },

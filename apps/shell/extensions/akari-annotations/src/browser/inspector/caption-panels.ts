@@ -1,6 +1,7 @@
 import { createCaptionHoverPreview } from '../../common/caption-hover-preview';
 import { CAPTION_PANEL_FONTS } from '../../common/caption-panel-catalog';
-import { captionFontRowDetail, captionFontWeights, captionPanelTextStyle, filterCaptionFonts,
+import { filterCaptionPanelFonts } from '../../common/caption-font-label';
+import { captionFontRowDetail, captionFontWeights, captionPanelTextStyle,
     renderableCaptionFonts, type CaptionPanel } from '../../common/caption-panel-state';
 import type { CaptionTextStyle } from '../../common/caption-store';
 import { TEXTSTYLE_CATALOG } from '@akari-video/edit-store';
@@ -66,6 +67,7 @@ export const CAPTION_PANEL_CSS = `
 .akari-caption-font-row button:hover,.akari-caption-font-row button:focus-visible,.akari-caption-style-card:hover,.akari-caption-style-card:focus-visible { background:var(--akari-elevated);outline-color:var(--akari-accent); }
 .akari-caption-font-name { display:block;font-size:19px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .akari-caption-font-detail { display:block;font-size:10px;color:var(--akari-muted); }
+.akari-caption-font-english { display:block;font-size:10px;color:var(--akari-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .akari-caption-font-weights { grid-column:2;display:grid; }
 .akari-caption-font-weights button { padding:5px 8px;font-size:14px; }
 .akari-caption-style-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px; }
@@ -176,7 +178,7 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             }), { fontFamily: family }, actions));
         }
         root.append(recent);
-        const visible = filterCaptionFonts(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
+        const visible = filterCaptionPanelFonts(renderableCaptionFonts(CAPTION_PANEL_FONTS, fontFaces),
             state.query, state.filters);
         const title = heading(document, `フォント一覧（${visible.length}件）`);
         const add = button(document, '＋', actions.openLibrary, ['data-akari-font-add', '']);
@@ -200,10 +202,12 @@ export function createCaptionPanel(document: Document, panel: CaptionPanel, stat
             });
             const name = document.createElement('span'); name.className = 'akari-caption-font-name';
             name.style.fontFamily = `${JSON.stringify(family)}, sans-serif`;
-            name.textContent = font.title;
+            name.textContent = font.displayName ?? font.title;
+            const english = document.createElement('span'); english.className = 'akari-caption-font-english';
+            english.textContent = font.title;
             const detail = document.createElement('span'); detail.className = 'akari-caption-font-detail';
             detail.textContent = captionFontRowDetail(font.tags);
-            face.append(name, detail); row.append(previewable(face, { fontFamily: family }, actions));
+            face.append(name, english, detail); row.append(previewable(face, { fontFamily: family }, actions));
             if (state.expandedFont === font.id && weights.length > 1) {
                 const weightList = document.createElement('div'); weightList.className = 'akari-caption-font-weights';
                 for (const weight of weights) {

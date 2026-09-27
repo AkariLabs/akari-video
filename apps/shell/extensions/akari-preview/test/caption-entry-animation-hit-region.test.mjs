@@ -109,6 +109,7 @@ const captionLayer=document.getElementById('caption-plate'); const captionRows=n
 const stage=document.body;
 let selectedCaptionIds=new Set();
 ${inlineScript(selectionSource)}
+const captionStylePreview={resolve:caption=>caption};
 const captions=[{id:'caption-fixture',start:10,end:14,text:'字幕',style:'pop',textStyle:{color:'#fff'},words:[{start:10,end:11,text:'字幕'}]}];
 let outputTime=0;
 let activeCaption=null;

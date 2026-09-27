@@ -6080,6 +6080,11 @@ ${indent}`);
         }
         return vars;
       }
+      function cssCaptionFontFamily(value) {
+        if (value.includes(",") || /^(['"]).*\1$/s.test(value.trim()))
+          return value;
+        return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+      }
       function resolveCaptionLineStyleVarsAtScale(style, scale) {
         const vars = {};
         const px = (value) => scaleCaptionPx(value, scale);
@@ -6106,7 +6111,7 @@ ${indent}`);
           vars[name] = `${px(style.background.radius_px)}px`;
         }
         if (typeof style.font_family === "string")
-          vars["--caption-font-family"] = style.font_family;
+          vars["--caption-font-family"] = cssCaptionFontFamily(style.font_family);
         if (finiteNumber2(style.weight))
           vars["--caption-font-weight"] = String(style.weight);
         else if (Number.isInteger(style.font_weight))
@@ -6243,7 +6248,7 @@ ${indent}`);
         if (finitePositive4(style.size_px))
           vars["--caption-tok-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
         if (typeof style.font_family === "string" && style.font_family.length > 0) {
-          vars["--caption-tok-font-family"] = style.font_family;
+          vars["--caption-tok-font-family"] = cssCaptionFontFamily(style.font_family);
         }
         if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
           vars["--caption-tok-font-weight"] = String(style.weight);

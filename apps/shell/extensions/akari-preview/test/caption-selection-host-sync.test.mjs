@@ -57,6 +57,7 @@ for (const origin of ['preview', 'transcript', 'timeline']) {
             callbacks.push(event => transcript.receivePlacedSelection(event.detail.editUri, event.detail.captionId));
             const context = vm.createContext({
                 selectedCaptionId: null, activeCaptionEdit: null, selectedLayerId: null, cutSelected: false,
+                captionStylePreview: { selectionChanged() {} },
                 selectedCaptionIds: new Set(origin === 'preview' ? [] : ['c-0101']), applyCaptionSelectionAttrs() {},
                 requestedCutId: undefined, requestedOverlayId: null, updateCaptionSelectBox() {},
                 selectLayer() {}, deselectCut() {}, window: { akari: { reportCaptionSelection: captionId => host.forwardCaptionSelection(widget, { captionId }) } }

@@ -18,7 +18,49 @@ test('フォント索引スナップショットは catalog/font の meta.json �
                 tags: meta.tags.filter(tag => FONT_TAGS.has(tag)),
                 bundled: existsSync(new URL(`assets/font/${id}/`, root)) };
         });
-    assert.deepEqual(CAPTION_PANEL_FONTS, actual);
+    assert.deepEqual(CAPTION_PANEL_FONTS.map(({ displayName, ...font }) => font), actual);
+});
+
+/** Read only the Japanese family/typographic-family names from an sfnt name table. */
+function japaneseFamilyNames(file) {
+    const bytes = readFileSync(file);
+    const count = bytes.readUInt16BE(4);
+    let table;
+    for (let i = 0; i < count; i++) {
+        const entry = 12 + i * 16;
+        if (bytes.toString('ascii', entry, entry + 4) === 'name') table = bytes.readUInt32BE(entry + 8);
+    }
+    assert.ok(table !== undefined);
+    const names = [];
+    const storage = table + bytes.readUInt16BE(table + 4);
+    for (let i = 0; i < bytes.readUInt16BE(table + 2); i++) {
+        const entry = table + 6 + i * 12;
+        const platform = bytes.readUInt16BE(entry);
+        const language = bytes.readUInt16BE(entry + 4);
+        const nameId = bytes.readUInt16BE(entry + 6);
+        if (![1, 16].includes(nameId) || platform !== 3 || language !== 0x0411) continue;
+        const start = storage + bytes.readUInt16BE(entry + 10);
+        const name = new TextDecoder('utf-16be').decode(bytes.subarray(start,
+            start + bytes.readUInt16BE(entry + 8)));
+        if (name && !names.includes(name)) names.push(name);
+    }
+    return names;
+}
+
+test('同梱フォントの日本語表示名は日本語 name テーブルと一致し、未収録はあ字を添える', () => {
+    const fonts = new URL('assets/font/', root);
+    for (const font of CAPTION_PANEL_FONTS.filter(item => item.bundled)) {
+        const directory = new URL(`${font.id}/`, fonts);
+        const files = readdirSync(directory).filter(name => /\.(ttf|otf)$/iu.test(name));
+        const japanese = [...new Set(files.flatMap(name => japaneseFamilyNames(new URL(name, directory))))];
+        if (font.id === 'zen-maru-gothic') {
+            assert.equal(font.displayName, 'Zen丸ゴシック');
+        } else if (japanese.length) {
+            assert.ok(japanese.includes(font.displayName), `${font.id}: ${japanese.join(', ')}`);
+        } else {
+            assert.equal(font.displayName, `${font.title} あ字`, font.id);
+        }
+    }
 });
 
 test('実行時テキストスタイル一覧は presets/textstyle/index.jsonl と一致する', () => {
