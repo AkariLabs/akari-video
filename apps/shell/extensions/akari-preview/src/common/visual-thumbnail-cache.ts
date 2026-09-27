@@ -23,7 +23,13 @@ export class VisualThumbnailCache {
     private timer: ReturnType<typeof setTimeout> | undefined;
     private timerAt = 0;
 
-    constructor(private readonly changed: () => void, readonly maxEntries = 96,
+    /**
+     * `changed` はエントリが 1 件動くたびに、その key を添えて呼ぶ。購読側が key で
+     * 絞れると、サムネイル 1 枚の焼き上がりで購読者全員を再描画せずに済む
+     * （カードが数千枚並ぶ素材ライブラリではその差がそのまま操作の重さになる）。
+     * key を見ない購読者はこれまでどおり全更新として扱ってよい。
+     */
+    constructor(private readonly changed: (key?: string) => void, readonly maxEntries = 96,
         readonly maxBytes = 24 * 1024 * 1024, readonly maxQueued = 32) { }
 
     get size(): number { return this.cache.size; }
@@ -108,7 +114,7 @@ export class VisualThumbnailCache {
         if (this.disposed) return;
         if (job.valid?.() === false) {
             this.stats.discarded++;
-            this.changed(); this.schedule(); return;
+            this.changed(job.key); this.schedule(); return;
         }
         const previous = this.retries.get(job.key);
         if (transient) {
@@ -125,13 +131,17 @@ export class VisualThumbnailCache {
         if (this.cache.has(job.key)) this.bytes -= cost(job.key, this.cache.get(job.key)!);
         this.cache.set(job.key, value); this.bytes += cost(job.key, value);
         this.wantedByKey.set(job.key, job.wanted);
+        const evicted: string[] = [];
         while (this.cache.size > this.maxEntries || this.bytes > this.maxBytes) {
             const key = this.cache.keys().next().value as string;
             this.bytes -= cost(key, this.cache.get(key)!); this.cache.delete(key);
             this.wantedByKey.delete(key);
             this.retries.delete(key); this.queue.delete(key);
+            evicted.push(key);
         }
-        this.changed();
+        this.changed(job.key);
+        // 押し出された分も持ち主に知らせる（key で絞る購読者が取り直せるように）
+        for (const key of evicted) this.changed(key);
         this.schedule();
     }
 }

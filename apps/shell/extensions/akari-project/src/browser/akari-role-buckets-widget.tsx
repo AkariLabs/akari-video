@@ -4965,8 +4965,27 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.openLibraryMenuAt(event, { kind: 'asset', item });
             },
             onInfo: anchor => this.openLibraryInfo({ kind: 'asset', item }, anchor),
-            onThumbnailError: () => this.handleCatalogThumbnailError(item)
+            onThumbnailError: () => this.handleCatalogThumbnailError(item),
+            onPreview: interactive ? () => { void this.previewCatalogItem(item); } : undefined
         };
+    }
+
+    /**
+     * カード本体のクリック = 素材のプレビュー。素材タブのカード（openFile）と同じ感覚で
+     * 開けるようにする。⋯ は情報カード、右クリックは操作メニューのまま。
+     * 実体 URL（mediaUrl）があればそれを、無ければサムネイル（previewUrl）を開く。
+     */
+    protected async previewCatalogItem(item: AssetCatalogViewItem): Promise<void> {
+        const source = item.mediaUrl ?? item.previewUrl;
+        if (!source) {
+            this.messages.info(`「${item.title}」はまだ手元に無いので開けません。⋯ から取り寄せてください。`);
+            return;
+        }
+        try {
+            await this.openFile(new URI(source));
+        } catch (error) {
+            this.messages.warn(`プレビューを開けませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     protected renderCatalogAudioListControl(item: AssetCatalogViewItem): React.ReactNode {

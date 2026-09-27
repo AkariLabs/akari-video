@@ -9,9 +9,23 @@ import { thumbnailCropRect, ThumbnailContentRect } from 'akari-preview/lib/commo
 import { hoverFrameTimes, hoverPopupPosition } from '../common/material-card-hover';
 
 type AssetPage = Awaited<ReturnType<AkariPreviewService['prepareAssetVisualThumbnail']>>;
-const listeners = new Set<() => void>();
+
+/**
+ * 購読はサムネイルの key 単位。以前は 1 枚焼き上がるたびに全カードを再描画していて、
+ * カタログが数千件になるとライブラリ上でカードを掴むだけで固まっていた。
+ * key を持たない通知（将来の全更新）は全員に配る。
+ */
+const listeners = new Map<string, Set<() => void>>();
+const allListeners = new Set<() => void>();
 /** All material cards, including duplicates, share one bounded single-flight queue. */
-export const visualThumbnails = new VisualThumbnailCache(() => { for (const changed of listeners) changed(); });
+export const visualThumbnails = new VisualThumbnailCache(key => {
+    if (key === undefined) {
+        for (const changed of allListeners) changed();
+        return;
+    }
+    const subscribers = listeners.get(key);
+    if (subscribers) for (const changed of subscribers) changed();
+});
 
 interface Props { assetUri: string; service: AkariPreviewService; files: FileService; icon: string; }
 
@@ -43,6 +57,8 @@ class MaterialHoverController {
     private current?: number;
     private observer: IntersectionObserver;
     private resizeObserver: ResizeObserver;
+    /** このカードが購読中のサムネイル key。dispose でまとめて外す。 */
+    private subscribed = new Set<string>();
     private fileChanges: { dispose(): void };
     private readonly motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
@@ -61,7 +77,6 @@ class MaterialHoverController {
             this.generation++; this.close(); this.metadata = undefined; this.frames.clear(); this.loading = false;
             this.paint(); this.refresh();
         });
-        listeners.add(this.refresh);
         card.addEventListener('mouseenter', this.enter);
         card.addEventListener('mouseleave', this.close);
         window.addEventListener('scroll', this.close, true);
@@ -102,6 +117,7 @@ class MaterialHoverController {
             const wanted = (): boolean => this.alive && this.visible && generation === this.generation
                 && (time === midpoint || (this.hovered && hoverGeneration === this.hoverGeneration));
             const key = visualThumbnailKey(page.assetUri, `t=${time}`, [page.mtime, page.size]);
+            this.subscribe(key);
             const value = visualThumbnails.request({ key, priority: time === midpoint ? 0 : 1, wanted, valid: wanted,
                 capture: async () => {
                     const prepared = await this.props.service.prepareAssetVisualThumbnail({ assetUri: page.assetUri, time });
@@ -208,9 +224,25 @@ class MaterialHoverController {
         }
     }
 
+    /** このカードが今ほしがっている key だけを購読する（解除は dispose でまとめて）。 */
+    private subscribe(key: string): void {
+        if (this.subscribed.has(key)) return;
+        this.subscribed.add(key);
+        let subscribers = listeners.get(key);
+        if (!subscribers) { subscribers = new Set(); listeners.set(key, subscribers); }
+        subscribers.add(this.refresh);
+    }
+
     dispose(): void {
         this.alive = false; this.close(); this.observer.disconnect(); this.resizeObserver.disconnect(); this.fileChanges.dispose();
-        listeners.delete(this.refresh);
+        for (const key of this.subscribed) {
+            const subscribers = listeners.get(key);
+            if (!subscribers) continue;
+            subscribers.delete(this.refresh);
+            if (!subscribers.size) listeners.delete(key);
+        }
+        this.subscribed.clear();
+        allListeners.delete(this.refresh);
         this.card.removeEventListener('mouseenter', this.enter); this.card.removeEventListener('mouseleave', this.close);
         window.removeEventListener('scroll', this.close, true); window.removeEventListener('resize', this.close);
         window.removeEventListener('keydown', this.keydown); this.motion.removeEventListener('change', this.close);
