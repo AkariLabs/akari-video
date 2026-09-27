@@ -363,6 +363,7 @@ function validateTextStyle(value, label) {
     "font_family", "weight", "italic", "underline", "strikethrough", "list", "opacity", "letter_spacing_em", "align",
     "vertical_align", "vertical", "text_transform", "max_width_pct", "wrap_width_pct", "max_characters", "text_anchor",
     "position", "scale", "rotate", "shadow", "glow", "animation", "reference_height_px",
+    "stroke_inner", "fill_gradient", "extrude",
   ]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
@@ -384,6 +385,9 @@ function validateTextStyle(value, label) {
     fail(`${label}.line_height は 0 より大きい有限数である必要があります`);
   }
   if (hasOwn(value, "stroke")) validateTextStrokeStyle(value.stroke, `${label}.stroke`);
+  if (hasOwn(value, "stroke_inner")) validateInnerStroke(value.stroke_inner, `${label}.stroke_inner`);
+  if (hasOwn(value, "fill_gradient")) validateFillGradient(value.fill_gradient, `${label}.fill_gradient`);
+  if (hasOwn(value, "extrude")) validateExtrude(value.extrude, `${label}.extrude`);
   if (hasOwn(value, "background")) {
     validateTextBackgroundStyle(value.background, `${label}.background`);
   }
@@ -548,6 +552,30 @@ function validateTextStrokeStyle(value, label) {
   if (hasOwn(value, "width_px") && (!isFiniteNumber(value.width_px) || value.width_px < 0)) {
     fail(`${label}.width_px は 0 以上の有限数である必要があります`);
   }
+}
+
+function validateInnerStroke(value, label) {
+  if (!isPlainObject(value)) return fail(`${label} は object である必要があります`);
+  for (const key of Object.keys(value)) if (key !== "color" && key !== "width_px") fail(`${label} に未知のキーがあります: ${key}`);
+  if (hasOwn(value, "color")) validateHexColor(value.color, `${label}.color`);
+  if (hasOwn(value, "width_px") && (!isFiniteNumber(value.width_px) || value.width_px < 0)) fail(`${label}.width_px は 0 以上の有限数である必要があります`);
+}
+
+function validateFillGradient(value, label) {
+  if (!isPlainObject(value)) return fail(`${label} は object である必要があります`);
+  for (const key of Object.keys(value)) if (key !== "colors" && key !== "angle_deg") fail(`${label} に未知のキーがあります: ${key}`);
+  if (!Array.isArray(value.colors) || value.colors.length < 2 || value.colors.length > 3) fail(`${label}.colors は 2〜3 色の配列である必要があります`);
+  else value.colors.forEach((color, index) => validateHexColor(color, `${label}.colors[${index}]`));
+  if (!isFiniteNumber(value.angle_deg)) fail(`${label}.angle_deg は有限数である必要があります`);
+}
+
+function validateExtrude(value, label) {
+  if (!isPlainObject(value)) return fail(`${label} は object である必要があります`);
+  for (const key of Object.keys(value)) if (!["depth_px", "color", "color_end", "angle_deg"].includes(key)) fail(`${label} に未知のキーがあります: ${key}`);
+  if (!Number.isInteger(value.depth_px) || value.depth_px < 1 || value.depth_px > 32) fail(`${label}.depth_px は 1〜32 の整数である必要があります`);
+  validateHexColor(value.color, `${label}.color`);
+  if (hasOwn(value, "color_end")) validateHexColor(value.color_end, `${label}.color_end`);
+  if (!isFiniteNumber(value.angle_deg)) fail(`${label}.angle_deg は有限数である必要があります`);
 }
 
 function validateDisplayPolicy(value) {

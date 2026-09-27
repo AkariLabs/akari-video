@@ -207,6 +207,12 @@ export function evaluateGpuEligibility({
       continue;
     }
     const textStyle = mergeTextStyle(inheritedTextStyle, cue?.text_style);
+    const richLooks = ["stroke_inner", "fill_gradient", "extrude"]
+      .filter((name) => textStyle?.[name] != null);
+    if (richLooks.length > 0) {
+      entries.push(entry("caption", id, "unsupported", `caption-rich-look-${richLooks[0]}-unsupported`, richLooks));
+      continue;
+    }
     const animation = textStyle?.animation ?? null;
     const motionSupport = isCaptionMotionSupported(animation);
     if (!motionSupport.supported) {

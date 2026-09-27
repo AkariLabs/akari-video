@@ -1,0 +1,154 @@
+{
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 2,
+      "text": "二重縁 黒と白",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "text_style": {
+        "color": "#ffffff",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 9
+        },
+        "stroke_inner": {
+          "color": "#ffffff",
+          "width_px": 3
+        },
+        "size_px": 72
+      }
+    },
+    {
+      "id": "c-0002",
+      "start": 2,
+      "end": 4,
+      "text": "二重縁 白と色",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "text_style": {
+        "color": "#ffffff",
+        "stroke": {
+          "color": "#ffffff",
+          "width_px": 8
+        },
+        "stroke_inner": {
+          "color": "#2563eb",
+          "width_px": 3
+        },
+        "size_px": 72
+      }
+    },
+    {
+      "id": "c-0003",
+      "start": 4,
+      "end": 6,
+      "text": "夕焼けグラデーション",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "text_style": {
+        "stroke": {
+          "color": "#000000",
+          "width_px": 3
+        },
+        "fill_gradient": {
+          "colors": [
+            "#fb923c",
+            "#f43f5e",
+            "#8b5cf6"
+          ],
+          "angle_deg": 90
+        },
+        "size_px": 72
+      }
+    },
+    {
+      "id": "c-0004",
+      "start": 6,
+      "end": 8,
+      "text": "海のグラデーション",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "text_style": {
+        "fill_gradient": {
+          "colors": [
+            "#22d3ee",
+            "#1d4ed8"
+          ],
+          "angle_deg": 115
+        },
+        "size_px": 72
+      }
+    },
+    {
+      "id": "c-0005",
+      "start": 8,
+      "end": 10,
+      "text": "虹色グラデーション",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "text_style": {
+        "fill_gradient": {
+          "colors": [
+            "#f43f5e",
+            "#facc15",
+            "#22c55e"
+          ],
+          "angle_deg": 45
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.6,
+          "blur_px": 4,
+          "distance_px": 5,
+          "angle_deg": 90
+        },
+        "size_px": 72
+      }
+    },
+    {
+      "id": "c-0006",
+      "start": 10,
+      "end": 12,
+      "text": "立体 金",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "text_style": {
+        "color": "#fcd34d",
+        "extrude": {
+          "depth_px": 8,
+          "color": "#a16207",
+          "color_end": "#5c2a09",
+          "angle_deg": 135
+        },
+        "size_px": 72
+      }
+    },
+    {
+      "id": "c-0007",
+      "start": 12,
+      "end": 14,
+      "text": "立体 銀灰",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": true,
+      "text_style": {
+        "color": "#e5e7eb",
+        "extrude": {
+          "depth_px": 7,
+          "color": "#64748b",
+          "color_end": "#334155",
+          "angle_deg": 135
+        },
+        "size_px": 72
+      }
+    }
+  ]
+}

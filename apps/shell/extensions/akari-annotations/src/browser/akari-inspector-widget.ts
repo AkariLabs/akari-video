@@ -67,7 +67,8 @@ import { shapeLiveMarkup } from './inspector/shape-live';
 import { itemMotionMarks } from './inspector/motion-marks';
 import { isInspectorStillImage } from './inspector/edit-target';
 import {
-    CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch,
+    CAPTION_BACKGROUND_ON_OPACITY, captionEffectFromStyle, captionEffectPatch, captionEffectTransitionPatch,
+    captionEffectPreviewStyle,
     captionEffectColorPatch, captionEffectStrength, captionEffectStrengthPatch,
     CAPTION_EFFECT_GROUPS, captionEffectCard, captionEffectAdjustmentKeys,
     captionEffectAdjustmentValue, captionEffectAdjustmentPatch
@@ -1584,8 +1585,8 @@ function CAPTION_SECTIONS(
                             return { ok: false, message: '効果を選んでください。' };
                         }
                         return requestWrite({ kind: 'caption-style-effect', id: snapshot.id,
-                            value: { ...captionEffectPatch(nextValue as Parameters<typeof captionEffectPatch>[0],
-                                effective?.color ?? CAPTION_STYLE_DEFAULTS.color),
+                            value: { ...captionEffectTransitionPatch(nextValue as Parameters<typeof captionEffectPatch>[0],
+                                effective?.color ?? CAPTION_STYLE_DEFAULTS.color, effective),
                                 ...(nextValue === 'none' && (currentEffect.startsWith('bg-')
                                     || currentEffect === 'combo-band-outline') ? { background: { opacity: 0 } } : {}) },
                             ...requestOptions });
@@ -1714,13 +1715,18 @@ function CAPTION_SECTIONS(
                         'shadow.distancePx': '距離', 'shadow.angleDeg': '角度', 'shadow.blurPx': 'ぼかし',
                         'glow.color': '光の色', 'glow.density': '光の強さ', 'glow.spread': '広がり',
                         'stroke.color': '縁の色', 'stroke.widthPx': '縁の太さ',
+                        'strokeInner.color': '内縁の色', 'strokeInner.widthPx': '内縁の太さ',
+                        'fillGradient.color0': '色 1', 'fillGradient.color1': '色 2',
+                        'fillGradient.color2': '色 3', 'fillGradient.angleDeg': '角度',
+                        'extrude.depthPx': '奥行き', 'extrude.color': '奥行きの色',
+                        'extrude.colorEnd': '奥の色', 'extrude.angleDeg': '向き',
                         'background.color': '帯の色', 'background.opacity': '帯の濃さ',
                         'background.radiusPx': '角丸', 'background.paddingPx': '余白'
                     };
                     return {
                         name: `caption-effect-adjust-${path.replace('.', '-')}`,
                         label: labels[path] ?? path,
-                        inputKind: path.endsWith('.color') ? 'color' as const : 'scrub-number' as const,
+                        inputKind: /\.color(?:End|[0-2])?$/u.test(path) ? 'color' as const : 'scrub-number' as const,
                         getValue: () => captionEffectAdjustmentValue(effective ?? {}, path),
                         getEditValue: () => captionEffectAdjustmentValue(effective ?? {}, path),
                         min: 0, max: path.endsWith('.opacity') ? 1 : undefined,
@@ -8691,10 +8697,10 @@ export class AkariInspectorWidget extends BaseWidget {
             const caption = snapshot.kind === 'caption' ? snapshot : undefined;
             const preview = (id: string): void => {
                 if (!caption) return;
-                const patch = captionEffectPatch(id as Parameters<typeof captionEffectPatch>[0],
-                    caption.effectiveTextStyle?.color ?? '#ffffff');
+                const patch = captionEffectTransitionPatch(id as Parameters<typeof captionEffectPatch>[0],
+                    caption.effectiveTextStyle?.color ?? '#ffffff', caption.effectiveTextStyle);
                 this.runCaptionPanelPreview({ type: 'enter', captionId: caption.id,
-                    textStyle: { ...caption.effectiveTextStyle, ...patch } as CaptionTextStyle });
+                    textStyle: captionEffectPreviewStyle(caption.effectiveTextStyle, patch) });
             };
             const imageGroups: Array<Array<{ id: Parameters<typeof captionEffectImage>[0]; image: HTMLImageElement }>> = [];
             for (const group of CAPTION_EFFECT_GROUPS) {

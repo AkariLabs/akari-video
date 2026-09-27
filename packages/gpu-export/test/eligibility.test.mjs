@@ -28,6 +28,24 @@ test("static HTML is same and eligible", () => {
   assert.deepEqual(result.summary, { same: 1, three: 0, dom: 0, degraded: 0, unsupported: 0 });
 });
 
+test('rich caption looks force OSR for cue and inherited styles', () => {
+  for (const [key, value] of [
+    ['stroke_inner', { color: '#ffffff', width_px: 3 }],
+    ['fill_gradient', { colors: ['#fb923c', '#8b5cf6'], angle_deg: 90 }],
+    ['extrude', { depth_px: 8, color: '#a16207', angle_deg: 135 }],
+  ]) {
+    for (const inherited of [false, true]) {
+      const cue = { id: 'rich', start: 0, end: 1, text: 'x',
+        ...(inherited ? {} : { text_style: { [key]: value } }) };
+      const result = evaluateGpuEligibility({ edit: { overlays: [], output: {} },
+        captions: [cue], ...(inherited ? { defaultTextStyle: { [key]: value } } : {}) });
+      assert.equal(result.eligible, false, `${key} inherited=${inherited}`);
+      assert.equal(result.entries[0].classification, 'unsupported');
+      assert.equal(result.entries[0].reason, `caption-rich-look-${key}-unsupported`);
+    }
+  }
+});
+
 test("depth transforms in CSS animations and inline styles degrade while zero depth remains eligible", () => {
   for (const transform of ["perspective(500px) rotateY(30deg)", "rotateX(10deg)", "translateZ(2px)", "translate3d(1px,2px,3px)", "matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,2,1)"]) {
     const html = `<style>@keyframes turn{to{transform:${transform}}}</style><div style="animation:turn 2s both">Neutral</div>`;

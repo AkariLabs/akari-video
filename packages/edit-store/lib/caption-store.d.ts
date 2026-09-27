@@ -80,6 +80,20 @@ export interface CaptionTextStyle {
         color?: string;
         widthPx?: number;
     };
+    strokeInner?: {
+        color?: string;
+        widthPx?: number;
+    };
+    fillGradient?: {
+        colors: string[];
+        angleDeg: number;
+    };
+    extrude?: {
+        depthPx: number;
+        color: string;
+        colorEnd?: string;
+        angleDeg: number;
+    };
     background?: {
         color?: string;
         opacity?: number;
@@ -110,6 +124,20 @@ export interface CaptionTextStylePatch {
         color?: string | null;
         widthPx?: number | null;
     };
+    strokeInner?: {
+        color?: string;
+        widthPx?: number;
+    } | null;
+    fillGradient?: {
+        colors: string[];
+        angleDeg: number;
+    } | null;
+    extrude?: {
+        depthPx: number;
+        color: string;
+        colorEnd?: string;
+        angleDeg: number;
+    } | null;
     background?: {
         color?: string | null;
         opacity?: number | null;

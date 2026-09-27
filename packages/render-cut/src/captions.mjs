@@ -390,6 +390,9 @@ function finiteNumber(value) {
 }
 
 export function renderResolvedSingleLineCaption(text, lines, cue) {
+  const richGradientCss = cue?.text_style?.fill_gradient
+    ? '      background-image:var(--caption-fill-gradient,none);\n      -webkit-background-clip:var(--caption-fill-clip,border-box);\n      -webkit-text-fill-color:var(--caption-fill-color,currentColor);\n      -webkit-text-stroke:0 transparent;\n      text-shadow:none;\n      filter:var(--caption-fill-filter,none);\n'
+    : '';
   const sizeToInk = cue?.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1);
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
@@ -463,7 +466,7 @@ ${sizeToInk ? '      margin-inline:var(--caption-plate-margin,auto);\n' : ''}   
       padding:var(--plate-pad-y,0) var(--plate-pad-x,0);
       border-radius:var(--plate-radius,0);
       background:var(--plate-bg,transparent);
-      text-align:var(--caption-text-align,center);
+${richGradientCss}      text-align:var(--caption-text-align,center);
       white-space:nowrap;
       animation:none;
       transform:none;
@@ -801,6 +804,9 @@ function isValidWord(word) {
 }
 
 export function renderCaptionFragment(text, options = {}) {
+  const richGradientCss = options.contextStyle?.fill_gradient
+    ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
+    : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
   const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
   const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
@@ -951,7 +957,7 @@ ${linePlacementCss}
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
-${lineTextAlignCss}      white-space: pre;
+${richGradientCss}${lineTextAlignCss}      white-space: pre;
 ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}${captionContextCss(options.contextStyle, { blockMode })}
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
@@ -972,6 +978,9 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
 // 個々のトークン要素に data-start は不要（sub-c5 が想定する別ランタイムと異なり、render-cut の
 // __akariSeek はコンテナ単位でしか data-start を見ないため）。
 export function renderStyledCaptionFragment(words, style, options = {}) {
+  const richGradientCss = options.contextStyle?.fill_gradient
+    ? '      background-image: var(--caption-fill-gradient, none);\n      -webkit-background-clip: var(--caption-fill-clip, border-box);\n      -webkit-text-fill-color: var(--caption-fill-color, currentColor);\n      -webkit-text-stroke: 0 transparent;\n      text-shadow: none;\n      filter: var(--caption-fill-filter, none);\n'
+    : '';
   const maximum = options.maximum ?? DEFAULT_MAX_CHARACTERS;
   const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
   const lineMaxWidth = options.sizeToInk ? 'none' : '92%';
@@ -1157,7 +1166,7 @@ ${linePlacementCss}
       padding: var(--plate-pad-y, 0.08em) var(--plate-pad-x, 0.42em);
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
-${lineTextAlignCss}      white-space: pre;
+${richGradientCss}${lineTextAlignCss}      white-space: pre;
 ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}${captionContextCss(options.contextStyle, { blockMode })}
     .akari-caption__tok {
       display: inline-block;
@@ -1165,7 +1174,9 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
       line-height: 1;
       paint-order: stroke fill;
       will-change: transform, color;
-    }
+    }${options.contextStyle?.fill_gradient ? `
+    .akari-caption__line { background-image:none; -webkit-text-fill-color:currentColor; filter:none; }
+    .akari-caption__tok { background-image:var(--caption-fill-gradient,none); -webkit-background-clip:text; -webkit-text-fill-color:transparent; -webkit-text-stroke:0 transparent; text-shadow:none; filter:var(--caption-fill-filter,none); }` : ''}
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
       to { opacity: 1; transform: translateY(0); }

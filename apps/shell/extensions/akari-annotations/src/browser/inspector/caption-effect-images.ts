@@ -75,11 +75,40 @@ export const captionEffectImage = createCaptionEffectImageCache(id => {
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
     }
-    ctx.strokeStyle = spec.stroke?.color ?? '#000000';
-    ctx.lineWidth = (spec.stroke?.widthPx ?? 1.5) * 2;
-    ctx.lineJoin = 'round';
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = spec.color ?? '#ffffff';
+    if (spec.extrude) {
+        const { depthPx, color, colorEnd, angleDeg } = spec.extrude;
+        const angle = angleDeg * Math.PI / 180;
+        const channel = (hex: string, offset: number): number => parseInt(hex.slice(offset, offset + 2), 16);
+        for (let depth = depthPx; depth >= 1; depth--) {
+            const mix = depth / depthPx;
+            ctx.fillStyle = colorEnd ? '#' + [1, 3, 5].map(offset =>
+                Math.round(channel(color, offset) * (1 - mix) + channel(colorEnd, offset) * mix)
+                    .toString(16).padStart(2, '0')).join('') : color;
+            ctx.fillText(text, x + Math.sin(angle) * depth, y - Math.cos(angle) * depth);
+        }
+    }
+    if (spec.strokeInner) {
+        ctx.strokeStyle = spec.stroke?.color ?? '#000000';
+        ctx.lineWidth = (spec.stroke?.widthPx ?? 9) * 2;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(text, x, y);
+        ctx.strokeStyle = spec.strokeInner.color;
+        ctx.lineWidth = spec.strokeInner.widthPx * 2;
+        ctx.strokeText(text, x, y);
+    } else if (!spec.fillGradient || spec.stroke) {
+        ctx.strokeStyle = spec.stroke?.color ?? '#000000';
+        ctx.lineWidth = (spec.stroke?.widthPx ?? 1.5) * 2;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(text, x, y);
+    }
+    if (spec.fillGradient) {
+        const angle = spec.fillGradient.angleDeg * Math.PI / 180;
+        const length = 160;
+        const gradient = ctx.createLinearGradient(x - Math.sin(angle) * length, y + Math.cos(angle) * length,
+            x + Math.sin(angle) * length, y - Math.cos(angle) * length);
+        spec.fillGradient.colors.forEach((color, index) => gradient.addColorStop(index / (spec.fillGradient!.colors.length - 1), color));
+        ctx.fillStyle = gradient;
+    } else ctx.fillStyle = spec.color ?? '#ffffff';
     ctx.fillText(text, x, y);
     return canvas.toDataURL('image/png');
 });

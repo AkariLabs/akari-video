@@ -80,6 +80,13 @@ function mergeCaptionTextStyles(defaultStyle, captionStyle) {
     else {
         delete merged.stroke;
     }
+    for (const key of ['strokeInner', 'fillGradient', 'extrude']) {
+        const value = mergeNestedStyle(defaultStyle?.[key], captionStyle?.[key]);
+        if (value && Object.keys(value).length > 0)
+            merged[key] = value;
+        else
+            delete merged[key];
+    }
     const background = mergeNestedStyle(defaultStyle?.background, captionStyle?.background);
     if (background && Object.keys(background).length > 0) {
         merged.background = background;
@@ -362,6 +369,22 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
         textStyle = updateOptionalStyleProperty(textStyle, 'font_family', updates.fontFamily, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalObjectStyleProperty(textStyle, 'shadow', updates.shadow, `字幕 ${captionId} の text_style`);
         textStyle = updateOptionalObjectStyleProperty(textStyle, 'glow', updates.glow, `字幕 ${captionId} の text_style`);
+        for (const [key, value] of [
+            ['stroke_inner', updates.strokeInner], ['fill_gradient', updates.fillGradient], ['extrude', updates.extrude]
+        ]) {
+            if (value === undefined)
+                continue;
+            const json = value === null ? null : richStyleToJson(key, value);
+            const existingRich = locateTopLevelProperty(textStyle, key);
+            textStyle = json === null
+                ? existingRich ? removeObjectProperty(textStyle, key) : textStyle
+                : existingRich
+                    ? (() => {
+                        const object = locateTopLevelObjectProperty(textStyle, key, key);
+                        return textStyle.slice(0, object.start) + JSON.stringify(json) + textStyle.slice(object.end);
+                    })()
+                    : appendJsonProperty(textStyle, key, json);
+        }
         textStyle = updateOptionalStyleProperty(textStyle, 'zone', updates.zone, `字幕 ${captionId} の text_style`);
         textStyle = updateNestedStyleObject(textStyle, 'stroke', {
             color: updates.stroke?.color,
@@ -976,7 +999,8 @@ const TEXT_STYLE_KEYS = new Set([
     'color', 'size_px', 'reference_height_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline', 'strikethrough', 'list', 'opacity',
     'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
     'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor', 'position', 'scale', 'rotate', 'shadow', 'glow',
-    'animation', 'stroke', 'background', 'zone', 'layout'
+    'animation', 'stroke', 'background', 'zone', 'layout',
+    'stroke_inner', 'fill_gradient', 'extrude'
 ]);
 const TEXT_TRANSFORM_VALUES = new Set(['upper', 'uppercase', 'lower', 'lowercase', 'title', 'capitalize', 'none']);
 const TEXT_ANCHOR_VALUES = new Set(['tl', 'tc', 'tr', 'ml', 'mc', 'mr', 'bl', 'bc', 'br']);
@@ -1085,6 +1109,27 @@ function normalizeTextStyle(value, onUnknownKeys) {
         if (Object.keys(stroke).length > 0) {
             style.stroke = stroke;
         }
+    }
+    if (isRecord(value.stroke_inner)) {
+        const inner = {};
+        if (isHexColor(value.stroke_inner.color))
+            inner.color = value.stroke_inner.color;
+        if (isFiniteNonNegative(value.stroke_inner.width_px))
+            inner.widthPx = value.stroke_inner.width_px;
+        if (Object.keys(inner).length > 0)
+            style.strokeInner = inner;
+    }
+    if (isRecord(value.fill_gradient) && Array.isArray(value.fill_gradient.colors)
+        && value.fill_gradient.colors.length >= 2 && value.fill_gradient.colors.length <= 3
+        && value.fill_gradient.colors.every(isHexColor) && isFiniteNumber(value.fill_gradient.angle_deg)) {
+        style.fillGradient = { colors: value.fill_gradient.colors, angleDeg: value.fill_gradient.angle_deg };
+    }
+    if (isRecord(value.extrude) && Number.isInteger(value.extrude.depth_px)
+        && value.extrude.depth_px >= 1 && value.extrude.depth_px <= 32
+        && isHexColor(value.extrude.color) && isFiniteNumber(value.extrude.angle_deg)
+        && (value.extrude.color_end === undefined || isHexColor(value.extrude.color_end))) {
+        style.extrude = { depthPx: value.extrude.depth_px, color: value.extrude.color,
+            ...(value.extrude.color_end ? { colorEnd: value.extrude.color_end } : {}), angleDeg: value.extrude.angle_deg };
     }
     if (isRecord(value.background)) {
         const background = {};
@@ -1316,6 +1361,9 @@ function textStyleToJson(style) {
                 ...(style.stroke.widthPx !== undefined ? { width_px: style.stroke.widthPx } : {})
             }
         } : {}),
+        ...(style.strokeInner !== undefined ? { stroke_inner: richStyleToJson('stroke_inner', style.strokeInner) } : {}),
+        ...(style.fillGradient !== undefined ? { fill_gradient: richStyleToJson('fill_gradient', style.fillGradient) } : {}),
+        ...(style.extrude !== undefined ? { extrude: richStyleToJson('extrude', style.extrude) } : {}),
         ...(style.background !== undefined ? {
             background: {
                 ...(style.background.color !== undefined ? { color: style.background.color } : {}),
@@ -1369,6 +1417,7 @@ function validateTextStylePatch(updates) {
         || updates.lineHeight !== undefined || updates.letterSpacingEm !== undefined
         || updates.fontFamily !== undefined || updates.shadow !== undefined || updates.glow !== undefined
         || updates.stroke?.color !== undefined || updates.stroke?.widthPx !== undefined
+        || updates.strokeInner !== undefined || updates.fillGradient !== undefined || updates.extrude !== undefined
         || updates.background?.color !== undefined || updates.background?.opacity !== undefined
         || updates.background?.radiusPx !== undefined || updates.background?.paddingPx !== undefined
         || updates.background?.mode !== undefined || updates.background?.fit !== undefined
@@ -1380,6 +1429,24 @@ function validateTextStylePatch(updates) {
         if (color !== undefined && color !== null && !isHexColor(color)) {
             throw new Error('字幕スタイルの色は #RGB / #RRGGBB / #RRGGBBAA で指定してください。');
         }
+    }
+    if (updates.strokeInner !== undefined && updates.strokeInner !== null
+        && ((updates.strokeInner.color !== undefined && !isHexColor(updates.strokeInner.color))
+            || (updates.strokeInner.widthPx !== undefined && !isFiniteNonNegative(updates.strokeInner.widthPx)))) {
+        throw new Error('stroke_inner の色か太さが不正です。');
+    }
+    if (updates.fillGradient !== undefined && updates.fillGradient !== null
+        && (!Array.isArray(updates.fillGradient.colors) || updates.fillGradient.colors.length < 2
+            || updates.fillGradient.colors.length > 3 || !updates.fillGradient.colors.every(isHexColor)
+            || !isFiniteNumber(updates.fillGradient.angleDeg))) {
+        throw new Error('fill_gradient の色か角度が不正です。');
+    }
+    if (updates.extrude !== undefined && updates.extrude !== null
+        && (!Number.isInteger(updates.extrude.depthPx) || updates.extrude.depthPx < 1 || updates.extrude.depthPx > 32
+            || !isHexColor(updates.extrude.color)
+            || (updates.extrude.colorEnd !== undefined && !isHexColor(updates.extrude.colorEnd))
+            || !isFiniteNumber(updates.extrude.angleDeg))) {
+        throw new Error('extrude の奥行き・色・角度が不正です。');
     }
     if (updates.sizePx !== undefined && updates.sizePx !== null
         && (!Number.isFinite(updates.sizePx) || updates.sizePx <= 0)) {
@@ -1514,6 +1581,9 @@ function textStylePatchToJson(updates) {
         ...(updates.fontFamily !== undefined && updates.fontFamily !== null ? { font_family: updates.fontFamily } : {}),
         ...(updates.shadow ? { shadow: shadowPatchToJson(updates.shadow) } : {}),
         ...(updates.glow ? { glow: glowPatchToJson(updates.glow) } : {}),
+        ...(updates.strokeInner ? { stroke_inner: richStyleToJson('stroke_inner', updates.strokeInner) } : {}),
+        ...(updates.fillGradient ? { fill_gradient: richStyleToJson('fill_gradient', updates.fillGradient) } : {}),
+        ...(updates.extrude ? { extrude: richStyleToJson('extrude', updates.extrude) } : {}),
         ...(updates.stroke && Object.values(updates.stroke).some(value => value !== undefined && value !== null) ? {
             stroke: {
                 ...(updates.stroke.color !== undefined && updates.stroke.color !== null
@@ -1556,6 +1626,20 @@ function shadowPatchToJson(shadow) {
         ...(shadow.distancePx !== undefined ? { distance_px: shadow.distancePx } : {}),
         ...(shadow.angleDeg !== undefined ? { angle_deg: shadow.angleDeg } : {})
     };
+}
+function richStyleToJson(key, value) {
+    if (key === 'stroke_inner') {
+        const inner = value;
+        return { ...(inner.color !== undefined ? { color: inner.color } : {}),
+            ...(inner.widthPx !== undefined ? { width_px: inner.widthPx } : {}) };
+    }
+    if (key === 'fill_gradient') {
+        const gradient = value;
+        return { colors: gradient.colors, angle_deg: gradient.angleDeg };
+    }
+    const extrude = value;
+    return { depth_px: extrude.depthPx, color: extrude.color,
+        ...(extrude.colorEnd !== undefined ? { color_end: extrude.colorEnd } : {}), angle_deg: extrude.angleDeg };
 }
 function glowPatchToJson(glow) {
     return {
