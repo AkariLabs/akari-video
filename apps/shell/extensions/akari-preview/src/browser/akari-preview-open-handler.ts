@@ -2,6 +2,7 @@ import { previewSelectionHandlesStyle } from './preview-selection-handles-style'
 import { PREVIEW_CONTEXT_BOX_MESSAGE, PreviewContextBar } from './preview-context-bar';
 import { photoToolsAvailableFor } from '../common/context-bar-view';
 import { previewContextBarPageScript } from './preview-context-bar-page';
+import { createCaptionStylePreviewController } from '../common/caption-style-preview';
 import { previewShapeRoles } from '../common/preview-shape-roles';
 import { previewLiveValues } from '../common/preview-live-values';
 import { nextPreviewLiveOverride } from '../common/preview-live-override';
@@ -1785,6 +1786,25 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener('akari.timeline.captionSelectionChanged', onTimelineCaptionSelectionChanged)
         });
+        const onCaptionPanelPreview = (event: Event): void => {
+            const detail = (event as CustomEvent<{ captionId?: string; textStyle?: unknown; committed?: boolean }>).detail;
+            if (typeof detail?.captionId !== 'string') return;
+            for (const preview of this.openOutputPreviews.values()) {
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', ...detail });
+            }
+        };
+        window.addEventListener('akari-caption-panel-preview', onCaptionPanelPreview);
+        this.lifecycleDisposables.push({ dispose: () =>
+            window.removeEventListener('akari-caption-panel-preview', onCaptionPanelPreview) });
+        const onCaptionPanelChanged = (event: Event): void => {
+            if ((event as CustomEvent<{ panel?: string | null }>).detail?.panel !== null) return;
+            for (const preview of this.openOutputPreviews.values()) {
+                preview.sendMessage({ type: 'akari-preview-caption-style-preview', captionId: '', textStyle: null });
+            }
+        };
+        window.addEventListener('akari-caption-panel-changed', onCaptionPanelChanged);
+        this.lifecycleDisposables.push({ dispose: () =>
+            window.removeEventListener('akari-caption-panel-changed', onCaptionPanelChanged) });
         const onSelectCaptionRun = (event: Event): void => {
             const detail = (event as CustomEvent<{ captionId?: string; from?: number; to?: number }>).detail;
             if (!detail || typeof detail.captionId !== 'string' || !Number.isInteger(detail.from)
@@ -15937,6 +15957,10 @@ body { display: grid; place-items: center; padding: 32px; }
             // positionFromRects は common/caption-zone-write.ts の純関数と同じ規則を webview 内へ
             // 最小複製する（既存の caption style 変数ミラーと同じ方式）。
             let selectedCaptionId = null;
+            const captionStylePreview = (${createCaptionStylePreviewController.toString()})(
+                (style, output) => window.AkariEditKernel.resolveCaptionLineStyleVars(style, output),
+                family => document.fonts.load('400 19px ' + JSON.stringify(family), 'あ字'),
+                () => renderCaption(), summary.output);
             let pendingCaptionDragReload = false;
             // 表示系の切り替えはプレビューのセッション中だけ保持する。
             const captionClampOverrides = new Map();
@@ -16590,6 +16614,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 selectedCaptionId = captionId;
+                captionStylePreview.selectionChanged(captionId);
                 window.akari.syncRunSelection?.();
                 if (captionId) {
                     selectLayer(null, { report: false });
@@ -17211,7 +17236,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const hasWords = Array.isArray(candidate.words) && candidate.words.length > 0;
                         const hasEmphasis = hasWords && candidate.words.some(word => findMatchingEmphasis(word));
                         const reveal = hasWords && (candidate.style === 'reveal'
-                            || (!candidate.style && captionPortrait
+                            || (!candidate.style && !candidate.textStyle?.vertical && captionPortrait
                                 && splitCaptionLines(candidate.text || '', captionLineBudget).length > 1));
                         const usesWords = hasWords && (candidate.style === 'karaoke'
                             || candidate.style === 'pop' || candidate.style === 'reveal-word'
@@ -18550,6 +18575,46 @@ body { display: grid; place-items: center; padding: 32px; }
             const captionTextAnimationKeyframesCss = animation => animation
                 ? animation.keyframesCss
                 : '';
+            const captionAligned = caption => ['left', 'center', 'right'].includes(caption?.textStyle?.align);
+            const captionAlignMarkup = (caption, markup, blockMode) => !blockMode && captionAligned(caption)
+                ? '<div class="akari-caption__alignbox">' + markup + '</div>' : markup;
+            const captionContextClasses = caption => {
+                const style = caption?.textStyle;
+                if (!style) return '';
+                return [typeof style.opacity === 'number' && 'akari-caption--opacity',
+                    style.vertical && 'akari-caption--vertical',
+                    (style.underline || style.strikethrough) && 'akari-caption--decorated',
+                    style.list === 'bullet' && 'akari-caption--bullet', captionAligned(caption) && 'akari-caption--aligned']
+                    .filter(Boolean).map(name => ' ' + name).join('');
+            };
+            const captionDecorationMarkup = (markup, caption) => {
+                const style = caption?.textStyle;
+                if (!style?.underline && !style?.strikethrough) return markup;
+                return markup.replace(/<p class="akari-caption__line">([\\s\\S]*?)<\\/p>/g, (_whole, inner) => {
+                    const text = inner.replace(/<[^>]*>/g, '').replace(/&(?:amp|lt|gt|quot|#39|#039);/g,
+                        entity => ({ '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&#039;': "'" })[entity]);
+                    return '<p class="akari-caption__line" data-decoration-text="' + escapeCaptionHtml(text) + '">' + inner + '</p>';
+                });
+            };
+            const captionContextCss = (caption, blockMode) => {
+                const style = caption?.textStyle;
+                if (!style) return '';
+                let css = '';
+                if (typeof style.opacity === 'number') css += '.akari-caption--opacity{opacity:var(--caption-opacity,1);}';
+                if (style.vertical) css += '.akari-caption--vertical{text-orientation:var(--caption-text-orientation,mixed);}.akari-caption--vertical .akari-caption__line{writing-mode:vertical-rl;max-height:var(--caption-vertical-max-height,90vh);margin:0;white-space:pre-wrap;overflow-wrap:anywhere;}.akari-caption.akari-caption--vertical .akari-caption__plate{left:var(--caption-left,0);right:var(--caption-right,0);width:var(--caption-width,max-content);margin-inline:0;writing-mode:horizontal-tb;align-items:var(--caption-align-items,center);}';
+                if (style.underline || style.strikethrough) {
+                    css += '.akari-caption--decorated,.akari-caption--decorated .akari-caption__line,.akari-caption--decorated .akari-caption__tok{text-decoration:none!important;}';
+                    css += '.akari-caption--decorated .akari-caption__line{position:relative;}';
+                    css += '.akari-caption--decorated .akari-caption__line::after{content:attr(data-decoration-text);position:absolute;inset:0;z-index:2;box-sizing:border-box;padding:inherit;pointer-events:none;color:transparent;-webkit-text-stroke:0 transparent!important;text-shadow:none!important;paint-order:normal;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:inherit;white-space:inherit;text-decoration:var(--caption-text-decoration,none);text-decoration-color:var(--caption-color,#fff);}';
+                }
+                if (style.list === 'bullet') css += '.akari-caption--bullet .akari-caption__line{display:list-item;list-style-type:disc;list-style-position:inside;}';
+                if (captionAligned(caption)) css += blockMode
+                    ? '.akari-caption--aligned .akari-caption__block .akari-caption__line{box-sizing:border-box;width:100%;}'
+                    : '.akari-caption--aligned .akari-caption__alignbox{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width, 92%);margin:var(--caption-line-margin,0 auto);}.akari-caption--aligned .akari-caption__alignbox .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;}';
+                return css;
+            };
+            const captionResolvedOpen = caption => ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
+                .replace('akari-caption--single-line', 'akari-caption--single-line' + captionContextClasses(caption));
             const captionHasScaledRun = caption => Boolean(caption?.runs?.some(run =>
                 Number.isFinite(run?.style?.scale) && run.style.scale !== 1));
             const captionSizedRunPlateCss = caption => captionHasScaledRun(caption)
@@ -18565,16 +18630,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 // reveal（行単位の順送り）: 明示指定に加え、縦長では複数行に折り返す無指定字幕を
                 // 自動昇格させる（render-cut generateCaptionOverlays と同じ既定）。
                 const reveal = style === 'reveal'
-                    || (!style && captionPortrait
+                    || (!style && !caption.textStyle?.vertical && captionPortrait
                         && splitCaptionLines(caption.text || '', captionLineBudget).length > 1);
                 const rootStyle = reveal ? 'reveal' : (style || (hasEmphasis ? 'emphasis' : 'karaoke'));
                 const renderLine = line =>
                     line.map(word => renderCaptionToken(word, caption.start, reveal ? null : style, renderChars)).join('');
                 const markup = reveal
                     ? renderRevealGroupsMarkup(
-                        groupWordsIntoDisplayLines(caption.words, captionLineBudget),
+                        groupWordsIntoDisplayLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget),
                         caption.start, caption.end, renderLine)
-                    : groupWordsIntoLines(caption.words, captionLineBudget).map(line =>
+                    : groupWordsIntoLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget).map(line =>
                         '<p class="akari-caption__line">' + renderLine(line) + '</p>'
                     ).join('');
                 const revealCss = reveal
@@ -18590,7 +18655,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     && caption.textStyle.background.mode === 'block';
                 const plateMarkup = blockMode
                     ? '<div class="akari-caption__block">' + markup + '</div>'
-                    : markup;
+                    : captionAlignMarkup(caption, markup, false);
                 const blockCss = blockMode
                     ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
@@ -18608,7 +18673,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '.akari-caption__emphasis-char{display:inline-block;opacity:0;animation:akari-emphasis-one-char-bang var(--akari-emphasis-dur,0.1s) var(--akari-emphasis-delay,0s) ease-out both paused;}'
                         + '.akari-caption__tok--size-pulse{animation:akari-emphasis-size-pulse var(--akari-emphasis-dur,0.2s) var(--akari-emphasis-delay,0s) ease-in-out both paused;}'
                     : '';
-                return '<div class="akari-caption akari-caption--' + rootStyle + '">'
+                return '<div class="akari-caption akari-caption--' + rootStyle + captionContextClasses(caption) + '">'
                     + '<style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);'
                     + '-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));'
@@ -18630,8 +18695,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     + revealCss
                     + emphasisCss
                     + captionTextAnimationKeyframesCss(captionAnimation)
+                    + captionContextCss(caption, blockMode)
                     + '</style><div class="akari-caption__plate"'
-                    + captionTextAnimationPlateAttrs(captionAnimation) + '>' + plateMarkup + '</div></div>';
+                    + captionTextAnimationPlateAttrs(captionAnimation) + '>' + captionDecorationMarkup(plateMarkup, caption) + '</div></div>';
             };
             const renderPlainCaptionFragment = (caption, captionAnimation = null) => {
                 const renderChars = captionCharRenderer(caption.animator);
@@ -18647,7 +18713,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (caption.wordStyles && caption.resolvedWords) {
                         let currentLine = caption.resolvedWords.length ? caption.resolvedWords[0].line : 0;
                         const markup = caption.resolvedWords.map((word, index) => {
-                            const lineBreak = word.line !== currentLine
+                            const lineBreak = !caption.textStyle?.vertical && word.line !== currentLine
                                 ? '</p><p class="akari-caption__line">' : '';
                             currentLine = word.line;
                             const style = caption.wordStyles.find(entry => entry.from <= index && index < entry.to);
@@ -18660,38 +18726,42 @@ body { display: grid; place-items: center; padding: 32px; }
                                 + escapeCaptionHtml(style.preset_id) + '" style="' + escapeCaptionHtml(vars) + '">'
                                 + renderText(word.text) + '</span>';
                         }).join('');
-                        return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
+                        return captionDecorationMarkup(captionResolvedOpen(caption)
                             + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
                             + resolvedRunPlateCss
                             + resolvedFrameCss
                             + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}'
-                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
+                            + captionContextCss(caption, false, true)
+                            + (captionAligned(caption) ? '</style><div class="akari-caption__plate"><div class="akari-caption__alignbox"><p class="akari-caption__line">' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)})
                             + markup
-                            + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
+                            + (captionAligned(caption) ? '</p></div></div></div>' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)}), caption);
                     }
-                    const resolvedMarkup = Array.isArray(caption.displayLines)
+                    const resolvedMarkup = !caption.textStyle?.vertical && Array.isArray(caption.displayLines)
                         && caption.displayLines.length >= 2
                         ? caption.displayLines.map(line => renderText(line)).join(
                             '</p><p class="akari-caption__line">'
                         )
                         : renderText(caption.text);
-                    return ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_OPEN)}
+                    return captionDecorationMarkup(captionResolvedOpen(caption)
                         + ${JSON.stringify(RESOLVED_SINGLE_LINE_CAPTION_CSS)}
                         + resolvedRunPlateCss
                         + resolvedFrameCss
-                        + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)}
+                        + captionContextCss(caption, false)
+                        + (captionAligned(caption) ? '</style><div class="akari-caption__plate"><div class="akari-caption__alignbox"><p class="akari-caption__line">' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_MIDDLE)})
                         + resolvedMarkup
-                        + ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)};
+                        + (captionAligned(caption) ? '</p></div></div></div>' : ${JSON.stringify(RESOLVED_SINGLE_LINE_FRAGMENT_CLOSE)}), caption);
                 }
                 // 焼き込みと同じ自然な区切り（句読点 → 空白 → 文節境界 → 文字上限）で折り返す
-                const lines = splitCaptionLines(caption.text || '', captionLineBudget, Boolean(renderChars));
+                const lines = caption.textStyle?.vertical
+                    ? String(caption.text || '').split(/\\r?\\n/)
+                    : splitCaptionLines(caption.text || '', captionLineBudget, Boolean(renderChars));
                 const markup = lines.map(line => '<p class="akari-caption__line">'
                     + renderText(line) + '</p>').join('');
                 const blockMode = caption.textStyle && caption.textStyle.background
                     && caption.textStyle.background.mode === 'block';
                 const plateMarkup = blockMode
                     ? '<div class="akari-caption__block">' + markup + '</div>'
-                    : markup;
+                    : captionAlignMarkup(caption, markup, false);
                 const blockCss = blockMode
                     ? '.akari-caption__block{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);gap:var(--plate-gap,4px);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-block-radius,10px);background:var(--plate-block-bg,transparent);}'
                         + '.akari-caption__block .akari-caption__line{width:auto;max-width:none;margin:0;padding:0;border-radius:0;background:transparent;}'
@@ -18702,7 +18772,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '.akari-caption__line::before{left:0;right:0;}'
                         + '.akari-caption__block{box-sizing:border-box;width:100%;max-width:none;margin:0;}'
                     : '';
-                return '<div class="akari-caption"><style>'
+                return '<div class="akari-caption' + captionContextClasses(caption) + '"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:var(--caption-font-family,"AKARI Noto Sans JP","Noto Sans JP",sans-serif);font-size:var(--caption-font-size,38px);font-weight:var(--caption-font-weight,700);font-style:var(--caption-font-style,normal);text-decoration:var(--caption-text-decoration,none);letter-spacing:var(--caption-letter-spacing,normal);text-transform:var(--caption-text-transform,none);line-height:var(--caption-word-line-height,var(--caption-line-height,1.42));writing-mode:var(--caption-writing-mode,horizontal-tb);text-align:center;}'
                     + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);width:var(--caption-width,auto);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);rotate:var(--caption-rotate,0deg);scale:var(--caption-scale,1);transform-origin:center;}'
                     + '.akari-caption__line{position:relative;isolation:isolate;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
@@ -18711,8 +18781,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     + captionSizedRunPlateCss(caption)
                     + frameFitCss
                     + captionTextAnimationKeyframesCss(captionAnimation)
+                    + captionContextCss(caption, blockMode)
                     + '</style><div class="akari-caption__plate"'
-                    + captionTextAnimationPlateAttrs(captionAnimation) + '>' + plateMarkup + '</div></div>';
+                    + captionTextAnimationPlateAttrs(captionAnimation) + '>' + captionDecorationMarkup(plateMarkup, caption) + '</div></div>';
             };
             const captionStyleVariableNames = ${JSON.stringify(RESOLVED_CAPTION_STYLE_VARIABLE_NAMES)};
             const applyCaptionStyleVars = (caption, captionPlate) => {
@@ -18784,6 +18855,7 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             window.addEventListener('blur', () => setCaptionAltAll(false));
             const renderCaptionRow = (caption, row) => {
+                caption = captionStylePreview.resolve(caption, selectedCaptionId);
                 const captionPlate = row.plate;
                 if (activeCaptionEdit?.element.closest('.caption-row-plate') === captionPlate) return;
                 if (caption !== row.renderedCaption) {
@@ -18823,7 +18895,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     // reveal（明示 + 縦長の複数行自動昇格）も word ベースの styled 経路で描く
                     const wantsCaptionReveal = hasCaptionWords
                         && (caption.style === 'reveal'
-                            || (!caption.style && captionPortrait
+                            || (!caption.style && !caption.textStyle?.vertical && captionPortrait
                                 && splitCaptionLines(caption.text || '', captionLineBudget).length > 1));
                     row.styledCaptionActive = Boolean(caption);
                     captionPlate.classList.toggle('akari-caption-host--styled', row.styledCaptionActive);
@@ -21118,11 +21190,17 @@ body { display: grid; place-items: center; padding: 32px; }
                             { report: false, preserveGroup: true });
                     }
                     applyCaptionSelectionAttrs();
+                    captionStylePreview.selectionChanged(selectedCaptionId);
                     updateCaptionSelectBox();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-caption-style-preview') {
+                    void captionStylePreview.receive(message);
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {
                     clearLiveOverride();
+                    captionStylePreview.captionsUpdated();
                     captions = Array.isArray(message.captions) ? message.captions : [];
                     window.akari.previewCaptions = captions;
                     void window.akari.frameEngineClock?.refreshContentDuration?.();

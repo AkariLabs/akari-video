@@ -1,0 +1,1303 @@
+{
+  "label": "after",
+  "port": 9632,
+  "project": "landscape",
+  "aspect": "landscape",
+  "theme": "dark",
+  "pid": 3072,
+  "timelineOpen": {
+    "ok": false,
+    "error": "Error: CDP Runtime.evaluate timed out"
+  },
+  "previewBuilt": true,
+  "inspectorOpen": {
+    "ok": true,
+    "value": "object"
+  },
+  "activated": [
+    "",
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "編集パネル"
+  ],
+  "activated2": [
+    "出力プレビュー",
+    "タイムライン",
+    "設定",
+    "素材",
+    "メニュー",
+    "パートナーを追加",
+    "台本",
+    "カット",
+    "注釈",
+    "編集パネル"
+  ],
+  "mounted": 1,
+  "results": {
+    "layout": {
+      "layout": {
+        "rect": {
+          "left": 247.2,
+          "top": 47,
+          "width": 353.5,
+          "height": 38
+        },
+        "rows": 1,
+        "order": [
+          "captionFont",
+          "captionSize",
+          "captionTextColor",
+          "captionBold",
+          "captionItalic",
+          "captionStyle",
+          "overflow"
+        ],
+        "hidden": [
+          "captionUnderline",
+          "captionStrike",
+          "captionCase",
+          "captionAlign",
+          "captionBullet",
+          "captionSpacing",
+          "captionVertical",
+          "captionOpacity",
+          "captionEffect",
+          "captionAnimation"
+        ],
+        "items": [
+          {
+            "key": "captionFont",
+            "top": 52,
+            "left": 254.2,
+            "width": 92,
+            "height": 28,
+            "pressed": "false",
+            "expanded": "false",
+            "text": "Noto Sans JP⌄"
+          },
+          {
+            "key": "captionSize",
+            "top": 51,
+            "left": 348.2,
+            "width": 76,
+            "height": 30,
+            "pressed": null,
+            "expanded": null,
+            "text": "−＋"
+          },
+          {
+            "key": "captionTextColor",
+            "top": 52,
+            "left": 426.2,
+            "width": 28,
+            "height": 28,
+            "pressed": "false",
+            "expanded": "false",
+            "text": "A"
+          },
+          {
+            "key": "captionBold",
+            "top": 52,
+            "left": 456.2,
+            "width": 28,
+            "height": 28,
+            "pressed": "false",
+            "expanded": "false",
+            "text": "B"
+          },
+          {
+            "key": "captionItalic",
+            "top": 52,
+            "left": 486.2,
+            "width": 28,
+            "height": 28,
+            "pressed": "false",
+            "expanded": "false",
+            "text": "I"
+          },
+          {
+            "key": "captionStyle",
+            "top": 52,
+            "left": 516.2,
+            "width": 47.5,
+            "height": 28,
+            "pressed": "false",
+            "expanded": "false",
+            "text": "スタイル"
+          },
+          {
+            "key": "overflow",
+            "top": 52,
+            "left": 565.7,
+            "width": 28,
+            "height": 28,
+            "pressed": "false",
+            "expanded": "false",
+            "text": "…"
+          }
+        ],
+        "bg": "rgb(20, 20, 20)"
+      },
+      "barShot": "after-landscape-bar.png",
+      "previewShot": "after-landscape-caption-selected.png",
+      "overflowOpen": {
+        "window": null,
+        "text": null,
+        "more": [
+          {
+            "key": "captionUnderline",
+            "pressed": "false"
+          },
+          {
+            "key": "captionStrike",
+            "pressed": "false"
+          },
+          {
+            "key": "captionCase",
+            "pressed": "false"
+          },
+          {
+            "key": "captionAlign",
+            "pressed": "false"
+          },
+          {
+            "key": "captionBullet",
+            "pressed": "false"
+          },
+          {
+            "key": "captionSpacing",
+            "pressed": "false"
+          },
+          {
+            "key": "captionVertical",
+            "pressed": "false"
+          },
+          {
+            "key": "captionOpacity",
+            "pressed": "false"
+          },
+          {
+            "key": "captionEffect",
+            "pressed": "false"
+          },
+          {
+            "key": "captionAnimation",
+            "pressed": "false"
+          }
+        ]
+      },
+      "overflowShot": "after-landscape-overflow-open.png",
+      "afterEsc": {
+        "window": null,
+        "text": null,
+        "more": null
+      },
+      "widths": {
+        "900": {
+          "rows": 1,
+          "rect": {
+            "left": 229.9,
+            "top": 47,
+            "width": 168.1,
+            "height": 38
+          },
+          "order": [
+            "captionFont",
+            "captionSize",
+            "captionStyle",
+            "overflow"
+          ],
+          "hidden": [
+            "captionTextColor",
+            "captionBold",
+            "captionItalic",
+            "captionUnderline",
+            "captionStrike",
+            "captionCase",
+            "captionAlign",
+            "captionBullet",
+            "captionSpacing",
+            "captionVertical",
+            "captionOpacity",
+            "captionEffect",
+            "captionAnimation"
+          ],
+          "shot": "after-landscape-width-900.png"
+        },
+        "1680": {
+          "rows": 1,
+          "rect": {
+            "left": 352.2,
+            "top": 47,
+            "width": 703.5,
+            "height": 38
+          },
+          "order": [
+            "captionFont",
+            "captionSize",
+            "captionTextColor",
+            "captionBold",
+            "captionItalic",
+            "captionUnderline",
+            "captionStrike",
+            "captionCase",
+            "captionAlign",
+            "captionBullet",
+            "captionSpacing",
+            "captionVertical",
+            "captionOpacity",
+            "captionEffect",
+            "captionAnimation",
+            "captionStyle"
+          ],
+          "hidden": [
+            "overflow"
+          ],
+          "shot": "after-landscape-width-1680.png"
+        },
+        "2200": {
+          "rows": 1,
+          "rect": {
+            "left": 612.2,
+            "top": 47,
+            "width": 703.5,
+            "height": 38
+          },
+          "order": [
+            "captionFont",
+            "captionSize",
+            "captionTextColor",
+            "captionBold",
+            "captionItalic",
+            "captionUnderline",
+            "captionStrike",
+            "captionCase",
+            "captionAlign",
+            "captionBullet",
+            "captionSpacing",
+            "captionVertical",
+            "captionOpacity",
+            "captionEffect",
+            "captionAnimation",
+            "captionStyle"
+          ],
+          "hidden": [
+            "overflow"
+          ],
+          "shot": "after-landscape-width-2200.png"
+        }
+      }
+    },
+    "buttons": [
+      {
+        "key": "captionBold",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "font_weight": 900,
+          "weight": 900
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": {
+          "key": "captionBold",
+          "top": 52,
+          "left": 561.2,
+          "width": 28,
+          "height": 28,
+          "pressed": "true",
+          "expanded": "false",
+          "text": "B"
+        },
+        "shot": "after-landscape-btn-captionBold.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionItalic",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "italic": true
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "italic",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": {
+          "key": "captionItalic",
+          "top": 52,
+          "left": 591.2,
+          "width": 28,
+          "height": 28,
+          "pressed": "true",
+          "expanded": "false",
+          "text": "I"
+        },
+        "shot": "after-landscape-btn-captionItalic.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionUnderline",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "underline": true
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": {
+          "key": "captionUnderline",
+          "top": 52,
+          "left": 621.2,
+          "width": 28,
+          "height": 28,
+          "pressed": "true",
+          "expanded": "false",
+          "text": "U"
+        },
+        "shot": "after-landscape-btn-captionUnderline.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionStrike",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "strikethrough": true
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": {
+          "key": "captionStrike",
+          "top": 52,
+          "left": 651.2,
+          "width": 28,
+          "height": 28,
+          "pressed": "true",
+          "expanded": "false",
+          "text": "S"
+        },
+        "shot": "after-landscape-btn-captionStrike.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionCase",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "text_transform": "upper"
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "uppercase",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": {
+          "key": "captionCase",
+          "top": 52,
+          "left": 681.2,
+          "width": 28,
+          "height": 28,
+          "pressed": "true",
+          "expanded": "false",
+          "text": "aA"
+        },
+        "shot": "after-landscape-btn-captionCase.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionBullet",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "list": "bullet"
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 329.49688720703125,
+            "top": 543.3658447265625,
+            "width": 233.641845703125,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": {
+          "key": "captionBullet",
+          "top": 52,
+          "left": 741.2,
+          "width": 28,
+          "height": 28,
+          "pressed": "true",
+          "expanded": "false",
+          "text": "•☰"
+        },
+        "shot": "after-landscape-btn-captionBullet.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionSizeInc",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "size_px": 50
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "71px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 308.8011474609375,
+            "top": 534.5533447265625,
+            "width": 275.0333251953125,
+            "height": 36.7020263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": null,
+        "shot": "after-landscape-btn-captionSizeInc.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionSizeDec",
+        "wrote": true,
+        "styleBefore": null,
+        "styleAfter": {
+          "size_px": 46
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "65.32px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 319.80596923828125,
+            "top": 537.4932861328125,
+            "width": 253.023681640625,
+            "height": 33.7620849609375
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "bar": null,
+        "shot": "after-landscape-btn-captionSizeDec.png",
+        "undo": {
+          "ok": true,
+          "via": "meta+z"
+        },
+        "undoRestoresBytes": true
+      },
+      {
+        "key": "captionAlign",
+        "values": [
+          "center",
+          "right",
+          "left"
+        ],
+        "icons": [
+          "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M10 3v14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"rou",
+          "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M17 3v14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"rou",
+          "<svg viewBox=\"0 0 20 20\" width=\"18\" height=\"18\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M3 3v14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"roun"
+        ],
+        "shot0": "after-landscape-align-0.png",
+        "computed0": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "shot1": "after-landscape-align-1.png",
+        "computed1": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "right",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "shot2": "after-landscape-align-2.png",
+        "computed2": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "left",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "undo3RestoresBytes": true
+      },
+      {
+        "key": "sizeInput",
+        "wrote": true,
+        "styleAfter": {
+          "size_px": 72
+        },
+        "focusBeforeUndo": "BODY.monaco-enable-motion underline-links vs-dark dark-theia mac []",
+        "undoRestoresBytes": true,
+        "undoSteps": [
+          {
+            "r": {
+              "ok": true,
+              "via": "meta+z"
+            },
+            "style": null
+          }
+        ]
+      }
+    ],
+    "decoration-color": {
+      "afterSwatch": {
+        "pop": {
+          "window": "captionTextColor",
+          "text": "好きな色",
+          "more": null
+        },
+        "bar": true
+      },
+      "afterEsc": {
+        "pop": {
+          "window": null,
+          "text": null,
+          "more": null
+        },
+        "bar": true
+      },
+      "style": {
+        "color": "#f5c451",
+        "underline": true,
+        "strikethrough": true
+      },
+      "computed": {
+        "cls": "akari-caption__line",
+        "text": "字幕のメニューの確かめ",
+        "fontStyle": "normal",
+        "textDecorationLine": "none",
+        "textDecorationColor": "rgb(245, 196, 81)",
+        "textTransform": "none",
+        "writingMode": "horizontal-tb",
+        "textOrientation": "mixed",
+        "textAlign": "center",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "opacity": "1",
+        "color": "rgb(245, 196, 81)",
+        "rect": {
+          "left": 341.808349609375,
+          "top": 543.3658447265625,
+          "width": 209.0189208984375,
+          "height": 27.8895263671875
+        },
+        "plate": {
+          "rect": {
+            "left": 36,
+            "top": 104.625,
+            "width": 892,
+            "height": 501.75
+          },
+          "writingMode": "horizontal-tb",
+          "textAlign": "center",
+          "alignItems": "normal",
+          "justifyContent": "normal"
+        }
+      },
+      "shot": "after-landscape-decoration-color.png",
+      "zoomShot": "after-landscape-decoration-color-zoom.png",
+      "undo3RestoresBytes": true
+    },
+    "popups": {
+      "open-captionTextColor": {
+        "window": "captionTextColor",
+        "text": "好きな色",
+        "more": null
+      },
+      "open-captionTextColor-shot": "after-landscape-pop-captionTextColor.png",
+      "esc-captionTextColor": {
+        "window": null,
+        "text": null,
+        "more": null
+      },
+      "esc-captionTextColor-stillSelected": true,
+      "open-captionSpacing": {
+        "window": "captionSpacing",
+        "text": "文字間隔em行の間隔テキストボックスを固定上中下設定をもっと見る",
+        "more": null
+      },
+      "open-captionSpacing-shot": "after-landscape-pop-captionSpacing.png",
+      "esc-captionSpacing": {
+        "window": null,
+        "text": null,
+        "more": null
+      },
+      "esc-captionSpacing-stillSelected": true,
+      "open-captionOpacity": {
+        "window": "captionOpacity",
+        "text": "透明度%",
+        "more": null
+      },
+      "open-captionOpacity-shot": "after-landscape-pop-captionOpacity.png",
+      "esc-captionOpacity": {
+        "window": null,
+        "text": null,
+        "more": null
+      },
+      "esc-captionOpacity-stillSelected": true,
+      "beforeOther": {
+        "window": "captionSpacing",
+        "text": "文字間隔em行の間隔テキストボックスを固定上中下設定をもっと見る",
+        "more": null
+      },
+      "afterOtherButton": {
+        "window": null,
+        "text": null,
+        "more": null
+      },
+      "switchFrom": {
+        "window": "captionTextColor",
+        "text": "好きな色",
+        "more": null
+      },
+      "switchTo": {
+        "window": "captionOpacity",
+        "text": "透明度%",
+        "more": null
+      },
+      "sameAgain": {
+        "window": null,
+        "text": null,
+        "more": null
+      },
+      "beforeOutside": {
+        "window": "captionSpacing",
+        "text": "文字間隔em行の間隔テキストボックスを固定上中下設定をもっと見る",
+        "more": null
+      },
+      "afterOutside": {
+        "window": null,
+        "text": null,
+        "more": null
+      },
+      "spacingSlider": {
+        "wrote": true,
+        "style": {
+          "letter_spacing_em": 0.3
+        },
+        "shot": "after-landscape-pop-spacing-after-slider.png",
+        "oneUndoRestores": true
+      },
+      "anchorTop": {
+        "wrote": true,
+        "style": {
+          "vertical_align": "top"
+        },
+        "shot": "after-landscape-anchor-top.png",
+        "oneUndoRestores": true
+      },
+      "opacity": {
+        "wrote": true,
+        "style": {
+          "opacity": 0.4
+        },
+        "computed": {
+          "cls": "akari-caption__line",
+          "text": "字幕のメニューの確かめ",
+          "fontStyle": "normal",
+          "textDecorationLine": "none",
+          "textDecorationColor": "rgb(255, 255, 255)",
+          "textTransform": "none",
+          "writingMode": "horizontal-tb",
+          "textOrientation": "mixed",
+          "textAlign": "center",
+          "lineHeight": "53.96px",
+          "letterSpacing": "normal",
+          "opacity": "1",
+          "color": "rgb(255, 255, 255)",
+          "rect": {
+            "left": 341.808349609375,
+            "top": 543.3658447265625,
+            "width": 209.0189208984375,
+            "height": 27.8895263671875
+          },
+          "plate": {
+            "rect": {
+              "left": 36,
+              "top": 104.625,
+              "width": 892,
+              "height": 501.75
+            },
+            "writingMode": "horizontal-tb",
+            "textAlign": "center",
+            "alignItems": "normal",
+            "justifyContent": "normal"
+          }
+        },
+        "shot": "after-landscape-opacity-40.png",
+        "oneUndoRestores": true
+      }
+    },
+    "panels": {
+      "registeredBefore": false,
+      "unregisteredPress": {
+        "bar": true,
+        "pop": {
+          "window": null,
+          "text": null,
+          "more": null
+        }
+      },
+      "afterFont": [
+        {
+          "key": "captionFont",
+          "pressed": "true"
+        },
+        {
+          "key": "captionStyle",
+          "pressed": "false"
+        }
+      ],
+      "fontShot": "after-landscape-panel-font-pressed.png",
+      "afterFontAgain": [
+        {
+          "key": "captionFont",
+          "pressed": "false"
+        },
+        {
+          "key": "captionStyle",
+          "pressed": "false"
+        }
+      ],
+      "afterStyle": [
+        {
+          "key": "captionFont",
+          "pressed": "false"
+        },
+        {
+          "key": "captionStyle",
+          "pressed": "true"
+        }
+      ],
+      "styleShot": "after-landscape-panel-style-pressed.png",
+      "dispatchedFont": [
+        {
+          "key": "captionFont",
+          "pressed": "true"
+        },
+        {
+          "key": "captionStyle",
+          "pressed": "false"
+        }
+      ],
+      "dispatchedNull": [
+        {
+          "key": "captionFont",
+          "pressed": "false"
+        },
+        {
+          "key": "captionStyle",
+          "pressed": "false"
+        }
+      ],
+      "calls": [
+        {
+          "panel": "font"
+        },
+        {
+          "panel": "font"
+        },
+        {
+          "panel": "style"
+        }
+      ]
+    },
+    "vertical": {
+      "horizontalBox": {
+        "width": 209,
+        "height": 27.9
+      },
+      "style": {
+        "vertical": true
+      },
+      "computed": {
+        "cls": "akari-caption__line",
+        "text": "字幕のメニューの確かめ",
+        "fontStyle": "normal",
+        "textDecorationLine": "none",
+        "textDecorationColor": "rgb(255, 255, 255)",
+        "textTransform": "none",
+        "writingMode": "vertical-rl",
+        "textOrientation": "upright",
+        "textAlign": "center",
+        "lineHeight": "53.96px",
+        "letterSpacing": "normal",
+        "opacity": "1",
+        "color": "rgb(255, 255, 255)",
+        "rect": {
+          "left": 462.0555725097656,
+          "top": 374.23577880859375,
+          "width": 39.88885498046875,
+          "height": 197.01959228515625
+        },
+        "plate": {
+          "rect": {
+            "left": 36,
+            "top": 104.625,
+            "width": 892,
+            "height": 501.75
+          },
+          "writingMode": "horizontal-tb",
+          "textAlign": "center",
+          "alignItems": "normal",
+          "justifyContent": "normal"
+        }
+      },
+      "verticalBox": {
+        "width": 39.9,
+        "height": 196.9
+      },
+      "shot": "after-landscape-vertical-selected.png",
+      "spacingPop": {
+        "window": "captionSpacing",
+        "text": "文字間隔em行の間隔テキストボックスを固定右中左設定をもっと見る",
+        "more": null
+      },
+      "popShot": "after-landscape-vertical-spacing-pop.png",
+      "undoRestoresBytes": true
+    }
+  },
+  "reloadsRecovered": 0,
+  "windowShot": "after-landscape-window.png",
+  "finalEdit": {
+    "version": 2,
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "sources": [
+      {
+        "id": "base",
+        "path": "assets/base.mp4"
+      },
+      {
+        "id": "photo",
+        "path": "assets/photo.png"
+      }
+    ],
+    "tracks": [
+      {
+        "id": "v-main",
+        "lane": "visual",
+        "name": "本編",
+        "items": [
+          {
+            "id": "cut-1",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "media",
+              "src": "base",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-photo",
+        "lane": "visual",
+        "name": "photo",
+        "items": [
+          {
+            "id": "photo-1",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": -520,
+              "y": -260,
+              "scale": 0.35
+            },
+            "source": {
+              "kind": "media",
+              "src": "photo",
+              "in": 0,
+              "out": 10
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-shape-a",
+        "lane": "visual",
+        "name": "shape-a",
+        "items": [
+          {
+            "id": "shape-a",
+            "at": 0,
+            "duration": 300,
+            "transform": {
+              "x": 1300,
+              "y": 150
+            },
+            "source": {
+              "kind": "shape",
+              "shape": "rect",
+              "params": {
+                "width": 300,
+                "height": 200,
+                "fill": "#3b82f6",
+                "stroke": "#111827",
+                "strokeWidth": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "v-text",
+        "lane": "visual",
+        "name": "text",
+        "items": [
+          {
+            "id": "captions",
+            "name": "字幕",
+            "at": 0,
+            "duration": 300,
+            "source": {
+              "kind": "captions",
+              "path": "captions.json"
+            },
+            "items": []
+          }
+        ]
+      }
+    ]
+  },
+  "consoleErrors": [
+    "root WARN [akari-annotations] failed to resolve caption display; using whole caption bands Error: resolveCaptionDisplay returned null\n    at Vxc (<file>)\n    at async P3n.reloadResolvedCaptionDisplay (<file>)\n    at async Uxc (<file>",
+    "root WARN [akari-preview] speech sidecar cut-1-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <path> Error opening output files: Invalid argument"
+  ]
+}

@@ -101,6 +101,51 @@ const RESOLVED_CAPTION_FONT_FACE_CSS = `@font-face {
 
 export const RESOLVED_CAPTION_WORD_PRESET_CSS = '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;white-space:pre;--caption-tok-color:initial;--caption-tok-font-size:initial;--caption-tok-font-family:initial;--caption-tok-font-weight:initial;--caption-tok-font-style:initial;--caption-tok-text-decoration:initial;--caption-tok-letter-spacing:initial;--caption-tok-line-height:initial;--caption-tok-text-transform:initial;--caption-tok-webkit-text-stroke:initial;--caption-tok-paint-order:initial;--caption-tok-text-shadow:initial;}.akari-caption__tok--preset{color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit);}';
 
+/** Scope each optional treatment to its cue: GPU hosts every cue in one document. */
+function captionContextClasses(style) {
+  if (!style || typeof style !== 'object') return '';
+  return [typeof style.opacity === 'number' && 'akari-caption--opacity',
+    style.vertical && 'akari-caption--vertical',
+    (style.underline || style.strikethrough) && 'akari-caption--decorated',
+    style.list === 'bullet' && 'akari-caption--bullet',
+    ['left', 'center', 'right'].includes(style.align) && 'akari-caption--aligned']
+    .filter(Boolean).map(name => ` ${name}`).join('');
+}
+
+function captionDecorationMarkup(markup, style) {
+  if (!style?.underline && !style?.strikethrough) return markup;
+  return markup.replace(/<p class="akari-caption__line">([\s\S]*?)<\/p>/gu, (_whole, inner) => {
+    const text = inner.replace(/<[^>]*>/gu, '')
+      .replace(/&(?:amp|lt|gt|quot|#39);/gu, entity =>
+        ({ '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" })[entity]);
+    return `<p class="akari-caption__line" data-decoration-text="${escapeHtml(text)}">${inner}</p>`;
+  });
+}
+
+/** New caption controls only: undeclared styles keep the previous HTML bytes. */
+function captionContextCss(style, { blockMode = false } = {}) {
+  if (!style || typeof style !== 'object') return '';
+  const rules = [];
+  if (typeof style.opacity === 'number') rules.push('.akari-caption--opacity{opacity:var(--caption-opacity,1);}');
+  if (style.vertical) rules.push('.akari-caption--vertical{text-orientation:var(--caption-text-orientation,mixed);}.akari-caption--vertical .akari-caption__line{writing-mode:vertical-rl;max-height:var(--caption-vertical-max-height,90vh);margin:0;white-space:pre-wrap;overflow-wrap:anywhere;}.akari-caption.akari-caption--vertical .akari-caption__plate{left:var(--caption-left,0);right:var(--caption-right,0);width:var(--caption-width,max-content);margin-inline:0;writing-mode:horizontal-tb;align-items:var(--caption-align-items,center);}');
+  if (style.underline || style.strikethrough) {
+    rules.push('.akari-caption--decorated,.akari-caption--decorated .akari-caption__line,.akari-caption--decorated .akari-caption__tok{text-decoration:none!important;}');
+    rules.push('.akari-caption--decorated .akari-caption__line{position:relative;}');
+    rules.push('.akari-caption--decorated .akari-caption__line::after{content:attr(data-decoration-text);position:absolute;inset:0;z-index:2;box-sizing:border-box;padding:inherit;pointer-events:none;color:transparent;-webkit-text-stroke:0 transparent!important;text-shadow:none!important;paint-order:normal;font:inherit;letter-spacing:inherit;text-transform:inherit;text-align:inherit;white-space:inherit;text-decoration:var(--caption-text-decoration,none);text-decoration-color:var(--caption-color,#fff);}');
+  }
+  if (style.list === 'bullet') rules.push('.akari-caption--bullet .akari-caption__line{display:list-item;list-style-type:disc;list-style-position:inside;}');
+  if (['left', 'center', 'right'].includes(style.align)) {
+    if (blockMode) rules.push('.akari-caption--aligned .akari-caption__block .akari-caption__line{box-sizing:border-box;width:100%;}');
+    else rules.push('.akari-caption--aligned .akari-caption__alignbox{display:flex;flex-direction:column;width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);}.akari-caption--aligned .akari-caption__alignbox .akari-caption__line{box-sizing:border-box;width:100%;max-width:none;margin:0;}');
+  }
+  return rules.length ? `\n    ${rules.join('\n    ')}` : '';
+}
+
+function alignCaptionMarkup(markup, style, blockMode) {
+  return !blockMode && ['left', 'center', 'right'].includes(style?.align)
+    ? `<div class="akari-caption__alignbox">${markup}</div>` : markup;
+}
+
 // opt-in word-level スタイル。横長では既定 = 未指定 = 従来のプレーン字幕（既定出力のバイト等価を保つ）。
 // 縦長（portrait）だけは例外で、words[] があり複数行に折り返す字幕を reveal（行単位の順送り表示）へ
 // 自動昇格させる（2026-08-03 オーナー要望: 縦で文章の壁を出さない）。words 未充填・未対応スタイル値は
@@ -177,7 +222,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     );
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
-    const maximum = textStyle?.max_characters
+    const maximum = textStyle?.vertical && !textStyle?.max_characters ? Number.MAX_SAFE_INTEGER : textStyle?.max_characters
       ?? options.maxCharacters
       ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
     const textStyleVars = captionTextStyleVars(textStyle, output);
@@ -186,6 +231,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
     if (
       portrait
+      && !textStyle?.vertical
       && style === null
       && allWords.length > 0
       && splitCaptionLines(displayText, maximum).length > 1
@@ -259,9 +305,11 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               emphasisWords,
               displayTokens: rangeTokens,
               textStyleActive: textStyle !== null,
+              contextStyle: textStyle,
+              vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
               backgroundFit: textStyle?.background?.fit,
-              wrapWidth: textStyle?.wrap_width_pct,
+              wrapWidth: textStyle?.vertical ? undefined : textStyle?.wrap_width_pct,
               sizeToInk,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
@@ -272,9 +320,11 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               maximum,
               baseFontSize,
               textStyleActive: textStyle !== null,
+              contextStyle: textStyle,
+              vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
               backgroundFit: textStyle?.background?.fit,
-              wrapWidth: textStyle?.wrap_width_pct,
+              wrapWidth: textStyle?.vertical ? undefined : textStyle?.wrap_width_pct,
               sizeToInk,
               extendedBackground: usesExtendedPerLineBackground(textStyle?.background),
               captionAnimation,
@@ -341,8 +391,8 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
   const hasWordStyles = Array.isArray(cue?.word_styles) && cue.word_styles.length > 0
     && Array.isArray(cue?.words) && cue.words.length > 0;
   const renderedText = hasWordStyles
-    ? renderResolvedCaptionWords(cue.words, cue.word_styles)
-    : Array.isArray(lines) && lines.length >= 2
+    ? renderResolvedCaptionWords(cue.words, cue.word_styles, cue?.text_style?.vertical === true)
+    : Array.isArray(lines) && lines.length >= 2 && cue?.text_style?.vertical !== true
       ? lines.map(escapeHtml).join('</p><p class="akari-caption__line">')
       : escapeHtml(text);
   const wordPresetCss = hasWordStyles ? `    ${RESOLVED_CAPTION_WORD_PRESET_CSS}\n` : '';
@@ -354,7 +404,10 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
     ? `    .akari-caption--single-line .akari-caption__plate { width: var(--caption-wrap-width); }
     .akari-caption--single-line .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }
 ` : '';
-  return `<div class="akari-caption akari-caption--single-line">
+  const contextCss = captionContextCss(cue?.text_style);
+  const aligned = ['left', 'center', 'right'].includes(cue?.text_style?.align);
+  const lineMarkup = captionDecorationMarkup(`<p class="akari-caption__line">${renderedText}</p>`, cue?.text_style);
+  return `<div class="akari-caption akari-caption--single-line${captionContextClasses(cue?.text_style)}">
   <style>
     ${RESOLVED_CAPTION_FONT_FACE_CSS}
     .akari-caption--single-line {
@@ -411,15 +464,15 @@ ${sizeToInk ? '      margin-inline:var(--caption-plate-margin,auto);\n' : ''}   
       animation:none;
       transform:none;
     }
-${wordPresetCss}${wrapCss}${framePlateCss}  </style>
-  <div class="akari-caption__plate"><p class="akari-caption__line">${renderedText}</p></div>
+${wordPresetCss}${wrapCss}${framePlateCss}${contextCss}  </style>
+  <div class="akari-caption__plate">${aligned ? '<div class="akari-caption__alignbox">' : ''}${lineMarkup}${aligned ? '</div>' : ''}</div>
 </div>`;
 }
 
-function renderResolvedCaptionWords(words, wordStyles) {
+function renderResolvedCaptionWords(words, wordStyles, vertical = false) {
   let currentLine = words[0]?.line ?? 0;
   return words.map((word, index) => {
-    const lineBreak = word.line !== currentLine
+    const lineBreak = !vertical && word.line !== currentLine
       ? '</p><p class="akari-caption__line">'
       : '';
     currentLine = word.line;
@@ -791,7 +844,7 @@ export function renderCaptionFragment(text, options = {}) {
     ? `\n${options.captionAnimation.keyframesCss}`
     : "";
   const charText = captionCharRenderer(options.animator);
-  const lines = splitCaptionLines(text, maximum, Boolean(charText));
+  const lines = options.vertical ? String(text).split(/\r?\n/u) : splitCaptionLines(text, maximum, Boolean(charText));
   const markup = lines
     .map((line) => `<p class="akari-caption__line">${charText
       ? captionPlainWords(line, options.words).map(word => `<span class="akari-caption__tok">${charText(word)}</span>`).join("")
@@ -800,7 +853,7 @@ export function renderCaptionFragment(text, options = {}) {
   const blockMode = options.backgroundMode === "block";
   const plateMarkup = blockMode
     ? `<div class="akari-caption__block">${markup}</div>`
-    : markup;
+    : alignCaptionMarkup(markup, options.contextStyle, false);
   const blockPlateCss = blockMode
     ? `
     .akari-caption__block {
@@ -859,7 +912,7 @@ export function renderCaptionFragment(text, options = {}) {
     .akari-caption__plate { width: var(--caption-width, max-content); margin-inline: var(--caption-plate-margin, auto); }`
     : "";
 
-  return `<div class="akari-caption">
+  return `<div class="akari-caption${captionContextClasses(options.contextStyle)}">
   <style>
     ${fontFaceCss}
     .akari-caption {
@@ -894,13 +947,13 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}${captionContextCss(options.contextStyle, { blockMode })}
     @keyframes akari-caption-fade {
       from { opacity: 0; transform: translateY(0.18em); }
       to { opacity: 1; transform: translateY(0); }
     }${animationKeyframesCss}
   </style>
-  <div class="akari-caption__plate">${plateMarkup}</div>
+  <div class="akari-caption__plate">${captionDecorationMarkup(plateMarkup, options.contextStyle)}</div>
 </div>`;
 }
 
@@ -979,9 +1032,11 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const rootStyle = effectiveStyle ?? "emphasis";
   const useMappedLines = Array.isArray(options.displayTokens) || effectiveStyle === REVEAL_STYLE;
   const charText = captionCharRenderer(options.animator);
-  const lines = useMappedLines
-    ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText))
-    : groupWordsIntoLines(words, maximum);
+  const lines = options.vertical
+    ? [useMappedLines ? renderTokens : words]
+    : useMappedLines
+      ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText))
+      : groupWordsIntoLines(words, maximum);
   const renderLine = (line) => line
     .map((word) => renderCaptionToken(
       word,
@@ -1000,7 +1055,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const blockMode = options.backgroundMode === "block";
   const plateMarkup = blockMode
     ? `<div class="akari-caption__block">${markup}</div>`
-    : markup;
+    : alignCaptionMarkup(markup, options.contextStyle, false);
   const blockPlateCss = blockMode
     ? `
     .akari-caption__block {
@@ -1062,7 +1117,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const revealWordCss = effectiveStyle === REVEAL_WORD_STYLE ? renderRevealWordCss() : "";
   const revealCss = effectiveStyle === REVEAL_STYLE ? renderRevealCss() : "";
 
-  return `<div class="akari-caption akari-caption--${rootStyle}">
+  return `<div class="akari-caption akari-caption--${rootStyle}${captionContextClasses(options.contextStyle)}">
   <style>
     ${fontFaceCss}
     .akari-caption {
@@ -1097,7 +1152,7 @@ ${linePlacementCss}
       border-radius: var(--plate-radius, 10px);
       background: var(--plate-bg, transparent);
 ${lineTextAlignCss}      white-space: pre;
-${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}
+${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapCss}${framePlateCss}${captionContextCss(options.contextStyle, { blockMode })}
     .akari-caption__tok {
       display: inline-block;
       vertical-align: baseline;
@@ -1125,7 +1180,7 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
     }${revealWordCss}${revealCss}${emphasisCss}${hasPresetEmphasis ? RESOLVED_CAPTION_WORD_PRESET_CSS : ''}
   </style>
-  <div class="akari-caption__plate">${plateMarkup}</div>
+  <div class="akari-caption__plate">${captionDecorationMarkup(plateMarkup, options.contextStyle)}</div>
 </div>`;
 }
 

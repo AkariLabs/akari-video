@@ -24,12 +24,15 @@ export const previewContextBarPageScript = `(() => {
     if (message?.type === 'akari-preview-caption-style-live') {
       const field = message.field;
       const property = { sizePx: 'font-size', lineHeight: 'line-height', letterSpacingEm: 'letter-spacing',
-        strokeWidth: '-webkit-text-stroke-width' }[field];
+        strokeWidth: '-webkit-text-stroke-width', opacity: '--caption-opacity' }[field];
       if (!property) return;
       const unit = field === 'lineHeight' ? '' : field === 'letterSpacingEm' ? 'em' : 'px';
-      document.querySelectorAll('.caption-row-plate[data-selected] .akari-caption__line').forEach(line => {
+      const selector = field === 'opacity' ? '.caption-row-plate[data-selected] .akari-caption'
+        : '.caption-row-plate[data-selected] .akari-caption__line';
+      document.querySelectorAll(selector).forEach(line => {
         if (message.value === null) line.style.removeProperty(property);
-        else if (Number.isFinite(message.value)) line.style.setProperty(property, message.value + unit);
+        else if (Number.isFinite(message.value)) line.style.setProperty(property,
+          field === 'opacity' ? String(message.value / 100) : message.value + unit);
       });
       return;
     }
