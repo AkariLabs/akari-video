@@ -8280,7 +8280,13 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #akari-gen-overlay[data-akari-gen-media="audio"] { border-radius: 12px; background: rgba(20,25,45,.76); }
 #akari-gen-overlay[data-akari-gen-aurora]::before { content: ''; position: absolute; inset: 0; background: linear-gradient(150deg, rgba(111,120,240,.12), rgba(56,189,248,.09), rgba(192,132,252,.07)); }
 #akari-gen-overlay[data-akari-gen-aurora="planned"]::before { opacity: 1; background: linear-gradient(150deg, rgba(111,120,240,.22), rgba(56,189,248,.17), rgba(192,132,252,.16)); }
-#akari-gen-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: calc(36px * var(--akari-gen-inv-scale)); color: rgba(196,205,235,.9); text-shadow: 0 0 18px rgba(111,120,240,.4); animation: akari-gen-pulse 3.4s ease-in-out infinite; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) { border: 1.5px dashed rgba(200,210,255,.55); }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"])::before { z-index: 1; background-color: rgba(14,17,36,.96); background-image: linear-gradient(115deg, rgba(111,120,240,.55), rgba(56,189,248,.42) 45%, rgba(192,132,252,.50), rgba(111,120,240,.55)); }
+#akari-gen-overlay[data-akari-gen-aurora="generating"]:not([data-akari-gen-media="audio"])::before { background-size: 300% 300%; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-blur { z-index: 0; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-pip, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-shimmer, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-icon, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-tag, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-band, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-mask { z-index: 2; }
+#akari-gen-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: calc(36px * var(--akari-gen-inv-scale)); color: rgba(196,205,235,.9); text-shadow: 0 0 18px rgba(111,120,240,.4); }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-icon { font-size: calc(56px * var(--akari-gen-inv-scale)); color: #e9ecff; text-shadow: 0 0 18px rgba(111,120,240,.8); }
 @keyframes akari-gen-pulse { 50% { opacity: .45; } }
 #akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 #akari-gen-blur-image { width: 100%; height: 100%; object-fit: cover; filter: blur(18px) brightness(.65); transform: scale(1.06); pointer-events: none; }
@@ -8289,6 +8295,7 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #akari-gen-pip-label { display: block; margin-bottom: calc(4px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #E6DFFF; text-shadow: 0 calc(1px * var(--akari-gen-inv-scale)) calc(3px * var(--akari-gen-inv-scale)) #000; }
 #akari-gen-tag[data-akari-gen-severity="planned-video"] { border-color: #A99AF2; color: #E6DFFF; background: rgba(42,28,72,.8); }
 #akari-gen-tag { position: absolute; left: calc(10px * var(--akari-gen-inv-scale)); top: calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; padding: calc(2px * var(--akari-gen-inv-scale)) calc(8px * var(--akari-gen-inv-scale)); border-radius: calc(4px * var(--akari-gen-inv-scale)); background: rgba(0,0,0,.6); color: #DCE6EE; border: calc(1px * var(--akari-gen-inv-scale)) dashed #8FA3B4; box-sizing: border-box; min-height: calc(22px * var(--akari-gen-inv-scale)); max-width: calc(100% - 20px * var(--akari-gen-inv-scale)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-tag { background: rgba(10,12,20,.72); }
 #akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #9da5f4; color: #d4ebff; }
 #akari-gen-tag[data-akari-gen-severity="error"] { border-color: #D6402B; color: #D6402B; border-style: solid; }
 #akari-gen-tag[data-akari-gen-severity="frames"] { border-color: #1F6F8B; color: #1F6F8B; }
@@ -8297,8 +8304,10 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #akari-gen-band-bar { flex: 1; min-width: calc(20px * var(--akari-gen-inv-scale)); height: calc(3px * var(--akari-gen-inv-scale)); background: rgba(255,255,255,.2); border-radius: calc(2px * var(--akari-gen-inv-scale)); overflow: hidden; }
 #akari-gen-band-fill { display: block; height: 100%; background: linear-gradient(90deg, #6f78f0, #38bdf8, #c084fc); }
 #akari-gen-shimmer { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.05) 50%, transparent 62%); background-size: 250% 100%; }
-@media (prefers-reduced-motion: no-preference) { #akari-gen-shimmer { animation: akari-gen-sh 5.5s ease-in-out infinite; } }
-@media (prefers-reduced-motion: reduce) { #akari-gen-icon { animation: none; } }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-shimmer { background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.12) 50%, transparent 62%); background-size: 250% 100%; }
+@media (prefers-reduced-motion: no-preference) { #akari-gen-overlay[data-akari-gen-aurora="generating"]:not([data-akari-gen-media="audio"])::before { animation: akari-gen-drift 6s linear infinite; } #akari-gen-shimmer { animation: akari-gen-sh 5.5s ease-in-out infinite; } #akari-gen-overlay[data-akari-gen-aurora="generating"] #akari-gen-icon { animation: akari-gen-pulse 3.4s ease-in-out infinite; } }
+@media (prefers-reduced-motion: reduce) { #akari-gen-overlay[data-akari-gen-aurora="generating"]:not([data-akari-gen-media="audio"])::before, #akari-gen-shimmer, #akari-gen-icon { animation: none; } }
+@keyframes akari-gen-drift { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
 @keyframes akari-gen-sh { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 #akari-gen-mask { position: absolute; box-sizing: border-box; border: 2px dashed #D6402B; border-radius: 3px; }
 #akari-gen-mask-label { position: absolute; left: 0; top: calc(-18px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #D6402B; }
@@ -20863,7 +20872,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 generationBandFill.style.width = progress === null || progress === undefined
                     ? '0%' : (Math.max(0, Math.min(1, progress)) * 100) + '%';
                 generationShimmer.hidden = !description.shimmer;
-                if (generationIcon) generationIcon.hidden = description.aurora !== 'generating';
+                if (generationIcon) generationIcon.hidden = description.aurora !== 'generating'
+                    && !(clip.kind !== 'audio' && description.aurora === 'planned');
                 generationMask.hidden = description.maskRect === null;
                 if (description.maskRect) {
                     generationMask.style.left = (description.maskRect.x * 100) + '%';

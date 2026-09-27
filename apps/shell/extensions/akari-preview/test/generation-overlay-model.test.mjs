@@ -27,7 +27,7 @@ test('6 状態と frames の表示記述をフィクスチャから表駆動で�
         },
         {
             name: 'planned.png', meta: await readMeta('planned.png'), label: 'ビート 2',
-            state: 'planned', tag: 'planned · ビート 2', band: null,
+            state: 'planned', tag: '✦ AI の枠', band: null,
             progress: null, shimmer: false, maskRect: null
         },
         {
@@ -197,7 +197,7 @@ test('next の無い静止画は完成品、小札なし。文字カードの pl
         assert.equal(description.pip, null);
         assert.equal(description.blurBackground, null);
     }
-    assert.equal(describeOverlay('planned', { kind: 'still', status: 'planned' }, '空の枠').tag, 'planned · 空の枠');
+    assert.equal(describeOverlay('planned', { kind: 'still', status: 'planned' }, '空の枠').tag, '✦ AI の枠');
 });
 
 test('静止画の生成中は経過秒とシマー、空の枠は静止した淡いオーロラを示す', () => {
@@ -223,17 +223,17 @@ test('候補ありは planned の淡いオーロラと札を保ち、候補 0 �
     const candidate = describeOverlay('planned', {
         kind: 'still', status: 'planned', job: { candidates: 3 }
     }, label);
-    assert.equal(candidate.tag, '候補 3 · 空の枠');
+    assert.equal(candidate.tag, '✦ 候補 3');
     assert.equal(candidate.aurora, 'planned');
     assert.equal(candidate.band, null);
     assert.equal(candidate.shimmer, false);
     assert.equal(describeOverlay('planned', {
         kind: 'still', status: 'planned', job: { candidates: 0 }
-    }, label).tag, 'planned · 空の枠');
+    }, label).tag, '✦ AI の枠');
     const doneCandidate = describeOverlay('done', {
         kind: 'still', status: 'done', job: { candidates: 3 }
     }, label);
-    assert.equal(doneCandidate.tag, '候補 3 · 空の枠');
+    assert.equal(doneCandidate.tag, '✦ 候補 3');
     assert.equal(doneCandidate.aurora, null);
     assert.equal(doneCandidate.band, null);
     assert.equal(doneCandidate.shimmer, false);
@@ -294,10 +294,10 @@ test('describeOverlay と next helper の toString 注入は外部スコープ�
     assert.equal(injected('done', meta, 'clip').pip, 'last.png');
     assert.equal(injected('generating', meta, 'clip', { sourcePath: 'clip.png' }).blurBackground, 'clip.png');
     const candidate = injected('planned', { status: 'planned', job: { candidates: 3 } }, '空の枠');
-    assert.equal(candidate.tag, '候補 3 · 空の枠');
+    assert.equal(candidate.tag, '✦ 候補 3');
     assert.equal(candidate.aurora, 'planned');
     const doneCandidate = injected('done', { status: 'done', job: { candidates: 3 } }, '空の枠');
-    assert.equal(doneCandidate.tag, '候補 3 · 空の枠');
+    assert.equal(doneCandidate.tag, '✦ 候補 3');
     assert.equal(doneCandidate.aurora, null);
 });
 
@@ -331,8 +331,8 @@ test('production 相当の minify 後でも toString 注入へ helper を明示�
     assert.throws(() => injectedDescribe('planned', {}, 'clip'), ReferenceError);
     const rows = [
         [null, 'none', null],
-        [{ status: 'planned', kind: 'still' }, 'planned', 'planned · clip'],
-        [{ status: 'planned', kind: 'still', job: { candidates: 3 } }, 'planned', '候補 3 · clip'],
+        [{ status: 'planned', kind: 'still' }, 'planned', '✦ AI の枠'],
+        [{ status: 'planned', kind: 'still', job: { candidates: 3 } }, 'planned', '✦ 候補 3'],
         [{ status: 'generating', progress: { percent: 25 } }, 'generating', '生成中 · clip'],
         [{ status: 'generating', job: { started_at: '2026-09-13T00:00:00.000Z' } }, 'stale', '応答なし · 再取得は右パネル'],
         [{ status: 'failed', error: { reason: 'timeout' } }, 'failed', '失敗 · timeout · 再試行は右パネル'],

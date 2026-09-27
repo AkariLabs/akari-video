@@ -139,7 +139,34 @@ async function shot(cdp, name, { clear = true, clips = [] } = {}) {
   }
   await save();
 }
-const layerChip = id => `(()=>{const e=[...document.querySelectorAll('[data-akari-ui="panel:timeline"] [data-akari-item-id=${S(id)}]')].find(x=>x.getBoundingClientRect().width>0);
+// r1: 生成の表示の枠だけを切り出して撮り、平均色（ffmpeg で 1×1 に縮小）を測る。
+// 灰色の文字カードが透けていると R/G/B がほぼ同じ値になり、オーロラが見えていると B が R より大きく離れる。
+const runBuffer = (command, args) => new Promise((resolve, reject) => {
+  const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  const chunks = [];
+  child.stdout.on('data', chunk => chunks.push(chunk));
+  child.once('error', reject);
+  child.once('close', code => code === 0 ? resolve(Buffer.concat(chunks)) : reject(new Error(`${command} exit ${code}`)));
+});
+async function overlayShot(cdp, name, o) {
+  if (!o?.viewport || o.viewport.w < 8 || o.viewport.h < 8) return null;
+  const frame = await evalOn(cdp, `(()=>{const f=document.querySelector(${S(PREVIEW_WIDGET)})?.querySelector('iframe');const r=f?.getBoundingClientRect();return r?{x:r.left,y:r.top}:null})()`);
+  if (!frame) return null;
+  const clip = { x: frame.x + o.viewport.x + 3, y: frame.y + o.viewport.y + 3, width: o.viewport.w - 6, height: o.viewport.h - 6, scale: 1 };
+  const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', clip });
+  const file = `${PHASE}-${name}-overlay.png`;
+  await writeFile(path.join(ROOT, file), Buffer.from(data, 'base64'));
+  results.screenshots.push(file);
+  const rgb = await runBuffer(FFMPEG, ['-v', 'error', '-i', path.join(ROOT, file), '-vf', 'scale=1:1:flags=area', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);
+  const mean = { r: rgb[0], g: rgb[1], b: rgb[2] };
+  return { file, mean, chroma: Math.max(mean.r, mean.g, mean.b) - Math.min(mean.r, mean.g, mean.b), blueOverRed: mean.b - mean.r };
+}
+const alphaOf = color => { const m = /rgba?\(([^)]+)\)/u.exec(color ?? ''); if (!m) return 0; const parts = m[1].split(',').map(Number); return parts.length > 3 ? parts[3] : 1; };
+const auroraVisible = (o, color) => alphaOf(o?.fill?.color) >= 0.85 && /linear-gradient/u.test(o?.fill?.image ?? '') && !!color && color.chroma >= 40 && color.blueOverRed >= 40;
+const chipAt = selector => `(()=>{const e=[...document.querySelectorAll(${S(`[data-akari-ui="panel:timeline"] ${selector}`)})].find(x=>x.getBoundingClientRect().width>0);
+  return e?{kind:e.dataset.akariItemKind??null,state:e.dataset.akariGenerationState??null,
+    badge:e.querySelector('.akari-generation-badge-label')?.textContent?.trim()??e.querySelector('[data-akari-generation-badge]')?.textContent?.trim()??null}:null})()`;
+const layerChip = id =>`(()=>{const e=[...document.querySelectorAll('[data-akari-ui="panel:timeline"] [data-akari-item-id=${S(id)}]')].find(x=>x.getBoundingClientRect().width>0);
   return e?{kind:e.dataset.akariItemKind??null,state:e.dataset.akariGenerationState??null,
     badge:e.querySelector('.akari-generation-badge-label')?.textContent?.trim()??e.querySelector('[data-akari-generation-badge]')?.textContent?.trim()??null}:null})()`;
 
@@ -191,6 +218,9 @@ const overlayState = `(()=>{const o=document.getElementById('akari-gen-overlay')
     box:o.hidden?null:rel(o.getBoundingClientRect()),
     selectBox:sel?.classList.contains('is-active')?rel(sel.getBoundingClientRect()):null,
     stage:{w:Math.round(sb.width),h:Math.round(sb.height)},
+    fill:(()=>{const c=getComputedStyle(o,'::before');return{color:c.backgroundColor,image:c.backgroundImage.slice(0,160),animation:c.animationName,zIndex:c.zIndex}})(),
+    iconAnimation:getComputedStyle(document.getElementById('akari-gen-icon')).animationName,
+    viewport:(()=>{const r=o.getBoundingClientRect();return o.hidden?null:{x:r.left,y:r.top,w:r.width,h:r.height}})(),
     seek:document.getElementById('seek')?.value??null}})()`;
 
 let electron, cdp;
@@ -306,26 +336,37 @@ try {
   const fits = o => !!o?.box && !!o?.selectBox && ['x', 'y', 'w', 'h'].every(k => Math.abs(o.box[k] - o.selectBox[k]) <= 0.02);
   const clipsFor = [['preview', PREVIEW_WIDGET], ['timeline', '[data-akari-ui="panel:timeline"]']];
 
-  // ---- (i) 空の枠 ----
+  // ---- r1: 見た目の判定（オーロラの色がはっきり・下の文字カードが見えない・札が日本語） ----
+  // 各画面で枠だけを切り出して平均色を測り、::before の下地の不透明度とグラデーションを読む。
+  // タイムラインの cut の番号は edit.json の items の並び順（時刻順ではない）
+  const V1_INDEX = (await readEdit()).tracks.find(t => t.id === 'visual-main').items.findIndex(item => item.id === V1FRAME);
+  const V1CHIP = `[data-akari-item-kind="cut"][data-akari-item-id="${V1_INDEX}"]`;
+  const look = async (key, name, expected) => {
+    const o = await previewEval(overlayState);
+    await shot(cdp, name, { clips: clipsFor });
+    const color = await overlayShot(cdp, name, o);
+    results.observations[key] = { overlay: o, color };
+    return { o, color };
+  };
+
+  // ---- (i) V2 のレイヤーの空の枠 ----
   await stage('(i) empty layer frame');
   await seekTo(layerMid);
-  let o = await previewEval(overlayState);
-  results.observations.emptyLayer = { overlay: o, chip: await evalOn(cdp, layerChip(LAYER)) };
-  check('(i) V2 のレイヤーの空の枠: プレビューに淡いオーロラ（planned）', o?.visible && o.aurora === 'planned', o);
+  let { o, color } = await look('emptyLayer', 'i-layer-empty');
+  results.observations.emptyLayer.chip = await evalOn(cdp, layerChip(LAYER));
+  check('(i) V2 のレイヤーの空の枠: オーロラの色がはっきり見え、下の文字カードを覆う（下地の不透明度 0.85 以上 + グラデーション + 平均色が青紫）',
+    o?.visible && o.aurora === 'planned' && auroraVisible(o, color), { fill: o?.fill, color });
+  check('(i) 札が日本語「✦ AI の枠」・中央に静止の ✦', o?.tag === '✦ AI の枠' && o.icon && o.iconAnimation === 'none', { tag: o?.tag, icon: o?.icon, iconAnimation: o?.iconAnimation });
   check('(i) 表示がレイヤーの枠の位置と大きさに収まる（選択枠との差 2% 以内）', fits(o), { box: o?.box, selectBox: o?.selectBox });
-  await shot(cdp, 'i-layer-empty', { clips: clipsFor });
 
-  // ---- (v1) V1 の cut の空の枠（回帰） ----
+  // ---- (v1) V1 の cut の空の枠 ----
   await stage('(v1) V1 cut empty frame');
   await seekTo(v1Mid);
-  o = await previewEval(overlayState);
-  results.observations.v1Empty = { overlay: o, chip: await evalOn(cdp, layerChip(V1FRAME)) };
-  check('(v1) V1 の cut の空の枠: プレビューに淡いオーロラ（planned）が出る', o?.visible && o.aurora === 'planned' && !!o.box && o.box.w > 0.95 && o.box.h > 0.95, o);
-  await shot(cdp, 'v1-cut-empty', { clips: clipsFor });
+  ({ o, color } = await look('v1Empty', 'v1-cut-empty'));
+  check('(v1-i) V1 の cut の空の枠: 全面にはっきりしたオーロラ・札「✦ AI の枠」',
+    o?.visible && o.aurora === 'planned' && !!o.box && o.box.w > 0.95 && o.box.h > 0.95 && auroraVisible(o, color) && o.tag === '✦ AI の枠', { box: o?.box, fill: o?.fill, color, tag: o?.tag });
 
   // ---- 静止画の専用パネルを開いて 3 手段で作る ----
-  await stage('open the still panel');
-  await selectLayer();
   const openStillPanel = async () => {
     const tabActive = `(()=>{const t=document.querySelector('[data-akari-ui="tab:inspector-edit"]');return !!t&&(t.classList.contains('is-active')||t.getAttribute('aria-selected')==='true')})()`;
     if (await evalOn(cdp, `Boolean(document.querySelector('[data-akari-inspector-ai-create="true"]'))`)) return;
@@ -336,59 +377,82 @@ try {
     }
     await settle(cdp);
   };
-  await openStillPanel();
-  await waitEval(cdp, `[...document.querySelectorAll('[data-akari-inspector-ai-route-state]')].every(e=>e.getAttribute('data-akari-inspector-ai-route-state')!=='checking')`, 'route probe', 60_000).catch(() => undefined);
   const setRoute = async (id, on) => {
     const now = await evalOn(cdp, `document.querySelector('[data-akari-inspector-ai-route="${id}"] input')?.checked??null`);
     if (now === null || now === on) return;
     await clickUntil(cdp, `[data-akari-inspector-ai-route="${id}"] input`, `document.querySelector('[data-akari-inspector-ai-route="${id}"] input')?.checked===${on}`, `route ${id} ${on}`);
   };
-  await setRoute('fal', false);
-  for (const id of ['codex', 'grok', 'antigravity']) await setRoute(id, true);
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const p = await pointOf(cdp, '[data-akari-inspector-ai-prompt="true"]');
-    await realClick(cdp, p.x, p.y);
-    await evalOn(cdp, `(()=>{const t=document.querySelector('[data-akari-inspector-ai-prompt="true"]');t.select();return true})()`);
-    await cdp.send('Input.insertText', { text: '夕焼けの海辺に立つ猫' });
-    await settle(cdp);
-    if (await evalOn(cdp, `document.querySelector('[data-akari-inspector-ai-prompt="true"]')?.value==='夕焼けの海辺に立つ猫'`)) break;
-  }
-
-  // ---- (ii) 3 手段の同時生成中 ----
-  await stage('(ii) three routes running');
-  await waitEval(cdp, `document.querySelector('[data-akari-inspector-ai-create="true"]')?.disabled===false`, 'create enabled', 60_000);
-  const createPoint = await pointOf(cdp, '[data-akari-inspector-ai-create="true"]');
-  await realClick(cdp, createPoint.x, createPoint.y);
-  const waitBadge = async (re, timeout) => {
+  const startThreeRoutes = async () => {
+    await openStillPanel();
+    await waitEval(cdp, `[...document.querySelectorAll('[data-akari-inspector-ai-route-state]')].every(e=>e.getAttribute('data-akari-inspector-ai-route-state')!=='checking')`, 'route probe', 60_000).catch(() => undefined);
+    await setRoute('fal', false);
+    for (const id of ['codex', 'grok', 'antigravity']) await setRoute(id, true);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const p = await pointOf(cdp, '[data-akari-inspector-ai-prompt="true"]');
+      await realClick(cdp, p.x, p.y);
+      await evalOn(cdp, `(()=>{const t=document.querySelector('[data-akari-inspector-ai-prompt="true"]');t.select();return true})()`);
+      await cdp.send('Input.insertText', { text: '夕焼けの海辺に立つ猫' });
+      await settle(cdp);
+      if (await evalOn(cdp, `document.querySelector('[data-akari-inspector-ai-prompt="true"]')?.value==='夕焼けの海辺に立つ猫'`)) break;
+    }
+    await waitEval(cdp, `document.querySelector('[data-akari-inspector-ai-create="true"]')?.disabled===false`, 'create enabled', 60_000);
+    const createPoint = await pointOf(cdp, '[data-akari-inspector-ai-create="true"]');
+    await realClick(cdp, createPoint.x, createPoint.y);
+  };
+  const waitBadge = async (chipExpr, re, timeout) => {
     const until = Date.now() + timeout; let last = '';
-    while (Date.now() < until) { last = (await evalOn(cdp, layerChip(LAYER)).catch(() => null))?.badge ?? ''; if (re.test(last)) return last; await sleep(150); }
+    while (Date.now() < until) { last = (await evalOn(cdp, chipExpr).catch(() => null))?.badge ?? ''; if (re.test(last)) return last; await sleep(150); }
     return null;
   };
-  results.observations.runningBadge = await waitBadge(/3 案作成中 · 1\/3/u, 12_000);
+
+  // ---- (ii) V2 のレイヤーで 3 手段の同時生成中 ----
+  await stage('(ii) three routes running on the layer');
+  await selectLayer();
+  await startThreeRoutes();
+  results.observations.runningBadge = await waitBadge(layerChip(LAYER), /3 案作成中 · 1\/3/u, 12_000);
   await seekTo(layerMid);
-  o = await previewEval(overlayState);
-  results.observations.runningLayer = { overlay: o, chip: await evalOn(cdp, layerChip(LAYER)) };
-  check('(ii) 生成中: プレビューのレイヤーの枠に生成中の光（generating + シマー + ✦）', o?.visible && o.aurora === 'generating' && o.shimmer && o.icon, o);
-  check('(ii) 生成中: 帯（生成中 · N 秒）', /生成中/u.test(o?.band ?? ''), { band: o?.band, tag: o?.tag });
+  ({ o, color } = await look('runningLayer', 'ii-layer-generating'));
+  results.observations.runningLayer.chip = await evalOn(cdp, layerChip(LAYER));
+  check('(ii) 生成中: オーロラの地がはっきり見えて横へ流れる（akari-gen-drift）+ 光 + ✦ の明滅',
+    o?.visible && o.aurora === 'generating' && auroraVisible(o, color) && o.fill?.animation === 'akari-gen-drift' && o.shimmer && o.icon && o.iconAnimation === 'akari-gen-pulse', { fill: o?.fill, color, shimmer: o?.shimmer, icon: o?.icon, iconAnimation: o?.iconAnimation });
+  check('(ii) 帯「生成中 · N 秒」', /生成中 · \d+ 秒/u.test(o?.band ?? ''), { band: o?.band, tag: o?.tag });
   check('(ii) 生成中の表示がレイヤーの枠の位置と大きさに収まる', fits(o), { box: o?.box, selectBox: o?.selectBox });
-  await shot(cdp, 'ii-layer-generating', { clips: clipsFor });
   await sleep(2200);
   const o2 = await previewEval(overlayState);
-  results.observations.runningLayerLater = o2;
+  results.observations.runningLayerLater = { band: o2?.band };
   check('(ii) 帯の秒が進む', o2?.band !== o?.band && /生成中 · \d+ 秒/u.test(o2?.band ?? ''), { first: o?.band, later: o2?.band });
 
-  // ---- (iii) 候補あり ----
-  await stage('(iii) candidates');
-  results.observations.candidatesBadge = await waitBadge(/候補 3/u, 60_000);
+  // ---- (iii) V2 のレイヤーの候補あり ----
+  await stage('(iii) candidates on the layer');
+  results.observations.candidatesBadge = await waitBadge(layerChip(LAYER), /候補 3/u, 60_000);
   await settle(cdp);
   await seekTo(layerMid);
-  o = await previewEval(overlayState);
-  results.observations.candidatesLayer = { overlay: o, chip: await evalOn(cdp, layerChip(LAYER)),
-    stub: (await stubLog()).filter(r => r.wrote).map(r => ({ route: r.route, wrote: { width: r.wrote.width, height: r.wrote.height } })) };
-  check('(iii) 候補あり: プレビューのレイヤーの枠に札（候補）', o?.visible && /候補/u.test(o.tag ?? ''), o);
+  ({ o, color } = await look('candidatesLayer', 'iii-layer-candidates'));
+  results.observations.candidatesLayer.chip = await evalOn(cdp, layerChip(LAYER));
+  check('(iii) 候補あり: 静止のオーロラ（はっきり）+ 札「✦ 候補 3」',
+    o?.visible && o.aurora === 'planned' && auroraVisible(o, color) && o.fill?.animation === 'none' && o.tag === '✦ 候補 3', { fill: o?.fill, color, tag: o?.tag });
   check('(iii) 候補ありの表示がレイヤーの枠の位置と大きさに収まる', fits(o), { box: o?.box, selectBox: o?.selectBox });
-  await shot(cdp, 'iii-layer-candidates', { clips: clipsFor });
 
+  // ---- V1 の cut でも同じく生成中 → 候補あり ----
+  await stage('(v1-ii) three routes running on the V1 cut');
+  const headerBefore = await evalOn(cdp, `document.querySelector('[data-akari-ui="inspector-selection-header"]')?.textContent??''`);
+  await clickUntil(cdp, `[data-akari-ui="panel:timeline"] ${V1CHIP}`,
+    `(document.querySelector('[data-akari-ui="inspector-selection-header"]')?.textContent??'')!==${S(headerBefore)}`, 'select V1 cut frame');
+  await settle(cdp);
+  await startThreeRoutes();
+  results.observations.v1RunningBadge = await waitBadge(chipAt(V1CHIP), /3 案作成中/u, 12_000);
+  await seekTo(v1Mid);
+  ({ o, color } = await look('v1Running', 'v1-cut-generating'));
+  results.observations.v1Running.chip = await evalOn(cdp, chipAt(V1CHIP));
+  check('(v1-ii) V1 の cut の生成中: オーロラの地がはっきり見えて流れる + 光 + ✦ の明滅 + 帯',
+    o?.visible && o.aurora === 'generating' && auroraVisible(o, color) && o.fill?.animation === 'akari-gen-drift' && o.shimmer && o.icon && /生成中/u.test(o.band ?? ''), { fill: o?.fill, color, band: o?.band, tag: o?.tag });
+  await stage('(v1-iii) candidates on the V1 cut');
+  results.observations.v1CandidatesBadge = await waitBadge(chipAt(V1CHIP), /候補 3/u, 60_000);
+  await settle(cdp);
+  await seekTo(v1Mid);
+  ({ o, color } = await look('v1Candidates', 'v1-cut-candidates'));
+  check('(v1-iii) V1 の cut の候補あり: 静止のオーロラ（はっきり）+ 札「✦ 候補 3」',
+    o?.visible && o.aurora === 'planned' && auroraVisible(o, color) && o.tag === '✦ 候補 3', { fill: o?.fill, color, tag: o?.tag });
   results.status = results.checks.every(c => c.pass) ? 'pass' : 'fail';
   if (results.status !== 'pass') process.exitCode = 1;
 } catch (error) {

@@ -32,7 +32,7 @@ test('prepareHtml は生成オーバーレイ層を 1 枚だけ持ち、クリ�
 });
 
 test('reduced motion、exportLook、生成更新メッセージを webview HTML と script に配線する', () => {
-    assert.match(prepareHtmlMethod, /@media \(prefers-reduced-motion: no-preference\)\s*\{\s*#akari-gen-shimmer\s*\{\s*animation:/u);
+    assert.match(prepareHtmlMethod, /@media \(prefers-reduced-motion: no-preference\)\s*\{[\s\S]*?#akari-gen-shimmer\s*\{\s*animation:/u);
     assert.match(prepareHtmlMethod, /exportLook\s*=\s*false/u);
     assert.match(prepareHtmlMethod, /scrubAudioEnabled,\s*previewAudioWorkletUrl:/u);
     assert.doesNotMatch(prepareHtmlMethod, /previewDisplayPreferences/u);
@@ -49,9 +49,47 @@ test('オーロラはクリップの変形とクロップに収まり、動き�
     assert.match(previewBootstrapMethod, /crop\.w/u);
     assert.match(previewBootstrapMethod, /transform\.scaleX/u);
     assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora="planned"\]/u);
-    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora="planned"\]::before\s*\{\s*opacity: 1; background: linear-gradient\(150deg, rgba\(111,120,240,\.22\)/u);
-    assert.match(prepareHtmlMethod, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*#akari-gen-icon\s*\{\s*animation: none/u);
+    assert.match(prepareHtmlMethod, /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*#akari-gen-shimmer, #akari-gen-icon\s*\{\s*animation: none/u);
     assert.match(previewBootstrapMethod, /if \(generationExportLook\)\s*\{\s*hideGenerationOverlay\(\)/u);
+});
+
+test('映像の planned は不透明な藍・空色・紫のオーロラで文字カードを覆う', () => {
+    const fill = prepareHtmlMethod.match(/#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\)::before\s*\{([^}]*)\}/u)?.[1];
+    assert.ok(fill);
+    const alpha = Number(fill.match(/background-color:\s*rgba\(14,17,36,([\d.]+)\)/u)?.[1]);
+    assert.ok(alpha >= .85);
+    assert.match(fill, /linear-gradient\(115deg, rgba\(111,120,240,\.55\), rgba\(56,189,248,\.42\) 45%, rgba\(192,132,252,\.50\)/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\)\s*\{\s*border: 1\.5px dashed rgba\(200,210,255,\.55\)/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\) #akari-gen-icon\s*\{[^}]*56px[^}]*#e9ecff/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\) #akari-gen-tag\s*\{\s*background: rgba\(10,12,20,\.72\)/u);
+});
+
+test('映像の generating だけオーロラが 6 秒で流れ、動きを減らす設定で全アニメーションが止まる', () => {
+    const motion = prepareHtmlMethod.slice(prepareHtmlMethod.indexOf('@media (prefers-reduced-motion: no-preference)'));
+    const reduced = prepareHtmlMethod.slice(prepareHtmlMethod.indexOf('@media (prefers-reduced-motion: reduce)'));
+    assert.match(motion, /#akari-gen-overlay\[data-akari-gen-aurora="generating"\]:not\(\[data-akari-gen-media="audio"\]\)::before\s*\{\s*animation: akari-gen-drift 6s linear infinite/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora="generating"\]:not\(\[data-akari-gen-media="audio"\]\)::before\s*\{\s*background-size: 300% 300%/u);
+    assert.match(prepareHtmlMethod, /@keyframes akari-gen-drift\s*\{\s*from\s*\{\s*background-position: 0% 50%;\s*\}\s*to\s*\{\s*background-position: 300% 50%/u);
+    assert.match(motion, /#akari-gen-shimmer\s*\{\s*animation: akari-gen-sh 5\.5s/u);
+    assert.match(motion, /#akari-gen-overlay\[data-akari-gen-aurora="generating"\] #akari-gen-icon\s*\{\s*animation: akari-gen-pulse 3\.4s/u);
+    assert.match(reduced, /#akari-gen-overlay\[data-akari-gen-aurora="generating"\]:not\(\[data-akari-gen-media="audio"\]\)::before, #akari-gen-shimmer, #akari-gen-icon\s*\{\s*animation: none/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\) #akari-gen-shimmer\s*\{[^}]*rgba\(255,255,255,\.12\)/u);
+});
+
+test('オーロラは blur より上で、音の枠に映像用の強い規則を適用しない', () => {
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\)::before\s*\{\s*z-index: 1/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\) #akari-gen-blur\s*\{\s*z-index: 0/u);
+    assert.match(prepareHtmlMethod, /#akari-gen-overlay\[data-akari-gen-aurora\]:not\(\[data-akari-gen-media="audio"\]\) #akari-gen-icon[^}]*\{\s*z-index: 2/u);
+    for (const line of prepareHtmlMethod.split('\n').filter(line => /rgba\(14,17,36,\.96\)|rgba\(255,255,255,\.12\)|akari-gen-drift 6s|56px \* var\(--akari-gen-inv-scale\)/u.test(line))) {
+        assert.match(line, /:not\(\[data-akari-gen-media="audio"\]\)/u);
+    }
+});
+
+test('planned は ✦ を表示し、音の枠と exportLook の表示条件を保つ', () => {
+    assert.match(previewBootstrapMethod, /generationIcon\.textContent = clip\.kind === 'audio' \? '♫' : '✦'/u);
+    assert.match(previewBootstrapMethod, /generationIcon\.hidden = description\.aurora !== 'generating'\s*&& !\(clip\.kind !== 'audio' && description\.aurora === 'planned'\)/u);
+    assert.match(previewBootstrapMethod, /if \(generationExportLook\)\s*\{\s*hideGenerationOverlay\(\);\s*return;/u);
+    assert.match(previewBootstrapMethod, /const hideGenerationOverlay = \(\) => \{[\s\S]*?generationOverlay\.hidden = true/u);
 });
 
 test('sendGenerationUpdate は clip ごとに first frame 逆引きを使う', () => {

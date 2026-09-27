@@ -208,11 +208,11 @@ export function describeOverlay(
 
         const candidates = finiteNumber(objectAt(value, 'job').candidates);
         if ((state === 'planned' || state === 'done') && candidates !== undefined && candidates > 0) {
-            return { ...empty(), tag: `候補 ${candidates} · ${beatLabel}`,
+            return { ...empty(), tag: `✦ 候補 ${candidates}`,
                 aurora: state === 'planned' ? 'planned' : null };
         }
         if (state === 'planned') {
-            return { ...empty(), tag: `planned · ${beatLabel}`, aurora: 'planned' };
+            return { ...empty(), tag: '✦ AI の枠', aurora: 'planned' };
         }
         return empty();
     } catch {
