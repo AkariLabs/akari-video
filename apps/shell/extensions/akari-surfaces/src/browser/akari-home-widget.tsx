@@ -597,7 +597,11 @@ export class AkariHomeWidget extends ReactWidget {
             async () => { await this.commands.executeCommand('akari.settings.open', { section: 'start' }); },
             () => this.guideAnnouncementToast.showClosed()
         );
-        await this.firstVideoGuide.open(state);
+        try { await this.firstVideoGuide.open(state); }
+        catch (error) {
+            console.error('[akari-surfaces] first video guide could not open:', error);
+            void this.messages.error('ガイドを開けませんでした。', '閉じる');
+        }
     };
 
     /**

@@ -9,6 +9,7 @@ import { AkariNewProjectService } from '../common/akari-new-project-protocol';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions, OnboardingState, parseOnboardingState, splitOnboardingTokens, TranscriptSegment, TranscriptToken } from '../onboarding/model';
 import { guideAnnouncementDecision, guideAnnouncementMarker } from '../onboarding/announcement-model';
+import { welcomeImageCandidates } from '../onboarding/asset-paths';
 import { AkariOnboardingService, SampleInformation } from '../onboarding/protocol';
 
 const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
@@ -16,13 +17,23 @@ const SAMPLE_ID = 'talkinghead-desk-ja-01';
 const SAMPLE_NAME = 'サンプル動画.mp4';
 const STATE_FILE = 'onboarding-v1.json';
 const ANNOUNCEMENT_FILE = 'first-video-guide-announcement-v1.json';
-const WELCOME_IMAGE = 'extensions/akari-surfaces/src/onboarding/welcome.webp';
 const BUNDLED_SAMPLE = 'onboarding-sample/talkinghead-desk-ja-01';
 
 @injectable()
 export class AkariOnboardingServiceImpl implements AkariOnboardingService {
     async heroDataUrl(): Promise<string> {
-        return `data:image/webp;base64,${(await fs.readFile(await this.findUpwardFile(WELCOME_IMAGE))).toString('base64')}`;
+        let lastError: unknown;
+        for (const candidate of this.welcomeImageCandidates()) {
+            try { return `data:image/webp;base64,${(await fs.readFile(candidate)).toString('base64')}`; }
+            catch (error) { lastError = error; }
+        }
+        console.warn('[akari-onboarding] ようこそ画像を読めませんでした。画像なしで続けます。', lastError);
+        return '';
+    }
+
+    protected welcomeImageCandidates(): string[] {
+        const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+        return welcomeImageCandidates(__dirname, process.cwd(), resourcesPath);
     }
     @inject(AkariNewProjectService)
     protected readonly projects!: AkariNewProjectService;

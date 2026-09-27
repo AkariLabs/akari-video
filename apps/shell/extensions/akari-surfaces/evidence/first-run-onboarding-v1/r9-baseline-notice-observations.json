@@ -1,0 +1,16 @@
+{
+  "mode": "baseline-notice",
+  "startedAt": "2026-09-27T19:30:43.099Z",
+  "electronPid": 1068,
+  "shots": [
+    "r9-01b-baseline-notice-missing"
+  ],
+  "pageErrors": [
+    "2026-09-27T19:30:47.355Z vsx-registry:VSXExtensionsModel ERROR [anthropic.claude-code]: failed to refresh, reason: TypeError: fetch failed\n    at node:internal/deps/undici/undici:14902:13\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Die.request (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:785:4044)\n    at async nGe.requestJson (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:28596)\n    at async KVe.queryLatestCompatibleExtension (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22625)\n    at async KVe.findLatestCompatibleExtension (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22297)\n    at async i$.onRequest (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:55258)\n    at async t.handleRequest (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:50658)",
+    "2026-09-27T19:30:47.564Z vsx-registry:VSXExtensionsModel ERROR [openai.chatgpt]: failed to refresh, reason: TypeError: fetch failed\n    at node:internal/deps/undici/undici:14902:13\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Die.request (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:785:4044)\n    at async nGe.requestJson (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:28596)\n    at async KVe.queryLatestCompatibleExtension (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22625)\n    at async KVe.findLatestCompatibleExtension (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22297)\n    at async i$.onRequest (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:55258)\n    at async t.handleRequest (C:\\t\\onb-r9\\baseline-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:50658)",
+    "Failed to load resource: net::ERR_UNSAFE_PORT",
+    "extensions/akari-surfaces/src/onboarding/welcome.webp が見つかりません"
+  ],
+  "guideMissing": true,
+  "finishedAt": "2026-09-27T19:30:50.857Z"
+}

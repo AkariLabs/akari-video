@@ -93,6 +93,11 @@ export class OnboardingController {
     ) {}
 
     async open(initial?: OnboardingState): Promise<void> {
+        try { await this.openUnchecked(initial); }
+        catch (error) { this.closeVisual(); throw error; }
+    }
+
+    protected async openUnchecked(initial?: OnboardingState): Promise<void> {
         this.closeVisual();
         this.state = initial ?? INITIAL_ONBOARDING_STATE;
         this.hero = await this.service.heroDataUrl();
@@ -556,7 +561,7 @@ export class OnboardingController {
             if (takeHost.dataset.kind !== (intro ? 'intro' : 'done')) {
                 takeHost.dataset.kind = intro ? 'intro' : 'done';
                 takeHost.innerHTML = intro
-                    ? `<div class="ao-takeover"><div class="ao-takeover-inner"><div class="ao-hero"><img src="${this.hero}" alt=""></div><div class="ao-text in"></div></div></div>`
+                    ? `<div class="ao-takeover"><div class="ao-takeover-inner"><div class="ao-hero">${this.hero ? `<img src="${this.hero}" alt="">` : ''}</div><div class="ao-text in"></div></div></div>`
                     : `<div class="ao-takeover ao-done"><div class="ao-celebrate"></div><div class="ao-text in"></div></div>`;
             }
             if (takeHost.dataset.step !== this.state.step || this.state.step === 'invite') {

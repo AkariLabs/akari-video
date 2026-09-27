@@ -80,3 +80,11 @@ test('ガイド状態が違うプロジェクトの編集は変えない', async
     await assert.rejects(setup.service.resetTourExample(setup.projectUri, setup.source, segments), /完成例の状態が違います/);
     assert.equal(await readFile(join(setup.project, 'edit.json'), 'utf8'), before);
 });
+
+test('ようこそ画像が無くても空の画像として続ける', async t => {
+    const root = await mkdtemp(join(process.env.AKARI_TEST_SCRATCH || tmpdir(), 'akari-welcome-missing-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const service = new AkariOnboardingServiceImpl();
+    service.welcomeImageCandidates = () => [join(root, 'missing.webp')];
+    assert.equal(await service.heroDataUrl(), '');
+});

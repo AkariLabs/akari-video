@@ -1,0 +1,43 @@
+{
+  "mode": "settings",
+  "startedAt": "2026-09-27T19:31:59.872Z",
+  "electronPid": 3900,
+  "shots": [
+    "r9-03-packaged-settings-open"
+  ],
+  "pageErrors": [
+    "2026-09-27T19:32:03.160Z vsx-registry:VSXExtensionsModel ERROR [anthropic.claude-code]: failed to refresh, reason: TypeError: fetch failed\n    at node:internal/deps/undici/undici:14902:13\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Pie.request (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:785:4044)\n    at async iGe.requestJson (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:28596)\n    at async JVe.queryLatestCompatibleExtension (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22625)\n    at async JVe.findLatestCompatibleExtension (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22297)\n    at async i$.onRequest (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:55258)\n    at async t.handleRequest (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:50658)",
+    "2026-09-27T19:32:03.239Z vsx-registry:VSXExtensionsModel ERROR [openai.chatgpt]: failed to refresh, reason: TypeError: fetch failed\n    at node:internal/deps/undici/undici:14902:13\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Pie.request (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:785:4044)\n    at async iGe.requestJson (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:28596)\n    at async JVe.queryLatestCompatibleExtension (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22625)\n    at async JVe.findLatestCompatibleExtension (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:1917:22297)\n    at async i$.onRequest (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:55258)\n    at async t.handleRequest (C:\\t\\onb-r9\\fixed-package\\win-unpacked\\resources\\app.asar\\lib\\backend\\main.js:538:50658)",
+    "Failed to load resource: net::ERR_UNSAFE_PORT"
+  ],
+  "settingsCandidates": [
+    {
+      "html": "<li id=\"tab-key-1-1\" title=\"AKARI Video の設定\" role=\"tab\" aria-selected=\"false\" tabindex=\"0\" class=\"lm-TabBar-tab\" style=\"z-index: 2;\"><div class=\"lm-TabBar-tabIcon codicon codicon-settings-gear\"></div><div class=\"lm-TabBa",
+      "visible": false
+    },
+    {
+      "html": "<button type=\"button\" class=\"akari-store-badge\" data-akari-store-connection=\"disconnected\" data-akari-plan-tone=\"neutral\" title=\"AKARI Store に接続していません。クリックすると接続設定を開きます。\" aria-label=\"AKARI Store に接続していません。クリックすると接続設定を開きます",
+      "visible": true
+    }
+  ],
+  "gearCandidates": [
+    {
+      "html": "<div class=\"theia-tab-icon-label\"><div class=\"lm-TabBar-tabIcon codicon codicon-settings-gear\"></div><div class=\"lm-TabBar-tabLabel\" style=\"width: 0px; height: 0px; top: 48px;\">設定</div><div></div><div></div></div>",
+      "visible": true
+    },
+    {
+      "html": "<div class=\"theia-tab-icon-label\"><div class=\"lm-TabBar-tabIcon codicon codicon-settings-gear\"></div><div class=\"lm-TabBar-tabLabel\">設定</div><div></div><div></div></div>",
+      "visible": true
+    },
+    {
+      "html": "<div class=\"theia-sidebar-menu-item\"><i class=\"codicon codicon-settings-gear\"></i></div>",
+      "visible": true
+    },
+    {
+      "html": "<li id=\"tab-key-1-1\" title=\"AKARI Video の設定\" role=\"tab\" aria-selected=\"false\" tabindex=\"0\" class=\"lm-TabBar-tab\" style=\"z-index: 2;\"><div class=\"lm-TabBar-tabIcon codicon codicon-settings-gear\"></div><div class=\"lm-TabBar-tabLabel\">設定</div></li>",
+      "visible": false
+    }
+  ],
+  "guideOpened": true,
+  "finishedAt": "2026-09-27T19:32:05.753Z"
+}
