@@ -293,11 +293,12 @@ export const generationFields = Object.assign(function generationFields<TSnapsho
         getValue: () => selectedLabel, getEditValue: () => selectedLabel,
         className: 'akari-inspector-generation-facts',
         write: (_snapshot, value) => actions.update('modelId', byLabel.get(value) ?? value)
-    }, {
+    }];
+    fields.push({
         name: 'prompt', label: '指示文（prompt）', inputKind: 'text',
         getValue: () => String(inputs.prompt ?? ''), getEditValue: () => String(inputs.prompt ?? ''),
         write: (_snapshot, value) => actions.update('inputs.prompt', value || null)
-    }];
+    });
 
     if (catalogRow.inputs.negative_prompt === true) fields.push({
         name: 'negative-prompt', label: '入れたくないもの（negative prompt）', generationDetail: true, inputKind: 'text',

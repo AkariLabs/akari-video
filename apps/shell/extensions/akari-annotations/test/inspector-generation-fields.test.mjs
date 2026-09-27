@@ -25,6 +25,19 @@ const actions = Object.fromEntries(['update', 'copyAdjacent', 'generate', 'resum
 const draft = modelId => ({ modelId, inputs: { prompt: '', first_frame: { path: 'still.png' }, last_frame: null, reference_images: [] }, output: { duration_s: 6, resolution: '720p', audio_out: true } });
 const names = fields => fields.flatMap(field => [field.name, ...(field.generationReferences?.kinds.map(kind => kind.slot) ?? [])]);
 
+test('比較モードでも指示文を先頭に出し、通常モードではモデル選択の直後に出す', () => {
+  for (const compareMode of [true, false]) {
+    const fields = generationFields({
+      snapshot: {}, catalogRow: models[0], draft: draft(models[0].id),
+      defaults: { catalog: models, compareMode }, actions
+    });
+    assert.deepEqual(fields.slice(0, compareMode ? 1 : 2).map(field => field.name),
+      compareMode ? ['prompt'] : ['generation-model', 'prompt']);
+    assert.equal(fields.some(field => field.name === 'generation-model'), !compareMode);
+    assert.equal(fields.filter(field => field.name === 'prompt').length, 1);
+  }
+});
+
 test('generationFields はモデル能力・見積・エラーを表駆動で欄へ反映する', () => {
   const cases = [
     { model: models[0], has: ['first-frame', 'generation-audio-always'], lacks: ['negative-prompt', 'reference_images'], estimate: '$0.36' },
