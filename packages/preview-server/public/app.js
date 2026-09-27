@@ -4540,6 +4540,7 @@ function injectCaptionStyles() {
   from { color: var(--caption-color, #fff); }
   to   { color: var(--caption-highlight-color, #ffd94a); }
 }
+@keyframes akari-caption-karaoke-wipe { from { clip-path:inset(0 100% 0 0); } to { clip-path:inset(0 0 0 0); } }
 @keyframes akari-caption-pop {
   0%   { transform: translateY(0) scale(1); }
   50%  { transform: translateY(-0.08em) scale(1.12); }
@@ -4582,6 +4583,9 @@ function injectCaptionStyles() {
 .akari-caption__tok--preset { color:var(--caption-tok-color,inherit);font-size:var(--caption-tok-font-size,inherit);font-family:var(--caption-tok-font-family,inherit);font-weight:var(--caption-tok-font-weight,inherit);font-style:var(--caption-tok-font-style,inherit);text-decoration:var(--caption-tok-text-decoration,inherit);letter-spacing:var(--caption-tok-letter-spacing,inherit);line-height:var(--caption-tok-line-height,1);text-transform:var(--caption-tok-text-transform,inherit);-webkit-text-stroke:var(--caption-tok-webkit-text-stroke,inherit);paint-order:var(--caption-tok-paint-order,stroke fill);text-shadow:var(--caption-tok-text-shadow,inherit); }
 .akari-caption__resolved-line .akari-caption__tok { white-space:pre; }
 .akari-caption__tok--karaoke { animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
+.akari-caption__tok--karaoke-done { color:var(--caption-highlight-color,#ffd94a); }
+.akari-caption__tok--karaoke-smooth { position:relative;animation:none; }
+.akari-caption__tok--karaoke-smooth::after { content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--pop { animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused; }
 .akari-caption__tok--reveal-word { animation:akari-caption-reveal-word 0.01s var(--akari-tok-delay,0s) linear both paused; }
 .akari-caption__tok--emphasis { }
@@ -4592,9 +4596,21 @@ function injectCaptionStyles() {
 `;
   document.head.appendChild(style);
 }
-function renderStyledToken(word, captionStart, style) {
+function renderStyledToken(word, captionStart, style, karaoke = null, karaokeIndex = 0) {
   const delay = word.start - captionStart;
   const dur = Math.max(0.01, word.end - word.start);
+  if (style === 'karaoke' && karaoke) {
+    const chars = [...new Intl.Segmenter(undefined, { granularity:'grapheme' }).segment(word.text)].map(part => part.segment);
+    const before = Math.max(0, Math.min(chars.length, (karaoke.start_index ?? 0) - karaokeIndex));
+    const done = before ? `<span class="akari-caption__tok akari-caption__tok--karaoke-done">${esc(chars.slice(0, before).join(''))}</span>` : '';
+    const rest = chars.slice(before);
+    if (!rest.length) return done;
+    if (karaoke.fill === 'char') return done + rest.map((char, index) =>
+      `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${Math.max(0, delay + dur * (before + index) / chars.length).toFixed(3)}s;--akari-tok-dur:0s">${esc(char)}</span>`).join('');
+    if (karaoke.fill === 'word') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${Math.max(0, delay).toFixed(3)}s;--akari-tok-dur:0s">${esc(rest.join(''))}</span>`;
+    if (karaoke.fill === 'smooth') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke-smooth" data-karaoke-text="${esc(rest.join('')).replaceAll('"', '&quot;')}" style="--akari-tok-delay:${Math.max(0, delay + dur * before / chars.length).toFixed(3)}s;--akari-tok-dur:${(dur * rest.length / chars.length).toFixed(3)}s">${esc(rest.join(''))}</span>`;
+    if (before) return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${Math.max(0, delay).toFixed(3)}s;--akari-tok-dur:${dur.toFixed(3)}s">${esc(rest.join(''))}</span>`;
+  }
   if (style === 'reveal-word') {
     return `<span class="akari-caption__tok akari-caption__tok--reveal-word" style="--akari-tok-delay:${delay}s">${esc(word.text)}</span>`;
   }
@@ -4671,6 +4687,22 @@ function updateCaption() {
 function renderCaptionRow(active, captionPlate) {
   applyCaptionStyle(active, captionPlate);
   const words = normalizeWords(active.words);
+  const karaoke = active.text_style?.karaoke || summary?.default_text_style?.karaoke
+    ? { ...(summary?.default_text_style?.karaoke ?? {}), ...(active.text_style?.karaoke ?? {}) } : null;
+  const karaokeDisplay = active.display_text || active.text || words.map(word => word.text).join('');
+  const karaokeOffsets = new Map();
+  let karaokeCursor = 0;
+  let karaokeFallback = 0;
+  for (const word of words) {
+    const match = karaokeDisplay.indexOf(word.text, karaokeCursor);
+    const index = match >= 0
+      ? [...new Intl.Segmenter(undefined, { granularity:'grapheme' }).segment(karaokeDisplay.slice(0, match))].length
+      : karaokeFallback;
+    if (match >= 0) karaokeCursor = match + word.text.length;
+    karaokeOffsets.set(word, index);
+    karaokeFallback = index + [...new Intl.Segmenter(undefined, { granularity:'grapheme' }).segment(word.text)].length;
+  }
+  const karaokeIndexFor = word => karaokeOffsets.get(word) ?? 0;
   const emphasisWords = summary?.emphasis_words;
   const hasWords = words.length > 0;
   const hasEmphasis = hasWords && emphasisWords?.length > 0 && words.some(w => findMatchingEmphasis(w, emphasisWords));
@@ -4718,7 +4750,7 @@ function renderCaptionRow(active, captionPlate) {
         line.map(w => {
           const ew = findMatchingEmphasis(w, emphasisWords);
           if (style === 'reveal-word') return renderStyledToken(w, start, style);
-          return ew ? renderEmphasisToken(w, start, ew) : renderStyledToken(w, start, style);
+          return ew ? renderEmphasisToken(w, start, ew) : renderStyledToken(w, start, style, karaoke, karaokeIndexFor(w));
         }).join(' ')
       }</p>`).join(''))
     }</div></div>`;

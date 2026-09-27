@@ -207,6 +207,14 @@
         { "not": { "required": ["layout", "reference_height_px"] } }
       ],
       "properties": {
+        "karaoke": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "done_color": { "$ref": "#/$defs/hexColor" },
+            "fill": { "enum": ["char", "word", "smooth"] },
+            "start_index": { "type": "integer", "minimum": 0 }
+          }
+        },
         "color": { "$ref": "#/$defs/hexColor" },
         "size_px": { "type": "number", "exclusiveMinimum": 0 },
         "reference_height_px": {

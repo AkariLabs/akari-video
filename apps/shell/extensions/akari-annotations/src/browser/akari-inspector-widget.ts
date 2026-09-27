@@ -11,6 +11,7 @@ import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
 import { CAPTION_FONT_FAMILY, CAPTION_FONT_LOAD_DESCRIPTOR, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
+import { AkariEditHistoryService } from './akari-edit-history-service';
 import type { GenerationValidationResult, TranscriptSummary, NarrationEngine, StillCandidate, ImageRouteState } from '../common/akari-annotations-protocol';
 import type { VideoCandidate, VideoCandidateBatch } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
@@ -74,7 +75,7 @@ import {
 } from './inspector/caption-style-effects';
 import { captionEffectImage, scheduleCaptionEffectImages } from './inspector/caption-effect-images';
 import { createCaptionMotionPanel, type CaptionMotionServices } from './inspector/caption-motion-panel';
-import { readCaptionMotionCue, readOwnerMotion, upsertCaptionEmphasis } from './inspector/caption-motion-document';
+import { readCaptionMotionCue, readOwnerMotion, upsertCaptionEmphasis, upsertCaptionKaraoke } from './inspector/caption-motion-document';
 import { worldInstructionCopy } from '../common/world-instruction-copy';
 import { keyframeRowPropertyOf, keyframeValueAt, type KeyframeSeatProperty } from './timeline/timeline-keyframe-rows';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
@@ -3020,6 +3021,9 @@ export class AkariInspectorWidget extends BaseWidget {
 
     @inject(AkariAnnotationsService)
     protected readonly layerAudioService!: AkariAnnotationsService;
+
+    @inject(AkariEditHistoryService)
+    protected readonly history!: AkariEditHistoryService;
 
     static readonly FACTORY_ID = 'akari-inspector-widget';
 
@@ -8005,6 +8009,35 @@ export class AkariInspectorWidget extends BaseWidget {
             (await this.fileService.readFile(paths().captions)).value.toString();
         return {
             loadCue: async () => readCaptionMotionCue(await readCaptions(), snapshot.id),
+            setKaraoke: async (settings, selectStyle = false) => {
+                try {
+                    const { root, captions, edit } = paths();
+                    const before = await readCaptions();
+                    const after = upsertCaptionKaraoke(before, snapshot.id, settings, selectStyle);
+                    if (after === before) return { ok: true };
+                    await this.layerAudioService.writeEditSnapshot({
+                        editUri: edit.toString(), projectRootUri: root.toString(),
+                        captionsUri: captions.toString(), captionsSource: after
+                    });
+                    this.history.pushPreviewCaptionWrite({
+                        editUri: edit.toString(), captionsUri: captions.toString(), before, after,
+                        label: selectStyle ? 'カラオケの選択' : 'カラオケの設定の変更'
+                    }, {
+                        read: async () => (await this.fileService.readFile(captions)).value.toString(),
+                        write: async (change, content) => {
+                            await this.layerAudioService.writeEditSnapshot({
+                                editUri: change.editUri, projectRootUri: root.toString(),
+                                captionsUri: change.captionsUri, captionsSource: content
+                            });
+                            if (!this.isDisposed && this.model.snapshot?.kind === 'caption'
+                                && this.model.snapshot.id === snapshot.id) this.render();
+                        }
+                    });
+                    return { ok: true };
+                } catch (error) {
+                    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+                }
+            },
             setWordStyle: async style => {
                 try {
                     const { root, captions } = paths();

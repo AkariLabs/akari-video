@@ -1,0 +1,21 @@
+{
+  "phase": "gpu",
+  "env": "AKARI_EXPORT_ALLOW_DESKTOP=0 (worktree Electron)",
+  "runs": [
+    "coloronly --engine gpu: exit=0 used=[gpu tier=2] 6s ",
+    "coloronly --engine auto: exit=0 used=[gpu tier=2] 8s ",
+    "matrix-a --engine gpu: exit=1 used=[none] 0s render-cut refused: GPU export is ineligible: caption:c-0001:caption-karaoke-fill-osr; caption:c-0003:caption-karaoke-fill-osr; caption:c-0004:caption-karaoke-fill-osr",
+    "matrix-a --engine auto: exit=0 used=[osr tier=2] 24s render-cut warning: GPU export is ineligible; using OSR: caption:c-0001:caption-karaoke-fill-osr; caption:c-0003:caption-karaoke-fill-osr; caption:c-0004:caption-karaoke-fill-osr",
+    "start --engine gpu: exit=1 used=[none] 2s render-cut refused: GPU export is ineligible: caption:c-0001:caption-karaoke-fill-osr; caption:c-0003:caption-karaoke-fill-osr; caption:c-0004:caption-karaoke-fill-osr",
+    "start --engine auto: exit=0 used=[osr tier=2] 21s render-cut warning: GPU export is ineligible; using OSR: caption:c-0001:caption-karaoke-fill-osr; caption:c-0003:caption-karaoke-fill-osr; caption:c-0004:caption-karaoke-fill-osr",
+    "defaults --engine gpu: exit=1 used=[none] 1s render-cut refused: GPU export is ineligible: caption:c-0001:caption-karaoke-fill-osr; caption:c-0003:caption-karaoke-fill-osr; caption:c-0004:caption-karaoke-fill-osr",
+    "defaults --engine auto: exit=0 used=[osr tier=2] 21s render-cut warning: GPU export is ineligible; using OSR: caption:c-0001:caption-karaoke-fill-osr; caption:c-0003:caption-karaoke-fill-osr; caption:c-0004:caption-karaoke-fill-osr",
+    "plain --engine gpu: exit=0 used=[gpu tier=2] 7s ",
+    "plain --engine auto: exit=0 used=[gpu tier=2] 7s"
+  ],
+  "coloronlyOsrVsGpuPsnr": {
+    "c1": 43.614607,
+    "c3": 46.796995,
+    "c4": 45.622035
+  }
+}

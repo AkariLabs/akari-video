@@ -19,10 +19,33 @@ export interface CaptionMotionWord { text: string; start: number; end: number }
 export interface CaptionMotionCue {
     id: string;
     style?: string;
-    text_style?: { color?: string };
+    text?: string;
+    text_style?: { color?: string; karaoke?: CaptionKaraokeSettings };
     words: CaptionMotionWord[];
     src?: string;
     time_domain?: string;
+}
+
+export interface CaptionKaraokeSettings {
+    done_color?: string;
+    fill?: 'char' | 'word' | 'smooth';
+    start_index?: number;
+}
+
+/** One captions.json write keeps the word mode and its defaults in one undo step. */
+export function upsertCaptionKaraoke(source: string, captionId: string,
+    settings: CaptionKaraokeSettings, selectStyle = false): string {
+    const raw = JSON.parse(source) as unknown;
+    const rows = Array.isArray(raw) ? raw : object(raw) ? raw.captions : undefined;
+    if (!Array.isArray(rows)) throw new Error('字幕データを読み取れません。');
+    const row = rows.find(item => object(item) && item.id === captionId);
+    if (!object(row)) throw new Error('字幕が見つかりません。');
+    if (selectStyle) row.style = 'karaoke';
+    const style = object(row.text_style) ? row.text_style : {};
+    const current = object(style.karaoke) ? style.karaoke : {};
+    style.karaoke = { ...current, ...settings };
+    row.text_style = style;
+    return `${JSON.stringify(raw, null, 2)}\n`;
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -35,13 +58,21 @@ export function readCaptionMotionCue(source: string, captionId: string): Caption
     if (!Array.isArray(rows)) throw new Error('字幕データを読み取れません。');
     const raw = rows.find(row => object(row) && row.id === captionId);
     if (!object(raw)) throw new Error('字幕が見つかりません。');
+    const inherited = object(document) && object(document.default_text_style) ? document.default_text_style : {};
+    const own = object(raw.text_style) ? raw.text_style : {};
+    const inheritedKaraoke = object(inherited.karaoke) ? inherited.karaoke : undefined;
+    const ownKaraoke = object(own.karaoke) ? own.karaoke : undefined;
     const words = Array.isArray(raw.words) ? raw.words.filter(word => object(word)
         && typeof word.text === 'string' && Number.isFinite(word.start) && Number.isFinite(word.end)
         && Number(word.start) >= 0 && Number(word.end) > Number(word.start)) as CaptionMotionWord[] : [];
     return { id: captionId, words,
+        ...(typeof raw.display_text === 'string' ? { text: raw.display_text }
+            : typeof raw.text === 'string' ? { text: raw.text } : {}),
         ...(typeof raw.style === 'string' ? { style: raw.style } : {}),
-        ...(object(raw.text_style) ? { text_style: { color: typeof raw.text_style.color === 'string'
-            ? raw.text_style.color : undefined } } : {}),
+        ...(Object.keys(own).length || Object.keys(inherited).length ? { text_style: {
+            color: typeof own.color === 'string' ? own.color : typeof inherited.color === 'string' ? inherited.color : undefined,
+            ...(inheritedKaraoke || ownKaraoke ? { karaoke: { ...inheritedKaraoke, ...ownKaraoke } as CaptionKaraokeSettings } : {})
+        } } : {}),
         ...(typeof raw.src === 'string' && raw.src.trim() ? { src: raw.src } : {}),
         ...(typeof raw.time_domain === 'string' ? { time_domain: raw.time_domain } : {}) };
 }

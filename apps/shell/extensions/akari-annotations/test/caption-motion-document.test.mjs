@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES, readCaptionMotionCue,
-    readOwnerMotion, upsertCaptionEmphasis } from '../lib/browser/inspector/caption-motion-document.js';
+    readOwnerMotion, upsertCaptionEmphasis, upsertCaptionKaraoke } from '../lib/browser/inspector/caption-motion-document.js';
 import { captionMotionComboWrites } from '../lib/browser/inspector/caption-motion-cards.js';
 import { createMotionWriteRequest } from '../lib/browser/inspector/motion-fields.js';
+import { AkariEditHistoryService } from '../lib/browser/akari-edit-history-service.js';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
@@ -76,11 +77,21 @@ test('編集パネルは語の表示と強調の保存先、カラオケ未終�
     assert.match(widget, /captionsSource = upsertCaptionEmphasis/u);
     assert.match(widget, /layerAudioService\.writeEditSnapshot\(/u);
     assert.match(panel, /kind: 'caption-style-color'/u);
-    assert.match(panel, /歌い終わった文字は現在、固定の黄色/u);
+    assert.match(panel, /歌い終わった文字の色/u);
+    assert.match(panel, /1 文字ずつ/u);
+    assert.match(panel, /開始位置/u);
+    assert.match(panel, /#fb923c.*#ffd94a.*#f87171.*#4ade80.*#60a5fa/u);
+    assert.match(panel, /button\.akari-caption-motion-swatch\{[^}]*width:22px;height:22px/u);
+    assert.match(panel, /button\.akari-caption-motion-swatch\[aria-pressed=[^\]]+\]\{outline:2px solid/u);
+    assert.match(panel, /swatch\.className = 'akari-caption-motion-swatch'/u);
+    assert.match(panel, /現在: 語ごとに色がじわっと変わります/u);
+    assert.match(panel, /setKaraoke\(\{ done_color: '#fb923c', fill: 'char' \}, true\)/u);
+    assert.match(panel, /play\('karaoke', 'word-style'\)/u);
+    assert.doesNotMatch(panel, /固定の黄色/u);
     assert.match(panel, /語の時刻（words\[\]）がない字幕/u);
 });
 
-test('inspector の RPC は語の style と captions ルート emphasis_words を正しい URI へ書く', async () => {
+test('inspector のカラオケは 1 操作 1 履歴で undo/redo でき、外部変更を拒否する', async () => {
     const source = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
     const ast = ts.createSourceFile('inspector.ts', source, ts.ScriptTarget.Latest, true);
     const widget = ast.statements.find(node => ts.isClassDeclaration(node)
@@ -90,21 +101,31 @@ test('inspector の RPC は語の style と captions ルート emphasis_words �
     const compiled = ts.transpileModule(`class Harness { ${method.getText(ast)} }`, {
         compilerOptions: { target: ts.ScriptTarget.ES2021 }
     }).outputText;
-    const Harness = new Function('readCaptionMotionCue', 'readOwnerMotion', 'upsertCaptionEmphasis',
-        `${compiled}; return Harness;`)(readCaptionMotionCue, readOwnerMotion, upsertCaptionEmphasis);
+    const Harness = new Function('readCaptionMotionCue', 'readOwnerMotion', 'upsertCaptionEmphasis', 'upsertCaptionKaraoke',
+        `${compiled}; return Harness;`)(readCaptionMotionCue, readOwnerMotion, upsertCaptionEmphasis, upsertCaptionKaraoke);
     const instance = new Harness();
     const root = { toString: () => 'project', resolve: name => ({ toString: () => `project/${name}` }) };
-    const captionSource = JSON.stringify([cue]);
+    let captionSource = JSON.stringify([cue]);
     const editSource = JSON.stringify({ output: { fps: 30 }, tracks: [{ items: [{ id: 'bag-1',
         duration: 2, source: { kind: 'captions' } }] }] });
     const calls = [];
+    const renders = [];
+    const pushed = [];
     instance.workspaceService = { tryGetRoots: () => [{ resource: root }] };
+    instance.model = { snapshot: { kind: 'caption', id: cue.id } };
+    instance.render = () => { renders.push(captionSource); };
+    instance.history = new AkariEditHistoryService();
+    instance.history.onDidPush(entry => pushed.push(entry));
     instance.fileService = { readFile: async uri => ({ value: {
         toString: () => uri.toString().endsWith('captions.json') ? captionSource : editSource
     } }) };
     instance.layerAudioService = {
         setCaptionFields: async request => { calls.push(['style', request]); return { committed: true }; },
-        writeEditSnapshot: async request => { calls.push(['emphasis', request]); return { committed: true }; }
+        writeEditSnapshot: async request => {
+            calls.push(['snapshot', request]);
+            captionSource = request.captionsSource;
+            return { committed: true };
+        }
     };
     const services = instance.captionMotionServices({ id: cue.id, sourceStart: 1, sourceEnd: 3,
         animatorOwner: { id: 'bag-1' } });
@@ -115,5 +136,41 @@ test('inspector の RPC は語の style と captions ルート emphasis_words �
     assert.deepEqual(await services.setEmphasis(1, 'positive'), { ok: true });
     assert.equal(calls[1][1].editUri, 'project/edit.json');
     assert.equal(JSON.parse(calls[1][1].captionsSource).emphasis_words[0].style_hint, 'positive');
+    const before = captionSource;
+    assert.deepEqual(await services.setKaraoke({ done_color: '#fb923c', fill: 'char' }, true), { ok: true });
+    assert.equal(calls.length, 3);
+    assert.deepEqual(JSON.parse(calls[2][1].captionsSource).captions[0].text_style.karaoke,
+        { done_color: '#fb923c', fill: 'char' });
+    assert.equal(JSON.parse(calls[2][1].captionsSource).captions[0].style, 'karaoke');
+    const after = captionSource;
+    assert.equal(pushed.length, 1);
+    assert.equal(pushed[0].label, 'カラオケの選択');
+    assert.equal(pushed[0].before, before);
+    assert.equal(pushed[0].after, after);
+    await instance.history.undo();
+    assert.equal(captionSource, before);
+    await instance.history.redo();
+    assert.equal(captionSource, after);
+    assert.deepEqual(renders, [before, after]);
+    assert.deepEqual(await services.setKaraoke({ fill: 'smooth' }), { ok: true });
+    assert.equal(pushed.length, 2);
+    assert.equal(pushed[1].label, 'カラオケの設定の変更');
+    await instance.history.undo();
+    assert.equal(captionSource, after);
+    captionSource = 'external edit\n';
+    await assert.rejects(instance.history.undo(), /字幕ファイルが後から変更されています/u);
+    assert.equal(captionSource, 'external edit\n');
+    assert.equal(renders.length, 3);
     assert.equal((await services.readOwner()).durationFrames, 60);
+});
+
+test('karaoke writer preserves unrelated fields and default inheritance', () => {
+    const source = JSON.stringify({ default_text_style: { karaoke: { done_color: '#ffd94a', fill: 'word' } },
+        captions: [{ ...cue, text_style: { color: '#ffffff' } }] });
+    assert.deepEqual(readCaptionMotionCue(source, cue.id).text_style.karaoke,
+        { done_color: '#ffd94a', fill: 'word' });
+    const updated = JSON.parse(upsertCaptionKaraoke(source, cue.id, { fill: 'smooth', start_index: 2 }));
+    assert.deepEqual(updated.default_text_style.karaoke, { done_color: '#ffd94a', fill: 'word' });
+    assert.deepEqual(updated.captions[0].text_style,
+        { color: '#ffffff', karaoke: { fill: 'smooth', start_index: 2 } });
 });

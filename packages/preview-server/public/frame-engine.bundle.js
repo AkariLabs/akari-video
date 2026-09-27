@@ -2539,6 +2539,11 @@ var require_caption_store = __commonJS({
       } else {
         delete merged.animation;
       }
+      const karaoke = mergeNestedStyle(defaultStyle?.karaoke, captionStyle?.karaoke);
+      if (karaoke && Object.keys(karaoke).length > 0)
+        merged.karaoke = karaoke;
+      else
+        delete merged.karaoke;
       const layout = mergeNestedStyle(defaultStyle?.layout, captionStyle?.layout);
       if (layout && Object.keys(layout).length > 0) {
         merged.layout = layout;
@@ -2779,6 +2784,16 @@ var require_caption_store = __commonJS({
           fit: updates.background?.fit
         }, `\u5B57\u5E55 ${captionId} \u306E text_style.background`);
         textStyle = updateAnimationStyleObject(textStyle, updates.animation, `\u5B57\u5E55 ${captionId} \u306E text_style.animation`);
+        if (updates.karaoke === null) {
+          if (locateTopLevelProperty(textStyle, "karaoke"))
+            textStyle = removeObjectProperty(textStyle, "karaoke");
+        } else if (updates.karaoke) {
+          textStyle = updateNestedStyleObject(textStyle, "karaoke", {
+            done_color: updates.karaoke.doneColor,
+            fill: updates.karaoke.fill,
+            start_index: updates.karaoke.startIndex
+          }, `\u5B57\u5E55 ${captionId} \u306E text_style.karaoke`);
+        }
         nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
       }
       return replaceElement(source, array.openIndex + 1, element, nextElement);
@@ -3383,7 +3398,8 @@ var require_caption_store = __commonJS({
       "stroke",
       "background",
       "zone",
-      "layout"
+      "layout",
+      "karaoke"
     ]);
     var TEXT_TRANSFORM_VALUES = /* @__PURE__ */ new Set(["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"]);
     var TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
@@ -3398,6 +3414,17 @@ var require_caption_store = __commonJS({
       const style = {};
       if (isHexColor(value.color)) {
         style.color = value.color;
+      }
+      if (isRecord2(value.karaoke)) {
+        const karaoke = {};
+        if (isHexColor(value.karaoke.done_color))
+          karaoke.doneColor = value.karaoke.done_color;
+        if (value.karaoke.fill === "char" || value.karaoke.fill === "word" || value.karaoke.fill === "smooth")
+          karaoke.fill = value.karaoke.fill;
+        if (Number.isInteger(value.karaoke.start_index) && value.karaoke.start_index >= 0)
+          karaoke.startIndex = value.karaoke.start_index;
+        if (Object.keys(karaoke).length)
+          style.karaoke = karaoke;
       }
       if (isFinitePositive(value.size_px)) {
         style.sizePx = value.size_px;
@@ -3640,6 +3667,7 @@ var require_caption_store = __commonJS({
     }
     function textStyleToJson(style) {
       return {
+        ...style.karaoke ? { karaoke: karaokeToJson(style.karaoke) } : {},
         ...style.color !== void 0 ? { color: style.color } : {},
         ...style.sizePx !== void 0 ? { size_px: style.sizePx } : {},
         ...style.referenceHeightPx !== void 0 ? { reference_height_px: style.referenceHeightPx } : {},
@@ -3736,6 +3764,13 @@ var require_caption_store = __commonJS({
         ...slot.amp !== void 0 ? { amp: slot.amp } : {}
       };
     }
+    function karaokeToJson(karaoke) {
+      return {
+        ...karaoke.doneColor !== void 0 ? { done_color: karaoke.doneColor } : {},
+        ...karaoke.fill !== void 0 ? { fill: karaoke.fill } : {},
+        ...karaoke.startIndex !== void 0 ? { start_index: karaoke.startIndex } : {}
+      };
+    }
     function mergeNestedStyle(base, override) {
       if (!base && !override) {
         return void 0;
@@ -3746,9 +3781,19 @@ var require_caption_store = __commonJS({
       return typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
     }
     function validateTextStylePatch(updates) {
-      const hasUpdate = updates.color !== void 0 || updates.sizePx !== void 0 || updates.wrapWidthPct !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
+      const hasUpdate = updates.karaoke !== void 0 || updates.color !== void 0 || updates.sizePx !== void 0 || updates.wrapWidthPct !== void 0 || updates.zone !== void 0 || updates.fontWeight !== void 0 || updates.weight !== void 0 || updates.lineHeight !== void 0 || updates.letterSpacingEm !== void 0 || updates.fontFamily !== void 0 || updates.shadow !== void 0 || updates.glow !== void 0 || updates.stroke?.color !== void 0 || updates.stroke?.widthPx !== void 0 || updates.background?.color !== void 0 || updates.background?.opacity !== void 0 || updates.background?.radiusPx !== void 0 || updates.background?.paddingPx !== void 0 || updates.background?.mode !== void 0 || updates.background?.fit !== void 0 || updates.animation !== void 0;
       if (!hasUpdate) {
         throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30B9\u30BF\u30A4\u30EB\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      if (updates.karaoke) {
+        if (Object.keys(updates.karaoke).some((key) => !["doneColor", "fill", "startIndex"].includes(key)))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u8A2D\u5B9A\u306B\u672A\u77E5\u306E\u9805\u76EE\u304C\u3042\u308A\u307E\u3059\u3002");
+        if (updates.karaoke.doneColor !== void 0 && !isHexColor(updates.karaoke.doneColor))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u8272\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        if (updates.karaoke.fill !== void 0 && !["char", "word", "smooth"].includes(updates.karaoke.fill))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u5857\u308A\u65B9\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        if (updates.karaoke.startIndex !== void 0 && (!Number.isInteger(updates.karaoke.startIndex) || updates.karaoke.startIndex < 0))
+          throw new Error("\u30AB\u30E9\u30AA\u30B1\u306E\u958B\u59CB\u4F4D\u7F6E\u304C\u4E0D\u6B63\u3067\u3059\u3002");
       }
       for (const color of [updates.color, updates.stroke?.color, updates.background?.color]) {
         if (color !== void 0 && color !== null && !isHexColor(color)) {
@@ -3855,6 +3900,7 @@ var require_caption_store = __commonJS({
     }
     function textStylePatchToJson(updates) {
       return {
+        ...updates.karaoke ? { karaoke: karaokeToJson(updates.karaoke) } : {},
         ...updates.color !== void 0 && updates.color !== null ? { color: updates.color } : {},
         ...updates.sizePx !== void 0 && updates.sizePx !== null ? { size_px: updates.sizePx } : {},
         ...updates.wrapWidthPct !== void 0 && updates.wrapWidthPct !== null ? { wrap_width_pct: updates.wrapWidthPct } : {},
@@ -4630,7 +4676,8 @@ var require_caption_display = __commonJS({
       "shadow",
       "glow",
       "animation",
-      "reference_height_px"
+      "reference_height_px",
+      "karaoke"
     ]);
     var CAPTION_STROKE_KEYS = /* @__PURE__ */ new Set(["method", "color", "width_px"]);
     var CAPTION_BACKGROUND_KEYS = /* @__PURE__ */ new Set([
@@ -5152,6 +5199,17 @@ var require_caption_display = __commonJS({
       rejectStyleUnknown(value, CAPTION_STYLE_KEYS, label);
       if (Object.prototype.hasOwnProperty.call(value, "color"))
         validateHexColor(value.color, `${label}.color`);
+      if (Object.prototype.hasOwnProperty.call(value, "karaoke")) {
+        if (!isRecord2(value.karaoke))
+          fail("INVALID_TEXT_STYLE", `${label}.karaoke must be an object`);
+        rejectStyleUnknown(value.karaoke, /* @__PURE__ */ new Set(["done_color", "fill", "start_index"]), `${label}.karaoke`);
+        if (Object.prototype.hasOwnProperty.call(value.karaoke, "done_color"))
+          validateHexColor(value.karaoke.done_color, `${label}.karaoke.done_color`);
+        if (Object.prototype.hasOwnProperty.call(value.karaoke, "fill") && !["char", "word", "smooth"].includes(value.karaoke.fill))
+          fail("INVALID_TEXT_STYLE", `${label}.karaoke.fill must be char, word or smooth`);
+        if (Object.prototype.hasOwnProperty.call(value.karaoke, "start_index") && (!Number.isInteger(value.karaoke.start_index) || value.karaoke.start_index < 0))
+          fail("INVALID_TEXT_STYLE", `${label}.karaoke.start_index must be a non-negative integer`);
+      }
       if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive3(value.size_px)) {
         fail("INVALID_TEXT_STYLE", `${label}.size_px must be a positive finite number`);
       }
@@ -5879,7 +5937,7 @@ var require_caption_display = __commonJS({
       const left = isRecord2(base) ? base : {};
       const right = isRecord2(override) ? override : {};
       const merged = { ...left, ...right };
-      for (const key of ["stroke", "background", "layout"]) {
+      for (const key of ["stroke", "background", "layout", "karaoke"]) {
         if (isRecord2(left[key]) || isRecord2(right[key]))
           merged[key] = { ...isRecord2(left[key]) ? left[key] : {}, ...isRecord2(right[key]) ? right[key] : {} };
       }
@@ -5909,6 +5967,11 @@ var require_caption_display = __commonJS({
       const animationLoop = normalizeCaptionAnimationSlot(value.animation?.loop);
       const animationOut = normalizeCaptionAnimationSlot(value.animation?.out);
       return {
+        ...isRecord2(value.karaoke) ? { karaoke: {
+          ...typeof value.karaoke.done_color === "string" ? { done_color: value.karaoke.done_color } : {},
+          ...value.karaoke.fill === "char" || value.karaoke.fill === "word" || value.karaoke.fill === "smooth" ? { fill: value.karaoke.fill } : {},
+          ...Number.isInteger(value.karaoke.start_index) && value.karaoke.start_index >= 0 ? { start_index: value.karaoke.start_index } : {}
+        } } : {},
         ...typeof value.color === "string" ? { color: value.color } : {},
         ...finiteNumber(value.size_px) ? { size_px: value.size_px } : {},
         ...finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {},
@@ -5977,7 +6040,7 @@ var require_caption_display = __commonJS({
       const left = normalizeCaptionLineTextStyle(base);
       const right = normalizeCaptionLineTextStyle(override);
       const merged = { ...left, ...right };
-      for (const key of ["stroke", "background", "shadow", "glow", "position", "animation"]) {
+      for (const key of ["stroke", "background", "shadow", "glow", "position", "animation", "karaoke"]) {
         if (isRecord2(left[key]) || isRecord2(right[key])) {
           merged[key] = { ...isRecord2(left[key]) ? left[key] : {}, ...isRecord2(right[key]) ? right[key] : {} };
           if (Object.keys(merged[key]).length === 0)
@@ -6087,6 +6150,8 @@ var require_caption_display = __commonJS({
       }
       if (typeof style.color === "string")
         vars["--caption-color"] = style.color;
+      if (isRecord2(style.karaoke) && typeof style.karaoke.done_color === "string")
+        vars["--caption-highlight-color"] = style.karaoke.done_color;
       if (finiteNumber(style.size_px))
         vars["--caption-font-size"] = `${px(style.size_px)}px`;
       if (isRecord2(style.stroke) && (typeof style.stroke.color === "string" || finiteNumber(style.stroke.width_px))) {
