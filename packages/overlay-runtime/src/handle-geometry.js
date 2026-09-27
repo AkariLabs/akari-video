@@ -39,43 +39,88 @@ globalThis.akariHandleGeometry = (() => {
     return { x: anchor.x - c * ratioX * lx + s * ratioY * ly,
       y: anchor.y - s * ratioX * lx - c * ratioY * ly };
   }
-  function snapBounds(moving, others, canvas, displayScale = 1, tolerance = 6) {
+  // 他の素材への吸着は、揃えとして意味のある組み合わせ（中央どうし・同じ辺どうし・隣接する辺）
+  // だけに絞る。辺と中央の交差まで候補にすると、小さい素材ほど近くに候補がひしめいて飛び移る。
+  // 添字は coordinates() の並び（0: 左/上, 1: 中央, 2: 右/下）。
+  const ITEM_PAIRS = new Set(['0:0', '1:1', '2:2', '0:2', '2:0']);
+  // 吸着距離（表示px）。合わせたい画面中央を一番強く、画面の端、他の素材の順に弱くする。
+  // tolerance は画面中央の距離（従来の 6px）。端と素材は options で上書きできる。
+  const CANVAS_EDGE_TOLERANCE = 4;
+  const ITEM_TOLERANCE = 3;
+  // 保持中の吸着先から乗り換えるのは、この差以上に近い候補が現れたとき（または、より近い画面の端・中央）。
+  const SWITCH_MARGIN = 2;
+  // options.previous: 直前に吸着していた先（{x, y}）。
+  // options.fast: 素早く動かしている最中（true か軸別の {x, y}）。その軸では新しく吸着しない。
+  function snapBounds(moving, others, canvas, displayScale = 1, tolerance = 6, options = {}) {
+    const edgeTolerance = Number.isFinite(options.edgeTolerance) ? options.edgeTolerance
+      : Math.min(tolerance, CANVAS_EDGE_TOLERANCE);
+    const itemTolerance = Number.isFinite(options.itemTolerance) ? options.itemTolerance
+      : Math.min(tolerance, ITEM_TOLERANCE);
     const coordinates = (b, axis) => axis === 'x'
       ? [b.left, (b.left + b.right) / 2, b.right]
       : [b.top, (b.top + b.bottom) / 2, b.bottom];
     const pick = axis => {
       const own = coordinates(moving, axis);
+      const size = axis === 'x' ? canvas.width : canvas.height;
+      const previous = options.previous?.[axis] ?? null;
+      const fast = typeof options.fast === 'object' && options.fast !== null
+        ? Boolean(options.fast[axis]) : Boolean(options.fast);
       const targets = [
-        ...[0, (axis === 'x' ? canvas.width : canvas.height) / 2, axis === 'x' ? canvas.width : canvas.height]
-          .map(value => ({ value, kind: 'canvas', bounds: null })),
-        ...others.flatMap(bounds => coordinates(bounds, axis).map(value => ({ value, kind: 'item', bounds })))
+        ...[0, size / 2, size].map((value, targetIndex) => ({ value, kind: 'canvas', bounds: null, targetIndex })),
+        ...others.flatMap(bounds => coordinates(bounds, axis)
+          .map((value, targetIndex) => ({ value, kind: 'item', bounds, targetIndex })))
       ];
-      let best = null;
+      const limitFor = target => target.kind === 'item' ? itemTolerance
+        : target.targetIndex === 1 ? tolerance : edgeTolerance;
+      // いったん吸着した先は、その吸着距離を超えて離れるまで保つ。近くの別候補へ毎回
+      // 選び直すと、素早いドラッグで候補から候補へ飛び移って見える。
+      let held = null;
+      if (previous && Number.isInteger(previous.sourceIndex) && Number.isFinite(previous.target)) {
+        const kept = targets.find(target => target.kind === previous.kind
+          && Math.abs(target.value - previous.target) <= 1e-6);
+        const correction = previous.target - own[previous.sourceIndex];
+        if (kept && Number.isFinite(correction) && Math.abs(correction) * displayScale <= limitFor(kept)) {
+          held = { ...previous, correction, bounds: kept.bounds, distance: Math.abs(correction) * displayScale };
+        }
+      }
+      const finish = snap => snap && { ...snap, guide: guideFor(axis, moving, snap.bounds, canvas) };
+      if (fast) return finish(held);
+      const candidates = [];
       own.forEach((source, sourceIndex) => targets.forEach(target => {
+        if (target.kind === 'item' && !ITEM_PAIRS.has(sourceIndex + ':' + target.targetIndex)) return;
         const correction = target.value - source;
         const distance = Math.abs(correction) * displayScale;
-        if (distance > tolerance) return;
-        const visiblyEqual = best && Math.abs(distance - best.distance) <= .5;
-        if (!best || distance < best.distance - .5 ||
-          (visiblyEqual && target.kind === 'canvas' && best.kind !== 'canvas')) {
-          best = { correction, target: target.value, sourceIndex, kind: target.kind,
-            bounds: target.bounds, distance };
-        }
+        if (distance > limitFor(target)) return;
+        candidates.push({ correction, target: target.value, sourceIndex, kind: target.kind,
+          bounds: target.bounds, distance });
       }));
-      if (!best) return null;
-      const other = best.bounds;
-      best.guide = axis === 'x'
-        ? { start: other ? Math.min(moving.top, other.top) : 0,
-          end: other ? Math.max(moving.bottom, other.bottom) : canvas.height }
-        : { start: other ? Math.min(moving.left, other.left) : 0,
-          end: other ? Math.max(moving.right, other.right) : canvas.width };
-      return best;
+      // 保持中でも、はっきり近い候補や、より近い画面の端・中央へは乗り換える
+      // （素材の辺に掴まったまま画面中央へ合わせられない、を防ぐ）。
+      const pool = held ? candidates.filter(candidate => candidate.distance + SWITCH_MARGIN <= held.distance
+        || (candidate.kind === 'canvas' && held.kind !== 'canvas' && candidate.distance < held.distance)) : candidates;
+      if (held && pool.length === 0) return finish(held);
+      let best = null;
+      for (const candidate of pool) {
+        const visiblyEqual = best && Math.abs(candidate.distance - best.distance) <= .5;
+        if (!best || candidate.distance < best.distance - .5 ||
+          (visiblyEqual && candidate.kind === 'canvas' && best.kind !== 'canvas')) best = candidate;
+      }
+      return finish(best);
     };
     return { x: pick('x'), y: pick('y') };
   }
-  function snapEndpoint(point, others, canvas, displayScale = 1, tolerance = 6) {
+  function guideFor(axis, moving, other, canvas) {
+    return axis === 'x'
+      ? { start: other ? Math.min(moving.top, other.top) : 0,
+        end: other ? Math.max(moving.bottom, other.bottom) : canvas.height }
+      : { start: other ? Math.min(moving.left, other.left) : 0,
+        end: other ? Math.max(moving.right, other.right) : canvas.width };
+  }
+  function snapEndpoint(point, others, canvas, displayScale = 1, tolerance = 6, options = {}) {
+    // 線の端点は 1 点（左・中央・右が同じ値）なので、組み合わせを絞っても相手のどの辺・中央へも届く。
+    // 端点を相手の角へ正確に置く用途のため、吸着距離は従来どおり画面の端・中央と同じにする。
     return snapBounds({ left: point.x, right: point.x, top: point.y, bottom: point.y },
-      others, canvas, displayScale, tolerance);
+      others, canvas, displayScale, tolerance, { itemTolerance: tolerance, edgeTolerance: tolerance, ...options });
   }
   function solveLineEndpoint(fixed, pointer, others, canvas, displayScale = 1, disabled = false,
     anglePointer = pointer) {

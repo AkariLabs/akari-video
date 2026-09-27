@@ -47,3 +47,29 @@ test('still-image evaluation requests no color conversion only for the mask', as
     ['photo', undefined], ['mask', { colorSpaceConversion: 'none' }]
   ]);
 });
+
+test('a failed still decode is retried on the next load instead of staying rejected', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCreateImageBitmap = globalThis.createImageBitmap;
+  let attempts = 0;
+  globalThis.fetch = async () => ({ ok: true, blob: async () => new Blob(['fixture']) });
+  // 1 回目はメモリ逼迫を模して失敗させ、2 回目は成功させる。
+  globalThis.createImageBitmap = async () => {
+    attempts += 1;
+    if (attempts === 1) throw new Error('out of memory');
+    return { width: 2, height: 1, close() {} };
+  };
+  try {
+    const still = new CachedStillImageSource('broll.png');
+    await assert.rejects(still.load(), /out of memory/);
+    const value = await still.load();
+    assert.equal(value.width, 2);
+    assert.equal(attempts, 2);
+    await still.load();
+    assert.equal(attempts, 2);
+    still.destroy();
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.createImageBitmap = originalCreateImageBitmap;
+  }
+});

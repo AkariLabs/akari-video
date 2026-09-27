@@ -25,6 +25,11 @@ export class CachedStillImageSource implements StillImageSource {
           const value = { bitmap, width: bitmap.width, height: bitmap.height };
           this.values.set(mode, value);
           return value;
+        }, error => {
+          // 失敗（メモリ逼迫下の createImageBitmap・一時的な fetch 失敗）を覚えたままだと、その静止画は
+          // webview の寿命中ずっと抜け続ける。次の要求で読み直せるよう控えを消してから失敗を返す。
+          if (this.pending.get(mode) === pending) this.pending.delete(mode);
+          throw error;
         });
       this.pending.set(mode, pending);
     }
