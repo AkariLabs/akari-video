@@ -8,12 +8,14 @@ import { runEditLint, writeProjectFilesGuarded } from '@akari-video/edit-store/l
 import { AkariNewProjectService } from '../common/akari-new-project-protocol';
 import { AkariProjectService } from 'akari-project/lib/common/akari-project-protocol';
 import { createEmptyOnboardingEdit, createOnboardingEdit, createOnboardingCaptions, OnboardingState, parseOnboardingState, splitOnboardingTokens, TranscriptSegment, TranscriptToken } from '../onboarding/model';
+import { guideAnnouncementDecision, guideAnnouncementMarker } from '../onboarding/announcement-model';
 import { AkariOnboardingService, SampleInformation } from '../onboarding/protocol';
 
 const importEsm = new Function('specifier', 'return import(specifier)') as <T>(specifier: string) => Promise<T>;
 const SAMPLE_ID = 'talkinghead-desk-ja-01';
 const SAMPLE_NAME = 'サンプル動画.mp4';
 const STATE_FILE = 'onboarding-v1.json';
+const ANNOUNCEMENT_FILE = 'first-video-guide-announcement-v1.json';
 const WELCOME_IMAGE = 'extensions/akari-surfaces/src/onboarding/welcome.webp';
 const BUNDLED_SAMPLE = 'onboarding-sample/talkinghead-desk-ja-01';
 
@@ -45,6 +47,32 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         const temporary = `${destination}.${process.pid}.tmp`;
         await fs.writeFile(temporary, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8');
         await fs.rename(temporary, destination);
+    }
+
+    async claimGuideAnnouncement(context: { hasOpenProject: boolean; hasProjectHistory: boolean }): Promise<boolean> {
+        const exists = async (name: string): Promise<boolean> =>
+            fs.stat(join(this.home, name)).then(stat => stat.isFile(), () => false);
+        const [hasCreatorRootPointer, hasWorkspaceDirectory, legacySetupMarkerSeen, announcementMarkerSeen, guideStateSeen] = await Promise.all([
+            exists('creator-root.json'),
+            this.projects.defaultCreatorRootPath()
+                .then(path => fs.stat(join(path, '.akari', 'root.json')).then(stat => stat.isFile(), () => false), () => false),
+            exists('first-run-onboarding-v0.json'), exists(ANNOUNCEMENT_FILE),
+            this.load().then(state => !!state)
+        ]);
+        const decision = guideAnnouncementDecision({ ...context, hasCreatorRootPointer, hasWorkspaceDirectory,
+            legacySetupMarkerSeen, guideStateSeen, announcementMarkerSeen });
+        const marker = guideAnnouncementMarker(decision, new Date().toISOString());
+        if (!marker) return false;
+        await fs.mkdir(this.home, { recursive: true });
+        try {
+            const file = await fs.open(join(this.home, ANNOUNCEMENT_FILE), 'wx');
+            try { await file.writeFile(`${JSON.stringify(marker, null, 2)}\n`, 'utf8'); }
+            finally { await file.close(); }
+            return true;
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+            throw error;
+        }
     }
 
     async markSeen(): Promise<void> {

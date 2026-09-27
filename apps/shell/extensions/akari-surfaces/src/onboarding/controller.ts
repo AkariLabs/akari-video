@@ -78,7 +78,8 @@ export class OnboardingController {
         protected readonly showOutput: (uri: string) => Promise<void>,
         protected readonly showAssets: () => Promise<void>,
         protected readonly seekOutput: (uri: string, time: number) => Promise<void>,
-        protected readonly startOwnVideo: () => Promise<void>
+        protected readonly startOwnVideo: () => Promise<void>,
+        protected readonly openGuideSettings: () => Promise<void>
     ) {}
 
     async open(initial?: OnboardingState): Promise<void> {
@@ -313,7 +314,7 @@ export class OnboardingController {
         if (this.state.step === 'welcome') return `${brand}<h2>AKARI Video へようこそ</h2><div class="ao-actions"><button class="primary" data-ao="next">次へ</button></div>`;
         if (this.state.step === 'first') return `${brand}<h2>AKARI Video を使うのは、はじめてですか？</h2><div class="ao-actions"><button class="primary" data-ao="yes">はじめて</button><button data-ao="no">使ったことがある</button></div>`;
         if (this.state.step === 'invite') return `${brand}<h2>一緒に 1 本、つくってみませんか？</h2><p>用意した動画に、AI でタイトルと字幕を入れて、書き出すところまで。5 分ほどです。途中でやめても大丈夫です。</p><div class="ao-chip">サンプル動画<small>0:37 · 話している人の動画 · 用意してあります</small></div>${this.busy ? '<p>準備しています… 作業場とプロジェクトを作っています</p>' : `${this.prepareError ? `<p role="alert">${esc(this.prepareError)}</p>` : ''}<div class="ao-actions"><button class="primary" data-ao="start">${this.prepareError ? 'もう一度' : 'やってみる'}</button><button data-ao="later">あとで（自分で始める）</button></div>`}`;
-        return `<div class="ao-congrats">おめでとうございます</div><h2>はじめての 1 本ができました</h2><button class="ao-magic" data-ao="own"><span>自分の動画で始める</span><b>→</b><i>✦</i><i>✦</i><i>✦</i></button><div class="ao-secondary"><button data-ao="explore">このまま触ってみる</button><span>·</span><button data-ao="again">もう一度見る</button><span>·</span><button data-ao="learn">使い方を学ぶ</button></div><p class="ao-learn" hidden>左上の ≡ メニューから「セットアップ」を開けます。Ctrl+Shift+P のコマンドパレットで「はじめてのガイドをもう一度」も選べます。</p>`;
+        return `<div class="ao-congrats">おめでとうございます</div><h2>はじめての 1 本ができました</h2><button class="ao-magic" data-ao="own"><span>自分の動画で始める</span><b>→</b><i>✦</i><i>✦</i><i>✦</i></button><div class="ao-secondary"><button data-ao="explore">このまま触ってみる</button><span>·</span><button data-ao="again">もう一度見る</button><span>·</span><button data-ao="learn">使い方を学ぶ</button></div>`;
     }
 
     protected coach(): CoachSpec | undefined {
@@ -745,7 +746,7 @@ export class OnboardingController {
         else if (action === 'send' && this.state.step === 'prompt' && this.state.sub > 0) await this.go('work');
         else if (action === 'retry-work' && this.state.step === 'work') void this.startWork();
         else if (action === 'help-next') await this.assistStep();
-        else if (action === 'learn') { const hint = this.root?.querySelector<HTMLElement>('.ao-learn'); if (hint) hint.hidden = !hint.hidden; }
+        else if (action === 'learn') { this.closeVisual(); await this.openGuideSettings(); }
         else if (action === 'explore') this.closeVisual();
         else if (action === 'own') { this.closeVisual(); await this.startOwnVideo(); }
         else if (action === 'again') { await this.service.save(INITIAL_ONBOARDING_STATE); await this.open(); }

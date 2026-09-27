@@ -410,14 +410,20 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             catalogRow.setAttribute('data-akari-catalog-root', 'true');
             section.append(catalogRow);
         } else if (id === 'start') {
-            const open = action('セットアップを開く', () => {
+            section.append(groupCard(undefined, settingRow('はじめてのガイド',
+                '動画を1本つくりながら、AKARI Video の使い方を見られます。',
+                action('見る', () => {
+                    this.close();
+                    void this.commands.executeCommand(AkariHomeCommands.OPEN_FIRST_VIDEO_GUIDE.id);
+                }, { variant: 'primary' }))));
+            const open = action('準備を開く', () => {
                 this.close();
                 void this.commands.executeCommand(AkariHomeCommands.OPEN_FIRST_RUN_SETUP.id);
-            }, { variant: 'primary' });
+            });
             const hero = element('div');
             hero.className = 'akari-set-hero';
             const copy = element('div');
-            const heroTitle = element('div', '初回セットアップ');
+            const heroTitle = element('div', 'はじめる準備');
             heroTitle.className = 'akari-set-hero-title';
             copy.append(heroTitle, description('道具・作業場・素材・AI パートナーを順番に案内します。いつでもやり直せます'));
             hero.append(copy, open);

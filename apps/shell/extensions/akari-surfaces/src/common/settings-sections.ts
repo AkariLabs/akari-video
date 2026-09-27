@@ -27,7 +27,7 @@ export type SettingsSectionId = typeof SETTINGS_SECTIONS[number]['id'];
 
 export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = {
     account: 'AKARI Store の接続と、購入した素材の受け取りをここで管理します。',
-    start: '初回セットアップで動画づくりの準備を進めます。',
+    start: 'はじめてのガイドと、道具・作業場の準備をここから開けます。',
     export: '書き出しの画質・形式・フレームレートと保存先の既定値を選びます。',
     appearance: '色・言語・大きさと、下のバーに出すもの。',
     partner: '一緒に作業する AI（CLI・公式拡張）。左の縦バーの「パートナー / 拡張」はここへ移りました。',

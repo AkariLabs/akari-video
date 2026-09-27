@@ -1,0 +1,53 @@
+{
+  "startedAt": "2026-09-27T01:36:54.400Z",
+  "shots": [
+    "r6-01-existing-notice",
+    "r6-02-notice-open-guide",
+    "r6-03-restart-no-notice",
+    "r6-04-settings-entry",
+    "r6-05-settings-opens-guide",
+    "r6-06-fresh-auto"
+  ],
+  "toastStack": {
+    "top": "<button class=\"open\" type=\"button\">今すぐ見る</button>",
+    "toastZ": "10025",
+    "bodyChildren": [
+      [
+        "theia-breadcrumbs-popups-overlay",
+        "auto"
+      ],
+      [
+        "",
+        "4000"
+      ],
+      [
+        "",
+        "4000"
+      ],
+      [
+        "",
+        "auto"
+      ],
+      [
+        "select-component-container",
+        "6000"
+      ],
+      [
+        "",
+        "10020"
+      ],
+      [
+        "theia-dialog-shell",
+        "5000"
+      ],
+      [
+        "",
+        "10025"
+      ]
+    ]
+  },
+  "existingMarker": true,
+  "settingsGuide": true,
+  "freshAuto": true,
+  "finishedAt": "2026-09-27T01:37:37.359Z"
+}

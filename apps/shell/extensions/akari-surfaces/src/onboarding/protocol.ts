@@ -12,6 +12,7 @@ export interface AkariOnboardingService {
     heroDataUrl(): Promise<string>;
     load(): Promise<OnboardingState | undefined>;
     save(state: OnboardingState): Promise<void>;
+    claimGuideAnnouncement(context: { hasOpenProject: boolean; hasProjectHistory: boolean }): Promise<boolean>;
     markSeen(): Promise<void>;
     returnToHome(): Promise<void>;
     prepare(): Promise<{ projectUri: string; sample: SampleInformation }>;

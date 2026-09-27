@@ -71,6 +71,7 @@ import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
 import { AkariOnboardingService } from '../onboarding/protocol';
 import { OnboardingController } from '../onboarding/controller';
+import { GuideAnnouncementToast } from '../onboarding/announcement-toast';
 import { shouldResumeOnboarding } from '../onboarding/model';
 import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog';
 import { AkariNewVideoDialog } from './akari-new-video-dialog';
@@ -299,6 +300,8 @@ export class AkariHomeWidget extends ReactWidget {
     @inject(AkariOnboardingService)
     protected readonly onboardingService!: AkariOnboardingService;
     protected firstVideoGuide: OnboardingController | undefined;
+    protected readonly guideAnnouncementToast = new GuideAnnouncementToast();
+    protected guideAnnouncementPending = false;
     // セットアップ完了直後はワークスペース root がまだ無くても dashboard へ抜ける。
     protected showDashboardWithoutProject = false;
 
@@ -427,6 +430,7 @@ export class AkariHomeWidget extends ReactWidget {
                 this.projectCardPreviews.clear();
             }
         });
+        this.toDispose.push({ dispose: () => this.guideAnnouncementToast.close() });
         this.update();
     }
 
@@ -555,6 +559,15 @@ export class AkariHomeWidget extends ReactWidget {
             hasProjectHistory
         });
         if (!willAutoOpen) {
+            try {
+                if (await this.onboardingService.claimGuideAnnouncement({
+                    hasOpenProject: roots.length > 0, hasProjectHistory
+                })) {
+                    this.guideAnnouncementPending = true;
+                }
+            } catch (error) {
+                console.warn('[akari-surfaces] guide announcement could not be recorded:', error);
+            }
             return false;
         }
         void this.openFirstVideoGuide();
@@ -563,6 +576,7 @@ export class AkariHomeWidget extends ReactWidget {
 
     /** 初回ガイドはウィンドウを覆う独立した面として開く。プロジェクト切替後も保存済みの段から戻る。 */
     openFirstVideoGuide = async (state?: import('../onboarding/model').OnboardingState): Promise<void> => {
+        this.guideAnnouncementToast.close();
         this.firstVideoGuide ??= new OnboardingController(
             this.onboardingService,
             this.fileService,
@@ -579,7 +593,8 @@ export class AkariHomeWidget extends ReactWidget {
                 const editUri = new URI(uri).resolve('edit.json').toString();
                 await this.commands.executeCommand('akari.preview.seekOutput', { editUri, time, waitForReady: true });
             },
-            async () => { await this.openProjectLauncher(); }
+            async () => { await this.openProjectLauncher(); },
+            async () => { await this.commands.executeCommand('akari.settings.open', { section: 'start' }); }
         );
         await this.firstVideoGuide.open(state);
     };
@@ -595,9 +610,20 @@ export class AkariHomeWidget extends ReactWidget {
             firstRunWillAutoOpen,
             dismissedThisSession: this.launcherDismissedThisSession
         })) {
+            this.showPendingGuideAnnouncement();
             return;
         }
         void this.openProjectLauncher();
+    }
+
+    /** Mount only after a launcher dialog is present: an already mounted body sibling becomes inert. */
+    protected showPendingGuideAnnouncement(): void {
+        if (!this.guideAnnouncementPending) return;
+        this.guideAnnouncementPending = false;
+        this.guideAnnouncementToast.show(() => {
+            this.projectLauncherDialog?.close();
+            void this.commands.executeCommand('akari.home.openFirstVideoGuide');
+        });
     }
 
     /**
@@ -643,6 +669,7 @@ export class AkariHomeWidget extends ReactWidget {
             }
         });
         this.projectLauncherDialogClosed = closed;
+        this.showPendingGuideAnnouncement();
         return closed;
     };
 
