@@ -1,0 +1,174 @@
+{
+  "codex:image": {
+    "name": "ChatGPT",
+    "license": "商用 OK"
+  },
+  "fal:nano-banana-pro-edit": {
+    "name": "Nano Banana Pro",
+    "license": "条件つき"
+  },
+  "still:antigravity": {
+    "name": "Antigravity",
+    "license": "未確認"
+  },
+  "still:grok": {
+    "name": "Grok CLI",
+    "license": "条件つき"
+  },
+  "fal:nano-banana": {
+    "name": "Nano Banana",
+    "license": "条件つき"
+  },
+  "fal:nano-banana-2": {
+    "name": "Nano Banana 2",
+    "license": "条件つき"
+  },
+  "fal:gpt-image-2.5-flare": {
+    "name": "GPT Image 2.5 Flare",
+    "license": "未確認"
+  },
+  "fal:gpt-image-2.5-sunburst": {
+    "name": "GPT Image 2.5 Sunburst",
+    "license": "未確認"
+  },
+  "fal:grok-imagine-image": {
+    "name": "Grok Imagine Image",
+    "license": "条件つき"
+  },
+  "fal:minimax-image-01": {
+    "name": "MiniMax Image-01",
+    "license": "未確認"
+  },
+  "fal:qwen-image-2": {
+    "name": "Qwen Image 2.0",
+    "license": "未確認"
+  },
+  "fal:h3-i2v": {
+    "name": "MiniMax H3",
+    "license": "条件つき"
+  },
+  "fal:h3-ref": {
+    "name": "MiniMax H3",
+    "license": "条件つき"
+  },
+  "fal:kling-v3-standard-i2v": {
+    "name": "Kling Video v3 Standard",
+    "license": "条件つき"
+  },
+  "fal:kling-v3-pro-i2v": {
+    "name": "Kling Video v3 Pro",
+    "license": "条件つき"
+  },
+  "fal:veo-3.1-flf": {
+    "name": "Veo 3.1",
+    "license": "条件つき"
+  },
+  "fal:veo-3.1-ref": {
+    "name": "Veo 3.1",
+    "license": "条件つき"
+  },
+  "fal:seedance-2.0-i2v": {
+    "name": "Seedance 2.0",
+    "license": "未確認"
+  },
+  "fal:seedance-2.0-ref": {
+    "name": "Seedance 2.0",
+    "license": "未確認"
+  },
+  "fal:seedance-2.5-i2v": {
+    "name": "Seedance 2.5",
+    "license": "未確認"
+  },
+  "fal:wan-2.7-i2v": {
+    "name": "Wan 2.7",
+    "license": "条件つき"
+  },
+  "fal:grok-imagine-i2v": {
+    "name": "Grok Imagine Video",
+    "license": "条件つき"
+  },
+  "fal:vidu-q3-i2v": {
+    "name": "Vidu Q3",
+    "license": "条件つき"
+  },
+  "fal:seedance-2.5-ref": {
+    "name": "Seedance 2.5 参照",
+    "license": "未確認"
+  },
+  "fal:h3-max-i2v": {
+    "name": "MiniMax H3 Max",
+    "license": "条件つき"
+  },
+  "fal:h3-max-ref": {
+    "name": "MiniMax H3 Max 参照",
+    "license": "条件つき"
+  },
+  "tts:gemini-tts": {
+    "name": "Gemini 2.5 Flash TTS",
+    "license": "条件つき"
+  },
+  "tts:fal-qwen3": {
+    "name": "fal Qwen3-TTS",
+    "license": "商用 OK"
+  },
+  "tts:gemini-3.1-flash-tts": {
+    "name": "Gemini 3.1 Flash TTS（既製の声）",
+    "license": "条件つき"
+  },
+  "tts:elevenlabs-v3": {
+    "name": "ElevenLabs v3（既製の声）",
+    "license": "条件つき"
+  },
+  "tts:minimax-2.6-hd": {
+    "name": "MiniMax Speech 2.6 HD（自分の声対応）",
+    "license": "条件つき"
+  },
+  "tts:chatterbox": {
+    "name": "Chatterbox 多言語（参照音声対応）",
+    "license": "商用 OK"
+  },
+  "tts:index-tts-2": {
+    "name": "Index TTS 2（参照音声対応）",
+    "license": "条件つき"
+  },
+  "tts:fish-s2.1-pro": {
+    "name": "Fish Audio S2.1-Pro",
+    "license": "条件つき"
+  },
+  "tts:gemini-3.8-flash-tts": {
+    "name": "Gemini 3.8 Flash TTS",
+    "license": "条件つき"
+  },
+  "voicevox": {
+    "name": "VOICEVOX",
+    "license": "要クレジット"
+  },
+  "irodori": {
+    "name": "彩（Irodori-TTS）",
+    "license": "未確認"
+  },
+  "fal:minimax-speech-2.8-hd": {
+    "name": "MiniMax Speech 2.8 HD",
+    "license": "条件つき"
+  },
+  "fal:gemini-3.8-flash-tts": {
+    "name": "Gemini 3.8 Flash TTS (fal)",
+    "license": "条件つき"
+  },
+  "transcribe:speech-analyzer": {
+    "name": "SpeechAnalyzer",
+    "license": "未確認"
+  },
+  "transcribe:whisper-cpp": {
+    "name": "Whisper large-v3-turbo",
+    "license": "未確認"
+  },
+  "transcribe:cloud:scribe": {
+    "name": "ElevenLabs Scribe",
+    "license": "未確認"
+  },
+  "transcribe:cloud:groq": {
+    "name": "Groq Whisper",
+    "license": "未確認"
+  }
+}
