@@ -42,7 +42,7 @@ test('six pixel magnet prefers canvas on a tie and returns guide extents', () =>
   assert.deepEqual(snap.x.guide, { start: 0, end: 600 });
   assert.equal(g.snapBounds({ ...moving, left: 493, right: 593 }, [], { width: 1000, height: 600 }).x, null);
   const item = g.snapBounds({ ...moving, left: 300, right: 400 }, [
-    { left: 405, right: 450, top: 100, bottom: 150 }], { width: 1000, height: 600 }).x;
+    { left: 403, right: 450, top: 100, bottom: 150 }], { width: 1000, height: 600 }).x;
   assert.equal(item.kind, 'item'); assert.deepEqual(item.guide, { start: 20, end: 150 });
   const nearTie = g.snapBounds({ left: 400.25, right: 600.25, top: 20, bottom: 70 },
     [{ left: 560, right: 600.25, top: 90, bottom: 140 }],
@@ -111,4 +111,58 @@ test('line angle uses the cursor direction for the four-degree snap window', () 
   const free = g.solveLineEndpoint(fixed, shiftedEndpoint, [],
     { width: 1000, height: 1000 }, 1, true, cursor);
   near(Math.atan2(free.point.y - fixed.y, free.point.x - fixed.x) * 180 / Math.PI, 40.88);
+});
+
+test('magnet strength is strongest at the canvas center, then canvas edges, then other items', () => {
+  const canvas = { width: 1000, height: 600 };
+  // 画面中央は 6px、画面の端は 4px。
+  assert.equal(g.snapBounds({ left: 444, right: 494, top: 200, bottom: 250 }, [], canvas).x.target, 500);
+  assert.equal(g.snapBounds({ left: 5, right: 55, top: 200, bottom: 250 }, [], canvas).x, null);
+  assert.equal(g.snapBounds({ left: 4, right: 54, top: 200, bottom: 250 }, [], canvas).x.target, 0);
+  // 他の素材は 3px まで。
+  const other = { left: 700, right: 800, top: 300, bottom: 350 };
+  assert.equal(g.snapBounds({ left: 600, right: 696, top: 20, bottom: 70 }, [other], canvas).x, null);
+  assert.equal(g.snapBounds({ left: 600, right: 697, top: 20, bottom: 70 }, [other], canvas).x.kind, 'item');
+  // 自分の左端を相手の中央（750）へ寄せる交差の組み合わせは候補にしない。
+  assert.equal(g.snapBounds({ left: 748, right: 778, top: 20, bottom: 70 }, [other], canvas).x, null);
+  // 中央どうしは吸着する。
+  const centers = g.snapBounds({ left: 733, right: 769, top: 20, bottom: 70 }, [other], canvas).x;
+  assert.equal(centers.kind, 'item'); near(centers.correction, -1);
+});
+
+test('a held magnet is kept until it is released, but yields to a clearly closer or canvas target', () => {
+  const canvas = { width: 1000, height: 600 };
+  const others = [{ left: 200, right: 300, top: 300, bottom: 350 }, { left: 204.5, right: 280, top: 400, bottom: 450 }];
+  const first = g.snapBounds({ left: 201, right: 251, top: 20, bottom: 70 }, others, canvas).x;
+  assert.equal(first.target, 200);
+  // 別の素材の辺（204.5）の方がわずかに近くなっても、保持中の 200 に留まる（飛び移らない）。
+  const held = g.snapBounds({ left: 203, right: 253, top: 20, bottom: 70 }, others, canvas, 1, 6, { previous: { x: first } }).x;
+  assert.equal(held.target, 200); near(held.correction, -3);
+  // 2px 以上近い候補へは乗り換える。
+  const closer = g.snapBounds({ left: 203, right: 253, top: 20, bottom: 70 },
+    [others[0], { left: 204, right: 280, top: 400, bottom: 450 }], canvas, 1, 6, { previous: { x: first } }).x;
+  assert.equal(closer.target, 204);
+  // 吸着距離を超えたら離す。
+  assert.equal(g.snapBounds({ left: 206, right: 256, top: 20, bottom: 70 }, [others[0]], canvas, 1, 6,
+    { previous: { x: first } }).x, null);
+  // 保持中の素材（3px）より近い画面中央（1px）へは、さらに近い別素材（0.5px）が居ても乗り換える。
+  const itemHeld = { kind: 'item', target: 502, sourceIndex: 0, correction: 3 };
+  const switched = g.snapBounds({ left: 499, right: 549, top: 20, bottom: 70 },
+    [{ left: 502, right: 560, top: 300, bottom: 350 }, { left: 499.5, right: 520, top: 400, bottom: 450 }], canvas, 1, 6,
+    { previous: { x: itemHeld } }).x;
+  assert.equal(switched.kind, 'canvas'); assert.equal(switched.target, 500);
+});
+
+test('a fast axis keeps an existing magnet but does not grab a new one, while the slow axis still snaps', () => {
+  const canvas = { width: 1000, height: 600 };
+  const moving = { left: 497, right: 547, top: 273, bottom: 323 };
+  const both = g.snapBounds(moving, [], canvas);
+  assert.equal(both.x.target, 500); assert.equal(both.y.target, 300);
+  // 横に素早く動かしている間も、縦の中央合わせは効く。
+  const fastX = g.snapBounds(moving, [], canvas, 1, 6, { fast: { x: true, y: false } });
+  assert.equal(fastX.x, null); assert.equal(fastX.y.target, 300);
+  assert.equal(g.snapBounds(moving, [], canvas, 1, 6, { fast: true }).x, null);
+  // 既に吸着している先は、素早く動かしていても保持する。
+  assert.equal(g.snapBounds({ ...moving, left: 498, right: 548 }, [], canvas, 1, 6,
+    { fast: true, previous: { x: both.x } }).x.target, 500);
 });

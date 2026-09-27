@@ -14675,9 +14675,19 @@ body { display: grid; place-items: center; padding: 32px; }
             const pointerTranslationFrom = startEvent => {
                 let lastX = startEvent.clientX, lastY = startEvent.clientY, x = 0, y = 0;
                 return event => {
-                    const scale = (window.akari.stageScale() || 1) * zoom;
-                    x += (event.clientX - lastX) / scale;
-                    y += (event.clientY - lastY) / scale;
+                    // 前回点と今回点を同じフレームの実測（stageLocalPoint）で出力座標へ直して差を取る。
+                    // キャッシュした倍率はズーム・全画面・ステージのアニメーション中に古く、素材が跳ぶ。
+                    const toStage = window.akari.interaction?.stageLocalPoint;
+                    const current = toStage?.(event.clientX, event.clientY);
+                    const previous = toStage?.(lastX, lastY);
+                    if (current && previous) {
+                        x += current.x - previous.x;
+                        y += current.y - previous.y;
+                    } else {
+                        const scale = (window.akari.stageScale() || 1) * zoom;
+                        x += (event.clientX - lastX) / scale;
+                        y += (event.clientY - lastY) / scale;
+                    }
                     lastX = event.clientX; lastY = event.clientY;
                     return { x, y };
                 };

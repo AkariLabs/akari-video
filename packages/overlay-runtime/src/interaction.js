@@ -1338,7 +1338,7 @@ function marqueeHits(candidates, rect) {
       startClientX: event.clientX, startClientY: event.clientY,
       startStagePoint: stageLocalPoint(event.clientX, event.clientY),
       startX: world.x ?? 0, startY: world.y ?? 0, dx: 0, dy: 0,
-      snapX: null, snapY: null, moved: false, duplicate: event.altKey,
+      snapX: null, snapY: null, snapMotion: beginSnapMotion(fragmentVideoBounds(container)), moved: false, duplicate: event.altKey,
       writeContext: captureWriteContext() };
     try { container.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
   }
@@ -1445,7 +1445,8 @@ function marqueeHits(candidates, rect) {
     if (disabled || !tl || !br) { drag.snapX = null; drag.snapY = null; hideSnapGuides(); return; }
     const bounds = { left: tl.x, top: tl.y, right: br.x, bottom: br.y,
       centerX: (tl.x + br.x) / 2, centerY: (tl.y + br.y) / 2 };
-    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY });
+    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY, motion: drag.snapMotion });
+    drag.snapMotion = snap.motion;
     if (lockedAxis === 'x') snap.y = null;
     if (lockedAxis === 'y') snap.x = null;
     drag.snapX = snap.x; drag.snapY = snap.y;
@@ -1856,6 +1857,36 @@ function marqueeHits(candidates, rect) {
   // {left,top,right,bottom,centerX,centerY} から計算する。overlays のドラッグに限らず、
   // resize・layers[]・cut/caption のドラッグからも共通で呼べるよう window.akari.interaction
   // 経由でも公開する（㉒ スナップ統一の単一正本）。
+  // 素早く動かしている最中は、その軸で新しく吸着しない（通り過ぎる候補ごとにカクッと引っかかって、
+  // 掴んだ素材がジャンプしたように見えるため）。速さは動かしている素材の中心の表示px/ms を軸ごとに、
+  // 時間基準の移動平均でならして測る。止める閾値と戻す閾値を分けて、境目でばたつかないようにする。
+  // 状態は吸着結果（motion）に載せて返し、呼び出し元が次回の previousSnap として渡す = ドラッグごとに閉じる。
+  const FAST_SNAP_START_SPEED = 0.6;
+  const FAST_SNAP_END_SPEED = 0.35;
+  const SNAP_SPEED_SMOOTHING_MS = 50;
+  function nextSnapMotion(bounds, previous) {
+    const now = performance.now();
+    const x = (bounds.left + bounds.right) / 2;
+    const y = (bounds.top + bounds.bottom) / 2;
+    if (!previous || !Number.isFinite(previous.at)) {
+      return { at: now, x, y, speedX: 0, speedY: 0, fastX: false, fastY: false };
+    }
+    const elapsed = now - previous.at;
+    if (!(elapsed > 0)) return previous;
+    const scale = currentDisplayScale();
+    const alpha = 1 - Math.exp(-elapsed / SNAP_SPEED_SMOOTHING_MS);
+    const speedX = previous.speedX + alpha * (Math.abs(x - previous.x) * scale / elapsed - previous.speedX);
+    const speedY = previous.speedY + alpha * (Math.abs(y - previous.y) * scale / elapsed - previous.speedY);
+    return { at: now, x, y, speedX, speedY,
+      fastX: previous.fastX ? speedX > FAST_SNAP_END_SPEED : speedX > FAST_SNAP_START_SPEED,
+      fastY: previous.fastY ? speedY > FAST_SNAP_END_SPEED : speedY > FAST_SNAP_START_SPEED };
+  }
+
+  // ドラッグ開始時（pointerdown）の位置で速度の起点を作る。最初の move から実速度で判定できる。
+  function beginSnapMotion(bounds) {
+    return bounds ? nextSnapMotion(bounds, null) : null;
+  }
+
   function computeSnapCorrection(bounds, previousSnap) {
     if (!bounds) return { x: null, y: null };
     if (!globalThis.akariHandleGeometry) {
@@ -1865,10 +1896,15 @@ function marqueeHits(candidates, rect) {
       y: closestAxisSnap([bounds.top, bounds.centerY, bounds.bottom], targets.y,
         previousSnap?.y ?? null, currentDisplayScale()) };
     }
+    // 動かしている素材自身（単体選択・グループ/複数選択のメンバー）は吸着先にしない。
+    const moving = new Set([selectedOverlay, ...selectionMembers()].filter(Boolean));
     const others = stage ? Array.from(stage.children)
-      .filter(element => isSelectable(element) && element !== selectedOverlay)
+      .filter(element => isSelectable(element) && !moving.has(element))
       .map(fragmentVideoBounds).filter(Boolean) : [];
-    return globalThis.akariHandleGeometry.snapBounds(bounds, others, outputSize(), currentDisplayScale());
+    const motion = nextSnapMotion(bounds, previousSnap?.motion);
+    const snap = globalThis.akariHandleGeometry.snapBounds(bounds, others, outputSize(), currentDisplayScale(), 6,
+      { previous: previousSnap, fast: { x: motion.fastX, y: motion.fastY } });
+    return { ...snap, motion };
   }
 
   function applyDragSnapping(drag, rawX, rawY, disabled, lockedAxis = null) {
@@ -1890,7 +1926,8 @@ function marqueeHits(candidates, rect) {
       return;
     }
 
-    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY });
+    const snap = computeSnapCorrection(bounds, { x: drag.snapX, y: drag.snapY, motion: drag.snapMotion });
+    drag.snapMotion = snap.motion;
     if (lockedAxis === 'x') snap.y = null;
     if (lockedAxis === 'y') snap.x = null;
     drag.snapX = snap.x;
@@ -2859,6 +2896,7 @@ function marqueeHits(candidates, rect) {
       startY: transform.y,
       snapX: null,
       snapY: null,
+      snapMotion: beginSnapMotion(fragmentVideoBounds(container)),
       moved: false,
       duplicate: event.altKey,
       motionDriven,
