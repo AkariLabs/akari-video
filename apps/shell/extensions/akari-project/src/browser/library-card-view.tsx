@@ -173,6 +173,8 @@ export interface LibraryAssetCardProps {
     onContextMenu(event: React.MouseEvent<HTMLElement>): void;
     onInfo(anchor: HTMLElement): void;
     onThumbnailError(): void;
+    /** カード本体のクリック = 素材プレビュー。⋯ や試聴ボタンの上では呼ばない。 */
+    onPreview?(): void;
 }
 
 function Thumbnail(props: LibraryAssetCardProps & { compact?: boolean }): React.ReactElement {
@@ -196,6 +198,13 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
         onDragStart: props.onDragStart,
         onDragEnd: () => props.onDragEnd(),
         onContextMenu: props.onContextMenu,
+        // ⋯・試聴・★ の上では発火させない（素材タブのカードと同じ作法）
+        onClick: props.onPreview
+            ? (event: React.MouseEvent<HTMLElement>) => {
+                if (typeof Element !== 'undefined' && event.target instanceof Element && event.target.closest('button')) return;
+                props.onPreview?.();
+            }
+            : undefined,
         'data-akari-library-card': props.layout,
         'data-akari-catalog-item': item.key,
         'data-akari-catalog-item-state': item.state ?? 'local',
@@ -215,7 +224,7 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
                 style={{
                     display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, padding: '5px 6px',
                     borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost,
-                    cursor: props.draggable ? 'grab' : 'default'
+                    cursor: props.draggable ? 'grab' : props.onPreview ? 'pointer' : 'default'
                 }}>
                 <div style={{
                     position: 'relative', width: '52px', height: '30px', flex: '0 0 auto', overflow: 'hidden',
@@ -247,7 +256,7 @@ export function LibraryAssetCard(props: LibraryAssetCardProps): React.ReactEleme
             style={{
                 display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden',
                 borderRadius: `${AKARI_RADIUS.panel}px`, background: AKARI_SURFACE.raised, border: AKARI_BORDER.ghost,
-                cursor: props.draggable ? 'grab' : 'default'
+                cursor: props.draggable ? 'grab' : props.onPreview ? 'pointer' : 'default'
             }}>
             <div style={{
                 position: 'relative', aspectRatio: '16 / 9', overflow: 'hidden', background: AKARI_SURFACE.card,

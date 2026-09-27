@@ -1,0 +1,118 @@
+{
+  "phase": "before",
+  "status": "pass",
+  "step": "open the still panel",
+  "checks": [
+    {
+      "name": "BEFORE: 静止画の専用パネルに参照画像の欄が無い（再現）",
+      "pass": true,
+      "measured": {
+        "stillPanel": true,
+        "aspects": [
+          "16:9",
+          "9:16",
+          "1:1"
+        ],
+        "routes": [
+          {
+            "id": "codex",
+            "disabled": false,
+            "text": "Codex · サインインの範囲使える"
+          },
+          {
+            "id": "antigravity",
+            "disabled": false,
+            "text": "Antigravity · サインインの範囲使える"
+          },
+          {
+            "id": "grok",
+            "disabled": false,
+            "text": "Grok · サインインの範囲使える"
+          }
+        ],
+        "referenceSection": false,
+        "referenceWords": [],
+        "cropToggle": 0
+      }
+    },
+    {
+      "name": "BEFORE: 画角は 3 種（16:9・9:16・1:1）（再現）",
+      "pass": true,
+      "measured": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ]
+    },
+    {
+      "name": "BEFORE: 「ずれたら切りそろえる」のチェックが無い（再現）",
+      "pass": true,
+      "measured": {
+        "stillPanel": true,
+        "aspects": [
+          "16:9",
+          "9:16",
+          "1:1"
+        ],
+        "routes": [
+          {
+            "id": "codex",
+            "disabled": false,
+            "text": "Codex · サインインの範囲使える"
+          },
+          {
+            "id": "antigravity",
+            "disabled": false,
+            "text": "Antigravity · サインインの範囲使える"
+          },
+          {
+            "id": "grok",
+            "disabled": false,
+            "text": "Grok · サインインの範囲使える"
+          }
+        ],
+        "referenceSection": false,
+        "referenceWords": [],
+        "cropToggle": 0
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 65754,
+    "frame": "frame-1",
+    "stillPanel": {
+      "stillPanel": true,
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1"
+      ],
+      "routes": [
+        {
+          "id": "codex",
+          "disabled": false,
+          "text": "Codex · サインインの範囲使える"
+        },
+        {
+          "id": "antigravity",
+          "disabled": false,
+          "text": "Antigravity · サインインの範囲使える"
+        },
+        {
+          "id": "grok",
+          "disabled": false,
+          "text": "Grok · サインインの範囲使える"
+        }
+      ],
+      "referenceSection": false,
+      "referenceWords": [],
+      "cropToggle": 0
+    }
+  },
+  "screenshots": [
+    {
+      "name": "00-before-still-panel.png",
+      "bytes": 301456
+    }
+  ]
+}

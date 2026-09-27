@@ -1,0 +1,919 @@
+{
+  "port": "9640",
+  "steps": {
+    "nav": [
+      "account",
+      "start",
+      "export",
+      "appearance",
+      "connections",
+      "ai-models",
+      "partner",
+      "transcribe",
+      "narration",
+      "quality",
+      "notifications",
+      "tools",
+      "shortcuts",
+      "storage",
+      "privacy",
+      "statistics",
+      "help",
+      "about",
+      "developer"
+    ],
+    "kindButtons": [
+      "静止画 4",
+      "動画 12",
+      "声 11",
+      "文字起こし 4"
+    ],
+    "i-image": [
+      {
+        "id": "codex:image",
+        "name": "OpenAI GPT Image",
+        "flags": [
+          "商用 OK",
+          "実測",
+          "いつもの"
+        ],
+        "starred": true,
+        "variants": null
+      },
+      {
+        "id": "fal:nano-banana-pro-edit",
+        "name": "Nano Banana Pro",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "still:antigravity",
+        "name": "Antigravity",
+        "flags": [
+          "未確認",
+          "実測"
+        ],
+        "starred": true,
+        "variants": null
+      },
+      {
+        "id": "still:grok",
+        "name": "Grok CLI",
+        "flags": [
+          "条件つき",
+          "実測"
+        ],
+        "starred": true,
+        "variants": null
+      }
+    ],
+    "i-video": [
+      {
+        "id": "fal:h3-i2v",
+        "name": "MiniMax H3",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": true,
+        "variants": "▾ ほかに 1 種類"
+      },
+      {
+        "id": "fal:kling-v3-pro-i2v",
+        "name": "Kling Video v3 Pro",
+        "flags": [
+          "条件つき",
+          "公表値",
+          "いつもの"
+        ],
+        "starred": true,
+        "variants": "▾ ほかに 1 種類"
+      },
+      {
+        "id": "fal:veo-3.1-flf",
+        "name": "Veo 3.1",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": "▾ ほかに 1 種類"
+      },
+      {
+        "id": "fal:seedance-2.0-i2v",
+        "name": "Seedance 2.0",
+        "flags": [
+          "未確認",
+          "公表値"
+        ],
+        "starred": true,
+        "variants": "▾ ほかに 1 種類"
+      },
+      {
+        "id": "fal:seedance-2.5-i2v",
+        "name": "Seedance 2.5",
+        "flags": [
+          "未確認",
+          "公表値",
+          "公開日 2026-07-31"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "fal:wan-2.7-i2v",
+        "name": "Wan 2.7",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "fal:grok-imagine-i2v",
+        "name": "Grok Imagine Video",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "fal:vidu-q3-i2v",
+        "name": "Vidu Q3",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      }
+    ],
+    "i-voice": [
+      {
+        "id": "tts:fal-qwen3",
+        "name": "fal Qwen3-TTS",
+        "flags": [
+          "商用 OK",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "tts:elevenlabs-v3",
+        "name": "ElevenLabs v3（既製の声）",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "tts:minimax-2.6-hd",
+        "name": "MiniMax Speech 2.6 HD（自分の声対応）",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "tts:chatterbox",
+        "name": "Chatterbox 多言語（参照音声対応）",
+        "flags": [
+          "商用 OK",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "tts:index-tts-2",
+        "name": "Index TTS 2（参照音声対応）",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "tts:fish-s2.1-pro",
+        "name": "Fish Audio S2.1-Pro",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": true,
+        "variants": null
+      },
+      {
+        "id": "tts:gemini-3.8-flash-tts",
+        "name": "Gemini 3.8 Flash TTS",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": true,
+        "variants": "▾ ほかに 2 種類"
+      },
+      {
+        "id": "voicevox",
+        "name": "VOICEVOX",
+        "flags": [
+          "要クレジット",
+          "公表値",
+          "いつもの"
+        ],
+        "starred": true,
+        "variants": null
+      },
+      {
+        "id": "irodori",
+        "name": "彩（Irodori-TTS）",
+        "flags": [
+          "未確認",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      }
+    ],
+    "i-transcribe": [
+      {
+        "id": "transcribe:speech-analyzer",
+        "name": "SpeechAnalyzer",
+        "flags": [
+          "未確認",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "transcribe:whisper-cpp",
+        "name": "Whisper large-v3-turbo",
+        "flags": [
+          "未確認",
+          "公表値",
+          "いつもの"
+        ],
+        "starred": true,
+        "variants": null
+      },
+      {
+        "id": "transcribe:cloud:scribe",
+        "name": "ElevenLabs Scribe",
+        "flags": [
+          "未確認",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "transcribe:cloud:groq",
+        "name": "Groq Whisper",
+        "flags": [
+          "未確認",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      }
+    ],
+    "ii-search-seedance": [
+      {
+        "id": "fal:seedance-2.0-i2v",
+        "name": "Seedance 2.0",
+        "flags": [
+          "未確認",
+          "公表値"
+        ],
+        "starred": true,
+        "variants": null
+      },
+      {
+        "id": "fal:seedance-2.0-ref",
+        "name": "Seedance 2.0",
+        "flags": [
+          "未確認",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "fal:seedance-2.5-i2v",
+        "name": "Seedance 2.5",
+        "flags": [
+          "未確認",
+          "公表値",
+          "公開日 2026-07-31"
+        ],
+        "starred": false,
+        "variants": null
+      }
+    ],
+    "iii-maker-google": [
+      {
+        "id": "fal:nano-banana-pro-edit",
+        "name": "Nano Banana Pro",
+        "flags": [
+          "条件つき",
+          "公表値"
+        ],
+        "starred": false,
+        "variants": null
+      },
+      {
+        "id": "still:antigravity",
+        "name": "Antigravity",
+        "flags": [
+          "未確認",
+          "実測"
+        ],
+        "starred": true,
+        "variants": null
+      }
+    ],
+    "iv-star": {
+      "before": false,
+      "after": true,
+      "appFile": {
+        "version": 1,
+        "favorites": {
+          "image": [
+            "codex:image",
+            "still:antigravity",
+            "still:grok",
+            "fal:nano-banana-pro-edit"
+          ]
+        },
+        "defaults": {}
+      }
+    },
+    "iv-menu-items": [
+      {
+        "action": "default",
+        "label": "いつものにする",
+        "disabled": false
+      },
+      {
+        "action": "project",
+        "label": "この動画で固定する",
+        "disabled": false
+      },
+      {
+        "action": "compare",
+        "label": "比べる",
+        "disabled": false
+      }
+    ],
+    "iv-default-app": {
+      "card": {
+        "id": "still:antigravity",
+        "name": "Antigravity",
+        "flags": [
+          "未確認",
+          "実測",
+          "いつもの"
+        ],
+        "starred": true,
+        "variants": null
+      },
+      "appFile": {
+        "version": 1,
+        "favorites": {
+          "image": [
+            "codex:image",
+            "still:antigravity",
+            "still:grok",
+            "fal:nano-banana-pro-edit"
+          ]
+        },
+        "defaults": {
+          "image": "still:antigravity"
+        }
+      }
+    },
+    "v-toggle-label": "▾ ほかに 1 種類",
+    "v-expanded": {
+      "before": [
+        "fal:h3-i2v",
+        "fal:kling-v3-pro-i2v",
+        "fal:veo-3.1-flf",
+        "fal:seedance-2.0-i2v",
+        "fal:seedance-2.5-i2v",
+        "fal:wan-2.7-i2v",
+        "fal:grok-imagine-i2v",
+        "fal:vidu-q3-i2v"
+      ],
+      "after": [
+        "fal:h3-i2v",
+        "fal:kling-v3-standard-i2v",
+        "fal:kling-v3-pro-i2v",
+        "fal:veo-3.1-flf",
+        "fal:seedance-2.0-i2v",
+        "fal:seedance-2.5-i2v",
+        "fal:wan-2.7-i2v",
+        "fal:grok-imagine-i2v",
+        "fal:vidu-q3-i2v"
+      ]
+    },
+    "vi-compare": {
+      "columns": [
+        "fal:kling-v3-pro-i2v",
+        "fal:veo-3.1-flf",
+        "fal:seedance-2.0-i2v"
+      ],
+      "radars": [
+        {
+          "id": "compare",
+          "axes": [
+            "安さ",
+            "最長の尺",
+            "入力の幅",
+            "画角の自由度",
+            "解像度"
+          ],
+          "series": [
+            {
+              "id": "fal:kling-v3-pro-i2v",
+              "points": "160,90.47169811320755 209.93046710549555,123.77660779531526 201.14496766047313,196.63118960624632 160,140 160,140",
+              "stroke": "#f0b44c"
+            },
+            {
+              "id": "fal:veo-3.1-flf",
+              "points": "160,105 186.6295824562643,131.34752415750148 180.57248383023656,168.31559480312316 136.85595569098388,171.85504415351355 60.13906578900887,107.55321559063054",
+              "stroke": "#38bdf8"
+            },
+            {
+              "id": "fal:seedance-2.0-i2v",
+              "points": "160,113.97124442240951 209.93046710549555,123.77660779531526 180.57248383023656,168.31559480312316 105.99722994562904,214.3284363581983 60.13906578900887,107.55321559063054",
+              "stroke": "#c084fc"
+            }
+          ]
+        }
+      ],
+      "rows": [
+        [
+          "項目",
+          "fal:kling-v3-pro-i2v",
+          "fal:veo-3.1-flf",
+          "fal:seedance-2.0-i2v"
+        ],
+        [
+          "手段",
+          "API（fal）",
+          "API（fal）",
+          "API（fal）"
+        ],
+        [
+          "料金",
+          "$0.112 / 秒",
+          "$0.2 / 秒",
+          "$0.3034 / 秒"
+        ],
+        [
+          "商用",
+          "条件つき",
+          "条件つき",
+          "未確認"
+        ],
+        [
+          "入力: 指示文",
+          "未確認",
+          "未確認",
+          "未確認"
+        ],
+        [
+          "入力: 最初のコマ",
+          "可",
+          "可",
+          "可"
+        ],
+        [
+          "入力: 最後のコマ",
+          "可",
+          "可",
+          "可"
+        ],
+        [
+          "入力: 参照画像",
+          "可",
+          "不可",
+          "不可"
+        ],
+        [
+          "入力: 参照動画",
+          "可",
+          "不可",
+          "不可"
+        ],
+        [
+          "入力: 参照音声",
+          "不可",
+          "不可",
+          "不可"
+        ],
+        [
+          "入力: 元動画",
+          "不可",
+          "不可",
+          "不可"
+        ],
+        [
+          "入力: 避けたいもの",
+          "可",
+          "可",
+          "不可"
+        ],
+        [
+          "出力: 画角",
+          "未確認",
+          "3 種類",
+          "7 種類"
+        ],
+        [
+          "出力: 解像度",
+          "未確認",
+          "〜4k",
+          "〜4k"
+        ],
+        [
+          "出力: 尺",
+          "3〜15 秒",
+          "4〜8 秒",
+          "4〜15 秒"
+        ],
+        [
+          "出力: 音声",
+          "可",
+          "可",
+          "可"
+        ],
+        [
+          "出力: シード",
+          "不可",
+          "可",
+          "不可"
+        ],
+        [
+          "公開日",
+          "未確認",
+          "未確認",
+          "未確認"
+        ],
+        [
+          "確かめ方",
+          "公表値",
+          "公表値",
+          "公表値"
+        ],
+        [
+          "安さ",
+          "$0.112 / 秒",
+          "$0.2 / 秒",
+          "$0.3034 / 秒"
+        ],
+        [
+          "最長の尺",
+          "15",
+          "8",
+          "15"
+        ],
+        [
+          "入力の幅",
+          "4",
+          "2",
+          "2"
+        ],
+        [
+          "画角の自由度",
+          "未確認",
+          "3",
+          "7"
+        ],
+        [
+          "解像度",
+          "未確認",
+          "3840",
+          "3840"
+        ]
+      ]
+    },
+    "vi-compare-switched": {
+      "columns": [
+        "fal:kling-v3-pro-i2v",
+        "fal:wan-2.7-i2v",
+        "fal:seedance-2.0-i2v"
+      ],
+      "radars": [
+        {
+          "id": "compare",
+          "axes": [
+            "安さ",
+            "最長の尺",
+            "入力の幅",
+            "画角の自由度",
+            "解像度"
+          ],
+          "series": [
+            {
+              "id": "fal:kling-v3-pro-i2v",
+              "points": "160,90.47169811320755 209.93046710549555,123.77660779531526 201.14496766047313,196.63118960624632 160,140 160,140",
+              "stroke": "#f0b44c"
+            },
+            {
+              "id": "fal:wan-2.7-i2v",
+              "points": "160,87.5 209.93046710549555,123.77660779531526 190.85872574535483,182.47339220468473 160,140 110.06953289450443,123.77660779531527",
+              "stroke": "#38bdf8"
+            },
+            {
+              "id": "fal:seedance-2.0-i2v",
+              "points": "160,113.97124442240951 209.93046710549555,123.77660779531526 180.57248383023656,168.31559480312316 105.99722994562904,214.3284363581983 60.13906578900887,107.55321559063054",
+              "stroke": "#c084fc"
+            }
+          ]
+        }
+      ],
+      "rows": [
+        [
+          "項目",
+          "fal:kling-v3-pro-i2v",
+          "fal:wan-2.7-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        [
+          "手段",
+          "API（fal）",
+          "API（fal）",
+          "API（fal）"
+        ],
+        [
+          "料金",
+          "$0.112 / 秒",
+          "$0.1 / 秒",
+          "$0.3034 / 秒"
+        ],
+        [
+          "商用",
+          "条件つき",
+          "条件つき",
+          "未確認"
+        ],
+        [
+          "入力: 指示文",
+          "未確認",
+          "未確認",
+          "未確認"
+        ],
+        [
+          "入力: 最初のコマ",
+          "可",
+          "可",
+          "可"
+        ],
+        [
+          "入力: 最後のコマ",
+          "可",
+          "可",
+          "可"
+        ],
+        [
+          "入力: 参照画像",
+          "可",
+          "不可",
+          "不可"
+        ],
+        [
+          "入力: 参照動画",
+          "可",
+          "不可",
+          "不可"
+        ],
+        [
+          "入力: 参照音声",
+          "不可",
+          "不可",
+          "不可"
+        ],
+        [
+          "入力: 元動画",
+          "不可",
+          "1 種類",
+          "不可"
+        ],
+        [
+          "入力: 避けたいもの",
+          "可",
+          "可",
+          "不可"
+        ],
+        [
+          "出力: 画角",
+          "未確認",
+          "未確認",
+          "7 種類"
+        ],
+        [
+          "出力: 解像度",
+          "未確認",
+          "〜1080p",
+          "〜4k"
+        ],
+        [
+          "出力: 尺",
+          "3〜15 秒",
+          "2〜15 秒",
+          "4〜15 秒"
+        ],
+        [
+          "出力: 音声",
+          "可",
+          "不可",
+          "可"
+        ],
+        [
+          "出力: シード",
+          "不可",
+          "可",
+          "不可"
+        ],
+        [
+          "公開日",
+          "未確認",
+          "未確認",
+          "未確認"
+        ],
+        [
+          "確かめ方",
+          "公表値",
+          "公表値",
+          "公表値"
+        ],
+        [
+          "安さ",
+          "$0.112 / 秒",
+          "$0.1 / 秒",
+          "$0.3034 / 秒"
+        ],
+        [
+          "最長の尺",
+          "15",
+          "15",
+          "15"
+        ],
+        [
+          "入力の幅",
+          "4",
+          "3",
+          "2"
+        ],
+        [
+          "画角の自由度",
+          "未確認",
+          "未確認",
+          "7"
+        ],
+        [
+          "解像度",
+          "未確認",
+          "1920",
+          "3840"
+        ]
+      ]
+    },
+    "vi-compare-remove-add": {
+      "afterRemove": [
+        "fal:kling-v3-pro-i2v",
+        "fal:wan-2.7-i2v"
+      ],
+      "afterAdd": [
+        "fal:kling-v3-pro-i2v",
+        "fal:wan-2.7-i2v",
+        "fal:h3-i2v"
+      ]
+    },
+    "vii-project-fixed": {
+      "card": {
+        "id": "fal:veo-3.1-flf",
+        "name": "Veo 3.1",
+        "flags": [
+          "条件つき",
+          "公表値",
+          "この動画で固定"
+        ],
+        "starred": false,
+        "variants": "▾ ほかに 1 種類"
+      },
+      "projectFile": {
+        "version": 1,
+        "defaults": {
+          "video": "fal:veo-3.1-flf"
+        }
+      }
+    },
+    "viii-set-quality": {
+      "perKind": {
+        "image": [
+          {
+            "id": "fal:nano-banana-pro-edit",
+            "flags": [
+              "条件つき",
+              "公表値",
+              "いつもの"
+            ]
+          }
+        ],
+        "video": [
+          {
+            "id": "fal:veo-3.1-flf",
+            "flags": [
+              "条件つき",
+              "公表値",
+              "この動画で固定"
+            ]
+          }
+        ],
+        "voice": [
+          {
+            "id": "tts:fish-s2.1-pro",
+            "flags": [
+              "条件つき",
+              "公表値",
+              "いつもの"
+            ]
+          }
+        ],
+        "transcribe": [
+          {
+            "id": "transcribe:cloud:scribe",
+            "flags": [
+              "未確認",
+              "公表値",
+              "いつもの"
+            ]
+          }
+        ]
+      },
+      "appFile": {
+        "version": 1,
+        "favorites": {
+          "image": [
+            "fal:nano-banana-pro-edit"
+          ],
+          "video": [
+            "fal:veo-3.1-flf"
+          ],
+          "voice": [
+            "tts:fish-s2.1-pro"
+          ],
+          "transcribe": [
+            "transcribe:cloud:scribe"
+          ]
+        },
+        "defaults": {
+          "image": "fal:nano-banana-pro-edit",
+          "video": "fal:veo-3.1-flf",
+          "voice": "tts:fish-s2.1-pro",
+          "transcribe": "transcribe:cloud:scribe"
+        }
+      },
+      "projectFile": {
+        "version": 1,
+        "defaults": {
+          "video": "fal:veo-3.1-flf"
+        }
+      }
+    },
+    "ix-unavailable": {
+      "defaultIds": [
+        "codex:image",
+        "fal:nano-banana-pro-edit",
+        "still:antigravity",
+        "still:grok"
+      ],
+      "withUnavailable": [
+        "fal:nano-banana",
+        "fal:nano-banana-2",
+        "fal:gpt-image-2.5-flare",
+        "fal:gpt-image-2.5-sunburst",
+        "fal:grok-imagine-image",
+        "fal:minimax-image-01",
+        "fal:qwen-image-2"
+      ]
+    },
+    "consoleErrors": []
+  }
+}

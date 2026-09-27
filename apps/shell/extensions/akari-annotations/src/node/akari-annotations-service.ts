@@ -21,6 +21,8 @@ import { homedir, tmpdir } from 'os';
 import { pathToFileURL } from 'url';
 import { promisify } from 'util';
 import { savePhotoMask } from './photo-mask-storage';
+import { frameDimensions, frameAspectTransform } from '../browser/inspector/frame-geometry';
+import { frameSizeFromPng, frameSizeFromResolution } from '../browser/inspector/frame-aspect-live';
 import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, adoptPhotoCandidates } from './photo-segmentation';
 import { NarrationCliManager } from './narration-cli';
 import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../common/generation-sidecar';
@@ -469,6 +471,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async startGenerateStill(request: StartGenerateStillRequest): Promise<GenerateStillResult> {
         return this.stillGeneration.startGenerateStill(this.fsPath(request.projectRootUri), request);
     }
+    async startGenerateStillBatch(request: Omit<StartGenerateStillRequest, 'route'> & { routes: ImageRouteState['id'][] }) {
+        return this.stillGeneration.startGenerateStillBatch(this.fsPath(request.projectRootUri), request);
+    }
+    async readStillCandidates(request: GenerationProcessRequest & { includeThumbnails?: boolean }) {
+        return this.stillGeneration.readStillCandidates(this.fsPath(request.projectRootUri), request.itemId,
+            request.includeThumbnails !== false);
+    }
+    async readStillPreferredRoutes(projectRootUri: string) {
+        return this.stillGeneration.readStillPreferredRoutes(this.fsPath(projectRootUri));
+    }
     async cancelGenerateStill(request: GenerationProcessRequest): Promise<void> {
         this.stillGeneration.cancelGenerateStill(request.itemId);
     }
@@ -812,6 +824,20 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const path = await this.findGenerationAsset('packages/schemas/gen-models.json');
         const parsed = JSON.parse(await fs.readFile(path, 'utf8')) as ReadGenerationCatalogResult;
         if (!Array.isArray(parsed.models)) throw new Error('生成モデルカタログの models[] がありません。');
+        try {
+            const stillPath = await this.findGenerationAsset('packages/schemas/ai-models.json');
+            const stillModels = JSON.parse(await fs.readFile(stillPath, 'utf8')) as { models?: Array<{
+                id: string; price?: { unit?: string; by_quality_1024?: { low: number; medium: number; high: number }; as_of?: string }
+            }> };
+            const price = stillModels.models?.find(row => row.id === 'fal:gpt-image-2.5-flare')?.price;
+            const prices = price?.by_quality_1024;
+            if (price?.unit === 'usd_per_image' && typeof price.as_of === 'string' && price.as_of
+                && prices && (['low', 'medium', 'high'] as const).every(key =>
+                    typeof prices[key] === 'number' && Number.isFinite(prices[key]))) {
+                const catalog = { models: parsed.models, stillEstimate: { prices, asOf: price.as_of } };
+                return catalog;
+            }
+        } catch { /* The optional still estimate must not hide the generation catalog. */ }
         return { models: parsed.models };
     }
 
@@ -830,7 +856,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { video: resolved.effective?.defaults?.generate?.video || 'fal:h3-i2v' };
     }
 
-    async createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{
+    async createEmptyGenerationFrame(request: { projectRootUri: string; durationSeconds: number; aspect?: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
         relativePath: string; sha256: string; width: number; height: number; renderer: string;
     }> {
         if (!request?.projectRootUri || !Number.isFinite(request.durationSeconds) || request.durationSeconds < 0.5) {
@@ -839,7 +865,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const root = await fs.realpath(this.fsPath(request.projectRootUri));
         const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
         if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
-        const { width, height } = edit.output ?? {};
+        const canvas = edit.output ?? {};
+        const { width, height } = request.aspect ? frameDimensions(request.aspect, canvas) : canvas;
         if (![width, height].every(value => Number.isInteger(value) && value > 0 && value <= 16384)) {
             throw new Error('edit.json のキャンバス寸法が不正です。');
         }
@@ -861,11 +888,13 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         let publishedMeta = false;
         try {
             const card = await cards.renderTextCard({ id, name: '空の枠', prompt: '',
-                outPath: join(staging, 'card.png'), width, height });
+                outPath: join(staging, 'card.png'), width, height,
+                ...(request.aspect ? { loadPuppeteer: async () => null } : {}) });
             const image = await metas.inspectPng(card.path);
             if (image.width !== width || image.height !== height) throw new Error('文字カードの寸法が一致しません。');
             const meta = metas.plannedStillMeta({ prompt: '', duration_s: request.durationSeconds,
                 at: new Date().toISOString(), asOf: await metas.readCodexModelAsOf(), width, height });
+            if (request.aspect) meta.output.aspect = request.aspect;
             meta.provenance.tool = `akari generate still --placeholder (${card.renderer})`;
             const checked = validator.validateGenerationMeta(meta);
             if (!checked.ok) throw new Error(checked.errors.join('\n'));
@@ -880,6 +909,39 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         } finally {
             await fs.rm(staging, { recursive: true, force: true });
         }
+    }
+
+    async setEmptyFrameAspect(request: { projectRootUri: string; itemId: string; aspect: import('../common/akari-annotations-protocol').StillAspect }): Promise<{
+        relativePath: string; width: number; height: number;
+        transform?: { x?: number; y?: number; scale?: number; [key: string]: unknown };
+    }> {
+        if (!request?.projectRootUri || !request.itemId || !['16:9', '9:16', '1:1', '4:3', '3:4', '4:5', '3:2', '21:9'].includes(request.aspect)) {
+            throw new Error('枠と画角を指定してください。');
+        }
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        if (edit.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        const item = edit.tracks?.flatMap((track: any) => track.items ?? []).find((row: any) => row.id === request.itemId);
+        const sourceId = item?.source?.kind === 'media' ? item.source.src : undefined;
+        const source = edit.sources?.find((row: any) => row.id === sourceId);
+        if (!source?.path || !/^assets\/generated\/[^/]+\.png$/u.test(source.path)) throw new Error('空の枠がありません。');
+        const meta = JSON.parse(await fs.readFile(join(root, `${source.path}.meta.json`), 'utf8'));
+        if (meta.status !== 'planned') throw new Error('生成済みの静止画は変更できません。');
+        const previousSize = frameSizeFromResolution(meta.output?.resolution)
+            ?? frameSizeFromPng(await fs.readFile(join(root, source.path)));
+        if (!previousSize) throw new Error('文字カードの寸法を読み取れませんでした。');
+        const canvas = edit.output;
+        const image = await this.createEmptyGenerationFrame({ projectRootUri: request.projectRootUri,
+            durationSeconds: item.duration / canvas.fps, aspect: request.aspect });
+        if (meta.next || meta.inputs?.prompt) {
+            const sidecar = join(root, `${image.relativePath}.meta.json`);
+            const nextMeta = JSON.parse(await fs.readFile(sidecar, 'utf8'));
+            if (meta.next) nextMeta.next = meta.next;
+            if (meta.inputs?.prompt) nextMeta.inputs.prompt = meta.inputs.prompt;
+            await fs.writeFile(sidecar, JSON.stringify(nextMeta, null, 2) + '\n');
+        }
+        return { relativePath: image.relativePath, width: image.width, height: image.height,
+            transform: frameAspectTransform(previousSize, image, item.transform) };
     }
 
     async createEmptyAudioFrame(request: { projectRootUri: string; durationSeconds: number }): Promise<{

@@ -33,8 +33,8 @@ test('2 回生成して同一になる', () => {
   }
 });
 
-test('14 行すべての id が日英両方の生成ブロックに出る', () => {
-  assert.equal(catalog.models.length, 14);
+test('15 行すべての id が日英両方の生成ブロックに出る', () => {
+  assert.equal(catalog.models.length, 15);
   for (const locale of ['ja', 'en']) {
     const block = generatedBlock(documents[locale]);
     for (const model of catalog.models) assert.ok(block.includes(model.id), `${locale}: ${model.id}`);
@@ -45,10 +45,10 @@ test('price が null の行に em dash が出る', () => {
   const nullPriceIds = catalog.models.filter((model) => model.price === null).map((model) => model.id);
   assert.deepEqual(nullPriceIds, [
     'fal:kling-v3-standard-i2v',
-    'fal:seedance-2.5-i2v',
     'fal:grok-imagine-i2v',
     'fal:vidu-q3-i2v',
     'codex:image',
+    'fal:gpt-image-2.5-flare',
     'fal:nano-banana-pro-edit'
   ]);
   for (const locale of ['ja', 'en']) {

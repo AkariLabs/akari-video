@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
-import { cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
+import { cutSnapshot, photoMaskFields } from './helpers/perspective-transition-fixture.mjs';
 import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles } from '../lib/browser/inspector/ai-tiles.js';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 import { appendImageAiPanel } from '../lib/browser/inspector/image-ai-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
@@ -24,11 +24,13 @@ const dependencies = {
   layerAudioControls: new WeakMap(),
   tabsForKind, initialTabFor, assignSectionToTab,
   aiActionCatalog, describeAiTiles,
-  aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles,
+  aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor,
   appendImageAiPanel,
   appendAiStillNotice, stillMismatchNotice, isInspectorStillImage,
   openPhotoEditPanel: options => { openedPhotoPanel = options; },
-  ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }]
+  ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }],
+  ADJUST_PREVIEW_SECTIONS: [],
+  MASK_FIELDS: photoMaskFields
 };
 const code = ts.transpileModule(`${factory('PHOTO_PANEL_FIELDS')}\nclass Harness {
 ${method('renderContent').replace('renderContent', 'render')}
@@ -121,7 +123,7 @@ test('widget: ふつうの動画 cut は編集が押せ、動画タイルは理�
   assert.equal(panel(instance.body), undefined);
 }));
 
-test('widget: 静止画の別案一覧から動画タイル → 専用パネル → ← 編集', () => withDom(() => {
+test('widget: 静止画の別案一覧から動画タイル → 専用パネル → ← ホーム', () => withDom(() => {
   const instance = fixture();
   instance.render();
   assert.deepEqual(instance.body.children.flatMap(node => node.className === 'akari-inspector-ai-list'
@@ -129,7 +131,7 @@ test('widget: 静止画の別案一覧から動画タイル → 専用パネル 
   assert.equal(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')).attributes.get('aria-disabled'), 'true');
   assert.equal(find(instance.body, byClass('akari-inspector-ai-reason')).textContent, '声の入った音声か動画で使えます');
   aiTile(instance.body).click();
-  assert.equal(find(instance.body, byClass('akari-inspector-ai-back')).textContent, '← 編集');
+  assert.equal(find(instance.body, byClass('akari-inspector-ai-back')).textContent, '← ホーム');
   assert.ok(panel(instance.body));
   find(instance.body, byClass('akari-inspector-ai-back')).click();
   assert.ok(aiTile(instance.body));
@@ -220,13 +222,13 @@ test('widget: catalog 読込失敗は同じ workspace で 1 回だけ通知す�
   assert.equal(instance.aiCatalogFailed, true);
 }));
 
-test('ホームは読込中も補正 → 別案の順で出し、近日の素材の選択を描かない', () => withDom(() => {
+test('ホームは読込中も別案だけを出し、補正を描かない', () => withDom(() => {
   const instance = fixture();
   instance.aiCatalogLoaded = false;
   instance.render();
   assert.deepEqual(instance.body.children.filter(node => node.tag === 'section' || node.className === 'akari-inspector-ai-list')
     .map(node => node.attributes.get('data-akari-ui') ?? node.children[0].attributes.get('data-akari-ui')),
-  ['section:inspector-edit-correction', 'section:inspector-edit-alternatives']);
+  ['section:inspector-edit-alternatives']);
   assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-material-choice')), undefined);
   assert.ok(find(instance.body, node => node.textContent === '別案を読み込んでいます…'));
 }));
@@ -238,11 +240,12 @@ test('図形のホームも空にならず、別案なしを示して近日の�
   instance.loadAiCatalog = async () => {};
   instance.explicitTabId = 'edit';
   instance.render();
+  assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-correction')), undefined);
   assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-material-choice')), undefined);
   assert.ok(find(instance.body, node => node.textContent === 'この要素で使える別案はまだありません'));
 }));
 
-test('sources の id を持つ写真 item / layer と cut は編集の補正・同じ adjust 節を出す', () => withDom(() => {
+test('sources の id を持つ写真 item / layer と cut は色タブ先頭に範囲を出す', () => withDom(() => {
   for (const snapshot of [
     cutSnapshot({ itemId: 'cut-1', sourcePath: 'assets/photo.png', src: 's2' }),
     { kind: 'layer', id: 'layer-1', layerKind: 'baked', sourceKind: 'media', src: 's2',
@@ -256,35 +259,45 @@ test('sources の id を持つ写真 item / layer と cut は編集の補正・�
     instance.loadAiCatalog = async () => {};
     instance.explicitTabId = 'edit';
     instance.render();
-    assert.ok(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-correction')), snapshot.kind);
+    assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-edit-correction')), undefined);
+    instance.sections = [];
+    instance.explicitTabId = 'adjust';
+    instance.render();
+    assert.equal(instance.sections[0].id, 'adjust-scope', snapshot.kind);
+    assert.ok(instance.body.children.findIndex(node => node.attributes.get('data-akari-ui') === 'section:inspector-adjust-scope')
+      < instance.body.children.findIndex(node => node.attributes.get('data-akari-ui') === 'toggle:inspector-adjust-compare'));
     assert.ok(find(instance.body, byData('data-akari-ui', 'section:inspector-adjust:basic')), snapshot.kind);
-    const scope = instance.sections.find(section => section.id === 'edit-correction').fields
+    const scope = instance.sections.find(section => section.id === 'adjust-scope').fields
       .find(field => field.name === 'edit-adjust-scope');
     assert.deepEqual(scope.options, ['画像全体', '選択エリア']);
   }
 }));
 
-test('写真の背景透過と選択エリアは編集 > 補正に一度ずつ出て同じ item を開く', () => withDom(async () => {
+test('写真の背景透過は専用パネル、選択エリアは色タブで同じ item を開く', () => withDom(async () => {
   for (const kind of ['cut', 'layer', 'item']) {
     const instance = fixture();
     instance.model.snapshot = kind === 'cut'
-      ? cutSnapshot({ itemId: 'photo-1', sourcePath: 'assets/photo.png', photo: true })
+      ? cutSnapshot({ itemId: 'photo-1', sourcePath: 'assets/photo.png', src: 'assets/photo.png', photo: true })
       : { kind, id: 'photo-1', itemKind: 'media', sourceKind: 'media', sourcePath: 'assets/photo.png',
-          photo: true, outputStart: 0, duration: 5, durationFrames: 150 };
+          src: 'assets/photo.png', photo: true, outputStart: 0, duration: 5, durationFrames: 150 };
     instance.generationIdentity = () => undefined;
+    instance.photoAiOpening = 'cutout';
     instance.render();
-    const correction = instance.sections.find(section => section.id === 'edit-correction');
-    assert.ok(correction, kind);
-    assert.deepEqual(correction.fields.filter(field => field.name === 'photo-cutout-panel').map(field => field.actionLabel),
+    const cutout = instance.sections.find(section => section.id === 'photo-cutout');
+    assert.ok(cutout, kind);
+    assert.deepEqual(cutout.fields.filter(field => field.name === 'photo-cutout-panel').map(field => field.actionLabel),
       ['背景透過を開く']);
-    assert.equal(correction.fields.some(field => field.name === 'photo-region-panel'), false);
+    assert.equal(cutout.fields.some(field => field.name === 'photo-region-panel'), false);
     assert.equal(instance.sections.some(section => section.id === 'photo-edit'), false);
-    await correction.fields.find(field => field.name === 'photo-cutout-panel').action(instance.model.snapshot);
+    await cutout.fields.find(field => field.name === 'photo-cutout-panel').action(instance.model.snapshot);
     assert.deepEqual([openedPhotoPanel.id, openedPhotoPanel.mode], ['photo-1', 'cutout']);
-    const scope = correction.fields.find(field => field.name === 'edit-adjust-scope');
+    instance.sections = [];
+    instance.explicitTabId = 'adjust';
+    instance.render();
+    const scope = instance.sections.find(section => section.id === 'adjust-scope').fields.find(field => field.name === 'edit-adjust-scope');
     instance.sections = [];
     await scope.write(instance.model.snapshot, '選択エリア');
-    const area = instance.sections.find(section => section.id === 'edit-correction');
+    const area = instance.sections.find(section => section.id === 'adjust-scope');
     assert.deepEqual(area.fields.filter(field => field.name === 'photo-region-panel').map(field => field.actionLabel),
       ['エリアを選択']);
     assert.equal(instance.sections.some(section => section.id === 'adjust:basic'), false);
@@ -292,6 +305,63 @@ test('写真の背景透過と選択エリアは編集 > 補正に一度ずつ�
     assert.deepEqual([openedPhotoPanel.id, openedPhotoPanel.mode], ['photo-1', 'regions']);
   }
 }));
+
+test('写真の直すタイルは端末処理の専用パネルを開き、カットの消しゴムは itemId に書く', () => withDom(async () => {
+  const instance = fixture();
+  const writes = [];
+  instance.commitWrite = async request => { writes.push(request); return { ok: true }; };
+  instance.render();
+  const cutoutTile = find(instance.body, byData('data-akari-inspector-ai-tile', 'cutout'));
+  const eraserTile = find(instance.body, byData('data-akari-inspector-ai-tile', 'eraser'));
+  assert.equal(cutoutTile.attributes.get('aria-disabled'), 'false');
+  assert.equal(eraserTile.attributes.get('aria-disabled'), 'false');
+  for (const tile of [cutoutTile, eraserTile]) {
+    assert.equal(find(tile, byClass('akari-inspector-cloud')), undefined);
+    assert.ok(find(tile, byClass('akari-inspector-ai-image')));
+  }
+  assert.ok(find(instance.body, byData('data-akari-inspector-ai-tile', 'transcribe')));
+  cutoutTile.click();
+  assert.ok(instance.sections.find(section => section.id === 'photo-cutout'));
+  assert.equal(find(instance.body, byClass('akari-inspector-ai-back')).textContent, '← ホーム');
+  find(instance.body, byClass('akari-inspector-ai-back')).click();
+  find(instance.body, byData('data-akari-inspector-ai-tile', 'eraser')).click();
+  const eraser = instance.sections.findLast(section => section.id === 'photo-eraser');
+  assert.deepEqual(eraser.fields.map(field => field.name),
+    ['photo-brush-mode', 'photo-brush-size', 'photo-brush-hardness', 'photo-brush-start']);
+  await eraser.fields.find(field => field.name === 'photo-brush-start').action(instance.model.snapshot);
+  assert.deepEqual(writes.map(write => [write.id, write.path]), [['cut-1', 'photo-brush-toggle']]);
+  instance.model.snapshot = cutSnapshot({ itemId: 'cut-2', sourcePath: 'other.png', src: 'other.png' });
+  instance.generationLoads.add('cut-2');
+  instance.explicitTabId = 'edit';
+  instance.render();
+  assert.equal(instance.aiView, 'tiles');
+}));
+
+for (const [label, options, reason] of [
+  ['動画', { sourcePath: 'ordinary.mp4' }, '写真で使えます'],
+  ['空の枠', { state: 'planned' }, '空の枠では使えません'],
+  ['生成中', { state: 'generating' }, '生成が終わると使えます'],
+  ['失敗', { state: 'failed' }, '生成が終わると使えます'],
+  ['古い生成', { state: 'stale' }, '生成が終わると使えます']
+]) {
+  test(`${label}では写真の直すタイルを理由つきで無効にする`, () => withDom(() => {
+    const instance = fixture(options);
+    instance.render();
+    instance.aiView = 'tiles';
+    instance.explicitTabId = 'edit';
+    instance.render();
+    for (const id of ['cutout', 'eraser']) {
+      const tile = find(instance.body, byData('data-akari-inspector-ai-tile', id));
+      assert.equal(tile.attributes.get('aria-disabled'), 'true');
+      assert.match(tile.className, /akari-inspector-ai-disabled/u);
+      assert.equal(find(tile, byClass('akari-inspector-ai-reason')).textContent, reason);
+      assert.equal(find(tile, byClass('akari-inspector-cloud')), undefined);
+      tile.click();
+      assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-photo-cutout')), undefined);
+      assert.equal(find(instance.body, byData('data-akari-ui', 'section:inspector-photo-eraser')), undefined);
+    }
+  }));
+}
 
 test('高画質化は直すに入り、背景生成（近日）は描かない', () => withDom(() => {
   const instance = fixture();

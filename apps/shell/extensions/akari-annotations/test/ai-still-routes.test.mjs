@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { IMAGE_PROBE_TIMEOUT_MS, StillGenerationManager } from '../lib/node/still-generation.js';
-import { appendAiStillPanel, savedStillRoute } from '../lib/browser/inspector/ai-still-panel.js';
+import { aiActionCatalog } from '../lib/common/ai-action-catalog.js';
+import { appendAiStillPanel, replaceStillInEdit, stillRouteLabel } from '../lib/browser/inspector/ai-still-panel.js';
 import { validateGenerationMeta } from '../../../../../packages/generate/src/cli/meta-validate.mjs';
 
 const repo = resolve(fileURLToPath(new URL('../../../../..', import.meta.url)));
@@ -62,7 +63,24 @@ async function waitForAttempt(dir, route, count) {
 }
 
 test('手段ごとの既定上限', () => {
-  assert.deepEqual(IMAGE_PROBE_TIMEOUT_MS, { codex: 5000, antigravity: 20000, grok: 20000 });
+  assert.deepEqual(IMAGE_PROBE_TIMEOUT_MS, { codex: 5000, antigravity: 20000, grok: 20000, fal: 5000 });
+});
+
+test('fal はキー状態を示し、費用承認を断ると送信処理へ進まない', async () => {
+  const dir = await workspace();
+  try {
+    const noKey = manager(dir, { FAL_KEY: '', AKARI_CREDENTIALS_FILE: join(dir, 'missing-credentials.env') });
+    assert.equal((await noKey.probeImageRoutes(['fal']))[0].state, 'missing');
+    const withKey = manager(dir, { FAL_KEY: 'stub-key' });
+    assert.equal((await withKey.probeImageRoutes(['fal']))[0].state, 'ready');
+    assert.equal((await manager(dir, { FAL_KEY: '', AKARI_IMAGE_AI_FAL_KEY: 'stub-image-key' }).probeImageRoutes(['fal']))[0].state, 'ready');
+    const credentialsFile = join(dir, 'credentials.env');
+    await writeFile(credentialsFile, 'AKARI_IMAGE_AI_FAL_KEY=stub-image-file-key\n', { mode: 0o600 });
+    assert.equal((await manager(dir, { FAL_KEY: '', AKARI_CREDENTIALS_FILE: credentialsFile }).probeImageRoutes(['fal']))[0].state, 'ready');
+    assert.deepEqual(await withKey.startGenerateStill(dir, { ...request, route: 'fal', approved: false }),
+      { ok: false, reason: '費用承認が必要です。' });
+    assert.equal(await readFile(join(dir, 'calls.jsonl'), 'utf8').catch(() => ''), '');
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test('3 手段の ready / signed-out / missing と Grok の一回再確認', async t => {
@@ -229,7 +247,8 @@ test('キャンセルは公開ファイルを作らない', async () => {
 
 test('パネルは手段ごとの確認中と unknown の案内・作成可否を表示する', () => {
   class Node {
-    constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.value = ''; }
+    constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.value = ''; this.style = {}; }
+    append(...nodes) { this.children.push(...nodes); }
     appendChild(node) { this.children.push(node); return node; }
     setAttribute(name, value) { this.attributes.set(name, value); }
     addEventListener(name, callback) { this.listeners.set(name, callback); }
@@ -240,17 +259,18 @@ test('パネルは手段ごとの確認中と unknown の案内・作成可否�
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: tag => new Node(tag) } });
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value) } });
   try {
-    const state = { prompt: 'garden', aspect: '16:9', routeId: 'codex', probing: false, running: false,
+    const state = { prompt: 'garden', aspect: '16:9', routeId: 'codex', selectedRoutes: new Set(['codex']), probing: false, running: false,
       routes: ['codex', 'antigravity', 'grok'].map((id, i) => ({ id, state: i === 0 ? 'ready' : 'signed-out', detail: '' })) };
     const parent = new Node('root');
     appendAiStillPanel(parent, state, { change() {}, probe() {}, generate() {}, cancel() {} });
     const walk = node => [node, ...node.children.flatMap(walk)];
     const nodes = walk(parent);
-    const radios = nodes.filter(x => x.type === 'radio');
-    assert.equal(radios.length, 3);
+    const radios = nodes.filter(x => x.type === 'checkbox' && x.attributes.has('data-akari-inspector-ai-route-checkbox'));
+    assert.equal(radios.length, 4);
     assert.equal(nodes.find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, false);
+    radios[0].checked = false; radios[0].listeners.get('change')();
     radios[2].checked = true; radios[2].listeners.get('change')();
-    assert.equal(savedStillRoute(), 'grok');
+    assert.deepEqual([...state.selectedRoutes], ['grok']);
     const second = new Node('root');
     appendAiStillPanel(second, state, { change() {}, probe() {}, generate() {}, cancel() {} });
     assert.equal(walk(second).find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, true);
@@ -271,12 +291,203 @@ test('パネルは手段ごとの確認中と unknown の案内・作成可否�
     const checking = new Node('root');
     appendAiStillPanel(checking, state, { change() {}, probe() {}, generate() {}, cancel() {} });
     const badges = walk(checking).filter(x => x.className === 'akari-inspector-ai-still-badge');
-    assert.deepEqual(badges.map(x => x.textContent), ['使える', '確かめています…', '確かめられませんでした']);
-    assert.deepEqual(badges.map(x => x.attributes.get('data-akari-inspector-ai-route-state')), ['ready', 'checking', 'unknown']);
+    assert.deepEqual(badges.map(x => x.textContent), ['使える', '確かめています…', '確かめられませんでした', '入っていない']);
+    assert.deepEqual(badges.map(x => x.attributes.get('data-akari-inspector-ai-route-state')), ['ready', 'checking', 'unknown', 'checking']);
     assert.equal(walk(checking).find(x => x.attributes.get('data-akari-inspector-ai-refresh') === 'true').disabled, true);
     assert.equal(walk(checking).find(x => x.attributes.get('data-akari-inspector-ai-create') === 'true').disabled, false);
   } finally {
     if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument); else delete globalThis.document;
     if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage); else delete globalThis.localStorage;
   }
+});
+
+test('既定チェックは G8 の静止画 id・無料のお気に入り・利用可否を守り、有料を外す', async () => {
+  assert.deepEqual(aiActionCatalog([]).find(action => action.id === 'still').routes.map(({ id, modelId }) => [id, modelId]), [
+    ['codex', 'codex:image'], ['antigravity', 'still:antigravity'],
+    ['grok', 'still:grok'], ['fal', 'fal:gpt-image-2.5-flare']
+  ]);
+  const dir = await workspace();
+  const home = join(dir, 'isolated-home');
+  try {
+    await mkdir(home);
+    const instance = manager(dir, { AKARI_HOME: home, AKARI_CREDENTIALS_FILE: join(dir, 'none.env'),
+      FAL_KEY: '', AKARI_IMAGE_AI_FAL_KEY: '' });
+    assert.deepEqual(await instance.readStillPreferredRoutes(dir), ['codex', 'antigravity', 'grok']);
+    await writeFile(join(home, 'ai-models.json'), JSON.stringify({ version: 1,
+      favorites: { image: ['still:grok', 'codex:image', 'fal:gpt-image-2.5-flare'] }, defaults: {} }));
+    await mkdir(join(dir, '.akari'));
+    await writeFile(join(dir, '.akari/ai-models.json'), JSON.stringify({ version: 1,
+      defaults: { image: 'fal:gpt-image-2.5-flare' } }));
+    const favored = manager(dir, { AKARI_HOME: home, AKARI_CREDENTIALS_FILE: join(dir, 'none.env'),
+      FAL_KEY: 'stub-key', AKARI_GROK_BIN: join(dir, 'missing-grok') });
+    assert.deepEqual(await favored.readStillPreferredRoutes(dir), ['codex']);
+    await writeFile(join(home, 'ai-models.json'), JSON.stringify({ version: 1,
+      favorites: { image: ['still:antigravity'] }, defaults: {} }));
+    assert.deepEqual(await favored.readStillPreferredRoutes(dir), ['antigravity']);
+    await writeFile(join(home, 'ai-models.json'), JSON.stringify({ version: 1,
+      favorites: { image: ['still:grok', 'fal:gpt-image-2.5-flare'] }, defaults: {} }));
+    assert.deepEqual(await favored.readStillPreferredRoutes(dir), ['codex', 'antigravity']);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('同じ枠の三手段を同時に候補化し、進捗と edit 不変、手段単位の二重起動を守る', async () => {
+  const dir = await workspace();
+  try {
+    await writeFile(join(dir, 'image-state'), 'delay');
+    const instance = manager(dir);
+    const editBefore = await readFile(join(dir, 'edit.json'));
+    const pending = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
+    await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.some(row =>
+      row.route === route && row.args[0] !== 'models')));
+    const inProgress = await instance.readStillCandidates(dir, 'clip-1');
+    assert.deepEqual(inProgress.routes, ['codex', 'antigravity', 'grok']);
+    assert.equal(inProgress.running, true);
+    assert.equal((await instance.startGenerateStill(dir, { ...request, route: 'codex' })).ok, false);
+    const generating = JSON.parse(await readFile(join(dir, 'assets/generated/old.png.meta.json')));
+    assert.equal(generating.status, 'generating');
+    assert.deepEqual(generating.job.routes, ['codex', 'antigravity', 'grok']);
+    const result = await pending;
+    assert.equal(result.completed, 3);
+    assert.equal(result.candidates.filter(row => row.ok).length, 3);
+    assert.equal((await readFile(join(dir, 'edit.json'))).equals(editBefore), true);
+    for (const candidate of result.candidates) {
+      assert.match(candidate.relativePath, new RegExp(`^assets/generated/candidates/clip-1/${candidate.route}-.*\\.png$`));
+      const meta = JSON.parse(await readFile(join(dir, `${candidate.relativePath}.meta.json`)));
+      assert.equal(meta.candidate_of, 'clip-1');
+      assert.equal(meta.status, 'done');
+      assert.deepEqual(validateGenerationMeta(meta), { ok: true, errors: [] });
+    }
+    const restored = JSON.parse(await readFile(join(dir, 'assets/generated/old.png.meta.json')));
+    assert.equal(restored.job.completed, 3);
+    assert.equal(restored.job.candidates, 3);
+    assert.equal((await instance.readStillCandidates(dir, 'clip-1')).candidates.length, 3);
+    const original = JSON.parse(editBefore.toString());
+    const history = [];
+    let doc = structuredClone(original);
+    const commit = mutation => { const previous = structuredClone(doc); doc = mutation(structuredClone(doc)); history.push(previous); };
+    commit(value => replaceStillInEdit(value, 'clip-1', result.candidates[0].relativePath));
+    assert.equal(history.length, 1);
+    assert.equal(doc.sources.find(row => row.id === doc.tracks[0].items[0].source.src).path,
+      result.candidates[0].relativePath);
+    doc = history.pop();
+    assert.deepEqual(doc, original);
+    for (const candidate of result.candidates) assert.ok((await readFile(join(dir, candidate.relativePath))).length > 0);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('一手段の失敗は他の候補と edit を壊さず、有料の拒否は実行しない', async () => {
+  const dir = await workspace();
+  try {
+    const instance = manager(dir, { AKARI_GROK_BIN: join(dir, 'missing-grok') });
+    const before = await readFile(join(dir, 'edit.json'));
+    await assert.rejects(instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'fal'], approved: false }), /費用承認/u);
+    assert.equal(await readFile(join(dir, 'calls.jsonl'), 'utf8').catch(() => ''), '');
+    const result = await instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
+    assert.equal(result.candidates.filter(row => row.ok).length, 2);
+    assert.equal(result.candidates.find(row => row.route === 'grok').ok, false);
+    assert.equal((await readFile(join(dir, 'edit.json'))).equals(before), true);
+    const reloaded = await instance.readStillCandidates(dir, 'clip-1');
+    assert.equal(reloaded.candidates.filter(row => row.ok).length, 2);
+    assert.equal(reloaded.candidates.find(row => row.route === 'grok').ok, false);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('同じ枠でも別手段のバッチは併走し、重なる手段だけ拒否する', async () => {
+  const dir = await workspace();
+  try {
+    await writeFile(join(dir, 'image-state'), 'delay');
+    const instance = manager(dir);
+    const first = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex'] });
+    const second = instance.startGenerateStillBatch(dir, { ...request, routes: ['antigravity', 'grok'] });
+    await assert.rejects(instance.startGenerateStillBatch(dir, { ...request, routes: ['grok'] }), /枠と手段/u);
+    await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.some(row =>
+      row.route === route && row.args[0] !== 'models')));
+    const running = await instance.readStillCandidates(dir, 'clip-1');
+    assert.deepEqual(running.routes, ['codex', 'antigravity', 'grok']);
+    assert.equal(running.completed, 0);
+    assert.deepEqual(running.results, []);
+    const [a, b] = await Promise.all([first, second]);
+    assert.equal(a.candidates.filter(row => row.ok).length, 1);
+    assert.equal(b.candidates.filter(row => row.ok).length, 2);
+    const meta = JSON.parse(await readFile(join(dir, 'assets/generated/old.png.meta.json')));
+    assert.deepEqual(meta.job.routes, ['codex', 'antigravity', 'grok']);
+    assert.equal(meta.job.completed, 3);
+    assert.equal(meta.job.candidates, 3);
+    assert.equal(meta.job.results.length, 3);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('バッチ実行中の読み口は最初の完了を残りの実行中に返す', async () => {
+  const dir = await workspace();
+  try {
+    await writeFile(join(dir, 'image-state'), 'delay');
+    const instance = manager(dir, { FAKE_CODEX_DELAY_MS: '150' });
+    const pending = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
+    let middle;
+    const until = Date.now() + 5_000;
+    while (Date.now() < until) {
+      middle = await instance.readStillCandidates(dir, 'clip-1');
+      if (middle.results?.some(row => row.route === 'codex' && row.ok)) break;
+      await new Promise(resolvePromise => setTimeout(resolvePromise, 40));
+    }
+    assert.equal(middle.running, true);
+    assert.equal(middle.completed, 1);
+    assert.deepEqual(middle.results.map(row => row.route), ['codex']);
+    assert.equal(middle.candidates.length, 1);
+    await pending;
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('次のバッチの進捗は前回結果を拾わず、候補一覧は重複なく新しい順', async () => {
+  const dir = await workspace();
+  try {
+    const instance = manager(dir);
+    await instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
+    await writeFile(join(dir, 'image-state'), 'delay');
+    const second = instance.startGenerateStillBatch(dir, { ...request, routes: ['codex', 'antigravity', 'grok'] });
+    await waitForCalls(dir, calls => ['agy', 'grok'].every(route => calls.filter(row =>
+      row.route === route && row.args[0] !== 'models').length >= 2));
+    const running = await instance.readStillCandidates(dir, 'clip-1');
+    assert.equal(running.running, true);
+    assert.equal(running.completed, 0);
+    assert.deepEqual(running.results, []);
+    assert.equal(running.candidates.length, 3);
+    await second;
+    const done = await instance.readStillCandidates(dir, 'clip-1');
+    assert.equal(done.candidates.length, 6);
+    assert.equal(new Set(done.candidates.map(row => row.relativePath)).size, 6);
+    assert.equal(done.results.length, 3);
+    const times = done.candidates.map(row => Number(row.relativePath.split('/').pop().split('-')[1]));
+    assert.deepEqual(times, [...times].sort((a, b) => b - a));
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('候補と失敗行は手段 id ではなく表示名を使う', () => {
+  assert.equal(stillRouteLabel('codex'), 'ChatGPT（Codex）');
+  assert.equal(stillRouteLabel('antigravity'), 'Antigravity');
+  assert.equal(stillRouteLabel('grok'), 'Grok');
+  assert.equal(stillRouteLabel('fal'), 'fal · GPT Image 2.5 Flare');
+  class Node {
+    constructor(tag) { this.tag = tag; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.style = {}; this.textContent = ''; }
+    append(...nodes) { this.children.push(...nodes); }
+    appendChild(node) { this.children.push(node); return node; }
+    setAttribute(key, value) { this.attributes.set(key, value); }
+    addEventListener(key, value) { this.listeners.set(key, value); }
+  }
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: tag => new Node(tag) } });
+  try {
+    const parent = new Node('root');
+    appendAiStillPanel(parent, { prompt: 'garden', aspect: '16:9', selectedRoutes: new Set(['codex']), probing: false,
+      running: false, routes: [{ id: 'codex', state: 'ready', detail: '' }], batch: {
+        routes: ['codex', 'antigravity'], completed: 2, running: false,
+        results: [{ route: 'codex', ok: true }, { route: 'antigravity', ok: false, reason: 'error' }],
+        candidates: [{ route: 'codex', ok: true, relativePath: 'assets/generated/candidates/x/codex-1.png', width: 320, height: 180 },
+          { route: 'antigravity', ok: false, reason: 'error' }]
+      } }, { change() {}, probe() {}, generate() {}, cancel() {} });
+    const walk = node => [node, ...node.children.flatMap(walk)];
+    const nodes = walk(parent);
+    assert.match(nodes.find(row => row.attributes.get('data-akari-inspector-ai-candidate'))?.children[1].textContent, /ChatGPT（Codex）/u);
+    assert.match(nodes.find(row => row.attributes.get('data-akari-inspector-ai-failed-route'))?.textContent, /Antigravity · 失敗/u);
+  } finally { if (previous) Object.defineProperty(globalThis, 'document', previous); else delete globalThis.document; }
 });

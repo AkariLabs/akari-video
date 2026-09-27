@@ -252,7 +252,8 @@
         "duration_s": { "type": "number", "exclusiveMinimum": 0 },
         "resolution": { "$ref": "#/$defs/nullableString" },
         "aspect": { "$ref": "#/$defs/nullableString" },
-        "audio_out": { "type": ["boolean", "null"] }
+        "audio_out": { "type": ["boolean", "null"] },
+        "cropped_from": { "type": "string", "pattern": "^[1-9][0-9]*x[1-9][0-9]*$" }
       }
     },
     "cost": {

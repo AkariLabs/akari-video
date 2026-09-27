@@ -1,0 +1,1386 @@
+{
+  "phase": "after",
+  "status": "fail",
+  "step": "crop off",
+  "checks": [
+    {
+      "name": "画角のボタンが 8 種（16:9・9:16・1:1・4:3・3:4・4:5・3:2・21:9）",
+      "pass": true,
+      "measured": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:3",
+        "3:4",
+        "4:5",
+        "3:2",
+        "21:9"
+      ]
+    },
+    {
+      "name": "画角の図が比率どおり（図の幅 / 高さが ±8%）",
+      "pass": true,
+      "measured": [
+        {
+          "aspect": "16:9",
+          "w": 30,
+          "h": 17,
+          "ratio": 1.765
+        },
+        {
+          "aspect": "9:16",
+          "w": 17,
+          "h": 29,
+          "ratio": 0.586
+        },
+        {
+          "aspect": "1:1",
+          "w": 30,
+          "h": 29,
+          "ratio": 1.034
+        },
+        {
+          "aspect": "4:3",
+          "w": 30,
+          "h": 23,
+          "ratio": 1.304
+        },
+        {
+          "aspect": "3:4",
+          "w": 23,
+          "h": 29,
+          "ratio": 0.793
+        },
+        {
+          "aspect": "4:5",
+          "w": 24,
+          "h": 29,
+          "ratio": 0.828
+        },
+        {
+          "aspect": "3:2",
+          "w": 30,
+          "h": 20,
+          "ratio": 1.5
+        },
+        {
+          "aspect": "21:9",
+          "w": 30,
+          "h": 13,
+          "ratio": 2.308
+        }
+      ]
+    },
+    {
+      "name": "画角の図が 2 段に並ぶ",
+      "pass": true,
+      "measured": [
+        455,
+        521
+      ]
+    },
+    {
+      "name": "空の枠の形が 8 種で変わる（プレビューの枠の縦横比が選んだ比率 ±3%・文字カードの寸法も同じ比率）",
+      "pass": true,
+      "measured": [
+        {
+          "aspect": "4:3",
+          "previewAspect": 1.333,
+          "target": 1.333,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 1440,
+            "height": 1080
+          },
+          "source": "assets/generated/frame-1790448115551-UG9lHM.png"
+        },
+        {
+          "aspect": "3:4",
+          "previewAspect": 0.75,
+          "target": 0.75,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 810,
+            "height": 1080
+          },
+          "source": "assets/generated/frame-1790448117542-U7q7Ga.png"
+        },
+        {
+          "aspect": "4:5",
+          "previewAspect": 0.8,
+          "target": 0.8,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 864,
+            "height": 1080
+          },
+          "source": "assets/generated/frame-1790448120129-pDnJ6E.png"
+        },
+        {
+          "aspect": "3:2",
+          "previewAspect": 1.5,
+          "target": 1.5,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 1620,
+            "height": 1080
+          },
+          "source": "assets/generated/frame-1790448122245-y3EXCy.png"
+        },
+        {
+          "aspect": "21:9",
+          "previewAspect": 2.333,
+          "target": 2.333,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 1920,
+            "height": 823
+          },
+          "source": "assets/generated/frame-1790448124836-t7ddBB.png"
+        },
+        {
+          "aspect": "1:1",
+          "previewAspect": 1,
+          "target": 1,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 1080,
+            "height": 1080
+          },
+          "source": "assets/generated/frame-1790448127169-EhmRks.png"
+        },
+        {
+          "aspect": "16:9",
+          "previewAspect": 1.778,
+          "target": 1.778,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 1920,
+            "height": 1080
+          },
+          "source": "assets/generated/frame-1790448130112-kWDLZJ.png"
+        },
+        {
+          "aspect": "9:16",
+          "previewAspect": 0.563,
+          "target": 0.563,
+          "area": 0.25,
+          "center": [
+            0.5,
+            0.5
+          ],
+          "card": {
+            "width": 608,
+            "height": 1080
+          },
+          "source": "assets/generated/frame-1790448132370-ie0kzI.png"
+        }
+      ]
+    },
+    {
+      "name": "「素材から選ぶ」で付けた参照がサムネイル + 名前 + × で並ぶ",
+      "pass": true,
+      "measured": [
+        {
+          "path": "assets/ref-a.png",
+          "text": "ref-a.png×",
+          "thumb": true,
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "参照 1 枚: Antigravity がグレー + 理由「この手段は画像を受け取れません」",
+      "pass": true,
+      "measured": {
+        "id": "antigravity",
+        "grey": "true",
+        "radioDisabled": true,
+        "checked": false,
+        "state": "ready",
+        "reason": "この手段は画像を受け取れません",
+        "note": null
+      }
+    },
+    {
+      "name": "参照 1 枚: Grok は押せて注記「参照は縮めて送られます」",
+      "pass": true,
+      "measured": {
+        "id": "grok",
+        "grey": "false",
+        "radioDisabled": false,
+        "checked": false,
+        "state": "ready",
+        "reason": null,
+        "note": "参照は縮めて送られます"
+      }
+    },
+    {
+      "name": "参照 1 枚: Codex はそのまま",
+      "pass": true,
+      "measured": {
+        "id": "codex",
+        "grey": "false",
+        "radioDisabled": false,
+        "checked": true,
+        "state": "ready",
+        "reason": null,
+        "note": null
+      }
+    },
+    {
+      "name": "素材パネルのカードからブラウザの実ドラッグが始まり、application/x-akari-material を運ぶ",
+      "pass": true,
+      "measured": {
+        "items": [
+          {
+            "mimeType": "application/x-akari-material",
+            "data": "{\"relativePath\":\"assets/ref-b.png\",\"kind\":\"image\",\"name\":\"ref-b.png\",\"thumb\":\"file://<TMP>/project/.akari/cache/thumbnails/55e10214747c2de8.png\"}"
+          }
+        ],
+        "dragOperationsMask": 1
+      }
+    },
+    {
+      "name": "ドラッグで落とした参照が 2 枚目として並ぶ",
+      "pass": true,
+      "measured": [
+        {
+          "path": "assets/ref-a.png",
+          "text": "ref-a.png×",
+          "thumb": true,
+          "remove": true
+        },
+        {
+          "path": "assets/ref-b.png",
+          "text": "ref-b.png×",
+          "thumb": true,
+          "remove": true
+        }
+      ]
+    },
+    {
+      "name": "参照 2 枚: Grok がグレー +「Grok は 1 枚まで」",
+      "pass": true,
+      "measured": {
+        "id": "grok",
+        "grey": "true",
+        "radioDisabled": true,
+        "checked": false,
+        "state": "ready",
+        "reason": "Grok は 1 枚まで",
+        "note": "参照は縮めて送られます"
+      }
+    },
+    {
+      "name": "「今のコマ」でプレビューのコマが assets/captures/ に保存され 3 枚目として付く",
+      "pass": false,
+      "measured": {
+        "path": null,
+        "size": null,
+        "files": [],
+        "failure": {
+          "notifications": [
+            "コマを保存できませんでした: 撮影準備がタイムアウトしました",
+            "コマを保存できませんでした: 撮影準備がタイムアウトしました",
+            "コマを保存できませんでした: 撮影準備がタイムアウトしました",
+            "コマを保存できませんでした: 撮影準備がタイムアウトしました"
+          ],
+          "panelError": "コマを保存できませんでした。",
+          "captures": []
+        }
+      }
+    },
+    {
+      "name": "切りそろえのチェックが既定でオン",
+      "pass": true,
+      "measured": true
+    },
+    {
+      "name": "参照 2 枚で選ばれている手段は Codex",
+      "pass": true,
+      "measured": [
+        {
+          "id": "codex",
+          "grey": "false",
+          "radioDisabled": false,
+          "checked": true,
+          "state": "ready",
+          "reason": null,
+          "note": null
+        },
+        {
+          "id": "antigravity",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "この手段は画像を受け取れません",
+          "note": null
+        },
+        {
+          "id": "grok",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "Grok は 1 枚まで",
+          "note": "参照は縮めて送られます"
+        }
+      ]
+    },
+    {
+      "name": "スタブの Codex が受けた turn/start の input = 指示文 + 参照 2 枚の localImage（絶対パス・指示の後ろ）",
+      "pass": true,
+      "measured": [
+        {
+          "type": "text",
+          "text": "夕焼けの海辺に立つ猫\n\n縦長 9:16 の画像。\n参照画像の人物・物・色を保ってください。\n\n画像をちょうど 1 枚生成し、絶対パス <TMP>/project/assets/generated/.still-TBEdCu/image.png に保存してください。他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。"
+        },
+        {
+          "type": "localImage",
+          "path": "<TMP>/project/assets/ref-a.png"
+        },
+        {
+          "type": "localImage",
+          "path": "<TMP>/project/assets/ref-b.png"
+        }
+      ]
+    },
+    {
+      "name": "スタブは正方形 1254×1254 を返し、枠に入った画像は 705×1254（9:16）に切りそろえ済み",
+      "pass": true,
+      "measured": {
+        "wrote": {
+          "output": "<TMP>/project/assets/generated/.still-TBEdCu/image.png",
+          "width": 1254,
+          "height": 1254
+        },
+        "placed": {
+          "width": 705,
+          "height": 1254
+        }
+      }
+    },
+    {
+      "name": "meta に参照要素（path・sha256）が残る",
+      "pass": true,
+      "measured": [
+        {
+          "path": "assets/ref-a.png",
+          "sha256": "fcd421f7bbe6af48f3b87469bdb48a1a286b0ce6b697bc2372f8d8a0a1246cc0"
+        },
+        {
+          "path": "assets/ref-b.png",
+          "sha256": "14d3ec60bfac90be7a3512ebb053ea86122d0a0c7451898734f1c2e18c866b84"
+        }
+      ]
+    },
+    {
+      "name": "meta に切った事実（cropped_from=1254x1254）が残り、正典の検証器を通る",
+      "pass": true,
+      "measured": {
+        "history": [
+          {
+            "at": "2026-09-26T18:42:41.588Z",
+            "status": "done",
+            "reason": "切りそろえ: cropped_from=1254x1254 → 705x1254（9:16）"
+          }
+        ],
+        "validatorExit": 0
+      }
+    },
+    {
+      "name": "パネルの完了表示に「9:16 を頼んで正方形 → 切りそろえました」（空白は無視）",
+      "pass": true,
+      "measured": {
+        "cropped": null,
+        "notice": "9:16 を頼んで 正方形 → 切りそろえました"
+      }
+    },
+    {
+      "name": "プレビューの枠に 9:16 で入る（縦横比 ±3%）",
+      "pass": true,
+      "measured": {
+        "aspect": 0.5622012177095508,
+        "w": 0.32625328555305494,
+        "h": 1.0316694854312043,
+        "cx": 0.49999997399023866,
+        "cy": 0.4999999537604243,
+        "src": "http://127.0.0.1:63821/asset/ee9b176aa3775877ce5c3c658c2ceeb84c38732c8e28c9aa8413e1f46568b889.png"
+      }
+    },
+    {
+      "name": "スタブの Grok が受けた指示文に image_edit・参照の絶対パス・aspect_ratio 4:5",
+      "pass": true,
+      "measured": "参照の人物を水彩画に\n\n縦長 4:5 の画像。\n\nimage_edit の image に参照画像（絶対指定）<TMP>/project/assets/ref-a.png を渡してください。image_gen は使わないでください。aspect_ratio に 4:5 を渡してください。\n\n画像をちょうど 1 枚生成し、絶対パス <TMP>/project/assets/generated/.still-94W70D/image.png に PNG で保存してください。他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。"
+    },
+    {
+      "name": "Grok の生成物の meta に参照要素が残り、比率どおりなので切りそろえの記録は無い",
+      "pass": true,
+      "measured": {
+        "model": {
+          "id": "grok:image",
+          "as_of": "2026-09-26"
+        },
+        "reference_images": [
+          {
+            "path": "assets/ref-a.png",
+            "sha256": "fcd421f7bbe6af48f3b87469bdb48a1a286b0ce6b697bc2372f8d8a0a1246cc0"
+          }
+        ],
+        "output": {
+          "duration_s": 2.5,
+          "resolution": "1024x1280",
+          "aspect": null,
+          "audio_out": null
+        },
+        "history": [
+          {
+            "at": "2026-09-26T18:42:52.729Z",
+            "status": "done",
+            "reason": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "オフは localStorage に記憶される",
+      "pass": true,
+      "measured": "false"
+    },
+    {
+      "name": "オフでは切らない（1254×1254 のまま・meta に cropped_from なし・注意書きが出る）",
+      "pass": true,
+      "measured": {
+        "localStorage": "false",
+        "source": "assets/generated/still-1790448179665-EEFVIK.png",
+        "png": {
+          "width": 1254,
+          "height": 1254
+        },
+        "history": [
+          {
+            "at": "2026-09-26T18:42:59.872Z",
+            "status": "done",
+            "reason": null
+          }
+        ],
+        "panelMismatch": null,
+        "panelCropped": null,
+        "panelNotice": "頼んだ 16:9 と違う 1254×1254 でできました"
+      }
+    },
+    {
+      "name": "Antigravity は一度も生成に呼ばれていない（参照つきでは押せない）",
+      "pass": true,
+      "measured": 0
+    }
+  ],
+  "observations": {
+    "electronPid": 68958,
+    "frame": "frame-1",
+    "previewReconnects": 6,
+    "aspectFigures": [
+      {
+        "aspect": "16:9",
+        "pressed": "true",
+        "w": 30,
+        "h": 17,
+        "row": 455
+      },
+      {
+        "aspect": "9:16",
+        "pressed": "false",
+        "w": 17,
+        "h": 29,
+        "row": 455
+      },
+      {
+        "aspect": "1:1",
+        "pressed": "false",
+        "w": 30,
+        "h": 29,
+        "row": 455
+      },
+      {
+        "aspect": "4:3",
+        "pressed": "false",
+        "w": 30,
+        "h": 23,
+        "row": 455
+      },
+      {
+        "aspect": "3:4",
+        "pressed": "false",
+        "w": 23,
+        "h": 29,
+        "row": 521
+      },
+      {
+        "aspect": "4:5",
+        "pressed": "false",
+        "w": 24,
+        "h": 29,
+        "row": 521
+      },
+      {
+        "aspect": "3:2",
+        "pressed": "false",
+        "w": 30,
+        "h": 20,
+        "row": 521
+      },
+      {
+        "aspect": "21:9",
+        "pressed": "false",
+        "w": 30,
+        "h": 13,
+        "row": 521
+      }
+    ],
+    "frameShapes": [
+      {
+        "aspect": "4:3",
+        "previewAspect": 1.333,
+        "target": 1.333,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 1440,
+          "height": 1080
+        },
+        "source": "assets/generated/frame-1790448115551-UG9lHM.png"
+      },
+      {
+        "aspect": "3:4",
+        "previewAspect": 0.75,
+        "target": 0.75,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 810,
+          "height": 1080
+        },
+        "source": "assets/generated/frame-1790448117542-U7q7Ga.png"
+      },
+      {
+        "aspect": "4:5",
+        "previewAspect": 0.8,
+        "target": 0.8,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 864,
+          "height": 1080
+        },
+        "source": "assets/generated/frame-1790448120129-pDnJ6E.png"
+      },
+      {
+        "aspect": "3:2",
+        "previewAspect": 1.5,
+        "target": 1.5,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 1620,
+          "height": 1080
+        },
+        "source": "assets/generated/frame-1790448122245-y3EXCy.png"
+      },
+      {
+        "aspect": "21:9",
+        "previewAspect": 2.333,
+        "target": 2.333,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 1920,
+          "height": 823
+        },
+        "source": "assets/generated/frame-1790448124836-t7ddBB.png"
+      },
+      {
+        "aspect": "1:1",
+        "previewAspect": 1,
+        "target": 1,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 1080,
+          "height": 1080
+        },
+        "source": "assets/generated/frame-1790448127169-EhmRks.png"
+      },
+      {
+        "aspect": "16:9",
+        "previewAspect": 1.778,
+        "target": 1.778,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 1920,
+          "height": 1080
+        },
+        "source": "assets/generated/frame-1790448130112-kWDLZJ.png"
+      },
+      {
+        "aspect": "9:16",
+        "previewAspect": 0.563,
+        "target": 0.563,
+        "area": 0.25,
+        "center": [
+          0.5,
+          0.5
+        ],
+        "card": {
+          "width": 608,
+          "height": 1080
+        },
+        "source": "assets/generated/frame-1790448132370-ie0kzI.png"
+      }
+    ],
+    "pickOptions": [
+      "assets/generated/frame-1790448108150-cZDsFY.png",
+      "assets/generated/frame-1790448115551-UG9lHM.png",
+      "assets/generated/frame-1790448117542-U7q7Ga.png",
+      "assets/generated/frame-1790448120129-pDnJ6E.png",
+      "assets/generated/frame-1790448122245-y3EXCy.png",
+      "assets/generated/frame-1790448124836-t7ddBB.png",
+      "assets/generated/frame-1790448127169-EhmRks.png",
+      "assets/generated/frame-1790448130112-kWDLZJ.png",
+      "assets/generated/frame-1790448132370-ie0kzI.png",
+      "assets/photo.png",
+      "assets/ref-a.png",
+      "assets/ref-b.png"
+    ],
+    "afterPick": {
+      "stillPanel": true,
+      "createDisabled": true,
+      "references": [
+        {
+          "path": "assets/ref-a.png",
+          "text": "ref-a.png×",
+          "thumb": true,
+          "remove": true
+        }
+      ],
+      "pickDisabled": false,
+      "captureDisabled": false,
+      "options": [],
+      "aspects": [
+        {
+          "aspect": "16:9",
+          "pressed": "false",
+          "w": 30,
+          "h": 17,
+          "row": 240
+        },
+        {
+          "aspect": "9:16",
+          "pressed": "true",
+          "w": 17,
+          "h": 29,
+          "row": 240
+        },
+        {
+          "aspect": "1:1",
+          "pressed": "false",
+          "w": 30,
+          "h": 29,
+          "row": 240
+        },
+        {
+          "aspect": "4:3",
+          "pressed": "false",
+          "w": 30,
+          "h": 23,
+          "row": 240
+        },
+        {
+          "aspect": "3:4",
+          "pressed": "false",
+          "w": 23,
+          "h": 29,
+          "row": 306
+        },
+        {
+          "aspect": "4:5",
+          "pressed": "false",
+          "w": 24,
+          "h": 29,
+          "row": 306
+        },
+        {
+          "aspect": "3:2",
+          "pressed": "false",
+          "w": 30,
+          "h": 20,
+          "row": 306
+        },
+        {
+          "aspect": "21:9",
+          "pressed": "false",
+          "w": 30,
+          "h": 13,
+          "row": 306
+        }
+      ],
+      "routes": [
+        {
+          "id": "codex",
+          "grey": "false",
+          "radioDisabled": false,
+          "checked": true,
+          "state": "ready",
+          "reason": null,
+          "note": null
+        },
+        {
+          "id": "antigravity",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "この手段は画像を受け取れません",
+          "note": null
+        },
+        {
+          "id": "grok",
+          "grey": "false",
+          "radioDisabled": false,
+          "checked": false,
+          "state": "ready",
+          "reason": null,
+          "note": "参照は縮めて送られます"
+        }
+      ],
+      "crop": true,
+      "cropped": null,
+      "mismatch": null,
+      "error": null,
+      "notice": null
+    },
+    "dragData": {
+      "items": [
+        {
+          "mimeType": "application/x-akari-material",
+          "data": "{\"relativePath\":\"assets/ref-b.png\",\"kind\":\"image\",\"name\":\"ref-b.png\",\"thumb\":\"file://<TMP>/project/.akari/cache/thumbnails/55e10214747c2de8.png\"}"
+        }
+      ],
+      "dragOperationsMask": 1
+    },
+    "dragEvents": [
+      {
+        "type": "dragstart",
+        "phase": "capture",
+        "target": "DIV.",
+        "zone": false,
+        "types": [],
+        "prevented": false
+      },
+      {
+        "type": "dragenter",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "dragover",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "dragover",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "drop",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "dragend",
+        "phase": "capture",
+        "target": "DIV.",
+        "zone": false,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "dragstart",
+        "phase": "capture",
+        "target": "DIV.",
+        "zone": false,
+        "types": [],
+        "prevented": false
+      },
+      {
+        "type": "dragenter",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "dragover",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "dragover",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "drop",
+        "phase": "capture",
+        "target": "BUTTON.akari-inspector-ai-still-secondary",
+        "zone": true,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      },
+      {
+        "type": "dragend",
+        "phase": "capture",
+        "target": "DIV.",
+        "zone": false,
+        "types": [
+          "application/x-akari-material"
+        ],
+        "prevented": false
+      }
+    ],
+    "afterDrag": {
+      "stillPanel": true,
+      "createDisabled": true,
+      "references": [
+        {
+          "path": "assets/ref-a.png",
+          "text": "ref-a.png×",
+          "thumb": true,
+          "remove": true
+        },
+        {
+          "path": "assets/ref-b.png",
+          "text": "ref-b.png×",
+          "thumb": true,
+          "remove": true
+        }
+      ],
+      "pickDisabled": false,
+      "captureDisabled": false,
+      "options": [],
+      "aspects": [
+        {
+          "aspect": "16:9",
+          "pressed": "false",
+          "w": 30,
+          "h": 17,
+          "row": 240
+        },
+        {
+          "aspect": "9:16",
+          "pressed": "true",
+          "w": 17,
+          "h": 29,
+          "row": 240
+        },
+        {
+          "aspect": "1:1",
+          "pressed": "false",
+          "w": 30,
+          "h": 29,
+          "row": 240
+        },
+        {
+          "aspect": "4:3",
+          "pressed": "false",
+          "w": 30,
+          "h": 23,
+          "row": 240
+        },
+        {
+          "aspect": "3:4",
+          "pressed": "false",
+          "w": 23,
+          "h": 29,
+          "row": 306
+        },
+        {
+          "aspect": "4:5",
+          "pressed": "false",
+          "w": 24,
+          "h": 29,
+          "row": 306
+        },
+        {
+          "aspect": "3:2",
+          "pressed": "false",
+          "w": 30,
+          "h": 20,
+          "row": 306
+        },
+        {
+          "aspect": "21:9",
+          "pressed": "false",
+          "w": 30,
+          "h": 13,
+          "row": 306
+        }
+      ],
+      "routes": [
+        {
+          "id": "codex",
+          "grey": "false",
+          "radioDisabled": false,
+          "checked": true,
+          "state": "ready",
+          "reason": null,
+          "note": null
+        },
+        {
+          "id": "antigravity",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "この手段は画像を受け取れません",
+          "note": null
+        },
+        {
+          "id": "grok",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "Grok は 1 枚まで",
+          "note": "参照は縮めて送られます"
+        }
+      ],
+      "crop": true,
+      "cropped": null,
+      "mismatch": null,
+      "error": null,
+      "notice": null
+    },
+    "captureFailure": {
+      "notifications": [
+        "コマを保存できませんでした: 撮影準備がタイムアウトしました",
+        "コマを保存できませんでした: 撮影準備がタイムアウトしました",
+        "コマを保存できませんでした: 撮影準備がタイムアウトしました",
+        "コマを保存できませんでした: 撮影準備がタイムアウトしました"
+      ],
+      "panelError": "コマを保存できませんでした。",
+      "captures": []
+    },
+    "afterCapture": {
+      "stillPanel": true,
+      "createDisabled": true,
+      "references": [
+        {
+          "path": "assets/ref-a.png",
+          "text": "ref-a.png×",
+          "thumb": true,
+          "remove": true
+        },
+        {
+          "path": "assets/ref-b.png",
+          "text": "ref-b.png×",
+          "thumb": true,
+          "remove": true
+        }
+      ],
+      "pickDisabled": false,
+      "captureDisabled": false,
+      "options": [],
+      "aspects": [
+        {
+          "aspect": "16:9",
+          "pressed": "false",
+          "w": 30,
+          "h": 17,
+          "row": 187
+        },
+        {
+          "aspect": "9:16",
+          "pressed": "true",
+          "w": 17,
+          "h": 29,
+          "row": 187
+        },
+        {
+          "aspect": "1:1",
+          "pressed": "false",
+          "w": 30,
+          "h": 29,
+          "row": 187
+        },
+        {
+          "aspect": "4:3",
+          "pressed": "false",
+          "w": 30,
+          "h": 23,
+          "row": 187
+        },
+        {
+          "aspect": "3:4",
+          "pressed": "false",
+          "w": 23,
+          "h": 29,
+          "row": 253
+        },
+        {
+          "aspect": "4:5",
+          "pressed": "false",
+          "w": 24,
+          "h": 29,
+          "row": 253
+        },
+        {
+          "aspect": "3:2",
+          "pressed": "false",
+          "w": 30,
+          "h": 20,
+          "row": 253
+        },
+        {
+          "aspect": "21:9",
+          "pressed": "false",
+          "w": 30,
+          "h": 13,
+          "row": 253
+        }
+      ],
+      "routes": [
+        {
+          "id": "codex",
+          "grey": "false",
+          "radioDisabled": false,
+          "checked": true,
+          "state": "ready",
+          "reason": null,
+          "note": null
+        },
+        {
+          "id": "antigravity",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "この手段は画像を受け取れません",
+          "note": null
+        },
+        {
+          "id": "grok",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "Grok は 1 枚まで",
+          "note": "参照は縮めて送られます"
+        }
+      ],
+      "crop": true,
+      "cropped": null,
+      "mismatch": null,
+      "error": "コマを保存できませんでした。",
+      "notice": null
+    },
+    "capture": {
+      "path": null,
+      "size": null,
+      "files": []
+    },
+    "afterCodex": {
+      "stillPanel": false,
+      "createDisabled": null,
+      "references": [],
+      "pickDisabled": null,
+      "captureDisabled": null,
+      "options": [],
+      "aspects": [],
+      "routes": [],
+      "crop": null,
+      "cropped": null,
+      "mismatch": null,
+      "error": null,
+      "notice": "9:16 を頼んで 正方形 → 切りそろえました"
+    },
+    "codex": {
+      "source": "assets/generated/still-1790448161345-TBEdCu.png",
+      "png": {
+        "width": 705,
+        "height": 1254
+      },
+      "meta": {
+        "status": "done",
+        "output": {
+          "duration_s": 2.5,
+          "resolution": "705x1254",
+          "aspect": null,
+          "audio_out": null
+        },
+        "result": {
+          "path": "assets/generated/still-1790448161345-TBEdCu.png",
+          "sha256": "aa624fc77d0b6218038a19d78106d22e90f11ead6fe7fb3a536fcaf7c74e84e9",
+          "bytes": 14788,
+          "duration_s_actual": 2.5,
+          "width": 705,
+          "height": 1254,
+          "elapsed_s": 0.057
+        },
+        "reference_images": [
+          {
+            "path": "assets/ref-a.png",
+            "sha256": "fcd421f7bbe6af48f3b87469bdb48a1a286b0ce6b697bc2372f8d8a0a1246cc0"
+          },
+          {
+            "path": "assets/ref-b.png",
+            "sha256": "14d3ec60bfac90be7a3512ebb053ea86122d0a0c7451898734f1c2e18c866b84"
+          }
+        ],
+        "history": [
+          {
+            "at": "2026-09-26T18:42:41.588Z",
+            "status": "done",
+            "reason": "切りそろえ: cropped_from=1254x1254 → 705x1254（9:16）"
+          }
+        ]
+      },
+      "validatorExit": 0,
+      "stubReceived": [
+        {
+          "route": "codex",
+          "turnStartInput": [
+            {
+              "type": "text",
+              "text": "夕焼けの海辺に立つ猫\n\n縦長 9:16 の画像。\n参照画像の人物・物・色を保ってください。\n\n画像をちょうど 1 枚生成し、絶対パス <TMP>/project/assets/generated/.still-TBEdCu/image.png に保存してください。他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。",
+              "text_elements": []
+            },
+            {
+              "type": "localImage",
+              "path": "<TMP>/project/assets/ref-a.png"
+            },
+            {
+              "type": "localImage",
+              "path": "<TMP>/project/assets/ref-b.png"
+            }
+          ],
+          "wrote": {
+            "output": "<TMP>/project/assets/generated/.still-TBEdCu/image.png",
+            "width": 1254,
+            "height": 1254
+          }
+        }
+      ],
+      "previewShape": {
+        "aspect": 0.5622012177095508,
+        "w": 0.32625328555305494,
+        "h": 1.0316694854312043,
+        "cx": 0.49999997399023866,
+        "cy": 0.4999999537604243,
+        "src": "http://127.0.0.1:63821/asset/ee9b176aa3775877ce5c3c658c2ceeb84c38732c8e28c9aa8413e1f46568b889.png"
+      }
+    },
+    "grok": {
+      "stubPrompt": "参照の人物を水彩画に\n\n縦長 4:5 の画像。\n\nimage_edit の image に参照画像（絶対指定）<TMP>/project/assets/ref-a.png を渡してください。image_gen は使わないでください。aspect_ratio に 4:5 を渡してください。\n\n画像をちょうど 1 枚生成し、絶対パス <TMP>/project/assets/generated/.still-94W70D/image.png に PNG で保存してください。他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。",
+      "stubArgs": [
+        "--always-approve",
+        "--output-format",
+        "streaming-json",
+        "--cwd",
+        "<TMP>/project"
+      ],
+      "source": "assets/generated/still-1790448172503-94W70D.png",
+      "png": {
+        "width": 1024,
+        "height": 1280
+      },
+      "meta": {
+        "model": {
+          "id": "grok:image",
+          "as_of": "2026-09-26"
+        },
+        "reference_images": [
+          {
+            "path": "assets/ref-a.png",
+            "sha256": "fcd421f7bbe6af48f3b87469bdb48a1a286b0ce6b697bc2372f8d8a0a1246cc0"
+          }
+        ],
+        "output": {
+          "duration_s": 2.5,
+          "resolution": "1024x1280",
+          "aspect": null,
+          "audio_out": null
+        },
+        "history": [
+          {
+            "at": "2026-09-26T18:42:52.729Z",
+            "status": "done",
+            "reason": null
+          }
+        ]
+      },
+      "validatorExit": 0,
+      "panel": {
+        "stillPanel": false,
+        "createDisabled": null,
+        "references": [],
+        "pickDisabled": null,
+        "captureDisabled": null,
+        "options": [],
+        "aspects": [],
+        "routes": [],
+        "crop": null,
+        "cropped": null,
+        "mismatch": null,
+        "error": null,
+        "notice": null
+      }
+    },
+    "cropOff": {
+      "localStorage": "false",
+      "source": "assets/generated/still-1790448179665-EEFVIK.png",
+      "png": {
+        "width": 1254,
+        "height": 1254
+      },
+      "history": [
+        {
+          "at": "2026-09-26T18:42:59.872Z",
+          "status": "done",
+          "reason": null
+        }
+      ],
+      "panelMismatch": null,
+      "panelCropped": null,
+      "panelNotice": "頼んだ 16:9 と違う 1254×1254 でできました"
+    },
+    "agyGenerations": 0
+  },
+  "screenshots": [
+    {
+      "name": "03-aspects-8.png",
+      "bytes": 374863
+    },
+    {
+      "name": "03c-frame-4x5.png",
+      "bytes": 308080
+    },
+    {
+      "name": "03b-frame-21x9.png",
+      "bytes": 340068
+    },
+    {
+      "name": "01-reference-from-materials.png",
+      "bytes": 363211
+    },
+    {
+      "name": "02-reference-dragged-grok-limit.png",
+      "bytes": 369352
+    },
+    {
+      "name": "04-reference-current-frame-FAILED.png"
+    },
+    {
+      "name": "05-codex-9x16-cropped.png",
+      "bytes": 508959
+    },
+    {
+      "name": "06-grok-reference.png",
+      "bytes": 440788
+    },
+    {
+      "name": "07-crop-off-mismatch.png",
+      "bytes": 505845
+    }
+  ],
+  "notes": []
+}

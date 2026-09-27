@@ -12,12 +12,15 @@ export type AiTargetKind = 'still' | 'empty-frame' | 'video' | 'generated-video'
     | 'empty-audio-frame'
     | 'material-image' | 'material-video' | 'material-audio';
 export type AiActionGroup = 'make' | 'refine';
-export type AiImage = 'video' | 'still' | 'transcribe' | 'narration';
+export type AiImage = 'video' | 'still' | 'transcribe' | 'narration' | 'cutout' | 'eraser';
 export interface AiRoute {
     id: string;
+    modelId?: string;
     label: string;
     kind: 'cli' | 'api' | 'local';
     cost: 'free' | 'paid';
+    maker?: string;
+    inputs?: { reference_images?: { max: number; note?: string } };
 }
 export interface AiAction {
     id: string;
@@ -46,9 +49,10 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
         visibleFor: ['empty-frame', 'still', 'video', 'generated-video', 'gap'],
         accepts: ['empty-frame', 'still', 'gap'],
         reasonWhenDisabled: '空の枠か静止画で使えます', output: 'image', placement: 'replace',
-        routes: [{ id: 'codex', label: 'Codex', kind: 'cli', cost: 'free' },
-            { id: 'antigravity', label: 'Antigravity', kind: 'cli', cost: 'free' },
-            { id: 'grok', label: 'Grok', kind: 'cli', cost: 'free' }]
+        routes: [{ id: 'codex', modelId: 'codex:image', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
+            { id: 'antigravity', modelId: 'still:antigravity', label: 'Antigravity', maker: 'google', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 0 } } },
+            { id: 'grok', modelId: 'still:grok', label: 'Grok', maker: 'xai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 1, note: '参照は縮めて送られます' } } },
+            { id: 'fal', modelId: 'fal:gpt-image-2.5-flare', label: 'fal · GPT Image 2.5 Flare', maker: 'openai', kind: 'api', cost: 'paid', inputs: { reference_images: { max: 16 } } }]
     }, {
         id: 'video', group: 'make', label: '動画にする', image: 'video',
         visibleFor: ['still', 'empty-frame', 'video', 'generated-video', 'gap', 'material-image'],
@@ -73,6 +77,18 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
                 cost: (engine.price?.usd_per_1000_chars ?? 0) > 0 || engine.place === 'cloud'
                     ? 'paid' as const : 'free' as const }))
     } as AiAction] : []), {
+        id: 'cutout', group: 'refine', label: '背景を消す', image: 'cutout',
+        visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
+        accepts: ['still', 'video', 'generated-video'],
+        reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
+        routes: [{ id: 'on-device', label: 'この Mac', kind: 'local', cost: 'free' }]
+    }, {
+        id: 'eraser', group: 'refine', label: '消しゴム', image: 'eraser',
+        visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
+        accepts: ['still', 'video', 'generated-video'],
+        reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
+        routes: [{ id: 'on-device', label: 'この Mac', kind: 'local', cost: 'free' }]
+    }, {
         id: 'transcribe', group: 'refine', label: '文字起こし', image: 'transcribe',
         visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame',
             'material-audio', 'material-video'],

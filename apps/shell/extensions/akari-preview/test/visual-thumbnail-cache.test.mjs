@@ -117,3 +117,41 @@ test('missing/unreadable disk falls back to capture, obsolete disk work never ca
   await until(() => cache.stats.discarded === 1);
   assert.equal(cache.stats.captures, 2);
 });
+
+test('changed carries the key so subscribers can filter by it', async t => {
+  const seen = [];
+  const cache = new VisualThumbnailCache(key => seen.push(key));
+  t.after(() => cache.dispose());
+  cache.request(job('alpha', async () => ({ image: 'alpha pixels' })));
+  await until(() => cache.stats.captures === 1);
+  assert.deepEqual(seen, ['alpha'], '焼き上がりは自分の key で通知される');
+
+  // 捨てられた仕事も key つきで知らせる（購読側が取り直せるように）
+  let valid = true, release;
+  cache.request({ ...job('beta', async () => assert.fail('discarded job must not capture')),
+    valid: () => valid, readDisk: () => new Promise(resolve => { release = resolve; }) });
+  await until(() => release);
+  valid = false; release(undefined);
+  await until(() => cache.stats.discarded === 1);
+  assert.ok(seen.includes('beta'), '破棄も key つきで通知される');
+});
+
+test('evicted keys are announced so their owners can refetch', async t => {
+  const seen = [];
+  const cache = new VisualThumbnailCache(key => seen.push(key), 2);
+  t.after(() => cache.dispose());
+  let visible = true;
+  const a = { ...job('a', async () => ({ image: 'a' })), wanted: () => visible };
+  const b = { ...job('b', async () => ({ image: 'b' })), wanted: () => visible };
+  const c = job('c', async () => ({ image: 'c' }));
+  cache.request(a);
+  await until(() => cache.stats.captures === 1);
+  cache.request(b);
+  await until(() => cache.stats.captures === 2);
+  // 表示中の固定を外さないと上限超過でも押し出せない（既存の eviction テストと同じ前提）
+  visible = false;
+  cache.request(c);
+  await until(() => cache.stats.captures === 3);
+  assert.equal(cache.size, 2, '上限どおり 2 件に収まる');
+  assert.ok(seen.includes('a'), '押し出された key も通知される');
+});

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AKARI AI model supplements",
+  "type": "object",
+  "required": ["version", "models"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "models": { "type": "array", "items": { "$ref": "#/$defs/model" } }
+  },
+  "$defs": {
+    "license": {
+      "type": "object", "required": ["badge", "note", "source_url"], "additionalProperties": false,
+      "properties": {
+        "badge": { "enum": ["commercial-ok", "conditional", "credit-required", "unknown"] },
+        "note": { "type": "string" }, "source_url": { "type": ["string", "null"] }
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["id", "kind", "maker", "group", "main", "released", "license", "verified", "measured_ref", "callable"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "ref": { "type": "string", "pattern": "^(gen-models:|tts:)" },
+        "kind": { "enum": ["image", "video", "voice", "transcribe"] },
+        "name": { "type": "string", "minLength": 1 },
+        "family": { "type": "string" },
+        "maker": { "type": "string", "minLength": 1 },
+        "group": { "type": "string", "minLength": 1 },
+        "main": { "type": "boolean" },
+        "released": { "type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}(-[0-9]{2})?$" },
+        "license": { "$ref": "#/$defs/license" },
+        "verified": { "enum": ["measured", "documented"] },
+        "measured_ref": { "type": ["string", "null"], "pattern": "^[^/\\\\]+$" },
+        "callable": { "type": "boolean" },
+        "via": { "enum": ["subscription", "api", "local"] },
+        "provider": { "type": "string" },
+        "inputs": { "type": "object" },
+        "outputs": { "type": "object" },
+        "price": { "type": ["object", "null"] },
+        "speed_s": { "type": ["number", "null"], "minimum": 0 },
+        "as_of": { "type": ["string", "null"] },
+        "price_as_of": { "type": "string" },
+        "observed": { "type": "object" }
+      },
+      "oneOf": [
+        { "required": ["ref"], "not": { "anyOf": [{ "required": ["inputs"] }, { "required": ["outputs"] }, { "required": ["price"] }] } },
+        { "required": ["name", "via", "provider", "inputs", "outputs", "price"], "not": { "required": ["ref"] } }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -17,7 +17,8 @@ export function formatGenerationAudio(audioOut: boolean | 'always'): string {
 }
 
 export function generationOptionLabel(model: GenerationCatalogModel): string {
-    return [model.family, model.id, formatGenerationPrice(model.price), formatGenerationAudio(model.audio_out), `${model.as_of} 時点`].join(' · ');
+    const name = model.id === 'codex:image' ? 'ChatGPT' : model.family;
+    return [name, model.id, formatGenerationPrice(model.price), formatGenerationAudio(model.audio_out), `${model.as_of} 時点`].join(' · ');
 }
 
 export interface GenerationOption { value: string; label: string; missing: boolean }
@@ -25,11 +26,12 @@ export interface GenerationOption { value: string; label: string; missing: boole
 export function generationOptions(
     models: readonly GenerationCatalogModel[], kind: GenerationKind, current: string | null
 ): GenerationOption[] {
-    const options = models.filter(model => model.kind === kind).map(model => ({
+    // This default is not consumed by the still panel or the still CLI yet.
+    const options = models.filter(model => model.kind === kind && !(kind === 'image' && model.id === 'fal:gpt-image-2.5-flare')).map(model => ({
         value: model.id, label: generationOptionLabel(model), missing: false
     }));
     if (typeof current === 'string' && current.trim() && !options.some(option => option.value === current)) {
-        options.unshift({ value: current, label: `${current} · カタログにありません`, missing: true });
+        options.unshift({ value: current, label: `${current} · ${current === 'fal:gpt-image-2.5-flare' ? 'この画面では選べません' : 'カタログにありません'}`, missing: true });
     }
     return options;
 }

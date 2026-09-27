@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { appendAiTiles, appendAiBack, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor } from '../lib/browser/inspector/ai-tiles.js';
+import { appendAiTiles, appendAiBack, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { tabsForKind, initialTabFor, assignSectionToTab } from '../lib/browser/inspector/tab-model.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 
@@ -28,7 +28,7 @@ const code = ts.transpileModule(`class Harness { ${['renderGapSelection', 'match
 ${method('renderContent').replace('renderContent', 'render')} }`, {
   compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-const deps = { appendAiTiles, appendAiBack, describeAiTiles, aiActionCatalog, aiTabAvailabilityFor, aiTabViewFor,
+const deps = { appendAiTiles, appendAiBack, describeAiTiles, aiActionCatalog, aiTabAvailabilityFor, aiTabViewFor, photoToolAvailabilityFor,
   aiTargetKindFor, tabsForKind, initialTabFor, assignSectionToTab, isInspectorStillImage, CAPTION_ZONE_HOVER_EVENT: '',
   createSelectionHeader: () => new FakeNode('header'), layerAudioControls: new WeakMap(),
   CUT_SECTIONS: (_snapshot, _write, fields) => fields ? [{ id: 'generation', label: '生成', fields }] : [],

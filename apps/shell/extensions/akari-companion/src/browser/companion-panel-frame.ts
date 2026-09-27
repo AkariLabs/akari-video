@@ -8,6 +8,7 @@ import {
     isSameOriginPanelPath,
     normalizePanelMode,
     PANEL_DEFAULT_WIDTH,
+    PANEL_MIN_WIDTH,
     PanelMode,
     PanelSize
 } from '../common/companion-panel-geometry';
@@ -148,7 +149,9 @@ export class CompanionPanelFrame {
     applyInstruction(args: CompanionPanelArgs): void {
         if (!this.panelEl) return;
         const mode = normalizePanelMode(args.mode, this.mode);
-        this.size = this.clampSize(mode === 'tab' ? this.userWidth ?? args.width : args.width,
+        // 中身が畳まれて丸だけ（最小幅）のときは、覚えた横幅を当てない（丸の横に空の帯が広がる）。
+        const collapsed = typeof args.width === 'number' && args.width <= PANEL_MIN_WIDTH;
+        this.size = this.clampSize(mode === 'tab' && !collapsed ? this.userWidth ?? args.width : args.width,
             args.height, this.size);
         this.mode = mode;
         if (typeof args.x === 'number' && Number.isFinite(args.x) && !this.userMoved) {
@@ -306,9 +309,10 @@ export class CompanionPanelFrame {
         return { width: size.width, height: Math.min(size.height, Math.max(0, this.win.innerHeight)) };
     }
 
+    /** 中身が広がったときの横幅。畳まれているあいだの枠の幅（丸だけ）は渡さない。 */
     protected postFrameWidth(): void {
         this.iframeEl?.contentWindow?.postMessage(
-            { type: 'akari-companion-frame', width: this.size.width }, '*');
+            { type: 'akari-companion-frame', width: this.userWidth ?? this.defaultWidth }, '*');
     }
 
     protected readonly handleFrameLoad = (): void => {

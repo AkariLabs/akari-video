@@ -201,6 +201,7 @@ import {
     timelineDurationSeconds
 } from '../common/edit-store';
 import { materialOverlapInsertIndex } from '../common/material-drop-overlap';
+import { emptyFrameTransform } from './inspector/frame-geometry';
 import {
     EditV2Document,
     ItemLocation,
@@ -899,8 +900,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.handleInspectorWrite(request);
     protected readonly inspectorRequestLivePreview = (request: LivePreviewRequest): void => {
         this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
-            target: request.target, field: request.field, value: request.value,
-            values: { [request.field]: request.value },
+            target: request.target,
+            ...('values' in request ? { values: request.values } : {
+                field: request.field, value: request.value, values: { [request.field]: request.value }
+            }),
             ...(request.clear ? { clear: true } : {}),
             ...(request.easing === undefined ? {} : { easing: request.easing }),
             ...(request.shapeHtml === undefined ? {} : { shapeHtml: request.shapeHtml })
@@ -10999,9 +11002,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const clipWidth = stripLayoutWidthPx * Math.max(this.layoutPercent(end) - this.layoutPercent(layer.t), 0.3) / 100;
             const height = stride - SUBROW_GAP;
             const waveform = media && this.waveformCache.get(`${media.cut.src ?? ''}:${media.cut.in}:${media.cut.out}`);
+            const layerGeneration = this.generationForPath(this.sourceMap.get(layer.src)?.path ?? layer.src);
+            const hasLayerGeneration = layerGeneration && layerGeneration.state !== 'none';
             const { element, created } = this.keyedStripSegment(
-                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning, media, height, Array.isArray(waveform) ? `ready:${waveform.length}` : waveform]), layer.t, end, top, height,
-                media ? 'akari-annotations-strip-layer akari-annotations-strip-clip' : `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
+                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning, media, height,
+                    Array.isArray(waveform) ? `ready:${waveform.length}` : waveform, layerGeneration?.state]), layer.t, end, top, height,
+                media || hasLayerGeneration ? 'akari-annotations-strip-layer akari-annotations-strip-clip'
+                    : `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
             element.dataset.akariItemId = layer.id;
@@ -11012,7 +11019,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const raw = this.rawKeyframeItem(layer.id);
                 const path = badgeSources.find(source => source.id === raw?.source?.src)?.path;
                 this.appendClipKindBadge(element, raw, { path });
-                element.appendChild(media ? this.clipHeader(media.label, layer.duration) : this.segmentLabel(layer.id));
+                element.appendChild(media || hasLayerGeneration
+                    ? this.clipHeader(media?.label ?? layer.id, layer.duration) : this.segmentLabel(layer.id));
                 this.appendMotionMarks(element, this.rawKeyframeItem(layer.id)?.motion);
                 const layerTreeRow = this.timelineTreeRows.find(row => row.id === layer.id);
                 if (layerTreeRow) this.appendAggregateDiamonds(element, layerTreeRow);
@@ -11022,6 +11030,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (created) this.renderClipMedia(element, media.cut, clipWidth, media.segment, height, media.videoUri);
                 else this.updateClipMediaGeometry(element, media.cut, clipWidth, media.segment, height, media.videoUri);
             }
+            this.applyGenerationChip(element, hasLayerGeneration ? layerGeneration : undefined);
             if (created && transitionWarning) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
@@ -18175,8 +18184,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 itemId = `gap-${serial}`;
                 const sourceId = `gap-src-${serial}`;
                 sources.push({ id: sourceId, path: image.relativePath });
+                const transform = emptyFrameTransform(doc.tracks as Array<any>, gap.trackId,
+                    gap.startFrames, gap.endFrames - gap.startFrames);
                 return insertV2Item({ ...doc, sources }, gap.trackId, { id: itemId, name: 'あいだを生成',
                     at: gap.startFrames, duration: gap.endFrames - gap.startFrames,
+                    ...(transform ? { transform } : {}),
                     source: { kind: 'media', src: sourceId, in: 0, out: duration } });
             });
             const index = this.cutItemIds.indexOf(itemId);
@@ -18230,10 +18242,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 itemId = `frame-${serial}`;
                 const sourceId = `frame-src-${serial}`;
                 sources.push({ id: sourceId, path: image.relativePath });
+                const transform = emptyFrameTransform(next.tracks as Array<any>, trackId, range.at, range.duration);
                 return insertV2Item({ ...next, sources }, trackId, {
                     id: itemId, name: destination.lane === 'audio' ? '空の枠（音）' : '空の枠',
                     ...(destination.lane === 'audio' ? { role: 'narration' } : {}),
                     at: range.at, duration: range.duration,
+                    ...(transform ? { transform } : {}),
                     source: { kind: 'media', src: sourceId, in: 0, out: range.duration / fps }
                 });
             });

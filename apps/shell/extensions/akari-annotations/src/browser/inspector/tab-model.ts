@@ -84,9 +84,9 @@ export function initialTabFor(options: InitialInspectorTabOptions): string {
     if (clipKey !== undefined && clipKey === previousClipKey && currentTab) {
         return enabled(currentTab) ?? fallback();
     }
+    if (generationTodo && enabled('edit')) return 'edit';
     const remembered = enabled(persisted);
     if (remembered && remembered !== tabs.find(tab => tab.enabled)?.id) return remembered;
-    if (generationTodo && enabled('edit')) return 'edit';
     if (persisted === 'generation' || currentTab === 'generation') {
         return enabled('edit') ?? tabs.find(tab => tab.enabled)?.id ?? '';
     }

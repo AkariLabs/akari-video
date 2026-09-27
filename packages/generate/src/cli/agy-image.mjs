@@ -64,12 +64,14 @@ async function normalizePng(output, { cwd, env, spawnProcess, onChild, timeoutMs
 
 /** Shared file contract for the two subscription CLI routes. */
 export async function generateCliImage({ route, projectDir, item, aspect, env = process.env,
-  spawnProcess = spawn, onChild, timeoutMs = 600_000 }) {
+  references = [], spawnProcess = spawn, onChild, timeoutMs = 600_000 }) {
   const root = resolve(projectDir);
   const output = resolve(root, item.path);
   if (!output.startsWith(`${root}${sep}`)) return { id: item.id, ok: false, error: '出力先がプロジェクト外です' };
   const safeEnv = cleanEnv(env);
-  const prefix = route === 'grok' ? `${item.prompt}\n\nimage_gen の aspect_ratio に ${aspect} を渡してください。` : item.prompt;
+  const prefix = route === 'grok' ? `${item.prompt}\n\n${references.length
+    ? `image_edit の image に参照画像（絶対指定）${references.join('、')} を渡してください。image_gen は使わないでください。`
+    : 'image_gen を使ってください。'}aspect_ratio に ${aspect} を渡してください。` : item.prompt;
   const instruction = `${prefix}\n\n画像をちょうど 1 枚生成し、絶対パス ${output} に PNG で保存してください。他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。`;
   const command = route === 'antigravity' ? safeEnv.AKARI_AGY_BIN ?? 'agy' : safeEnv.AKARI_GROK_BIN ?? 'grok';
   const args = route === 'antigravity'

@@ -229,9 +229,22 @@ test('generation chip 更新は再描画で class を復元し、2 回適用し�
 
   const renderStrip = widgetSource.slice(widgetSource.indexOf('protected renderStrip(): void'),
     widgetSource.indexOf('protected renderRuler()', widgetSource.indexOf('protected renderStrip(): void')));
-  assert.equal(renderStrip.match(/this\.applyGenerationChip\(/g)?.length, 2, 'tree と cut で各 1 回');
+  assert.equal(renderStrip.match(/this\.applyGenerationChip\(/g)?.length, 3, 'tree・layer・cut で各 1 回');
   assert.match(renderStrip, /element\.style\.pointerEvents = 'auto';\s*this\.applyGenerationChip\(element, generation\);\s*if \(created\)/);
+  assert.match(renderStrip, /const layerGeneration = this\.generationForPath\(this\.sourceMap\.get\(layer\.src\)\?\.path \?\? layer\.src\)/);
+  assert.match(renderStrip, /media \|\| hasLayerGeneration \? 'akari-annotations-strip-layer akari-annotations-strip-clip'/);
+  assert.match(renderStrip, /media \|\| hasLayerGeneration\s*\? this\.clipHeader\(media\?\.label \?\? layer\.id, layer\.duration\)/);
+  assert.match(renderStrip, /this\.applyGenerationChip\(element, hasLayerGeneration \? layerGeneration : undefined\);\s*if \(created && transitionWarning\)/);
   assert.match(renderStrip, /}\s*this\.applyGenerationChip\(element, cutGeneration\);\s*if \(created && unsupportedDeclaredTransitions/);
+  const ordinaryLayer = new DummyElement();
+  ordinaryLayer.className = 'akari-annotations-strip-layer akari-annotations-strip-layer-still';
+  const noGeneration = { state: 'none' };
+  applyGenerationChip.call({}, ordinaryLayer, noGeneration.state !== 'none' ? noGeneration : undefined);
+  assert.equal(ordinaryLayer.className, 'akari-annotations-strip-layer akari-annotations-strip-layer-still');
+  assert.equal(ordinaryLayer.children.some(child => Object.hasOwn(child.dataset, 'akariGenerationBadge')), false);
+  applyGenerationChip.call({}, ordinaryLayer, generating);
+  applyGenerationChip.call({}, ordinaryLayer, undefined);
+  assert.equal(ordinaryLayer.children.some(child => Object.hasOwn(child.dataset, 'akariGenerationBadge')), false);
 });
 
 test('planned と generating のオーロラ層は一枚だけで、終了状態では取り除く', async () => {

@@ -1,0 +1,1432 @@
+{
+  "phase": "after",
+  "status": "PASS",
+  "step": "video / shape / cut-photo home",
+  "checks": [
+    {
+      "name": "(i) 写真のホームに「補正」（edit-correction）が無い",
+      "pass": true,
+      "measured": [
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ]
+    },
+    {
+      "name": "(iii) 整えるの 4 枚すべてに webp の絵（320×180 の比率）があり、線のアイコンが無い",
+      "pass": true,
+      "measured": [
+        {
+          "id": "position",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "位置と大きさ",
+          "box": [
+            192,
+            139
+          ]
+        },
+        {
+          "id": "color",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "色",
+          "box": [
+            192,
+            139
+          ]
+        },
+        {
+          "id": "volume",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "音量",
+          "box": [
+            192,
+            139
+          ]
+        },
+        {
+          "id": "motion",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "動き",
+          "box": [
+            192,
+            139
+          ]
+        }
+      ]
+    },
+    {
+      "name": "(iii) 整えるのタイルの大きさが作る / 直すのタイルと同じ",
+      "pass": true,
+      "measured": {
+        "ai": [
+          192,
+          139
+        ],
+        "tune": [
+          [
+            192,
+            139
+          ],
+          [
+            192,
+            139
+          ],
+          [
+            192,
+            139
+          ],
+          [
+            192,
+            139
+          ]
+        ]
+      }
+    },
+    {
+      "name": "(iii) 直すに「背景を消す」「消しゴム」: 写真では押せる・絵あり・☁ なし",
+      "pass": true,
+      "measured": {
+        "cutout": {
+          "id": "cutout",
+          "disabled": false,
+          "img": true,
+          "cloud": false,
+          "reason": null,
+          "title": "背景を消す"
+        },
+        "eraser": {
+          "id": "eraser",
+          "disabled": false,
+          "img": true,
+          "cloud": false,
+          "reason": null,
+          "title": "消しゴム"
+        }
+      }
+    },
+    {
+      "name": "(iv) 背景透過 → ホームの「背景を消す」の専用パネル",
+      "pass": true,
+      "measured": {
+        "activeTab": "edit",
+        "panelTitle": "背景を消す",
+        "sections": [
+          "photo-cutout"
+        ],
+        "openSections": [
+          "photo-cutout"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-cutout-panel"
+          ]
+        },
+        "photoDialog": null
+      }
+    },
+    {
+      "name": "(iv) 消しゴム → ホームの「消しゴム」の専用パネル",
+      "pass": true,
+      "measured": {
+        "activeTab": "edit",
+        "panelTitle": "消しゴム",
+        "sections": [
+          "photo-eraser"
+        ],
+        "openSections": [
+          "photo-eraser"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-brush-start"
+          ]
+        },
+        "photoDialog": null
+      }
+    },
+    {
+      "name": "(iv) border → 映像タブの外観",
+      "pass": true,
+      "measured": {
+        "activeTab": "video",
+        "panelTitle": null,
+        "sections": [
+          "time",
+          "transform",
+          "crop",
+          "perspective",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "openSections": [
+          "time",
+          "transform",
+          "crop",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-frame-width"
+          ]
+        },
+        "photoDialog": null
+      }
+    },
+    {
+      "name": "(iv) photoRadius → 映像タブの外観",
+      "pass": true,
+      "measured": {
+        "activeTab": "video",
+        "panelTitle": null,
+        "sections": [
+          "time",
+          "transform",
+          "crop",
+          "perspective",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "openSections": [
+          "time",
+          "transform",
+          "crop",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-frame-radius"
+          ]
+        },
+        "photoDialog": null
+      }
+    },
+    {
+      "name": "(iv) crop → 映像タブの外観",
+      "pass": true,
+      "measured": {
+        "activeTab": "video",
+        "panelTitle": null,
+        "sections": [
+          "time",
+          "transform",
+          "crop",
+          "perspective",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "openSections": [
+          "time",
+          "transform",
+          "crop",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-crop-open"
+          ]
+        },
+        "photoDialog": null
+      }
+    },
+    {
+      "name": "(iv) 編集 → ホーム（タイル一覧）",
+      "pass": true,
+      "measured": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": []
+        },
+        "photoDialog": null
+      }
+    },
+    {
+      "name": "(iv) 写真の色 → 色タブ",
+      "pass": true,
+      "measured": {
+        "activeTab": "adjust",
+        "panelTitle": null,
+        "sections": [
+          "adjust-scope",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx"
+        ],
+        "openSections": [
+          "adjust-scope",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": []
+        },
+        "photoDialog": null
+      }
+    },
+    {
+      "name": "背景を消すの専用パネル: ← ホーム + 背景透過・マスクの欄",
+      "pass": true,
+      "measured": [
+        {
+          "id": "photo-cutout",
+          "title": "背景を消す",
+          "open": true,
+          "fields": [
+            "photo-cutout-panel",
+            "mask",
+            "photo-mask-generate",
+            "photo-mask-remove"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "背景を消す（この Mac で）を専用パネルから押すと写真にマスクが付く（edit.json の mask）",
+      "pass": true,
+      "measured": {
+        "before": null,
+        "after": "mask-966f0af091820bd86631430aba8894f631b41967cacc9aecbe8e9702799b6d04"
+      }
+    },
+    {
+      "name": "消しゴムの専用パネル: ← ホーム + 消す/戻す・大きさ・硬さ・消しゴム",
+      "pass": true,
+      "measured": [
+        {
+          "id": "photo-eraser",
+          "title": "消しゴム",
+          "open": true,
+          "fields": [
+            "photo-brush-mode",
+            "photo-brush-size",
+            "photo-brush-hardness",
+            "photo-brush-start"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "消しゴムを専用パネルから入れてプレビューをなぞると写真に消した跡が付く（edit.json の erase）",
+      "pass": true,
+      "measured": {
+        "before": null,
+        "afterStrokes": [
+          {
+            "mode": "erase",
+            "points": [
+              [
+                0.08677355776913648,
+                0.1514719721585966
+              ],
+              [
+                0.1384435092952644,
+                0.2967160283385714
+              ],
+              [
+                0.19004687583231228,
+                0.4064480903425132
+              ],
+              [
+                0.24171682735844036,
+                0.453679042596637
+              ],
+              [
+                0.2933867788845683,
+                0.42692667365069226
+              ],
+              [
+                0.3449901454216162,
+                0.3328198890842048
+              ],
+              [
+                0.3966600969477441,
+                0.19420473848375625
+              ],
+              [
+                0.4483300484738721,
+                0.04505436294441778
+              ],
+              [
+                0.7065466361263517,
+                0.06671667939179793
+              ],
+              [
+                0.7582165876524796,
+                0.21657729481465693
+              ],
+              [
+                0.8098865391786075,
+                0.3504575128583013
+              ],
+              [
+                0.8614899057156554,
+                0.43568629888078036
+              ],
+              [
+                0.9131598572417834,
+                0.45119320300431476
+              ],
+              [
+                0.9131598572417834,
+                0.1514719721585966
+              ]
+            ],
+            "size": 0.05,
+            "hardness": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "name": "色タブの一番上に「範囲」（対象: 画像全体 / 選択エリア）",
+      "pass": true,
+      "measured": [
+        {
+          "id": "adjust-scope",
+          "fields": [
+            "edit-adjust-scope"
+          ]
+        },
+        {
+          "id": "adjust:basic",
+          "fields": [
+            "adjust-basic-enabled",
+            "adjust-look",
+            "adjust-basic-exposure",
+            "adjust-basic-contrast",
+            "adjust-basic-highlights",
+            "adjust-basic-shadows",
+            "adjust-basic-blacks",
+            "adjust-basic-whites",
+            "adjust-basic-temperature",
+            "adjust-basic-tint",
+            "adjust-basic-vibrance",
+            "adjust-basic-saturation"
+          ]
+        },
+        {
+          "id": "adjust:curves",
+          "fields": [
+            "adjust-curves-enabled"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "色タブで「選択エリア」にすると「エリアを選択」の欄が出る",
+      "pass": true,
+      "measured": [
+        {
+          "id": "adjust-scope",
+          "fields": [
+            "edit-adjust-scope",
+            "photo-region-panel"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "映像タブの外観に切り抜き・枠線・角の丸み（写真のレイヤー）",
+      "pass": true,
+      "measured": {
+        "id": "appearance",
+        "title": "外観",
+        "open": true,
+        "fields": [
+          "opacity",
+          "blend",
+          "chroma-color",
+          "chroma-similarity",
+          "chroma-blend",
+          "photo-flip-h",
+          "photo-flip-v",
+          "photo-crop-open",
+          "photo-frame-width",
+          "photo-frame-color",
+          "photo-frame-radius"
+        ]
+      }
+    },
+    {
+      "name": "V1 の写真（カット）も外観に切り抜き・枠線・角の丸み",
+      "pass": true,
+      "measured": {
+        "id": "appearance",
+        "title": "外観",
+        "open": true,
+        "fields": [
+          "opacity",
+          "photo-crop-open",
+          "photo-frame-width",
+          "photo-frame-color",
+          "photo-frame-radius"
+        ]
+      }
+    },
+    {
+      "name": "13-video-home: ホームに「補正」が無い",
+      "pass": true,
+      "measured": [
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ]
+    },
+    {
+      "name": "13 動画: 「背景を消す」はグレー + 理由",
+      "pass": true,
+      "measured": {
+        "id": "cutout",
+        "disabled": true,
+        "img": true,
+        "cloud": false,
+        "reason": "写真で使えます",
+        "title": "背景を消す"
+      }
+    },
+    {
+      "name": "14-shape-home: ホームに「補正」が無い",
+      "pass": true,
+      "measured": [
+        "edit-alternatives",
+        "home-tune"
+      ]
+    },
+    {
+      "name": "15-cut-photo-home: ホームに「補正」が無い",
+      "pass": true,
+      "measured": [
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ]
+    }
+  ],
+  "observations": {
+    "electronPid": 91793,
+    "header:[data-akari-ui=\"panel:timeline\"] [data-akari-item-id=\"layer-photo\"]": "photo.png00:00.0 – 00:06.0 · 素材",
+    "photoHome": {
+      "header": "photo.png00:00.0 – 00:06.0 · 素材",
+      "activeTab": "edit",
+      "sections": [
+        {
+          "id": "edit-alternatives",
+          "title": "作る",
+          "open": true,
+          "fields": []
+        },
+        {
+          "id": "edit-refine",
+          "title": "直す",
+          "open": true,
+          "fields": []
+        },
+        {
+          "id": "home-tune",
+          "title": "整える",
+          "open": true,
+          "fields": []
+        }
+      ],
+      "aiTiles": [
+        {
+          "id": "still",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "静止画"
+        },
+        {
+          "id": "video",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "動画にする"
+        },
+        {
+          "id": "cutout",
+          "disabled": false,
+          "img": true,
+          "cloud": false,
+          "reason": null,
+          "title": "背景を消す"
+        },
+        {
+          "id": "eraser",
+          "disabled": false,
+          "img": true,
+          "cloud": false,
+          "reason": null,
+          "title": "消しゴム"
+        },
+        {
+          "id": "transcribe",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "声の入った音声か動画で使えます",
+          "title": "文字起こし"
+        }
+      ],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "位置と大きさ",
+          "box": [
+            192,
+            139
+          ]
+        },
+        {
+          "id": "color",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "色",
+          "box": [
+            192,
+            139
+          ]
+        },
+        {
+          "id": "volume",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "音量",
+          "box": [
+            192,
+            139
+          ]
+        },
+        {
+          "id": "motion",
+          "disabled": false,
+          "img": true,
+          "imgSize": [
+            190,
+            107
+          ],
+          "svg": false,
+          "title": "動き",
+          "box": [
+            192,
+            139
+          ]
+        }
+      ],
+      "aiTileBox": [
+        192,
+        139
+      ],
+      "panelTitle": null,
+      "back": false
+    },
+    "correctionOpened": null,
+    "tuneTiles": [
+      {
+        "id": "position",
+        "disabled": false,
+        "img": true,
+        "imgSize": [
+          190,
+          107
+        ],
+        "svg": false,
+        "title": "位置と大きさ",
+        "box": [
+          192,
+          139
+        ]
+      },
+      {
+        "id": "color",
+        "disabled": false,
+        "img": true,
+        "imgSize": [
+          190,
+          107
+        ],
+        "svg": false,
+        "title": "色",
+        "box": [
+          192,
+          139
+        ]
+      },
+      {
+        "id": "volume",
+        "disabled": false,
+        "img": true,
+        "imgSize": [
+          190,
+          107
+        ],
+        "svg": false,
+        "title": "音量",
+        "box": [
+          192,
+          139
+        ]
+      },
+      {
+        "id": "motion",
+        "disabled": false,
+        "img": true,
+        "imgSize": [
+          190,
+          107
+        ],
+        "svg": false,
+        "title": "動き",
+        "box": [
+          192,
+          139
+        ]
+      }
+    ],
+    "aiTiles": [
+      {
+        "id": "still",
+        "disabled": false,
+        "img": true,
+        "cloud": true,
+        "reason": null,
+        "title": "静止画"
+      },
+      {
+        "id": "video",
+        "disabled": false,
+        "img": true,
+        "cloud": true,
+        "reason": null,
+        "title": "動画にする"
+      },
+      {
+        "id": "cutout",
+        "disabled": false,
+        "img": true,
+        "cloud": false,
+        "reason": null,
+        "title": "背景を消す"
+      },
+      {
+        "id": "eraser",
+        "disabled": false,
+        "img": true,
+        "cloud": false,
+        "reason": null,
+        "title": "消しゴム"
+      },
+      {
+        "id": "transcribe",
+        "disabled": true,
+        "img": true,
+        "cloud": true,
+        "reason": "声の入った音声か動画で使えます",
+        "title": "文字起こし"
+      }
+    ],
+    "aiTileBox": [
+      192,
+      139
+    ],
+    "barItems": [
+      "edit",
+      "replace",
+      "cutout",
+      "eraser",
+      "photoColor",
+      "border",
+      "photoRadius",
+      "crop",
+      "flip",
+      "opacity",
+      "anim",
+      "arrange",
+      "style"
+    ],
+    "barDestinations": {
+      "cutout": {
+        "activeTab": "edit",
+        "panelTitle": "背景を消す",
+        "sections": [
+          "photo-cutout"
+        ],
+        "openSections": [
+          "photo-cutout"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-cutout-panel"
+          ]
+        },
+        "photoDialog": null
+      },
+      "border": {
+        "activeTab": "video",
+        "panelTitle": null,
+        "sections": [
+          "time",
+          "transform",
+          "crop",
+          "perspective",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "openSections": [
+          "time",
+          "transform",
+          "crop",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-frame-width"
+          ]
+        },
+        "photoDialog": null
+      },
+      "eraser": {
+        "activeTab": "edit",
+        "panelTitle": "消しゴム",
+        "sections": [
+          "photo-eraser"
+        ],
+        "openSections": [
+          "photo-eraser"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-brush-start"
+          ]
+        },
+        "photoDialog": null
+      },
+      "photoRadius": {
+        "activeTab": "video",
+        "panelTitle": null,
+        "sections": [
+          "time",
+          "transform",
+          "crop",
+          "perspective",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "openSections": [
+          "time",
+          "transform",
+          "crop",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-frame-radius"
+          ]
+        },
+        "photoDialog": null
+      },
+      "crop": {
+        "activeTab": "video",
+        "panelTitle": null,
+        "sections": [
+          "time",
+          "transform",
+          "crop",
+          "perspective",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "openSections": [
+          "time",
+          "transform",
+          "crop",
+          "motion-summary",
+          "appearance",
+          "audio"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-crop-open"
+          ]
+        },
+        "photoDialog": null
+      },
+      "edit": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": []
+        },
+        "photoDialog": null
+      },
+      "photoColor": {
+        "activeTab": "adjust",
+        "panelTitle": null,
+        "sections": [
+          "adjust-scope",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx"
+        ],
+        "openSections": [
+          "adjust-scope",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": []
+        },
+        "photoDialog": null
+      }
+    },
+    "cutoutPanel": {
+      "header": "photo.png00:00.0 – 00:06.0 · 素材",
+      "activeTab": "edit",
+      "sections": [
+        {
+          "id": "photo-cutout",
+          "title": "背景を消す",
+          "open": true,
+          "fields": [
+            "photo-cutout-panel",
+            "mask",
+            "photo-mask-generate",
+            "photo-mask-remove"
+          ]
+        }
+      ],
+      "aiTiles": [],
+      "tuneTiles": [],
+      "aiTileBox": null,
+      "panelTitle": "背景を消す",
+      "back": true
+    },
+    "cutoutEffect": {
+      "before": null,
+      "after": "mask-966f0af091820bd86631430aba8894f631b41967cacc9aecbe8e9702799b6d04"
+    },
+    "eraserPanel": {
+      "header": "photo.png00:00.0 – 00:06.0 · 素材",
+      "activeTab": "edit",
+      "sections": [
+        {
+          "id": "photo-eraser",
+          "title": "消しゴム",
+          "open": true,
+          "fields": [
+            "photo-brush-mode",
+            "photo-brush-size",
+            "photo-brush-hardness",
+            "photo-brush-start"
+          ]
+        }
+      ],
+      "aiTiles": [],
+      "tuneTiles": [],
+      "aiTileBox": null,
+      "panelTitle": "消しゴム",
+      "back": true
+    },
+    "previewBox": {
+      "x": 221.9140625,
+      "y": 39,
+      "w": 404,
+      "h": 359
+    },
+    "eraserEffect": {
+      "before": null,
+      "afterStrokes": [
+        {
+          "mode": "erase",
+          "points": [
+            [
+              0.08677355776913648,
+              0.1514719721585966
+            ],
+            [
+              0.1384435092952644,
+              0.2967160283385714
+            ],
+            [
+              0.19004687583231228,
+              0.4064480903425132
+            ],
+            [
+              0.24171682735844036,
+              0.453679042596637
+            ],
+            [
+              0.2933867788845683,
+              0.42692667365069226
+            ],
+            [
+              0.3449901454216162,
+              0.3328198890842048
+            ],
+            [
+              0.3966600969477441,
+              0.19420473848375625
+            ],
+            [
+              0.4483300484738721,
+              0.04505436294441778
+            ],
+            [
+              0.7065466361263517,
+              0.06671667939179793
+            ],
+            [
+              0.7582165876524796,
+              0.21657729481465693
+            ],
+            [
+              0.8098865391786075,
+              0.3504575128583013
+            ],
+            [
+              0.8614899057156554,
+              0.43568629888078036
+            ],
+            [
+              0.9131598572417834,
+              0.45119320300431476
+            ],
+            [
+              0.9131598572417834,
+              0.1514719721585966
+            ]
+          ],
+          "size": 0.05,
+          "hardness": 0.8
+        }
+      ]
+    },
+    "colorTab": [
+      {
+        "id": "adjust-scope",
+        "fields": [
+          "edit-adjust-scope"
+        ]
+      },
+      {
+        "id": "adjust:basic",
+        "fields": [
+          "adjust-basic-enabled",
+          "adjust-look",
+          "adjust-basic-exposure",
+          "adjust-basic-contrast",
+          "adjust-basic-highlights",
+          "adjust-basic-shadows",
+          "adjust-basic-blacks",
+          "adjust-basic-whites",
+          "adjust-basic-temperature",
+          "adjust-basic-tint",
+          "adjust-basic-vibrance",
+          "adjust-basic-saturation"
+        ]
+      },
+      {
+        "id": "adjust:curves",
+        "fields": [
+          "adjust-curves-enabled"
+        ]
+      },
+      {
+        "id": "adjust:wheels",
+        "fields": [
+          "adjust-wheels-enabled"
+        ]
+      },
+      {
+        "id": "adjust:hue",
+        "fields": [
+          "adjust-hue-enabled"
+        ]
+      },
+      {
+        "id": "adjust:lut",
+        "fields": [
+          "adjust-lut-enabled",
+          "adjust-lut-preset",
+          "adjust-lut-intensity",
+          "adjust-lut-import"
+        ]
+      },
+      {
+        "id": "adjust:fx",
+        "fields": [
+          "adjust-fx-enabled",
+          "adjust-fx-add"
+        ]
+      }
+    ],
+    "colorTabRegion": [
+      {
+        "id": "adjust-scope",
+        "fields": [
+          "edit-adjust-scope",
+          "photo-region-panel"
+        ]
+      }
+    ],
+    "videoAppearance": {
+      "id": "appearance",
+      "title": "外観",
+      "open": true,
+      "fields": [
+        "opacity",
+        "blend",
+        "chroma-color",
+        "chroma-similarity",
+        "chroma-blend",
+        "photo-flip-h",
+        "photo-flip-v",
+        "photo-crop-open",
+        "photo-frame-width",
+        "photo-frame-color",
+        "photo-frame-radius"
+      ]
+    },
+    "header:[data-akari-ui=\"timeline:cut:1\"]": "photo.png00:03.0 – 00:06.0 · カット",
+    "cutAppearance": {
+      "id": "appearance",
+      "title": "外観",
+      "open": true,
+      "fields": [
+        "opacity",
+        "photo-crop-open",
+        "photo-frame-width",
+        "photo-frame-color",
+        "photo-frame-radius"
+      ]
+    },
+    "header:[data-akari-ui=\"timeline:cut:0\"]": "clip.mp400:00.0 – 00:03.0 · カット",
+    "13-video-home": {
+      "header": "clip.mp400:00.0 – 00:03.0 · カット",
+      "sections": [
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ],
+      "aiTiles": [
+        {
+          "id": "still",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "空の枠か静止画で使えます",
+          "title": "静止画"
+        },
+        {
+          "id": "video",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "静止画か空の枠で使えます",
+          "title": "動画にする"
+        },
+        {
+          "id": "cutout",
+          "disabled": true,
+          "img": true,
+          "cloud": false,
+          "reason": "写真で使えます",
+          "title": "背景を消す"
+        },
+        {
+          "id": "eraser",
+          "disabled": true,
+          "img": true,
+          "cloud": false,
+          "reason": "写真で使えます",
+          "title": "消しゴム"
+        },
+        {
+          "id": "transcribe",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "文字起こし"
+        }
+      ],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "img": true,
+          "disabled": false
+        },
+        {
+          "id": "color",
+          "img": true,
+          "disabled": false
+        },
+        {
+          "id": "volume",
+          "img": true,
+          "disabled": false
+        },
+        {
+          "id": "motion",
+          "img": true,
+          "disabled": false
+        }
+      ]
+    },
+    "header:[data-akari-ui=\"panel:timeline\"] [data-akari-item-id=\"shape-1\"]": "shape-100:00.0 – 00:06.0 · 素材",
+    "14-shape-home": {
+      "header": "shape-100:00.0 – 00:06.0 · 素材",
+      "sections": [
+        "edit-alternatives",
+        "home-tune"
+      ],
+      "aiTiles": [],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "img": true,
+          "disabled": false
+        },
+        {
+          "id": "color",
+          "img": true,
+          "disabled": true
+        },
+        {
+          "id": "volume",
+          "img": true,
+          "disabled": true
+        },
+        {
+          "id": "motion",
+          "img": true,
+          "disabled": false
+        }
+      ]
+    },
+    "15-cut-photo-home": {
+      "header": "photo.png00:03.0 – 00:06.0 · カット",
+      "sections": [
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ],
+      "aiTiles": [
+        {
+          "id": "still",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "静止画"
+        },
+        {
+          "id": "video",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "動画にする"
+        },
+        {
+          "id": "cutout",
+          "disabled": false,
+          "img": true,
+          "cloud": false,
+          "reason": null,
+          "title": "背景を消す"
+        },
+        {
+          "id": "eraser",
+          "disabled": false,
+          "img": true,
+          "cloud": false,
+          "reason": null,
+          "title": "消しゴム"
+        },
+        {
+          "id": "transcribe",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "声の入った音声か動画で使えます",
+          "title": "文字起こし"
+        }
+      ],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "img": true,
+          "disabled": false
+        },
+        {
+          "id": "color",
+          "img": true,
+          "disabled": false
+        },
+        {
+          "id": "volume",
+          "img": true,
+          "disabled": false
+        },
+        {
+          "id": "motion",
+          "img": true,
+          "disabled": false
+        }
+      ]
+    }
+  },
+  "screenshots": [
+    "after-01-photo-home.png",
+    "after-01-photo-home-panel.png",
+    "after-03-tune-tiles.png",
+    "after-03-tune-tiles-panel.png",
+    "after-04-bar-cutout.png",
+    "after-04-bar-border.png",
+    "after-05-cutout-panel.png",
+    "after-05-cutout-panel-panel.png",
+    "after-06-cutout-effect.png",
+    "after-07-eraser-panel.png",
+    "after-07-eraser-panel-panel.png",
+    "after-08-eraser-effect.png",
+    "after-09-color-scope.png",
+    "after-09-color-scope-panel.png",
+    "after-10-color-scope-region.png",
+    "after-10-color-scope-region-panel.png",
+    "after-11-video-appearance-photo.png",
+    "after-11-video-appearance-photo-panel.png",
+    "after-12-cut-photo-appearance.png",
+    "after-12-cut-photo-appearance-panel.png",
+    "after-13-video-home.png",
+    "after-13-video-home-panel.png",
+    "after-14-shape-home.png",
+    "after-14-shape-home-panel.png",
+    "after-15-cut-photo-home.png",
+    "after-15-cut-photo-home-panel.png"
+  ],
+  "notes": [
+    "(ii) 補正の節が無いので開けない（AFTER の期待どおり）"
+  ]
+}

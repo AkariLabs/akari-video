@@ -1,0 +1,1416 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "fal:h3-i2v",
+      "kind": "video",
+      "maker": "minimax",
+      "group": "h3",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "提供経路の表示と利用規約に相違がある。",
+        "source_url": "https://hailuoai.video/doc/terms-of-service.html"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:h3-i2v"
+    },
+    {
+      "id": "fal:h3-ref",
+      "kind": "video",
+      "maker": "minimax",
+      "group": "h3",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "提供経路の表示と利用規約に相違がある。",
+        "source_url": "https://hailuoai.video/doc/terms-of-service.html"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:h3-ref"
+    },
+    {
+      "id": "fal:kling-v3-standard-i2v",
+      "kind": "video",
+      "maker": "kling",
+      "group": "kling-v3",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "商用プランと表示条件を確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:kling-v3-standard-i2v"
+    },
+    {
+      "id": "fal:kling-v3-pro-i2v",
+      "kind": "video",
+      "maker": "kling",
+      "group": "kling-v3",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "商用プランと表示条件を確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:kling-v3-pro-i2v"
+    },
+    {
+      "id": "fal:veo-3.1-flf",
+      "kind": "video",
+      "maker": "google",
+      "group": "veo-3.1",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:veo-3.1-flf"
+    },
+    {
+      "id": "fal:veo-3.1-ref",
+      "kind": "video",
+      "maker": "google",
+      "group": "veo-3.1",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:veo-3.1-ref"
+    },
+    {
+      "id": "fal:seedance-2.0-i2v",
+      "kind": "video",
+      "maker": "bytedance",
+      "group": "seedance-2.0",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "一次規約を確認できていない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:seedance-2.0-i2v"
+    },
+    {
+      "id": "fal:seedance-2.0-ref",
+      "kind": "video",
+      "maker": "bytedance",
+      "group": "seedance-2.0",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "一次規約を確認できていない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:seedance-2.0-ref"
+    },
+    {
+      "id": "fal:seedance-2.5-i2v",
+      "kind": "video",
+      "maker": "bytedance",
+      "group": "seedance-2.5",
+      "main": true,
+      "released": "2026-07-31",
+      "license": {
+        "badge": "unknown",
+        "note": "一次規約を確認できていない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:seedance-2.5-i2v",
+      "price_as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:wan-2.7-i2v",
+      "kind": "video",
+      "maker": "alibaba",
+      "group": "wan-2.7",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "この版の商用条件は未確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:wan-2.7-i2v"
+    },
+    {
+      "id": "fal:grok-imagine-i2v",
+      "kind": "video",
+      "maker": "xai",
+      "group": "grok-video",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "権利侵害の補償と帰属表示の条件に注意。",
+        "source_url": "https://x.ai/legal/terms-of-service"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:grok-imagine-i2v"
+    },
+    {
+      "id": "fal:vidu-q3-i2v",
+      "kind": "video",
+      "maker": "vidu",
+      "group": "vidu-q3",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "AI 生成の表示を維持する条件がある。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:vidu-q3-i2v"
+    },
+    {
+      "id": "codex:image",
+      "name": "ChatGPT",
+      "kind": "image",
+      "maker": "openai",
+      "group": "chatgpt-image",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "commercial-ok",
+        "note": "出力の権利は利用者に帰属。",
+        "source_url": "https://openai.com/policies/terms-of-use/"
+      },
+      "verified": "measured",
+      "measured_ref": "2026-09-23-image-routes-verify",
+      "callable": true,
+      "ref": "gen-models:codex:image",
+      "speed_s": 67.6,
+      "observed": {
+        "measured_dimensions": {
+          "16:9": "1672x941",
+          "9:16": "941x1672",
+          "1:1": "1254x1254",
+          "4:3": "1448x1086",
+          "3:4": "900x1200",
+          "4:5": "1120x1400",
+          "3:2": "1536x1024",
+          "21:9": "1470x630"
+        },
+        "measured_aspects": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:3",
+          "3:4",
+          "4:5",
+          "3:2",
+          "21:9"
+        ],
+        "aspect_caveat": "9:16 は3回中1回が正方形"
+      }
+    },
+    {
+      "id": "fal:nano-banana-pro-edit",
+      "kind": "image",
+      "maker": "google",
+      "group": "nano-banana",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "gen-models:fal:nano-banana-pro-edit"
+    },
+    {
+      "id": "still:antigravity",
+      "kind": "image",
+      "maker": "google",
+      "group": "antigravity-image",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "基盤モデルの商用条件を確認できていない。",
+        "source_url": "https://antigravity.google/terms"
+      },
+      "verified": "measured",
+      "measured_ref": "2026-09-26-still-aspect-verify",
+      "callable": true,
+      "name": "Antigravity",
+      "family": "Gemini 画像",
+      "via": "subscription",
+      "provider": "antigravity",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": 0
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:3",
+          "3:4",
+          "4:5",
+          "3:2",
+          "21:9"
+        ],
+        "aspect_mode": "prompt",
+        "resolutions": [
+          "1376x768",
+          "768x1376",
+          "1024x1024"
+        ],
+        "duration": null,
+        "audio_out": false,
+        "measured_dimensions": {
+          "16:9": "1376x768",
+          "9:16": "768x1376",
+          "1:1": "1024x1024",
+          "4:3": "1200x896",
+          "3:4": "896x1200",
+          "4:5": "896x1200",
+          "3:2": "1264x848",
+          "21:9": "1376x590"
+        },
+        "aspect_caveat": "4:5 は3回中2回ずれた"
+      },
+      "price": null,
+      "speed_s": 40.2,
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "still:grok",
+      "kind": "image",
+      "maker": "xai",
+      "group": "grok-cli-image",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "権利侵害の補償と帰属表示の条件に注意。",
+        "source_url": "https://x.ai/legal/terms-of-service"
+      },
+      "verified": "measured",
+      "measured_ref": "2026-09-26-still-aspect-verify",
+      "callable": true,
+      "name": "Grok CLI",
+      "family": "Grok Imagine",
+      "via": "subscription",
+      "provider": "grok",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": null
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "16:9",
+          "9:16",
+          "1:1",
+          "4:3",
+          "3:4",
+          "4:5",
+          "3:2",
+          "21:9"
+        ],
+        "aspect_mode": "param",
+        "resolutions": [
+          "1280x720"
+        ],
+        "duration": null,
+        "audio_out": false,
+        "measured_dimensions": {
+          "16:9": "1280x720",
+          "9:16": "720x1280",
+          "1:1": "1024x1024",
+          "4:3": "1152x864",
+          "3:4": "864x1152",
+          "4:5": "864x1080",
+          "3:2": "1248x832",
+          "21:9": "1568x672"
+        }
+      },
+      "price": null,
+      "speed_s": 58.9,
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "tts:gemini-tts",
+      "kind": "voice",
+      "maker": "google",
+      "group": "gemini-tts",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:gemini-tts"
+    },
+    {
+      "id": "tts:fal-qwen3",
+      "kind": "voice",
+      "maker": "qwen",
+      "group": "qwen3-tts",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "commercial-ok",
+        "note": "Qwen3-TTS のオープンウェイトは Apache 2.0。",
+        "source_url": "https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:fal-qwen3"
+    },
+    {
+      "id": "tts:gemini-3.1-flash-tts",
+      "kind": "voice",
+      "maker": "google",
+      "group": "gemini-tts",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:gemini-3.1-flash-tts"
+    },
+    {
+      "id": "tts:elevenlabs-v3",
+      "kind": "voice",
+      "maker": "elevenlabs",
+      "group": "elevenlabs-v3",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "無料プランは非商用。",
+        "source_url": "https://elevenlabs.io/terms-of-use"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:elevenlabs-v3"
+    },
+    {
+      "id": "tts:minimax-2.6-hd",
+      "kind": "voice",
+      "maker": "minimax",
+      "group": "minimax-speech",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "提供経路の表示と利用規約に相違がある。",
+        "source_url": "https://hailuoai.video/doc/terms-of-service.html"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:minimax-2.6-hd"
+    },
+    {
+      "id": "tts:chatterbox",
+      "kind": "voice",
+      "maker": "resemble",
+      "group": "chatterbox",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "commercial-ok",
+        "note": "Chatterbox は MIT。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:chatterbox"
+    },
+    {
+      "id": "tts:index-tts-2",
+      "kind": "voice",
+      "maker": "bilibili",
+      "group": "index-tts-2",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "大規模事業者には追加許諾が必要。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:index-tts-2"
+    },
+    {
+      "id": "tts:fish-s2.1-pro",
+      "kind": "voice",
+      "maker": "fish",
+      "group": "fish-s2.1-pro",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "無料プランは非商用。",
+        "source_url": "https://fish.audio/terms/"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:fish-s2.1-pro"
+    },
+    {
+      "id": "tts:gemini-3.8-flash-tts",
+      "kind": "voice",
+      "maker": "google",
+      "group": "gemini-tts",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "ref": "tts:gemini-3.8-flash-tts"
+    },
+    {
+      "id": "voicevox",
+      "kind": "voice",
+      "maker": "voicevox",
+      "group": "voicevox",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "credit-required",
+        "note": "キャラクターと合成方式に応じたクレジットが必要。",
+        "source_url": "https://voicevox.hiroshiba.jp/term/"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "VOICEVOX",
+      "family": "VOICEVOX",
+      "via": "local",
+      "provider": "voicevox",
+      "inputs": {
+        "text": true,
+        "style": false,
+        "voice_clone": "none",
+        "reference_audio": false
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": true,
+        "voices": null
+      },
+      "price": {
+        "unit": "usd_per_1000_chars",
+        "value": 0,
+        "as_of": null,
+        "source_url": null
+      },
+      "as_of": null
+    },
+    {
+      "id": "irodori",
+      "kind": "voice",
+      "maker": "irodori",
+      "group": "irodori",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "商用条件は未確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "彩（Irodori-TTS）",
+      "family": "彩（Irodori-TTS）",
+      "via": "local",
+      "provider": "irodori",
+      "inputs": {
+        "text": true,
+        "style": true,
+        "voice_clone": "registered",
+        "speed": true
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": true,
+        "voices": ["narrator-male", "bright-female", "slow-explainer"],
+        "default_voice": "narrator-male"
+      },
+      "price": {
+        "unit": "usd_per_1000_chars",
+        "value": 0,
+        "as_of": null,
+        "source_url": null
+      },
+      "as_of": null
+    },
+    {
+      "id": "transcribe:speech-analyzer",
+      "kind": "transcribe",
+      "maker": "local",
+      "group": "speech-analyzer",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "商用条件の資料がない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "SpeechAnalyzer",
+      "family": "SpeechAnalyzer",
+      "via": "local",
+      "provider": "speech-analyzer",
+      "inputs": {
+        "audio": true,
+        "video": true
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": false,
+        "text": true
+      },
+      "price": {
+        "unit": "usd_per_hour",
+        "value": 0,
+        "as_of": null,
+        "source_url": null
+      },
+      "as_of": null
+    },
+    {
+      "id": "transcribe:whisper-cpp",
+      "kind": "transcribe",
+      "maker": "openai",
+      "group": "whisper-cpp",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "文字起こし用途の商用条件は未確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "Whisper large-v3-turbo",
+      "family": "Whisper large-v3-turbo",
+      "via": "local",
+      "provider": "whisper-cpp",
+      "inputs": {
+        "audio": true,
+        "video": true
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": false,
+        "text": true
+      },
+      "price": {
+        "unit": "usd_per_hour",
+        "value": 0,
+        "as_of": null,
+        "source_url": null
+      },
+      "as_of": null
+    },
+    {
+      "id": "transcribe:cloud:scribe",
+      "kind": "transcribe",
+      "maker": "elevenlabs",
+      "group": "cloud:scribe",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "文字起こし用途の商用条件は未確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "ElevenLabs Scribe",
+      "family": "ElevenLabs Scribe",
+      "via": "api",
+      "provider": "elevenlabs",
+      "inputs": {
+        "audio": true,
+        "video": true
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": false,
+        "text": true
+      },
+      "price": {
+        "unit": "usd_per_hour",
+        "value": 0.4,
+        "as_of": null,
+        "source_url": null
+      },
+      "as_of": null
+    },
+    {
+      "id": "transcribe:cloud:groq",
+      "kind": "transcribe",
+      "maker": "groq",
+      "group": "cloud:groq",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "商用条件の資料がない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "Groq Whisper",
+      "family": "Groq Whisper",
+      "via": "api",
+      "provider": "groq",
+      "inputs": {
+        "audio": true,
+        "video": true
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": false,
+        "text": true
+      },
+      "price": {
+        "unit": "usd_per_hour",
+        "value": 0.04,
+        "as_of": null,
+        "source_url": null
+      },
+      "as_of": null
+    },
+    {
+      "id": "fal:nano-banana",
+      "kind": "image",
+      "maker": "google",
+      "group": "nano-banana",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "Nano Banana",
+      "family": "Nano Banana",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": null
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "21:9",
+          "16:9",
+          "3:2",
+          "4:3",
+          "5:4",
+          "1:1",
+          "4:5",
+          "3:4",
+          "2:3",
+          "9:16"
+        ],
+        "aspect_mode": "param",
+        "resolutions": null,
+        "duration": null,
+        "audio_out": false
+      },
+      "price": {
+        "unit": "usd_per_image",
+        "value": 0.039,
+        "as_of": "2026-09-23",
+        "source_url": "https://fal.ai/models/fal-ai/nano-banana"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:nano-banana-2",
+      "kind": "image",
+      "maker": "google",
+      "group": "nano-banana",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "Nano Banana 2",
+      "family": "Nano Banana 2",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": null
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "auto",
+          "21:9",
+          "16:9",
+          "3:2",
+          "4:3",
+          "5:4",
+          "1:1",
+          "4:5",
+          "3:4",
+          "2:3",
+          "9:16",
+          "4:1",
+          "1:4",
+          "8:1",
+          "1:8"
+        ],
+        "aspect_mode": "param",
+        "resolutions": [
+          "0.5K",
+          "1K",
+          "2K",
+          "4K"
+        ],
+        "duration": null,
+        "audio_out": false
+      },
+      "price": {
+        "unit": "usd_per_image",
+        "by_resolution": {
+          "0.5K": 0.06,
+          "1K": 0.08,
+          "2K": 0.12,
+          "4K": 0.16
+        },
+        "as_of": "2026-09-23",
+        "source_url": "https://fal.ai/models/fal-ai/nano-banana-2"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:gpt-image-2.5-flare",
+      "kind": "image",
+      "maker": "openai",
+      "group": "gpt-image-2.5",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "商用条件の資料がない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": true,
+      "name": "GPT Image 2.5 Flare",
+      "family": "GPT Image 2.5 Flare",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": 16
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "square_hd",
+          "square",
+          "portrait_4_3",
+          "portrait_16_9",
+          "landscape_4_3",
+          "landscape_16_9",
+          "auto"
+        ],
+        "aspect_mode": "param",
+        "resolutions": [
+          "1024x1024",
+          "3840x2160"
+        ],
+        "duration": null,
+        "audio_out": false
+      },
+      "price": {
+        "unit": "usd_per_image",
+        "by_quality_1024": {
+          "low": 0.006,
+          "medium": 0.0133,
+          "high": 0.0528
+        },
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/gpt-image-2.5"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:gpt-image-2.5-sunburst",
+      "kind": "image",
+      "maker": "openai",
+      "group": "gpt-image-2.5",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "商用条件の資料がない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "GPT Image 2.5 Sunburst",
+      "family": "GPT Image 2.5 Sunburst",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": 16
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "square_hd",
+          "square",
+          "portrait_4_3",
+          "portrait_16_9",
+          "landscape_4_3",
+          "landscape_16_9",
+          "auto"
+        ],
+        "aspect_mode": "param",
+        "resolutions": [
+          "1024x1024",
+          "3840x2160"
+        ],
+        "duration": null,
+        "audio_out": false
+      },
+      "price": {
+        "unit": "usd_per_image",
+        "by_quality_1024": {
+          "low": 0.006,
+          "medium": 0.0133,
+          "high": 0.0528
+        },
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/gpt-image-2.5"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:grok-imagine-image",
+      "kind": "image",
+      "maker": "xai",
+      "group": "grok-image-api",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "権利侵害の補償と帰属表示の条件に注意。",
+        "source_url": "https://x.ai/legal/terms-of-service"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "Grok Imagine Image",
+      "family": "Grok Imagine Image",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": null
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "1:1",
+          "2:1",
+          "20:9",
+          "19.5:9",
+          "16:9",
+          "4:3",
+          "3:2",
+          "2:3",
+          "3:4",
+          "9:16",
+          "9:19.5",
+          "9:20",
+          "1:2"
+        ],
+        "aspect_mode": "param",
+        "resolutions": [
+          "1k",
+          "2k"
+        ],
+        "duration": null,
+        "audio_out": false
+      },
+      "price": {
+        "unit": "usd_per_image",
+        "value": 0.02,
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/models/xai/grok-imagine-image"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:minimax-image-01",
+      "kind": "image",
+      "maker": "minimax",
+      "group": "minimax-image",
+      "main": true,
+      "released": "2025-02-15",
+      "license": {
+        "badge": "unknown",
+        "note": "Image-01 の商用条件は確認できていない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "MiniMax Image-01",
+      "family": "MiniMax Image-01",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": null
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "1:1",
+          "16:9",
+          "4:3",
+          "3:2",
+          "2:3",
+          "3:4",
+          "9:16",
+          "21:9"
+        ],
+        "aspect_mode": "param",
+        "resolutions": null,
+        "duration": null,
+        "audio_out": false
+      },
+      "price": {
+        "unit": "usd_per_image",
+        "value": 0.01,
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/models/fal-ai/minimax/image-01"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:qwen-image-2",
+      "kind": "image",
+      "maker": "alibaba",
+      "group": "qwen-image",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "unknown",
+        "note": "この版の商用条件は未確認。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "Qwen Image 2.0",
+      "family": "Qwen Image 2.0",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": null
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "square_hd",
+          "square",
+          "portrait_4_3",
+          "portrait_16_9",
+          "landscape_4_3",
+          "landscape_16_9"
+        ],
+        "aspect_mode": "param",
+        "resolutions": [
+          "2K"
+        ],
+        "duration": null,
+        "audio_out": false
+      },
+      "price": {
+        "unit": "usd_per_image",
+        "value": 0.035,
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/models/fal-ai/qwen-image-2"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:seedance-2.5-ref",
+      "kind": "video",
+      "maker": "bytedance",
+      "group": "seedance-2.5",
+      "main": false,
+      "released": "2026-07-31",
+      "license": {
+        "badge": "unknown",
+        "note": "一次規約を確認できていない。",
+        "source_url": null
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "Seedance 2.5 参照",
+      "family": "Seedance 2.5 参照",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": 30
+        },
+        "reference_videos": {
+          "max": 10
+        },
+        "reference_audios": {
+          "max": 10
+        }
+      },
+      "outputs": {
+        "aspects": [
+          "auto",
+          "21:9",
+          "16:9",
+          "4:3",
+          "1:1",
+          "3:4",
+          "9:16"
+        ],
+        "aspect_mode": "param",
+        "resolutions": [
+          "480p",
+          "720p",
+          "1080p"
+        ],
+        "duration": {
+          "min": 4,
+          "max": 30
+        },
+        "audio_out": null
+      },
+      "price": {
+        "unit": "usd_per_second",
+        "by_resolution": {
+          "480p": 0.2205,
+          "720p": 0.473
+        },
+        "by_video_reference_resolution": {
+          "480p": 0.1323,
+          "720p": 0.2838
+        },
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/models/bytedance/seedance-2.5/reference-to-video"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:h3-max-i2v",
+      "kind": "video",
+      "maker": "minimax",
+      "group": "h3-max",
+      "main": true,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "提供経路の表示と利用規約に相違がある。",
+        "source_url": "https://hailuoai.video/doc/terms-of-service.html"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "MiniMax H3 Max",
+      "family": "MiniMax H3 Max",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "first_frame": "required",
+        "last_frame": "optional",
+        "reference_audios": {
+          "max": 1
+        }
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": "source",
+        "resolutions": [
+          "480P",
+          "768P",
+          "1080P"
+        ],
+        "duration": {
+          "min": 5,
+          "max": 15
+        },
+        "audio_out": null
+      },
+      "price": {
+        "unit": "usd_per_second",
+        "by_resolution": {
+          "480P": 0.05,
+          "768P": 0.08,
+          "1080P": 0.16
+        },
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/minimax-h3-max"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:h3-max-ref",
+      "kind": "video",
+      "maker": "minimax",
+      "group": "h3-max",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "提供経路の表示と利用規約に相違がある。",
+        "source_url": "https://hailuoai.video/doc/terms-of-service.html"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "MiniMax H3 Max 参照",
+      "family": "MiniMax H3 Max 参照",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "prompt": true,
+        "reference_images": {
+          "max": null,
+          "no_surcharge_first": 4
+        },
+        "reference_videos": {
+          "max": null
+        },
+        "reference_audios": {
+          "max": null
+        }
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": "source",
+        "resolutions": [
+          "480P",
+          "768P",
+          "1080P"
+        ],
+        "duration": {
+          "min": 5,
+          "max": 15
+        },
+        "audio_out": null
+      },
+      "price": {
+        "unit": "usd_per_second",
+        "by_resolution": {
+          "480P": 0.05,
+          "768P": 0.08,
+          "1080P": 0.16
+        },
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/minimax-h3-max"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:minimax-speech-2.8-hd",
+      "kind": "voice",
+      "maker": "minimax",
+      "group": "minimax-speech",
+      "main": true,
+      "released": "2026-01-23",
+      "license": {
+        "badge": "conditional",
+        "note": "提供経路の表示と利用規約に相違がある。",
+        "source_url": "https://hailuoai.video/doc/terms-of-service.html"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "MiniMax Speech 2.8 HD",
+      "family": "MiniMax Speech 2.8 HD",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "text": true,
+        "style": false,
+        "voice_clone": "none",
+        "reference_audio": false
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": true,
+        "voices": null
+      },
+      "price": {
+        "unit": "usd_per_1000_chars",
+        "value": 0.1,
+        "as_of": "2026-09-26",
+        "source_url": "https://fal.ai/models/fal-ai/minimax/speech-2.8-hd"
+      },
+      "as_of": "2026-09-26"
+    },
+    {
+      "id": "fal:gemini-3.8-flash-tts",
+      "kind": "voice",
+      "maker": "google",
+      "group": "gemini-tts",
+      "main": false,
+      "released": null,
+      "license": {
+        "badge": "conditional",
+        "note": "利用経路と契約条件を確認。",
+        "source_url": "https://ai.google.dev/gemini-api/terms"
+      },
+      "verified": "documented",
+      "measured_ref": null,
+      "callable": false,
+      "name": "Gemini 3.8 Flash TTS (fal)",
+      "family": "Gemini 3.8 Flash TTS (fal)",
+      "via": "api",
+      "provider": "fal",
+      "inputs": {
+        "text": true,
+        "style": true,
+        "voice_clone": "none",
+        "reference_audio": false
+      },
+      "outputs": {
+        "aspects": null,
+        "aspect_mode": null,
+        "resolutions": null,
+        "duration": null,
+        "audio_out": true,
+        "voices": 30
+      },
+      "price": null,
+      "as_of": "2026-09-26"
+    }
+  ]
+}

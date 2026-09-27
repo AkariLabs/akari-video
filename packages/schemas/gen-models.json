@@ -264,7 +264,7 @@
       "aspects": ["auto"],
       "audio_out": true,
       "seed": false,
-      "price": null,
+      "price": { "unit": "usd_per_second", "by_resolution": { "480p": 0.2205, "720p": 0.473 }, "audio_multiplier": null },
       "as_of": "2026-09-12",
       "source_url": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=bytedance/seedance-2.5/image-to-video",
       "price_url": "https://fal.ai/models/bytedance/seedance-2.5/image-to-video",
@@ -388,6 +388,55 @@
       "as_of": "2026-09-12",
       "source_url": "https://developers.openai.com/api/docs/guides/image-generation",
       "price_url": null,
+      "verified": "documented",
+      "calibration": []
+    },
+    {
+      "id": "fal:gpt-image-2.5-flare",
+      "kind": "image",
+      "provider": "fal",
+      "family": "GPT Image 2.5 Flare",
+      "endpoint": "openai/gpt-image-2.5/flare/text-to-image",
+      "inputs": {
+        "first_frame": "none",
+        "last_frame": "none",
+        "reference_images": {
+          "max": 0
+        },
+        "reference_videos": {
+          "max": 0
+        },
+        "reference_audios": {
+          "max": 0
+        },
+        "source_video": [],
+        "frames_and_refs_exclusive": false,
+        "negative_prompt": false,
+        "camera": "prose",
+        "extra_allowed": [
+          "image_size",
+          "quality",
+          "num_images"
+        ]
+      },
+      "duration": null,
+      "resolutions": null,
+      "aspects": [
+        "16:9",
+        "9:16",
+        "1:1",
+        "4:3",
+        "3:4",
+        "4:5",
+        "3:2",
+        "21:9"
+      ],
+      "audio_out": false,
+      "seed": false,
+      "price": null,
+      "as_of": "2026-09-26",
+      "source_url": "https://fal.ai/api/openapi/queue/openapi.json?endpoint_id=openai/gpt-image-2.5/flare/text-to-image",
+      "price_url": "https://fal.ai/gpt-image-2.5",
       "verified": "documented",
       "calibration": []
     },

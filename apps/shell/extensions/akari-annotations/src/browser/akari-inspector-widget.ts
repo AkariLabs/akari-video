@@ -11,7 +11,7 @@ import { advanceCaptionPanelPreview, shouldCaptureCaptionPanelPreviewEscape,
 import { CAPTION_FONT_FAMILY, CAPTION_FONT_LOAD_DESCRIPTOR, captionFontFaceCss } from 'akari-preview/lib/common/caption-visual-contract';
 import { GENERATION_PICK_INTO_COMMAND_ID, GENERATION_CANCEL_PICK_COMMAND_ID, type GenerationPickRequest, type GenerationPickResult } from '../common/generation-pick-mirror';
 import { AkariAnnotationsService } from '../common/akari-annotations-protocol';
-import type { GenerationValidationResult, TranscriptSummary, NarrationEngine } from '../common/akari-annotations-protocol';
+import type { GenerationValidationResult, TranscriptSummary, NarrationEngine, StillCandidate, ImageRouteState } from '../common/akari-annotations-protocol';
 import { resolveGenerationState, selectGenerationSidecarForSource, TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import { captionRunRows } from './inspector/caption-run-rows';
 import { ApplicationShell, BaseWidget } from '@theia/core/lib/browser';
@@ -46,11 +46,12 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
-import { appendAiStillNotice, appendAiStillPanel, nearestStillAspect, replaceStillInEdit, savedStillRoute, stillDimensionMismatch, stillMismatchNotice, stillRouteIds, type AiStillState } from './inspector/ai-still-panel';
+import { appendAiStillNotice, appendAiStillPanel, maxStillReferences, nearestStillAspect, replaceStillInEdit, savedStillCrop, savedStillRoute, stillMismatchNotice, stillRouteAvailability, stillRouteIds, stillRouteLabel, type AiStillState, type StillAspect, type StillFalEstimate } from './inspector/ai-still-panel';
+import { FrameAspectLive, frameSizeFromPng, frameSizeFromResolution, type FrameSize } from './inspector/frame-aspect-live';
 import { appendAiTranscribePanel, resolveAiTranscribeTarget, type AiTranscribeEngine, type AiTranscribeTarget } from './inspector/ai-transcribe-panel';
 import { appendAiMaterialView } from './inspector/ai-material-view';
 import { appendImageAiPanel, type ImageAiPanelState } from './inspector/image-ai-panel';
@@ -795,14 +796,14 @@ function CUT_SECTIONS(
                         return requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: parsed });
                     },
                     reset: () => requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: null })
-                }
+                },
+                ...(photoItemId ? [{
+                    name: 'photo-crop-open', label: '切り抜き', getValue: () => '', actionLabel: '切り抜き',
+                    action: () => requestWrite({ kind: 'item-field', id: photoItemId,
+                        path: 'photo-crop-open', value: null })
+                }, ...photoFrameFields] : [])
             ]
         },
-        ...(photoItemId ? [{ id: 'edit-photo', label: '写真', fields: [{
-            name: 'photo-crop-open', label: '切り抜き', getValue: () => '', actionLabel: '切り抜き',
-            action: () => requestWrite({ kind: 'item-field', id: photoItemId,
-                path: 'photo-crop-open', value: null })
-        }, ...photoFrameFields] }] : []),
         {
             id: 'timing', label: '再生', fields: [
                 {
@@ -869,7 +870,8 @@ let activePhotoBrushItemId: string | null = null;
 function PHOTO_PANEL_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot | TimelineCutSelection>(
     snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorFieldDef<T>[] {
-    if (!snapshot.photo) return [];
+    const sourcePath = snapshot.kind === 'cut' ? snapshot.sourcePath : snapshot.sourcePath ?? snapshot.src;
+    if (!snapshot.photo && !isInspectorStillImage(sourcePath)) return [];
     return [{
         name: 'photo-cutout-panel', label: '背景透過', getValue: () => '', actionLabel: '背景透過を開く',
         action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
@@ -1237,13 +1239,11 @@ function LAYER_SECTIONS(
                         })
                     })
                 },
-                ...(!snapshot.photo ? maskFields : [])
+                ...(!snapshot.photo ? maskFields : []),
+                ...(snapshot.photo ? [...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
+                    ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)] : [])
             ]
         },
-        ...(snapshot.photo ? [{
-            id: 'edit-photo', label: '補正', fields: [...maskFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
-                ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)]
-        }] : []),
         ...(snapshot.layerKind === 'video' ? [{ id: 'audio', label: '音声', fields: [
             {
                 name: 'layer-audio', label: '音声', inputKind: 'select' as const,
@@ -2616,11 +2616,9 @@ function TREE_ITEM_SECTIONS(
             write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'opacity', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
-        }, ...shapeAppearance, ...(!snapshot.photo ? maskFields : [])] },
-        ...(snapshot.photo ? [{
-            id: 'edit-photo', label: '補正', fields: [...maskFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
-                ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)]
-        }] : []),
+        }, ...shapeAppearance, ...(!snapshot.photo ? maskFields : []),
+        ...(snapshot.photo ? [...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
+            ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)] : [])] },
         ...(shapeBubble.length ? [{ id: 'bubble', label: '吹き出し', fields: shapeBubble }] : []),
         { id: 'info', label: '情報', collapsedByDefault: true, fields: [
             { name: 'item-kind', label: '種類', getValue: () => snapshot.sourceKind === 'group' ? 'キャンバス' : snapshot.sourceKind },
@@ -3068,6 +3066,11 @@ export class AkariInspectorWidget extends BaseWidget {
     protected currentTab?: string;
     protected explicitTabId?: string;
     protected readonly generationTabMeta = new Map<string, { next?: { status?: unknown } }>();
+    protected readonly frameAspectLive = new Map<string, FrameAspectLive>();
+    protected readonly frameAspectWrites = new Map<string, Promise<void>>();
+    protected readonly frameAspectTargets = new Map<string, LivePreviewTarget>();
+    protected readonly frameAspectTried = new Map<string, string>();
+    protected readonly frameAspectPlanned = new Map<string, Set<string>>();
     protected readonly generationTabLoads = new Set<string>();
     protected readonly generationTabDrafts = new Map<string, GenerationDraft>();
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
@@ -3093,8 +3096,12 @@ export class AkariInspectorWidget extends BaseWidget {
     protected imageAiPanelOpen?: { open: () => void; itemId: string };
     protected aiViewClipKey?: string;
     protected gapAiOpening?: { gap: TimelineGapSelection; view: 'still' | 'video' };
+    protected photoAiOpening?: 'tiles' | 'cutout' | 'eraser';
     protected aiStillSelectionClipKey?: string;
     protected readonly aiStillStates = new Map<string, AiStillState>();
+    protected stillFalEstimate?: StillFalEstimate;
+    protected stillFalEstimateLoading?: Promise<void>;
+    protected previewedStillItemId?: string;
     protected aiStillTick?: number;
     protected transcribeKey?: string;
     protected transcribeTarget?: AiTranscribeTarget;
@@ -3298,13 +3305,34 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-still-panel { display: grid; gap: 10px; padding: 4px 2px 14px; min-width: 0; }
 .akari-inspector-ai-still-label { display: grid; gap: 5px; font-size: 12px; font-weight: 600; }
 .akari-inspector-ai-still-prompt { box-sizing: border-box; width: 100%; min-height: 104px; padding: 8px; resize: vertical; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; font: inherit; font-weight: 400; }
-.akari-inspector-ai-still-aspects { display: flex; gap: 6px; }
+.akari-inspector-ai-still-aspects { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.akari-inspector-ai-still-aspect { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; justify-content: end; gap: 4px; height: 60px; }
+.akari-inspector-ai-still-aspect-picture { display: block; box-sizing: border-box; border: 2px solid currentColor; border-radius: 2px; }
+.akari-inspector-ai-still-references { display: grid; gap: 6px; font-size: 12px; }
+.akari-inspector-ai-still-reference-drop { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px dashed var(--akari-line); border-radius: 5px; }
+.akari-inspector-ai-still-reference-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; font-size: 11px; }
+.akari-inspector-ai-still-reference-thumbnail { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; }
+.akari-inspector-ai-still-reference-list { display: grid; gap: 4px; max-height: 180px; overflow: auto; }
+.akari-inspector-ai-still-crop { display: flex; align-items: start; gap: 6px; font-size: 11px; }
+.akari-inspector-ai-still-route[data-akari-inspector-ai-route-disabled="true"] { opacity: .48; cursor: default; }
+.akari-inspector-ai-still-route-reason, .akari-inspector-ai-still-route-note { flex-basis: 100%; padding-left: 22px; color: var(--akari-faint); font-size: 11px; }
+.akari-inspector-ai-still-cropped { margin: 0; color: var(--akari-accent); font-size: 11px; }
 .akari-inspector-widget button.akari-inspector-ai-still-aspect,
 .akari-inspector-widget button.akari-inspector-ai-still-secondary { padding: 5px 9px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; cursor: pointer; }
 .akari-inspector-widget button.akari-inspector-ai-still-aspect[aria-pressed="true"] { border-color: var(--akari-accent); color: var(--akari-accent); }
 .akari-inspector-ai-still-routes { display: grid; gap: 4px; }
 .akari-inspector-ai-still-route { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 30px; cursor: pointer; }
-.akari-inspector-ai-still-route-radio { accent-color: var(--akari-accent); }
+.akari-inspector-ai-still-route-radio { accent-color: var(--akari-accent); scroll-margin-top: 120px; }
+.akari-inspector-ai-still-progress-row { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border: 1px solid var(--akari-line); border-radius: 5px; margin-top: 4px; }
+.akari-inspector-ai-still-progress[data-akari-inspector-ai-progress-running="true"] { position: sticky; bottom: 8px; z-index: 3; padding: 5px; background: var(--akari-bg); border: 1px solid var(--akari-line); border-radius: 6px; box-shadow: 0 4px 16px rgba(0, 0, 0, .24); }
+.akari-inspector-ai-still-progress-thumbnail { width: 44px; height: 32px; margin-left: auto; object-fit: contain; border-radius: 3px; }
+.akari-inspector-ai-still-progress-row[data-akari-inspector-ai-progress-state="running"]::before { content: ''; width: 9px; height: 9px; border: 2px solid var(--akari-line); border-top-color: var(--akari-accent); border-radius: 50%; animation: akari-still-spin 1s linear infinite; }
+@keyframes akari-still-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .akari-inspector-ai-still-progress-row[data-akari-inspector-ai-progress-state="running"]::before { animation: none; } }
+.akari-inspector-ai-still-candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 7px; }
+.akari-inspector-ai-still-candidate { display: grid; gap: 5px; padding: 5px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 5px; text-align: left; cursor: pointer; font-size: 11px; }
+.akari-inspector-ai-still-candidate[data-akari-inspector-ai-candidate-selected="true"] { border: 2px solid var(--akari-accent); }
+.akari-inspector-ai-still-candidate-thumbnail { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 3px; }
 .akari-inspector-ai-still-route-name { font-size: 12px; }
 .akari-inspector-ai-still-badge { display: inline-block; padding: 2px 7px; border: 1px solid var(--akari-line); border-radius: 20px; font-size: 11px; white-space: nowrap; }
 .akari-inspector-ai-still-badge[data-akari-inspector-ai-route-state="ready"] { color: var(--akari-accent); border-color: var(--akari-accent); }
@@ -4257,6 +4285,19 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.captionPanel = retained; this.notifyCaptionPanel();
                 }
             }
+            if (this.previewedStillItemId) {
+                const selectedItemId = this.generationIdentity?.(this.model.snapshot)?.itemId;
+                if (selectedItemId !== this.previewedStillItemId) {
+                    const root = this.workspaceService.tryGetRoots()[0]?.resource;
+                    if (root) window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
+                        editUri: root.resolve('edit.json').toString(), sourceId: null,
+                        itemId: this.previewedStillItemId, imageUrl: null
+                    } }));
+                    const previewState = this.aiStillStates.get(this.previewedStillItemId);
+                    if (previewState) previewState.pickedCandidate = undefined;
+                    this.previewedStillItemId = undefined;
+                }
+            }
             this.liveValues = undefined;
             this.lutGeneration++;
             this.projectLutRefs = [];
@@ -4326,7 +4367,15 @@ export class AkariInspectorWidget extends BaseWidget {
             this.explicitTabId = options.tabId;
             this.tabState.setActiveTab(kind, options.tabId);
         }
+        if (options.tabId === 'edit' && options.sectionId
+            && ['home', 'photo-cutout', 'photo-eraser'].includes(options.sectionId)) {
+            this.photoAiOpening = options.sectionId === 'home' ? 'tiles'
+                : options.sectionId === 'photo-cutout' ? 'cutout' : 'eraser';
+        }
         this.render();
+        if (options.tabId === 'edit' && options.sectionId === 'home') {
+            return !!this.body.querySelector('[data-akari-ui="tab:inspector-edit"].is-active');
+        }
         const requestedSectionId = options.sectionId;
         const matchingSections = (): Element[] => {
             if (!requestedSectionId) return [];
@@ -4665,8 +4714,10 @@ export class AkariInspectorWidget extends BaseWidget {
         const view = selectionKey
             ? viewForInspectorSelection(this.rememberedView, selectionKey, this.lastRealSelectionKey)
             : this.rememberedView;
-        view.scrollTop = rememberedInspectorScroll(view.scrollTop, this.node.scrollTop,
-            sameSelection, this.restoringView, this.lastScrollIntentAt > this.latestRenderAt);
+        const stillRunning = this.aiView === 'still' && [...this.aiStillStates.values()].some(state => state.running);
+        view.scrollTop = stillRunning && sameSelection ? this.node.scrollTop
+            : rememberedInspectorScroll(view.scrollTop, this.node.scrollTop,
+                sameSelection, this.restoringView, this.lastScrollIntentAt > this.latestRenderAt);
         if (sameSelection) view.tabId = this.activeTabId() ?? view.tabId;
         this.rememberedView = view;
         this.renderedSelectionKey = selectionKey;
@@ -4885,6 +4936,21 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (this.generationVideoPaths) this.observeGenerationVideo(snapshot);
         const generationIdentity = this.generationIdentity(snapshot);
+        if (generationIdentity && this.frameAspectLive && this.frameAspectTried) {
+            let live = this.frameAspectLive.get(generationIdentity.key);
+            const changed = live?.observeSource(generationIdentity.sourcePath) ?? false;
+            if (!live) this.frameAspectLive.set(generationIdentity.key, live = new FrameAspectLive(generationIdentity.sourcePath));
+            if (changed) {
+                this.generationTabMeta.delete(generationIdentity.key);
+                this.generationLoads.delete(generationIdentity.key);
+                this.generationStates.delete(generationIdentity.key);
+            }
+            if (!live.sourceSize && /^assets\/generated\/[^/]+\.png$/u.test(generationIdentity.sourcePath)
+                && this.frameAspectTried.get(generationIdentity.key) !== generationIdentity.sourcePath) {
+                this.frameAspectTried.set(generationIdentity.key, generationIdentity.sourcePath);
+                void this.ensureFrameSourceSize?.(generationIdentity.key, generationIdentity.sourcePath);
+            }
+        }
         if (!generationIdentity && (snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item' || snapshot.kind === 'audio')) {
             // The existing test harness transpiles render without this new loader method.
             void this.loadAiCatalog?.();
@@ -4910,7 +4976,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     // The generation selector may only return a related video job.
                     const meta = sidecars.entries.find(entry => entry.sourcePath === generationIdentity.sourcePath)?.meta
                         ?? selectGenerationSidecarForSource(generationIdentity.sourcePath, sidecars.entries, Date.now())?.meta;
-                    if (this.generationTabDrafts.get(generationIdentity.key) === generationDraft) {
+                    if (this.generationTabDrafts.get(generationIdentity.key) === generationDraft
+                        && this.generationIdentity(this.model.snapshot)?.sourcePath === generationIdentity.sourcePath) {
                         this.generationTabMeta.set(generationIdentity.key, (meta as { next?: { status?: unknown } } | undefined) ?? {});
                     }
                 } catch (error) {
@@ -5071,18 +5138,30 @@ export class AkariInspectorWidget extends BaseWidget {
             void this.verifyAiNarrationSource?.(rowSnapshot, transcribeKey);
         }
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
+        const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
+            && (rowSnapshot.photo === true || isInspectorStillImage(rowSnapshot.sourcePath ?? rowSnapshot.src));
+        const photoTools = photoToolAvailabilityFor({ photo: photoSelection,
+            emptyFrame: !!generationIdentity && !generationDone && generationState === 'planned', generationState });
+        if (!photoTools.enabled) {
+            const photoAppearanceNames = new Set(['photo-flip-h', 'photo-flip-v', 'photo-crop-open',
+                'photo-frame-width', 'photo-frame-color', 'photo-frame-radius']);
+            sections = sections.map(section => section.id === 'appearance'
+                ? { ...section, fields: section.fields.filter(field => !photoAppearanceNames.has(field.name)) }
+                : section);
+        }
         const aiGroups = this.aiCatalogLoaded === undefined || rowSnapshot.kind === 'overlay'
             || rowSnapshot.kind === 'item' && rowSnapshot.sourceKind !== 'media'
             || rowSnapshot.kind === 'layer' && rowSnapshot.sourceKind === 'html' ? [] : describeAiTiles(
             aiActionCatalog(this.generationCatalog, this.narrationEngines),
             aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
                 audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
-        );
+        ).map(group => ({ ...group, tiles: group.tiles.map(tile =>
+            tile.id === 'cutout' || tile.id === 'eraser'
+                ? { ...tile, ...photoTools, ...(!photoTools.enabled ? { reason: photoTools.reason } : { reason: undefined }) }
+                : tile) }));
         const aiAvailability = this.aiCatalogLoaded === undefined
             ? { enabled: !!generationIdentity, forcePanel: false }
             : aiTabAvailabilityFor({ kind: sectionKind, hasIdentity: !!generationIdentity, groups: aiGroups });
-        const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
-            && rowSnapshot.photo === true;
         const tabs = tabsForKind(sectionKind, {
             src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled || photoSelection
         });
@@ -5134,6 +5213,13 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.aiView = gapAiOpening.view;
                     this.gapAiOpening = undefined;
                 }
+                if (this.photoAiOpening) {
+                    const opening = this.photoAiOpening;
+                    this.aiView = opening === 'tiles' || aiGroups.some(group =>
+                        group.tiles.some(tile => tile.id === opening && tile.enabled)) ? opening : 'tiles';
+                    this.photoAiOpening = undefined;
+                }
+                if ((this.aiView === 'cutout' || this.aiView === 'eraser') && !photoTools.enabled) this.aiView = 'tiles';
                 this.aiViewClipKey = clipKey;
             }
             // Older render harnesses extract this method without its imported visibility helper.
@@ -5147,34 +5233,6 @@ export class AkariInspectorWidget extends BaseWidget {
                 : rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
                     ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
             const imageSelected = isInspectorStillImage(imageSource);
-            if (showEditCorrection && imageSelected) {
-                const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
-                    ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
-                const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', collapsedByDefault: true, fields: [
-                    ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields),
-                    ...photoFields.filter(field => field.name === 'photo-cutout-panel'), {
-                        name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
-                        options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
-                        write: async (_snapshot, value) => {
-                            this.editAdjustScope = value === '選択エリア' ? '選択エリア' : '画像全体';
-                            this.render();
-                            return { ok: true };
-                        }
-                    }, ...(this.editAdjustScope === '選択エリア'
-                        ? photoFields.filter(field => field.name === 'photo-region-panel') : [])] }, rowSnapshot, sectionKind);
-                if (this.editAdjustScope !== '選択エリア' && correctionBody) {
-                    this.refreshAdjustLuts();
-                    ADJUST_SECTIONS(rowSnapshot, requestWrite, {
-                        projectLutRefs: this.projectLutRefs,
-                        importLut: () => this.importAdjustLut(rowSnapshot)
-                    }).forEach(section => this.appendSection(section, rowSnapshot, sectionKind, correctionBody, true));
-                }
-            } else if (showEditCorrection) {
-                this.appendSection({ id: 'edit-correction', label: '補正', fields: [{
-                    name: 'edit-correction-unavailable', label: '補正',
-                    getValue: () => 'この要素で使える補正はまだありません'
-                }] }, rowSnapshot, sectionKind);
-            }
             if (!this.aiCatalogLoaded) {
                 appendAiTiles(this.body, [], () => undefined, false, '別案を読み込んでいます…');
                 this.appendSoloBanner();
@@ -5192,7 +5250,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     || rowSnapshot.kind === 'layer') && rowSnapshot.sourceKind === 'media' ? rowSnapshot.id
                     : imageSelected && rowSnapshot.kind === 'cut' ? rowSnapshot.itemId : undefined;
                 const alternativesGrid = appendAiTiles(this.body, aiGroups, id => {
-                    if (id !== 'video' && id !== 'still' && id !== 'transcribe' && id !== 'narration') return;
+                    if (id !== 'video' && id !== 'still' && id !== 'transcribe' && id !== 'narration'
+                        && id !== 'cutout' && id !== 'eraser') return;
                     this.aiView = id;
                     if (id === 'narration' && rowSnapshot.kind === 'audio') {
                         void this.loadAiNarrationVoices(clipKey);
@@ -5226,6 +5285,33 @@ export class AkariInspectorWidget extends BaseWidget {
                     });
                 }
                 this.appendSoloBanner();
+                return;
+            }
+            if ((this.aiView === 'cutout' || this.aiView === 'eraser') && photoTools.enabled
+                && (rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item')) {
+                const view = this.aiView;
+                appendAiBack(this.body, view === 'cutout' ? '背景を消す' : '消しゴム', () => {
+                    this.aiView = 'tiles';
+                    this.render();
+                });
+                const photoFields = PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite);
+                const brushSnapshot = rowSnapshot.kind === 'cut'
+                    ? { ...rowSnapshot, kind: 'item' as const, id: rowSnapshot.itemId ?? '', photo: true, maskSourceOptions: [] }
+                    : rowSnapshot;
+                const maskFields = MASK_FIELDS(brushSnapshot as TimelineTreeItemSnapshot, requestWrite);
+                const brushFields = rowSnapshot.kind === 'cut' ? maskFields.map(field =>
+                    field.name === 'photo-brush-start' && field.action
+                        ? { ...field, action: () => field.action!(brushSnapshot as TimelineTreeItemSnapshot) } : field)
+                    : maskFields;
+                const names = view === 'cutout'
+                    ? ['mask', 'photo-mask-generate', 'photo-mask-remove']
+                    : ['photo-brush-mode', 'photo-brush-size', 'photo-brush-hardness', 'photo-brush-start'];
+                const fields = view === 'cutout'
+                    ? [...photoFields.filter(field => field.name === 'photo-cutout-panel'),
+                        ...(rowSnapshot.kind === 'cut' ? [] : maskFields.filter(field => names.includes(field.name)))]
+                    : brushFields.filter(field => names.includes(field.name));
+                this.appendSection({ id: view === 'cutout' ? 'photo-cutout' : 'photo-eraser',
+                    label: view === 'cutout' ? '背景を消す' : '消しゴム', fields }, rowSnapshot, sectionKind);
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {
@@ -5326,6 +5412,20 @@ export class AkariInspectorWidget extends BaseWidget {
                 }]
             };
         }
+        if (activeTab === 'adjust' && photoTools.enabled) {
+            const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
+                ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
+            this.appendSection({ id: 'adjust-scope', label: '範囲', fields: [{
+                name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
+                options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
+                write: async (_snapshot, value) => {
+                    this.editAdjustScope = value === '選択エリア' ? '選択エリア' : '画像全体';
+                    this.render();
+                    return { ok: true };
+                }
+            }, ...(this.editAdjustScope === '選択エリア'
+                ? photoFields.filter(field => field.name === 'photo-region-panel') : [])] }, rowSnapshot, sectionKind);
+        }
         if (activeTab === 'adjust' && compareTarget) {
             const button = document.createElement('button');
             button.type = 'button';
@@ -5346,10 +5446,10 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         if (activeTab === 'adjust') {
             this.refreshAdjustLuts();
-            ADJUST_SECTIONS(rowSnapshot, requestWrite, {
+            (photoTools.enabled && this.editAdjustScope === '選択エリア' ? [] : ADJUST_SECTIONS(rowSnapshot, requestWrite, {
                 projectLutRefs: this.projectLutRefs,
                 importLut: () => this.importAdjustLut(rowSnapshot)
-            })
+            }))
                 .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
                 .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
             if (!this.solo) ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
@@ -5534,7 +5634,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (!tab.enabled) return;
                 if (tab.id === 'edit') {
                     // Extracted widget test harnesses may not inject this pure helper.
-                    this.aiView = typeof viewAfterHomeTabClick === 'function'
+                    this.aiView = this.aiView === 'cutout' || this.aiView === 'eraser' ? 'tiles'
+                        : typeof viewAfterHomeTabClick === 'function'
                         ? viewAfterHomeTabClick({ currentView: this.aiView ?? 'tiles', enabledTileCount: enabledTileViews.length,
                             soleTileView: enabledTileViews[0] }) : 'tiles';
                 } else if (tab.id === activeTab) return;
@@ -6245,30 +6346,300 @@ export class AkariInspectorWidget extends BaseWidget {
         return this.aiCatalogLoading;
     }
 
+    protected ensureStillFalEstimate(): void {
+        if (this.stillFalEstimateLoading) return;
+        this.stillFalEstimateLoading = this.layerAudioService.readGenerationCatalog().then(catalog => {
+            const estimate = (catalog as typeof catalog & { stillEstimate?: StillFalEstimate }).stillEstimate;
+            if (!estimate) return;
+            this.stillFalEstimate = estimate;
+            const current = this.aiView === 'still' ? this.generationIdentity(this.model.snapshot) : undefined;
+            const visibleState = current && this.aiStillStates.get(current.key);
+            const shouldRender = !!visibleState && !visibleState.falEstimate;
+            for (const state of this.aiStillStates.values()) state.falEstimate = estimate;
+            if (shouldRender) this.render();
+        }).catch(() => undefined);
+    }
+
     protected appendStillPanel(identity: { key: string; itemId: string; sourcePath: string; duration: number }): void {
         let state = this.aiStillStates.get(identity.key);
         if (!state) {
-            const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string } } | undefined;
-            state = { prompt: meta?.inputs?.prompt ?? '', aspect: '16:9', routeId: savedStillRoute(), probing: true, running: false };
+            const meta = this.generationTabMeta.get(identity.key) as { inputs?: { prompt?: string }; output?: { aspect?: StillAspect; resolution?: string } } | undefined;
+            const [cardWidth, cardHeight] = String(meta?.output?.resolution ?? '').split('x').map(Number);
+            const initialAspect = meta?.output?.aspect ?? (cardWidth > 0 && cardHeight > 0
+                ? nearestStillAspect(cardWidth, cardHeight) : '16:9');
+            state = { prompt: meta?.inputs?.prompt ?? '', aspect: initialAspect, routeId: savedStillRoute(), probing: true,
+                selectedRoutes: new Set(),
+                running: false, references: [], cropToAspect: savedStillCrop(), falEstimate: this.stillFalEstimate };
             this.aiStillStates.set(identity.key, state);
             const root = this.workspaceService.tryGetRoots()[0]?.resource;
             if (root) {
+                this.ensureStillFalEstimate();
                 void this.fileService.read(root.resolve('edit.json')).then(file => {
                     const output = JSON.parse(file.value.toString()).output;
-                    if (this.aiStillStates.get(identity.key) === state && output?.width && output?.height) {
+                    if (this.aiStillStates.get(identity.key) === state && output?.width > 0 && output?.height > 0) {
+                        state!.canvas = { width: output.width, height: output.height };
+                    }
+                    if (this.aiStillStates.get(identity.key) === state && state!.aspect === initialAspect
+                        && !meta?.output?.aspect && !(cardWidth > 0 && cardHeight > 0) && output?.width && output?.height) {
                         state!.aspect = nearestStillAspect(output.width, output.height);
                         if (this.aiView === 'still') this.render();
                     }
                 }).catch(() => undefined);
             }
             void Promise.resolve().then(() => this.probeStillRoute(identity.key));
+            if (root) {
+                void this.layerAudioService.readStillPreferredRoutes(root.toString()).then(routes => {
+                    if (this.aiStillStates.get(identity.key) !== state) return;
+                    if (!state!.selectionTouched) state!.selectedRoutes = new Set(routes);
+                    state!.preferencesLoaded = true;
+                    if (this.aiView === 'still') this.render();
+                }).catch(() => { state!.preferencesLoaded = true; });
+                void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId })
+                    .then(batch => { if (this.aiStillStates.get(identity.key) === state && batch.candidates.length) {
+                        state!.batch = batch; if (this.aiView === 'still') this.render();
+                    } }).catch(() => undefined);
+            }
         }
         appendAiStillPanel(this.body, state, {
-            change: () => this.render(),
+            change: aspect => {
+                const current = this.generationIdentity ? this.generationIdentity(this.model.snapshot) : identity;
+                const status = this.generationStates.get(identity.key);
+                const metaStatus = (this.generationTabMeta.get(identity.key) as { status?: string } | undefined)?.status;
+                const known = this.frameAspectPlanned?.get(identity.key)?.has(current?.sourcePath ?? '') ?? false;
+                if (aspect && current?.key === identity.key
+                    && (metaStatus === 'planned' || metaStatus === undefined
+                        && (status === 'planned' || status === undefined && known))) {
+                    const planned = this.frameAspectPlanned?.get(identity.key) ?? new Set<string>();
+                    planned.add(current.sourcePath);
+                    this.frameAspectPlanned?.set(identity.key, planned);
+                    void this.setEmptyFrameAspect(current, aspect);
+                }
+                this.render();
+            },
             probe: () => { void this.probeStillRoute(identity.key); },
             generate: () => { void this.startStillGeneration(identity); },
-            cancel: () => { void this.cancelStillGeneration(identity); }
+            retry: route => { void this.startStillGeneration(identity, [route], state!.batchInput); },
+            selectCandidate: candidate => { void this.selectStillCandidate(identity, candidate); },
+            adoptCandidate: () => { void this.adoptStillCandidate(identity); },
+            cancel: () => { void this.cancelStillGeneration(identity); },
+            addReference: path => { void this.addStillReference(identity.key, path); },
+            chooseReference: () => { void this.chooseStillReference(identity.key); },
+            captureReference: () => { void this.captureStillReference(identity.key); },
+            openConnections: () => { void this.commandRegistry.executeCommand('akari.settings.open', 'connections'); }
         });
+    }
+
+    protected async addStillReference(key: string, path: string): Promise<void> {
+        const state = this.aiStillStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        if (!/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(path) || path.startsWith('/')
+            || path.split('/').includes('..')) { state.error = 'プロジェクト内の画像を選んでください。'; this.render(); return; }
+        if (state.references?.some(row => row.path === path)) return;
+        if ((state.references?.length ?? 0) >= maxStillReferences) { state.error = `参照画像は ${maxStillReferences} 枚までです。`; this.render(); return; }
+        try {
+            const file = await this.fileService.readFile(root.resolve(path));
+            const bytes = file.value.buffer;
+            const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+            const extension = path.split('.').pop()?.toLowerCase();
+            const mime = extension === 'jpg' ? 'jpeg' : extension === 'svg' ? 'svg+xml' : extension;
+            state.references ??= [];
+            state.references.push({ path, thumbnail: `data:image/${mime};base64,${btoa(binary)}` });
+            state.choosingReference = false;
+            state.error = undefined;
+            if (stillRouteAvailability(state.routeId ?? 'codex', state.references.length).disabled) state.routeId = 'codex';
+        } catch { state.error = '参照画像を読み込めませんでした。'; }
+        this.render();
+    }
+
+    protected async chooseStillReference(key: string): Promise<void> {
+        const state = this.aiStillStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        try {
+            const paths: string[] = [];
+            const walk = async (uri: URI): Promise<void> => {
+                const node = await this.fileService.resolve(uri);
+                for (const child of node.children ?? []) {
+                    if (child.isDirectory) await walk(child.resource);
+                    else if (/\.(?:png|jpe?g|webp|gif|bmp|tiff?)$/iu.test(child.resource.path.base)) {
+                        const relative = root.relative(child.resource)?.toString();
+                        if (relative) paths.push(relative);
+                    }
+                }
+            };
+            await walk(root.resolve('assets'));
+            state.availableReferences = paths.sort();
+            state.choosingReference = !state.choosingReference;
+            state.error = paths.length ? undefined : 'プロジェクトに画像素材がありません。';
+        } catch { state.error = '素材の一覧を読み込めませんでした。'; }
+        this.render();
+    }
+
+    protected async captureStillReference(key: string): Promise<void> {
+        const state = this.aiStillStates.get(key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root) return;
+        try {
+            const editUri = root.resolve('edit.json');
+            await this.commandRegistry.executeCommand('akari.preview.ensureVisible', { editUri: editUri.toString() });
+            const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
+            if (Number.isFinite(playhead) && playhead >= 0) await this.commandRegistry.executeCommand('akari.preview.seekOutput',
+                { editUri: editUri.toString(), time: playhead, waitForReady: true });
+            const saved = await this.commandRegistry.executeCommand<{ path: string }>(
+                'akari.preview.captureFrame', { editUri: editUri.toString() });
+            if (!saved?.path) throw new Error('コマを保存できませんでした。');
+            await this.addStillReference(key, saved.path);
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            state.error = reason.startsWith('コマを保存できませんでした') ? reason : `コマを保存できませんでした: ${reason}`;
+            this.render();
+        }
+    }
+
+    protected async setEmptyFrameAspect(identity: { key: string; itemId: string; sourcePath: string }, aspect: StillAspect): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const state = this.aiStillStates.get(identity.key);
+        if (!root || !state) return;
+        let live = this.frameAspectLive.get(identity.key);
+        if (!live) this.frameAspectLive.set(identity.key, live = new FrameAspectLive(identity.sourcePath));
+        if (live.observeSource(identity.sourcePath)) {
+            this.generationTabMeta.delete(identity.key);
+            this.generationLoads.delete(identity.key);
+        }
+        const sourceEpoch = live.sourceEpoch;
+        const revision = live.press(aspect, state.canvas, this.model.snapshot?.kind === 'cut'
+            || this.model.snapshot?.kind === 'layer' || this.model.snapshot?.kind === 'item'
+            ? this.model.snapshot.transform : undefined);
+        const snapshot = this.model.snapshot;
+        const target = snapshot?.kind === 'cut' && snapshot.itemId === identity.itemId
+            ? { kind: 'cut' as const, index: snapshot.index }
+            : (snapshot?.kind === 'layer' || snapshot?.kind === 'item') && snapshot.id === identity.itemId
+                ? { kind: 'item' as const, id: identity.itemId } : undefined;
+        if (target) this.frameAspectTargets.set(identity.key, target);
+        const sendLive = (): void => {
+            if (live!.revision === revision) this.sendFrameAspectLive(identity.key, live!);
+        };
+        sendLive();
+        if (!state.canvas && this.fileService?.readFile) {
+            void this.fileService.readFile(root.resolve('edit.json')).then(file => {
+                const output = JSON.parse(file.value.toString()).output;
+                if (live!.sourceEpoch !== sourceEpoch || this.aiStillStates.get(identity.key) !== state
+                    || !Number.isSafeInteger(output?.width) || !Number.isSafeInteger(output?.height)
+                    || output.width < 1 || output.height < 1) return;
+                state.canvas = { width: output.width, height: output.height };
+                live!.setCanvas(state.canvas);
+                this.sendFrameAspectLive(identity.key, live!);
+            }).catch(() => undefined);
+        }
+        if (!live.sourceSize) void this.ensureFrameSourceSize(identity.key, identity.sourcePath);
+        const clearLive = (): void => {
+            if (live!.revision !== revision) return;
+            const hadLive = !!live!.live();
+            const current = this.model.snapshot;
+            const transform = current?.kind === 'cut' || current?.kind === 'layer' || current?.kind === 'item'
+                ? current.transform : undefined;
+            live!.resetDesired(transform);
+            if (!target || !hadLive || this.generationIdentity(current)?.key !== identity.key) return;
+            this.model.requestLivePreview?.({ target, values: {
+                scaleX: transform?.scaleX ?? transform?.scale ?? 1,
+                scaleY: transform?.scaleY ?? transform?.scale ?? 1
+            }, clear: true });
+        };
+        const previousWrite = this.frameAspectWrites.get(identity.key);
+        let releaseWrite!: () => void;
+        const writeDone = new Promise<void>(resolve => { releaseWrite = resolve; });
+        this.frameAspectWrites.set(identity.key, writeDone);
+        let committed = false;
+        try {
+            if (previousWrite) await previousWrite;
+            const selectedBefore = this.generationIdentity(this.model.snapshot);
+            if (live.sourceEpoch !== sourceEpoch || selectedBefore?.key !== identity.key
+                || selectedBefore.sourcePath !== live.sourcePath) return;
+            const playhead = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
+            const result = await this.layerAudioService.setEmptyFrameAspect({ projectRootUri: root.toString(),
+                itemId: identity.itemId, aspect });
+            const selectedAfter = this.generationIdentity(this.model.snapshot);
+            if (live.sourceEpoch !== sourceEpoch || selectedAfter?.key !== identity.key
+                || selectedAfter.sourcePath !== live.sourcePath) return;
+            const planned = this.frameAspectPlanned?.get(identity.key) ?? new Set<string>();
+            planned.add(result.relativePath);
+            this.frameAspectPlanned?.set(identity.key, planned);
+            const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+                const location = (widget as unknown as { location?: { root?: URI } }).location;
+                return !widget.isDisposed && location?.root?.toString() === root.toString();
+            }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
+            if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
+            live.expectSource(result.relativePath, { width: result.width, height: result.height }, result.transform);
+            await timeline.commitEditMutation('空の枠の画角を変更', doc => {
+                replaceStillInEdit(doc, identity.itemId, result.relativePath);
+                const item = doc.tracks.flatMap((track: any) => track.items ?? []).find((row: any) => row.id === identity.itemId);
+                if (result.transform) item.transform = result.transform;
+                return doc;
+            });
+            committed = true;
+            this.generationTabMeta.delete(identity.key);
+            this.generationStates.delete(identity.key);
+            try {
+                if (Number.isFinite(playhead) && playhead >= 0) {
+                    const editUri = root.resolve('edit.json').normalizePath().toString();
+                    await this.commandRegistry.executeCommand('akari.preview.seekOutput', {
+                        editUri, time: playhead, waitForReady: true
+                    });
+                    const restored = Number(await this.commandRegistry.executeCommand<string | number>('akari.timeline.playhead'));
+                    if (!Number.isFinite(restored) || Math.abs(restored - playhead) > 1e-3) {
+                        await this.commandRegistry.executeCommand('akari.timeline.seek', { seconds: playhead });
+                    }
+                }
+            } finally {
+                const current = this.generationIdentity(this.model.snapshot);
+                if (live.sourceEpoch === sourceEpoch && current?.key === identity.key
+                    && current.sourcePath === result.relativePath) {
+                    live.adoptSource(result.relativePath, { width: result.width, height: result.height }, result.transform);
+                    this.sendFrameAspectLive(identity.key, live);
+                }
+            }
+            const current = this.generationIdentity(this.model.snapshot);
+            if (current) void this.loadGeneration(current);
+        } catch (error) {
+            live.cancelExpectedSource();
+            if (live.revision === revision) {
+                state.error = error instanceof Error ? error.message : String(error);
+                this.render();
+            }
+        } finally {
+            if (!committed) clearLive();
+            releaseWrite();
+            if (this.frameAspectWrites.get(identity.key) === writeDone) this.frameAspectWrites.delete(identity.key);
+        }
+    }
+
+    protected sendFrameAspectLive(key: string, live: FrameAspectLive): void {
+        const current = this.generationIdentity(this.model.snapshot);
+        if (current?.key !== key || current.sourcePath !== live.sourcePath) return;
+        const target = this.frameAspectTargets.get(key);
+        const values = live.live();
+        if (!target || !values) return;
+        this.model.requestLivePreview?.({ target, values: { scaleX: values.scaleX, scaleY: values.scaleY } });
+    }
+
+    protected async ensureFrameSourceSize(key: string, sourcePath: string): Promise<void> {
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!root) return;
+        const size = await this.readFrameSourceSize(root, sourcePath);
+        const live = this.frameAspectLive.get(key);
+        if (size && live?.resolveSource(sourcePath, size)) this.sendFrameAspectLive(key, live);
+    }
+
+    protected async readFrameSourceSize(root: URI, sourcePath: string): Promise<FrameSize | undefined> {
+        try {
+            const meta = JSON.parse((await this.fileService.readFile(root.resolve(`${sourcePath}.meta.json`))).value.toString());
+            const size = frameSizeFromResolution(meta?.output?.resolution);
+            if (size) return size;
+        } catch { /* A missing sidecar falls through to the PNG header. */ }
+        try {
+            return frameSizeFromPng((await this.fileService.readFile(root.resolve(sourcePath))).value.buffer);
+        } catch { return undefined; }
     }
 
     protected async probeStillRoute(key: string): Promise<void> {
@@ -6294,41 +6665,85 @@ export class AkariInspectorWidget extends BaseWidget {
         }));
     }
 
-    protected async startStillGeneration(identity: { key: string; itemId: string; sourcePath: string }): Promise<void> {
+    protected async startStillGeneration(identity: { key: string; itemId: string; sourcePath: string },
+        onlyRoutes?: ImageRouteState['id'][], sameInput?: NonNullable<AiStillState['batchInput']>): Promise<void> {
         const state = this.aiStillStates.get(identity.key);
         const root = this.workspaceService.tryGetRoots()[0]?.resource;
-        const selectedRoute = state?.routeId ?? 'codex';
-        const routeState = state?.routes?.find(route => route.id === selectedRoute)?.state;
-        if (!state || !root || state.running || state.probingRoutes?.has(selectedRoute) ||
-            (routeState !== 'ready' && routeState !== 'unknown') || !state.prompt.trim()) return;
+        const routes = onlyRoutes ?? [...(state?.selectedRoutes ?? [])];
+        if (!state || !root) return;
+        const input = sameInput ?? { prompt: state.prompt, aspect: state.aspect,
+            references: state.references?.map(row => row.path) ?? [], cropToAspect: state.cropToAspect !== false,
+            quality: state.quality ?? 'high' };
+        if (state.running || routes.some(route => state.probingRoutes?.has(route))
+            || !routes.length || !input.prompt.trim()
+            || routes.some(route => stillRouteAvailability(route, input.references.length).disabled
+                || !['ready', 'unknown'].includes(state.routes?.find(row => row.id === route)?.state ?? ''))) return;
+        if (routes.includes('fal') && !state.falEstimate) return;
+        const estimate = routes.includes('fal') ? state.falEstimate!.prices[input.quality] : 0;
+        if (estimate > 0) {
+            const approved = await new ConfirmDialog({ title: '費用承認',
+                msg: `${routes.length} 案を同時に作ります。合計見積もり $${estimate.toFixed(3)}（as_of ${state.falEstimate!.asOf}・1024² 基準）。費用承認しますか`,
+                ok: '費用承認する', cancel: 'キャンセル' }).open();
+            if (!approved) return;
+        }
         state.running = true;
         state.startedAt = Date.now();
         state.error = undefined;
         state.mismatch = undefined;
-        this.render();
+        state.croppedNotice = undefined;
+        state.batchInput = input;
+        state.timelineProgressKey = undefined;
+        state.polling = false;
+        state.batch = { routes, completed: 0, candidates: state.batch?.candidates.filter(row => row.ok) ?? [],
+            results: [], running: true };
+        this.renderStillProgress();
         if (this.aiStillTick) window.clearInterval(this.aiStillTick);
         this.aiStillTick = window.setInterval(() => {
-            if (state.running && this.aiView === 'still') this.render();
-        }, 1000);
-        try {
-            const result = await this.layerAudioService.startGenerateStill({ projectRootUri: root.toString(),
-                itemId: identity.itemId, prompt: state.prompt, aspect: state.aspect, route: state.routeId ?? 'codex' });
             if (!state.running) return;
-            if (!result.ok || !result.relativePath) throw new Error(result.reason || '生成できませんでした。');
-            state.mismatch = stillDimensionMismatch(state.aspect, result);
-            if (this.generationIdentity(this.model.snapshot)?.sourcePath !== identity.sourcePath) {
-                throw new Error('選択した枠の素材が変わりました。');
+            const elapsed = Math.max(0, Math.floor((Date.now() - (state.startedAt ?? Date.now())) / 1000));
+            for (const row of Array.from(this.node.querySelectorAll<HTMLElement>('[data-akari-inspector-ai-progress-state="running"]'))) {
+                const route = row.getAttribute('data-akari-inspector-ai-progress-route') as ImageRouteState['id'] | null;
+                if (!route) continue;
+                if (row.getAttribute('data-akari-inspector-ai-progress-elapsed') === String(elapsed)) continue;
+                row.setAttribute('data-akari-inspector-ai-progress-elapsed', String(elapsed));
+                row.textContent = `◌ ${stillRouteLabel(route)} · ${elapsed} 秒`;
             }
-            // The timeline owns the edit history. Its one mutation changes the source table and selected item together.
-            const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
-                const location = (widget as unknown as { location?: { root?: URI } }).location;
-                return !widget.isDisposed && location?.root?.toString() === root.toString();
-            }) as unknown as {
-                commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown>;
-            } | undefined;
-            if (!timeline?.commitEditMutation) throw new Error('タイムラインの編集履歴が見つかりません。');
-            await timeline.commitEditMutation('静止画を作る', doc => replaceStillInEdit(doc, identity.itemId, result.relativePath!));
-            this.aiView = 'tiles';
+            if (state.polling) return;
+            state.polling = true;
+            void this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId,
+                includeThumbnails: false })
+                .then(async batch => { if (state.running) {
+                    const previous = state.batch;
+                    const summary = (value: typeof batch | undefined): string => JSON.stringify([
+                        value?.running, value?.routes, value?.completed,
+                        value?.candidates.map(row => [row.relativePath, row.route, row.ok]),
+                        value?.results?.map(row => [row.route, row.ok, row.relativePath, row.reason])
+                    ]);
+                    const changed = summary(previous) !== summary(batch);
+                    if (!changed) return;
+                    const newSuccess = batch.results?.some(row => row.ok && row.relativePath
+                        && !previous?.results?.some(old => old.relativePath === row.relativePath));
+                    state.batch = batch;
+                    this.renderStillProgress();
+                    this.refreshStillTimelineProgress?.(root, state, batch);
+                    if (newSuccess) {
+                        const full = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+                        if (!state.running) return;
+                        state.batch = full;
+                        this.renderStillProgress();
+                    }
+                } }).catch(error => console.warn('[akari-still] 候補の進捗を読めませんでした', error))
+                .finally(() => { state.polling = false; });
+        }, 100);
+        try {
+            await this.layerAudioService.startGenerateStillBatch({ projectRootUri: root.toString(),
+                itemId: identity.itemId, prompt: input.prompt, aspect: input.aspect, routes,
+                references: input.references, cropToAspect: input.cropToAspect,
+                quality: input.quality, approved: estimate > 0 });
+            if (!state.running) return;
+            const saved = await this.layerAudioService.readStillCandidates({ projectRootUri: root.toString(), itemId: identity.itemId });
+            state.batch = { ...saved, routes, completed: routes.length, running: false };
+            this.refreshStillTimelineProgress?.(root, state, state.batch);
             this.generationTabMeta.delete(identity.key);
             this.generationStates.delete(identity.key);
             const current = this.generationIdentity(this.model.snapshot);
@@ -6339,8 +6754,68 @@ export class AkariInspectorWidget extends BaseWidget {
             state.running = false;
             if (this.aiStillTick) window.clearInterval(this.aiStillTick);
             this.aiStillTick = undefined;
-            this.render();
+            this.renderStillProgress();
         }
+    }
+
+    protected renderStillProgress(): void {
+        if (this.aiView !== 'still') return;
+        this.rememberedView = { ...this.rememberedView, scrollTop: this.node.scrollTop };
+        this.render();
+    }
+
+    protected refreshStillTimelineProgress(root: URI, state: AiStillState,
+        batch: import('../common/akari-annotations-protocol').StillCandidateBatch): void {
+        const key = `${batch.running}:${batch.routes.join(',')}:${batch.completed}:${batch.candidates.filter(row => row.ok).length}`;
+        if (state.timelineProgressKey === key) return;
+        state.timelineProgressKey = key;
+        const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+            const location = (widget as unknown as { location?: { root?: URI } }).location;
+            return !widget.isDisposed && location?.root?.toString() === root.toString();
+        }) as unknown as { reloadGenerationSidecars?: () => Promise<void> } | undefined;
+        void timeline?.reloadGenerationSidecars?.();
+    }
+
+    protected async selectStillCandidate(identity: { key: string; itemId: string }, candidate: StillCandidate): Promise<void> {
+        const state = this.aiStillStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        if (!state || !root || !candidate.relativePath) return;
+        state.pickedCandidate = state.pickedCandidate === candidate.relativePath ? undefined : candidate.relativePath;
+        this.previewedStillItemId = state.pickedCandidate ? identity.itemId : undefined;
+        const file = state.pickedCandidate ? candidate.thumbnail : undefined;
+        try {
+            const edit = JSON.parse((await this.fileService.readFile(root.resolve('edit.json'))).value.toString());
+            const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === identity.itemId);
+            if (!item?.source?.src) return;
+            window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
+                editUri: root.resolve('edit.json').toString(), sourceId: item.source.src,
+                itemId: identity.itemId, imageUrl: file ?? null
+            } }));
+        } catch (error) { state.error = String(error); }
+        this.render();
+    }
+
+    protected async adoptStillCandidate(identity: { key: string; itemId: string }): Promise<void> {
+        const state = this.aiStillStates.get(identity.key);
+        const root = this.workspaceService.tryGetRoots()[0]?.resource;
+        const selected = state?.pickedCandidate;
+        if (!state || !root || !selected || state.running) return;
+        const timeline = this.stillWidgetManager.getWidgets('akari-annotations-widget').find(widget => {
+            const location = (widget as unknown as { location?: { root?: URI } }).location;
+            return !widget.isDisposed && location?.root?.toString() === root.toString();
+        }) as unknown as { commitEditMutation?: (label: string, mutate: (doc: any) => any) => Promise<unknown> } | undefined;
+        if (!timeline?.commitEditMutation) { state.error = 'タイムラインの編集履歴が見つかりません。'; this.render(); return; }
+        await timeline.commitEditMutation('この案を使う', doc => replaceStillInEdit(doc, identity.itemId, selected));
+        state.pickedCandidate = undefined;
+        this.previewedStillItemId = undefined;
+        window.dispatchEvent(new CustomEvent('akari.preview.stillCandidate', { detail: {
+            editUri: root.resolve('edit.json').toString(), sourceId: null, itemId: identity.itemId, imageUrl: null
+        } }));
+        this.generationTabMeta.delete(identity.key);
+        this.generationStates.delete(identity.key);
+        const current = this.generationIdentity(this.model.snapshot);
+        if (current) void this.loadGeneration(current);
+        this.render();
     }
 
     protected async cancelStillGeneration(identity: { key: string; itemId: string }): Promise<void> {
@@ -6399,6 +6874,11 @@ export class AkariInspectorWidget extends BaseWidget {
             if (!identity.key.startsWith('material:') && selectedId === identity.itemId && selectedPath !== identity.sourcePath) return;
             const normalize = (path: string): string => path.trim().replace(/\\/gu, '/').replace(/^(?:\.\/)+/u, '');
             const sourceMeta = sidecars.entries.find(entry => normalize(entry.sourcePath) === normalize(identity.sourcePath))?.meta;
+            if (sourceMeta?.status === 'planned') {
+                const planned = this.frameAspectPlanned?.get(identity.key) ?? new Set<string>();
+                planned.add(identity.sourcePath);
+                this.frameAspectPlanned?.set(identity.key, planned);
+            } else if (sourceMeta?.status) this.frameAspectPlanned?.get(identity.key)?.delete(identity.sourcePath);
             this.generationTabMeta.set(identity.key, sourceMeta ?? {});
             let draft = generationFields.fromMeta(sourceMeta);
             if (/\.(?:mp4|mov|webm|m4v)$/iu.test(identity.sourcePath)) {

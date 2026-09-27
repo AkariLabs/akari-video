@@ -8,6 +8,7 @@ export const SETTINGS_SECTIONS = [
     { id: 'export', label: '書き出し', group: 'main', icon: 'download' },
     { id: 'appearance', label: '外観', group: 'main', icon: 'contrast', badge: '言語・大きさ' },
     { id: 'connections', label: '接続と API キー', group: 'main', icon: 'key' },
+    { id: 'ai-models', label: 'AI モデル', group: 'main', icon: 'spark' },
     { id: 'partner', label: 'パートナー', group: 'main', icon: 'bot', badge: '新' },
     { id: 'transcribe', label: '文字起こし', group: 'main', icon: 'mic' },
     { id: 'narration', label: '読み上げ', group: 'main', icon: 'mic' },
@@ -37,6 +38,7 @@ export const SETTINGS_SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = 
     help: 'うまく動かないときの道具。不具合を報告するときは診断情報を添えると早く直せます。',
     about: 'バージョンとアップデート。',
     connections: '外部サービスの接続と API キーを管理します。生成の既定モデル（静止画・動画）もここで選びます。',
+    'ai-models': 'モデルを探して、お気に入りといつものモデルを選び、できることを比べます。',
     transcribe: '文字起こしのモードとエンジンを選びます。',
     narration: '読み上げ（音声を作る）のエンジンの導入・起動と、既定のエンジン・声を設定します。',
     quality: 'プレビューの描き方を選びます。',
@@ -105,6 +107,7 @@ export const SECTION_PREFERENCE_KEYS: Record<SettingsSectionId, readonly string[
         'akari.export.openFolderAfter', 'akari.export.notifyAfter', AKARI_EXPORT_FILENAME_PATTERN],
     appearance: [WORKBENCH_COLOR_THEME, AKARI_APPEARANCE_THEME_MODE, AKARI_APPEARANCE_ZOOM, ...Object.values(STATUS_BAR_KEYS)],
     connections: [], // API キーは PreferenceService ではなく接続サービスが所有する。
+    'ai-models': [],
     partner: [AKARI_PARTNER_REOPEN],
     transcribe: [AKARI_TRANSCRIBE_MODE, AKARI_TRANSCRIBE_BACKEND, AKARI_TRANSCRIBE_COMPARE_SET, AKARI_TRANSCRIBE_AUTO_CUTS],
     narration: [AKARI_NARRATION_ENGINE, AKARI_NARRATION_VOICE, AKARI_NARRATION_IRODORI_URL],

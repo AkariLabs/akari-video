@@ -56,9 +56,9 @@ test('節指定はオブジェクトと文字列を受け付け、未知の値�
 
 test('節の順序・グループと DOM ID はナビの契約に一致する', () => {
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.id),
-        ['account', 'start', 'export', 'appearance', 'connections', 'partner', 'transcribe', 'narration', 'quality', 'notifications', 'tools', 'shortcuts', 'storage', 'privacy', 'statistics', 'help', 'about', 'developer']);
+        ['account', 'start', 'export', 'appearance', 'connections', 'ai-models', 'partner', 'transcribe', 'narration', 'quality', 'notifications', 'tools', 'shortcuts', 'storage', 'privacy', 'statistics', 'help', 'about', 'developer']);
     assert.deepEqual(SETTINGS_SECTIONS.map(section => section.label),
-        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ショートカット', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
+        ['Akari アカウント', 'はじめかた', '書き出し', '外観', '接続と API キー', 'AI モデル', 'パートナー', '文字起こし', '読み上げ', 'プレビュー品質', '通知', '道具', 'ショートカット', 'ストレージ', 'プライバシーとアクセス許可', '統計と利用状況', '困ったとき', 'このアプリについて', '開発者モード']);
     for (const { id, group } of SETTINGS_SECTIONS) {
         assert.equal(group, id === 'developer' ? 'developer' : ['storage', 'privacy', 'statistics'].includes(id) ? 'data' : ['help', 'about'].includes(id) ? 'support' : 'main');
         assert.equal(settingsSectionElementId(id), `akari-settings-${id}`);
@@ -195,6 +195,16 @@ test('ページの保存と復元は保存不可でも動き、コマンドか�
     assert.match(dialog, /const section = resolveSettingsSectionId\(arg\)/);
     assert.match(dialog, /this\.dialog\?\.showSection\(section\)/);
     assert.match(dialog, /new AkariSettingsDialog\([^;]*this\.requestedSection\)/);
+});
+
+test('AI モデルの節だけダイアログを広げ、比較表はレーダーの下に置く', () => {
+    const dialog = source('../browser/akari-settings-dialog.ts');
+    const section = dialog.slice(dialog.indexOf('showSection(section: SettingsSectionId): void {'));
+    assert.match(section, /block\.style\.width = `min\(\$\{section === 'ai-models' \? 1440 : 1040\}px, calc\(100vw - 48px\)\)`/);
+    assert.match(section, /block\.style\.maxWidth = section === 'ai-models' \? '1440px' : '1040px'/);
+    const models = source('../browser/ai-models/ai-models-view.ts');
+    assert.match(models, /\.akari-ai-compare\{[^}]*display:flex;flex-direction:column/);
+    assert.doesNotMatch(models, /\.akari-ai-compare\{[^}]*grid-template-columns/);
 });
 
 test('形式・fps・OS ごとのエンコーダは有効値を保持し、不正値を既定に戻す', () => {

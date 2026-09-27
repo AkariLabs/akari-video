@@ -1,0 +1,649 @@
+{
+  "phase": "r1",
+  "status": "pass",
+  "step": "(iv) codex 9:16 → square → cropped",
+  "checks": [
+    {
+      "name": "カメラボタンの撮影が今どおり: assets/captures/ に PNG が 1 枚増え「コマを保存しました」の通知・ボタンは押せる状態へ戻り撮影の見た目も解除",
+      "pass": true,
+      "measured": {
+        "before": {
+          "disabled": false,
+          "label": "今のコマを保存",
+          "w": 28,
+          "h": 28
+        },
+        "file": "assets/captures/frame-00m06s000.png",
+        "size": {
+          "width": 662,
+          "height": 370
+        },
+        "notifications": [
+          "コマを保存しました: assets/captures/frame-00m06s000.png",
+          "コマを保存しました: assets/captures/frame-00m06s000.png",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+          "コマを保存しました: assets/captures/frame-00m06s000.png",
+          "コマを保存しました: assets/captures/frame-00m06s000.png",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました"
+        ],
+        "after": {
+          "disabled": false,
+          "capturing": false
+        },
+        "capturesAfter": [
+          "frame-00m06s000.png"
+        ]
+      }
+    },
+    {
+      "name": "「今のコマ」でプレビューのコマが assets/captures/ に保存され 2 枚目の参照として付く（サムネイル + 名前 + ×）",
+      "pass": true,
+      "measured": {
+        "path": "assets/captures/frame-00m00s500.png",
+        "size": {
+          "width": 662,
+          "height": 370
+        },
+        "seconds": 0.246,
+        "before": [
+          "frame-00m06s000.png"
+        ],
+        "after": [
+          "frame-00m00s500.png",
+          "frame-00m06s000.png"
+        ],
+        "sha256": "a364f757e38543aea0ccab70de95df362bf2e6915ea6a3cd778f22b0e09549c5",
+        "notifications": [
+          "コマを保存しました: assets/captures/frame-00m00s500.png",
+          "コマを保存しました: assets/captures/frame-00m00s500.png",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+          "コマを保存しました: assets/captures/frame-00m00s500.png",
+          "コマを保存しました: assets/captures/frame-00m00s500.png",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+          "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました"
+        ]
+      }
+    },
+    {
+      "name": "今のコマの PNG は出力と同じ 16:9（1920×1080 またはそれ以下で同じ比率）",
+      "pass": true,
+      "measured": {
+        "width": 662,
+        "height": 370
+      }
+    },
+    {
+      "name": "切りそろえのチェックが既定でオン",
+      "pass": true,
+      "measured": true
+    },
+    {
+      "name": "参照 2 枚で選ばれている手段は Codex",
+      "pass": true,
+      "measured": [
+        {
+          "id": "codex",
+          "grey": "false",
+          "radioDisabled": false,
+          "checked": true,
+          "state": "ready",
+          "reason": null,
+          "note": null
+        },
+        {
+          "id": "antigravity",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "この手段は画像を受け取れません",
+          "note": null
+        },
+        {
+          "id": "grok",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "Grok は 1 枚まで",
+          "note": "参照は縮めて送られます"
+        }
+      ]
+    },
+    {
+      "name": "スタブの Codex が受けた turn/start の input = 指示文 + 参照 2 枚の localImage（今のコマを含む）",
+      "pass": true,
+      "measured": [
+        {
+          "type": "text",
+          "text": "夕焼けの海辺に立つ猫\n\n縦長 9:16 の画像。\n参照画像の人物・物・色を保ってください。\n\n画像をちょうど 1 枚生成し、絶対パス <TMP>/project/assets/generated/.still-6iIqGi/image.png に保存してください。他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。"
+        },
+        {
+          "type": "localImage",
+          "path": "<TMP>/project/assets/ref-a.png"
+        },
+        {
+          "type": "localImage",
+          "path": "<TMP>/project/assets/captures/frame-00m00s500.png"
+        }
+      ]
+    },
+    {
+      "name": "スタブは正方形 1254×1254 を返し、枠に入った画像は 705×1254（9:16）",
+      "pass": true,
+      "measured": {
+        "wrote": {
+          "output": "<TMP>/project/assets/generated/.still-6iIqGi/image.png",
+          "width": 1254,
+          "height": 1254
+        },
+        "placed": {
+          "width": 705,
+          "height": 1254
+        }
+      }
+    },
+    {
+      "name": "meta の output.cropped_from = \"1254x1254\"（スキーマの欄）で、正典の検証器を通る",
+      "pass": true,
+      "measured": {
+        "output": {
+          "duration_s": 2.5,
+          "resolution": "705x1254",
+          "aspect": null,
+          "audio_out": null,
+          "cropped_from": "1254x1254"
+        },
+        "validatorExit": 0
+      }
+    },
+    {
+      "name": "meta の参照要素に今のコマ（path・sha256）が残る",
+      "pass": true,
+      "measured": [
+        {
+          "path": "assets/ref-a.png",
+          "sha256": "fcd421f7bbe6af48f3b87469bdb48a1a286b0ce6b697bc2372f8d8a0a1246cc0"
+        },
+        {
+          "path": "assets/captures/frame-00m00s500.png",
+          "sha256": "a364f757e38543aea0ccab70de95df362bf2e6915ea6a3cd778f22b0e09549c5"
+        }
+      ]
+    },
+    {
+      "name": "パネルの完了表示に「9:16 を頼んで正方形 → 切りそろえました」（空白は無視）",
+      "pass": true,
+      "measured": "9:16 を頼んで 正方形 → 切りそろえました"
+    },
+    {
+      "name": "プレビューの枠に 9:16 で入る（縦横比 ±3%）",
+      "pass": true,
+      "measured": {
+        "aspect": 0.5622012177095508,
+        "w": 0.32625328555305494,
+        "h": 1.0316694854312043,
+        "cx": 0.49999997399023866,
+        "cy": 0.4999999537604243,
+        "src": "http://127.0.0.1:50792/asset/495bfac295927e4c52eaa2293f79db598b33285c5a6d871f2775d5531d90fd52.png"
+      }
+    }
+  ],
+  "observations": {
+    "electronPid": 82249,
+    "console": [
+      "2026-09-26T19:11:11.721Z root WARN [akari-preview] speech sidecar clip-photo-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.995f9c8cb2643e601e65147c7dde98fe6bde3a5c.flac.82444.1790449870338.tmp.flac",
+      "2026-09-26T19:11:11.721Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.9652c740b9043110cebccd1b5bf294475d27615b.flac.82444.1790449870333.tmp.flac",
+      "2026-09-26T19:11:16.612Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.9652c740b9043110cebccd1b5bf294475d27615b.flac.82444.1790449870333.tmp.flac",
+      "2026-09-26T19:11:16.632Z root WARN [akari-preview] speech sidecar clip-photo-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.995f9c8cb2643e601e65147c7dde98fe6bde3a5c.flac.82444.1790449870338.tmp.flac",
+      "2026-09-26T19:11:29.911Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.9652c740b9043110cebccd1b5bf294475d27615b.flac.82444.1790449870333.tmp.flac",
+      "2026-09-26T19:11:29.957Z root WARN [akari-preview] speech sidecar clip-photo-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.995f9c8cb2643e601e65147c7dde98fe6bde3a5c.flac.82444.1790449870338.tmp.flac",
+      "2026-09-26T19:11:32.224Z root WARN [akari-preview] speech sidecar clip-video-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.9652c740b9043110cebccd1b5bf294475d27615b.flac.82444.1790449870333.tmp.flac",
+      "2026-09-26T19:11:32.293Z root WARN [akari-preview] speech sidecar clip-photo-speech: no audio stream: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <TMP>/project/.akari/cache/preview-audio/.995f9c8cb2643e601e65147c7dde98fe6bde3a5c.flac.82444.1790449870338.tmp.flac"
+    ],
+    "frame": "frame-1",
+    "previewReconnects": 2,
+    "chromeAtButton": [
+      {
+        "tag": "CANVAS",
+        "id": "pen-layer",
+        "cls": "",
+        "bg": "rgba(0, 0, 0, 0)",
+        "border": "0px none rgb(238, 238, 238)",
+        "outline": "0px none rgb(238, 238, 238)",
+        "rect": [
+          36,
+          57,
+          332,
+          187
+        ]
+      },
+      {
+        "tag": "BUTTON",
+        "id": "akari-gen-capture-frame",
+        "cls": "icon-button",
+        "bg": "rgba(0, 0, 0, 0)",
+        "border": "0px none rgb(255, 255, 255)",
+        "outline": "0px none rgb(255, 255, 255)",
+        "rect": [
+          210,
+          327,
+          28,
+          28
+        ]
+      }
+    ],
+    "cameraButton": {
+      "before": {
+        "disabled": false,
+        "label": "今のコマを保存",
+        "w": 28,
+        "h": 28
+      },
+      "file": "assets/captures/frame-00m06s000.png",
+      "size": {
+        "width": 662,
+        "height": 370
+      },
+      "notifications": [
+        "コマを保存しました: assets/captures/frame-00m06s000.png",
+        "コマを保存しました: assets/captures/frame-00m06s000.png",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+        "コマを保存しました: assets/captures/frame-00m06s000.png",
+        "コマを保存しました: assets/captures/frame-00m06s000.png",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました"
+      ],
+      "after": {
+        "disabled": false,
+        "capturing": false
+      },
+      "capturesAfter": [
+        "frame-00m06s000.png"
+      ]
+    },
+    "playheadAtCapture": "6",
+    "referencesBeforeCapture": [
+      "assets/ref-a.png"
+    ],
+    "chromeAtCurrentFrame": [
+      {
+        "tag": "CANVAS",
+        "id": "pen-layer",
+        "cls": "",
+        "bg": "rgba(0, 0, 0, 0)",
+        "border": "0px none rgb(238, 238, 238)",
+        "outline": "0px none rgb(238, 238, 238)",
+        "rect": [
+          36,
+          57,
+          332,
+          187
+        ]
+      },
+      {
+        "tag": "BUTTON",
+        "id": "akari-gen-capture-frame",
+        "cls": "icon-button",
+        "bg": "rgba(0, 0, 0, 0)",
+        "border": "0px none rgb(255, 255, 255)",
+        "outline": "0px none rgb(255, 255, 255)",
+        "rect": [
+          210,
+          327,
+          28,
+          28
+        ]
+      },
+      {
+        "tag": "DIV",
+        "id": "layer-select-box",
+        "cls": "is-active",
+        "bg": "rgba(0, 0, 0, 0)",
+        "border": "1px solid rgb(77, 163, 255)",
+        "outline": "0px none rgb(238, 238, 238)",
+        "rect": [
+          119,
+          104,
+          166,
+          93
+        ]
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "cls": "akari-layer-handle akari-layer-handle-nw",
+        "bg": "rgb(255, 255, 255)",
+        "border": "1px solid rgb(77, 163, 255)",
+        "outline": "0px none rgb(238, 238, 238)",
+        "rect": [
+          115,
+          99,
+          11,
+          11
+        ]
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "cls": "akari-layer-handle akari-layer-handle-ne",
+        "bg": "rgb(255, 255, 255)",
+        "border": "1px solid rgb(77, 163, 255)",
+        "outline": "0px none rgb(238, 238, 238)",
+        "rect": [
+          279,
+          99,
+          11,
+          11
+        ]
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "cls": "akari-layer-handle akari-layer-handle-sw",
+        "bg": "rgb(255, 255, 255)",
+        "border": "1px solid rgb(77, 163, 255)",
+        "outline": "0px none rgb(238, 238, 238)",
+        "rect": [
+          115,
+          191,
+          11,
+          11
+        ]
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "cls": "akari-layer-handle akari-layer-handle-se",
+        "bg": "rgb(255, 255, 255)",
+        "border": "1px solid rgb(77, 163, 255)",
+        "outline": "0px none rgb(238, 238, 238)",
+        "rect": [
+          279,
+          191,
+          11,
+          11
+        ]
+      },
+      {
+        "tag": "BUTTON",
+        "id": "",
+        "cls": "akari-layer-handle akari-layer-handle-rotate",
+        "bg": "rgb(30, 30, 30)",
+        "border": "1px solid rgb(77, 163, 255)",
+        "outline": "0px none rgb(212, 212, 212)",
+        "rect": [
+          177,
+          210,
+          25,
+          25
+        ]
+      },
+      {
+        "tag": "BUTTON",
+        "id": "",
+        "cls": "akari-layer-handle akari-layer-handle-move",
+        "bg": "rgb(30, 30, 30)",
+        "border": "1px solid rgb(77, 163, 255)",
+        "outline": "0px none rgb(212, 212, 212)",
+        "rect": [
+          205,
+          210,
+          25,
+          25
+        ]
+      }
+    ],
+    "afterCapture": {
+      "stillPanel": true,
+      "createDisabled": true,
+      "references": [
+        {
+          "path": "assets/ref-a.png",
+          "text": "ref-a.png×",
+          "thumb": true,
+          "remove": true
+        },
+        {
+          "path": "assets/captures/frame-00m00s500.png",
+          "text": "frame-00m00s500.png×",
+          "thumb": true,
+          "remove": true
+        }
+      ],
+      "pickDisabled": false,
+      "captureDisabled": false,
+      "options": [],
+      "aspects": [
+        {
+          "aspect": "16:9",
+          "pressed": "true",
+          "w": 30,
+          "h": 17,
+          "row": 493
+        },
+        {
+          "aspect": "9:16",
+          "pressed": "false",
+          "w": 17,
+          "h": 29,
+          "row": 493
+        },
+        {
+          "aspect": "1:1",
+          "pressed": "false",
+          "w": 30,
+          "h": 29,
+          "row": 493
+        },
+        {
+          "aspect": "4:3",
+          "pressed": "false",
+          "w": 30,
+          "h": 23,
+          "row": 493
+        },
+        {
+          "aspect": "3:4",
+          "pressed": "false",
+          "w": 23,
+          "h": 29,
+          "row": 559
+        },
+        {
+          "aspect": "4:5",
+          "pressed": "false",
+          "w": 24,
+          "h": 29,
+          "row": 559
+        },
+        {
+          "aspect": "3:2",
+          "pressed": "false",
+          "w": 30,
+          "h": 20,
+          "row": 559
+        },
+        {
+          "aspect": "21:9",
+          "pressed": "false",
+          "w": 30,
+          "h": 13,
+          "row": 559
+        }
+      ],
+      "routes": [
+        {
+          "id": "codex",
+          "grey": "false",
+          "radioDisabled": false,
+          "checked": true,
+          "state": "ready",
+          "reason": null,
+          "note": null
+        },
+        {
+          "id": "antigravity",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "この手段は画像を受け取れません",
+          "note": null
+        },
+        {
+          "id": "grok",
+          "grey": "true",
+          "radioDisabled": true,
+          "checked": false,
+          "state": "ready",
+          "reason": "Grok は 1 枚まで",
+          "note": "参照は縮めて送られます"
+        }
+      ],
+      "crop": true,
+      "cropped": null,
+      "mismatch": null,
+      "error": null,
+      "notice": null
+    },
+    "capture": {
+      "path": "assets/captures/frame-00m00s500.png",
+      "size": {
+        "width": 662,
+        "height": 370
+      },
+      "seconds": 0.246,
+      "before": [
+        "frame-00m06s000.png"
+      ],
+      "after": [
+        "frame-00m00s500.png",
+        "frame-00m06s000.png"
+      ],
+      "sha256": "a364f757e38543aea0ccab70de95df362bf2e6915ea6a3cd778f22b0e09549c5",
+      "notifications": [
+        "コマを保存しました: assets/captures/frame-00m00s500.png",
+        "コマを保存しました: assets/captures/frame-00m00s500.png",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+        "コマを保存しました: assets/captures/frame-00m00s500.png",
+        "コマを保存しました: assets/captures/frame-00m00s500.png",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました",
+        "表示サイズが出力より小さいため、拡大せず 662×370 px で保存しました"
+      ]
+    },
+    "afterCodex": {
+      "stillPanel": false,
+      "createDisabled": null,
+      "references": [],
+      "pickDisabled": null,
+      "captureDisabled": null,
+      "options": [],
+      "aspects": [],
+      "routes": [],
+      "crop": null,
+      "cropped": null,
+      "mismatch": null,
+      "error": null,
+      "notice": "9:16 を頼んで 正方形 → 切りそろえました"
+    },
+    "codex": {
+      "source": "assets/generated/still-1790449891573-6iIqGi.png",
+      "png": {
+        "width": 705,
+        "height": 1254
+      },
+      "meta": {
+        "status": "done",
+        "output": {
+          "duration_s": 2.5,
+          "resolution": "705x1254",
+          "aspect": null,
+          "audio_out": null,
+          "cropped_from": "1254x1254"
+        },
+        "result": {
+          "path": "assets/generated/still-1790449891573-6iIqGi.png",
+          "sha256": "aa624fc77d0b6218038a19d78106d22e90f11ead6fe7fb3a536fcaf7c74e84e9",
+          "bytes": 14788,
+          "duration_s_actual": 2.5,
+          "width": 705,
+          "height": 1254,
+          "elapsed_s": 0.072
+        },
+        "reference_images": [
+          {
+            "path": "assets/ref-a.png",
+            "sha256": "fcd421f7bbe6af48f3b87469bdb48a1a286b0ce6b697bc2372f8d8a0a1246cc0"
+          },
+          {
+            "path": "assets/captures/frame-00m00s500.png",
+            "sha256": "a364f757e38543aea0ccab70de95df362bf2e6915ea6a3cd778f22b0e09549c5"
+          }
+        ],
+        "history": [
+          {
+            "at": "2026-09-26T19:11:31.884Z",
+            "status": "done",
+            "reason": "切りそろえ: cropped_from=1254x1254 → 705x1254（9:16）"
+          }
+        ]
+      },
+      "validatorExit": 0,
+      "validatorOut": "OK: <TMP>/project/assets/generated/still-1790449891573-6iIqGi.png.meta.json",
+      "stubReceived": [
+        {
+          "route": "codex",
+          "turnStartInput": [
+            {
+              "type": "text",
+              "text": "夕焼けの海辺に立つ猫\n\n縦長 9:16 の画像。\n参照画像の人物・物・色を保ってください。\n\n画像をちょうど 1 枚生成し、絶対パス <TMP>/project/assets/generated/.still-6iIqGi/image.png に保存してください。他のファイルを作成・変更せず、git を実行しないでください。返答は保存先だけにしてください。",
+              "text_elements": []
+            },
+            {
+              "type": "localImage",
+              "path": "<TMP>/project/assets/ref-a.png"
+            },
+            {
+              "type": "localImage",
+              "path": "<TMP>/project/assets/captures/frame-00m00s500.png"
+            }
+          ],
+          "wrote": {
+            "output": "<TMP>/project/assets/generated/.still-6iIqGi/image.png",
+            "width": 1254,
+            "height": 1254
+          }
+        }
+      ],
+      "previewShape": {
+        "aspect": 0.5622012177095508,
+        "w": 0.32625328555305494,
+        "h": 1.0316694854312043,
+        "cx": 0.49999997399023866,
+        "cy": 0.4999999537604243,
+        "src": "http://127.0.0.1:50792/asset/495bfac295927e4c52eaa2293f79db598b33285c5a6d871f2775d5531d90fd52.png"
+      }
+    }
+  },
+  "screenshots": [
+    {
+      "name": "r1-08-camera-button-capture.png",
+      "bytes": 246407
+    },
+    {
+      "name": "r1-04-reference-current-frame.png",
+      "bytes": 844277
+    },
+    {
+      "name": "r1-05-codex-9x16-cropped.png",
+      "bytes": 859185
+    }
+  ],
+  "notes": []
+}

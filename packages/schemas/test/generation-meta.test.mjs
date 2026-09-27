@@ -60,6 +60,16 @@ test("inputs.extra はモデル固有引数を保存できる", () => {
   assert.match(result.stdout, /^OK: /);
 });
 
+test("output.cropped_from は元寸法だけを受理する", () => {
+  const still = JSON.parse(fs.readFileSync(join(fixtureRoot, "still.json"), "utf8"));
+  still.output.cropped_from = "1254x1254";
+  assert.equal(validateTemporary(still).status, 0);
+  still.output.cropped_from = "abc";
+  const invalid = validateTemporary(still);
+  assert.equal(invalid.status, 1);
+  assert.match(invalid.stderr, /cropped_from/u);
+});
+
 test("audio planned kind is accepted and unknown kind is rejected", () => {
   const planned = JSON.parse(fs.readFileSync(join(fixtureRoot, "planned.json"), "utf8"));
   planned.kind = "audio";

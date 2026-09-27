@@ -3,7 +3,7 @@ import test from 'node:test';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { installPreviewFrameCapture } from '../lib/common/preview-frame-controller.js';
+import { installPreviewFrameCapture, PreviewFrameCapturePending } from '../lib/common/preview-frame-controller.js';
 
 function renderer({ clipped = false, broken = false, ready, moving = 0, nodes = [], plate = null, play = null } = {}) {
     const sent = [], raf = [], timers = new Map(), classes = new Set();
@@ -45,6 +45,7 @@ test('capture waits two frames after class changes, uses post-fit geometry, and 
     r.click(); r.click();
     assert.equal(r.sent.length, 1);
     assert.equal(r.sent[0].type, 'akari-preview-capture-frame');
+    assert.equal('startToken' in r.sent[0], false);
     await r.message({ type: 'akari-preview-capture-prepare', requestId: 'stale', pageId: 'page-1' });
     assert.equal(r.raf.length, 0);
     const prepared = r.message(r.command('akari-preview-capture-prepare'));
@@ -69,6 +70,71 @@ test('capture waits two frames after class changes, uses post-fit geometry, and 
     assert.equal(r.button.disabled, false);
     assert.equal(r.timers.size, 0);
     assert.deepEqual(r.counts(), { resumeCalls: 1, freezeCalls: 1 });
+});
+
+test('external start freezes the same frame, prepares, saves, and restores with its token', async () => {
+    const r = renderer();
+    const widget = {};
+    const pending = new PreviewFrameCapturePending();
+    const saved = pending.begin('token-1', widget, 'page-1');
+    await r.message({ type: 'akari-preview-capture-start', pageId: 'page-1', token: 'token-1' });
+    assert.equal(r.counts().freezeCalls, 1);
+    assert.equal(r.button.disabled, true);
+    assert.equal(r.sent[0].type, 'akari-preview-capture-frame');
+    assert.equal(r.sent[0].startToken, 'token-1');
+    assert.equal(pending.take(r.sent[0].startToken, widget, r.sent[0].pageId), true);
+    const preparation = r.message({ type: 'akari-preview-capture-prepare', requestId: r.sent[0].requestId, pageId: 'page-1' });
+    await Promise.resolve();
+    assert(r.classes.has('akari-gen-capturing'));
+    r.raf.shift()(); await Promise.resolve();
+    r.raf.shift()(); await preparation;
+    assert.equal(r.sent[1].type, 'akari-preview-capture-ready');
+    assert.equal(r.sent[1].time, 12.345);
+    const savePreviewFrame = async () => ({ path: 'assets/captures/frame-00m12s345.png' });
+    const result = await savePreviewFrame(r.sent[1]);
+    pending.resolve('token-1', widget, 'page-1', result.path);
+    assert.equal(await saved, result.path);
+    await r.message({ type: 'akari-preview-capture-restore', requestId: r.sent[0].requestId, pageId: 'page-1', success: true });
+    assert.equal(r.sent[2].type, 'akari-preview-capture-restored');
+    assert.deepEqual(r.counts(), { resumeCalls: 1, freezeCalls: 1 });
+    assert.equal(r.button.disabled, false);
+    assert(r.buttonClasses.has('akari-gen-capture-flash'));
+});
+
+test('external start reports busy without a second freeze, and ignores another page', async () => {
+    const r = renderer();
+    await r.message({ type: 'akari-preview-capture-start', pageId: 'other-page', token: 'wrong' });
+    assert.equal(r.sent.length, 0);
+    r.click();
+    await r.message({ type: 'akari-preview-capture-start', pageId: 'page-1', token: 'second' });
+    assert.deepEqual(r.counts(), { resumeCalls: 0, freezeCalls: 1 });
+    assert.equal(r.sent.filter(message => message.type === 'akari-preview-capture-frame').length, 1);
+    assert.equal('startToken' in r.sent[0], false);
+    assert.deepEqual(JSON.parse(JSON.stringify(r.sent[1])),
+        { type: 'akari-preview-capture-busy', pageId: 'page-1', token: 'second' });
+    await r.message(r.command('akari-preview-capture-restore'));
+});
+
+test('pending capture accepts only its widget and page, rejects busy and timeout', async () => {
+    const pending = new PreviewFrameCapturePending();
+    const widget = {}, other = {};
+    const saved = pending.begin('save', widget, 'page-1');
+    assert.equal(pending.take('save', other, 'page-1'), false);
+    assert.equal(pending.take('save', widget, 'other-page'), false);
+    assert.equal(pending.take('save', widget, 'page-1'), true);
+    pending.resolve('save', widget, 'page-1', 'assets/captures/frame.png');
+    assert.equal(await saved, 'assets/captures/frame.png');
+    const busy = pending.begin('busy', widget, 'page-1');
+    pending.reject('busy', widget, 'page-1', new Error('前のコマを保存中です'));
+    await assert.rejects(busy, /前のコマを保存中です/u);
+    const originalTimeout = globalThis.setTimeout;
+    let fireTimeout;
+    globalThis.setTimeout = fn => { fireTimeout = fn; return 1; };
+    try {
+        const timed = pending.begin('timeout', widget, 'page-1');
+        fireTimeout();
+        await assert.rejects(timed, /タイムアウト/u);
+    } finally { globalThis.setTimeout = originalTimeout; }
 });
 
 test('ready resolves before capture CSS, then two browser frames pass before capture; failure never captures', async () => {
@@ -314,7 +380,7 @@ test('retry restores chrome, waits another frame, and keeps the first freeze tim
     assert.equal(r.buttonClasses.size, 0);
 });
 
-test('DOM expectations use post-fit rectangles, pre-hide chrome colors, and only visible caption lines', async () => {
+test('DOM expectations use post-fit rectangles, post-hide chrome visibility, and only visible caption lines', async () => {
     const style = { display: 'block', visibility: 'visible', opacity: '1', backgroundColor: 'rgba(0, 0, 0, 0)',
         borderTopWidth: '0px', borderTopStyle: 'none', borderTopColor: 'rgb(0, 0, 0)',
         outlineWidth: '0px', outlineStyle: 'none', outlineColor: 'rgb(0, 0, 0)', color: 'rgb(230, 150, 60)' };
@@ -329,9 +395,14 @@ test('DOM expectations use post-fit rectangles, pre-hide chrome colors, and only
     const badge = node({ get style() { return style; } });
     Object.defineProperty(badge, 'style', { get: () => ({ ...style, backgroundColor: 'rgb(90, 60, 120)',
         visibility: r?.classes.has('akari-gen-capturing') ? 'hidden' : 'visible' }) });
-    const selected = node({ matches: () => false, style: { ...style, outlineColor: 'rgb(245, 196, 81)',
+    const selected = node({ matches: () => false });
+    Object.defineProperty(selected, 'style', { get: () => ({ ...style, outlineColor: 'rgb(245, 196, 81)',
+        outlineWidth: r?.classes.has('akari-gen-capturing') ? '0px' : '2px', outlineOffset: '4px',
+        outlineStyle: r?.classes.has('akari-gen-capturing') ? 'none' : 'solid' }) });
+    const leakedOutline = node({ matches: () => false, style: { ...style, outlineColor: 'rgb(245, 196, 81)',
         outlineWidth: '2px', outlineOffset: '4px', outlineStyle: 'solid' } });
-    r = renderer({ clipped: true, nodes: [badge, selected, invisible], plate: { querySelectorAll: () => [line, invisible, inheritedHidden, outside] } });
+    r = renderer({ clipped: true, nodes: [badge, selected, leakedOutline, invisible],
+        plate: { querySelectorAll: () => [line, invisible, inheritedHidden, outside] } });
     r.click();
     const pending = r.message(r.command('akari-preview-capture-prepare'));
     await new Promise(setImmediate);
@@ -341,13 +412,37 @@ test('DOM expectations use post-fit rectangles, pre-hide chrome colors, and only
     assert.deepEqual(expectations.captions[0].color, [230, 150, 60]);
     assert.equal(expectations.captions[0].rect.x, 0.1);
     assert.equal(expectations.captions[0].rect.y, 0.2);
-    assert.equal(expectations.chrome.length, 2);
-    assert.deepEqual(expectations.chrome[0].colors, [[90, 60, 120]]);
-    assert.equal(expectations.chrome[0].kind, 'fill');
-    assert.equal(expectations.chrome[1].kind, 'edge');
-    assert.equal(expectations.chrome[1].rect.x, (52 - 6 - 20) / 320);
-    assert.equal(expectations.chrome[1].band.x, 2 / 320);
+    assert.equal(expectations.chrome.length, 1);
+    assert.equal(expectations.chrome[0].kind, 'edge');
+    assert.equal(expectations.chrome[0].rect.x, (52 - 6 - 20) / 320);
+    assert.equal(expectations.chrome[0].band.x, 2 / 320);
     await r.message(r.command('akari-preview-capture-restore'));
+});
+
+test('blue footage passes when capture CSS hides chrome, but visible chrome on it is rejected', async () => {
+    for (const hiddenByCapture of [true, false]) {
+        let r;
+        const chrome = { parentElement: null, offsetWidth: 64, offsetHeight: 36, matches: () => true,
+            getBoundingClientRect: () => ({ left: 52, top: 66, right: 116, bottom: 102, width: 64, height: 36 }),
+            get style() { return { display: 'block', visibility: hiddenByCapture && r?.classes.has('akari-gen-capturing') ? 'hidden' : 'visible',
+                opacity: '1', backgroundColor: 'rgb(77, 163, 255)', borderTopColor: 'rgb(0, 0, 0)',
+                borderTopWidth: '0px', borderTopStyle: 'none', outlineColor: 'rgb(0, 0, 0)',
+                outlineWidth: '0px', outlineStyle: 'none' }; } };
+        r = renderer({ nodes: [chrome] });
+        r.click();
+        const prepared = r.message(r.command('akari-preview-capture-prepare'));
+        await new Promise(setImmediate);
+        await frame(r); await frame(r); await prepared;
+        const expectations = r.sent[1].expectations;
+        assert.equal(expectations.chrome.length, hiddenByCapture ? 0 : 1);
+        // NativeImage bitmap bytes are BGRA on little-endian hosts.
+        const main = await mainCapture({ paint: () => [200, 80, 20, 255] });
+        const result = await main.capture({}, { rect: r.sent[1].rect,
+            output: { width: 1920, height: 1080 }, expectations });
+        assert.equal(result.inspection.ok, hiddenByCapture);
+        assert.deepEqual(Array.from(result.inspection.reasons), hiddenByCapture ? [] : ['chrome-leak']);
+        await r.message(r.command('akari-preview-capture-restore'));
+    }
 });
 
 test('failed main-process inspection returns no PNG and cannot encode a rejected frame', async () => {

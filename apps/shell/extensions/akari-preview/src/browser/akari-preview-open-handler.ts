@@ -13,7 +13,7 @@ import { composePreviewTransforms, previewTransformAxes } from '../common/previe
 import { canvasCaptionZPlan } from '../common/canvas-caption-z';
 import { canvasDropTargets } from '../common/canvas-drop-target';
 import { runPreviewFrameCaptureAttempts } from '../common/preview-frame-check';
-import { installPreviewFrameCapture } from '../common/preview-frame-controller';
+import { installPreviewFrameCapture, PreviewFrameCapturePending } from '../common/preview-frame-controller';
 import { PreviewFrameRequestMessage, PreviewFrameReadyMessage, PreviewFrameCommand } from '../common/preview-frame-capture';
 import { SwapTrialPlayback, SwapTrialIdentity, logSwapTrial } from '../common/swap-trial-playback';
 import { requestReadyPreviewSeek, createReadySeekResponder } from '../common/preview-ready-seek';
@@ -1160,6 +1160,7 @@ const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
 // label なし = コマンドパレット非表示（ATTACH_AKARI_ANNOTATIONS_PASSIVE と同じパターン）。
 const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisible' };
 const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
+const CAPTURE_OUTPUT_PREVIEW_FRAME_COMMAND: Command = { id: 'akari.preview.captureFrame' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
 const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
 const ANNOTATE_PREVIEW_AT_POINT_COMMAND: Command = { id: 'akari.preview.annotateAtPoint' };
@@ -1368,6 +1369,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly previewGestureGuards = new WeakMap<PreviewWidgetMarker, PreviewGestureGuard>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
+    protected readonly pendingFrameCaptures = new PreviewFrameCapturePending<PreviewWidgetMarker>();
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
@@ -1637,6 +1639,23 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerSeekHandler();
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
+        this.lifecycleDisposables.push(this.commandRegistry.registerCommand(CAPTURE_OUTPUT_PREVIEW_FRAME_COMMAND, {
+            execute: async (request?: { editUri: string }): Promise<{ path: string }> => {
+                if (!request?.editUri) throw new Error('出力プレビューを開いてください');
+                const widget = this.openOutputPreviews.get(new URI(request.editUri).normalizePath().toString());
+                const pageId = widget?.akariPreviewPlaybackPageId;
+                if (!widget || widget.isDisposed || !pageId) throw new Error('出力プレビューを開いてください');
+                const token = globalThis.crypto.randomUUID();
+                const pending = this.pendingFrameCaptures.begin(token, widget, pageId);
+                try {
+                    widget.sendMessage({ type: 'akari-preview-capture-start', pageId, token });
+                } catch (error) {
+                    this.pendingFrameCaptures.reject(token, widget, pageId,
+                        error instanceof Error ? error : new Error(String(error)));
+                }
+                return { path: await pending };
+            }
+        }));
         this.registerTogglePlaybackCommand();
         this.registerCompactTracksCommand();
         this.registerSetPreviewFullscreenCommand();
@@ -1968,6 +1987,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     | { kind: 'layer' | 'item' | 'caption'; id: string };
                 field?: string;
                 value?: number;
+                values?: Record<string, number>;
                 clear?: boolean;
                 shapeHtml?: string;
             }>).detail;
@@ -1976,8 +1996,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     && detail.target.kind !== 'layer'
                     && detail.target.kind !== 'item'
                     && detail.target.kind !== 'caption')
-                || typeof detail.field !== 'string' || typeof detail.value !== 'number'
-                || !Number.isFinite(detail.value)) {
+                || (detail.values === undefined
+                    ? typeof detail.field !== 'string' || !Number.isFinite(detail.value)
+                    : !detail.values || typeof detail.values !== 'object'
+                        || !Object.keys(detail.values).length
+                        || Object.entries(detail.values).some(([field, value]) =>
+                            !field || !Number.isFinite(value)))) {
                 return;
             }
             let key: string;
@@ -1991,9 +2015,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 widget.sendMessage({
                     type: 'akari-preview-live-transform',
                     target: detail.target,
-                    field: detail.field,
-                    value: detail.value,
-                    values: { [detail.field]: detail.value },
+                    ...(detail.values === undefined
+                        ? { field: detail.field, value: detail.value, values: { [detail.field!]: detail.value! } }
+                        : { ...(typeof detail.field === 'string' && Number.isFinite(detail.value)
+                            ? { field: detail.field, value: detail.value } : {}), values: detail.values }),
                     ...(detail.clear ? { clear: true } : {}),
                     ...(typeof detail.shapeHtml === 'string' ? { shapeHtml: detail.shapeHtml } : {})
                 });
@@ -2003,6 +2028,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform)
         });
+        const onStillCandidate = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; sourceId?: string | null; itemId?: string; imageUrl?: string | null }>).detail;
+            if (!detail?.editUri || detail.imageUrl !== null &&
+                (typeof detail.imageUrl !== 'string' || !detail.imageUrl.startsWith('data:image/png;base64,'))) return;
+            const key = new URI(detail.editUri).normalizePath().toString();
+            this.openOutputPreviews.get(key)?.sendMessage({ type: 'akari-preview-still-candidate',
+                sourceId: detail.sourceId ?? null, itemId: detail.itemId ?? null, imageUrl: detail.imageUrl ?? null });
+        };
+        window.addEventListener('akari.preview.stillCandidate', onStillCandidate);
+        this.lifecycleDisposables.push({ dispose: () => window.removeEventListener('akari.preview.stillCandidate', onStillCandidate) });
         const onAdjustBypass = (event: Event): void => {
             const detail = (event as CustomEvent<{
                 editUri?: string;
@@ -3691,7 +3726,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 return;
             }
             if (message?.type === 'akari-preview-capture-frame') {
-                void this.capturePreviewFrame(widget, message);
+                const token = message.startToken;
+                if (token === undefined) void this.capturePreviewFrame(widget, message);
+                else if (typeof token === 'string' && typeof message.pageId === 'string'
+                    && this.pendingFrameCaptures.take(token, widget, message.pageId)) {
+                    void this.capturePreviewFrame(widget, message).then(path =>
+                        this.pendingFrameCaptures.resolve(token, widget, message.pageId, path), error =>
+                        this.pendingFrameCaptures.reject(token, widget, message.pageId,
+                            error instanceof Error ? error : new Error(String(error))));
+                }
+                return;
+            }
+            if (message?.type === 'akari-preview-capture-busy' && typeof message.token === 'string'
+                && typeof message.pageId === 'string') {
+                this.pendingFrameCaptures.reject(message.token, widget, message.pageId,
+                    new Error('前のコマを保存中です'));
                 return;
             }
             if (message?.type === 'akari-preview-expand-bag' && kind === 'output'
@@ -8248,7 +8297,13 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #akari-gen-overlay[data-akari-gen-media="audio"] { border-radius: 12px; background: rgba(20,25,45,.76); }
 #akari-gen-overlay[data-akari-gen-aurora]::before { content: ''; position: absolute; inset: 0; background: linear-gradient(150deg, rgba(111,120,240,.12), rgba(56,189,248,.09), rgba(192,132,252,.07)); }
 #akari-gen-overlay[data-akari-gen-aurora="planned"]::before { opacity: 1; background: linear-gradient(150deg, rgba(111,120,240,.22), rgba(56,189,248,.17), rgba(192,132,252,.16)); }
-#akari-gen-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: calc(36px * var(--akari-gen-inv-scale)); color: rgba(196,205,235,.9); text-shadow: 0 0 18px rgba(111,120,240,.4); animation: akari-gen-pulse 3.4s ease-in-out infinite; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) { border: 1.5px dashed rgba(200,210,255,.55); }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"])::before { z-index: 1; background-color: rgba(14,17,36,.96); background-image: linear-gradient(115deg, rgba(111,120,240,.55), rgba(56,189,248,.42) 45%, rgba(192,132,252,.50), rgba(111,120,240,.55)); }
+#akari-gen-overlay[data-akari-gen-aurora="generating"]:not([data-akari-gen-media="audio"])::before { background-size: 300% 300%; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-blur { z-index: 0; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-pip, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-shimmer, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-icon, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-tag, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-band, #akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-mask { z-index: 2; }
+#akari-gen-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: calc(36px * var(--akari-gen-inv-scale)); color: rgba(196,205,235,.9); text-shadow: 0 0 18px rgba(111,120,240,.4); }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-icon { font-size: calc(56px * var(--akari-gen-inv-scale)); color: #e9ecff; text-shadow: 0 0 18px rgba(111,120,240,.8); }
 @keyframes akari-gen-pulse { 50% { opacity: .45; } }
 #akari-gen-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 #akari-gen-blur-image { width: 100%; height: 100%; object-fit: cover; filter: blur(18px) brightness(.65); transform: scale(1.06); pointer-events: none; }
@@ -8257,6 +8312,7 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #akari-gen-pip-label { display: block; margin-bottom: calc(4px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #E6DFFF; text-shadow: 0 calc(1px * var(--akari-gen-inv-scale)) calc(3px * var(--akari-gen-inv-scale)) #000; }
 #akari-gen-tag[data-akari-gen-severity="planned-video"] { border-color: #A99AF2; color: #E6DFFF; background: rgba(42,28,72,.8); }
 #akari-gen-tag { position: absolute; left: calc(10px * var(--akari-gen-inv-scale)); top: calc(10px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; padding: calc(2px * var(--akari-gen-inv-scale)) calc(8px * var(--akari-gen-inv-scale)); border-radius: calc(4px * var(--akari-gen-inv-scale)); background: rgba(0,0,0,.6); color: #DCE6EE; border: calc(1px * var(--akari-gen-inv-scale)) dashed #8FA3B4; box-sizing: border-box; min-height: calc(22px * var(--akari-gen-inv-scale)); max-width: calc(100% - 20px * var(--akari-gen-inv-scale)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-tag { background: rgba(10,12,20,.72); }
 #akari-gen-tag[data-akari-gen-severity="generating"] { border-color: #9da5f4; color: #d4ebff; }
 #akari-gen-tag[data-akari-gen-severity="error"] { border-color: #D6402B; color: #D6402B; border-style: solid; }
 #akari-gen-tag[data-akari-gen-severity="frames"] { border-color: #1F6F8B; color: #1F6F8B; }
@@ -8265,8 +8321,10 @@ html.akari-gen-capture-fit #preview-stage { top: 50% !important; width: max(1px,
 #akari-gen-band-bar { flex: 1; min-width: calc(20px * var(--akari-gen-inv-scale)); height: calc(3px * var(--akari-gen-inv-scale)); background: rgba(255,255,255,.2); border-radius: calc(2px * var(--akari-gen-inv-scale)); overflow: hidden; }
 #akari-gen-band-fill { display: block; height: 100%; background: linear-gradient(90deg, #6f78f0, #38bdf8, #c084fc); }
 #akari-gen-shimmer { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.05) 50%, transparent 62%); background-size: 250% 100%; }
-@media (prefers-reduced-motion: no-preference) { #akari-gen-shimmer { animation: akari-gen-sh 5.5s ease-in-out infinite; } }
-@media (prefers-reduced-motion: reduce) { #akari-gen-icon { animation: none; } }
+#akari-gen-overlay[data-akari-gen-aurora]:not([data-akari-gen-media="audio"]) #akari-gen-shimmer { background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.12) 50%, transparent 62%); background-size: 250% 100%; }
+@media (prefers-reduced-motion: no-preference) { #akari-gen-overlay[data-akari-gen-aurora="generating"]:not([data-akari-gen-media="audio"])::before { animation: akari-gen-drift 6s linear infinite; } #akari-gen-shimmer { animation: akari-gen-sh 5.5s ease-in-out infinite; } #akari-gen-overlay[data-akari-gen-aurora="generating"] #akari-gen-icon { animation: akari-gen-pulse 3.4s ease-in-out infinite; } }
+@media (prefers-reduced-motion: reduce) { #akari-gen-overlay[data-akari-gen-aurora="generating"]:not([data-akari-gen-media="audio"])::before, #akari-gen-shimmer, #akari-gen-icon { animation: none; } }
+@keyframes akari-gen-drift { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
 @keyframes akari-gen-sh { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 #akari-gen-mask { position: absolute; box-sizing: border-box; border: 2px dashed #D6402B; border-radius: 3px; }
 #akari-gen-mask-label { position: absolute; left: 0; top: calc(-18px * var(--akari-gen-inv-scale)); font: calc(12px * var(--akari-gen-inv-scale))/1.4 ui-monospace, Menlo, monospace; white-space: nowrap; color: #D6402B; }
@@ -8646,7 +8704,7 @@ body { display: grid; place-items: center; padding: 32px; }
     }
 
     /** Pair messages by page and request, including restoration before the slower node write. */
-    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<void> {
+    protected async capturePreviewFrame(widget: PreviewWidgetMarker, request: PreviewFrameRequestMessage): Promise<string | undefined> {
         const pageId = widget.akariPreviewPlaybackPageId;
         if (request.pageId !== pageId || typeof request.requestId !== 'string') return;
         const send = (type: PreviewFrameCommand['type'], options: { keepFrozen?: boolean; success?: boolean } = {}): void => {
@@ -8662,6 +8720,7 @@ body { display: grid; place-items: center; padding: 32px; }
         let timer: ReturnType<typeof setTimeout> | undefined;
         let captureId: number | undefined;
         let success = false;
+        let savedPath: string | undefined;
         try {
             const editUri = widget.akariPreviewEditUri;
             if (!editUri || !widget.akariPreviewSummary) throw new Error('出力プレビューでコマを保存してください');
@@ -8742,6 +8801,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 },
                 save: async ({ captured, time }) => {
                     const saved = await this.previewService.savePreviewFrame({ editUri: editUri.toString(), time, image: captured.image });
+                    savedPath = saved.path;
                     void this.messages.info('コマを保存しました: ' + saved.path, { timeout: 3000 });
                     if (captured.reduced) void this.messages.info(
                         '表示サイズが出力より小さいため、拡大せず ' + captured.width + '×' + captured.height + ' px で保存しました', { timeout: 3000 });
@@ -8757,6 +8817,7 @@ body { display: grid; place-items: center; padding: 32px; }
             widget.akariPreviewFrameCaptureRequest = undefined;
             send('akari-preview-capture-restore', { success });
         }
+        return savedPath;
     }
 
     /**
@@ -10913,6 +10974,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     return source;
                 };
                 const sources = new Map([...lookahead, ...images]);
+                window.akari.setStillCandidateSource = (sourceId, url) => {
+                    const existing = images.get(sourceId);
+                    if (existing) existing.destroy();
+                    const replacement = new engine.CachedStillImageSource(url);
+                    images.set(sourceId, replacement);
+                    sources.set(sourceId, replacement);
+                };
 
                 const registerLayerMasks = layers => {
                     for (const layer of layers) {
@@ -20754,6 +20822,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     hideGenerationOverlay();
                     return;
                 }
+                if (window.akari.stillCandidatePreviewItemId === String(clip.id)) {
+                    hideGenerationOverlay();
+                    return;
+                }
                 const state = resolveGenerationStateFn(clip.meta, Date.now(), clip.binding, resolveGenerationStateV1);
                 const description = describeOverlayFn(state, clip.meta, String(clip.name || clip.id || ''), {
                     sourcePath: typeof clip.sourcePath === 'string' ? clip.sourcePath : undefined,
@@ -20775,15 +20847,25 @@ body { display: grid; place-items: center; padding: 32px; }
                 const stageWidth = layersStage.offsetWidth;
                 const stageHeight = layersStage.offsetHeight;
                 const scale = Math.max(.01, finite(transform.scale, 1));
+                // layer-style の実描画は素材の自然寸法 × crop × scale。V1 cut の
+                // フレーム寸法とは基準が異なるため、同じ layer DOM から寸法を取る。
+                const layerMedia = clip.kind === 'layer'
+                    ? Array.from(layersStage.querySelectorAll('[data-akari-layer-id]'))
+                        .find(media => media.dataset.akariLayerId === String(clip.id)) : null;
+                const naturalWidth = Number(layerMedia?.videoWidth || layerMedia?.naturalWidth);
+                const naturalHeight = Number(layerMedia?.videoHeight || layerMedia?.naturalHeight);
+                const sourceWidth = Number.isFinite(naturalWidth) && naturalWidth > 0 ? naturalWidth : stageWidth;
+                const sourceHeight = Number.isFinite(naturalHeight) && naturalHeight > 0 ? naturalHeight : stageHeight;
                 const boxWidth = clip.kind === 'audio' ? stageWidth * .7
-                    : stageWidth * Math.max(.01, finite(crop.w, 1)) * Math.max(.01, finite(transform.scaleX, scale));
+                    : sourceWidth * Math.max(.01, finite(crop.w, 1)) * Math.max(.01, finite(transform.scaleX, scale));
                 const boxHeight = clip.kind === 'audio' ? stageHeight * .34
-                    : stageHeight * Math.max(.01, finite(crop.h, 1)) * Math.max(.01, finite(transform.scaleY, scale));
+                    : sourceHeight * Math.max(.01, finite(crop.h, 1)) * Math.max(.01, finite(transform.scaleY, scale));
                 generationOverlay.style.left = (stageWidth / 2 + finite(transform.x, 0) - boxWidth / 2) + 'px';
                 generationOverlay.style.top = (stageHeight / 2 + finite(transform.y, 0) - boxHeight / 2) + 'px';
                 generationOverlay.style.width = boxWidth + 'px';
                 generationOverlay.style.height = boxHeight + 'px';
-                generationOverlay.style.transform = 'rotate(' + finite(transform.rotate, 0) + 'deg)';
+                generationOverlay.style.transform = 'rotate(' + (finite(transform.rotate, 0)
+                    + (clip.kind === 'layer' ? finite(crop.rotate, 0) : 0)) + 'deg)';
                 const setGenerationImage = (container, image, path, uri) => {
                     container.hidden = !path || typeof uri !== 'string' || !uri;
                     if (container.hidden) image.removeAttribute('src');
@@ -20808,7 +20890,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 generationBandFill.style.width = progress === null || progress === undefined
                     ? '0%' : (Math.max(0, Math.min(1, progress)) * 100) + '%';
                 generationShimmer.hidden = !description.shimmer;
-                if (generationIcon) generationIcon.hidden = description.aurora !== 'generating';
+                if (generationIcon) generationIcon.hidden = description.aurora !== 'generating'
+                    && !(clip.kind !== 'audio' && description.aurora === 'planned');
                 generationMask.hidden = description.maskRect === null;
                 if (description.maskRect) {
                     generationMask.style.left = (description.maskRect.x * 100) + '%';
@@ -21081,6 +21164,63 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             window.addEventListener('message', event => {
                 const message = event.data;
+                if (message?.type === 'akari-preview-still-candidate') {
+                    const sourceId = typeof message.sourceId === 'string' ? message.sourceId : null;
+                    const itemId = typeof message.itemId === 'string' ? message.itemId : null;
+                    // CachedStillImageSource fetches its URL. The webview CSP allows blob: for
+                    // connect-src, while data: is only allowed for img-src.
+                    let candidateUrl = null;
+                    if (typeof message.imageUrl === 'string' && message.imageUrl.startsWith('data:image/png;base64,')) {
+                        const bytes = atob(message.imageUrl.slice('data:image/png;base64,'.length));
+                        const data = Uint8Array.from(bytes, char => char.charCodeAt(0));
+                        candidateUrl = URL.createObjectURL(new Blob([data], { type: 'image/png' }));
+                    }
+                    const priorObjectUrl = window.akari.stillCandidateObjectUrl;
+                    window.akari.stillCandidateObjectUrl = candidateUrl;
+                    if (priorObjectUrl) setTimeout(() => URL.revokeObjectURL(priorObjectUrl), 5000);
+                    window.akari.stillCandidatePreviewItemId = candidateUrl ? itemId : null;
+                    const original = initial.imageSources || {};
+                    const previous = window.akari.stillCandidateSourceId;
+                    const layerIndex = itemId ? layerEntries.findIndex(entry => String(entry.spec.id) === itemId && entry.video.tagName === 'IMG') : -1;
+                    const priorLayer = window.akari.stillCandidateLayer;
+                    if (priorLayer) {
+                        const entry = layerEntries[priorLayer.index];
+                        if (entry) {
+                            entry.spec.src = priorLayer.url;
+                            if (summary.layers?.[priorLayer.index]) summary.layers[priorLayer.index].src = priorLayer.url;
+                            entry.video.src = priorLayer.url;
+                            window.akari.setStillCandidateSource?.('akari-image-layer-' + priorLayer.index + '.png', priorLayer.url);
+                        }
+                        window.akari.stillCandidateLayer = null;
+                    }
+                    if (previous && original[previous] && (previous !== sourceId || layerIndex >= 0)) {
+                        const saved = window.akari.stillCandidateOriginals?.[previous] || original[previous];
+                        original[previous] = saved;
+                        window.akari.setStillCandidateSource?.(previous, saved);
+                    }
+                    if (layerIndex >= 0 && candidateUrl) {
+                        const entry = layerEntries[layerIndex];
+                        const saved = entry.spec.src;
+                        window.akari.stillCandidateLayer = { index: layerIndex, url: saved };
+                        entry.spec.src = candidateUrl;
+                        if (summary.layers?.[layerIndex]) summary.layers[layerIndex].src = candidateUrl;
+                        entry.video.src = candidateUrl;
+                        window.akari.setStillCandidateSource?.('akari-image-layer-' + layerIndex + '.png', candidateUrl);
+                    } else if (sourceId && original[sourceId]) {
+                        window.akari.stillCandidateOriginals ||= {};
+                        window.akari.stillCandidateOriginals[sourceId] ||= original[sourceId];
+                        const url = candidateUrl || window.akari.stillCandidateOriginals[sourceId];
+                        original[sourceId] = url;
+                        window.akari.setStillCandidateSource?.(sourceId, url);
+                        if (stillImage.style.display !== 'none') stillImage.src = url;
+                        window.akari.stillCandidateSourceId = candidateUrl ? sourceId : null;
+                    } else if (!sourceId || layerIndex >= 0) window.akari.stillCandidateSourceId = null;
+                    // Paused frame-engine previews do not redraw on tick alone. Seek the current frame
+                    // after swapping its CachedStillImageSource so the canvas changes immediately.
+                    window.akari.frameEngineClock?.seek(outputTime, isPlaying);
+                    tick(true);
+                    return;
+                }
                 if (message?.type === 'akari-preview-ready-seek') {
                     void readySeek(message).catch(error => console.error('[akari-preview] ready seek failed', error));
                     return;
@@ -21452,12 +21592,19 @@ body { display: grid; place-items: center; padding: 32px; }
                         || message.target.kind === 'layer'
                         || message.target.kind === 'item'
                         || message.target.kind === 'caption')
-                    && typeof message.field === 'string' && Number.isFinite(message.value)) {
+                    && (message.values && typeof message.values === 'object'
+                        || typeof message.field === 'string' && Number.isFinite(message.value))) {
+                    const values = message.values && typeof message.values === 'object'
+                        ? Object.entries(message.values) : [[message.field, message.value]];
+                    if (!values.length || values.some(([field, value]) =>
+                        typeof field !== 'string' || !field || !Number.isFinite(value))) return;
                     const targetKey = message.target.kind === 'cut'
                         ? 'cut:' + message.target.index : message.target.kind === 'caption'
                             ? 'caption:' + message.target.id : 'item:' + message.target.id;
                     if (message.clear) {
-                        void window.akari.frameEngineClock?.applyLivePreview?.(message);
+                        if (values.length === 1) void window.akari.frameEngineClock?.applyLivePreview?.(message);
+                        else void window.akari.frameEngineClock?.applyTransformPreview?.(
+                            message.target, Object.fromEntries(values));
                         clearLiveOverride();
                         tick(true);
                         return;
@@ -21466,7 +21613,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         liveDom.updateShape(targetKey, message.shapeHtml);
                         return;
                     }
-                    liveDom.update(targetKey, message.field, message.value);
+                    for (const [field, value] of values) liveDom.update(targetKey, field, value);
                     if (message.target.kind === 'caption') {
                         paintLiveOverride();
                         updateCaptionSelectBox();
@@ -21478,21 +21625,26 @@ body { display: grid; place-items: center; padding: 32px; }
                     // 正規の HTML に置き換わるため、ここで明示的な「クリア」は不要
                     // （Esc 破棄時は元値を持つ同型メッセージが再送されて上書きされる）。
                     const applyLiveField = element => {
-                        if (message.field === 'x') element.dataset.akariTransformX = String(message.value);
-                        else if (message.field === 'y') element.dataset.akariTransformY = String(message.value);
-                        else if (message.field === 'scale') element.dataset.akariTransformScale = String(message.value);
-                        else if (message.field === 'scaleX') element.dataset.akariTransformScaleX = String(message.value);
-                        else if (message.field === 'scaleY') element.dataset.akariTransformScaleY = String(message.value);
-                        else if (message.field === 'rotate') element.dataset.akariTransformRotate = String(message.value);
-                        else if (message.field === 'opacity') element.style.opacity = String(message.value);
-                        else if (message.field === 'crop.x') element.dataset.akariCropX = String(message.value);
-                        else if (message.field === 'crop.y') element.dataset.akariCropY = String(message.value);
-                        else if (message.field === 'crop.w') element.dataset.akariCropW = String(message.value);
-                        else if (message.field === 'crop.h') element.dataset.akariCropH = String(message.value);
+                        for (const [field, value] of values) {
+                            if (field === 'x') element.dataset.akariTransformX = String(value);
+                            else if (field === 'y') element.dataset.akariTransformY = String(value);
+                            else if (field === 'scale') element.dataset.akariTransformScale = String(value);
+                            else if (field === 'scaleX') element.dataset.akariTransformScaleX = String(value);
+                            else if (field === 'scaleY') element.dataset.akariTransformScaleY = String(value);
+                            else if (field === 'rotate') element.dataset.akariTransformRotate = String(value);
+                            else if (field === 'opacity') element.style.opacity = String(value);
+                            else if (field === 'crop.x') element.dataset.akariCropX = String(value);
+                            else if (field === 'crop.y') element.dataset.akariCropY = String(value);
+                            else if (field === 'crop.w') element.dataset.akariCropW = String(value);
+                            else if (field === 'crop.h') element.dataset.akariCropH = String(value);
+                        }
                     };
-                    const enginePreview = window.akari.frameEngineClock?.applyLivePreview?.(message);
+                    const enginePreview = values.length === 1
+                        ? window.akari.frameEngineClock?.applyLivePreview?.(message)
+                        : window.akari.frameEngineClock?.applyTransformPreview?.(
+                            message.target, Object.fromEntries(values));
                     if (message.target.kind === 'cut') {
-                        if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
+                        if (values.some(([field]) => field !== 'opacity')) video.dataset.akariCutTransformActive = 'true';
                         applyLiveField(video);
                     } else if (typeof message.target.id === 'string') {
                         const overlay = Array.from(typeof stage !== 'undefined' && stage
@@ -21501,89 +21653,91 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (overlay && message.target.kind === 'item') {
                             const nodes = Array.isArray(summary.tree) ? summary.tree : [];
                             const selected = nodes.find(node => String(node.id) === message.target.id);
-                            if (selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
-                                let ancestorId = selected.parentId;
-                                let parent = {};
-                                const seen = new Set();
-                                while (ancestorId != null && !seen.has(String(ancestorId))) {
-                                    seen.add(String(ancestorId));
-                                    const ancestor = nodes.find(node => String(node.id) === String(ancestorId));
-                                    if (!ancestor) break;
-                                    if (ancestor.kind === 'group') { parent = ancestor.transform || {}; break; }
-                                    ancestorId = ancestor.parentId;
+                            for (const [field, value] of values) {
+                                if (selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(field)) {
+                                    let ancestorId = selected.parentId;
+                                    let parent = {};
+                                    const seen = new Set();
+                                    while (ancestorId != null && !seen.has(String(ancestorId))) {
+                                        seen.add(String(ancestorId));
+                                        const ancestor = nodes.find(node => String(node.id) === String(ancestorId));
+                                        if (!ancestor) break;
+                                        if (ancestor.kind === 'group') { parent = ancestor.transform || {}; break; }
+                                        ancestorId = ancestor.parentId;
+                                    }
+                                    const inlineNumber = (name, fallback) => {
+                                        const value = Number.parseFloat(overlay.style.getPropertyValue?.(name) || '');
+                                        return Number.isFinite(value) ? value : fallback;
+                                    };
+                                    const stored = selected.transform || {};
+                                    const inlineScale = Boolean(overlay.style.getPropertyValue?.('--scale')?.trim());
+                                    const inlineAxis = ['--scale-x', '--scale-y'].some(name =>
+                                        overlay.style.getPropertyValue?.(name)?.trim());
+                                    const scale = inlineNumber('--scale', stored.scale ?? 1);
+                                    const scaleX = inlineNumber('--scale-x', inlineScale ? scale : stored.scaleX ?? scale);
+                                    const scaleY = inlineNumber('--scale-y', inlineScale ? scale : stored.scaleY ?? scale);
+                                    const world = {
+                                        x: inlineNumber('--x', stored.x ?? 0),
+                                        y: inlineNumber('--y', stored.y ?? 0),
+                                        scale: inlineAxis && scaleX === scaleY ? scaleX : scale,
+                                        ...((inlineAxis || !inlineScale && (stored.scaleX !== undefined || stored.scaleY !== undefined))
+                                            && scaleX !== scaleY ? { scaleX, scaleY } : {}),
+                                        rotate: inlineNumber('--rotate', stored.rotate ?? 0)
+                                    };
+                                    const parentScale = parent.scale ?? 1;
+                                    const radians = (parent.rotate ?? 0) * Math.PI / 180;
+                                    const cosine = Math.cos(radians), sine = Math.sin(radians);
+                                    const dx = (world.x ?? 0) - (parent.x ?? 0);
+                                    const dy = (world.y ?? 0) - (parent.y ?? 0);
+                                    const local = {
+                                        x: (cosine * dx + sine * dy) / parentScale,
+                                        y: (-sine * dx + cosine * dy) / parentScale,
+                                        scale: (world.scale ?? 1) / parentScale,
+                                        scaleX: (world.scaleX ?? world.scale ?? 1) / parentScale,
+                                        scaleY: (world.scaleY ?? world.scale ?? 1) / parentScale,
+                                        rotate: (world.rotate ?? 0) - (parent.rotate ?? 0)
+                                    };
+                                    if (field === 'scale') {
+                                        const previous = Math.sqrt(local.scaleX * local.scaleY);
+                                        const ratio = previous > 0 ? value / previous : 1;
+                                        local.scaleX *= ratio;
+                                        local.scaleY *= ratio;
+                                        local.scale = value;
+                                    } else local[field] = value;
+                                    const sx = parentScale * (local.scaleX ?? local.scale ?? 1);
+                                    const sy = parentScale * (local.scaleY ?? local.scale ?? 1);
+                                    const next = {
+                                        x: (parent.x ?? 0) + parentScale * (cosine * local.x - sine * local.y),
+                                        y: (parent.y ?? 0) + parentScale * (sine * local.x + cosine * local.y),
+                                        scale: sx === sy ? sx : parentScale * (local.scale ?? 1),
+                                        scaleX: sx, scaleY: sy,
+                                        rotate: (parent.rotate ?? 0) + local.rotate
+                                    };
+                                    overlay.style.setProperty('--x', String(next.x) + 'px');
+                                    overlay.style.setProperty('--y', String(next.y) + 'px');
+                                    overlay.style.setProperty('--scale', String(next.scale));
+                                    if (sx === sy) {
+                                        overlay.style.removeProperty('--scale-x');
+                                        overlay.style.removeProperty('--scale-y');
+                                    } else {
+                                        overlay.style.setProperty('--scale-x', String(next.scaleX));
+                                        overlay.style.setProperty('--scale-y', String(next.scaleY));
+                                    }
+                                    overlay.style.setProperty('--rotate', String(next.rotate) + 'deg');
                                 }
-                                const inlineNumber = (name, fallback) => {
-                                    const value = Number.parseFloat(overlay.style.getPropertyValue?.(name) || '');
-                                    return Number.isFinite(value) ? value : fallback;
-                                };
-                                const stored = selected.transform || {};
-                                const inlineScale = Boolean(overlay.style.getPropertyValue?.('--scale')?.trim());
-                                const inlineAxis = ['--scale-x', '--scale-y'].some(name =>
-                                    overlay.style.getPropertyValue?.(name)?.trim());
-                                const scale = inlineNumber('--scale', stored.scale ?? 1);
-                                const scaleX = inlineNumber('--scale-x', inlineScale ? scale : stored.scaleX ?? scale);
-                                const scaleY = inlineNumber('--scale-y', inlineScale ? scale : stored.scaleY ?? scale);
-                                const world = {
-                                    x: inlineNumber('--x', stored.x ?? 0),
-                                    y: inlineNumber('--y', stored.y ?? 0),
-                                    scale: inlineAxis && scaleX === scaleY ? scaleX : scale,
-                                    ...((inlineAxis || !inlineScale && (stored.scaleX !== undefined || stored.scaleY !== undefined))
-                                        && scaleX !== scaleY ? { scaleX, scaleY } : {}),
-                                    rotate: inlineNumber('--rotate', stored.rotate ?? 0)
-                                };
-                                const parentScale = parent.scale ?? 1;
-                                const radians = (parent.rotate ?? 0) * Math.PI / 180;
-                                const cosine = Math.cos(radians), sine = Math.sin(radians);
-                                const dx = (world.x ?? 0) - (parent.x ?? 0);
-                                const dy = (world.y ?? 0) - (parent.y ?? 0);
-                                const local = {
-                                    x: (cosine * dx + sine * dy) / parentScale,
-                                    y: (-sine * dx + cosine * dy) / parentScale,
-                                    scale: (world.scale ?? 1) / parentScale,
-                                    scaleX: (world.scaleX ?? world.scale ?? 1) / parentScale,
-                                    scaleY: (world.scaleY ?? world.scale ?? 1) / parentScale,
-                                    rotate: (world.rotate ?? 0) - (parent.rotate ?? 0)
-                                };
-                                if (message.field === 'scale') {
-                                    const previous = Math.sqrt(local.scaleX * local.scaleY);
-                                    const ratio = previous > 0 ? message.value / previous : 1;
-                                    local.scaleX *= ratio;
-                                    local.scaleY *= ratio;
-                                    local.scale = message.value;
-                                } else local[message.field] = message.value;
-                                const sx = parentScale * (local.scaleX ?? local.scale ?? 1);
-                                const sy = parentScale * (local.scaleY ?? local.scale ?? 1);
-                                const next = {
-                                    x: (parent.x ?? 0) + parentScale * (cosine * local.x - sine * local.y),
-                                    y: (parent.y ?? 0) + parentScale * (sine * local.x + cosine * local.y),
-                                    scale: sx === sy ? sx : parentScale * (local.scale ?? 1),
-                                    scaleX: sx, scaleY: sy,
-                                    rotate: (parent.rotate ?? 0) + local.rotate
-                                };
-                                overlay.style.setProperty('--x', String(next.x) + 'px');
-                                overlay.style.setProperty('--y', String(next.y) + 'px');
-                                overlay.style.setProperty('--scale', String(next.scale));
-                                if (sx === sy) {
-                                    overlay.style.removeProperty('--scale-x');
-                                    overlay.style.removeProperty('--scale-y');
-                                } else {
-                                    overlay.style.setProperty('--scale-x', String(next.scaleX));
-                                    overlay.style.setProperty('--scale-y', String(next.scaleY));
+                                if (!selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(field)) {
+                                    const name = field === 'scaleX' ? '--scale-x'
+                                        : field === 'scaleY' ? '--scale-y' : '--' + field;
+                                    overlay.style.setProperty(name, String(value)
+                                        + (field === 'x' || field === 'y' ? 'px'
+                                            : field === 'rotate' ? 'deg' : ''));
                                 }
-                                overlay.style.setProperty('--rotate', String(next.rotate) + 'deg');
+                                if (field === 'opacity') overlay.style.opacity = String(value);
                             }
-                            if (!selected && ['x', 'y', 'scale', 'scaleX', 'scaleY', 'rotate'].includes(message.field)) {
-                                const name = message.field === 'scaleX' ? '--scale-x'
-                                    : message.field === 'scaleY' ? '--scale-y' : '--' + message.field;
-                                overlay.style.setProperty(name, String(message.value)
-                                    + (message.field === 'x' || message.field === 'y' ? 'px'
-                                        : message.field === 'rotate' ? 'deg' : ''));
-                            }
-                            if (message.field === 'opacity') overlay.style.opacity = String(message.value);
                             liveDom.captureOverlayCss(overlay);
                         }
                         if (message.target.kind === 'item' && video.dataset.akariCutId === message.target.id) {
-                            if (message.field !== 'opacity') video.dataset.akariCutTransformActive = 'true';
+                            if (values.some(([field]) => field !== 'opacity')) video.dataset.akariCutTransformActive = 'true';
                             applyLiveField(video);
                         } else {
                             const layerIdSelector = CSS.escape(message.target.id);
@@ -22138,24 +22292,30 @@ body { display: grid; place-items: center; padding: 32px; }
                 workspaceRoots: await this.currentWorkspaceRoots()
             });
             if (disposed()) return;
-            // 音の空の枠は映像 cut の一覧に入らないため、生成小札用の時間窓だけ edit から読む。
+            // 音の空の枠と V2 以上の media layer は cuts に無い。素材パスは生 edit から読む。
             const audioFrames: Array<{ id: string; name: string; start: number; end: number;
                 sourcePath: string; meta: GenerationMetaV1 | null; binding: unknown;
                 transform: null; crop: null; kind: 'audio' }> = [];
+            const layerSources = new Map<string, { sourcePath: string; name?: string }>();
             try {
                 const raw = JSON.parse((await this.fileService.readFile(editUri)).value.toString()) as {
                     output?: { fps?: number }; sources?: Array<{ id?: string; path?: string }>;
-                    tracks?: Array<{ lane?: string; items?: Array<{ id?: string; name?: string; at?: number;
-                        duration?: number; source?: { src?: string; path?: string } }> }>;
+                    tracks?: Array<{ lane?: string; hidden?: boolean; items?: Array<{ id?: string; name?: string;
+                        at?: number; duration?: number; source?: { kind?: string; src?: string; path?: string } }> }>;
                 };
                 const fps = Number(raw.output?.fps) || 30;
                 const sourcePaths = new Map((raw.sources ?? []).filter(source => source.id && source.path)
                     .map(source => [source.id!, source.path!]));
                 for (const track of raw.tracks ?? []) {
-                    if (track.lane !== 'audio') continue;
+                    if (track.hidden === true) continue;
                     for (const item of track.items ?? []) {
+                        if (item.source?.kind !== 'media') continue;
+                        const sourcePath = item.source.path ?? sourcePaths.get(item.source.src ?? '');
+                        if (track.lane === 'visual' && item.id && sourcePath) {
+                            layerSources.set(item.id, { sourcePath, name: item.name });
+                        }
+                        if (track.lane !== 'audio') continue;
                         if (!Number.isFinite(item.at) || !Number.isFinite(item.duration)) continue;
-                        const sourcePath = item.source?.path ?? sourcePaths.get(item.source?.src ?? '');
                         if (!sourcePath) continue;
                         const generation = selectGenerationSidecarForSource(sourcePath,
                             sidecars.entries.map(entry => ({ sourcePath: entry.sourcePath,
@@ -22168,20 +22328,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
             } catch { /* 旧形式や読み込み中でも映像の生成表示を続ける。 */ }
-            // summary は音声更新でも置き換わる。参照一致を送信条件にせず、その時点の cuts を使う。
+            // summary は音声更新でも置き換わる。参照一致を送信条件にせず、その時点の表示配置を使う。
             const describeClips = () => {
                 const latest = widget.akariPreviewSummary ?? summary;
+                const nowMs = Date.now();
+                const entries = sidecars.entries.map(entry => ({ sourcePath: entry.sourcePath,
+                    meta: entry.meta as GenerationMetaV1 | null, binding: entry.binding }));
                 const segments = this.previewCaptionTimelineSegments(latest.cuts, latest.output.fps);
                 const visualClips = segments.flatMap(segment => {
                     if (segment.kind !== 'src' || segment.cutIndex === null) return [];
                     const cut = latest.cuts[segment.cutIndex];
                     if (!cut) return [];
                     const sourcePath = cut.sourcePath ?? '';
-                    const generation = selectGenerationSidecarForSource(sourcePath, sidecars.entries.map(entry => ({
-                        sourcePath: entry.sourcePath,
-                        meta: entry.meta as GenerationMetaV1 | null,
-                        binding: entry.binding
-                    })), Date.now());
+                    const generation = selectGenerationSidecarForSource(sourcePath, entries, nowMs);
                     return [{
                         id: cut.id,
                         name: sidecars.itemNames[cut.id] ?? cut.id,
@@ -22191,11 +22350,33 @@ body { display: grid; place-items: center; padding: 32px; }
                         transform: cut.transform ?? null,
                         crop: cut.crop ?? null,
                         meta: generation?.meta ?? null,
-                        binding: generation?.binding ?? null
+                        binding: generation?.binding ?? null,
+                        order: latest.itemStackZ?.[cut.id] ?? latest.trackStackZ?.[cut.trackId] ?? cut.renderTrack
                     }];
                 });
+                const hiddenLayers = new Set(widget.akariPreviewHiddenTracksByScope?.layers ?? []);
+                const hiddenTracks = widget.akariPreviewHiddenTracks ?? new Set<number>();
+                const layerClips = (latest.layers ?? []).flatMap(layer => {
+                    const source = layerSources.get(layer.id);
+                    if (layer.kind !== 'video' || !source || hiddenLayers.has(layer.track)
+                        || hiddenTracks.has(layer.track)
+                        || latest.tracks?.layers?.some(track => track.ref === layer.track && track.hidden === true)) return [];
+                    const generation = selectGenerationSidecarForSource(source.sourcePath, entries, nowMs);
+                    if (resolveGenerationState(generation?.meta, nowMs, generation?.binding) === 'none') return [];
+                    return [{ id: layer.id, name: sidecars.itemNames[layer.id] ?? source.name ?? layer.id,
+                        start: layer.t, end: layer.t + layer.duration, sourcePath: source.sourcePath,
+                        transform: layer.transform ?? null, crop: layer.crop ?? null,
+                        meta: generation?.meta ?? null, binding: generation?.binding ?? null,
+                        kind: 'layer' as const,
+                        order: latest.itemStackZ?.[layer.id] ?? latest.trackStackZ?.[layer.trackId]
+                            ?? layer.renderTrack ?? layer.track }];
+                });
+                // find() の先頭が表示対象。映像は実際の積層 z の降順にする。
+                const orderedVisualClips = [...visualClips, ...layerClips]
+                    .sort((a, b) => b.order - a.order)
+                    .map(({ order: _order, ...clip }) => clip);
                 return [...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) === 'generating'),
-                    ...visualClips, ...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) !== 'generating')];
+                    ...orderedVisualClips, ...audioFrames.filter(frame => resolveGenerationState(frame.meta, Date.now(), frame.binding) !== 'generating')];
             };
             const clips = describeClips();
             // 画像の失敗・読み込みとの競合・遅延で既存の小札や帯まで止めない。

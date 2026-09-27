@@ -69,9 +69,13 @@ export function failedStillMeta({ prompt, duration_s, at, asOf, reason }) {
   return meta;
 }
 
-export function doneStillMeta({ prompt, duration_s, at, asOf, path, image, elapsed_s }) {
+export function doneStillMeta({ prompt, duration_s, at, asOf, path, image, elapsed_s, references = [], croppedFrom, aspect, candidateOf }) {
   const meta = baseMeta({ status: "done", prompt, duration_s, at, asOf });
+  if (candidateOf) meta.candidate_of = candidateOf;
   meta.output.resolution = `${image.width}x${image.height}`;
+  meta.inputs.reference_images = references.map(({ path: referencePath, sha256 }) => ({ path: referencePath, sha256 }));
+  if (croppedFrom) meta.output.cropped_from = croppedFrom;
+  if (croppedFrom) meta.history[0].reason = `切りそろえ: cropped_from=${croppedFrom} → ${image.width}x${image.height}${aspect ? `（${aspect}）` : ""}`;
   meta.result = {
     path,
     sha256: image.sha256,

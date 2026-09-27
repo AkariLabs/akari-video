@@ -15,12 +15,19 @@ import { AkariNarrationEnginesService, AKARI_NARRATION_ENGINES_SERVICE_PATH } fr
 import { AkariNarrationEnginesServiceImpl } from './narration-engines';
 import { AkariOnboardingService, AKARI_ONBOARDING_SERVICE_PATH } from '../onboarding/protocol';
 import { AkariOnboardingServiceImpl } from './onboarding-service';
+import { AkariAiModelsService, AKARI_AI_MODELS_SERVICE_PATH } from '../common/ai-models-protocol';
+import { AkariAiModelsServiceImpl } from './ai-models-service';
 
 export default new ContainerModule(bind => {
     bind(AkariOnboardingServiceImpl).toSelf().inSingletonScope();
     bind(AkariOnboardingService).toService(AkariOnboardingServiceImpl);
     bind(ConnectionHandler).toDynamicValue(context =>
         new JsonRpcConnectionHandler(AKARI_ONBOARDING_SERVICE_PATH, () => context.container.get(AkariOnboardingService))
+    ).inSingletonScope();
+    bind(AkariAiModelsServiceImpl).toSelf().inSingletonScope();
+    bind(AkariAiModelsService).toService(AkariAiModelsServiceImpl);
+    bind(ConnectionHandler).toDynamicValue(context =>
+        new JsonRpcConnectionHandler(AKARI_AI_MODELS_SERVICE_PATH, () => context.container.get(AkariAiModelsService))
     ).inSingletonScope();
     bind(AkariNarrationEnginesServiceImpl).toSelf().inSingletonScope();
     bind(AkariNarrationEnginesService).toService(AkariNarrationEnginesServiceImpl);

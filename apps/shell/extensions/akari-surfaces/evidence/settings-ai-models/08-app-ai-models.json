@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "favorites": {
+    "image": [
+      "fal:nano-banana-pro-edit"
+    ],
+    "video": [
+      "fal:veo-3.1-flf"
+    ],
+    "voice": [
+      "tts:fish-s2.1-pro"
+    ],
+    "transcribe": [
+      "transcribe:cloud:scribe"
+    ]
+  },
+  "defaults": {
+    "image": "fal:nano-banana-pro-edit",
+    "video": "fal:veo-3.1-flf",
+    "voice": "tts:fish-s2.1-pro",
+    "transcribe": "transcribe:cloud:scribe"
+  }
+}

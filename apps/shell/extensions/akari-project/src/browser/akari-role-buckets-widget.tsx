@@ -238,6 +238,15 @@ const CATALOG_GRID_GAP = '8px';
 const CATALOG_GRID_COLUMNS =
     'repeat(auto-fill, minmax(min(96px, calc(33.333% - 6px)), 1fr))';
 
+/**
+ * 一度に DOM へ出すカタログ項目の上限。カードは 1 枚ごとに IntersectionObserver /
+ * ResizeObserver を持ち、サムネイルが 1 枚焼き上がるたびに表示中の全カードが再描画される
+ * （material-card-hover-preview.ts の listeners）。カタログが 7,600 件規模になってから
+ * ライブラリ上のドラッグが目に見えて重くなったため、出す枚数そのものを絞る。
+ * 続きは検索・カテゴリ・フォルダーの絞り込みで辿る。
+ */
+const CATALOG_RENDER_LIMIT = 240;
+
 /** 上段（素材）の内部遷移先。タブではなく widget 内遷移 — U6 裁定。 */
 type TopView = 'materials' | 'catalog';
 
@@ -3596,7 +3605,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                     <div style={{ fontSize: '0.78em', fontWeight: 700, opacity: 0.7, padding: '4px 0 8px' }}>ライブラリ全体の検索結果</div>
                     {hits.length
                         ? <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {hits.map((hit, index) => {
+                            {hits.slice(0, CATALOG_RENDER_LIMIT).map((hit, index) => {
                                 const category = this.libraryCategoryDefinition(hit.categoryKey);
                                 return (
                                     <button
@@ -3618,6 +3627,12 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                                     </button>
                                 );
                             })}
+                            {hits.length > CATALOG_RENDER_LIMIT && (
+                                <p data-akari-library-search-limit={hits.length - CATALOG_RENDER_LIMIT}
+                                    style={{ opacity: 0.7, fontSize: '0.78em', padding: '4px 2px 0', margin: 0 }}>
+                                    ほかに {(hits.length - CATALOG_RENDER_LIMIT).toLocaleString()} 件あります。言葉を足して絞り込んでください。
+                                </p>
+                            )}
                         </div>
                         : <p style={{ opacity: 0.7, padding: '12px 6px' }}>条件に一致するライブラリ項目がありません。</p>}
                 </div>
@@ -3938,10 +3953,20 @@ export class AkariRoleBucketsWidget extends ReactWidget {
             const itemContainerStyle: React.CSSProperties = this.catalogViewMode === 'grid'
                 ? { display: 'grid', gridTemplateColumns: CATALOG_GRID_COLUMNS, gap: CATALOG_GRID_GAP, padding: '0 10px' }
                 : { display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 10px' };
+            const shown = filtered.slice(0, CATALOG_RENDER_LIMIT);
+            const hidden = filtered.length - shown.length;
             content = (
-                <div style={{ ...itemContainerStyle, paddingTop: '10px', paddingBottom: '10px' }}>
-                    {filtered.map(item => this.renderCatalogItem(item))}
-                </div>
+                <>
+                    <div style={{ ...itemContainerStyle, paddingTop: '10px', paddingBottom: '10px' }}>
+                        {shown.map(item => this.renderCatalogItem(item))}
+                    </div>
+                    {hidden > 0 && (
+                        <p data-akari-catalog-render-limit={hidden}
+                            style={{ opacity: 0.7, fontSize: '0.78em', padding: '0 10px 10px', margin: 0 }}>
+                            ほかに {hidden.toLocaleString()} 件あります。検索やカテゴリーで絞り込んでください。
+                        </p>
+                    )}
+                </>
             );
         }
         return (
@@ -4946,8 +4971,27 @@ export class AkariRoleBucketsWidget extends ReactWidget {
                 this.openLibraryMenuAt(event, { kind: 'asset', item });
             },
             onInfo: anchor => this.openLibraryInfo({ kind: 'asset', item }, anchor),
-            onThumbnailError: () => this.handleCatalogThumbnailError(item)
+            onThumbnailError: () => this.handleCatalogThumbnailError(item),
+            onPreview: interactive ? () => { void this.previewCatalogItem(item); } : undefined
         };
+    }
+
+    /**
+     * カード本体のクリック = 素材のプレビュー。素材タブのカード（openFile）と同じ感覚で
+     * 開けるようにする。⋯ は情報カード、右クリックは操作メニューのまま。
+     * 実体 URL（mediaUrl）があればそれを、無ければサムネイル（previewUrl）を開く。
+     */
+    protected async previewCatalogItem(item: AssetCatalogViewItem): Promise<void> {
+        const source = item.mediaUrl ?? item.previewUrl;
+        if (!source) {
+            this.messages.info(`「${item.title}」はまだ手元に無いので開けません。⋯ から取り寄せてください。`);
+            return;
+        }
+        try {
+            await this.openFile(new URI(source));
+        } catch (error) {
+            this.messages.warn(`プレビューを開けませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     protected renderCatalogAudioListControl(item: AssetCatalogViewItem): React.ReactNode {

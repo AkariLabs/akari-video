@@ -3,6 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { insertItem, indexEditV2Items } from '../lib/common/edit-v2-mutations.js';
 import { initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
+import { emptyFrameTransform } from '../lib/browser/inspector/frame-geometry.js';
 import { captionEditFocusWithinMarkedWidget } from '../lib/common/caption-edit-focus.js';
 
 const source = readFileSync(new URL('../lib/browser/akari-annotations-widget.js', import.meta.url), 'utf8');
@@ -35,10 +36,10 @@ for (const changes of [{ key: 'c', metaKey: true }, { key: 'v', ctrlKey: true },
   });
 }
 const commitStart = source.indexOf('    async commitEmptyFrame(');
-const CommitWidget = new Function('edit_v2_mutations_1', 'akari_annotations_commands_2', `return class { ${source.slice(commitStart, source.indexOf('    onStripPointerDown(', commitStart))} }`)
-  ({ insertItem, indexEditV2Items }, { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' });
-function commitFixture(service) {
-  let doc = { version: 2, output: { fps: 30 }, sources: [], tracks: [{ id: 'v', lane: 'visual', items: [] }] };
+const CommitWidget = new Function('edit_v2_mutations_1', 'akari_annotations_commands_2', 'frame_geometry_1', `return class { ${source.slice(commitStart, source.indexOf('    onStripPointerDown(', commitStart))} }`)
+  ({ insertItem, indexEditV2Items }, { OPEN_AKARI_INSPECTOR_ID: 'akari.inspector.open' }, { emptyFrameTransform });
+function commitFixture(service, tracks = [{ id: 'v', lane: 'visual', items: [] }]) {
+  let doc = { version: 2, output: { fps: 30 }, sources: [], tracks };
   const before = JSON.stringify(doc), history = [], notices = [], commands = [];
   const uri = { toString: () => 'file:///fixture' };
   const widget = Object.assign(new CommitWidget(), {
@@ -81,9 +82,18 @@ test('successful frame selects the item before revealing inspector without attac
   assert.deepEqual(f.commands, [{ id: 'akari.inspector.open', options: undefined, selection: { kind: 'cut', index: 0 } }]);
   assert.deepEqual(f.notices, ['空の枠を置きました。']);
 });
-test('planned empty frame keeps a saved video tab', () => {
+test('new frame above occupied video carries half-scale centered transform in edit v2', async () => {
+  const f = commitFixture({ createEmptyGenerationFrame: async () => ({ relativePath: 'assets/generated/frame.png' }) }, [
+    { id: 'v', lane: 'visual', items: [{ id: 'base', at: 0, duration: 90 }] },
+    { id: 'v2', lane: 'visual', items: [] }
+  ]);
+  await f.widget.commitEmptyFrame('v2', { at: 30, duration: 30 }, 30);
+  assert.deepEqual(f.doc.tracks[1].items[0].transform, { x: 0, y: 0, scale: 0.5 });
+  assert.equal(f.history.length, 1);
+});
+test('planned empty frame opens home ahead of a saved video tab', () => {
   assert.equal(initialTabFor({ kind: 'cut', tabs: tabsForKind('cut', { src: 'frame.png', generationAvailable: true }),
-    generationTodo: true, persisted: 'video', clipKey: 'new', previousClipKey: 'old' }), 'video');
+    generationTodo: true, persisted: 'video', clipKey: 'new', previousClipKey: 'old' }), 'edit');
 });
 test('frame capture prevents clip listeners and is confined to frame mode', () => {
   assert.match(source, /if \(this.toolMode === 'frame'\)\s*this.onStripPointerDown\(event\);\s*}, true\)/);

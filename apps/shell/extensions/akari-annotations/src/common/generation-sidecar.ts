@@ -62,6 +62,17 @@ export function describeGenerationChip(
     state: GenerationState, meta?: GenerationSidecarMeta, nowMs = Date.now()
 ): GenerationChipDescription {
     const progress = state === 'generating' ? generationProgress(meta) : undefined;
+    const routes = Array.isArray(meta?.job?.routes) ? meta.job.routes.filter((route): route is string => typeof route === 'string') : [];
+    const completed = typeof meta?.job?.completed === 'number' ? meta.job.completed : 0;
+    const candidates = typeof meta?.job?.candidates === 'number' ? meta.job.candidates : 0;
+    if (state === 'generating' && routes.length) {
+        const badge = `${routes.length} 案作成中 · ${completed}/${routes.length}`;
+        return { badge, progress, className: 'akari-generation-generating', title: badge };
+    }
+    if (state !== 'generating' && candidates > 0) {
+        const badge = `候補 ${candidates}`;
+        return { badge, className: 'akari-generation-planned', title: badge };
+    }
     if (state === 'planned-video') {
         const draft = describeNextDraft(meta);
         const variety = { prompt: 'プロンプトだけ', first: '画像から', 'first-last': '最初→最後', references: '参照から' };

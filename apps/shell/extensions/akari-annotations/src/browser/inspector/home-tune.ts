@@ -1,10 +1,9 @@
 import type { InspectorTabDef, InspectorTabKind } from './tab-model';
-import { createInspectorIcon } from './icons';
+import { images } from './ai-tiles';
 
 export interface HomeTuneTile {
     id: string;
     label: string;
-    icon: 'scrub' | 'diamond' | 'plateLine' | 'jump';
     tabId: string;
     sectionId?: string;
     enabled: boolean;
@@ -14,12 +13,12 @@ export interface HomeTuneTile {
 export function homeTuneTiles(kind: InspectorTabKind, tabs: readonly InspectorTabDef[]): HomeTuneTile[] {
     if (!['cut', 'layer', 'overlay', 'item', 'audio'].includes(kind)) return [];
     const choices: Omit<HomeTuneTile, 'enabled' | 'reason'>[] = kind === 'audio'
-        ? [{ id: 'volume', label: '音量', icon: 'plateLine', tabId: 'audio' }]
+        ? [{ id: 'volume', label: '音量', tabId: 'audio' }]
         : [
-            { id: 'position', label: '位置と大きさ', icon: 'scrub', tabId: 'video', sectionId: 'transform' },
-            { id: 'color', label: '色', icon: 'diamond', tabId: 'adjust' },
-            { id: 'volume', label: '音量', icon: 'plateLine', tabId: 'audio' },
-            { id: 'motion', label: '動き', icon: 'jump', tabId: 'motion' }
+            { id: 'position', label: '位置と大きさ', tabId: 'video', sectionId: 'transform' },
+            { id: 'color', label: '色', tabId: 'adjust' },
+            { id: 'volume', label: '音量', tabId: 'audio' },
+            { id: 'motion', label: '動き', tabId: 'motion' }
         ];
     return choices.map(choice => {
         const enabled = tabs.find(tab => tab.id === choice.tabId)?.enabled === true;
@@ -44,13 +43,19 @@ export function appendHomeTuneTiles(parent: HTMLElement, tiles: readonly HomeTun
         button.className = `akari-inspector-ai-tile akari-inspector-home-tune-tile${tile.enabled ? '' : ' akari-inspector-ai-disabled'}`;
         button.setAttribute('data-akari-home-tune', tile.id);
         button.setAttribute('aria-disabled', String(!tile.enabled));
-        button.style.minHeight = '70px';
-        const icon = createInspectorIcon(tile.icon);
-        icon.style.margin = '8px 10px 2px';
+        const image = document.createElement('img');
+        image.className = 'akari-inspector-ai-image';
+        image.src = images[tile.id as 'position' | 'color' | 'volume' | 'motion'];
+        image.alt = '';
+        image.width = 320;
+        image.height = 180;
+        const titleRow = document.createElement('span');
+        titleRow.className = 'akari-inspector-ai-title-row';
         const label = document.createElement('span');
         label.className = 'akari-inspector-ai-title';
         label.textContent = tile.label;
-        button.append(icon, label);
+        titleRow.appendChild(label);
+        button.append(image, titleRow);
         if (tile.reason) {
             const reason = document.createElement('span');
             reason.className = 'akari-inspector-ai-reason';

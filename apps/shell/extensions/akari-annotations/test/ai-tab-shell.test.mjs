@@ -10,6 +10,7 @@ const catalog = aiActionCatalog(models);
 test('AI 行為カタログは動画モデルから実働 route を作る', () => {
   assert.deepEqual(catalog.map(row => [row.id, row.group, row.output, row.placement]),
     [['still', 'make', 'image', 'replace'], ['video', 'make', 'video', 'replace'],
+      ['cutout', 'refine', 'image', 'replace'], ['eraser', 'refine', 'image', 'replace'],
       ['transcribe', 'refine', 'captions', 'captions']]);
   assert.deepEqual(catalog[1].routes, [{ id: 'fal:h3-i2v', label: 'MiniMax H3', kind: 'api', cost: 'paid' }]);
   assert.deepEqual(aiActionCatalog(models.filter(row => row.kind !== 'video'))[1].routes, []);
@@ -31,10 +32,15 @@ for (const [name, target, count, stillEnabled, videoEnabled, videoReason] of [
       { id: 'video', label: '動画にする', image: 'video', enabled: videoEnabled,
         ...(videoReason ? { reason: videoReason } : {}) }
     ] });
-    assert.deepEqual(groups[target === 'audio' ? 0 : 1], { group: 'refine', tiles: [{
-      id: 'transcribe', label: '文字起こし', image: 'transcribe', enabled: target === 'video' || target === 'audio',
-      ...(target === 'video' || target === 'audio' ? {} : { reason: '声の入った音声か動画で使えます' })
-    }] });
+    assert.deepEqual(groups[target === 'audio' ? 0 : 1], { group: 'refine', tiles: [
+      ...(target === 'audio' ? [] : ['cutout', 'eraser'].map((id, index) => ({
+        id, label: index === 0 ? '背景を消す' : '消しゴム', image: id,
+        enabled: target !== 'empty-frame',
+        ...(target === 'empty-frame' ? { reason: '写真で使えます' } : {})
+      }))),
+      { id: 'transcribe', label: '文字起こし', image: 'transcribe', enabled: target === 'video' || target === 'audio',
+        ...(target === 'video' || target === 'audio' ? {} : { reason: '声の入った音声か動画で使えます' }) }
+    ] });
   });
 }
 

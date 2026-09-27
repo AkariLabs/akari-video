@@ -94,7 +94,7 @@ import { AUDIO_PREVIEW_SECTIONS } from '../lib/browser/inspector/audio-preview.j
 import { ADJUST_PREVIEW_SECTIONS } from '../lib/browser/inspector/adjust-preview.js';
 import { generationFields } from '../lib/browser/inspector/generation-fields.js';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles } from '../lib/browser/inspector/ai-tiles.js';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
 import { cutSections, layerSections, cutSnapshot, visualSnapshot } from './helpers/perspective-transition-fixture.mjs';
 const widgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
@@ -103,7 +103,7 @@ const widgetClass = widgetAst.statements.find(node => ts.isClassDeclaration(node
 const method = name => widgetClass.members.find(node => node.name?.getText(widgetAst) === name).getText(widgetAst);
 const factory = name => widgetAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === name).getText(widgetAst);
 const dependencies = { createSelectionHeader, selectGenerationSidecarForSource, ...tabModel, ...fx, ...adjust, ...audioMaster, INSPECTOR_LOOK_PRESETS, matchLookPreset, buildLutOptions,
-  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles,
+  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor,
   isInspectorStillImage,
   PHOTO_PANEL_FIELDS: () => [],
   AUDIO_PREVIEW_SECTIONS, ADJUST_PREVIEW_SECTIONS, generationFields,
@@ -191,7 +191,7 @@ function measureAllTabs(kind) {
       .sort(([a], [b]) => a.localeCompare(b));
   });
 }
-// Fixed section expectations for the still-image fixture, including photo crop and frame.
+// Fixed section expectations for the planned still-image fixture.
 const BASELINE_SECTION_FIELDS = {
   cut: [
     ['adjust:basic', 11], ['adjust:curves', 0], ['adjust:fx', 1], ['adjust:hue', 0],
@@ -216,22 +216,58 @@ for (const kind of ['cut', 'layer']) {
 }
 
 const ADJUST_SECTION_IDS = ['adjust:basic', 'adjust:curves', 'adjust:wheels', 'adjust:hue', 'adjust:lut', 'adjust:fx'];
-for (const [label, sourcePath, editAdjustIds] of [
-  ['写真', 'still.png', ADJUST_SECTION_IDS],
-  ['動画', 'clip.mp4', []]
+for (const [label, sourcePath] of [
+  ['写真', 'still.png'],
+  ['動画', 'clip.mp4']
 ]) {
-  test(`${label}の layer: 編集の補正と色タブの adjust 節を対象どおりに出す`, () => withTabDom(() => {
+  test(`${label}の planned layer: ホームに補正を出さず色タブの全体調整を出す`, () => withTabDom(() => {
     const widget = renderFixture('layer', RenderHarness, sourcePath);
     assert.equal(isInspectorStillImage(widget.model.snapshot.sourcePath), label === '写真');
     widget.explicitTabId = 'edit';
     widget.render();
-    assert.ok(widget.sections.some(([id]) => id === 'edit-correction'));
-    assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), editAdjustIds);
+    assert.equal(widget.sections.some(([id]) => id === 'edit-correction'), false);
+    assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), []);
     widget.sections = [];
     widget.explicitTabId = 'adjust';
     widget.render();
+    assert.equal(widget.sections.some(([id]) => id === 'adjust-scope'), false);
     assert.deepEqual(widget.sections.filter(([id]) => id.startsWith('adjust:')).map(([id]) => id), ADJUST_SECTION_IDS);
   }));
+}
+
+const PHOTO_APPEARANCE_NAMES = ['photo-flip-h', 'photo-flip-v', 'photo-crop-open',
+  'photo-frame-width', 'photo-frame-color', 'photo-frame-radius'];
+for (const kind of ['cut', 'layer']) {
+  for (const [state, available] of [['planned', false], ['generating', false],
+    ['stale', false], ['failed', false], ['done', true]]) {
+    test(`${kind} の写真: ${state} では範囲と外観の写真欄を対象どおりに出す`, () => withTabDom(() => {
+      const widget = renderFixture(kind);
+      widget.model.snapshot.photo = true;
+      const key = widget.generationIdentity(widget.model.snapshot)?.key;
+      assert.ok(key);
+      widget.generationStates.set(key, state);
+      widget.appendSection = section => widget.sections.push(section);
+      widget.sections = [];
+      widget.explicitTabId = 'adjust';
+      widget.render();
+      assert.equal(widget.sections.some(section => section.id === 'adjust-scope'), available);
+      if (!available) {
+        widget.editAdjustScope = '選択エリア';
+        widget.sections = [];
+        widget.explicitTabId = 'adjust';
+        widget.render();
+        assert.equal(widget.sections.some(section => section.id === 'adjust-scope'), false);
+        assert.ok(widget.sections.some(section => section.id === 'adjust:basic'), '画像全体の調整を保つ');
+      }
+      widget.sections = [];
+      widget.explicitTabId = 'video';
+      widget.render();
+      const appearance = widget.sections.find(section => section.id === 'appearance');
+      assert.ok(appearance);
+      assert.deepEqual(appearance.fields.map(field => field.name).filter(name => PHOTO_APPEARANCE_NAMES.includes(name)),
+        available ? kind === 'cut' ? PHOTO_APPEARANCE_NAMES.slice(2) : PHOTO_APPEARANCE_NAMES : []);
+    }));
+  }
 }
 
 const INITIAL_TAB_CASES = [
@@ -249,7 +285,7 @@ const INITIAL_TAB_CASES = [
   ['別クリップで生成なし', { persisted: 'adjust', previousClipKey: 'other', currentTab: 'generation', generationAvailable: false }, 'adjust'],
   ['同じクリップ再描画', { generationTodo: true, previousClipKey: 'clip', currentTab: 'adjust' }, 'adjust'],
   ['同じクリップ完了後', { previousClipKey: 'clip', currentTab: 'generation' }, 'edit'],
-  ['別クリップでも保存した色タブ', { generationTodo: true, persisted: 'adjust', previousClipKey: 'other', currentTab: 'info' }, 'adjust']
+  ['別クリップの生成予定は保存した色タブよりホーム', { generationTodo: true, persisted: 'adjust', previousClipKey: 'other', currentTab: 'info' }, 'edit']
 ];
 for (const kind of ['cut', 'layer']) {
   for (const [label, options, expected] of INITIAL_TAB_CASES) {
