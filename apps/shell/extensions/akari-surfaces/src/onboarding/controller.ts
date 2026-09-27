@@ -72,7 +72,8 @@ export class OnboardingController {
     protected helpTimers: number[] = [];
     protected helpKey = '';
     protected transitionBusy = false;
-    protected transitionFailure?: { retry: () => Promise<void> };
+    protected transitionFailure?: { retry: () => Promise<void>; skipCleanup?: () => Promise<void> };
+    protected tourCleanupFailed = false;
     protected recoveryTimers: number[] = [];
     protected stepEnteredAt = 0;
     protected lastInteractionAt = 0;
@@ -182,14 +183,17 @@ export class OnboardingController {
         catch (error) { console.error('[akari-onboarding] close marker could not be saved:', error); }
     }
 
-    protected async go(step: OnboardingStep, sub = 0): Promise<void> {
-        await this.runTransition(() => this.goUnchecked(step, sub), () => this.go(step, sub));
+    protected async go(step: OnboardingStep, sub = 0, skipCleanup = false): Promise<void> {
+        await this.runTransition(() => this.goUnchecked(step, sub, skipCleanup), () => this.go(step, sub),
+            skipCleanup ? undefined : () => this.go(step, sub, true));
     }
 
-    protected async runTransition(operation: () => Promise<void>, retry: () => Promise<void>): Promise<void> {
+    protected async runTransition(operation: () => Promise<void>, retry: () => Promise<void>,
+        skipCleanup?: () => Promise<void>): Promise<void> {
         if (!this.root || this.transitionBusy) return;
         this.transitionBusy = true;
         this.transitionFailure = undefined;
+        this.tourCleanupFailed = false;
         this.renderRecovery();
         try { await operation(); }
         catch (error) {
@@ -197,14 +201,14 @@ export class OnboardingController {
             console.error('[akari-onboarding] transition failed:', error);
             if (this.tourTimer) window.clearTimeout(this.tourTimer);
             this.clearHelp();
-            this.transitionFailure = { retry };
+            this.transitionFailure = { retry, skipCleanup: this.tourCleanupFailed ? skipCleanup : undefined };
         } finally {
             this.transitionBusy = false;
             this.renderRecovery();
         }
     }
 
-    protected async goUnchecked(step: OnboardingStep, sub = 0): Promise<void> {
+    protected async goUnchecked(step: OnboardingStep, sub = 0, skipCleanup = false): Promise<void> {
         this.clearHelp();
         if (this.dragHintTimer) window.clearTimeout(this.dragHintTimer);
         this.hideDragHint();
@@ -212,9 +216,13 @@ export class OnboardingController {
         const old = this.state.step;
         if (old !== step) window.dispatchEvent(new Event('akari.onboarding.clearPreviewSelection'));
         if (step === 'drag' && this.state.exampleActive && !this.state.workCompleted && this.state.projectUri && this.sample) {
-            await this.service.resetTourExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments);
+            if (!skipCleanup) {
+                try { await this.service.resetTourExample(this.state.projectUri, this.sample.sourcePath, this.sample.segments); }
+                catch (error) { this.tourCleanupFailed = true; throw error; }
+            }
             if (!this.root) return;
-            this.state = { ...this.state, exampleActive: false };
+            // Skipping cleanup leaves the example asset in the project, ready for the existing imported branch.
+            this.state = { ...this.state, exampleActive: false, imported: skipCleanup || this.state.imported };
             window.dispatchEvent(new Event('akari.onboarding.refreshProject'));
             window.dispatchEvent(new Event('akari.onboarding.refreshTimeline'));
             await new Promise<void>(resolve => window.setTimeout(resolve, 450));
@@ -344,6 +352,11 @@ export class OnboardingController {
         if (view.showError && !recoveryHost.firstElementChild) recoveryHost.innerHTML =
             '<div class="ao-transition-error" role="alert"><p>先へ進めませんでした。もう一度お試しください。</p><div class="ao-actions"><button class="primary" data-ao="retry-transition">もう一度</button><button data-ao="close-guide">ガイドを閉じる</button></div></div>';
         else if (!view.showError) recoveryHost.replaceChildren();
+        const skipButton = recoveryHost.querySelector('[data-ao="skip-cleanup"]');
+        if (view.showError && this.transitionFailure?.skipCleanup && !skipButton)
+            recoveryHost.querySelector('.ao-actions')?.insertAdjacentHTML('beforeend',
+                '<button data-ao="skip-cleanup">片付けを飛ばして次へ</button>');
+        else if (!this.transitionFailure?.skipCleanup) skipButton?.remove();
         recoveryHost.querySelector<HTMLButtonElement>('[data-ao="retry-transition"]')?.toggleAttribute('disabled', !view.showRetry);
     }
 
@@ -825,6 +838,11 @@ export class OnboardingController {
         if (action === 'retry-transition') {
             const retry = this.transitionFailure?.retry;
             if (retry) await retry();
+            return;
+        }
+        if (action === 'skip-cleanup') {
+            const skipCleanup = this.transitionFailure?.skipCleanup;
+            if (skipCleanup) await skipCleanup();
             return;
         }
         if (action === 'fallback-next') return this.advanceAutomatically();

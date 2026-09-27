@@ -1,0 +1,13 @@
+{
+  "mode": "skip",
+  "startedAt": "2026-09-27T04:04:47.494Z",
+  "shots": [
+    "r8-03-skip-available",
+    "r8-04-skip-advanced"
+  ],
+  "electronPid": 6308,
+  "project": "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-09-27-first-video",
+  "injected": "tour3 で保存済み状態の exampleActive を false に変更",
+  "skipAdvanced": true,
+  "finishedAt": "2026-09-27T04:05:16.590Z"
+}

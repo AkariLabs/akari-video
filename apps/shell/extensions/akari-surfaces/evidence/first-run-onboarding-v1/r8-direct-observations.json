@@ -1,0 +1,13 @@
+{
+  "mode": "direct",
+  "startedAt": "2026-09-27T04:07:01.220Z",
+  "shots": [
+    "r8-01-tampered-tour3",
+    "r8-02-drag-after-cleanup"
+  ],
+  "electronPid": 27948,
+  "project": "<isolated>\\home\\Akari\\channels\\my-channel\\videos\\2026-09-27-first-video",
+  "injected": "tour3 で edit.json に改行を追加",
+  "advancedWithoutRecovery": true,
+  "finishedAt": "2026-09-27T04:07:47.113Z"
+}

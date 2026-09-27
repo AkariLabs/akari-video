@@ -203,31 +203,29 @@ export class AkariOnboardingServiceImpl implements AkariOnboardingService {
         }
     }
 
-    async resetTourExample(projectUri: string, sourcePath: string, segments: TranscriptSegment[]): Promise<void> {
+    async resetTourExample(projectUri: string, sourcePath: string, _segments: TranscriptSegment[]): Promise<void> {
         const current = await this.load();
-        if (current?.projectUri !== projectUri || !current.exampleActive || basename(sourcePath) !== 'clip.mp4')
+        if (current?.projectUri !== projectUri || !current.exampleActive || current.workCompleted)
             throw new Error('完成例の状態が違います');
-        if (current.workCompleted) return;
         const project = fileURLToPath(projectUri);
         const sample = join(project, 'assets', SAMPLE_NAME);
-        const editPath = join(project, 'edit.json');
         const captionPath = join(project, 'captions.json');
-        const expectedEdit = `${JSON.stringify(createOnboardingEdit(`assets/${SAMPLE_NAME}`, true), null, 2)}\n`;
-        const expectedCaptions = `${JSON.stringify(createOnboardingCaptions(segments, segments.length, true), null, 2)}\n`;
-        const [edit, captions] = await Promise.all([fs.readFile(editPath, 'utf8'), fs.readFile(captionPath, 'utf8')]);
-        if (edit !== expectedEdit || captions !== expectedCaptions)
-            throw new Error('完成例を利用者が変更したため、空の編集へ戻せません');
+        let removeSample = false;
         if (!current.imported) {
-            const [original, copied] = await Promise.all([fs.readFile(sourcePath), fs.readFile(sample)]);
-            const digest = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
-            if (digest(original) !== digest(copied)) throw new Error('サンプル動画が変更されたため削除できません');
+            const [original, copied] = await Promise.all([
+                fs.readFile(sourcePath).catch(() => undefined), fs.readFile(sample).catch(() => undefined)
+            ]);
+            if (original && copied) {
+                const digest = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex');
+                removeSample = digest(original) === digest(copied);
+            }
         }
         await writeProjectFilesGuarded(project, {
             'edit.json': `${JSON.stringify(createEmptyOnboardingEdit(), null, 2)}\n`
         });
-        await fs.rm(captionPath);
-        if (!current.imported) {
-            await fs.rm(sample);
+        await fs.rm(captionPath, { force: true });
+        if (removeSample) {
+            await fs.rm(sample, { force: true });
             await fs.rm(join(project, '.akari', 'sidecars', `assets/${SAMPLE_NAME}.analysis`), { recursive: true, force: true });
         }
     }
