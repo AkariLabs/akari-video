@@ -1,0 +1,24 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "news-navy-bar",
+  "name": "ニュース 紺の解説帯",
+  "category": "subtitle",
+  "sample_text": "ポイントを解説",
+  "style": {
+    "size_px": 58,
+    "weight": 800,
+    "color": "#54e6ff",
+    "background": {
+      "color": "#193756",
+      "opacity": 0.96,
+      "padding_px": 17,
+      "radius_px": 2
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "news-navy-bar"
+  }
+}

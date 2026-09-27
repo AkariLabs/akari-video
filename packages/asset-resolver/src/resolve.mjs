@@ -116,7 +116,7 @@ export async function resolve(
   const hasFiles = Array.isArray(item.files) && item.files.length > 0;
   if (price > 0) {
     const { ids: entitlements } = await fetchEntitlements({ env, fetchImpl });
-    if (!entitlements.has(item.id)) {
+    if (!entitlements.has(item.id) && !entitlements.has(item.product_id)) {
       throw new AssetResolverError(
         `未購入の素材です（¥${price.toLocaleString()}）。ストアで購入してから再度お試しください: ${item.id}`,
         'locked',
@@ -208,25 +208,29 @@ async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, 
   const tempAssetDir = path.join(tempRoot, item.category, item.id);
 
   try {
-    const zipPath = path.join(tempRoot, `${item.id}.zip`);
-    await downloadPaidZip(item.id, credentials, zipPath, { env, fetchImpl });
+    const productId = item.product_id ?? item.id;
+    const zipPath = path.join(tempRoot, `${productId}.zip`);
+    await downloadPaidZip(productId, credentials, zipPath, { env, fetchImpl });
 
     const extractedRoot = path.join(tempRoot, 'extracted');
     extractZip(zipPath, extractedRoot);
-    const { packageDir, payloadFiles } = await verifyPaidZipContents(extractedRoot, item.id);
+    const { packageDir, payloadFiles } = await verifyPaidZipContents(extractedRoot, productId);
 
-    // ストア入稿の実形は pack 形状（zip ルートに PACK.json / docs/ を持ち、素材本体は
-    // assets/<category>/<id>/ 配下）。契約 v0 のフラット形状（zip 直下に meta.json / 本体）も
+    // パックは assets/<category>/<id>/ と assets/<id>/ の両配置を受け付ける。
+    // 契約 v0 のフラット形状（zip 直下に meta.json / 本体）も
     // 引き続き受け付ける。どちらの形でも、ライブラリへ入るのは素材ディレクトリの中身だけ
     // （PACK.json / docs はライブラリに混ぜない — 全量が必要なら `akari store download` が zip を渡す）。
-    const nestedPrefix = `assets/${item.category}/${item.id}/`;
-    const nestedFiles = payloadFiles
-      .filter((relPath) => relPath.startsWith(nestedPrefix))
-      .map((relPath) => relPath.slice(nestedPrefix.length));
-    const payloadRoot = nestedFiles.length > 0
-      ? path.join(packageDir, 'assets', item.category, item.id)
-      : packageDir;
-    const assetFiles = nestedFiles.length > 0 ? nestedFiles : payloadFiles;
+    const prefixes = [`assets/${item.category}/${item.id}/`, `assets/${item.id}/`];
+    const nestedPrefix = prefixes.find(prefix => payloadFiles.some(file => file.startsWith(prefix)));
+    const nestedFiles = nestedPrefix
+      ? payloadFiles.filter(file => file.startsWith(nestedPrefix)).map(file => file.slice(nestedPrefix.length))
+      : [];
+    // A shared product zip may contain many assets. Never copy a sibling into this item's directory.
+    if (item.product_id && item.product_id !== item.id && !nestedPrefix) {
+      throw new AssetResolverError(`パック内に対象素材がありません: ${item.id}`, 'integrity');
+    }
+    const payloadRoot = nestedPrefix ? path.join(packageDir, nestedPrefix) : packageDir;
+    const assetFiles = nestedPrefix ? nestedFiles : payloadFiles;
 
     // 有料素材は meta.json 必須（契約検証を必ず通す）。形の取り違えを「meta.json の無い素材」と
     // 誤認して検証スキップのまま通した前歴（#25）があるため fail-closed に倒す

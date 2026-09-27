@@ -200,7 +200,7 @@ test("presets/textstyle の全プリセットが default_text_style としてそ
 });
 
 test("style_preset 参照と値焼き込みは全 textstyle で同じ caption overlay を生成する", () => {
-  assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 12);
+  assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 36);
   for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
     const record = { id: "c-0001", text: "比較字幕", start: 0, end: 2 };
     const resolved = applyCaptionStylePresets([{ ...record, style_preset: id }], TEXTSTYLE_CATALOG).root;

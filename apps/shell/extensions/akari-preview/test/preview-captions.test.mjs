@@ -233,7 +233,7 @@ test('object ルートを読み default と caption をネストもフィール�
 });
 
 test('preview の captionTextStyleVars は style_preset 参照と値焼き込みで一致する', () => {
-    assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 12);
+    assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 36);
     for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
         const [referenced] = parsePreviewCaptions(JSON.stringify({
             captions: [{ ...caption, style_preset: id }]

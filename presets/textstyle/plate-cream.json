@@ -1,0 +1,25 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "plate-cream",
+  "name": "座布団 生成り",
+  "category": "title",
+  "sample_text": "今日のまとめ",
+  "style": {
+    "size_px": 72,
+    "weight": 500,
+    "color": "#342c25",
+    "background": {
+      "color": "#fff0d3",
+      "opacity": 0.96,
+      "padding_px": 25,
+      "radius_px": 10
+    },
+    "letter_spacing_em": 0.09
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "plate-cream"
+  }
+}

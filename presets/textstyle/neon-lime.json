@@ -1,0 +1,32 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "neon-lime",
+  "name": "ネオン 黄緑",
+  "category": "decorative",
+  "sample_text": "ON AIR",
+  "style": {
+    "size_px": 100,
+    "weight": 800,
+    "color": "#eaffb4",
+    "letter_spacing_em": 0.09,
+    "shadow": {
+      "color": "#83ee26",
+      "opacity": 0.9,
+      "blur_px": 18,
+      "distance_px": 0,
+      "angle_deg": 90
+    },
+    "glow": {
+      "color": "#83ee26",
+      "density": 72,
+      "spread": 42
+    },
+    "text_transform": "uppercase"
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "neon-lime"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "vertical-impact-red",
+  "name": "縦動画 赤の大見出し",
+  "category": "title",
+  "sample_text": "まさかの結果！",
+  "style": {
+    "size_px": 130,
+    "weight": 900,
+    "color": "#ff334e",
+    "stroke": {
+      "color": "#111827",
+      "width_px": 10
+    },
+    "shadow": {
+      "color": "#220909",
+      "opacity": 0.85,
+      "blur_px": 5,
+      "distance_px": 10,
+      "angle_deg": 90
+    },
+    "letter_spacing_em": -0.03
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "vertical-impact-red"
+  }
+}

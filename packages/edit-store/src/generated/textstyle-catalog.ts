@@ -4,6 +4,60 @@
 import type { TextstylePreset } from '../caption-style-preset';
 
 export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = {
+  "cinema-blue": {
+    "id": "cinema-blue",
+    "name": "映画 青い余韻",
+    "category": "title",
+    "style": {
+      "size_px": 75,
+      "weight": 300,
+      "color": "#77b9ee",
+      "letter_spacing_em": 0.3,
+      "shadow": {
+        "color": "#052747",
+        "opacity": 0.78,
+        "blur_px": 10,
+        "distance_px": 3,
+        "angle_deg": 90
+      }
+    }
+  },
+  "cinema-gold": {
+    "id": "cinema-gold",
+    "name": "映画 金の見出し",
+    "category": "title",
+    "style": {
+      "size_px": 84,
+      "weight": 300,
+      "color": "#e7c888",
+      "letter_spacing_em": 0.22,
+      "shadow": {
+        "color": "#100e17",
+        "opacity": 0.7,
+        "blur_px": 10,
+        "distance_px": 3,
+        "angle_deg": 90
+      }
+    }
+  },
+  "cinema-white": {
+    "id": "cinema-white",
+    "name": "映画 白い余白",
+    "category": "title",
+    "style": {
+      "size_px": 68,
+      "weight": 300,
+      "color": "#f7f4ef",
+      "letter_spacing_em": 0.27,
+      "shadow": {
+        "color": "#000000",
+        "opacity": 0.55,
+        "blur_px": 7,
+        "distance_px": 2,
+        "angle_deg": 90
+      }
+    }
+  },
   "discount-text": {
     "id": "discount-text",
     "name": "割引バッジテキスト",
@@ -115,6 +169,206 @@ export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = {
       }
     }
   },
+  "neon-amber": {
+    "id": "neon-amber",
+    "name": "ネオン 琥珀",
+    "category": "decorative",
+    "style": {
+      "size_px": 104,
+      "weight": 700,
+      "color": "#fff1cb",
+      "letter_spacing_em": 0.14,
+      "shadow": {
+        "color": "#ff8c16",
+        "opacity": 0.9,
+        "blur_px": 24,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#ff8c16",
+        "density": 70,
+        "spread": 50
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "neon-lime": {
+    "id": "neon-lime",
+    "name": "ネオン 黄緑",
+    "category": "decorative",
+    "style": {
+      "size_px": 100,
+      "weight": 800,
+      "color": "#eaffb4",
+      "letter_spacing_em": 0.09,
+      "shadow": {
+        "color": "#83ee26",
+        "opacity": 0.9,
+        "blur_px": 18,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#83ee26",
+        "density": 72,
+        "spread": 42
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "neon-rose": {
+    "id": "neon-rose",
+    "name": "ネオン 桃色",
+    "category": "decorative",
+    "style": {
+      "size_px": 106,
+      "weight": 700,
+      "color": "#ffe1f2",
+      "letter_spacing_em": 0.1,
+      "shadow": {
+        "color": "#ff2aa0",
+        "opacity": 0.95,
+        "blur_px": 20,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#ff2aa0",
+        "density": 78,
+        "spread": 45
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "neon-violet": {
+    "id": "neon-violet",
+    "name": "ネオン 紫",
+    "category": "decorative",
+    "style": {
+      "size_px": 104,
+      "weight": 700,
+      "color": "#eee4ff",
+      "letter_spacing_em": 0.13,
+      "shadow": {
+        "color": "#8838ff",
+        "opacity": 0.9,
+        "blur_px": 26,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#8838ff",
+        "density": 75,
+        "spread": 54
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "news-navy-bar": {
+    "id": "news-navy-bar",
+    "name": "ニュース 紺の解説帯",
+    "category": "subtitle",
+    "style": {
+      "size_px": 58,
+      "weight": 800,
+      "color": "#54e6ff",
+      "background": {
+        "color": "#193756",
+        "opacity": 0.96,
+        "padding_px": 17,
+        "radius_px": 2
+      }
+    }
+  },
+  "news-red-bar": {
+    "id": "news-red-bar",
+    "name": "ニュース 淡赤の速報帯",
+    "category": "subtitle",
+    "style": {
+      "size_px": 60,
+      "weight": 800,
+      "color": "#24242b",
+      "background": {
+        "color": "#ffd6d2",
+        "opacity": 1,
+        "padding_px": 22,
+        "radius_px": 16
+      },
+      "shadow": {
+        "color": "#842727",
+        "opacity": 0.35,
+        "blur_px": 6,
+        "distance_px": 2,
+        "angle_deg": 90
+      }
+    }
+  },
+  "news-yellow-label": {
+    "id": "news-yellow-label",
+    "name": "解説 黄色ラベル",
+    "category": "emphasis",
+    "style": {
+      "size_px": 58,
+      "weight": 800,
+      "color": "#202020",
+      "background": {
+        "color": "#ffd948",
+        "opacity": 0.98,
+        "padding_px": 16,
+        "radius_px": 3
+      }
+    }
+  },
+  "plate-coral": {
+    "id": "plate-coral",
+    "name": "座布団 珊瑚色",
+    "category": "emphasis",
+    "style": {
+      "size_px": 62,
+      "weight": 700,
+      "color": "#211a1d",
+      "background": {
+        "color": "#ff7969",
+        "opacity": 0.96,
+        "padding_px": 22,
+        "radius_px": 22
+      }
+    }
+  },
+  "plate-cream": {
+    "id": "plate-cream",
+    "name": "座布団 生成り",
+    "category": "title",
+    "style": {
+      "size_px": 72,
+      "weight": 500,
+      "color": "#342c25",
+      "background": {
+        "color": "#fff0d3",
+        "opacity": 0.96,
+        "padding_px": 25,
+        "radius_px": 10
+      },
+      "letter_spacing_em": 0.09
+    }
+  },
+  "plate-indigo": {
+    "id": "plate-indigo",
+    "name": "座布団 藍紫角丸",
+    "category": "subtitle",
+    "style": {
+      "size_px": 64,
+      "weight": 700,
+      "color": "#fff7df",
+      "background": {
+        "color": "#3c238b",
+        "opacity": 0.97,
+        "padding_px": 24,
+        "radius_px": 24
+      }
+    }
+  },
   "subtitle-commentary": {
     "id": "subtitle-commentary",
     "name": "実況テロップ",
@@ -171,6 +425,22 @@ export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = {
       }
     }
   },
+  "subtitle-soft-band": {
+    "id": "subtitle-soft-band",
+    "name": "字幕 半透明の帯",
+    "category": "subtitle",
+    "style": {
+      "size_px": 52,
+      "weight": 500,
+      "color": "#ffffff",
+      "background": {
+        "color": "#111c2a",
+        "opacity": 0.7,
+        "padding_px": 14,
+        "radius_px": 4
+      }
+    }
+  },
   "subtitle-standard": {
     "id": "subtitle-standard",
     "name": "標準字幕",
@@ -206,6 +476,48 @@ export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = {
       }
     }
   },
+  "subtitle-white-bold": {
+    "id": "subtitle-white-bold",
+    "name": "白字幕 太縁",
+    "category": "subtitle",
+    "style": {
+      "size_px": 64,
+      "weight": 800,
+      "color": "#ffffff",
+      "stroke": {
+        "color": "#080808",
+        "width_px": 8
+      }
+    }
+  },
+  "subtitle-white-hairline": {
+    "id": "subtitle-white-hairline",
+    "name": "白字幕 細縁",
+    "category": "subtitle",
+    "style": {
+      "size_px": 52,
+      "weight": 500,
+      "color": "#ffffff",
+      "stroke": {
+        "color": "#101820",
+        "width_px": 2
+      }
+    }
+  },
+  "subtitle-yellow-bold": {
+    "id": "subtitle-yellow-bold",
+    "name": "黄色字幕 太縁",
+    "category": "subtitle",
+    "style": {
+      "size_px": 64,
+      "weight": 800,
+      "color": "#ffe500",
+      "stroke": {
+        "color": "#151515",
+        "width_px": 7
+      }
+    }
+  },
   "title-impact": {
     "id": "title-impact",
     "name": "インパクト",
@@ -227,6 +539,94 @@ export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = {
       }
     }
   },
+  "variety-candy-pink": {
+    "id": "variety-candy-pink",
+    "name": "バラエティ 桃の袋文字",
+    "category": "decorative",
+    "style": {
+      "size_px": 90,
+      "weight": 800,
+      "color": "#ff4ba8",
+      "stroke": {
+        "color": "#ffffff",
+        "width_px": 9
+      },
+      "shadow": {
+        "color": "#40142e",
+        "opacity": 0.7,
+        "blur_px": 8,
+        "distance_px": 8,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.02
+    }
+  },
+  "variety-lime-pop": {
+    "id": "variety-lime-pop",
+    "name": "バラエティ 黄緑ポップ",
+    "category": "decorative",
+    "style": {
+      "size_px": 84,
+      "weight": 900,
+      "color": "#bcf43a",
+      "stroke": {
+        "color": "#452372",
+        "width_px": 6
+      },
+      "shadow": {
+        "color": "#28103b",
+        "opacity": 0.75,
+        "blur_px": 2,
+        "distance_px": 9,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.04
+    }
+  },
+  "variety-orange-pop": {
+    "id": "variety-orange-pop",
+    "name": "バラエティ オレンジ影",
+    "category": "decorative",
+    "style": {
+      "size_px": 86,
+      "weight": 700,
+      "color": "#ff9f1c",
+      "stroke": {
+        "color": "#ffffff",
+        "width_px": 4
+      },
+      "shadow": {
+        "color": "#a62416",
+        "opacity": 0.85,
+        "blur_px": 1,
+        "distance_px": 11,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.01
+    }
+  },
+  "variety-soda-blue": {
+    "id": "variety-soda-blue",
+    "name": "バラエティ 水色の袋文字",
+    "category": "decorative",
+    "style": {
+      "size_px": 90,
+      "weight": 800,
+      "color": "#28d9fa",
+      "stroke": {
+        "color": "#123071",
+        "width_px": 9
+      },
+      "shadow": {
+        "color": "#000000",
+        "opacity": 0.65,
+        "blur_px": 9,
+        "distance_px": 7,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": 0.03
+    }
+  },
   "verdict-badge": {
     "id": "verdict-badge",
     "name": "判定バッジ",
@@ -246,6 +646,72 @@ export const TEXTSTYLE_CATALOG: Record<string, TextstylePreset> = {
         "distance_px": 0,
         "angle_deg": 90
       }
+    }
+  },
+  "vertical-impact-cyan": {
+    "id": "vertical-impact-cyan",
+    "name": "縦動画 水色の大見出し",
+    "category": "title",
+    "style": {
+      "size_px": 125,
+      "weight": 900,
+      "color": "#30e9f0",
+      "stroke": {
+        "color": "#ffffff",
+        "width_px": 11
+      },
+      "shadow": {
+        "color": "#051226",
+        "opacity": 0.8,
+        "blur_px": 8,
+        "distance_px": 8,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.04
+    }
+  },
+  "vertical-impact-red": {
+    "id": "vertical-impact-red",
+    "name": "縦動画 赤の大見出し",
+    "category": "title",
+    "style": {
+      "size_px": 130,
+      "weight": 900,
+      "color": "#ff334e",
+      "stroke": {
+        "color": "#111827",
+        "width_px": 10
+      },
+      "shadow": {
+        "color": "#220909",
+        "opacity": 0.85,
+        "blur_px": 5,
+        "distance_px": 10,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.03
+    }
+  },
+  "vertical-impact-white": {
+    "id": "vertical-impact-white",
+    "name": "縦動画 白の大見出し",
+    "category": "title",
+    "style": {
+      "size_px": 126,
+      "weight": 900,
+      "color": "#ffffff",
+      "stroke": {
+        "color": "#000000",
+        "width_px": 12
+      },
+      "shadow": {
+        "color": "#000000",
+        "opacity": 0.8,
+        "blur_px": 7,
+        "distance_px": 7,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.05
     }
   }
 };

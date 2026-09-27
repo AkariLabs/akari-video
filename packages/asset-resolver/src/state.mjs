@@ -89,7 +89,8 @@ export async function composeState({ env = process.env, fetchImpl = fetch } = {}
     const price = item.price ?? 0;
     let state;
     if (installed.has(key)) state = 'cached';
-    else if (price > 0 && !entitlementsResult.ids.has(item.id)) state = 'locked';
+    else if (price > 0 && !entitlementsResult.ids.has(item.id)
+      && !entitlementsResult.ids.has(item.product_id)) state = 'locked';
     else state = 'available';
     return { ...item, state, ...sourceFields(item, catalogKeys.has(key) || item.source === 'installed') };
   });

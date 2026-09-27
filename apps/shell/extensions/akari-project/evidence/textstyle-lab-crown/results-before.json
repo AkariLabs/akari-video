@@ -1,0 +1,240 @@
+{
+  "phase": "before",
+  "base": "8df0e86c3",
+  "window": {
+    "w": 1440,
+    "h": 868,
+    "dpr": 2
+  },
+  "stylePage": {
+    "tabs": [
+      "スタイル",
+      "フォント"
+    ],
+    "textstyleCards": [
+      "textstyle/subtitle-news",
+      "textstyle/subtitle-standard",
+      "textstyle/subtitle-variety",
+      "textstyle/subtitle-commentary",
+      "textstyle/subtitle-interview",
+      "textstyle/narration-caption",
+      "textstyle/emphasis-red",
+      "textstyle/verdict-badge",
+      "textstyle/discount-text",
+      "textstyle/neon",
+      "textstyle/glitch",
+      "textstyle/title-impact"
+    ],
+    "telopShelf": false,
+    "textstyleCount": 12
+  },
+  "shots": [
+    "before-00-text-page-style.png",
+    "before-01-text-page-font.png",
+    "before-02-after-apply.png"
+  ],
+  "apply": [
+    {
+      "captionId": "c-0002",
+      "styleId": "glitch",
+      "changed": true,
+      "presetStyle": {
+        "size_px": 116,
+        "weight": 700,
+        "color": "#f5f5f5",
+        "letter_spacing_em": 0.06,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#ff0066",
+          "opacity": 0.9,
+          "blur_px": 0,
+          "distance_px": 8,
+          "angle_deg": 0
+        },
+        "animation": {
+          "in": {
+            "id": "glitch"
+          }
+        }
+      },
+      "captionRowAfter": {
+        "id": "c-0002",
+        "start": 3,
+        "end": 5.5,
+        "text": "まずはコーヒーを淹れるところから",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "text_style": {
+          "color": "#f5f5f5",
+          "size_px": 116,
+          "weight": 700,
+          "letter_spacing_em": 0.06,
+          "shadow": {
+            "color": "#ff0066",
+            "opacity": 0.9,
+            "blur_px": 0,
+            "distance_px": 8,
+            "angle_deg": 0
+          }
+        }
+      },
+      "missingKeys": [
+        "text_transform",
+        "animation"
+      ],
+      "text_transform": {
+        "preset": "uppercase",
+        "captions": null
+      },
+      "animation": {
+        "preset": {
+          "in": {
+            "id": "glitch"
+          }
+        },
+        "captions": null
+      }
+    },
+    {
+      "captionId": "c-0003",
+      "styleId": "neon",
+      "changed": true,
+      "presetStyle": {
+        "size_px": 120,
+        "weight": 700,
+        "color": "#aefcff",
+        "letter_spacing_em": 0.12,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#00e5ff",
+          "opacity": 0.9,
+          "blur_px": 24,
+          "distance_px": 0,
+          "angle_deg": 90
+        },
+        "glow": {
+          "color": "#00e5ff",
+          "density": 80,
+          "spread": 60
+        },
+        "animation": {
+          "in": {
+            "id": "soft-fade"
+          },
+          "loop": {
+            "id": "neon-flicker"
+          },
+          "out": {
+            "id": "soft-fade"
+          }
+        }
+      },
+      "captionRowAfter": {
+        "id": "c-0003",
+        "start": 6,
+        "end": 8.5,
+        "text": "豆は挽きたてが一番おいしい",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "text_style": {
+          "color": "#aefcff",
+          "size_px": 120,
+          "weight": 700,
+          "letter_spacing_em": 0.12,
+          "shadow": {
+            "color": "#00e5ff",
+            "opacity": 0.9,
+            "blur_px": 24,
+            "distance_px": 0,
+            "angle_deg": 90
+          },
+          "glow": {
+            "color": "#00e5ff",
+            "density": 80,
+            "spread": 60
+          }
+        }
+      },
+      "missingKeys": [
+        "text_transform",
+        "animation"
+      ],
+      "text_transform": {
+        "preset": "uppercase",
+        "captions": null
+      },
+      "animation": {
+        "preset": {
+          "in": {
+            "id": "soft-fade"
+          },
+          "loop": {
+            "id": "neon-flicker"
+          },
+          "out": {
+            "id": "soft-fade"
+          }
+        },
+        "captions": null
+      }
+    },
+    {
+      "captionId": "c-0004",
+      "styleId": "emphasis-red",
+      "changed": true,
+      "presetStyle": {
+        "size_px": 92,
+        "weight": 700,
+        "color": "#ff1744",
+        "stroke": {
+          "color": "#ffffff",
+          "width_px": 6
+        },
+        "animation": {
+          "in": {
+            "id": "pop"
+          }
+        }
+      },
+      "captionRowAfter": {
+        "id": "c-0004",
+        "start": 9,
+        "end": 11.5,
+        "text": "お湯は少し冷ましてから注ぎます",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "text_style": {
+          "color": "#ff1744",
+          "size_px": 92,
+          "weight": 700,
+          "stroke": {
+            "color": "#ffffff",
+            "width_px": 6
+          }
+        }
+      },
+      "missingKeys": [
+        "animation"
+      ],
+      "text_transform": {
+        "preset": null,
+        "captions": null
+      },
+      "animation": {
+        "preset": {
+          "in": {
+            "id": "pop"
+          }
+        },
+        "captions": null
+      }
+    }
+  ],
+  "status": "ok"
+}

@@ -1,0 +1,22 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-white-bold",
+  "name": "白字幕 太縁",
+  "category": "subtitle",
+  "sample_text": "はっきり伝える",
+  "style": {
+    "size_px": 64,
+    "weight": 800,
+    "color": "#ffffff",
+    "stroke": {
+      "color": "#080808",
+      "width_px": 8
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "subtitle-white-bold"
+  }
+}

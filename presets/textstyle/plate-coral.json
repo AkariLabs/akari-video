@@ -1,0 +1,24 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "plate-coral",
+  "name": "座布団 珊瑚色",
+  "category": "emphasis",
+  "sample_text": "注目ポイント",
+  "style": {
+    "size_px": 62,
+    "weight": 700,
+    "color": "#211a1d",
+    "background": {
+      "color": "#ff7969",
+      "opacity": 0.96,
+      "padding_px": 22,
+      "radius_px": 22
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "plate-coral"
+  }
+}

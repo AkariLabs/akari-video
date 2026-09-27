@@ -1,0 +1,22 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-yellow-bold",
+  "name": "黄色字幕 太縁",
+  "category": "subtitle",
+  "sample_text": "ここを見て！",
+  "style": {
+    "size_px": 64,
+    "weight": 800,
+    "color": "#ffe500",
+    "stroke": {
+      "color": "#151515",
+      "width_px": 7
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "subtitle-yellow-bold"
+  }
+}

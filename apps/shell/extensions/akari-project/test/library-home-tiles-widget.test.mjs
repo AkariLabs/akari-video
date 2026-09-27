@@ -4,6 +4,7 @@ import test from 'node:test';
 import ts from 'typescript';
 import { LIBRARY_DETAIL_GROUPS, LIBRARY_PRIMARY_TILES } from '../lib/common/library-home-view.js';
 import { LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS } from '../lib/common/library-tile-art.js';
+import { textTelopItems } from '../lib/common/library-telop-shelf.js';
 
 const source = ts.createSourceFile('widget.tsx', readFileSync(new URL('../src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const widget = source.statements.find(node => ts.isClassDeclaration(node) && node.name?.text === 'AkariRoleBucketsWidget');
@@ -23,10 +24,11 @@ class CustomEvent {
     constructor(type, init) { this.type = type; this.detail = init?.detail; }
 }
 const React = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }) };
-const LibraryTextLookPage = props => React.createElement('text-page', props);
+const LibraryTextTelopPage = props => React.createElement('text-page', props);
+const LibraryAssetCard = props => React.createElement('asset-card', props);
 const LibraryTextFontRow = props => React.createElement('font-row', props);
-const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'LibraryTextLookPage', 'LibraryTextFontRow', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK', 'LIBRARY_TILE_ART', 'LIBRARY_TILE_SHARED_DEFS',
-    `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS, LibraryTextLookPage, LibraryTextFontRow,
+const Handler = new Function('React', 'window', 'CustomEvent', 'LIBRARY_DRAG_MIME', 'LIBRARY_DRAG_START_EVENT', 'LIBRARY_DRAG_END_EVENT', 'LIBRARY_PRIMARY_TILES', 'LIBRARY_DETAIL_GROUPS', 'LibraryTextTelopPage', 'LibraryAssetCard', 'LibraryTextFontRow', 'textTelopItems', 'AKARI_LIBRARY_DETAILS_STORAGE_KEY', 'AKARI_RADIUS', 'AKARI_SURFACE', 'AKARI_BORDER', 'AKARI_INK', 'LIBRARY_TILE_ART', 'LIBRARY_TILE_SHARED_DEFS',
+    `${code}\nreturn Handler;`)(React, window, CustomEvent, 'application/x-akari-library-item', 'akari.library.dragStart', 'akari.library.dragEnd', LIBRARY_PRIMARY_TILES, LIBRARY_DETAIL_GROUPS, LibraryTextTelopPage, LibraryAssetCard, LibraryTextFontRow, textTelopItems,
     'akari.library.detailsOpen',
     { panel: 6 }, { card: '#111', raised: '#222' }, { ghost: '1px solid #333' }, '#fff',
     LIBRARY_TILE_ART, LIBRARY_TILE_SHARED_DEFS);
@@ -47,7 +49,7 @@ function fixture() {
     // 本体ではクラスフィールド（`protected tilePlateSeq = 0`）。
     // この harness はメソッドだけを抜き出すので、ここで初期値を置く。
     handler.tilePlateSeq = 0;
-    handler.presetShowcase = { textstyle: Array(12), textanim: Array(47), lut: [] };
+    handler.presetShowcase = { textstyle: Array(36), textanim: Array(47), lut: [] };
     handler.myStyles = [];
     handler.assetCatalogItems = Array.from({ length: 31 }, (_, index) => ({ id: `font-${index}`, category: 'font' }));
     handler.commandService = { executeCommand: async (...args) => { calls.push(args); } };

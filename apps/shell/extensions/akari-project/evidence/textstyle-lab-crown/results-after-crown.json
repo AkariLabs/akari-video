@@ -1,0 +1,482 @@
+{
+  "phase": "after-crown",
+  "base": "8df0e86c3",
+  "checks": {
+    "page-tabs-and-36-styles": {
+      "pass": true,
+      "detail": {
+        "tabs": [
+          "スタイル",
+          "フォント",
+          "テロップ"
+        ],
+        "styles": 36
+      }
+    },
+    "apply-keeps-text-transform-and-animation": {
+      "pass": true,
+      "detail": [
+        {
+          "id": "glitch",
+          "lookKept": true,
+          "animationKept": true,
+          "text_transform": "uppercase",
+          "animation": {
+            "in": {
+              "id": "glitch"
+            }
+          }
+        },
+        {
+          "id": "neon",
+          "lookKept": true,
+          "animationKept": true,
+          "text_transform": "uppercase",
+          "animation": {
+            "in": {
+              "id": "soft-fade"
+            },
+            "loop": {
+              "id": "neon-flicker"
+            },
+            "out": {
+              "id": "soft-fade"
+            }
+          }
+        },
+        {
+          "id": "emphasis-red",
+          "lookKept": true,
+          "animationKept": true,
+          "text_transform": null,
+          "animation": {
+            "in": {
+              "id": "pop"
+            }
+          }
+        }
+      ]
+    },
+    "telop-shelf-paid-and-free-same-shelf": {
+      "pass": true,
+      "detail": [
+        "overlay/telop-fixture-blue",
+        "overlay/telop-fixture-free",
+        "overlay/telop-fixture-gold",
+        "overlay/telop-fixture-pink"
+      ]
+    },
+    "telop-paid-one-crown-no-price-on-card": {
+      "pass": true,
+      "detail": [
+        {
+          "key": "overlay/telop-fixture-blue",
+          "state": "locked",
+          "crowns": 1,
+          "hasYen": false
+        },
+        {
+          "key": "overlay/telop-fixture-free",
+          "state": "available",
+          "crowns": 0,
+          "hasYen": false
+        },
+        {
+          "key": "overlay/telop-fixture-gold",
+          "state": "locked",
+          "crowns": 1,
+          "hasYen": false
+        },
+        {
+          "key": "overlay/telop-fixture-pink",
+          "state": "locked",
+          "crowns": 1,
+          "hasYen": false
+        }
+      ]
+    },
+    "locked-press-shows-sheet-no-place": {
+      "pass": true,
+      "detail": {
+        "text": "「テロップ（金・fixture）」は Lab のプレミアムです ¥1,980 で購入すると、このライブラリからそのまま置けるようになります。パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。 検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます 閉じる Lab で見る",
+        "lab": true,
+        "close": true
+      }
+    },
+    "dots-shows-price": {
+      "pass": true,
+      "detail": {
+        "texts": [
+          "プレミアム · ¥1,980",
+          "Lab で見る（¥1,980）"
+        ],
+        "body": true
+      }
+    },
+    "locked-drop-shows-sheet-no-place": {
+      "pass": true,
+      "detail": {
+        "drag": {
+          "intercepted": true,
+          "mimeTypes": [
+            "application/x-akari-library-item"
+          ]
+        },
+        "sheet": {
+          "text": "「テロップ（桃・fixture）」は Lab のプレミアムです ¥1,980 で購入すると、このライブラリからそのまま置けるようになります。パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。 検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます 閉じる Lab で見る",
+          "lab": true,
+          "close": true
+        }
+      }
+    },
+    "free-telop-places": {
+      "pass": true,
+      "detail": [
+        {
+          "track": "v1",
+          "id": "overlay-1",
+          "at": 30,
+          "duration": 150,
+          "transform": {
+            "x": 2.705318931331585e-13,
+            "y": 85.66645310903866,
+            "scale": 1.189811848736648
+          },
+          "source": {
+            "kind": "html",
+            "path": "assets/overlay/telop-fixture-free/fragment.html",
+            "vars": {}
+          }
+        }
+      ]
+    },
+    "owned-telops-not-locked": {
+      "pass": true,
+      "detail": [
+        {
+          "key": "overlay/telop-fixture-free",
+          "state": "cached",
+          "crowns": 0
+        },
+        {
+          "key": "overlay/telop-fixture-blue",
+          "state": "available",
+          "crowns": 0
+        },
+        {
+          "key": "overlay/telop-fixture-gold",
+          "state": "available",
+          "crowns": 0
+        },
+        {
+          "key": "overlay/telop-fixture-pink",
+          "state": "available",
+          "crowns": 0
+        }
+      ]
+    },
+    "owned-telop-places-one-asset-from-pack": {
+      "pass": true,
+      "detail": {
+        "added": [
+          {
+            "track": "v1",
+            "id": "overlay-2",
+            "at": 210,
+            "duration": 150,
+            "transform": {
+              "x": 2.705318931331585e-13,
+              "y": 85.66645310903866,
+              "scale": 1.189811848736648
+            },
+            "source": {
+              "kind": "html",
+              "path": "assets/overlay/telop-fixture-gold/fragment.html",
+              "vars": {}
+            }
+          }
+        ],
+        "libraryOverlay": [
+          "telop-fixture-free",
+          "telop-fixture-gold"
+        ],
+        "files": [
+          "fragment.html",
+          "meta.json",
+          "preview.png"
+        ]
+      }
+    },
+    "export-draws-owned-telop": {
+      "pass": true,
+      "detail": {
+        "exit": 0,
+        "tier": 2,
+        "goldPixels": 22237,
+        "at": 7.5
+      }
+    }
+  },
+  "page": {
+    "tabs": [
+      "スタイル",
+      "フォント",
+      "テロップ"
+    ],
+    "styles": 36
+  },
+  "shots": [
+    "after-crown-00-text-page-style.png",
+    "after-crown-01-telop-shelf-locked.png",
+    "after-crown-02-premium-sheet-on-press.png",
+    "after-crown-03-dots-price.png",
+    "after-crown-04-premium-sheet-on-drop.png",
+    "after-crown-05-free-telop-placed.png",
+    "after-crown-06-telop-shelf-owned.png",
+    "after-crown-07-owned-telop-placed.png"
+  ],
+  "apply": [
+    {
+      "captionId": "c-0002",
+      "styleId": "glitch",
+      "changed": true,
+      "text_style": {
+        "color": "#f5f5f5",
+        "size_px": 116,
+        "weight": 700,
+        "letter_spacing_em": 0.06,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#ff0066",
+          "opacity": 0.9,
+          "blur_px": 0,
+          "distance_px": 8,
+          "angle_deg": 0
+        },
+        "animation": {
+          "in": {
+            "id": "glitch"
+          }
+        }
+      },
+      "lookKept": true,
+      "animationKept": true
+    },
+    {
+      "captionId": "c-0003",
+      "styleId": "neon",
+      "changed": true,
+      "text_style": {
+        "color": "#aefcff",
+        "size_px": 120,
+        "weight": 700,
+        "letter_spacing_em": 0.12,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#00e5ff",
+          "opacity": 0.9,
+          "blur_px": 24,
+          "distance_px": 0,
+          "angle_deg": 90
+        },
+        "glow": {
+          "color": "#00e5ff",
+          "density": 80,
+          "spread": 60
+        },
+        "animation": {
+          "in": {
+            "id": "soft-fade"
+          },
+          "loop": {
+            "id": "neon-flicker"
+          },
+          "out": {
+            "id": "soft-fade"
+          }
+        }
+      },
+      "lookKept": true,
+      "animationKept": true
+    },
+    {
+      "captionId": "c-0004",
+      "styleId": "emphasis-red",
+      "changed": true,
+      "text_style": {
+        "color": "#ff1744",
+        "size_px": 92,
+        "weight": 700,
+        "stroke": {
+          "color": "#ffffff",
+          "width_px": 6
+        },
+        "animation": {
+          "in": {
+            "id": "pop"
+          }
+        }
+      },
+      "lookKept": true,
+      "animationKept": true
+    }
+  ],
+  "telops1": [
+    {
+      "key": "overlay/telop-fixture-blue",
+      "state": "locked",
+      "premium": "true",
+      "crowns": 1,
+      "text": "テロップ（青・fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    },
+    {
+      "key": "overlay/telop-fixture-free",
+      "state": "available",
+      "premium": null,
+      "crowns": 0,
+      "text": "無料テロップ（fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    },
+    {
+      "key": "overlay/telop-fixture-gold",
+      "state": "locked",
+      "premium": "true",
+      "crowns": 1,
+      "text": "テロップ（金・fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    },
+    {
+      "key": "overlay/telop-fixture-pink",
+      "state": "locked",
+      "premium": "true",
+      "crowns": 1,
+      "text": "テロップ（桃・fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    }
+  ],
+  "sheetOnPress": {
+    "text": "「テロップ（金・fixture）」は Lab のプレミアムです ¥1,980 で購入すると、このライブラリからそのまま置けるようになります。パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。 検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます 閉じる Lab で見る",
+    "lab": true,
+    "close": true
+  },
+  "dots": {
+    "texts": [
+      "プレミアム · ¥1,980",
+      "Lab で見る（¥1,980）"
+    ],
+    "body": true
+  },
+  "drag": {
+    "intercepted": true,
+    "mimeTypes": [
+      "application/x-akari-library-item"
+    ]
+  },
+  "sheetOnDrop": {
+    "text": "「テロップ（桃・fixture）」は Lab のプレミアムです ¥1,980 で購入すると、このライブラリからそのまま置けるようになります。パスに含まれているかどうかも Lab のページで確かめられます。まだ置いていません。 検索の右の絞り込みで「料金 › 無料」を選ぶと、無料の素材だけを表示できます 閉じる Lab で見る",
+    "lab": true,
+    "close": true
+  },
+  "stubLog1": [
+    "GET /api/store/v1/entitlements",
+    "GET /assets/overlay/telop-fixture-blue/v1/preview.png",
+    "GET /assets/overlay/telop-fixture-free/v1/preview.png",
+    "GET /assets/overlay/telop-fixture-gold/v1/preview.png",
+    "GET /assets/overlay/telop-fixture-pink/v1/preview.png",
+    "GET /assets/overlay/telop-fixture-free/v1/fragment.html",
+    "GET /assets/overlay/telop-fixture-free/v1/meta.json"
+  ],
+  "telops2": [
+    {
+      "key": "overlay/telop-fixture-free",
+      "state": "cached",
+      "premium": null,
+      "crowns": 0,
+      "text": "無料テロップ（fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    },
+    {
+      "key": "overlay/telop-fixture-blue",
+      "state": "available",
+      "premium": null,
+      "crowns": 0,
+      "text": "テロップ（青・fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    },
+    {
+      "key": "overlay/telop-fixture-gold",
+      "state": "available",
+      "premium": null,
+      "crowns": 0,
+      "text": "テロップ（金・fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    },
+    {
+      "key": "overlay/telop-fixture-pink",
+      "state": "available",
+      "premium": null,
+      "crowns": 0,
+      "text": "テロップ（桃・fixture）",
+      "hasYen": false,
+      "draggable": "true"
+    }
+  ],
+  "sheetOwned": null,
+  "libraryOverlay": [
+    "telop-fixture-free",
+    "telop-fixture-gold"
+  ],
+  "ownedFiles": [
+    "fragment.html",
+    "meta.json",
+    "preview.png"
+  ],
+  "ownedItem": {
+    "track": "v1",
+    "id": "overlay-2",
+    "at": 210,
+    "duration": 150,
+    "transform": {
+      "x": 2.705318931331585e-13,
+      "y": 85.66645310903866,
+      "scale": 1.189811848736648
+    },
+    "source": {
+      "kind": "html",
+      "path": "assets/overlay/telop-fixture-gold/fragment.html",
+      "vars": {}
+    }
+  },
+  "stubLog2": [
+    "GET /api/store/v1/entitlements",
+    "GET /assets/overlay/telop-fixture-free/v1/preview.png",
+    "GET /assets/overlay/telop-fixture-blue/v1/preview.png",
+    "GET /assets/overlay/telop-fixture-gold/v1/preview.png",
+    "GET /assets/overlay/telop-fixture-pink/v1/preview.png",
+    "GET /api/store/v1/download/telop-rich-pack-01"
+  ],
+  "export": {
+    "exit": 0,
+    "secs": 27,
+    "tail": "WARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）\nPASS: exports/crown-osr.mp4\nsysctlbyname for kern.hv_vmm_present failed with status -1\nWARN verify.blank-frames: 空フレーム候補 14.5s–15s（0.5 秒、YMAX 最大 57）; 活性 cut:cut-base; background_ymax 57; spread 許容 16\n",
+    "engine": "osr",
+    "launcher_tier": 2,
+    "frames": {
+      "owned-telop": "after-crown-export-owned-telop.png",
+      "glitch-c0002": "after-crown-export-glitch-c0002.png",
+      "neon-c0003": "after-crown-export-neon-c0003.png",
+      "emphasis-c0004": "after-crown-export-emphasis-c0004.png"
+    },
+    "goldPixels": 22237
+  },
+  "pass": 11,
+  "total": 11
+}

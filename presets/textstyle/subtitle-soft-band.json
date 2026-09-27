@@ -1,0 +1,24 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-soft-band",
+  "name": "字幕 半透明の帯",
+  "category": "subtitle",
+  "sample_text": "ゆっくり話します",
+  "style": {
+    "size_px": 52,
+    "weight": 500,
+    "color": "#ffffff",
+    "background": {
+      "color": "#111c2a",
+      "opacity": 0.7,
+      "padding_px": 14,
+      "radius_px": 4
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "subtitle-soft-band"
+  }
+}

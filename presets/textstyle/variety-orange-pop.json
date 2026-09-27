@@ -1,0 +1,30 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "variety-orange-pop",
+  "name": "バラエティ オレンジ影",
+  "category": "decorative",
+  "sample_text": "最高です！",
+  "style": {
+    "size_px": 86,
+    "weight": 700,
+    "color": "#ff9f1c",
+    "stroke": {
+      "color": "#ffffff",
+      "width_px": 4
+    },
+    "shadow": {
+      "color": "#a62416",
+      "opacity": 0.85,
+      "blur_px": 1,
+      "distance_px": 11,
+      "angle_deg": 90
+    },
+    "letter_spacing_em": -0.01
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "variety-orange-pop"
+  }
+}

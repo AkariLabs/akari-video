@@ -1,0 +1,30 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "variety-candy-pink",
+  "name": "バラエティ 桃の袋文字",
+  "category": "decorative",
+  "sample_text": "大成功！",
+  "style": {
+    "size_px": 90,
+    "weight": 800,
+    "color": "#ff4ba8",
+    "stroke": {
+      "color": "#ffffff",
+      "width_px": 9
+    },
+    "shadow": {
+      "color": "#40142e",
+      "opacity": 0.7,
+      "blur_px": 8,
+      "distance_px": 8,
+      "angle_deg": 90
+    },
+    "letter_spacing_em": -0.02
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "variety-candy-pink"
+  }
+}

@@ -561,6 +561,60 @@ function isRecord(value) {
 
 // ../edit-store/src/generated/textstyle-catalog.ts
 var TEXTSTYLE_CATALOG = {
+  "cinema-blue": {
+    "id": "cinema-blue",
+    "name": "\u6620\u753B \u9752\u3044\u4F59\u97FB",
+    "category": "title",
+    "style": {
+      "size_px": 75,
+      "weight": 300,
+      "color": "#77b9ee",
+      "letter_spacing_em": 0.3,
+      "shadow": {
+        "color": "#052747",
+        "opacity": 0.78,
+        "blur_px": 10,
+        "distance_px": 3,
+        "angle_deg": 90
+      }
+    }
+  },
+  "cinema-gold": {
+    "id": "cinema-gold",
+    "name": "\u6620\u753B \u91D1\u306E\u898B\u51FA\u3057",
+    "category": "title",
+    "style": {
+      "size_px": 84,
+      "weight": 300,
+      "color": "#e7c888",
+      "letter_spacing_em": 0.22,
+      "shadow": {
+        "color": "#100e17",
+        "opacity": 0.7,
+        "blur_px": 10,
+        "distance_px": 3,
+        "angle_deg": 90
+      }
+    }
+  },
+  "cinema-white": {
+    "id": "cinema-white",
+    "name": "\u6620\u753B \u767D\u3044\u4F59\u767D",
+    "category": "title",
+    "style": {
+      "size_px": 68,
+      "weight": 300,
+      "color": "#f7f4ef",
+      "letter_spacing_em": 0.27,
+      "shadow": {
+        "color": "#000000",
+        "opacity": 0.55,
+        "blur_px": 7,
+        "distance_px": 2,
+        "angle_deg": 90
+      }
+    }
+  },
   "discount-text": {
     "id": "discount-text",
     "name": "\u5272\u5F15\u30D0\u30C3\u30B8\u30C6\u30AD\u30B9\u30C8",
@@ -672,6 +726,206 @@ var TEXTSTYLE_CATALOG = {
       }
     }
   },
+  "neon-amber": {
+    "id": "neon-amber",
+    "name": "\u30CD\u30AA\u30F3 \u7425\u73C0",
+    "category": "decorative",
+    "style": {
+      "size_px": 104,
+      "weight": 700,
+      "color": "#fff1cb",
+      "letter_spacing_em": 0.14,
+      "shadow": {
+        "color": "#ff8c16",
+        "opacity": 0.9,
+        "blur_px": 24,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#ff8c16",
+        "density": 70,
+        "spread": 50
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "neon-lime": {
+    "id": "neon-lime",
+    "name": "\u30CD\u30AA\u30F3 \u9EC4\u7DD1",
+    "category": "decorative",
+    "style": {
+      "size_px": 100,
+      "weight": 800,
+      "color": "#eaffb4",
+      "letter_spacing_em": 0.09,
+      "shadow": {
+        "color": "#83ee26",
+        "opacity": 0.9,
+        "blur_px": 18,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#83ee26",
+        "density": 72,
+        "spread": 42
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "neon-rose": {
+    "id": "neon-rose",
+    "name": "\u30CD\u30AA\u30F3 \u6843\u8272",
+    "category": "decorative",
+    "style": {
+      "size_px": 106,
+      "weight": 700,
+      "color": "#ffe1f2",
+      "letter_spacing_em": 0.1,
+      "shadow": {
+        "color": "#ff2aa0",
+        "opacity": 0.95,
+        "blur_px": 20,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#ff2aa0",
+        "density": 78,
+        "spread": 45
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "neon-violet": {
+    "id": "neon-violet",
+    "name": "\u30CD\u30AA\u30F3 \u7D2B",
+    "category": "decorative",
+    "style": {
+      "size_px": 104,
+      "weight": 700,
+      "color": "#eee4ff",
+      "letter_spacing_em": 0.13,
+      "shadow": {
+        "color": "#8838ff",
+        "opacity": 0.9,
+        "blur_px": 26,
+        "distance_px": 0,
+        "angle_deg": 90
+      },
+      "glow": {
+        "color": "#8838ff",
+        "density": 75,
+        "spread": 54
+      },
+      "text_transform": "uppercase"
+    }
+  },
+  "news-navy-bar": {
+    "id": "news-navy-bar",
+    "name": "\u30CB\u30E5\u30FC\u30B9 \u7D3A\u306E\u89E3\u8AAC\u5E2F",
+    "category": "subtitle",
+    "style": {
+      "size_px": 58,
+      "weight": 800,
+      "color": "#54e6ff",
+      "background": {
+        "color": "#193756",
+        "opacity": 0.96,
+        "padding_px": 17,
+        "radius_px": 2
+      }
+    }
+  },
+  "news-red-bar": {
+    "id": "news-red-bar",
+    "name": "\u30CB\u30E5\u30FC\u30B9 \u6DE1\u8D64\u306E\u901F\u5831\u5E2F",
+    "category": "subtitle",
+    "style": {
+      "size_px": 60,
+      "weight": 800,
+      "color": "#24242b",
+      "background": {
+        "color": "#ffd6d2",
+        "opacity": 1,
+        "padding_px": 22,
+        "radius_px": 16
+      },
+      "shadow": {
+        "color": "#842727",
+        "opacity": 0.35,
+        "blur_px": 6,
+        "distance_px": 2,
+        "angle_deg": 90
+      }
+    }
+  },
+  "news-yellow-label": {
+    "id": "news-yellow-label",
+    "name": "\u89E3\u8AAC \u9EC4\u8272\u30E9\u30D9\u30EB",
+    "category": "emphasis",
+    "style": {
+      "size_px": 58,
+      "weight": 800,
+      "color": "#202020",
+      "background": {
+        "color": "#ffd948",
+        "opacity": 0.98,
+        "padding_px": 16,
+        "radius_px": 3
+      }
+    }
+  },
+  "plate-coral": {
+    "id": "plate-coral",
+    "name": "\u5EA7\u5E03\u56E3 \u73CA\u745A\u8272",
+    "category": "emphasis",
+    "style": {
+      "size_px": 62,
+      "weight": 700,
+      "color": "#211a1d",
+      "background": {
+        "color": "#ff7969",
+        "opacity": 0.96,
+        "padding_px": 22,
+        "radius_px": 22
+      }
+    }
+  },
+  "plate-cream": {
+    "id": "plate-cream",
+    "name": "\u5EA7\u5E03\u56E3 \u751F\u6210\u308A",
+    "category": "title",
+    "style": {
+      "size_px": 72,
+      "weight": 500,
+      "color": "#342c25",
+      "background": {
+        "color": "#fff0d3",
+        "opacity": 0.96,
+        "padding_px": 25,
+        "radius_px": 10
+      },
+      "letter_spacing_em": 0.09
+    }
+  },
+  "plate-indigo": {
+    "id": "plate-indigo",
+    "name": "\u5EA7\u5E03\u56E3 \u85CD\u7D2B\u89D2\u4E38",
+    "category": "subtitle",
+    "style": {
+      "size_px": 64,
+      "weight": 700,
+      "color": "#fff7df",
+      "background": {
+        "color": "#3c238b",
+        "opacity": 0.97,
+        "padding_px": 24,
+        "radius_px": 24
+      }
+    }
+  },
   "subtitle-commentary": {
     "id": "subtitle-commentary",
     "name": "\u5B9F\u6CC1\u30C6\u30ED\u30C3\u30D7",
@@ -728,6 +982,22 @@ var TEXTSTYLE_CATALOG = {
       }
     }
   },
+  "subtitle-soft-band": {
+    "id": "subtitle-soft-band",
+    "name": "\u5B57\u5E55 \u534A\u900F\u660E\u306E\u5E2F",
+    "category": "subtitle",
+    "style": {
+      "size_px": 52,
+      "weight": 500,
+      "color": "#ffffff",
+      "background": {
+        "color": "#111c2a",
+        "opacity": 0.7,
+        "padding_px": 14,
+        "radius_px": 4
+      }
+    }
+  },
   "subtitle-standard": {
     "id": "subtitle-standard",
     "name": "\u6A19\u6E96\u5B57\u5E55",
@@ -763,6 +1033,48 @@ var TEXTSTYLE_CATALOG = {
       }
     }
   },
+  "subtitle-white-bold": {
+    "id": "subtitle-white-bold",
+    "name": "\u767D\u5B57\u5E55 \u592A\u7E01",
+    "category": "subtitle",
+    "style": {
+      "size_px": 64,
+      "weight": 800,
+      "color": "#ffffff",
+      "stroke": {
+        "color": "#080808",
+        "width_px": 8
+      }
+    }
+  },
+  "subtitle-white-hairline": {
+    "id": "subtitle-white-hairline",
+    "name": "\u767D\u5B57\u5E55 \u7D30\u7E01",
+    "category": "subtitle",
+    "style": {
+      "size_px": 52,
+      "weight": 500,
+      "color": "#ffffff",
+      "stroke": {
+        "color": "#101820",
+        "width_px": 2
+      }
+    }
+  },
+  "subtitle-yellow-bold": {
+    "id": "subtitle-yellow-bold",
+    "name": "\u9EC4\u8272\u5B57\u5E55 \u592A\u7E01",
+    "category": "subtitle",
+    "style": {
+      "size_px": 64,
+      "weight": 800,
+      "color": "#ffe500",
+      "stroke": {
+        "color": "#151515",
+        "width_px": 7
+      }
+    }
+  },
   "title-impact": {
     "id": "title-impact",
     "name": "\u30A4\u30F3\u30D1\u30AF\u30C8",
@@ -784,6 +1096,94 @@ var TEXTSTYLE_CATALOG = {
       }
     }
   },
+  "variety-candy-pink": {
+    "id": "variety-candy-pink",
+    "name": "\u30D0\u30E9\u30A8\u30C6\u30A3 \u6843\u306E\u888B\u6587\u5B57",
+    "category": "decorative",
+    "style": {
+      "size_px": 90,
+      "weight": 800,
+      "color": "#ff4ba8",
+      "stroke": {
+        "color": "#ffffff",
+        "width_px": 9
+      },
+      "shadow": {
+        "color": "#40142e",
+        "opacity": 0.7,
+        "blur_px": 8,
+        "distance_px": 8,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.02
+    }
+  },
+  "variety-lime-pop": {
+    "id": "variety-lime-pop",
+    "name": "\u30D0\u30E9\u30A8\u30C6\u30A3 \u9EC4\u7DD1\u30DD\u30C3\u30D7",
+    "category": "decorative",
+    "style": {
+      "size_px": 84,
+      "weight": 900,
+      "color": "#bcf43a",
+      "stroke": {
+        "color": "#452372",
+        "width_px": 6
+      },
+      "shadow": {
+        "color": "#28103b",
+        "opacity": 0.75,
+        "blur_px": 2,
+        "distance_px": 9,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.04
+    }
+  },
+  "variety-orange-pop": {
+    "id": "variety-orange-pop",
+    "name": "\u30D0\u30E9\u30A8\u30C6\u30A3 \u30AA\u30EC\u30F3\u30B8\u5F71",
+    "category": "decorative",
+    "style": {
+      "size_px": 86,
+      "weight": 700,
+      "color": "#ff9f1c",
+      "stroke": {
+        "color": "#ffffff",
+        "width_px": 4
+      },
+      "shadow": {
+        "color": "#a62416",
+        "opacity": 0.85,
+        "blur_px": 1,
+        "distance_px": 11,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.01
+    }
+  },
+  "variety-soda-blue": {
+    "id": "variety-soda-blue",
+    "name": "\u30D0\u30E9\u30A8\u30C6\u30A3 \u6C34\u8272\u306E\u888B\u6587\u5B57",
+    "category": "decorative",
+    "style": {
+      "size_px": 90,
+      "weight": 800,
+      "color": "#28d9fa",
+      "stroke": {
+        "color": "#123071",
+        "width_px": 9
+      },
+      "shadow": {
+        "color": "#000000",
+        "opacity": 0.65,
+        "blur_px": 9,
+        "distance_px": 7,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": 0.03
+    }
+  },
   "verdict-badge": {
     "id": "verdict-badge",
     "name": "\u5224\u5B9A\u30D0\u30C3\u30B8",
@@ -803,6 +1203,72 @@ var TEXTSTYLE_CATALOG = {
         "distance_px": 0,
         "angle_deg": 90
       }
+    }
+  },
+  "vertical-impact-cyan": {
+    "id": "vertical-impact-cyan",
+    "name": "\u7E26\u52D5\u753B \u6C34\u8272\u306E\u5927\u898B\u51FA\u3057",
+    "category": "title",
+    "style": {
+      "size_px": 125,
+      "weight": 900,
+      "color": "#30e9f0",
+      "stroke": {
+        "color": "#ffffff",
+        "width_px": 11
+      },
+      "shadow": {
+        "color": "#051226",
+        "opacity": 0.8,
+        "blur_px": 8,
+        "distance_px": 8,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.04
+    }
+  },
+  "vertical-impact-red": {
+    "id": "vertical-impact-red",
+    "name": "\u7E26\u52D5\u753B \u8D64\u306E\u5927\u898B\u51FA\u3057",
+    "category": "title",
+    "style": {
+      "size_px": 130,
+      "weight": 900,
+      "color": "#ff334e",
+      "stroke": {
+        "color": "#111827",
+        "width_px": 10
+      },
+      "shadow": {
+        "color": "#220909",
+        "opacity": 0.85,
+        "blur_px": 5,
+        "distance_px": 10,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.03
+    }
+  },
+  "vertical-impact-white": {
+    "id": "vertical-impact-white",
+    "name": "\u7E26\u52D5\u753B \u767D\u306E\u5927\u898B\u51FA\u3057",
+    "category": "title",
+    "style": {
+      "size_px": 126,
+      "weight": 900,
+      "color": "#ffffff",
+      "stroke": {
+        "color": "#000000",
+        "width_px": 12
+      },
+      "shadow": {
+        "color": "#000000",
+        "opacity": 0.8,
+        "blur_px": 7,
+        "distance_px": 7,
+        "angle_deg": 90
+      },
+      "letter_spacing_em": -0.05
     }
   }
 };
