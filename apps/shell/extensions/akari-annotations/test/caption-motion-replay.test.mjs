@@ -39,7 +39,7 @@ test('字幕更新後の再生は同じ cue が画面にあり、要求が期限
 
 test('字幕の再描画直後に保留再生を再開し、host の子要素を直接消さない', () => {
     const start = source.indexOf('const startCaptionMotionReplay = replay =>');
-    const end = source.indexOf("window.addEventListener('akari-frame-engine-seek'", start);
+    const end = source.indexOf('const scheduleCaptionMotionReplay = delay =>', start);
     const playback = source.slice(start, end);
     assert.ok(start >= 0 && end > start);
     assert.match(playback, /motionTextTargets\(row\.plate\)/u);
@@ -49,6 +49,10 @@ test('字幕の再描画直後に保留再生を再開し、host の子要素を
     const update = source.slice(source.indexOf("message.type === 'akari-preview-captions-update'"),
         source.indexOf("message.type === 'akari-preview-audio-update'"));
     assert.match(update, /renderCaption\(\);\s*resumeCaptionMotionAfterRender\(\);/u);
-    assert.match(source, /captionMotionReplay\.captionId === \(caption\?\.sourceCueId \|\| caption\?\.id\)[\s\S]*?window\.queueMicrotask\(resumeCaptionMotionAfterRender\)/u);
-    assert.match(source, /if \(animation\.effect\?\.target\?\.closest\?\.\('\[data-akari-motion-replay\]'\)\) continue;/u);
+    const isolatedRow = source.slice(source.indexOf('const renderCaptionRow = (caption, row) => {'),
+        source.indexOf('const renderTransitionPlate ='));
+    assert.doesNotMatch(isolatedRow, /captionMotionReplay|resumeCaptionMotionAfterRender|data-akari-motion-replay/u);
+    assert.match(playback, /target\.dataset\.akariMotionReplay !== token/u);
+    assert.match(playback, /animation\.currentTime = elapsed\(\);[\s\S]*?animation\.play\(\)/u);
+    assert.match(playback, /let index = Math\.min\(total, Math\.floor\(elapsed\(\) \/ step\)\)/u);
 });

@@ -8,6 +8,7 @@ import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionCards, ca
     captionTextAnimationWrite } from '../lib/browser/inspector/caption-motion-cards.js';
 import { addInspectorAnimatorTemplate, INSPECTOR_ANIMATOR_TEMPLATES,
     inspectorAnimatorTemplateFor } from '../lib/browser/inspector/animator-fields.js';
+import { captionMotionSampleKeyframes, CAPTION_MOTION_PANEL_CSS } from '../lib/browser/inspector/caption-motion-panel.js';
 
 test('効果 21 種は五つの段に収まり、影と光を同時に書ける', () => {
     assert.deepEqual(CAPTION_EFFECT_GROUPS.map(group => group.items.length), [6, 6, 3, 3, 3]);
@@ -101,4 +102,41 @@ test('カードは可視範囲だけループし、プレビューはタイプ�
     assert.match(preview, /akari-preview-caption-motion-play/u);
     assert.match(preview, /akari-caption-preview-caret/u);
     assert.match(preview, /replay\.slot === 'out' \? 'reverse'/u);
+});
+
+test('見本は周期の頭と終わりで表示し、動きの後に静止する', () => {
+    const frames = captionMotionSampleKeyframes('from { opacity: 0; } to { opacity: 1; }');
+    assert.match(frames, /^0%,20%\{opacity:1;transform:none;clip-path:inset\(0\)\}/u);
+    assert.match(frames, /20\.10%\{ opacity: 0; \}/u);
+    assert.match(frames, /70%,100%\{opacity:1;transform:none;clip-path:inset\(0\)\}$/u);
+    assert.match(CAPTION_MOTION_PANEL_CSS, /\.akari-caption-motion-sample-frame\{[^}]*overflow:hidden/u);
+    assert.match(CAPTION_MOTION_PANEL_CSS, /@keyframes akari-motion-type\{0%,20%,70%,100%\{max-width:3em\}/u);
+    const panel = readFileSync(new URL('../src/browser/inspector/caption-motion-panel.ts', import.meta.url), 'utf8');
+    assert.match(panel, /sample\.style\.animationDelay = `\$\{\(-\(sampleIndex\+\+ % 8\) \* \.17\)/u);
+});
+
+test('強調の対象語はテーマ色を使う選択可能なチップ', () => {
+    const panel = readFileSync(new URL('../src/browser/inspector/caption-motion-panel.ts', import.meta.url), 'utf8');
+    assert.match(panel, /chips\.className = 'akari-caption-motion-words'/u);
+    assert.match(panel, /button\.setAttribute\('aria-pressed', String\(index === selected\)\)/u);
+    assert.match(CAPTION_MOTION_PANEL_CSS, /\.akari-caption-motion-words button\[aria-pressed="true"\]\{[^}]*var\(--theia-focusBorder/u);
+    assert.match(CAPTION_MOTION_PANEL_CSS, /var\(--theia-button-background/u);
+});
+
+test('アニメーターの説明は全幅で折り返す', () => {
+    const widget = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
+    assert.match(widget, /name: 'animator-explain', className: 'akari-inspector-animator-explain'/u);
+    assert.match(widget, /\.akari-inspector-animator-explain \{ display: block; \}/u);
+    assert.match(widget, /\.akari-inspector-animator-explain \.akari-inspector-row-label \{\s*white-space: normal/u);
+});
+
+test('ライブラリ widget の activate は検索欄か自分の node に focus する', () => {
+    const widget = readFileSync(new URL('../../akari-project/src/browser/akari-role-buckets-widget.tsx', import.meta.url), 'utf8');
+    const activation = widget.slice(widget.indexOf('protected override onActivateRequest(msg: Message): void {'),
+        widget.indexOf('protected override onActivateRequest(msg: Message): void {') + 850);
+    assert.match(activation, /super\.onActivateRequest\(msg\)/u);
+    assert.match(activation, /this\.searchInput\?\.isConnected/u);
+    assert.match(activation, /input\.focus\(\)/u);
+    assert.match(activation, /document\.activeElement === input && !this\.searchComposing/u);
+    assert.match(activation, /this\.node\.tabIndex = -1;\s*this\.node\.focus\(\)/u);
 });

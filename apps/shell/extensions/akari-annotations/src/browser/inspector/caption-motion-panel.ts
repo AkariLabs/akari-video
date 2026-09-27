@@ -32,22 +32,36 @@ export const CAPTION_MOTION_PANEL_CSS = `
 .akari-inspector-widget button.akari-caption-motion-card{min-width:0;border:1px solid var(--akari-line);border-radius:6px;background:var(--akari-card);color:var(--akari-ink);padding:3px;font:inherit;cursor:pointer}
 .akari-inspector-widget button.akari-caption-motion-card[aria-pressed="true"]{border-color:var(--akari-accent)}
 .akari-inspector-widget button.akari-caption-motion-card:disabled:hover{background:var(--akari-card)}
-.akari-inspector-widget .akari-caption-motion-sample{display:flex;align-items:center;justify-content:center;height:34px;overflow:hidden;color:#1f2937;font-size:16px;font-weight:700;background:repeating-conic-gradient(#b8b8b8 0% 25%,#d5d5d5 0% 50%) 50% / 16px 16px}
+.akari-inspector-widget .akari-caption-motion-sample-frame{display:flex;align-items:center;justify-content:center;height:34px;overflow:hidden;background:repeating-conic-gradient(#b8b8b8 0% 25%,#d5d5d5 0% 50%) 50% / 16px 16px}
+.akari-inspector-widget .akari-caption-motion-sample{display:flex;align-items:center;justify-content:center;min-height:34px;color:#1f2937;font-size:16px;font-weight:700}
 .akari-inspector-widget .akari-caption-motion-card>span:last-child{display:block;padding:3px 0;font-size:10px;line-height:1.25}
 .akari-caption-motion-switch{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
 .akari-inspector-widget .akari-caption-motion-switch button,.akari-inspector-widget button.akari-caption-motion-more{border:1px solid var(--akari-line);border-radius:5px;background:var(--akari-elevated);color:var(--akari-ink);padding:5px;cursor:pointer}
 .akari-inspector-widget .akari-caption-motion-switch button[aria-pressed="true"]{border-color:var(--akari-accent)}
 .akari-caption-motion-words{display:flex;flex-wrap:wrap;gap:4px}
-.akari-caption-motion-words button{border:1px solid var(--akari-line);border-radius:5px;background:var(--akari-elevated);color:var(--akari-ink);padding:4px;cursor:pointer}
-.akari-caption-motion-words button[aria-pressed="true"]{border-color:var(--akari-accent)}
+.akari-inspector-widget .akari-caption-motion-words button{border:1px solid var(--theia-input-border,var(--akari-line));border-radius:999px;background:var(--theia-input-background,var(--akari-elevated));color:var(--theia-input-foreground,var(--akari-ink));padding:3px 9px;cursor:pointer}
+.akari-inspector-widget .akari-caption-motion-words button[aria-pressed="true"]{border-color:var(--theia-focusBorder,var(--akari-accent));background:var(--theia-button-background,var(--akari-accent));color:var(--theia-button-foreground,#fff)}
+.akari-inspector-widget .akari-caption-motion-words button:focus-visible{outline:2px solid var(--theia-focusBorder,var(--akari-accent));outline-offset:2px}
 .akari-caption-motion-note{font-size:11px;color:var(--akari-muted)}
-@keyframes akari-motion-karaoke{from{color:#1f2937}to{color:#ffd94a}}
+@keyframes akari-motion-karaoke{0%,20%,70%,100%{color:#ffd94a}20.1%{color:#1f2937}}
 @keyframes akari-motion-caret{0%,49%{border-color:currentColor}50%,100%{border-color:transparent}}
-@keyframes akari-motion-type{from{max-width:0}to{max-width:3em}}
+@keyframes akari-motion-type{0%,20%,70%,100%{max-width:3em}20.1%{max-width:0}}
 `;
 
+/** Leave the glyph visible at both ends of every sample cycle. */
+export function captionMotionSampleKeyframes(recipe: string): string {
+    const hold = 'opacity:1;transform:none;clip-path:inset(0)';
+    const frames = [...recipe.matchAll(/([^{}]+)\{([^{}]+)\}/g)].flatMap(([, selectors, body]) =>
+        selectors.split(',').map(selector => {
+            const key = selector.trim();
+            const percent = key === 'from' ? 0 : key === 'to' ? 100 : Number.parseFloat(key);
+            return Number.isFinite(percent) ? `${(20.1 + percent * .499).toFixed(2)}%{${body}}` : '';
+        })).filter(Boolean);
+    return `0%,20%{${hold}}${frames.join('')}70%,100%{${hold}}`;
+}
+
 const SAMPLE_CSS = Object.entries(PREVIEW_CAPTION_ANIMATION_RECIPES).map(([id, frames]) =>
-    `@keyframes akari-motion-sample-${id}{${frames}}`).join('\n');
+    `@keyframes akari-motion-sample-${id}{${captionMotionSampleKeyframes(frames)}}`).join('\n');
 
 export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     write: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
@@ -109,6 +123,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
             });
         }).catch(error => { notice.textContent = error instanceof Error ? error.message : String(error); });
     };
+    let sampleIndex = 0;
     const grid = (items: readonly { id: string; label: string; animation: string;
         kind: 'combo' | 'slot' | 'textanim' | 'word-style' | 'emphasis'; slot?: InspectorMotionSlot;
         selected?: boolean;
@@ -126,6 +141,9 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
             const sample = document.createElement('span');
             sample.className = 'akari-caption-motion-sample';
             sample.textContent = 'あいう';
+            const sampleFrame = document.createElement('span');
+            sampleFrame.className = 'akari-caption-motion-sample-frame';
+            sampleFrame.appendChild(sample);
             if (item.id === 'danger') sample.style.color = '#f87171';
             if (item.id === 'positive') sample.style.color = '#4ade80';
             if (item.id === 'color-only' || item.id === 'color-accent' || item.id === 'highlight') {
@@ -140,18 +158,20 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 sample.style.width = 'max-content';
                 sample.style.margin = '0 auto';
                 sample.style.whiteSpace = 'nowrap';
+                sample.style.overflow = 'hidden';
                 sample.style.borderRight = '2px solid currentColor';
                 sample.style.animation = 'akari-motion-type 1.4s steps(3,end) infinite, akari-motion-caret .6s step-end infinite';
             } else if (item.animation === 'karaoke') {
-                sample.style.animation = 'akari-motion-karaoke 1.4s steps(3,end) infinite alternate';
+                sample.style.animation = 'akari-motion-karaoke 1.4s steps(3,end) infinite';
             } else {
                 const direction = item.slot === 'out' ? 'reverse' : item.slot === 'loop' ? 'alternate' : 'normal';
                 sample.style.animation = `akari-motion-sample-${item.animation} 1.4s ease-in-out infinite ${direction}`;
             }
             sample.style.animationPlayState = observer ? 'paused' : 'running';
+            sample.style.animationDelay = `${(-(sampleIndex++ % 8) * .17).toFixed(2)}s`;
             const caption = document.createElement('span');
             caption.textContent = item.label;
-            card.append(sample, caption);
+            card.append(sampleFrame, caption);
             card.addEventListener('click', item.onClick);
             container.appendChild(card);
             observer?.observe(card);

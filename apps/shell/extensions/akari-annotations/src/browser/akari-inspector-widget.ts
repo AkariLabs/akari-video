@@ -2458,7 +2458,8 @@ function ANIMATOR_SECTION(
         }
     };
     const animatorFields: InspectorFieldDef[] = [{
-        name: 'animator-explain', label: '文字を 1 文字 / 1 語ずつずらして動かす仕組みです',
+        name: 'animator-explain', className: 'akari-inspector-animator-explain',
+        label: '文字を 1 文字 / 1 語ずつずらして動かす仕組みです',
         getValue: () => ''
     }, {
         name: 'animator-template', label: 'ひな形から始める', inputKind: 'select',
@@ -4370,6 +4371,11 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-section-toggle .akari-inspector-icon { order: -1; }
     .akari-inspector-section-toggle[aria-expanded="false"] .akari-inspector-icon { transform: rotate(-90deg); }
     .akari-inspector-widget .akari-inspector-row-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .akari-inspector-widget .akari-inspector-animator-explain { display: block; }
+    .akari-inspector-widget .akari-inspector-animator-explain .akari-inspector-row-label {
+        white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.5;
+    }
+    .akari-inspector-widget .akari-inspector-animator-explain .akari-inspector-row-value { display: none; }
     .akari-inspector-widget .akari-inspector-row { align-items: center; gap: 6px; }
     .akari-inspector-widget .akari-inspector-number-field { gap: 2px; }
     .akari-inspector-widget .akari-inspector-number-handle { padding: 0; display: grid; place-items: center; }

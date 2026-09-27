@@ -390,6 +390,23 @@ interface OutputEntry {
  */
 @injectable()
 export class AkariRoleBucketsWidget extends ReactWidget {
+    protected override onActivateRequest(msg: Message): void {
+        super.onActivateRequest(msg);
+        const input = this.searchInput?.isConnected ? this.searchInput : undefined;
+        if (input) {
+            // A focused input can outlive the shell's active-widget record. Re-focus through
+            // our node so Lumino emits an activation event, without interrupting IME conversion.
+            if (document.activeElement === input && !this.searchComposing) {
+                this.node.tabIndex = -1;
+                this.node.focus();
+            }
+            input.focus();
+        }
+        else {
+            this.node.tabIndex = -1;
+            this.node.focus();
+        }
+    }
     static readonly ID = 'akari-role-buckets-widget';
 
     @inject(AkariWorkflowService)

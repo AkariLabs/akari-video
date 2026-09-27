@@ -193,9 +193,9 @@ try {
     });
     // テキストアニメ: text_style.animation へ
     await observe('motion-textanim', async () => {
-        const polling = await pollPreview(PLATE(text1), 5000);
         await clickSel(cdp, card('textanim', 'bounce'));
-        const samples = await polling();
+        // The style write can rebuild the webview; keep the recorder outside that document.
+        const samples = await pollPreviewCdp(PLATE(text1), 5000);
         const cap = await capOf(p);
         check('textanim: text_style.animation へ書く', cap.text_style?.animation?.in?.id === 'bounce', cap.text_style?.animation);
         check('textanim: 押すとプレビューの字幕で 1 回再生', samples.some(([, s]) => s?.anims?.some(n => /oneshot|waapi|bounce/.test(n))), samples.slice(0, 30));

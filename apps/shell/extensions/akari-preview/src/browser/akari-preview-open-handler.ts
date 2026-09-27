@@ -19069,17 +19069,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     // renderCaption は innerHTML/textContent を置き換えるため、選択ハンドルは描画後に付け直す。
                     applyCaptionRowSelectionAttrs(captionPlate, caption);
                     row.captionHitRegionPending = true;
-                    if (captionMotionReplay?.restore
-                        && captionMotionReplay.captionId === (caption?.sourceCueId || caption?.id)) {
-                        window.queueMicrotask(resumeCaptionMotionAfterRender);
-                    }
                 }
                 let captionAnimations = [];
                 if (caption && row.styledCaptionActive) {
                     const localMs = (clamp(outputTime, caption.start, caption.end) - caption.start) * 1000;
                     captionAnimations = captionPlate.getAnimations({ subtree: true });
                     for (const animation of captionAnimations) {
-                        if (animation.effect?.target?.closest?.('[data-akari-motion-replay]')) continue;
                         animation.pause();
                         animation.currentTime = localMs;
                     }
@@ -19230,15 +19225,25 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (requestedCutId !== undefined) updateCutSelectBox();
                 if (selectedCaptionId || selectedCaptionIds.size > 0) updateCaptionSelectBox();
             };
+            window.addEventListener('akari-frame-engine-seek', event => {
+                const time = event.detail?.time;
+                if (!Number.isFinite(time)) return;
+                outputTime = time;
+                window.akari.updateEmptyCanvasHint?.(outputTime);
+                renderCaption();
+                applyRequestedOverlaySelection();
+            });
+            const renderTransitionPlate = timelineTime => renderTransitionComposite(timelineTime);
             const stopCaptionMotionReplay = keepRequest => {
                 const replay = captionMotionReplay;
                 if (!replay) return;
                 if (replay.startTimer) window.clearTimeout(replay.startTimer);
                 if (replay.finishTimer) window.clearTimeout(replay.finishTimer);
                 if (replay.interval) window.clearInterval(replay.interval);
+                if (replay.watchFrame) window.cancelAnimationFrame(replay.watchFrame);
                 for (const animation of replay.animations || []) animation.cancel();
                 replay.restore?.();
-                replay.startTimer = replay.finishTimer = replay.interval = null;
+                replay.startTimer = replay.finishTimer = replay.interval = replay.watchFrame = null;
                 replay.animations = [];
                 replay.restore = null;
                 if (!keepRequest) captionMotionReplay = null;
@@ -19259,10 +19264,33 @@ body { display: grid; place-items: center; padding: 32px; }
                     replay.startTimer = window.setTimeout(() => startCaptionMotionReplay(replay), 100);
                     return;
                 }
+                replay.startedAt ??= Date.now();
+                const elapsed = () => Math.max(0, Date.now() - replay.startedAt);
                 const original = targets.map(target => ({ target, nodes: [...target.childNodes],
                     animation: target.style.animation }));
                 const token = String(++replay.revision);
                 targets.forEach(target => { target.dataset.akariMotionReplay = token; });
+                const watch = () => {
+                    if (captionMotionReplay !== replay) return;
+                    if (targets.some(target => !target.isConnected || target.dataset.akariMotionReplay !== token)) {
+                        resumeCaptionMotionAfterRender();
+                        return;
+                    }
+                    for (const target of targets) {
+                        for (const animation of target.getAnimations({ subtree: true })) {
+                            if (animation.playState !== 'paused') continue;
+                            if (replay.animations.includes(animation)) {
+                                animation.currentTime = elapsed();
+                            } else if (animation.effect?.target?.closest?.('[data-akari-motion-replay]')) {
+                                // renderCaptionRow seeks CSS animations to the cue time and pauses them.
+                                animation.currentTime = elapsed();
+                            } else continue;
+                            animation.play();
+                        }
+                    }
+                    replay.watchFrame = window.requestAnimationFrame(watch);
+                };
+                replay.watchFrame = window.requestAnimationFrame(watch);
                 replay.restore = () => {
                     for (const entry of original) {
                         if (!entry.target.isConnected || entry.target.dataset.akariMotionReplay !== token) continue;
@@ -19273,6 +19301,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const animate = (element, frames, options) => {
                     const animation = element.animate(frames, options);
+                    animation.currentTime = elapsed();
                     replay.animations.push(animation);
                     return animation;
                 };
@@ -19291,7 +19320,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     caret.textContent = '|';
                     caret.style.cssText = 'display:inline-block;color:inherit;animation:akari-caption-preview-caret .55s step-end infinite';
                     const step = Math.max(55, Math.round(1400 / Math.max(1, total)));
-                    let index = 0;
+                    let index = Math.min(total, Math.floor(elapsed() / step));
                     const draw = () => {
                         let remaining = index;
                         let active = 0;
@@ -19306,7 +19335,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     draw();
                     replay.interval = window.setInterval(() => {
                         if (captionMotionReplay !== replay) return;
-                        index++;
+                        index = Math.min(total, Math.floor(elapsed() / step));
                         draw();
                         if (index >= total) {
                             window.clearInterval(replay.interval);
@@ -19388,6 +19417,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 void line.offsetWidth;
                 line.style.animation = name + ' 650ms ease-out 1 '
                     + (replay.slot === 'out' ? 'reverse' : 'normal') + ' both';
+                for (const animation of line.getAnimations()) animation.currentTime = elapsed();
                 replay.finishTimer = window.setTimeout(() => finishCaptionMotionReplay(replay), 700);
             };
             const scheduleCaptionMotionReplay = delay => {
@@ -19412,15 +19442,6 @@ body { display: grid; place-items: center; padding: 32px; }
                 stopCaptionMotionReplay(true);
                 scheduleCaptionMotionReplay(40);
             };
-            window.addEventListener('akari-frame-engine-seek', event => {
-                const time = event.detail?.time;
-                if (!Number.isFinite(time)) return;
-                outputTime = time;
-                window.akari.updateEmptyCanvasHint?.(outputTime);
-                renderCaption();
-                applyRequestedOverlaySelection();
-            });
-            const renderTransitionPlate = timelineTime => renderTransitionComposite(timelineTime);
             let activeTransitionWindowKey = null;
             let activeTransitionOutgoingIsStill = false;
             let activeTransitionEngine = 'none';

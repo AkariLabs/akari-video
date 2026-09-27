@@ -1,6 +1,6 @@
 {
   "phase": "after",
-  "head": "391d7c1c5",
+  "head": "7ad651c9b",
   "obs": {
     "effect-cards": {
       "state": {
@@ -171,7 +171,7 @@
       },
       "samples": [
         [
-          7,
+          10,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -182,11 +182,11 @@
           }
         ],
         [
-          376,
+          288,
           null
         ],
         [
-          457,
+          372,
           {
             "text": "今|",
             "topRatio": 0.847,
@@ -199,7 +199,7 @@
           }
         ],
         [
-          540,
+          472,
           {
             "text": "今日|",
             "topRatio": 0.847,
@@ -212,7 +212,7 @@
           }
         ],
         [
-          641,
+          555,
           {
             "text": "今日は|",
             "topRatio": 0.847,
@@ -225,7 +225,7 @@
           }
         ],
         [
-          722,
+          641,
           {
             "text": "今日は朝|",
             "topRatio": 0.847,
@@ -238,7 +238,7 @@
           }
         ],
         [
-          807,
+          741,
           {
             "text": "今日は朝の|",
             "topRatio": 0.847,
@@ -251,7 +251,7 @@
           }
         ],
         [
-          907,
+          824,
           {
             "text": "今日は朝のル|",
             "topRatio": 0.847,
@@ -264,7 +264,7 @@
           }
         ],
         [
-          990,
+          907,
           {
             "text": "今日は朝のルー|",
             "topRatio": 0.847,
@@ -277,7 +277,7 @@
           }
         ],
         [
-          1074,
+          989,
           {
             "text": "今日は朝のルーテ|",
             "topRatio": 0.847,
@@ -290,7 +290,7 @@
           }
         ],
         [
-          1174,
+          1089,
           {
             "text": "今日は朝のルーティ|",
             "topRatio": 0.847,
@@ -303,7 +303,7 @@
           }
         ],
         [
-          1257,
+          1172,
           {
             "text": "今日は朝のルーティン|",
             "topRatio": 0.847,
@@ -316,7 +316,7 @@
           }
         ],
         [
-          1340,
+          1257,
           {
             "text": "今日は朝のルーティンを|",
             "topRatio": 0.847,
@@ -329,7 +329,7 @@
           }
         ],
         [
-          1422,
+          1356,
           {
             "text": "今日は朝のルーティンを紹|",
             "topRatio": 0.847,
@@ -342,7 +342,7 @@
           }
         ],
         [
-          1507,
+          1440,
           {
             "text": "今日は朝のルーティンを紹介|",
             "topRatio": 0.847,
@@ -355,7 +355,7 @@
           }
         ],
         [
-          1605,
+          1524,
           {
             "text": "今日は朝のルーティンを紹介し|",
             "topRatio": 0.847,
@@ -368,7 +368,7 @@
           }
         ],
         [
-          1690,
+          1606,
           {
             "text": "今日は朝のルーティンを紹介しま|",
             "topRatio": 0.847,
@@ -381,7 +381,7 @@
           }
         ],
         [
-          1773,
+          1706,
           {
             "text": "今日は朝のルーティンを紹介します|",
             "topRatio": 0.847,
@@ -394,7 +394,7 @@
           }
         ],
         [
-          2056,
+          1988,
           {
             "text": "今日は朝のルーティンを紹介します|",
             "topRatio": 0.847,
@@ -407,7 +407,7 @@
           }
         ],
         [
-          2340,
+          2272,
           {
             "text": "今日は朝のルーティンを紹介します|",
             "topRatio": 0.847,
@@ -420,7 +420,7 @@
           }
         ],
         [
-          2440,
+          2355,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -462,7 +462,7 @@
       },
       "samples": [
         [
-          2,
+          3,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -473,7 +473,7 @@
           }
         ],
         [
-          512,
+          497,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -486,7 +486,7 @@
           }
         ],
         [
-          980,
+          852,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -846,165 +846,153 @@
       "allSettledMs": 112,
       "final": {
         "n": 21,
-        "view": 9,
+        "view": 6,
         "ready": 21,
         "fonts": 0,
-        "dom": 402
+        "dom": 405
       },
       "longTasks": [],
       "longTaskTotalMs": 0,
       "changes": [
         [
-          12,
+          14,
           {
             "n": 0,
             "view": 0,
             "ready": 0,
             "fonts": 0,
-            "dom": 204
+            "dom": 245
           }
         ],
         [
           52,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 6,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
-          65,
+          62,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 12,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
-          78,
+          79,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 15,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
-          96,
+          94,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 18,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
           112,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 21,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ]
       ],
       "profileTop": {
-        "totalMs": 10699,
-        "busyMs": 477,
+        "totalMs": 10776,
+        "busyMs": 631,
         "top": [
           [
             "(program) :0",
-            265.5
-          ],
-          [
-            "getBoundingClientRect :0",
-            51.9
+            355.2
           ],
           [
             "(garbage collector) :0",
-            51.6
+            146.5
           ],
           [
-            "querySelector :0",
-            31.1
+            "getBoundingClientRect :0",
+            33.7
           ],
           [
             "loop :8",
-            22.7
+            22.9
           ],
           [
-            "inView :4",
-            6.5
-          ],
-          [
-            "l bundle.js:19094",
-            5.4
-          ],
-          [
-            "requestAnimationFrame :0",
-            5.2
+            "querySelector :0",
+            19.2
           ],
           [
             "querySelectorAll :0",
-            4.8
+            7.6
           ],
           [
-            "(anon) bundle.js:19095",
-            3.9
-          ],
-          [
-            "vis :3",
-            3.4
-          ],
-          [
-            "ready :5",
-            2.4
+            "l bundle.js:19159",
+            5.4
           ],
           [
             "values :0",
-            2
+            5.1
+          ],
+          [
+            "inView :4",
+            4.8
+          ],
+          [
+            "ready :5",
+            4.8
+          ],
+          [
+            "(anon) bundle.js:19160",
+            3.3
+          ],
+          [
+            "requestAnimationFrame :0",
+            2.5
+          ],
+          [
+            "h bundle.js:19159",
+            2.3
           ],
           [
             "(anon) :9",
-            1.8
+            2.1
           ],
           [
-            "getElementsByTagName :0",
-            0.9
+            "tZe.update bundle.js:1153",
+            1.4
           ],
           [
-            "a bundle.js:1153",
-            0.8
+            "setTimeout :0",
+            1.2
           ],
           [
-            "KOe bundle.js:1160",
-            0.8
+            "vis :3",
+            1
           ],
           [
-            "(anon) bundle.js:432",
-            0.8
-          ],
-          [
-            "appendRow bundle.js:19095",
-            0.8
-          ],
-          [
-            "h bundle.js:19094",
+            "(anon) bundle.js:430",
             0.8
           ],
           [
             "appendChild :0",
-            0.8
-          ],
-          [
-            "postMessage bundle.js:2224",
             0.7
           ],
           [
@@ -1012,26 +1000,312 @@
             0.7
           ],
           [
-            "GLc bundle.js:18046",
-            0.6
+            "appendRow bundle.js:19160",
+            0.7
           ],
           [
-            "hideOverflowingTabs bundle.js:1185",
+            "resolve bundle.js:433",
+            0.4
+          ],
+          [
+            "scrollIntoView :0",
+            0.4
+          ],
+          [
+            "performPingRequest bundle.js:1727",
+            0.4
+          ],
+          [
+            "closest :0",
             0.4
           ]
         ]
       }
     },
     "inspector-motion-tab-click": {
-      "firstCardVisibleMs": 55,
-      "firstSampleVisibleMs": 55,
-      "allSettledMs": 64,
+      "firstCardVisibleMs": 99,
+      "firstSampleVisibleMs": 99,
+      "allSettledMs": 126,
       "final": {
         "n": 41,
         "view": 25,
         "ready": 41,
         "fonts": 0,
-        "dom": 204
+        "dom": 245
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          17,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 405
+          }
+        ],
+        [
+          99,
+          {
+            "n": 28,
+            "view": 25,
+            "ready": 28,
+            "fonts": 0,
+            "dom": 183
+          }
+        ],
+        [
+          126,
+          {
+            "n": 41,
+            "view": 25,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 245
+          }
+        ]
+      ],
+      "profileTop": {
+        "totalMs": 10795,
+        "busyMs": 2505,
+        "top": [
+          [
+            "getAnimations :0",
+            1080.4
+          ],
+          [
+            "(program) :0",
+            886.1
+          ],
+          [
+            "getBoundingClientRect :0",
+            244.5
+          ],
+          [
+            "(garbage collector) :0",
+            136.4
+          ],
+          [
+            "querySelector :0",
+            27.2
+          ],
+          [
+            "loop :8",
+            27.2
+          ],
+          [
+            "l bundle.js:19159",
+            20.8
+          ],
+          [
+            "inView :4",
+            9.2
+          ],
+          [
+            "vis :3",
+            6.8
+          ],
+          [
+            "replaceChildren :0",
+            5.9
+          ],
+          [
+            "values :0",
+            5.3
+          ],
+          [
+            "requestAnimationFrame :0",
+            4.7
+          ],
+          [
+            "wOc bundle.js:18089",
+            4.3
+          ],
+          [
+            "querySelectorAll :0",
+            3.9
+          ],
+          [
+            "ready :5",
+            3.9
+          ],
+          [
+            "tZe.update bundle.js:1153",
+            3
+          ],
+          [
+            "append :0",
+            1.8
+          ],
+          [
+            "getElementsByTagName :0",
+            1.5
+          ],
+          [
+            "appendChild :0",
+            1.4
+          ],
+          [
+            "scrollIntoView :0",
+            1.3
+          ],
+          [
+            "renderElement bundle.js:1185",
+            1.1
+          ],
+          [
+            "fromKey bundle.js:1189",
+            1.1
+          ],
+          [
+            "emit bundle.js:1153",
+            1.1
+          ],
+          [
+            "get id bundle.js:1153",
+            1
+          ],
+          [
+            "(anon) bundle.js:18115",
+            1
+          ]
+        ]
+      }
+    },
+    "inspector-select-caption-text-tab": {
+      "firstCardVisibleMs": 12,
+      "firstSampleVisibleMs": 12,
+      "allSettledMs": 112,
+      "final": {
+        "n": 21,
+        "view": 0,
+        "ready": 21,
+        "fonts": 0,
+        "dom": 369
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          12,
+          {
+            "n": 21,
+            "view": 21,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 405
+          }
+        ],
+        [
+          71,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 6,
+            "fonts": 0,
+            "dom": 369
+          }
+        ],
+        [
+          83,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 12,
+            "fonts": 0,
+            "dom": 369
+          }
+        ],
+        [
+          87,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 15,
+            "fonts": 0,
+            "dom": 369
+          }
+        ],
+        [
+          95,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 18,
+            "fonts": 0,
+            "dom": 369
+          }
+        ],
+        [
+          112,
+          {
+            "n": 21,
+            "view": 0,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 369
+          }
+        ]
+      ]
+    },
+    "inspector-select-caption-motion-tab": {
+      "firstCardVisibleMs": 15,
+      "firstSampleVisibleMs": 15,
+      "allSettledMs": 96,
+      "final": {
+        "n": 41,
+        "view": 22,
+        "ready": 41,
+        "fonts": 0,
+        "dom": 245
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          15,
+          {
+            "n": 41,
+            "view": 22,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 245
+          }
+        ],
+        [
+          59,
+          {
+            "n": 28,
+            "view": 22,
+            "ready": 28,
+            "fonts": 0,
+            "dom": 183
+          }
+        ],
+        [
+          96,
+          {
+            "n": 41,
+            "view": 22,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 245
+          }
+        ]
+      ]
+    },
+    "inspector-text-tab-click-2": {
+      "firstCardVisibleMs": 52,
+      "firstSampleVisibleMs": 52,
+      "allSettledMs": 115,
+      "final": {
+        "n": 21,
+        "view": 6,
+        "ready": 21,
+        "fonts": 0,
+        "dom": 405
       },
       "longTasks": [],
       "longTaskTotalMs": 0,
@@ -1043,512 +1317,233 @@
             "view": 0,
             "ready": 0,
             "fonts": 0,
-            "dom": 402
+            "dom": 245
           }
         ],
         [
-          55,
-          {
-            "n": 28,
-            "view": 25,
-            "ready": 28,
-            "fonts": 0,
-            "dom": 155
-          }
-        ],
-        [
-          64,
-          {
-            "n": 41,
-            "view": 25,
-            "ready": 41,
-            "fonts": 0,
-            "dom": 204
-          }
-        ]
-      ],
-      "profileTop": {
-        "totalMs": 10688,
-        "busyMs": 2360,
-        "top": [
-          [
-            "getAnimations :0",
-            1009.9
-          ],
-          [
-            "(program) :0",
-            942.6
-          ],
-          [
-            "getBoundingClientRect :0",
-            240.9
-          ],
-          [
-            "(garbage collector) :0",
-            77.5
-          ],
-          [
-            "querySelector :0",
-            21.5
-          ],
-          [
-            "loop :8",
-            18.5
-          ],
-          [
-            "l bundle.js:19094",
-            6.5
-          ],
-          [
-            "inView :4",
-            6.4
-          ],
-          [
-            "querySelectorAll :0",
-            3.7
-          ],
-          [
-            "vis :3",
-            3.1
-          ],
-          [
-            "ready :5",
-            3
-          ],
-          [
-            "requestAnimationFrame :0",
-            2.3
-          ],
-          [
-            "replaceChildren :0",
-            1.9
-          ],
-          [
-            "appendChild :0",
-            1.5
-          ],
-          [
-            "next :0",
-            1.1
-          ],
-          [
-            "YJe.update bundle.js:1153",
-            1.1
-          ],
-          [
-            "(anon) :9",
-            1.1
-          ],
-          [
-            "VX bundle.js:1153",
-            0.9
-          ],
-          [
-            "now :0",
-            0.8
-          ],
-          [
-            "toTrackedStack bundle.js:1189",
-            0.7
-          ],
-          [
-            "values :0",
-            0.6
-          ],
-          [
-            "on bundle.js:474",
-            0.6
-          ],
-          [
-            "QCi bundle.js:433",
-            0.5
-          ],
-          [
-            "r bundle.js:18047",
-            0.4
-          ],
-          [
-            "o bundle.js:17385",
-            0.4
-          ]
-        ]
-      }
-    },
-    "inspector-select-caption-text-tab": {
-      "firstCardVisibleMs": 5,
-      "firstSampleVisibleMs": 5,
-      "allSettledMs": 142,
-      "final": {
-        "n": 21,
-        "view": 0,
-        "ready": 21,
-        "fonts": 0,
-        "dom": 366
-      },
-      "longTasks": [],
-      "longTaskTotalMs": 0,
-      "changes": [
-        [
-          5,
+          52,
           {
             "n": 21,
-            "view": 21,
-            "ready": 21,
-            "fonts": 0,
-            "dom": 402
-          }
-        ],
-        [
-          86,
-          {
-            "n": 21,
-            "view": 0,
+            "view": 6,
             "ready": 6,
             "fonts": 0,
-            "dom": 366
+            "dom": 405
           }
         ],
         [
-          100,
+          66,
           {
             "n": 21,
-            "view": 0,
+            "view": 6,
             "ready": 12,
             "fonts": 0,
-            "dom": 366
-          }
-        ],
-        [
-          104,
-          {
-            "n": 21,
-            "view": 0,
-            "ready": 15,
-            "fonts": 0,
-            "dom": 366
-          }
-        ],
-        [
-          120,
-          {
-            "n": 21,
-            "view": 0,
-            "ready": 18,
-            "fonts": 0,
-            "dom": 366
-          }
-        ],
-        [
-          142,
-          {
-            "n": 21,
-            "view": 0,
-            "ready": 21,
-            "fonts": 0,
-            "dom": 366
-          }
-        ]
-      ]
-    },
-    "inspector-select-caption-motion-tab": {
-      "firstCardVisibleMs": 14,
-      "firstSampleVisibleMs": 14,
-      "allSettledMs": 80,
-      "final": {
-        "n": 41,
-        "view": 22,
-        "ready": 41,
-        "fonts": 0,
-        "dom": 204
-      },
-      "longTasks": [],
-      "longTaskTotalMs": 0,
-      "changes": [
-        [
-          14,
-          {
-            "n": 41,
-            "view": 22,
-            "ready": 41,
-            "fonts": 0,
-            "dom": 204
-          }
-        ],
-        [
-          57,
-          {
-            "n": 28,
-            "view": 22,
-            "ready": 28,
-            "fonts": 0,
-            "dom": 155
+            "dom": 405
           }
         ],
         [
           80,
           {
-            "n": 41,
-            "view": 22,
-            "ready": 41,
+            "n": 21,
+            "view": 6,
+            "ready": 15,
             "fonts": 0,
-            "dom": 204
+            "dom": 405
+          }
+        ],
+        [
+          98,
+          {
+            "n": 21,
+            "view": 6,
+            "ready": 18,
+            "fonts": 0,
+            "dom": 405
+          }
+        ],
+        [
+          115,
+          {
+            "n": 21,
+            "view": 6,
+            "ready": 21,
+            "fonts": 0,
+            "dom": 405
           }
         ]
       ]
     },
-    "inspector-text-tab-click-2": {
-      "firstCardVisibleMs": 60,
-      "firstSampleVisibleMs": 60,
-      "allSettledMs": 112,
+    "inspector-motion-tab-click-2": {
+      "firstCardVisibleMs": 53,
+      "firstSampleVisibleMs": 53,
+      "allSettledMs": 77,
       "final": {
-        "n": 21,
-        "view": 9,
-        "ready": 21,
+        "n": 41,
+        "view": 25,
+        "ready": 41,
         "fonts": 0,
-        "dom": 402
+        "dom": 245
       },
       "longTasks": [],
       "longTaskTotalMs": 0,
       "changes": [
         [
-          14,
+          13,
           {
             "n": 0,
             "view": 0,
             "ready": 0,
             "fonts": 0,
-            "dom": 204
+            "dom": 405
           }
         ],
         [
-          60,
+          53,
+          {
+            "n": 28,
+            "view": 25,
+            "ready": 28,
+            "fonts": 0,
+            "dom": 183
+          }
+        ],
+        [
+          77,
+          {
+            "n": 41,
+            "view": 25,
+            "ready": 41,
+            "fonts": 0,
+            "dom": 245
+          }
+        ]
+      ]
+    },
+    "inspector-text-tab-click-3": {
+      "firstCardVisibleMs": 55,
+      "firstSampleVisibleMs": 55,
+      "allSettledMs": 113,
+      "final": {
+        "n": 21,
+        "view": 6,
+        "ready": 21,
+        "fonts": 0,
+        "dom": 405
+      },
+      "longTasks": [],
+      "longTaskTotalMs": 0,
+      "changes": [
+        [
+          16,
+          {
+            "n": 0,
+            "view": 0,
+            "ready": 0,
+            "fonts": 0,
+            "dom": 245
+          }
+        ],
+        [
+          55,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 6,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
-          72,
+          71,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 12,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
           82,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 15,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
           97,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 18,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
-          112,
+          113,
           {
             "n": 21,
-            "view": 9,
+            "view": 6,
             "ready": 21,
             "fonts": 0,
-            "dom": 402
-          }
-        ]
-      ]
-    },
-    "inspector-motion-tab-click-2": {
-      "firstCardVisibleMs": 79,
-      "firstSampleVisibleMs": 79,
-      "allSettledMs": 93,
-      "final": {
-        "n": 41,
-        "view": 25,
-        "ready": 41,
-        "fonts": 0,
-        "dom": 204
-      },
-      "longTasks": [],
-      "longTaskTotalMs": 0,
-      "changes": [
-        [
-          26,
-          {
-            "n": 0,
-            "view": 0,
-            "ready": 0,
-            "fonts": 0,
-            "dom": 402
-          }
-        ],
-        [
-          79,
-          {
-            "n": 28,
-            "view": 25,
-            "ready": 28,
-            "fonts": 0,
-            "dom": 155
-          }
-        ],
-        [
-          93,
-          {
-            "n": 41,
-            "view": 25,
-            "ready": 41,
-            "fonts": 0,
-            "dom": 204
-          }
-        ]
-      ]
-    },
-    "inspector-text-tab-click-3": {
-      "firstCardVisibleMs": 139,
-      "firstSampleVisibleMs": 139,
-      "allSettledMs": 213,
-      "final": {
-        "n": 21,
-        "view": 9,
-        "ready": 21,
-        "fonts": 0,
-        "dom": 402
-      },
-      "longTasks": [
-        [
-          70,
-          68
-        ]
-      ],
-      "longTaskTotalMs": 68,
-      "changes": [
-        [
-          22,
-          {
-            "n": 0,
-            "view": 0,
-            "ready": 0,
-            "fonts": 0,
-            "dom": 204
-          }
-        ],
-        [
-          139,
-          {
-            "n": 21,
-            "view": 9,
-            "ready": 6,
-            "fonts": 0,
-            "dom": 402
-          }
-        ],
-        [
-          166,
-          {
-            "n": 21,
-            "view": 9,
-            "ready": 12,
-            "fonts": 0,
-            "dom": 402
-          }
-        ],
-        [
-          178,
-          {
-            "n": 21,
-            "view": 9,
-            "ready": 15,
-            "fonts": 0,
-            "dom": 402
-          }
-        ],
-        [
-          200,
-          {
-            "n": 21,
-            "view": 9,
-            "ready": 18,
-            "fonts": 0,
-            "dom": 402
-          }
-        ],
-        [
-          213,
-          {
-            "n": 21,
-            "view": 9,
-            "ready": 21,
-            "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ]
       ]
     },
     "inspector-motion-tab-click-3": {
-      "firstCardVisibleMs": 70,
-      "firstSampleVisibleMs": 70,
-      "allSettledMs": 97,
+      "firstCardVisibleMs": 66,
+      "firstSampleVisibleMs": 66,
+      "allSettledMs": 82,
       "final": {
         "n": 41,
         "view": 25,
         "ready": 41,
         "fonts": 0,
-        "dom": 204
+        "dom": 245
       },
       "longTasks": [],
       "longTaskTotalMs": 0,
       "changes": [
         [
-          23,
+          18,
           {
             "n": 0,
             "view": 0,
             "ready": 0,
             "fonts": 0,
-            "dom": 402
+            "dom": 405
           }
         ],
         [
-          70,
+          66,
           {
             "n": 28,
             "view": 25,
             "ready": 28,
             "fonts": 0,
-            "dom": 155
+            "dom": 183
           }
         ],
         [
-          97,
+          82,
           {
             "n": 41,
             "view": 25,
             "ready": 41,
             "fonts": 0,
-            "dom": 204
+            "dom": 245
           }
         ]
       ]
     },
     "library-textstyle-cold": {
-      "firstCardVisibleMs": 2306,
-      "firstSampleVisibleMs": 2306,
-      "allSettledMs": 2535,
+      "firstCardVisibleMs": 67,
+      "firstSampleVisibleMs": 67,
+      "allSettledMs": 67,
       "final": {
         "n": 12,
         "view": 12,
@@ -1560,7 +1555,7 @@
       "longTaskTotalMs": 0,
       "changes": [
         [
-          2,
+          22,
           {
             "n": 0,
             "view": 0,
@@ -1570,27 +1565,7 @@
           }
         ],
         [
-          2306,
-          {
-            "n": 12,
-            "view": 12,
-            "ready": 12,
-            "fonts": 0,
-            "dom": null
-          }
-        ],
-        [
-          2340,
-          {
-            "n": 12,
-            "view": 12,
-            "ready": 11,
-            "fonts": 1,
-            "dom": null
-          }
-        ],
-        [
-          2535,
+          67,
           {
             "n": 12,
             "view": 12,
@@ -1602,9 +1577,9 @@
       ]
     },
     "library-textanim-cold": {
-      "firstCardVisibleMs": 2293,
-      "firstSampleVisibleMs": 2293,
-      "allSettledMs": 2293,
+      "firstCardVisibleMs": 36,
+      "firstSampleVisibleMs": 36,
+      "allSettledMs": 36,
       "final": {
         "n": 47,
         "view": 33,
@@ -1616,17 +1591,7 @@
       "longTaskTotalMs": 0,
       "changes": [
         [
-          4,
-          {
-            "n": 0,
-            "view": 0,
-            "ready": 0,
-            "fonts": 0,
-            "dom": null
-          }
-        ],
-        [
-          2293,
+          36,
           {
             "n": 47,
             "view": 33,
@@ -1886,12 +1851,12 @@
           "all": 112
         },
         {
-          "first": 60,
-          "all": 112
+          "first": 52,
+          "all": 115
         },
         {
-          "first": 139,
-          "all": 213
+          "first": 55,
+          "all": 113
         }
       ]
     },
@@ -1899,16 +1864,16 @@
       "ok": true,
       "detail": [
         {
-          "first": 55,
-          "all": 64
+          "first": 99,
+          "all": 126
         },
         {
-          "first": 79,
-          "all": 93
+          "first": 53,
+          "all": 77
         },
         {
-          "first": 70,
-          "all": 97
+          "first": 66,
+          "all": 82
         }
       ]
     },
@@ -2045,7 +2010,7 @@
       "ok": true,
       "detail": [
         [
-          2,
+          3,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2056,7 +2021,7 @@
           }
         ],
         [
-          512,
+          497,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2069,7 +2034,7 @@
           }
         ],
         [
-          980,
+          852,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2097,7 +2062,7 @@
       "ok": true,
       "detail": [
         [
-          5,
+          3,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2108,7 +2073,7 @@
           }
         ],
         [
-          257,
+          210,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2121,7 +2086,7 @@
           }
         ],
         [
-          905,
+          849,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2144,7 +2109,7 @@
       "ok": true,
       "detail": [
         [
-          13,
+          12,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2155,7 +2120,7 @@
           }
         ],
         [
-          281,
+          195,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2171,7 +2136,7 @@
           }
         ],
         [
-          546,
+          460,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2186,7 +2151,7 @@
           }
         ],
         [
-          713,
+          626,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2200,7 +2165,7 @@
           }
         ],
         [
-          863,
+          778,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2213,7 +2178,7 @@
           }
         ],
         [
-          1031,
+          945,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2255,7 +2220,7 @@
       "ok": true,
       "detail": [
         [
-          7,
+          12,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2266,7 +2231,7 @@
           }
         ],
         [
-          175,
+          312,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2282,7 +2247,7 @@
           }
         ],
         [
-          607,
+          746,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2297,7 +2262,7 @@
           }
         ],
         [
-          708,
+          844,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2311,7 +2276,7 @@
           }
         ],
         [
-          823,
+          962,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
@@ -2324,7 +2289,7 @@
           }
         ],
         [
-          942,
+          1062,
           {
             "text": "今日は朝のルーティンを紹介します",
             "topRatio": 0.847,
