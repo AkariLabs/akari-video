@@ -1,0 +1,30 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "variety-lime-pop",
+  "name": "バラエティ 黄緑ポップ",
+  "category": "decorative",
+  "sample_text": "やったー！",
+  "style": {
+    "size_px": 84,
+    "weight": 900,
+    "color": "#bcf43a",
+    "stroke": {
+      "color": "#452372",
+      "width_px": 6
+    },
+    "shadow": {
+      "color": "#28103b",
+      "opacity": 0.75,
+      "blur_px": 2,
+      "distance_px": 9,
+      "angle_deg": 90
+    },
+    "letter_spacing_em": -0.04
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "variety-lime-pop"
+  }
+}

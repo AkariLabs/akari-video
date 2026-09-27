@@ -1,0 +1,252 @@
+{
+  "phase": "after-styles",
+  "base": "8df0e86c3",
+  "styles": [
+    {
+      "id": "subtitle-news",
+      "name": "ニュース風",
+      "psnr_preview_vs_export": 35.7838
+    },
+    {
+      "id": "subtitle-standard",
+      "name": "標準字幕",
+      "psnr_preview_vs_export": 36.2537
+    },
+    {
+      "id": "subtitle-variety",
+      "name": "バラエティ",
+      "psnr_preview_vs_export": 34.6098
+    },
+    {
+      "id": "subtitle-commentary",
+      "name": "実況テロップ",
+      "psnr_preview_vs_export": 33.6783
+    },
+    {
+      "id": "subtitle-interview",
+      "name": "インタビュー字幕",
+      "psnr_preview_vs_export": 36.4748
+    },
+    {
+      "id": "narration-caption",
+      "name": "ナレーション字幕",
+      "psnr_preview_vs_export": 34.5766
+    },
+    {
+      "id": "emphasis-red",
+      "name": "強調",
+      "psnr_preview_vs_export": 35.9019
+    },
+    {
+      "id": "verdict-badge",
+      "name": "判定バッジ",
+      "psnr_preview_vs_export": 36.5663
+    },
+    {
+      "id": "discount-text",
+      "name": "割引バッジテキスト",
+      "psnr_preview_vs_export": 35.1467
+    },
+    {
+      "id": "neon",
+      "name": "ネオン",
+      "psnr_preview_vs_export": 35.2524
+    },
+    {
+      "id": "glitch",
+      "name": "グリッチ風",
+      "psnr_preview_vs_export": 34.4688
+    },
+    {
+      "id": "title-impact",
+      "name": "インパクト",
+      "psnr_preview_vs_export": 29.6557
+    },
+    {
+      "id": "subtitle-white-hairline",
+      "name": "白字幕 細縁",
+      "psnr_preview_vs_export": 35.554
+    },
+    {
+      "id": "subtitle-white-bold",
+      "name": "白字幕 太縁",
+      "psnr_preview_vs_export": 35.4662
+    },
+    {
+      "id": "subtitle-yellow-bold",
+      "name": "黄色字幕 太縁",
+      "psnr_preview_vs_export": 35.1483
+    },
+    {
+      "id": "subtitle-soft-band",
+      "name": "字幕 半透明の帯",
+      "psnr_preview_vs_export": 36.2089
+    },
+    {
+      "id": "variety-candy-pink",
+      "name": "バラエティ 桃の袋文字",
+      "psnr_preview_vs_export": 34.0728
+    },
+    {
+      "id": "variety-soda-blue",
+      "name": "バラエティ 水色の袋文字",
+      "psnr_preview_vs_export": 33.7943
+    },
+    {
+      "id": "variety-lime-pop",
+      "name": "バラエティ 黄緑ポップ",
+      "psnr_preview_vs_export": 34.8507
+    },
+    {
+      "id": "variety-orange-pop",
+      "name": "バラエティ オレンジ影",
+      "psnr_preview_vs_export": 35.1511
+    },
+    {
+      "id": "neon-rose",
+      "name": "ネオン 桃色",
+      "psnr_preview_vs_export": 35.2539
+    },
+    {
+      "id": "neon-violet",
+      "name": "ネオン 紫",
+      "psnr_preview_vs_export": 36.0674
+    },
+    {
+      "id": "neon-lime",
+      "name": "ネオン 黄緑",
+      "psnr_preview_vs_export": 35.1624
+    },
+    {
+      "id": "neon-amber",
+      "name": "ネオン 琥珀",
+      "psnr_preview_vs_export": 35.8357
+    },
+    {
+      "id": "plate-indigo",
+      "name": "座布団 藍紫角丸",
+      "psnr_preview_vs_export": 35.9598
+    },
+    {
+      "id": "plate-coral",
+      "name": "座布団 珊瑚色",
+      "psnr_preview_vs_export": 36.0335
+    },
+    {
+      "id": "plate-cream",
+      "name": "座布団 生成り",
+      "psnr_preview_vs_export": 34.3746
+    },
+    {
+      "id": "cinema-white",
+      "name": "映画 白い余白",
+      "psnr_preview_vs_export": 35.7037
+    },
+    {
+      "id": "cinema-gold",
+      "name": "映画 金の見出し",
+      "psnr_preview_vs_export": 35.1689
+    },
+    {
+      "id": "cinema-blue",
+      "name": "映画 青い余韻",
+      "psnr_preview_vs_export": 36.2655
+    },
+    {
+      "id": "news-red-bar",
+      "name": "ニュース 淡赤の速報帯",
+      "psnr_preview_vs_export": 35.1308
+    },
+    {
+      "id": "news-navy-bar",
+      "name": "ニュース 紺の解説帯",
+      "psnr_preview_vs_export": 36.0485
+    },
+    {
+      "id": "news-yellow-label",
+      "name": "解説 黄色ラベル",
+      "psnr_preview_vs_export": 35.0383
+    },
+    {
+      "id": "vertical-impact-white",
+      "name": "縦動画 白の大見出し",
+      "psnr_preview_vs_export": 32.1353
+    },
+    {
+      "id": "vertical-impact-red",
+      "name": "縦動画 赤の大見出し",
+      "psnr_preview_vs_export": 34.1579
+    },
+    {
+      "id": "vertical-impact-cyan",
+      "name": "縦動画 水色の大見出し",
+      "psnr_preview_vs_export": 31.7916
+    }
+  ],
+  "cardIds": [
+    "subtitle-news",
+    "subtitle-standard",
+    "subtitle-variety",
+    "subtitle-commentary",
+    "subtitle-interview",
+    "narration-caption",
+    "emphasis-red",
+    "verdict-badge",
+    "discount-text",
+    "neon",
+    "glitch",
+    "title-impact",
+    "subtitle-white-hairline",
+    "subtitle-white-bold",
+    "subtitle-yellow-bold",
+    "subtitle-soft-band",
+    "variety-candy-pink",
+    "variety-soda-blue",
+    "variety-lime-pop",
+    "variety-orange-pop",
+    "neon-rose",
+    "neon-violet",
+    "neon-lime",
+    "neon-amber",
+    "plate-indigo",
+    "plate-coral",
+    "plate-cream",
+    "cinema-white",
+    "cinema-gold",
+    "cinema-blue",
+    "news-red-bar",
+    "news-navy-bar",
+    "news-yellow-label",
+    "vertical-impact-white",
+    "vertical-impact-red",
+    "vertical-impact-cyan"
+  ],
+  "cardCount": 36,
+  "shots": [
+    "after-styles-00-text-page-style.png",
+    "after-styles-01-preview-last.png"
+  ],
+  "previewFrame": {
+    "x": 283.0390625,
+    "y": 39,
+    "width": 522,
+    "height": 482
+  },
+  "stageInFrame": {
+    "x": 36,
+    "y": 85.4375,
+    "width": 450,
+    "height": 253.125
+  },
+  "webviewTarget": true,
+  "appSecs": 105,
+  "export": {
+    "exit": 0,
+    "secs": 25,
+    "tail": "PROGRESS timing name=child_run_json ms=6\nPROGRESS timing name=window_destroy_to_exit ms=10\nWARN verify.audio-level: 音声の宣言が無い無音トラック（-91 dB）\nPASS: exports/styles-osr.mp4\nsysctlbyname for kern.hv_vmm_present failed with status -1\n",
+    "engine": "osr",
+    "launcher_tier": 2,
+    "ffprobe": "{\n    \"programs\": [\n\n    ],\n    \"stream_groups\": [\n\n    ],\n    \"streams\": [\n        {\n            \"width\": 1920,\n            \"height\": 1080,\n            \"nb_read_frames\": \"360\"\n        }\n    ]\n}\n"
+  },
+  "sheet": "after-styles-sheet.jpg"
+}

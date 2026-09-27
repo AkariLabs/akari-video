@@ -1,0 +1,24 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "plate-indigo",
+  "name": "座布団 藍紫角丸",
+  "category": "subtitle",
+  "sample_text": "大事なお知らせ",
+  "style": {
+    "size_px": 64,
+    "weight": 700,
+    "color": "#fff7df",
+    "background": {
+      "color": "#3c238b",
+      "opacity": 0.97,
+      "padding_px": 24,
+      "radius_px": 24
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "plate-indigo"
+  }
+}

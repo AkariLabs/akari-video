@@ -1,0 +1,26 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "cinema-blue",
+  "name": "映画 青い余韻",
+  "category": "title",
+  "sample_text": "旅のはじまり",
+  "style": {
+    "size_px": 75,
+    "weight": 300,
+    "color": "#77b9ee",
+    "letter_spacing_em": 0.3,
+    "shadow": {
+      "color": "#052747",
+      "opacity": 0.78,
+      "blur_px": 10,
+      "distance_px": 3,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "cinema-blue"
+  }
+}

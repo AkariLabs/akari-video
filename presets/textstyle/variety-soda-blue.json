@@ -1,0 +1,30 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "variety-soda-blue",
+  "name": "バラエティ 水色の袋文字",
+  "category": "decorative",
+  "sample_text": "びっくり！",
+  "style": {
+    "size_px": 90,
+    "weight": 800,
+    "color": "#28d9fa",
+    "stroke": {
+      "color": "#123071",
+      "width_px": 9
+    },
+    "shadow": {
+      "color": "#000000",
+      "opacity": 0.65,
+      "blur_px": 9,
+      "distance_px": 7,
+      "angle_deg": 90
+    },
+    "letter_spacing_em": 0.03
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "variety-soda-blue"
+  }
+}

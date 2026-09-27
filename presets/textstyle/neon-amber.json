@@ -1,0 +1,32 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "neon-amber",
+  "name": "ネオン 琥珀",
+  "category": "decorative",
+  "sample_text": "OPEN",
+  "style": {
+    "size_px": 104,
+    "weight": 700,
+    "color": "#fff1cb",
+    "letter_spacing_em": 0.14,
+    "shadow": {
+      "color": "#ff8c16",
+      "opacity": 0.9,
+      "blur_px": 24,
+      "distance_px": 0,
+      "angle_deg": 90
+    },
+    "glow": {
+      "color": "#ff8c16",
+      "density": 70,
+      "spread": 50
+    },
+    "text_transform": "uppercase"
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "neon-amber"
+  }
+}

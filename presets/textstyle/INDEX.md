@@ -3,7 +3,7 @@
 「テキストをポンと置きたい」ための**軽量スタイルプリセット**。退役した ATF 描画とは独立しており、
 レイヤー構造を持たず、見た目パラメータと任意の textanim 既定を持つ JSON。旧 AKARI Video
 （akari-video-on-os `src/lib/text-templates.ts` の 141 件）からオーナー選別の 11 件を移植し、
-標準字幕 1 件を加えた。
+標準字幕 1 件を加え、2026-09-28 に用途別の 24 件を追加した。
 
 設計思想（2026-08-03 オーナー裁定）: **ベースは少数、あとはツマミで変える**。
 全フィールド（フォント / 太さ / 色 / 字間 / 縁取り / 座布団 / 影 / グロー / 大文字化）が
@@ -27,8 +27,10 @@ shadow / glow / background(color, opacity, padding_px, radius_px) / position / a
 
 **既知の制限**: `shadow.color` / `glow.color` はカーネルの色検証に合わせ、
 16 進表記（`#RRGGBB`）で書く。透明度は色文字列へ含めず `opacity` / `density` で指定する。
+2026-09-28 実測: OSR / GPU 書き出しは字幕の `font_family` に同梱書体を適用せず、プレビューだけで効く。
+このため追加 24 件は `font_family` を指定しない。
 
-## 一覧（12 件）
+## 一覧（36 件）
 
 | id | 名前 | 元カテゴリ | animation 既定 |
 |---|---|---|---|
@@ -48,3 +50,32 @@ shadow / glow / background(color, opacity, padding_px, radius_px) / position / a
 - 移植元: akari-video-on-os `src/lib/text-templates.ts`（各 JSON の `source` に記録）
 - 選別の経緯: 内部リポ planning/attachments/2026-08-03-textstyle-selection/（141 件からオーナー選別）
 - 残り 130 件の再移植は同じ変換で可能（オーナー選別が増えたら追加する）
+
+## 追加スタイル（24 件）
+
+| id | 名前 | 元カテゴリ |
+|---|---|---|
+| subtitle-white-hairline | 白字幕 細縁 | subtitle |
+| subtitle-white-bold | 白字幕 太縁 | subtitle |
+| subtitle-yellow-bold | 黄色字幕 太縁 | subtitle |
+| subtitle-soft-band | 字幕 半透明の帯 | subtitle |
+| variety-candy-pink | バラエティ 桃の袋文字 | decorative |
+| variety-soda-blue | バラエティ 水色の袋文字 | decorative |
+| variety-lime-pop | バラエティ 黄緑ポップ | decorative |
+| variety-orange-pop | バラエティ オレンジ影 | decorative |
+| neon-rose | ネオン 桃色 | decorative |
+| neon-violet | ネオン 紫 | decorative |
+| neon-lime | ネオン 黄緑 | decorative |
+| neon-amber | ネオン 琥珀 | decorative |
+| plate-indigo | 座布団 藍紫角丸 | subtitle |
+| plate-coral | 座布団 珊瑚色 | emphasis |
+| plate-cream | 座布団 生成り | title |
+| cinema-white | 映画 白い余白 | title |
+| cinema-gold | 映画 金の見出し | title |
+| cinema-blue | 映画 青い余韻 | title |
+| news-red-bar | ニュース 淡赤の速報帯 | subtitle |
+| news-navy-bar | ニュース 紺の解説帯 | subtitle |
+| news-yellow-label | 解説 黄色ラベル | emphasis |
+| vertical-impact-white | 縦動画 白の大見出し | title |
+| vertical-impact-red | 縦動画 赤の大見出し | title |
+| vertical-impact-cyan | 縦動画 水色の大見出し | title |

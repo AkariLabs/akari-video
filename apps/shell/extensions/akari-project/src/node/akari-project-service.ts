@@ -776,7 +776,9 @@ process.stdout.write(JSON.stringify({ base, items, entitlementsStatus, entitledP
         }
         const items = parsed.items.map(item => {
             const { previewUrl, mediaUrl } = resolveResolverCatalogUrls(item, parsed.base);
-            return toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl);
+            const productId = (item as ResolverRawCatalogItem & { product_id?: unknown }).product_id;
+            return { ...toResolverAssetCatalogViewItem(item, previewUrl, mediaUrl),
+                ...(typeof productId === 'string' && productId ? { product_id: productId } : {}) };
         });
         const entitlementsStatus = parsed.entitlementsStatus;
         const validEntitlementsStatuses: AssetEntitlementsStatus[] = ['ok', 'no_credentials', 'unauthorized', 'error'];

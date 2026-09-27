@@ -1,0 +1,26 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "cinema-gold",
+  "name": "映画 金の見出し",
+  "category": "title",
+  "sample_text": "終幕",
+  "style": {
+    "size_px": 84,
+    "weight": 300,
+    "color": "#e7c888",
+    "letter_spacing_em": 0.22,
+    "shadow": {
+      "color": "#100e17",
+      "opacity": 0.7,
+      "blur_px": 10,
+      "distance_px": 3,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "cinema-gold"
+  }
+}

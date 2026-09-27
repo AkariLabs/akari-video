@@ -12,6 +12,7 @@ const SKIP = new Set(['position', 'textAnchor', 'text_anchor', 'zone', 'animatio
 const LOOK_FIELDS: Readonly<Record<string, true | readonly string[]>> = {
     color: true, size_px: true, reference_height_px: true, font_family: true,
     font_weight: true, weight: true, line_height: true, letter_spacing_em: true,
+    text_transform: true,
     stroke: ['color', 'width_px'], background: ['color', 'opacity', 'radius_px', 'padding_px', 'mode'],
     shadow: ['color', 'opacity', 'blur_px', 'distance_px', 'angle_deg'],
     glow: ['color', 'density', 'spread', 'offset_x', 'offset_y']

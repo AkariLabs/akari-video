@@ -104,7 +104,10 @@ import { defaultMyStyleParts, myStylePartLabel, type MyStyle } from '../common/m
 import { libraryTextStyleSample } from '../common/library-shelf-visuals';
 import { textAnimationSampleKeyframes } from '../common/text-animation-sample';
 import { FontShelfCard, LibraryShelfVisualStyles, LutPreview, playTextAnimationSample, TransitionStrip } from './library-shelf-visuals-view';
-import { LibraryTextFontRow, LibraryTextLookPage, type LibraryTextTab } from './library-text-look-view';
+import { LibraryTextFontRow } from './library-text-look-view';
+import { LibraryTextTelopPage } from './library-text-telop-page';
+import { textTelopItems } from '../common/library-telop-shelf';
+import { libraryTextstyleApplyPayload } from '../common/library-textstyle-apply';
 import { LibraryShapeShelf } from './library-shape-shelf-view';
 import { ShapeShelfService } from './shape-shelf-service';
 import { shapeShelfDragPayload, ShapeShelfPreset } from '../common/shape-shelf';
@@ -671,7 +674,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     /** undefined = ライブラリホーム。値あり = フラット一覧から開いたカテゴリページ。 */
     protected libraryCategory?: LibraryCategoryKey;
     protected libraryTextLookOpen = false;
-    protected libraryTextTab: LibraryTextTab = 'style';
+    protected libraryTextTab: 'style' | 'font' | 'telop' = 'style';
     protected libraryDetailsOpen = false;
     protected catalogCategory = 'all';
     protected catalogViewMode: CatalogViewMode = 'grid';
@@ -3938,11 +3941,15 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const styleItems = this.filteredPresetShowcaseItems('textstyle');
         const motionItems = this.filteredPresetShowcaseItems('textanim');
         const fontItems = this.filteredCatalogItems().filter(item => item.category === 'font');
-        return <LibraryTextLookPage onBack={() => this.showLibraryHome()} onPlace={() => { void this.placeLibraryText(); }}
+        const telopItems = textTelopItems(this.filteredCatalogItems());
+        return <LibraryTextTelopPage onBack={() => this.showLibraryHome()} onPlace={() => { void this.placeLibraryText(); }}
             tab={this.libraryTextTab} onTabChange={tab => { this.libraryTextTab = tab; this.update(); }}
             styles={styleItems.map(item => this.renderPresetShowcaseCard(item))}
             myStyles={this.renderMyStyles()}
             motions={motionItems.map(item => this.renderPresetShowcaseCard(item))}
+            telops={telopItems.map(item => <LibraryAssetCard key={item.key}
+                {...this.libraryAssetCardProps(item, 'grid', {}, undefined, true)}
+                onPreview={() => { if (!this.showPremiumPrompt(item.key)) void this.addCatalogAssetAtPlayhead(item); }} />)}
             fonts={fontItems.map(item => this.generationPick.request ? this.renderCatalogItem(item)
                 : <LibraryTextFontRow key={item.key} item={item} faceFamily={this.libraryStyleFontFaces.get(item.id)}
                     card={this.renderCatalogItem(item) as React.ReactElement<React.ComponentProps<typeof FontShelfCard>>} />)} />;
@@ -4504,7 +4511,7 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     protected async applyPresetToSelectedCaption(item: PresetShowcaseItem): Promise<void> {
         try {
             await this.commandService.executeCommand('akari.timeline.applyLibraryItem', {
-                payload: presetApplyPayload(item),
+                payload: item.kind === 'textstyle' ? libraryTextstyleApplyPayload(item) : presetApplyPayload(item),
                 editUri: this.workflow.workspaceRoot?.resolve('edit.json').normalizePath().toString()
             });
         } catch (error) {
@@ -4628,7 +4635,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
     }
 
     protected openLibraryLab(item: AssetCatalogViewItem): void {
-        this.windowService.openNewWindow(storeProductUrl(this.storeConnection.url, item.id), { external: true });
+        const productId = (item as AssetCatalogViewItem & { product_id?: string }).product_id;
+        this.windowService.openNewWindow(storeProductUrl(this.storeConnection.url, productId ?? item.id), { external: true });
     }
 
     /**

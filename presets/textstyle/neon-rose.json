@@ -1,0 +1,32 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "neon-rose",
+  "name": "ネオン 桃色",
+  "category": "decorative",
+  "sample_text": "NIGHT LIFE",
+  "style": {
+    "size_px": 106,
+    "weight": 700,
+    "color": "#ffe1f2",
+    "letter_spacing_em": 0.1,
+    "shadow": {
+      "color": "#ff2aa0",
+      "opacity": 0.95,
+      "blur_px": 20,
+      "distance_px": 0,
+      "angle_deg": 90
+    },
+    "glow": {
+      "color": "#ff2aa0",
+      "density": 78,
+      "spread": 45
+    },
+    "text_transform": "uppercase"
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "neon-rose"
+  }
+}

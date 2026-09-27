@@ -1,0 +1,30 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "vertical-impact-white",
+  "name": "縦動画 白の大見出し",
+  "category": "title",
+  "sample_text": "これ知ってる？",
+  "style": {
+    "size_px": 126,
+    "weight": 900,
+    "color": "#ffffff",
+    "stroke": {
+      "color": "#000000",
+      "width_px": 12
+    },
+    "shadow": {
+      "color": "#000000",
+      "opacity": 0.8,
+      "blur_px": 7,
+      "distance_px": 7,
+      "angle_deg": 90
+    },
+    "letter_spacing_em": -0.05
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "vertical-impact-white"
+  }
+}

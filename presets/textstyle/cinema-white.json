@@ -1,0 +1,26 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "cinema-white",
+  "name": "映画 白い余白",
+  "category": "title",
+  "sample_text": "静かな時間",
+  "style": {
+    "size_px": 68,
+    "weight": 300,
+    "color": "#f7f4ef",
+    "letter_spacing_em": 0.27,
+    "shadow": {
+      "color": "#000000",
+      "opacity": 0.55,
+      "blur_px": 7,
+      "distance_px": 2,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "cinema-white"
+  }
+}

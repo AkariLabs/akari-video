@@ -1,0 +1,31 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "news-red-bar",
+  "name": "ニュース 淡赤の速報帯",
+  "category": "subtitle",
+  "sample_text": "速報が入りました",
+  "style": {
+    "size_px": 60,
+    "weight": 800,
+    "color": "#24242b",
+    "background": {
+      "color": "#ffd6d2",
+      "opacity": 1,
+      "padding_px": 22,
+      "radius_px": 16
+    },
+    "shadow": {
+      "color": "#842727",
+      "opacity": 0.35,
+      "blur_px": 6,
+      "distance_px": 2,
+      "angle_deg": 90
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "news-red-bar"
+  }
+}

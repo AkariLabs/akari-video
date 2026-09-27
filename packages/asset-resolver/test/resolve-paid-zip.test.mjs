@@ -13,6 +13,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 import { AssetResolverError, resolve as resolveAsset } from '../src/resolve.mjs';
+import { composeState } from '../src/state.mjs';
 import { setupFixtureEnv } from './helpers.mjs';
 
 const MINI_PNG = Buffer.from(
@@ -38,7 +39,7 @@ function paidMetaBuffer(id, category) {
     provenance: { origin: 'asset-resolver test fixture', generator: null },
     author: 'test',
     license: { spdx: 'LicenseRef-fixture', scope: 'paid-license-required', attribution_required: false, ai_training_allowed: false },
-    price: 2980,
+    price: category === 'overlay' ? null : 2980,
     version: 1,
   };
   return Buffer.from(`${JSON.stringify(meta, null, 2)}\n`);
@@ -54,24 +55,26 @@ function paidMetaBuffer(id, category) {
  * （有料経路の meta.json 必須化テスト用）。`extraChecksumLine` は checksums.txt に任意の 1 行を
  * 追記する（zip-slip 防御テスト用）。
  */
-function buildPaidZip(id, category, { corrupt, layout = 'flat', withoutMeta = false, extraChecksumLine } = {}) {
+function buildPaidZip(id, category, { corrupt, layout = 'flat', withoutMeta = false, extraChecksumLine,
+  productId = id, siblingId } = {}) {
   const stage = mkdtempSync(path.join(tmpdir(), 'paid-zip-fixture-'));
-  const rootName = `${id}-v1`;
+  const rootName = `${productId}-v1`;
   const rootDir = path.join(stage, rootName);
   mkdirSync(rootDir, { recursive: true });
 
   const payload = {
     'meta.json': paidMetaBuffer(id, category),
-    'fragment.html': Buffer.from(
-      `<div class="${id}-stub"><canvas></canvas><div data-akari-3d-fallback>fixture</div>`
-      + '<script type="application/json" data-akari-3d-scene>{"model":"model.glb"}</script></div>\n',
-    ),
-    'model.glb': Buffer.from('glTF-fixture-not-a-real-binary'),
+    'fragment.html': Buffer.from(category === 'overlay'
+      ? `<div class="${id}-stub"><span data-mirror="text">fixture</span></div>\n`
+      : `<div class="${id}-stub"><canvas></canvas><div data-akari-3d-fallback>fixture</div>`
+        + '<script type="application/json" data-akari-3d-scene>{"model":"model.glb"}</script></div>\n'),
+    ...(category === 'scene3d' ? { 'model.glb': Buffer.from('glTF-fixture-not-a-real-binary') } : {}),
     'preview.png': MINI_PNG,
   };
   if (withoutMeta) delete payload['meta.json'];
 
-  const payloadPrefix = layout === 'pack' ? `assets/${category}/${id}/` : '';
+  const payloadPrefix = layout === 'pack' ? `assets/${category}/${id}/`
+    : layout === 'telop-pack' ? `assets/${id}/` : '';
   const allFiles = {
     'README.md': Buffer.from('# fixture\n'),
     'LICENSE.md': Buffer.from('fixture license\n'),
@@ -82,6 +85,11 @@ function buildPaidZip(id, category, { corrupt, layout = 'flat', withoutMeta = fa
   }
   for (const [name, buffer] of Object.entries(payload)) {
     allFiles[`${payloadPrefix}${name}`] = buffer;
+  }
+  if (siblingId) {
+    allFiles[`assets/${siblingId}/meta.json`] = paidMetaBuffer(siblingId, category);
+    allFiles[`assets/${siblingId}/fragment.html`] = Buffer.from('<div data-mirror="text">sibling</div>');
+    allFiles[`assets/${siblingId}/preview.png`] = MINI_PNG;
   }
   for (const [name, buffer] of Object.entries(allFiles)) {
     const filePath = path.join(rootDir, name);
@@ -120,7 +128,7 @@ function fetchImplFor(id, { entitled, zipPath }) {
   };
 }
 
-function addPaidCatalogItem(catalog, catalogPath, id, category, price) {
+function addPaidCatalogItem(catalog, catalogPath, id, category, price, productId) {
   const withPaidItem = structuredClone(catalog);
   withPaidItem.items.push({
     id,
@@ -129,6 +137,7 @@ function addPaidCatalogItem(catalog, catalogPath, id, category, price) {
     tags: ['fixture', 'paid'],
     license: { spdx: 'LicenseRef-fixture' },
     price,
+    ...(productId ? { product_id: productId } : {}),
     version: 1,
     preview: '',
     provenance: {},
@@ -261,6 +270,76 @@ test('resolvePaidZip: pack 形状（assets/<category>/<id>/ 配下）は素材�
 
   const meta = JSON.parse(readFileSync(path.join(result.dir, 'meta.json'), 'utf8'));
   assert.equal(meta.id, 'mini-paid-pack');
+});
+
+test('テロップパック: product_id の権利で全素材が available、未購入は locked、対象 1 件だけを配置', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  const productId = 'fixture-telop-pack';
+  const first = 'telop-fixture-gold';
+  const second = 'telop-fixture-blue';
+  writeCredentials(home);
+  addPaidCatalogItem(catalog, catalogPath, first, 'overlay', 1980, productId);
+  const withFirst = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  addPaidCatalogItem(withFirst, catalogPath, second, 'overlay', 1980, productId);
+  const zipPath = buildPaidZip(first, 'overlay', { layout: 'telop-pack', productId, siblingId: second });
+
+  const lockedFetch = fetchImplFor(productId, { entitled: false, zipPath: null });
+  const locked = await composeState({ env, fetchImpl: lockedFetch });
+  assert.deepEqual([first, second].map(id => locked.items.find(item => item.id === id)?.state), ['locked', 'locked']);
+  await assert.rejects(() => resolveAsset(first, { env, fetchImpl: lockedFetch }),
+    error => error instanceof AssetResolverError && error.code === 'locked');
+
+  // The store expands Lifetime access into product entitlements in this API response.
+  const entitledFetch = fetchImplFor(productId, { entitled: true, zipPath });
+  const available = await composeState({ env, fetchImpl: entitledFetch });
+  assert.deepEqual([first, second].map(id => available.items.find(item => item.id === id)?.state), ['available', 'available']);
+  const result = await resolveAsset(first, { env, fetchImpl: entitledFetch });
+  assert.equal(result.dir, path.join(home, 'assets', 'overlay', first));
+  assert.ok(existsSync(path.join(result.dir, 'meta.json')));
+  assert.ok(existsSync(path.join(result.dir, 'fragment.html')));
+  assert.equal(existsSync(path.join(result.dir, 'assets')), false);
+  assert.equal(existsSync(path.join(home, 'assets', 'overlay', second)), false);
+});
+
+test('Lifetime パスの展開済み entitlements でパック全件が available、1 件だけ resolve できる', async () => {
+  const { env, home, catalog, catalogPath } = setupFixtureEnv();
+  const productId = 'telop-rich-pack-01';
+  const ids = Array.from({ length: 21 }, (_, index) => `telop-pass-${index + 1}`);
+  const [first, second] = ids;
+  writeCredentials(home);
+  let withPaidItems = catalog;
+  for (const id of ids) {
+    addPaidCatalogItem(withPaidItems, catalogPath, id, 'overlay', 1980, productId);
+    withPaidItems = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  }
+  const zipPath = buildPaidZip(first, 'overlay', { layout: 'telop-pack', productId, siblingId: second });
+  // worker/lib/entitlement.mjs はパスを active + pass_eligible な商品の行へ展開する。
+  const entitlements = [
+    { product_id: productId, kind: 'asset-pack', current_version: 1 },
+    { product_id: 'fixture-other-product', kind: 'asset-pack', current_version: 2 },
+  ];
+  const downloads = [];
+  const fetchImpl = async (url, options = {}) => {
+    assert.equal(options.headers?.authorization, 'Bearer akst_test');
+    if (String(url).endsWith('/v1/entitlements')) {
+      return { ok: true, status: 200, json: async () => ({ entitlements }) };
+    }
+    downloads.push(String(url));
+    assert.ok(String(url).endsWith(`/v1/download/${productId}`));
+    return { ok: true, status: 200, body: Readable.toWeb(createReadStream(zipPath)) };
+  };
+  const state = await composeState({ env, fetchImpl });
+  assert.deepEqual(ids.map(id => state.items.find(item => item.id === id)?.state),
+    Array(ids.length).fill('available'));
+  assert.deepEqual(state.entitledProducts, [
+    { id: productId, kind: 'asset-pack', currentVersion: 1 },
+    { id: 'fixture-other-product', kind: 'asset-pack', currentVersion: 2 },
+  ]);
+  const result = await resolveAsset(second, { env, fetchImpl });
+  assert.deepEqual(downloads, [`https://example.invalid/api/store/v1/download/${productId}`]);
+  assert.equal(result.dir, path.join(home, 'assets', 'overlay', second));
+  assert.equal(JSON.parse(readFileSync(path.join(result.dir, 'meta.json'))).id, second);
+  assert.equal(existsSync(path.join(home, 'assets', 'overlay', first)), false);
 });
 
 test('resolvePaidZip: meta.json の無い有料 zip は fail-closed（無警告スキップを許さない — #25）', async () => {

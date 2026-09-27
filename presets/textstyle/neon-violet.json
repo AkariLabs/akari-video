@@ -1,0 +1,32 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "neon-violet",
+  "name": "ネオン 紫",
+  "category": "decorative",
+  "sample_text": "DREAM",
+  "style": {
+    "size_px": 104,
+    "weight": 700,
+    "color": "#eee4ff",
+    "letter_spacing_em": 0.13,
+    "shadow": {
+      "color": "#8838ff",
+      "opacity": 0.9,
+      "blur_px": 26,
+      "distance_px": 0,
+      "angle_deg": 90
+    },
+    "glow": {
+      "color": "#8838ff",
+      "density": 75,
+      "spread": 54
+    },
+    "text_transform": "uppercase"
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "neon-violet"
+  }
+}

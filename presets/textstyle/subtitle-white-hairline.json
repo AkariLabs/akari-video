@@ -1,0 +1,22 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-white-hairline",
+  "name": "白字幕 細縁",
+  "category": "subtitle",
+  "sample_text": "声が聞こえる",
+  "style": {
+    "size_px": 52,
+    "weight": 500,
+    "color": "#ffffff",
+    "stroke": {
+      "color": "#101820",
+      "width_px": 2
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "presets/textstyle",
+    "original_id": "subtitle-white-hairline"
+  }
+}
