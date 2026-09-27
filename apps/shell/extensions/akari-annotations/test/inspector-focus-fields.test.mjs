@@ -90,6 +90,35 @@ test('focusField opens the requested tab and section and pulses the field after 
     assert.equal(timers.length, 1);
 }));
 
+test('focusField routes photo bar shortcuts to home and the matching dedicated view', () => dom(() => {
+    for (const [sectionId, fieldName, view] of [
+        ['home', undefined, 'tiles'],
+        ['photo-cutout', 'photo-cutout-panel', 'cutout'],
+        ['photo-eraser', 'photo-brush-start', 'eraser']
+    ]) {
+        const widget = fixture();
+        widget.render = () => {
+            widget.renders++;
+            widget.body.children = [];
+            const tab = new FakeElement();
+            tab.setAttribute('data-akari-ui', 'tab:inspector-edit');
+            tab.classList.add('is-active');
+            widget.body.appendChild(tab);
+            if (sectionId !== 'home') {
+                const section = new FakeElement();
+                section.setAttribute('data-akari-ui', `section:inspector-${sectionId}`);
+                const field = new FakeElement();
+                field.setAttribute('data-akari-field', fieldName);
+                section.appendChild(field);
+                widget.body.appendChild(section);
+            }
+        };
+        assert.equal(widget.focusField({ tabId: 'edit', sectionId, fieldName }), true);
+        assert.equal(widget.photoAiOpening, view);
+        assert.deepEqual(widget.writes[0], ['tab', 'cut', 'edit']);
+    }
+}));
+
 for (const missing of ['tab', 'inactive', 'section', 'field']) {
     test(`focusField returns false for a missing or inactive ${missing}`, () => dom(timers => {
         const widget = fixture(missing);

@@ -46,7 +46,7 @@ import {
 import { createSelectionHeader } from './inspector/selection-header';
 import { viewForInspectorSelection, shouldDeferInspectorEmpty, rememberedInspectorScroll, withoutInspectorFocus, focusForInspectorRender, shouldRememberInspectorScroll, inspectorHeldHeight, inspectorScrollPin, mergeLiveValues, type InspectorViewState, type LiveValues } from './inspector/live-state';
 import { aiActionCatalog, describeAiTiles } from '../common/ai-action-catalog';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, type AiTabView } from './inspector/ai-tiles';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor, type AiTabView } from './inspector/ai-tiles';
 import { editCorrectionVisible } from './inspector/edit-correction-visibility';
 import { viewAfterHomeTabClick } from './inspector/home-tab';
 import { appendHomeTuneTiles, homeTuneTiles } from './inspector/home-tune';
@@ -796,14 +796,14 @@ function CUT_SECTIONS(
                         return requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: parsed });
                     },
                     reset: () => requestWrite({ kind: 'cut-opacity', index: snapshot.index, value: null })
-                }
+                },
+                ...(photoItemId ? [{
+                    name: 'photo-crop-open', label: '切り抜き', getValue: () => '', actionLabel: '切り抜き',
+                    action: () => requestWrite({ kind: 'item-field', id: photoItemId,
+                        path: 'photo-crop-open', value: null })
+                }, ...photoFrameFields] : [])
             ]
         },
-        ...(photoItemId ? [{ id: 'edit-photo', label: '写真', fields: [{
-            name: 'photo-crop-open', label: '切り抜き', getValue: () => '', actionLabel: '切り抜き',
-            action: () => requestWrite({ kind: 'item-field', id: photoItemId,
-                path: 'photo-crop-open', value: null })
-        }, ...photoFrameFields] }] : []),
         {
             id: 'timing', label: '再生', fields: [
                 {
@@ -870,7 +870,8 @@ let activePhotoBrushItemId: string | null = null;
 function PHOTO_PANEL_FIELDS<T extends TimelineLayerSelection | TimelineTreeItemSnapshot | TimelineCutSelection>(
     snapshot: T, requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorFieldDef<T>[] {
-    if (!snapshot.photo) return [];
+    const sourcePath = snapshot.kind === 'cut' ? snapshot.sourcePath : snapshot.sourcePath ?? snapshot.src;
+    if (!snapshot.photo && !isInspectorStillImage(sourcePath)) return [];
     return [{
         name: 'photo-cutout-panel', label: '背景透過', getValue: () => '', actionLabel: '背景透過を開く',
         action: async (current: T) => { openPhotoEditPanel({ id: current.kind === 'cut' ? current.itemId ?? '' : current.id, write: requestWrite,
@@ -1238,13 +1239,11 @@ function LAYER_SECTIONS(
                         })
                     })
                 },
-                ...(!snapshot.photo ? maskFields : [])
+                ...(!snapshot.photo ? maskFields : []),
+                ...(snapshot.photo ? [...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
+                    ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)] : [])
             ]
         },
-        ...(snapshot.photo ? [{
-            id: 'edit-photo', label: '補正', fields: [...maskFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
-                ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)]
-        }] : []),
         ...(snapshot.layerKind === 'video' ? [{ id: 'audio', label: '音声', fields: [
             {
                 name: 'layer-audio', label: '音声', inputKind: 'select' as const,
@@ -2617,11 +2616,9 @@ function TREE_ITEM_SECTIONS(
             write: async (_snapshot, value) => requestWrite({
                 kind: 'item-field', id: snapshot.id, path: 'opacity', value: Number(value)
             }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
-        }, ...shapeAppearance, ...(!snapshot.photo ? maskFields : [])] },
-        ...(snapshot.photo ? [{
-            id: 'edit-photo', label: '補正', fields: [...maskFields, ...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
-                ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)]
-        }] : []),
+        }, ...shapeAppearance, ...(!snapshot.photo ? maskFields : []),
+        ...(snapshot.photo ? [...PHOTO_FLIP_FIELDS(snapshot, requestWrite),
+            ...PHOTO_CROP_OPEN_FIELD(snapshot, requestWrite), ...PHOTO_FRAME_FIELDS(snapshot, requestWrite)] : [])] },
         ...(shapeBubble.length ? [{ id: 'bubble', label: '吹き出し', fields: shapeBubble }] : []),
         { id: 'info', label: '情報', collapsedByDefault: true, fields: [
             { name: 'item-kind', label: '種類', getValue: () => snapshot.sourceKind === 'group' ? 'キャンバス' : snapshot.sourceKind },
@@ -3099,6 +3096,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected imageAiPanelOpen?: { open: () => void; itemId: string };
     protected aiViewClipKey?: string;
     protected gapAiOpening?: { gap: TimelineGapSelection; view: 'still' | 'video' };
+    protected photoAiOpening?: 'tiles' | 'cutout' | 'eraser';
     protected aiStillSelectionClipKey?: string;
     protected readonly aiStillStates = new Map<string, AiStillState>();
     protected stillFalEstimate?: StillFalEstimate;
@@ -4369,7 +4367,15 @@ export class AkariInspectorWidget extends BaseWidget {
             this.explicitTabId = options.tabId;
             this.tabState.setActiveTab(kind, options.tabId);
         }
+        if (options.tabId === 'edit' && options.sectionId
+            && ['home', 'photo-cutout', 'photo-eraser'].includes(options.sectionId)) {
+            this.photoAiOpening = options.sectionId === 'home' ? 'tiles'
+                : options.sectionId === 'photo-cutout' ? 'cutout' : 'eraser';
+        }
         this.render();
+        if (options.tabId === 'edit' && options.sectionId === 'home') {
+            return !!this.body.querySelector('[data-akari-ui="tab:inspector-edit"].is-active');
+        }
         const requestedSectionId = options.sectionId;
         const matchingSections = (): Element[] => {
             if (!requestedSectionId) return [];
@@ -5132,18 +5138,30 @@ export class AkariInspectorWidget extends BaseWidget {
             void this.verifyAiNarrationSource?.(rowSnapshot, transcribeKey);
         }
         // Older render harnesses instantiate only extracted methods and have no AI catalog state.
+        const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
+            && (rowSnapshot.photo === true || isInspectorStillImage(rowSnapshot.sourcePath ?? rowSnapshot.src));
+        const photoTools = photoToolAvailabilityFor({ photo: photoSelection,
+            emptyFrame: !!generationIdentity && !generationDone && generationState === 'planned', generationState });
+        if (!photoTools.enabled) {
+            const photoAppearanceNames = new Set(['photo-flip-h', 'photo-flip-v', 'photo-crop-open',
+                'photo-frame-width', 'photo-frame-color', 'photo-frame-radius']);
+            sections = sections.map(section => section.id === 'appearance'
+                ? { ...section, fields: section.fields.filter(field => !photoAppearanceNames.has(field.name)) }
+                : section);
+        }
         const aiGroups = this.aiCatalogLoaded === undefined || rowSnapshot.kind === 'overlay'
             || rowSnapshot.kind === 'item' && rowSnapshot.sourceKind !== 'media'
             || rowSnapshot.kind === 'layer' && rowSnapshot.sourceKind === 'html' ? [] : describeAiTiles(
             aiActionCatalog(this.generationCatalog, this.narrationEngines),
             aiTargetKindFor({ hasIdentity: !!generationIdentity, generationDone, generationState,
                 audio: sectionKind === 'audio', audioPlanned: this.audioPlanned })
-        );
+        ).map(group => ({ ...group, tiles: group.tiles.map(tile =>
+            tile.id === 'cutout' || tile.id === 'eraser'
+                ? { ...tile, ...photoTools, ...(!photoTools.enabled ? { reason: photoTools.reason } : { reason: undefined }) }
+                : tile) }));
         const aiAvailability = this.aiCatalogLoaded === undefined
             ? { enabled: !!generationIdentity, forcePanel: false }
             : aiTabAvailabilityFor({ kind: sectionKind, hasIdentity: !!generationIdentity, groups: aiGroups });
-        const photoSelection = (rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item' || rowSnapshot.kind === 'cut')
-            && rowSnapshot.photo === true;
         const tabs = tabsForKind(sectionKind, {
             src: this.tabSourceHint(rowSnapshot), generationAvailable: aiAvailability.enabled || photoSelection
         });
@@ -5195,6 +5213,13 @@ export class AkariInspectorWidget extends BaseWidget {
                     this.aiView = gapAiOpening.view;
                     this.gapAiOpening = undefined;
                 }
+                if (this.photoAiOpening) {
+                    const opening = this.photoAiOpening;
+                    this.aiView = opening === 'tiles' || aiGroups.some(group =>
+                        group.tiles.some(tile => tile.id === opening && tile.enabled)) ? opening : 'tiles';
+                    this.photoAiOpening = undefined;
+                }
+                if ((this.aiView === 'cutout' || this.aiView === 'eraser') && !photoTools.enabled) this.aiView = 'tiles';
                 this.aiViewClipKey = clipKey;
             }
             // Older render harnesses extract this method without its imported visibility helper.
@@ -5208,29 +5233,6 @@ export class AkariInspectorWidget extends BaseWidget {
                 : rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
                     ? rowSnapshot.sourcePath ?? rowSnapshot.src : undefined;
             const imageSelected = isInspectorStillImage(imageSource);
-            if (showEditCorrection && imageSelected) {
-                const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
-                    ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
-                const correctionBody = this.appendSection({ id: 'edit-correction', label: '補正', collapsedByDefault: true, fields: [
-                    ...sections.filter(section => section.id === 'edit-photo').flatMap(section => section.fields),
-                    ...photoFields.filter(field => field.name === 'photo-cutout-panel'), {
-                        name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
-                        options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
-                        write: async (_snapshot, value) => {
-                            this.editAdjustScope = value === '選択エリア' ? '選択エリア' : '画像全体';
-                            this.render();
-                            return { ok: true };
-                        }
-                    }, ...(this.editAdjustScope === '選択エリア'
-                        ? photoFields.filter(field => field.name === 'photo-region-panel') : [])] }, rowSnapshot, sectionKind);
-                if (this.editAdjustScope !== '選択エリア' && correctionBody) {
-                    this.refreshAdjustLuts();
-                    ADJUST_SECTIONS(rowSnapshot, requestWrite, {
-                        projectLutRefs: this.projectLutRefs,
-                        importLut: () => this.importAdjustLut(rowSnapshot)
-                    }).forEach(section => this.appendSection(section, rowSnapshot, sectionKind, correctionBody, true));
-                }
-            }
             if (!this.aiCatalogLoaded) {
                 appendAiTiles(this.body, [], () => undefined, false, '別案を読み込んでいます…');
                 this.appendSoloBanner();
@@ -5248,7 +5250,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     || rowSnapshot.kind === 'layer') && rowSnapshot.sourceKind === 'media' ? rowSnapshot.id
                     : imageSelected && rowSnapshot.kind === 'cut' ? rowSnapshot.itemId : undefined;
                 const alternativesGrid = appendAiTiles(this.body, aiGroups, id => {
-                    if (id !== 'video' && id !== 'still' && id !== 'transcribe' && id !== 'narration') return;
+                    if (id !== 'video' && id !== 'still' && id !== 'transcribe' && id !== 'narration'
+                        && id !== 'cutout' && id !== 'eraser') return;
                     this.aiView = id;
                     if (id === 'narration' && rowSnapshot.kind === 'audio') {
                         void this.loadAiNarrationVoices(clipKey);
@@ -5282,6 +5285,33 @@ export class AkariInspectorWidget extends BaseWidget {
                     });
                 }
                 this.appendSoloBanner();
+                return;
+            }
+            if ((this.aiView === 'cutout' || this.aiView === 'eraser') && photoTools.enabled
+                && (rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item')) {
+                const view = this.aiView;
+                appendAiBack(this.body, view === 'cutout' ? '背景を消す' : '消しゴム', () => {
+                    this.aiView = 'tiles';
+                    this.render();
+                });
+                const photoFields = PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite);
+                const brushSnapshot = rowSnapshot.kind === 'cut'
+                    ? { ...rowSnapshot, kind: 'item' as const, id: rowSnapshot.itemId ?? '', photo: true, maskSourceOptions: [] }
+                    : rowSnapshot;
+                const maskFields = MASK_FIELDS(brushSnapshot as TimelineTreeItemSnapshot, requestWrite);
+                const brushFields = rowSnapshot.kind === 'cut' ? maskFields.map(field =>
+                    field.name === 'photo-brush-start' && field.action
+                        ? { ...field, action: () => field.action!(brushSnapshot as TimelineTreeItemSnapshot) } : field)
+                    : maskFields;
+                const names = view === 'cutout'
+                    ? ['mask', 'photo-mask-generate', 'photo-mask-remove']
+                    : ['photo-brush-mode', 'photo-brush-size', 'photo-brush-hardness', 'photo-brush-start'];
+                const fields = view === 'cutout'
+                    ? [...photoFields.filter(field => field.name === 'photo-cutout-panel'),
+                        ...(rowSnapshot.kind === 'cut' ? [] : maskFields.filter(field => names.includes(field.name)))]
+                    : brushFields.filter(field => names.includes(field.name));
+                this.appendSection({ id: view === 'cutout' ? 'photo-cutout' : 'photo-eraser',
+                    label: view === 'cutout' ? '背景を消す' : '消しゴム', fields }, rowSnapshot, sectionKind);
                 return;
             }
             if (this.aiView === 'still' && generationIdentity) {
@@ -5382,6 +5412,20 @@ export class AkariInspectorWidget extends BaseWidget {
                 }]
             };
         }
+        if (activeTab === 'adjust' && photoTools.enabled) {
+            const photoFields = rowSnapshot.kind === 'cut' || rowSnapshot.kind === 'layer' || rowSnapshot.kind === 'item'
+                ? PHOTO_PANEL_FIELDS(rowSnapshot, requestWrite) : [];
+            this.appendSection({ id: 'adjust-scope', label: '範囲', fields: [{
+                name: 'edit-adjust-scope', label: '対象', inputKind: 'select',
+                options: ['画像全体', '選択エリア'], getValue: () => this.editAdjustScope ?? '画像全体',
+                write: async (_snapshot, value) => {
+                    this.editAdjustScope = value === '選択エリア' ? '選択エリア' : '画像全体';
+                    this.render();
+                    return { ok: true };
+                }
+            }, ...(this.editAdjustScope === '選択エリア'
+                ? photoFields.filter(field => field.name === 'photo-region-panel') : [])] }, rowSnapshot, sectionKind);
+        }
         if (activeTab === 'adjust' && compareTarget) {
             const button = document.createElement('button');
             button.type = 'button';
@@ -5402,10 +5446,10 @@ export class AkariInspectorWidget extends BaseWidget {
         }
         if (activeTab === 'adjust') {
             this.refreshAdjustLuts();
-            ADJUST_SECTIONS(rowSnapshot, requestWrite, {
+            (photoTools.enabled && this.editAdjustScope === '選択エリア' ? [] : ADJUST_SECTIONS(rowSnapshot, requestWrite, {
                 projectLutRefs: this.projectLutRefs,
                 importLut: () => this.importAdjustLut(rowSnapshot)
-            })
+            }))
                 .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
                 .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
             if (!this.solo) ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
@@ -5590,7 +5634,8 @@ export class AkariInspectorWidget extends BaseWidget {
                 if (!tab.enabled) return;
                 if (tab.id === 'edit') {
                     // Extracted widget test harnesses may not inject this pure helper.
-                    this.aiView = typeof viewAfterHomeTabClick === 'function'
+                    this.aiView = this.aiView === 'cutout' || this.aiView === 'eraser' ? 'tiles'
+                        : typeof viewAfterHomeTabClick === 'function'
                         ? viewAfterHomeTabClick({ currentView: this.aiView ?? 'tiles', enabledTileCount: enabledTileViews.length,
                             soleTileView: enabledTileViews[0] }) : 'tiles';
                 } else if (tab.id === activeTab) return;

@@ -5,7 +5,7 @@ import ts from 'typescript';
 import { cutSnapshot } from './helpers/perspective-transition-fixture.mjs';
 import { InspectorTabState, assignSectionToTab, initialTabFor, tabsForKind } from '../lib/browser/inspector/tab-model.js';
 import { aiActionCatalog, describeAiTiles } from '../lib/common/ai-action-catalog.js';
-import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles } from '../lib/browser/inspector/ai-tiles.js';
+import { aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, appendAiBack, appendAiTiles, photoToolAvailabilityFor } from '../lib/browser/inspector/ai-tiles.js';
 import { editCorrectionVisible } from '../lib/browser/inspector/edit-correction-visibility.js';
 import { appendAiStillNotice, stillMismatchNotice } from '../lib/browser/inspector/ai-still-panel.js';
 import { isInspectorStillImage } from '../lib/browser/inspector/edit-target.js';
@@ -32,7 +32,7 @@ const dependencies = {
   CAPTION_ZONE_HOVER_EVENT: '', createSelectionHeader: () => new FakeNode('header'),
   CUT_SECTIONS: () => [], LAYER_SECTIONS: () => [], TREE_ITEM_SECTIONS: () => [],
   layerAudioControls: new WeakMap(), tabsForKind, initialTabFor, assignSectionToTab,
-  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor,
+  aiActionCatalog, describeAiTiles, aiTabAvailabilityFor, aiTabViewFor, aiTargetKindFor, photoToolAvailabilityFor,
   appendAiBack, appendAiTiles, appendAiStillNotice, stillMismatchNotice,
   isInspectorStillImage, editCorrectionVisible,
   ADJUST_SECTIONS: () => [{ id: 'adjust:basic', label: '基本補正', fields: [] }]
@@ -116,14 +116,12 @@ test('widget: カタログ読み込み中は aiView と選択キーを更新し�
   assert.deepEqual(instance.narrationPlacementNotice, { clipKey: 'previous-clip', label: '保留' });
 }));
 
-test('widget: 写真のタイル一覧では補正が先に閉じて出て、専用パネルでは消える', () => withDom(() => {
+test('widget: 写真のホームと専用パネルに補正節を出さない', () => withDom(() => {
   const instance = fixture({ identity: false });
   instance.render();
-  const correction = instance.sections.find(section => section.id === 'edit-correction');
-  assert.equal(correction.collapsedByDefault, true);
+  assert.equal(instance.sections.some(section => section.id === 'edit-correction'), false);
   assert.equal(instance.sections.some(section => section.id === 'edit-material-choice'), false);
-  assert.equal(instance.body.children.findIndex(node => node.attributes.get('data-akari-ui') === 'section:inspector-edit-correction')
-    < instance.body.children.findIndex(node => node.className === 'akari-inspector-ai-list'), true);
+  assert.ok(instance.body.children.some(node => node.className === 'akari-inspector-ai-list'));
   instance.aiView = 'still';
   instance.sections = [];
   instance.render();

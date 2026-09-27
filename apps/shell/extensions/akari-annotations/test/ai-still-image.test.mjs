@@ -18,7 +18,7 @@ const models = [{ id: 'fal:h3-i2v', kind: 'video', provider: 'fal', price: { usd
 
 test('カタログの順序と対象ごとの押下可否', () => {
   const catalog = aiActionCatalog(models);
-  assert.deepEqual(catalog.map(row => row.id), ['still', 'video', 'transcribe']);
+  assert.deepEqual(catalog.map(row => row.id), ['still', 'video', 'cutout', 'eraser', 'transcribe']);
   assert.deepEqual(catalog[0].routes, [
     { id: 'codex', modelId: 'codex:image', label: 'ChatGPT（Codex）', maker: 'openai', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 4 } } },
     { id: 'antigravity', modelId: 'still:antigravity', label: 'Antigravity', maker: 'google', kind: 'cli', cost: 'free', inputs: { reference_images: { max: 0 } } },

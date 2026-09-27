@@ -12,7 +12,7 @@ export type AiTargetKind = 'still' | 'empty-frame' | 'video' | 'generated-video'
     | 'empty-audio-frame'
     | 'material-image' | 'material-video' | 'material-audio';
 export type AiActionGroup = 'make' | 'refine';
-export type AiImage = 'video' | 'still' | 'transcribe' | 'narration';
+export type AiImage = 'video' | 'still' | 'transcribe' | 'narration' | 'cutout' | 'eraser';
 export interface AiRoute {
     id: string;
     modelId?: string;
@@ -77,6 +77,18 @@ export function aiActionCatalog(models: readonly AiCatalogModel[], narrationEngi
                 cost: (engine.price?.usd_per_1000_chars ?? 0) > 0 || engine.place === 'cloud'
                     ? 'paid' as const : 'free' as const }))
     } as AiAction] : []), {
+        id: 'cutout', group: 'refine', label: '背景を消す', image: 'cutout',
+        visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
+        accepts: ['still', 'video', 'generated-video'],
+        reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
+        routes: [{ id: 'on-device', label: 'この Mac', kind: 'local', cost: 'free' }]
+    }, {
+        id: 'eraser', group: 'refine', label: '消しゴム', image: 'eraser',
+        visibleFor: ['still', 'empty-frame', 'video', 'generated-video'],
+        accepts: ['still', 'video', 'generated-video'],
+        reasonWhenDisabled: '写真で使えます', output: 'image', placement: 'replace',
+        routes: [{ id: 'on-device', label: 'この Mac', kind: 'local', cost: 'free' }]
+    }, {
         id: 'transcribe', group: 'refine', label: '文字起こし', image: 'transcribe',
         visibleFor: ['audio', 'video', 'generated-video', 'still', 'empty-frame', 'empty-audio-frame',
             'material-audio', 'material-video'],

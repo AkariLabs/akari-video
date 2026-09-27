@@ -65,7 +65,19 @@ test('整える: 押せないタブは理由つきグレー、押しても移動
         const root = new Node();
         const targets = [];
         appendHomeTuneTiles(root, tiles, target => targets.push(target));
+        for (const id of ['position', 'color', 'volume', 'motion']) {
+            const card = find(root, node => node.attributes.get('data-akari-home-tune') === id);
+            assert.ok(find(card, node => node.tag === 'img' && node.className === 'akari-inspector-ai-image'));
+            assert.ok(find(card, node => node.className === 'akari-inspector-ai-title-row'));
+            assert.equal(find(card, node => node.className.includes('akari-inspector-cloud')), undefined);
+        }
         const disabled = find(root, node => node.attributes.get('data-akari-home-tune') === 'color');
+        const image = find(disabled, node => node.tag === 'img' && node.className === 'akari-inspector-ai-image');
+        assert.equal(image.width, 320);
+        assert.equal(image.height, 180);
+        assert.match(image.src, /^data:image\/webp;base64,/u);
+        assert.ok(find(disabled, node => node.className === 'akari-inspector-ai-title-row'));
+        assert.equal(find(disabled, node => node.className.includes('akari-inspector-cloud')), undefined);
         assert.match(disabled.className, /akari-inspector-ai-disabled/u);
         assert.equal(disabled.attributes.get('aria-disabled'), 'true');
         assert.equal(find(disabled, node => node.className === 'akari-inspector-ai-reason').textContent, '映像の素材で使えます');

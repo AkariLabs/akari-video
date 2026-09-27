@@ -44,12 +44,12 @@ delete dependencies['module.exports'];
 const code = ts.transpileModule(declarations.join('\n'), {
     compilerOptions: { target: ts.ScriptTarget.ES2021 }
 }).outputText;
-export const { perspectiveFields, transitionFields, layerSections, itemSections, cutSections, overlaySections, animatorSection } = new Function(
+export const { perspectiveFields, transitionFields, layerSections, itemSections, cutSections, overlaySections, animatorSection, photoMaskFields } = new Function(
     ...Object.keys(dependencies), `${code}\nreturn {
         perspectiveFields: PERSPECTIVE_FIELDS, transitionFields: cutTransitionFields,
         layerSections: LAYER_SECTIONS, itemSections: TREE_ITEM_SECTIONS, cutSections: CUT_SECTIONS,
         overlaySections: OVERLAY_SECTIONS,
-        animatorSection: ANIMATOR_SECTION
+        animatorSection: ANIMATOR_SECTION, photoMaskFields: MASK_FIELDS
     };`
 )(...Object.values(dependencies));
 

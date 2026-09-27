@@ -18,10 +18,11 @@ test('文字起こしは直す・字幕への行で音声と動画だけ押せ�
   assert.deepEqual(transcribe.routes, [{ id: 'transcript', label: '台本パネルのエンジン', kind: 'local', cost: 'free' }]);
   for (const target of ['audio', 'video']) {
     const group = describeAiTiles(catalog, target).find(row => row.group === 'refine');
-    assert.equal(group.tiles[0].enabled, true);
+    assert.equal(group.tiles.find(tile => tile.id === 'transcribe').enabled, true);
   }
   for (const target of ['still', 'empty-frame', 'empty-audio-frame', 'generated-video']) {
-    const tile = describeAiTiles(catalog, target).find(row => row.group === 'refine').tiles[0];
+    const tile = describeAiTiles(catalog, target).find(row => row.group === 'refine').tiles
+      .find(tile => tile.id === 'transcribe');
     assert.equal(tile.enabled, false);
     assert.equal(tile.reason, '声の入った音声か動画で使えます');
   }
@@ -33,10 +34,10 @@ test('静止画クリップの AI タブは作るに静止画・動画にする�
   const groups = describeAiTiles(aiActionCatalog([{ id: 'fal:h3-i2v', kind: 'video' }]), target);
   assert.deepEqual(groups.map(group => [group.group, group.tiles.map(tile => tile.label)]), [
     ['make', ['静止画', '動画にする']],
-    ['refine', ['文字起こし']]
+    ['refine', ['背景を消す', '消しゴム', '文字起こし']]
   ]);
   assert.deepEqual(groups[0].tiles.map(tile => tile.enabled), [true, true]);
-  assert.deepEqual(groups[1].tiles[0], {
+  assert.deepEqual(groups[1].tiles.find(tile => tile.id === 'transcribe'), {
     id: 'transcribe', label: '文字起こし', image: 'transcribe', enabled: false,
     reason: '声の入った音声か動画で使えます'
   });

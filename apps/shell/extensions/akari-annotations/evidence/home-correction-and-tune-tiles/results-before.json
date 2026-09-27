@@ -1,0 +1,722 @@
+{
+  "phase": "before",
+  "status": "PASS",
+  "step": "video / shape / cut-photo home",
+  "checks": [
+    {
+      "name": "(i) BEFORE: 写真のホームの先頭に「補正」がある",
+      "pass": true,
+      "measured": [
+        "edit-correction",
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ]
+    }
+  ],
+  "observations": {
+    "electronPid": 14395,
+    "header:[data-akari-ui=\"panel:timeline\"] [data-akari-item-id=\"layer-photo\"]": "photo.png00:00.0 – 00:06.0 · 素材",
+    "photoHome": {
+      "header": "photo.png00:00.0 – 00:06.0 · 素材",
+      "activeTab": "edit",
+      "sections": [
+        {
+          "id": "edit-correction",
+          "title": "補正",
+          "open": false,
+          "fields": []
+        },
+        {
+          "id": "edit-alternatives",
+          "title": "作る",
+          "open": true,
+          "fields": []
+        },
+        {
+          "id": "edit-refine",
+          "title": "直す",
+          "open": true,
+          "fields": []
+        },
+        {
+          "id": "home-tune",
+          "title": "整える",
+          "open": true,
+          "fields": []
+        }
+      ],
+      "aiTiles": [
+        {
+          "id": "still",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "静止画"
+        },
+        {
+          "id": "video",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "動画にする"
+        },
+        {
+          "id": "transcribe",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "声の入った音声か動画で使えます",
+          "title": "文字起こし"
+        }
+      ],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "disabled": false,
+          "img": false,
+          "imgSize": null,
+          "svg": true,
+          "title": "位置と大きさ",
+          "box": [
+            192,
+            70
+          ]
+        },
+        {
+          "id": "color",
+          "disabled": false,
+          "img": false,
+          "imgSize": null,
+          "svg": true,
+          "title": "色",
+          "box": [
+            192,
+            70
+          ]
+        },
+        {
+          "id": "volume",
+          "disabled": false,
+          "img": false,
+          "imgSize": null,
+          "svg": true,
+          "title": "音量",
+          "box": [
+            192,
+            70
+          ]
+        },
+        {
+          "id": "motion",
+          "disabled": false,
+          "img": false,
+          "imgSize": null,
+          "svg": true,
+          "title": "動き",
+          "box": [
+            192,
+            70
+          ]
+        }
+      ],
+      "aiTileBox": [
+        192,
+        139
+      ],
+      "panelTitle": null,
+      "back": false
+    },
+    "correctionOpened": {
+      "id": "edit-correction",
+      "title": "補正",
+      "open": true,
+      "fields": [
+        "mask",
+        "photo-mask-generate",
+        "photo-mask-remove",
+        "photo-brush-mode",
+        "photo-brush-size",
+        "photo-brush-hardness",
+        "photo-brush-start",
+        "photo-flip-h",
+        "photo-flip-v",
+        "photo-crop-open",
+        "photo-frame-width",
+        "photo-frame-color",
+        "photo-frame-radius",
+        "photo-cutout-panel",
+        "edit-adjust-scope",
+        "adjust-basic-enabled",
+        "adjust-look",
+        "adjust-basic-exposure",
+        "adjust-basic-contrast",
+        "adjust-basic-highlights",
+        "adjust-basic-shadows",
+        "adjust-basic-blacks",
+        "adjust-basic-whites",
+        "adjust-basic-temperature",
+        "adjust-basic-tint",
+        "adjust-basic-vibrance",
+        "adjust-basic-saturation",
+        "adjust-curves-enabled",
+        "adjust-wheels-enabled",
+        "adjust-hue-enabled",
+        "adjust-lut-enabled",
+        "adjust-lut-preset",
+        "adjust-lut-intensity",
+        "adjust-lut-import",
+        "adjust-fx-enabled",
+        "adjust-fx-add"
+      ]
+    },
+    "correctionOpenedAll": [
+      {
+        "id": "edit-correction",
+        "fields": 36
+      },
+      {
+        "id": "adjust:basic",
+        "fields": 12
+      },
+      {
+        "id": "adjust:curves",
+        "fields": 1
+      },
+      {
+        "id": "adjust:wheels",
+        "fields": 1
+      },
+      {
+        "id": "adjust:hue",
+        "fields": 1
+      },
+      {
+        "id": "adjust:lut",
+        "fields": 4
+      },
+      {
+        "id": "adjust:fx",
+        "fields": 2
+      },
+      {
+        "id": "edit-alternatives",
+        "fields": 0
+      },
+      {
+        "id": "edit-refine",
+        "fields": 0
+      },
+      {
+        "id": "home-tune",
+        "fields": 0
+      }
+    ],
+    "tuneTiles": [
+      {
+        "id": "position",
+        "disabled": false,
+        "img": false,
+        "imgSize": null,
+        "svg": true,
+        "title": "位置と大きさ",
+        "box": [
+          192,
+          70
+        ]
+      },
+      {
+        "id": "color",
+        "disabled": false,
+        "img": false,
+        "imgSize": null,
+        "svg": true,
+        "title": "色",
+        "box": [
+          192,
+          70
+        ]
+      },
+      {
+        "id": "volume",
+        "disabled": false,
+        "img": false,
+        "imgSize": null,
+        "svg": true,
+        "title": "音量",
+        "box": [
+          192,
+          70
+        ]
+      },
+      {
+        "id": "motion",
+        "disabled": false,
+        "img": false,
+        "imgSize": null,
+        "svg": true,
+        "title": "動き",
+        "box": [
+          192,
+          70
+        ]
+      }
+    ],
+    "aiTiles": [
+      {
+        "id": "still",
+        "disabled": false,
+        "img": true,
+        "cloud": true,
+        "reason": null,
+        "title": "静止画"
+      },
+      {
+        "id": "video",
+        "disabled": false,
+        "img": true,
+        "cloud": true,
+        "reason": null,
+        "title": "動画にする"
+      },
+      {
+        "id": "transcribe",
+        "disabled": true,
+        "img": true,
+        "cloud": true,
+        "reason": "声の入った音声か動画で使えます",
+        "title": "文字起こし"
+      }
+    ],
+    "aiTileBox": [
+      192,
+      139
+    ],
+    "barItems": [
+      "edit",
+      "replace",
+      "cutout",
+      "eraser",
+      "photoColor",
+      "border",
+      "photoRadius",
+      "crop",
+      "flip",
+      "opacity",
+      "anim",
+      "arrange",
+      "style"
+    ],
+    "barDestinations": {
+      "cutout": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-cutout-panel"
+          ]
+        },
+        "photoDialog": null
+      },
+      "border": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-frame-width"
+          ]
+        },
+        "photoDialog": null
+      },
+      "eraser": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-brush-start"
+          ]
+        },
+        "photoDialog": null
+      },
+      "photoRadius": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-frame-radius"
+          ]
+        },
+        "photoDialog": null
+      },
+      "crop": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": [
+            "photo-crop-open"
+          ]
+        },
+        "photoDialog": null
+      },
+      "edit": {
+        "activeTab": "edit",
+        "panelTitle": null,
+        "sections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "openSections": [
+          "edit-correction",
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx",
+          "edit-alternatives",
+          "edit-refine",
+          "home-tune"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": []
+        },
+        "photoDialog": null
+      },
+      "photoColor": {
+        "activeTab": "adjust",
+        "panelTitle": null,
+        "sections": [
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx"
+        ],
+        "openSections": [
+          "adjust:basic",
+          "adjust:curves",
+          "adjust:wheels",
+          "adjust:hue",
+          "adjust:lut",
+          "adjust:fx"
+        ],
+        "focused": {
+          "field": null,
+          "section": null,
+          "highlighted": []
+        },
+        "photoDialog": null
+      }
+    },
+    "header:[data-akari-ui=\"timeline:cut:0\"]": "clip.mp400:00.0 – 00:03.0 · カット",
+    "13-video-home": {
+      "header": "clip.mp400:00.0 – 00:03.0 · カット",
+      "sections": [
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ],
+      "aiTiles": [
+        {
+          "id": "still",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "空の枠か静止画で使えます",
+          "title": "静止画"
+        },
+        {
+          "id": "video",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "静止画か空の枠で使えます",
+          "title": "動画にする"
+        },
+        {
+          "id": "transcribe",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "文字起こし"
+        }
+      ],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "img": false,
+          "disabled": false
+        },
+        {
+          "id": "color",
+          "img": false,
+          "disabled": false
+        },
+        {
+          "id": "volume",
+          "img": false,
+          "disabled": false
+        },
+        {
+          "id": "motion",
+          "img": false,
+          "disabled": false
+        }
+      ]
+    },
+    "header:[data-akari-ui=\"panel:timeline\"] [data-akari-item-id=\"shape-1\"]": "shape-100:00.0 – 00:06.0 · 素材",
+    "14-shape-home": {
+      "header": "shape-100:00.0 – 00:06.0 · 素材",
+      "sections": [
+        "edit-alternatives",
+        "home-tune"
+      ],
+      "aiTiles": [],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "img": false,
+          "disabled": false
+        },
+        {
+          "id": "color",
+          "img": false,
+          "disabled": true
+        },
+        {
+          "id": "volume",
+          "img": false,
+          "disabled": true
+        },
+        {
+          "id": "motion",
+          "img": false,
+          "disabled": false
+        }
+      ]
+    },
+    "header:[data-akari-ui=\"timeline:cut:1\"]": "photo.png00:03.0 – 00:06.0 · カット",
+    "15-cut-photo-home": {
+      "header": "photo.png00:03.0 – 00:06.0 · カット",
+      "sections": [
+        "edit-correction",
+        "edit-alternatives",
+        "edit-refine",
+        "home-tune"
+      ],
+      "aiTiles": [
+        {
+          "id": "still",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "静止画"
+        },
+        {
+          "id": "video",
+          "disabled": false,
+          "img": true,
+          "cloud": true,
+          "reason": null,
+          "title": "動画にする"
+        },
+        {
+          "id": "transcribe",
+          "disabled": true,
+          "img": true,
+          "cloud": true,
+          "reason": "声の入った音声か動画で使えます",
+          "title": "文字起こし"
+        }
+      ],
+      "tuneTiles": [
+        {
+          "id": "position",
+          "img": false,
+          "disabled": false
+        },
+        {
+          "id": "color",
+          "img": false,
+          "disabled": false
+        },
+        {
+          "id": "volume",
+          "img": false,
+          "disabled": false
+        },
+        {
+          "id": "motion",
+          "img": false,
+          "disabled": false
+        }
+      ]
+    }
+  },
+  "screenshots": [
+    "before-01-photo-home.png",
+    "before-01-photo-home-panel.png",
+    "before-02-correction-open.png",
+    "before-02-correction-open-panel.png",
+    "before-03-tune-tiles.png",
+    "before-03-tune-tiles-panel.png",
+    "before-04-bar-cutout.png",
+    "before-04-bar-border.png",
+    "before-13-video-home.png",
+    "before-13-video-home-panel.png",
+    "before-14-shape-home.png",
+    "before-14-shape-home-panel.png",
+    "before-15-cut-photo-home.png",
+    "before-15-cut-photo-home-panel.png"
+  ],
+  "notes": [
+    "13-video-home: 補正 なし",
+    "14-shape-home: 補正 なし",
+    "15-cut-photo-home: 補正 あり"
+  ]
+}
