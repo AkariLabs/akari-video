@@ -1,0 +1,22 @@
+{
+  "sourceTag": "v0.1.94",
+  "manifests": ["latest.yml", "latest-mac.yml"],
+  "checks": {
+    "windowsBinaryHttp": 200,
+    "windowsBlockmapHttp": 200,
+    "macBinaryHttp": 200,
+    "macBlockmapHttp": 200,
+    "previousPublishedTag": "v0.1.92",
+    "previousWindowsBlockmapHttp": 200,
+    "previousMacBlockmapHttp": 200,
+    "windowsBinaryBytes": 304587852,
+    "macBinaryBytes": 325385513,
+    "windowsSizeMatchesManifest": true,
+    "macSizeMatchesManifest": true,
+    "windowsSha512MatchesManifest": true,
+    "macSha512MatchesManifest": true,
+    "l1PublishedFeedRequests": ["/latest.yml"],
+    "l1NewVersionFeedRequests": ["/latest.yml", "/unavailable.exe.blockmap"],
+    "l1FailureLogContains": "ERR_CONNECTION_REFUSED"
+  }
+}

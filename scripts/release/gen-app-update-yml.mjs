@@ -23,21 +23,14 @@ export async function generateAppUpdateYml({ repoRoot = defaultRepoRoot } = {}) 
   const shellPackage = JSON.parse(await readFile(shellPackagePath, 'utf8'));
   const publish = shellPackage.build?.publish;
 
-  if (
-    publish?.provider !== 'github'
-    || typeof publish.owner !== 'string'
-    || publish.owner.length === 0
-    || typeof publish.repo !== 'string'
-    || publish.repo.length === 0
-  ) {
-    throw new Error('apps/shell/package.json の build.publish は GitHub provider の owner/repo を指定してください');
+  if (publish?.provider !== 'generic' || !/^https:\/\/[^\s]+\/$/.test(publish.url ?? '')) {
+    throw new Error('apps/shell/package.json の build.publish は末尾 / 付き HTTPS generic URL を指定してください');
   }
 
   const updaterCacheDirName = deriveUpdaterCacheDirName(shellPackage.name);
   return [
-    `owner: ${publish.owner}`,
-    `repo: ${publish.repo}`,
     `provider: ${publish.provider}`,
+    `url: ${publish.url}`,
     `updaterCacheDirName: '${updaterCacheDirName}'`,
     ''
   ].join('\n');

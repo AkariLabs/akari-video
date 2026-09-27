@@ -15,6 +15,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ARTIFACT_FILES } from '../../../scripts/release/gen-latest-json.mjs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { Provider } = require('electron-updater/out/providers/Provider');
 
 const shellRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = path.resolve(shellRoot, '..', '..');
@@ -31,7 +35,7 @@ async function readFallbackFeedOptions() {
   const block = source.match(/FALLBACK_FEED_OPTIONS\s*=\s*\{(?<body>[\s\S]*?)\}\s*as const;/)?.groups?.body;
   assert.ok(block, 'FALLBACK_FEED_OPTIONS 定数が見つからない');
   const field = (name) => block.match(new RegExp(`${name}:\\s*'([^']+)'`))?.[1];
-  return { provider: field('provider'), owner: field('owner'), repo: field('repo') };
+  return { provider: field('provider'), url: field('url') };
 }
 
 /** electron-builder のテンプレート置換を模した最小実装（`${ext}` のみこのテストで使う）。 */
@@ -39,9 +43,9 @@ function substituteArtifactName(template, ext) {
   return template.replace('${ext}', ext);
 }
 
-test('build.publish は GitHub provider（AkariLabs/akari-video）を指す（electron-updater が app-update.yml から読む契約）', async () => {
+test('build.publish は公開後に更新される固定 feed の generic provider を指す', async () => {
   const pkg = await readShellPackageJson();
-  assert.deepEqual(pkg.build.publish, { provider: 'github', owner: 'AkariLabs', repo: 'akari-video' });
+  assert.deepEqual(pkg.build.publish, { provider: 'generic', url: 'https://github.com/AkariLabs/akari-video/releases/download/updates/' });
 });
 
 test('main の feed URL フォールバック定数は build.publish と一致する（drift ガード）', async () => {
@@ -117,4 +121,34 @@ test('release.yml は electron-updater メタデータ（latest-mac.yml / latest
   const releaseYml = await readFile(path.join(repoRoot, '.github/workflows/release.yml'), 'utf8');
   assert.match(releaseYml, /latest-mac\.yml が見つかりません/);
   assert.match(releaseYml, /latest\.yml が見つかりません/);
+});
+
+test('feed-only は公開済み manifest を固定 feed へ変換してから latest.json を差し替える', async () => {
+  const releaseYml = await readFile(path.join(repoRoot, '.github/workflows/release.yml'), 'utf8');
+  const feedOnly = releaseYml.slice(releaseYml.indexOf('\n  feed-only:'));
+  assert.match(feedOnly, /rewrite-app-update-feed\.mjs/);
+  assert.match(feedOnly, /release-artifacts\/stable\.yml/);
+  assert.match(feedOnly, /release-artifacts\/stable-mac\.yml/);
+  assert.ok(feedOnly.indexOf('gh release upload updates "${manifests[@]}" --clobber') < feedOnly.indexOf('gh release upload updates release-artifacts/latest.json --clobber'));
+});
+
+test('generic provider の差分 DL は本体 Release の新旧 blockmap URL を導く', () => {
+  const provider = new Provider({ platform: 'win32' });
+  const urls = provider.getBlockMapFiles(
+    new URL('https://github.com/AkariLabs/akari-video/releases/download/v0.1.94/shell-win-setup.exe'),
+    '0.1.92', '0.1.94'
+  ).map(String);
+  assert.deepEqual(urls, [
+    'https://github.com/AkariLabs/akari-video/releases/download/v0.1.92/shell-win-setup.exe.blockmap',
+    'https://github.com/AkariLabs/akari-video/releases/download/v0.1.94/shell-win-setup.exe.blockmap'
+  ]);
+});
+
+test('generic provider の channel 名は Windows と Mac の latest / stable manifest に一致する', () => {
+  const windows = new Provider({ platform: 'win32' });
+  const mac = new Provider({ platform: 'darwin' });
+  assert.equal(windows.getCustomChannelName('latest'), 'latest');
+  assert.equal(windows.getCustomChannelName('stable'), 'stable');
+  assert.equal(mac.getCustomChannelName('latest'), 'latest-mac');
+  assert.equal(mac.getCustomChannelName('stable'), 'stable-mac');
 });

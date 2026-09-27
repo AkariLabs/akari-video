@@ -65,7 +65,7 @@ import { AiModelsView } from './ai-models/ai-models-view';
 import { parseUpdateCache, resolveUpdateDownloadUrl } from '../common/update-feed';
 import {
     applyImmediateUpdaterFallback, applyShellUpdaterEvent, beginUserInitiatedUpdaterCheck,
-    FALLBACK_FEED_OPTIONS, INITIAL_SHELL_UPDATER_UI_STATE, ShellUpdaterEvent, ShellUpdaterUiState, shouldOpenUpdaterBrowserFallback
+    RELEASES_PAGE_URL, INITIAL_SHELL_UPDATER_UI_STATE, ShellUpdaterEvent, ShellUpdaterUiState, shouldOpenUpdaterBrowserFallback
 } from '../common/shell-update-applier';
 import { resolveSettingsUpdateView } from '../common/settings-update-view';
 import { settingsIcon, SettingsIconName } from './settings/settings-icons';
@@ -837,7 +837,7 @@ export class AkariSettingsDialog extends AbstractDialog<void> {
             if (this.isDisposed || !section.isConnected || generation !== this.aboutUpdateGeneration) { return; }
             this.aboutCurrentVersion = info.version;
             this.aboutCheckedAt ??= info.lastChecked;
-            this.aboutDownloadUrl = downloadUrl ?? `https://github.com/${FALLBACK_FEED_OPTIONS.owner}/${FALLBACK_FEED_OPTIONS.repo}/releases`;
+            this.aboutDownloadUrl = downloadUrl ?? RELEASES_PAGE_URL;
             if (update && eventSequence === this.aboutEventSequence) { this.applyAboutUpdaterEvent(update, true); }
             section.replaceChildren(...this.sectionHeading('about'));
             const icon = element('img'); icon.src = info.icon || AKARI_APP_ICON; icon.alt = 'AKARI Video'; icon.width = 64; icon.height = 64;

@@ -31,12 +31,13 @@ test('最新版は現在版と最終確認時刻を表示する', () => {
     assert.match(latest.detail, /2026\/9\/26 12:00:00/);
 });
 
-test('失敗は理由と再試行を表示し、配布先があればブラウザ導線も出す', () => {
+test('失敗は短い日本語と再試行を表示し、配布先があればブラウザ導線も出す', () => {
     const failed = applyShellUpdaterEvent(beginUserInitiatedUpdaterCheck(INITIAL_SHELL_UPDATER_UI_STATE), {
-        kind: 'error', reason: 'オフラインのため確認できませんでした'
+        kind: 'error', reason: 'HttpError: 404\nheaders: secret'
     });
     const fallback = view(failed, 'error', 'https://example.com/update.dmg');
-    assert.match(fallback.label, /オフライン/);
+    assert.equal(fallback.label, '更新を確認できませんでした。時間をおいてもう一度お試しください');
+    assert.doesNotMatch(fallback.detail, /HttpError|headers|secret/);
     assert.equal(fallback.button.label, 'もう一度確かめる');
     assert.equal(fallback.button.disabled, false);
     assert.equal(fallback.browserFallback, true);

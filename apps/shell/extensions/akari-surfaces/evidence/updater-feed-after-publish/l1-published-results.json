@@ -1,0 +1,11 @@
+[
+  {
+    "scenario": "published",
+    "status": "PASS",
+    "splashHiddenForCapture": true,
+    "text": "このアプリについて バージョンとアップデート。 AKARI Video v0.1.95 · 2026-09-28 ビルド · Windows_NT x64 最新です（v0.1.95） 最後に確かめた: 2026/9/28 4:23:54 アップデートを確認",
+    "requests": [
+      "/latest.yml"
+    ]
+  }
+]

@@ -75,7 +75,7 @@ test('darwin zip/dmg（CI の --mac zip dmg）: electron-builder 自身が書く
   const appOutDir = await tempOutDir(t, 'mac-zip');
   const resources = resourcesDirFor('darwin', appOutDir);
   await mkdir(resources, { recursive: true });
-  const official = 'owner: AkariLabs\nrepo: akari-video\nprovider: github\nupdaterCacheDirName: \'@akari-videoshell-updater\'\npublisherName:\n  - Official\n';
+  const official = 'provider: generic\nurl: https://github.com/AkariLabs/akari-video/releases/download/updates/\nupdaterCacheDirName: \'@akari-videoshell-updater\'\npublisherName:\n  - Official\n';
   await writeFile(path.join(resources, 'app-update.yml'), official, 'utf8');
 
   await hook(fakeContext('darwin', appOutDir, [{ name: 'zip' }, { name: 'dmg' }]));
