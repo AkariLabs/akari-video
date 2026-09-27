@@ -15,15 +15,16 @@ import { resolveSendSide } from "../send-side.mjs";
 import { getAdapter } from "../adapters/index.mjs";
 import { loadCatalog, findModel } from "./catalog.mjs";
 import { resolveFalKey } from "./credentials.mjs";
-import { submit, pollStatus, fetchResponse, download } from "./fal-queue.mjs";
+import { submit, pollStatus, fetchResponse, download, falQueueFetch } from "./fal-queue.mjs";
 import { createMediaResolver, makeReference } from "./media-ref.mjs";
 import { declaredProjectAssetPath, resolveProjectAssetPathSync } from "../../../asset-resolver/src/shell-reference-sync.mjs";
-import { writeGenerating, writeDone, writeFailed } from "./meta-video.mjs";
+import { writeGenerating, writeDone, writeFailed, writeQueueStatus } from "./meta-video.mjs";
 import { applyReplacement, findItem, planReplacement } from "./edit-replace.mjs";
 
 export const usage = [
   "使い方: akari generate video <projectDir> --item <itemId> [options]",
   "       akari generate video <projectDir> --from-image <relativePath> [options]",
+  "       akari generate video <projectDir> --item <itemId> --candidate [options]",
   "  --model <id> --prompt <text> --negative-prompt <text>",
   "  --first-frame <path> --last-frame <path> --reference-image <path>",
   "  --reference-audio <path> --camera <text> --duration <s> --resolution <res>",
@@ -44,7 +45,7 @@ const VALUES = new Set([
   "--reference-image", "--reference-audio", "--camera", "--duration", "--resolution",
   "--aspect", "--audio-out", "--seed", "--extra", "--inputs", "--stale-after",
 ]);
-const FLAGS = new Set(["--dry-run", "--yes", "--json", "--help", "-h"]);
+const FLAGS = new Set(["--dry-run", "--yes", "--json", "--candidate", "--help", "-h"]);
 
 function parseBoolean(value, option) {
   if (value === "true") return true;
@@ -62,7 +63,7 @@ export function parseVideoArguments(argv) {
     negativePrompt: undefined, firstFrame: undefined, lastFrame: undefined,
     referenceImages: [], referenceAudios: [], camera: undefined, duration: undefined,
     resolution: undefined, aspect: undefined, audioOut: undefined, seed: undefined,
-    extra: {}, staleAfterS: 900, dryRun: false, yes: false, json: false, help: false,
+    extra: {}, staleAfterS: 900, dryRun: false, yes: false, json: false, candidate: false, help: false,
   };
   let index = 0;
   if (argv[0] && !argv[0].startsWith("-")) {
@@ -101,6 +102,7 @@ export function parseVideoArguments(argv) {
         default: break;
       }
     } else if (argument === "--dry-run") options.dryRun = true;
+    else if (argument === "--candidate") options.candidate = true;
     else if (argument === "--yes") options.yes = true;
     else if (argument === "--json") options.json = true;
     else if (argument === "--help" || argument === "-h") options.help = true;
@@ -108,6 +110,7 @@ export function parseVideoArguments(argv) {
   }
   if (!options.help && !options.projectDir) throw new CliError(`projectDir が必要です\n${usage}`);
   if (options.itemId && options.fromImage) throw new CliError("--item と --from-image は同時に指定できません");
+  if (options.candidate && options.fromImage) throw new CliError("--candidate と --from-image は同時に指定できません");
   if (!options.help && !options.itemId && !options.fromImage) throw new CliError("--item か --from-image が必要です");
   if (options.duration !== undefined && (!Number.isFinite(options.duration) || options.duration <= 0)) {
     throw new CliError("--duration は 0 より大きい有限数で指定してください");
@@ -236,6 +239,17 @@ function nextImageOutput(projectDir, fromImage, ms) {
   }
 }
 
+function nextCandidateOutput(projectDir, itemId, route, ms) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new CliError("itemId が不正です");
+  const safeRoute = route.replace(/[:./]/gu, "-").replace(/[^A-Za-z0-9_-]/gu, "-");
+  const directory = path.join(projectDir, "assets", "generated", "candidates", itemId);
+  for (let serial = 0; ; serial += 1) {
+    const relative = `assets/generated/candidates/${itemId}/${safeRoute}-${ms}${serial ? `-${serial}` : ""}.mp4`;
+    const absolute = path.join(projectDir, relative);
+    if (!existsSync(absolute) && !existsSync(`${absolute}.meta.json`)) return { directory, relative, absolute, metaPath: `${absolute}.meta.json` };
+  }
+}
+
 export function probeVideo(filePath, { env = process.env, ffprobe = resolveFfprobe({ env }) } = {}) {
   const raw = execFileSync(ffprobe, [
     "-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height,r_frame_rate", "-of", "json", filePath,
@@ -273,7 +287,7 @@ export async function finalizeGeneratedVideo({
     ...probe,
   };
   const meta = writeDone({ metaPath, result, expanded_prompt: response.expanded_prompt, elapsed_s, now });
-  if (meta.provenance?.tool === "akari generate video --from-image") return { probe, elapsed_s, meta, plan: { out: null, freeze: null } };
+  if (meta.candidate_of || meta.provenance?.tool === "akari generate video --from-image") return { probe, elapsed_s, meta, plan: { out: null, freeze: null } };
   const project = await openProjectImpl(projectDir);
   const item = findItem(project.edit, itemId);
   if (!item || item.source?.kind !== "media") throw new Error(`差し替え対象 item が見つかりません: ${itemId}`);
@@ -352,7 +366,9 @@ export async function runVideoCommand(argv, dependencies = {}) {
     const rawOutput = {
       ...suppliedOutput,
       duration_s: options.duration ?? suppliedOutput.duration_s ?? (fromImage ? (model.duration?.default ?? 5) : item.source.out - item.source.in),
-      resolution: options.resolution ?? suppliedOutput.resolution ?? null,
+      resolution: options.resolution ?? (options.candidate && !model.resolutions?.includes(suppliedOutput.resolution)
+        ? model.resolutions?.find(value => Number.isFinite(model.price?.by_resolution?.[value])) ?? model.resolutions?.[0] ?? null
+        : suppliedOutput.resolution ?? null),
       aspect: options.aspect ?? suppliedOutput.aspect ?? null,
       audio_out: options.audioOut ?? suppliedOutput.audio_out ?? null,
     };
@@ -395,12 +411,14 @@ export async function runVideoCommand(argv, dependencies = {}) {
     }
     const credentials = (dependencies.resolveFalKeyImpl ?? resolveFalKey)({ env: dependencies.env ?? process.env, credentialsFile: dependencies.credentialsFile });
     const startedDate = (dependencies.now ?? (() => new Date()))();
-    const destination = fromImage ? nextImageOutput(options.projectDir, fromImage, startedDate.getTime()) : nextOutput(options.projectDir, options.itemId);
+    const destination = options.candidate ? nextCandidateOutput(options.projectDir, options.itemId, model.id, startedDate.getTime())
+      : fromImage ? nextImageOutput(options.projectDir, fromImage, startedDate.getTime()) : nextOutput(options.projectDir, options.itemId);
     await mkdir(destination.directory, { recursive: true });
     const startedMs = startedDate.getTime();
     const placeholderReference = fromImage ? null : makeReference(options.projectDir, sourceEntry.path, { env });
-    const placeholder = fromImage ? undefined : { path: placeholderReference.path, sha256: placeholderReference.sha256, item_id: options.itemId };
-    const submitted = await submit({ endpoint: mapped.endpoint, body: mapped.body, key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch });
+    const placeholder = fromImage || options.candidate ? undefined : { path: placeholderReference.path, sha256: placeholderReference.sha256, item_id: options.itemId };
+    const fetchImpl = falQueueFetch(env, dependencies.fetchImpl ?? globalThis.fetch);
+    const submitted = await submit({ endpoint: mapped.endpoint, body: mapped.body, key: credentials.key, fetchImpl });
     metaPath = destination.metaPath;
     const metaInputs = schemaInputs(validation.normalized.inputs);
     if (fromImage && metaInputs.first_frame && !Object.hasOwn(metaInputs.first_frame, "source_id")) metaInputs.first_frame.source_id = null;
@@ -409,6 +427,9 @@ export async function runVideoCommand(argv, dependencies = {}) {
       cost: validation.cost, key_source: credentials.key_source, request_id: submitted.request_id,
       status_url: submitted.status_url, response_url: submitted.response_url,
       started_at: startedDate.toISOString(), stale_after_s: options.staleAfterS,
+      ...(options.candidate ? { candidate_of: options.itemId, route: model.id } : {}),
+      ...(options.candidate ? { queue_status: ["IN_QUEUE", "IN_PROGRESS", "COMPLETED"].includes(submitted.status)
+        ? submitted.status : "IN_QUEUE" } : {}),
     });
     if (fromImage) {
       const meta = JSON.parse(readFileSync(metaPath, "utf8"));
@@ -416,20 +437,21 @@ export async function runVideoCommand(argv, dependencies = {}) {
       writeFileSync(metaPath, `${JSON.stringify(meta, null, 2)}\n`);
     }
     await pollStatus({
-      statusUrl: submitted.status_url, key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch,
-      intervalMs: dependencies.pollIntervalMs ?? 5_000, deadlineMs: options.staleAfterS * 1000,
-      onTick: dependencies.onTick ?? (() => {}),
+      statusUrl: submitted.status_url, key: credentials.key, fetchImpl,
+      intervalMs: dependencies.pollIntervalMs ?? (env.AKARI_FAL_STUB_URL ? 30 : 5_000), deadlineMs: options.staleAfterS * 1000,
+      onTick: value => { if (options.candidate) writeQueueStatus(metaPath, value.status); dependencies.onTick?.(value); },
     });
     const completed = await finalizeGeneratedVideo({
       projectDir: options.projectDir, itemId: options.itemId, metaPath,
       mp4AbsolutePath: destination.absolute, mp4RelativePath: destination.relative,
       responseUrl: submitted.response_url, key: credentials.key,
-      fetchImpl: dependencies.fetchImpl ?? globalThis.fetch, now: dependencies.now,
+      fetchImpl, now: dependencies.now,
       startedMs, openProjectImpl: dependencies.openProjectImpl ?? openProject,
       snapshotImpl: dependencies.snapshotImpl ?? snapshot, probeImpl: dependencies.probeImpl ?? probeVideo,
     });
-    const result = fromImage ? {
-      from_image: fromImage, mp4: destination.relative,
+    const result = fromImage || options.candidate ? {
+      ...(options.candidate ? { item: options.itemId, route: model.id } : { from_image: fromImage }),
+      mp4: destination.relative,
       duration_s_actual: completed.probe.duration_s_actual, estimate_usd: validation.cost.estimate_usd,
       elapsed_s: completed.elapsed_s, meta: path.relative(options.projectDir, metaPath).split(path.sep).join("/"),
     } : {
@@ -438,7 +460,8 @@ export async function runVideoCommand(argv, dependencies = {}) {
       freeze: completed.plan.freeze, estimate_usd: validation.cost.estimate_usd,
       elapsed_s: completed.elapsed_s, meta: path.relative(options.projectDir, metaPath).split(path.sep).join("/"),
     };
-    log(options.json ? JSON.stringify(result) : fromImage ? `新しい素材を作りました: ${destination.relative}` : `生成動画に差し替えました: ${destination.relative}`);
+    log(options.json ? JSON.stringify(result) : fromImage ? `新しい素材を作りました: ${destination.relative}`
+      : options.candidate ? `候補動画を作りました: ${destination.relative}` : `生成動画に差し替えました: ${destination.relative}`);
     return { exitCode: 0, result };
   } catch (error) {
     if (metaPath && existsSync(metaPath)) {

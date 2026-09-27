@@ -6,6 +6,26 @@ const headers = (key, json = false) => ({
   ...(json ? { "Content-Type": "application/json" } : {}),
 });
 
+export function falQueueFetch(env = process.env, fetchImpl = globalThis.fetch) {
+  const stub = env.AKARI_FAL_STUB_URL;
+  if (!stub) return fetchImpl;
+  const base = new URL(stub);
+  if (base.protocol !== "http:" || !["localhost", "127.0.0.1", "[::1]"].includes(base.hostname)) {
+    throw new Error("AKARI_FAL_STUB_URL はローカル HTTP のみ指定できます");
+  }
+  return (url, options) => {
+    const requested = new URL(url);
+    if (requested.hostname === "queue.fal.run") {
+      requested.protocol = base.protocol;
+      requested.host = base.host;
+    }
+    if (requested.protocol !== "http:" || requested.host !== base.host) {
+      throw new Error("fal スタブへの通信先はローカル HTTP のみ指定できます");
+    }
+    return fetchImpl(requested.toString(), options);
+  };
+}
+
 async function jsonResponse(response, label) {
   let body;
   try { body = await response.json(); } catch { throw new Error(`${label} の応答が JSON ではありません`); }

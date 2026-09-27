@@ -23,7 +23,7 @@ export function readVideoMeta(metaPath) {
 
 export function writeGenerating({
   metaPath, model, inputs, output, placeholder, cost, key_source, request_id, status_url,
-  response_url, started_at, stale_after_s = 900, now,
+  response_url, started_at, stale_after_s = 900, now, candidate_of, route, queue_status,
 }) {
   const at = started_at ?? nowIso(now);
   const meta = {
@@ -35,6 +35,7 @@ export function writeGenerating({
     output,
     // video CLI は必ず渡す。旧 API 呼び出し（9/13 meta の再取得テスト等）は許容する。
     ...(placeholder === undefined ? {} : { placeholder }),
+    ...(candidate_of ? { candidate_of, route } : {}),
     cost: {
       estimate_usd: cost.estimate_usd ?? null,
       actual_usd: null,
@@ -44,10 +45,18 @@ export function writeGenerating({
     job: {
       provider: "fal", request_id, status_url, response_url,
       started_at: at, stale_after_s,
+      ...(queue_status ? { queue_status } : {}),
     },
     provenance: { created_at: at, tool: "akari generate video", key_source },
     history: [{ at, status: "generating", reason: null }],
   };
+  return writeValidated(metaPath, meta);
+}
+
+export function writeQueueStatus(metaPath, queue_status) {
+  const meta = readVideoMeta(metaPath);
+  if (meta.status !== "generating" || !["IN_QUEUE", "IN_PROGRESS", "COMPLETED"].includes(queue_status)) return meta;
+  meta.job.queue_status = queue_status;
   return writeValidated(metaPath, meta);
 }
 

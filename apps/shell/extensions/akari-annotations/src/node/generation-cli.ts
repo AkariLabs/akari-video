@@ -44,6 +44,13 @@ export class GenerationCliManager {
         return this.run(itemId, ['generate', 'video', projectRoot, '--item', itemId, '--yes', '--json']);
     }
 
+    async startCandidate(projectRoot: string, itemId: string, modelId: string): Promise<GenerationCliResult> {
+        safeItemId(itemId);
+        if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/u.test(modelId)) throw new Error('modelId が不正です。');
+        return this.run(`${itemId}:${modelId}`, ['generate', 'video', projectRoot, '--item', itemId,
+            '--model', modelId, '--candidate', '--yes', '--json']);
+    }
+
     async startFromImage(projectRoot: string, fromImage: string): Promise<GenerationCliResult> {
         if (!fromImage || fromImage.startsWith('/') || fromImage.includes('\\') || fromImage.split('/').includes('..')
             || /^[A-Za-z]:/u.test(fromImage)) throw new Error('fromImage はプロジェクト内の相対パスで指定してください。');
@@ -65,6 +72,10 @@ export class GenerationCliManager {
             clearTimeout(timer);
             resolvePromise({ ok: code === 0, ...(code === 0 ? {} : { reason: `生成を中止しました（exit ${code ?? '不明'}）` }), stdout: '', exitCode: code });
         }));
+    }
+
+    async cancelBatch(itemId: string): Promise<GenerationCliResult[]> {
+        return Promise.all([...this.children.keys()].filter(key => key.startsWith(`${itemId}:`)).map(key => this.cancel(key)));
     }
 
     async resolveCli(): Promise<string | undefined> {

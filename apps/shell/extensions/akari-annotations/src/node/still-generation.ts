@@ -8,6 +8,7 @@ import type { GenerateStillResult, ImageRouteState, StartGenerateStillRequest, S
 import { projectOutputPath } from './project-asset-path';
 import { finishPlaceholderGenerating, markPlaceholderGenerating, type GenerationSidecarMeta } from '../common/generation-sidecar';
 import { aiActionCatalog } from '../common/ai-action-catalog';
+import { GenerationCandidates, readCandidateMeta, readPreferredModelIds, type CandidatePreparation } from './generation-candidates';
 
 type SpawnProcess = typeof spawn;
 type Asset = (path: string) => Promise<string>;
@@ -18,12 +19,6 @@ const brief = (value: unknown, lines = 2): string => redact(value).split(/\r?\n/
 const keyNames = ['FAL_KEY', 'AKARI_IMAGE_AI_FAL_KEY', 'GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'XAI_API_KEY'];
 type Route = ImageRouteState['id'];
 const stillRouteIds = new Set<Route>(['codex', 'antigravity', 'grok', 'fal']);
-interface CompareBatchContext {
-    root: string;
-    state: StillCandidateBatch;
-    pending: number;
-    write(running: boolean): Promise<void>;
-}
 export const IMAGE_PROBE_TIMEOUT_MS: Readonly<Record<Route, number>> = {
     codex: 5000, antigravity: 20000, grok: 20000, fal: 5000
 };
@@ -45,13 +40,7 @@ export function stillCropPlan(width: number, height: number, aspect: StartGenera
 
 export class StillGenerationManager {
     private readonly active = new Map<string, { child?: ChildProcess; cancelled: boolean }>();
-    private readonly reserved = new Set<string>();
-    private readonly routeQueues = new Map<Route, Promise<unknown>>();
-    private readonly batches = new Set<string>();
-    private readonly batchCancelled = new Set<string>();
-    private readonly batchStates = new Map<string, StillCandidateBatch>();
-    private readonly batchContexts = new Map<string, Promise<CompareBatchContext>>();
-    private readonly batchRoutes = new Map<string, Set<Route>>();
+    private readonly candidates = new GenerationCandidates<StillCandidate>();
     constructor(private readonly findAsset: Asset, private readonly options: {
         env?: NodeJS.ProcessEnv; spawnProcess?: SpawnProcess;
         /** Legacy override for every route; route-specific values take precedence. */
@@ -105,12 +94,8 @@ export class StillGenerationManager {
     }
 
     async readStillPreferredRoutes(projectRoot: string): Promise<Route[]> {
-        const appPath = join(this.env.AKARI_HOME || join(homedir(), '.akari'), 'ai-models.json');
-        const projectPath = join(projectRoot, '.akari', 'ai-models.json');
-        const read = async (file: string): Promise<any> => fs.readFile(file, 'utf8').then(JSON.parse).catch(() => ({}));
-        const [app, project] = await Promise.all([read(appPath), read(projectPath)]);
-        const ids = [...(Array.isArray(app?.favorites?.image) ? app.favorites.image : []),
-            project?.defaults?.image || app?.defaults?.image];
+        const preferredModels = await readPreferredModelIds(projectRoot, 'image', this.env);
+        const ids = [...preferredModels.favorites, preferredModels.projectDefault || preferredModels.appDefault];
         const modelIds = new Map(aiActionCatalog([]).find(action => action.id === 'still')!.routes
             .map(route => [route.id, route.modelId]));
         const requested = (['codex', 'antigravity', 'grok'] as Route[])
@@ -170,21 +155,8 @@ export class StillGenerationManager {
 
     async startGenerateStill(projectRoot: string, request: StartGenerateStillRequest, candidateMode = false): Promise<GenerateStillResult> {
         const route = request.route ?? 'codex';
-        const key = `${request.itemId}:${route}`;
-        if (this.reserved.has(key)) return { ok: false, reason: 'この枠と手段は生成中です。' };
-        this.reserved.add(key);
-        const previous = this.routeQueues.get(route);
-        const work = (async () => {
-            if (previous) await previous.catch(() => undefined);
-            if (this.batchCancelled.has(request.itemId)) return { ok: false, cancelled: true, reason: '中止しました。' };
-            return this.runGenerateStill(projectRoot, request, candidateMode);
-        })();
-        this.routeQueues.set(route, work);
-        try { return await work; }
-        finally {
-            this.reserved.delete(key);
-            if (this.routeQueues.get(route) === work) this.routeQueues.delete(route);
-        }
+        return this.candidates.runRoute(request.itemId, route,
+            () => this.runGenerateStill(projectRoot, request, candidateMode));
     }
 
     private async runGenerateStill(projectRoot: string, request: StartGenerateStillRequest, candidateMode: boolean): Promise<GenerateStillResult> {
@@ -333,6 +305,7 @@ export class StillGenerationManager {
                 meta.job.response_url = result.response_url;
                 meta.provenance.key_source = falKey!.key_source;
             }
+            if (candidateMode) (meta as typeof meta & { route: string }).route = route;
             if (!candidateMode && oldMeta?.next?.kind === 'video') {
                 const next = oldMeta.next;
                 meta = metas.withNextVideoDraft(meta, { firstFrame: { path: relativePath, sha256: image.sha256 },
@@ -375,52 +348,16 @@ export class StillGenerationManager {
         if (!routes.length || routes.length !== request.routes.length
             || routes.some(route => !stillRouteIds.has(route))) throw new Error('手段を選んでください。');
         if (routes.includes('fal') && request.approved !== true) throw new Error('費用承認が必要です。');
-        const reserved = this.batchRoutes.get(request.itemId) ?? new Set<Route>();
-        if (routes.some(route => reserved.has(route))) throw new Error('この枠と手段は生成中です。');
-        routes.forEach(route => reserved.add(route));
-        this.batchRoutes.set(request.itemId, reserved);
-        let contextPromise = this.batchContexts.get(request.itemId);
-        if (!contextPromise) {
-            contextPromise = this.prepareCompareBatch(projectRoot, request);
-            this.batchContexts.set(request.itemId, contextPromise);
-            this.batches.add(request.itemId);
-        }
-        let context: CompareBatchContext | undefined;
-        try {
-            context = await contextPromise;
-            context.pending++;
-            context.state.routes.push(...routes);
-            await context.write(true);
-            const results = await Promise.all(routes.map(async route => {
-                const result = await this.startGenerateStill(context!.root, { ...request, route }, true);
-                const candidate: StillCandidate = { ...result, route,
-                    ...(route === 'fal' && result.ok ? { costUsd: ({ low: 0.006, medium: 0.0133, high: 0.0528 } as const)[request.quality ?? 'high'] } : {}) };
-                context!.state.candidates.push(candidate);
-                context!.state.completed++;
-                await context!.write(true);
-                return candidate;
-            }));
-            return { routes, completed: results.length, candidates: results, results, running: false };
-        } finally {
-            routes.forEach(route => reserved.delete(route));
-            if (!reserved.size) this.batchRoutes.delete(request.itemId);
-            if (context && --context.pending === 0) {
-                context.state.running = false;
-                await context.write(false);
-                this.batchContexts.delete(request.itemId);
-                this.batchStates.delete(request.itemId);
-                this.batches.delete(request.itemId);
-                this.batchCancelled.delete(request.itemId);
-            } else if (!context && this.batchContexts.get(request.itemId) === contextPromise) {
-                this.batchContexts.delete(request.itemId);
-                this.batchStates.delete(request.itemId);
-                this.batches.delete(request.itemId);
-                this.batchCancelled.delete(request.itemId);
-            }
-        }
+        return this.candidates.batch(request.itemId, routes,
+            () => this.prepareCompareBatch(projectRoot, request),
+            async route => {
+                const result = await this.startGenerateStill(projectRoot, { ...request, route: route as Route }, true);
+                return { ...result, ...(route === 'fal' && result.ok
+                    ? { costUsd: ({ low: 0.006, medium: 0.0133, high: 0.0528 } as const)[request.quality ?? 'high'] } : {}) };
+            }) as Promise<StillCandidateBatch>;
     }
 
-    private async prepareCompareBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'>): Promise<CompareBatchContext> {
+    private async prepareCompareBatch(projectRoot: string, request: Omit<StartGenerateStillRequest, 'route'>): Promise<CandidatePreparation> {
         const root = await fs.realpath(projectRoot);
         const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
         const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((entry: any) => entry.id === request.itemId);
@@ -438,37 +375,12 @@ export class StillGenerationManager {
         const original: GenerationSidecarMeta = previous ? JSON.parse(previous) : metas.plannedStillMeta({
             prompt: '', duration_s: Number(item.duration) / (Number(edit.output?.fps) || 30), at, asOf: at.slice(0, 10)
         });
-        const existing = await fs.readdir(join(root, 'assets', 'generated', 'candidates', request.itemId))
-            .catch(() => [] as string[]);
-        const previousCandidates = existing.filter(name => name.endsWith('.png.meta.json')).length;
-        const state: StillCandidateBatch = { routes: [], completed: 0, candidates: [], results: [], running: true };
-        const job = { ...original.job, provider: 'compare', started_at: at, stale_after_s: 900,
-            routes: [] as Route[], completed: 0, candidates: 0, failed: [] as Array<{ route: Route; reason: string }> };
-        let writing: Promise<void> = Promise.resolve();
-        const write = (running: boolean): Promise<void> => {
-            const snapshot = { routes: [...state.routes], completed: state.completed,
-                candidates: previousCandidates + state.candidates.filter(row => row.ok).length,
-                failed: state.candidates.filter(row => !row.ok).map(row => ({ route: row.route, reason: row.reason ?? '生成できませんでした。' })),
-                results: state.candidates.map(row => ({ route: row.route, ok: row.ok,
-                    ...(row.relativePath ? { path: row.relativePath } : {}),
-                    ...(row.reason ? { reason: row.reason } : {}),
-                    ...(row.elapsedSeconds === undefined ? {} : { elapsed_s: row.elapsedSeconds }) })) };
-            writing = writing.then(async () => {
-                const status = running ? 'generating' : snapshot.candidates > 0 ? original.status : 'failed';
-                const meta = { ...original, status, job: { ...job, ...snapshot },
-                    history: [...(Array.isArray(original.history) ? original.history : []),
-                        { at, status: 'generating', reason: null },
-                        ...(!running ? [{ at: new Date().toISOString(), status, reason: null }] : [])] };
-                await fs.writeFile(sidecarPath, `${JSON.stringify(meta, null, 2)}\n`);
-            });
-            return writing;
-        };
-        this.batchStates.set(request.itemId, state);
-        return { root, state, pending: 0, write };
+        const existing = await fs.readdir(join(root, 'assets', 'generated', 'candidates', request.itemId)).catch(() => [] as string[]);
+        return { sidecarPath, original, previousCandidates: existing.filter(name => name.endsWith('.png.meta.json')).length };
     }
 
     async readStillCandidates(projectRoot: string, itemId: string, includeThumbnails = true): Promise<StillCandidateBatch> {
-        const live = this.batchStates.get(itemId);
+        const live = this.candidates.state(itemId);
         const root = await fs.realpath(projectRoot);
         if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(itemId)) throw new Error('itemId が不正です。');
         const directory = join(root, 'assets', 'generated', 'candidates', itemId);
@@ -481,24 +393,16 @@ export class StillGenerationManager {
             ? await projectOutputPath(root, `${sourcePath}.meta.json`).catch(() => undefined) : undefined;
         const sourceMeta = safeMetaPath ? await fs.readFile(safeMetaPath, 'utf8')
             .then(JSON.parse).catch(() => ({})) : {};
-        const entries = await fs.readdir(directory).catch(() => [] as string[]);
-        const loaded = (await Promise.all(entries.filter(name => name.endsWith('.png.meta.json')).map(async name => {
-            try {
-                const metaPath = await fs.realpath(join(directory, name));
-                if (!metaPath.startsWith(`${root}${sep}`)) return undefined;
-                const meta = JSON.parse(await fs.readFile(metaPath, 'utf8'));
-                if (meta.candidate_of !== itemId || meta.status !== 'done') return undefined;
-                const route = name.split('-')[0] as Route;
-                if (!stillRouteIds.has(route)) return undefined;
-                const relativePath = `assets/generated/candidates/${itemId}/${name.slice(0, -'.meta.json'.length)}`;
-                const pngPath = await fs.realpath(join(root, relativePath));
-                if (!pngPath.startsWith(`${root}${sep}`)) return undefined;
-                const thumbnail = includeThumbnails
-                    ? `data:image/png;base64,${(await fs.readFile(pngPath)).toString('base64')}` : undefined;
-                return { ok: true, route, relativePath, width: meta.result?.width, height: meta.result?.height,
-                    elapsedSeconds: meta.result?.elapsed_s, croppedFrom: meta.output?.cropped_from,
-                    costUsd: meta.cost?.estimate_usd ?? 0, ...(thumbnail ? { thumbnail } : {}) } as StillCandidate;
-            } catch { return undefined; }
+        const entries = await readCandidateMeta(root, itemId, '.png');
+        const loaded = (await Promise.all(entries.map(async ({ name, meta, relativePath, absolutePath }) => {
+            if (meta.status !== 'done') return undefined;
+            const route = (meta.route ?? name.split('-')[0]) as Route;
+            if (!stillRouteIds.has(route)) return undefined;
+            const thumbnail = includeThumbnails
+                ? `data:image/png;base64,${(await fs.readFile(absolutePath)).toString('base64')}` : undefined;
+            return { ok: true, route, relativePath, width: meta.result?.width, height: meta.result?.height,
+                elapsedSeconds: meta.result?.elapsed_s, croppedFrom: meta.output?.cropped_from,
+                costUsd: meta.cost?.estimate_usd ?? 0, ...(thumbnail ? { thumbnail } : {}) } as StillCandidate;
         }))).filter((row): row is StillCandidate => !!row);
         const candidates = [...new Map(loaded.map(row => [row.relativePath, row])).values()].sort((left, right) => {
             const time = (row: StillCandidate): number => Number(row.relativePath?.split('/').pop()?.split('-')[1]) || 0;
@@ -518,7 +422,7 @@ export class StillGenerationManager {
     }
 
     cancelGenerateStill(itemId: string): void {
-        if (this.batches.has(itemId)) this.batchCancelled.add(itemId);
+        this.candidates.cancel(itemId);
         for (const [key, run] of this.active) {
             if (!key.startsWith(`${itemId}:`)) continue;
             run.cancelled = true;

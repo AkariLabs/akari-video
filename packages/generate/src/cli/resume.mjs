@@ -6,8 +6,8 @@ import { snapshot } from "../../../edit-store/lib/history-store.js";
 import { readGenerationMeta } from "../../../edit-store/lib/generation-meta-node.js";
 
 import { resolveFalKey } from "./credentials.mjs";
-import { fetchStatus } from "./fal-queue.mjs";
-import { readVideoMeta, writeFailed } from "./meta-video.mjs";
+import { fetchStatus, falQueueFetch } from "./fal-queue.mjs";
+import { readVideoMeta, writeFailed, writeQueueStatus } from "./meta-video.mjs";
 import { finalizeGeneratedVideo, probeVideo } from "./video.mjs";
 import { findItem } from "./edit-replace.mjs";
 
@@ -67,7 +67,7 @@ export async function runResumeCommand(argv, dependencies = {}) {
         return { metaPath, meta: read.meta ?? readVideoMeta(metaPath), state: read.state, stem: stemFor(metaPath) };
       })
       .filter(({ meta, stem }) => meta.kind === "video" && meta.status === "generating"
-        && (!options.itemId || matchesItem(stem, options.itemId)));
+        && (!options.itemId || meta.candidate_of === options.itemId || matchesItem(stem, options.itemId)));
     if (candidates.length === 0) { log(options.json ? "[]" : "再取得できる generating 動画はありません"); return { exitCode: 0, result: [] }; }
     const credentials = (dependencies.resolveFalKeyImpl ?? resolveFalKey)({ env: dependencies.env ?? process.env, credentialsFile: dependencies.credentialsFile });
     const identityProject = await (dependencies.openProjectImpl ?? openProject)(options.projectDir);
@@ -79,13 +79,14 @@ export async function runResumeCommand(argv, dependencies = {}) {
       const staleRemaining = candidate.meta.job.stale_after_s - age;
       const isStale = candidate.state === "stale" || age > candidate.meta.job.stale_after_s;
       const withoutSerial = candidate.stem.replace(/-\d+$/u, "");
-      const itemId = options.itemId
+      const itemId = options.itemId ?? candidate.meta.candidate_of
         ?? (findItem(identityProject.edit, candidate.stem) ? candidate.stem
           : findItem(identityProject.edit, withoutSerial) ? withoutSerial : candidate.stem);
       let status;
       try {
         if (typeof candidate.meta.job.status_url !== "string") throw new Error("job.status_url がありません");
-        status = await fetchStatus({ statusUrl: candidate.meta.job.status_url, key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch });
+        status = await fetchStatus({ statusUrl: candidate.meta.job.status_url, key: credentials.key,
+          fetchImpl: falQueueFetch(dependencies.env ?? process.env, dependencies.fetchImpl ?? globalThis.fetch) });
       } catch (error) {
         const message = isStale
           ? `応答なし（経過 ${Math.floor(age)} 秒）。再取得に失敗: ${error.message}`
@@ -95,6 +96,7 @@ export async function runResumeCommand(argv, dependencies = {}) {
         continue;
       }
       try {
+        if (candidate.meta.candidate_of) writeQueueStatus(candidate.metaPath, status.status);
         if (status.status === "COMPLETED") {
           if (typeof candidate.meta.job.response_url !== "string") throw new Error("job.response_url がありません");
           const mp4AbsolutePath = candidate.metaPath.slice(0, -".meta.json".length);
@@ -102,19 +104,19 @@ export async function runResumeCommand(argv, dependencies = {}) {
           const completed = await finalizeGeneratedVideo({
             projectDir: options.projectDir, itemId, metaPath: candidate.metaPath,
             mp4AbsolutePath, mp4RelativePath, responseUrl: candidate.meta.job.response_url,
-            key: credentials.key, fetchImpl: dependencies.fetchImpl ?? globalThis.fetch,
+            key: credentials.key, fetchImpl: falQueueFetch(dependencies.env ?? process.env, dependencies.fetchImpl ?? globalThis.fetch),
             now: dependencies.now, startedMs: Date.parse(candidate.meta.job.started_at),
             openProjectImpl: dependencies.openProjectImpl ?? openProject,
             snapshotImpl: dependencies.snapshotImpl ?? snapshot,
             probeImpl: dependencies.probeImpl ?? probeVideo,
           });
           results.push({ item: itemId, status: "done", mp4: mp4RelativePath, out: completed.plan.out, freeze: completed.plan.freeze });
-          if (!options.json) {
+          if (!options.json && !candidate.meta.candidate_of) {
             const freeze = completed.plan.freeze === null
               ? "なし"
               : `${completed.plan.freeze.at_sec} 秒から ${completed.plan.freeze.duration_sec} 秒`;
             log(`${itemId}: 生成動画に差し替えました: ${mp4RelativePath}（out ${completed.plan.out}・freeze ${freeze}）`);
-          }
+          } else if (!options.json) log(`${itemId}: 候補動画を再取得しました: ${mp4RelativePath}`);
         } else if (status.status === "FAILED" || status.error) {
           const reason = typeof status.error === "string" ? status.error : "provider FAILED";
           writeFailed({ metaPath: candidate.metaPath, reason, now: dependencies.now });

@@ -1,0 +1,3323 @@
+{
+  "models": [
+    "fal:h3-i2v",
+    "fal:kling-v3-standard-i2v",
+    "fal:seedance-2.0-i2v"
+  ],
+  "modelProfiles": [
+    {
+      "model": "fal:h3-i2v",
+      "endpoint": "/minimax/h3/image-to-video",
+      "color": "red",
+      "targetDurationSec": 0.5,
+      "queueMs": 120,
+      "processingMs": 450
+    },
+    {
+      "model": "fal:kling-v3-standard-i2v",
+      "endpoint": "/fal-ai/kling-video/v3/standard/image-to-video",
+      "color": "green",
+      "targetDurationSec": 0.75,
+      "queueMs": 180,
+      "processingMs": 650
+    },
+    {
+      "model": "fal:seedance-2.0-i2v",
+      "endpoint": "/bytedance/seedance-2.0/image-to-video",
+      "color": "blue",
+      "targetDurationSec": 1,
+      "queueMs": 240,
+      "processingMs": 850
+    }
+  ],
+  "estimate": {
+    "models": [
+      {
+        "modelId": "fal:h3-i2v",
+        "estimateUsd": 0.36,
+        "asOf": "2026-09-12",
+        "needs_explicit_confirm": false
+      },
+      {
+        "modelId": "fal:kling-v3-standard-i2v",
+        "estimateUsd": null,
+        "needs_explicit_confirm": true
+      },
+      {
+        "modelId": "fal:seedance-2.0-i2v",
+        "estimateUsd": 1.8204,
+        "asOf": "2026-09-12",
+        "needs_explicit_confirm": false
+      }
+    ],
+    "totalUsd": 2.1804,
+    "needs_explicit_confirm": true
+  },
+  "beforeSha256": "f45d29091b4e35d8a82631cabbb75f0c7b393cde13ccafe53a29e5b9fdc0f438",
+  "success": {
+    "results": [
+      {
+        "route": "fal:h3-i2v",
+        "ok": true
+      },
+      {
+        "route": "fal:kling-v3-standard-i2v",
+        "ok": true
+      },
+      {
+        "route": "fal:seedance-2.0-i2v",
+        "ok": true
+      }
+    ],
+    "received": [
+      {
+        "id": "1",
+        "model": "fal:h3-i2v",
+        "endpoint": "/minimax/h3/image-to-video",
+        "color": "red",
+        "targetDurationSec": 0.5,
+        "processingTargetMs": 450,
+        "receivedAtMs": 1790481782095,
+        "terminalAtMs": 1790481782557,
+        "processingObservedMs": 462
+      },
+      {
+        "id": "2",
+        "model": "fal:seedance-2.0-i2v",
+        "endpoint": "/bytedance/seedance-2.0/image-to-video",
+        "color": "blue",
+        "targetDurationSec": 1,
+        "processingTargetMs": 850,
+        "receivedAtMs": 1790481782099,
+        "terminalAtMs": 1790481782950,
+        "processingObservedMs": 851
+      },
+      {
+        "id": "3",
+        "model": "fal:kling-v3-standard-i2v",
+        "endpoint": "/fal-ai/kling-video/v3/standard/image-to-video",
+        "color": "green",
+        "targetDurationSec": 0.75,
+        "processingTargetMs": 650,
+        "receivedAtMs": 1790481782099,
+        "terminalAtMs": 1790481782752,
+        "processingObservedMs": 653
+      }
+    ],
+    "receivedSpanMs": 4,
+    "progress": [
+      {
+        "atMs": 1790481781755,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781785,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781808,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781815,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781834,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781856,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781879,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781904,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781921,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781943,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781963,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481781984,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481782006,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481782033,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481782050,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481782073,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481782104,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 0
+      },
+      {
+        "atMs": 1790481782158,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782162,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782179,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782363,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782364,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782365,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782367,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782368,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782369,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782370,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782371,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782372,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782472,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782473,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782474,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782475,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782477,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782499,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782522,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782543,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782564,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782586,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782607,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 0,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782627,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782649,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782671,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782691,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782714,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782735,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782756,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782778,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782800,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 1,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782820,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782842,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782864,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782887,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782908,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782930,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782952,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782974,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481782998,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783018,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 2,
+          "failed": []
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      }
+    ],
+    "queueTransitions": {
+      "fal:h3-i2v": [
+        {
+          "status": "IN_QUEUE",
+          "atMs": 1790481782121
+        },
+        {
+          "status": "IN_PROGRESS",
+          "atMs": 1790481782363
+        },
+        {
+          "status": "COMPLETED",
+          "atMs": 1790481782562
+        }
+      ],
+      "fal:kling-v3-standard-i2v": [
+        {
+          "status": "IN_QUEUE",
+          "atMs": 1790481782121
+        },
+        {
+          "status": "IN_PROGRESS",
+          "atMs": 1790481782363
+        },
+        {
+          "status": "COMPLETED",
+          "atMs": 1790481782754
+        }
+      ],
+      "fal:seedance-2.0-i2v": [
+        {
+          "status": "IN_QUEUE",
+          "atMs": 1790481782122
+        },
+        {
+          "status": "IN_PROGRESS",
+          "atMs": 1790481782363
+        },
+        {
+          "status": "COMPLETED",
+          "atMs": 1790481782973
+        }
+      ]
+    },
+    "finalFrameJob": {
+      "provider": "compare",
+      "started_at": "2026-09-27T04:03:01.727Z",
+      "stale_after_s": 900,
+      "routes": [
+        "fal:h3-i2v",
+        "fal:kling-v3-standard-i2v",
+        "fal:seedance-2.0-i2v"
+      ],
+      "completed": 3,
+      "candidates": 3,
+      "failed": [],
+      "results": [
+        {
+          "route": "fal:h3-i2v",
+          "ok": true,
+          "path": "assets/generated/candidates/clip-a/fal-h3-i2v-1790481782041.mp4",
+          "elapsed_s": 0.577
+        },
+        {
+          "route": "fal:kling-v3-standard-i2v",
+          "ok": true,
+          "path": "assets/generated/candidates/clip-a/fal-kling-v3-standard-i2v-1790481782041.mp4",
+          "elapsed_s": 0.77
+        },
+        {
+          "route": "fal:seedance-2.0-i2v",
+          "ok": true,
+          "path": "assets/generated/candidates/clip-a/fal-seedance-2-0-i2v-1790481782040.mp4",
+          "elapsed_s": 0.976
+        }
+      ]
+    },
+    "metas": [
+      {
+        "route": "fal:h3-i2v",
+        "status": "done",
+        "queueStatus": "COMPLETED",
+        "candidateOf": "clip-a",
+        "placeholderAbsent": true,
+        "path": "assets/generated/candidates/clip-a/fal-h3-i2v-1790481782041.mp4",
+        "durationSeconds": 0.52,
+        "width": 64,
+        "height": 64,
+        "fileBytes": 1345,
+        "fileMatchesModel": true,
+        "color": "red",
+        "elapsedSeconds": 0.577,
+        "elapsedSource": "result",
+        "costUsd": 0.36,
+        "reason": null
+      },
+      {
+        "route": "fal:kling-v3-standard-i2v",
+        "status": "done",
+        "queueStatus": "COMPLETED",
+        "candidateOf": "clip-a",
+        "placeholderAbsent": true,
+        "path": "assets/generated/candidates/clip-a/fal-kling-v3-standard-i2v-1790481782041.mp4",
+        "durationSeconds": 0.76,
+        "width": 64,
+        "height": 64,
+        "fileBytes": 1481,
+        "fileMatchesModel": true,
+        "color": "green",
+        "elapsedSeconds": 0.77,
+        "elapsedSource": "result",
+        "costUsd": null,
+        "reason": null
+      },
+      {
+        "route": "fal:seedance-2.0-i2v",
+        "status": "done",
+        "queueStatus": "COMPLETED",
+        "candidateOf": "clip-a",
+        "placeholderAbsent": true,
+        "path": "assets/generated/candidates/clip-a/fal-seedance-2-0-i2v-1790481782040.mp4",
+        "durationSeconds": 1,
+        "width": 64,
+        "height": 64,
+        "fileBytes": 1703,
+        "fileMatchesModel": true,
+        "color": "blue",
+        "elapsedSeconds": 0.976,
+        "elapsedSource": "result",
+        "costUsd": 1.8204,
+        "reason": null
+      }
+    ],
+    "editSha256": "f45d29091b4e35d8a82631cabbb75f0c7b393cde13ccafe53a29e5b9fdc0f438"
+  },
+  "failure": {
+    "results": [
+      {
+        "route": "fal:h3-i2v",
+        "ok": true
+      },
+      {
+        "route": "fal:kling-v3-standard-i2v",
+        "ok": false
+      },
+      {
+        "route": "fal:seedance-2.0-i2v",
+        "ok": true
+      }
+    ],
+    "received": [
+      {
+        "id": "4",
+        "model": "fal:kling-v3-standard-i2v",
+        "endpoint": "/fal-ai/kling-video/v3/standard/image-to-video",
+        "color": "green",
+        "targetDurationSec": 0.75,
+        "processingTargetMs": 650,
+        "receivedAtMs": 1790481783434,
+        "terminalAtMs": 1790481784087,
+        "processingObservedMs": 653
+      },
+      {
+        "id": "5",
+        "model": "fal:seedance-2.0-i2v",
+        "endpoint": "/bytedance/seedance-2.0/image-to-video",
+        "color": "blue",
+        "targetDurationSec": 1,
+        "processingTargetMs": 850,
+        "receivedAtMs": 1790481783434,
+        "terminalAtMs": 1790481784313,
+        "processingObservedMs": 879
+      },
+      {
+        "id": "6",
+        "model": "fal:h3-i2v",
+        "endpoint": "/minimax/h3/image-to-video",
+        "color": "red",
+        "targetDurationSec": 0.5,
+        "processingTargetMs": 450,
+        "receivedAtMs": 1790481783436,
+        "terminalAtMs": 1790481783915,
+        "processingObservedMs": 479
+      }
+    ],
+    "receivedSpanMs": 2,
+    "progress": [
+      {
+        "atMs": 1790481783080,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783092,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783096,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783191,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783195,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783200,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783203,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783205,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783222,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783393,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783415,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783420,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783427,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783433,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783446,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 3
+      },
+      {
+        "atMs": 1790481783456,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 5
+      },
+      {
+        "atMs": 1790481783466,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783470,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783477,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783481,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783485,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783499,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783520,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783541,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783562,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783586,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783605,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783689,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783712,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783713,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783714,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783716,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783731,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783776,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783777,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783835,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783881,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783884,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783887,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783890,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783962,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783964,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783965,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783968,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481783984,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 0,
+          "candidates": 3,
+          "failed": []
+        },
+        "completed": 0,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784003,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 4,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784023,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 1,
+          "candidates": 4,
+          "failed": []
+        },
+        "completed": 1,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784128,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784129,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784131,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784132,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784134,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784277,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784314,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784317,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784319,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784321,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784323,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784324,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784327,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784329,
+        "running": true,
+        "frameStatus": "generating",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 2,
+          "candidates": 4,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 2,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784389,
+        "running": false,
+        "frameStatus": "planned",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 3,
+          "candidates": 5,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 3,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      },
+      {
+        "atMs": 1790481784448,
+        "running": false,
+        "frameStatus": "planned",
+        "frameJob": {
+          "provider": "compare",
+          "routes": [
+            "fal:h3-i2v",
+            "fal:kling-v3-standard-i2v",
+            "fal:seedance-2.0-i2v"
+          ],
+          "completed": 3,
+          "candidates": 5,
+          "failed": [
+            {
+              "route": "fal:kling-v3-standard-i2v",
+              "reason": "fal 生成失敗: stub model failure"
+            }
+          ]
+        },
+        "completed": 3,
+        "routes": [
+          "fal:h3-i2v",
+          "fal:kling-v3-standard-i2v",
+          "fal:seedance-2.0-i2v"
+        ],
+        "candidates": 6
+      }
+    ],
+    "queueTransitions": {
+      "fal:h3-i2v": [
+        {
+          "status": "IN_QUEUE",
+          "atMs": 1790481783457
+        },
+        {
+          "status": "IN_PROGRESS",
+          "atMs": 1790481783604
+        },
+        {
+          "status": "COMPLETED",
+          "atMs": 1790481783962
+        }
+      ],
+      "fal:kling-v3-standard-i2v": [
+        {
+          "status": "IN_QUEUE",
+          "atMs": 1790481783457
+        },
+        {
+          "status": "IN_PROGRESS",
+          "atMs": 1790481783690
+        }
+      ],
+      "fal:seedance-2.0-i2v": [
+        {
+          "status": "IN_QUEUE",
+          "atMs": 1790481783459
+        },
+        {
+          "status": "IN_PROGRESS",
+          "atMs": 1790481783690
+        },
+        {
+          "status": "COMPLETED",
+          "atMs": 1790481784315
+        }
+      ]
+    },
+    "finalFrameJob": {
+      "provider": "compare",
+      "started_at": "2026-09-27T04:03:03.036Z",
+      "stale_after_s": 900,
+      "routes": [
+        "fal:h3-i2v",
+        "fal:kling-v3-standard-i2v",
+        "fal:seedance-2.0-i2v"
+      ],
+      "completed": 3,
+      "candidates": 5,
+      "failed": [
+        {
+          "route": "fal:kling-v3-standard-i2v",
+          "reason": "fal 生成失敗: stub model failure"
+        }
+      ],
+      "results": [
+        {
+          "route": "fal:h3-i2v",
+          "ok": true,
+          "path": "assets/generated/candidates/clip-a/fal-h3-i2v-1790481783382.mp4",
+          "elapsed_s": 0.594
+        },
+        {
+          "route": "fal:kling-v3-standard-i2v",
+          "ok": false,
+          "reason": "fal 生成失敗: stub model failure"
+        },
+        {
+          "route": "fal:seedance-2.0-i2v",
+          "ok": true,
+          "path": "assets/generated/candidates/clip-a/fal-seedance-2-0-i2v-1790481783384.mp4",
+          "elapsed_s": 0.987
+        }
+      ]
+    },
+    "metas": [
+      {
+        "route": "fal:h3-i2v",
+        "status": "done",
+        "queueStatus": "COMPLETED",
+        "candidateOf": "clip-a",
+        "placeholderAbsent": true,
+        "path": "assets/generated/candidates/clip-a/fal-h3-i2v-1790481783382.mp4",
+        "durationSeconds": 0.52,
+        "width": 64,
+        "height": 64,
+        "fileBytes": 1345,
+        "fileMatchesModel": true,
+        "color": "red",
+        "elapsedSeconds": 0.594,
+        "elapsedSource": "result",
+        "costUsd": 0.36,
+        "reason": null
+      },
+      {
+        "route": "fal:kling-v3-standard-i2v",
+        "status": "failed",
+        "queueStatus": "IN_PROGRESS",
+        "candidateOf": "clip-a",
+        "placeholderAbsent": true,
+        "path": null,
+        "durationSeconds": null,
+        "width": null,
+        "height": null,
+        "fileBytes": 0,
+        "fileMatchesModel": null,
+        "color": "green",
+        "elapsedSeconds": 0.704,
+        "elapsedSource": "history",
+        "costUsd": null,
+        "reason": "fal 生成失敗: stub model failure"
+      },
+      {
+        "route": "fal:seedance-2.0-i2v",
+        "status": "done",
+        "queueStatus": "COMPLETED",
+        "candidateOf": "clip-a",
+        "placeholderAbsent": true,
+        "path": "assets/generated/candidates/clip-a/fal-seedance-2-0-i2v-1790481783384.mp4",
+        "durationSeconds": 1,
+        "width": 64,
+        "height": 64,
+        "fileBytes": 1703,
+        "fileMatchesModel": true,
+        "color": "blue",
+        "elapsedSeconds": 0.987,
+        "elapsedSource": "result",
+        "costUsd": 1.8204,
+        "reason": null
+      }
+    ],
+    "editSha256": "f45d29091b4e35d8a82631cabbb75f0c7b393cde13ccafe53a29e5b9fdc0f438"
+  },
+  "approvedFalse": {
+    "denied": true,
+    "stubReceives": 0
+  }
+}

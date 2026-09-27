@@ -25,6 +25,8 @@ import { frameDimensions, frameAspectTransform } from '../browser/inspector/fram
 import { frameSizeFromPng, frameSizeFromResolution } from '../browser/inspector/frame-aspect-live';
 import { visionCandidates, preparePhotoClick, clickPhoto, adoptPhotoCandidate, adoptPhotoCandidates } from './photo-segmentation';
 import { NarrationCliManager } from './narration-cli';
+import { GenerationCandidates, readCandidateMeta, readPreferredModelIds } from './generation-candidates';
+import type { VideoCandidate, VideoCandidateBatch, VideoBatchRequest, VideoBatchEstimate, PreferredVideoRoutes } from '../common/akari-annotations-protocol';
 import { finishPlaceholderGenerating, markPlaceholderGenerating } from '../common/generation-sidecar';
 import { ImageAiService } from './image-ai-service';
 import type { ImageAiInspection, ImageAiResult } from '../common/akari-annotations-protocol';
@@ -622,6 +624,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
     protected client: AkariAnnotationsClient | undefined;
     protected readonly generationCli = new GenerationCliManager();
+    protected readonly videoCandidates = new GenerationCandidates<VideoCandidate>();
     protected readonly sourceShaCache = new Map<string, string>();
 
     protected async hashSourceFile(absolutePath: string): Promise<string> {
@@ -1153,6 +1156,121 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         } catch (error) {
             return { ok: false, reason: error instanceof Error ? error.message : String(error), stdout: '' };
         }
+    }
+
+    protected async videoFrame(request: GenerationProcessRequest): Promise<{
+        root: string; sourcePath: string; sidecarPath: string; meta: any; durationSeconds: number;
+    }> {
+        generationDraftPath(this.fsPath(request.projectRootUri), request.itemId);
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const edit = JSON.parse(await fs.readFile(join(root, 'edit.json'), 'utf8'));
+        const item = (edit.tracks ?? []).flatMap((track: any) => track.items ?? []).find((row: any) => row.id === request.itemId);
+        const sourcePath = edit.sources?.find((row: any) => row.id === item?.source?.src)?.path;
+        if (item?.source?.kind !== 'media' || typeof sourcePath !== 'string') throw new Error('生成対象の枠が見つかりません。');
+        const sidecarPath = await projectOutputPath(root, `${sourcePath}.meta.json`);
+        const meta = await fs.readFile(sidecarPath, 'utf8').then(JSON.parse).catch(() => ({}));
+        return { root, sourcePath, sidecarPath, meta, durationSeconds: item.source.out - item.source.in };
+    }
+
+    async estimateVideoBatch(request: Omit<VideoBatchRequest, 'approved'>): Promise<VideoBatchEstimate> {
+        const frame = await this.videoFrame(request);
+        if (!Array.isArray(request.models) || !request.models.length || new Set(request.models).size !== request.models.length) {
+            throw new Error('モデルを重複なく選んでください。');
+        }
+        const catalog = await this.readGenerationCatalog();
+        const models = await Promise.all(request.models.map(async modelId => {
+            const model = catalog.models.find(row => row.id === modelId);
+            if (!model) throw new Error(`生成モデルがカタログにありません: ${modelId}`);
+            const next = frame.meta.next?.kind === 'video' ? frame.meta.next : {};
+            const inputs = { ...(next.inputs ?? {}), first_frame: next.inputs?.first_frame
+                ?? (model.inputs?.first_frame !== 'none' ? { path: frame.sourcePath } : null) };
+            const resolution = model.resolutions?.includes(next.output?.resolution) ? next.output.resolution
+                : model.resolutions?.find(value => Number.isFinite(model.price?.by_resolution?.[value])) ?? model.resolutions?.[0] ?? null;
+            const output = { ...(next.output ?? {}), duration_s: next.output?.duration_s ?? frame.durationSeconds, resolution };
+            const validation = await this.validateGenerationInputs({ modelId, inputs, output });
+            if (!validation.ok) throw new Error(`${modelId}: ${validation.messages.filter(message => message.level === 'error').map(message => message.text).join(' / ')}`);
+            const estimateUsd = validation.cost.estimate_usd;
+            return { modelId, estimateUsd, asOf: validation.cost.as_of,
+                needs_explicit_confirm: estimateUsd === null };
+        }));
+        return { models, totalUsd: Number(models.reduce((sum, row) => sum + (row.estimateUsd ?? 0), 0).toFixed(4)),
+            needs_explicit_confirm: models.some(row => row.needs_explicit_confirm) };
+    }
+
+    async startGenerateVideoBatch(request: VideoBatchRequest): Promise<VideoCandidateBatch> {
+        if (request.approved !== true) throw new Error('費用承認が必要です。');
+        await this.estimateVideoBatch(request);
+        const frame = await this.videoFrame(request);
+        return this.videoCandidates.batch(request.itemId, request.models, async () => {
+            const at = new Date().toISOString();
+            let original = frame.meta;
+            if (!original.version) {
+                const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+                const metas = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/generate/src/cli/meta-still.mjs')).toString());
+                original = metas.plannedStillMeta({ prompt: '', duration_s: frame.durationSeconds, at, asOf: at.slice(0, 10) });
+            }
+            const existing = await fs.readdir(join(frame.root, 'assets', 'generated', 'candidates', request.itemId)).catch(() => [] as string[]);
+            return { sidecarPath: frame.sidecarPath, original,
+                previousCandidates: existing.filter(name => name.endsWith('.mp4.meta.json')).length };
+        }, modelId => this.videoCandidates.runRoute(request.itemId, modelId, async () => {
+            const result = await this.generationCli.startCandidate(frame.root, request.itemId, modelId);
+            const parsed = result.stdout.trim().split(/\r?\n/u).map(line => { try { return JSON.parse(line); } catch { return undefined; } })
+                .find(row => row?.mp4);
+            return { ok: result.ok, ...(result.ok ? { relativePath: parsed?.mp4,
+                elapsedSeconds: parsed?.elapsed_s, costUsd: parsed?.estimate_usd } : { reason: result.reason ?? result.stderr ?? '生成できませんでした。' }) };
+        })) as Promise<VideoCandidateBatch>;
+    }
+
+    async readVideoCandidates(request: GenerationProcessRequest): Promise<VideoCandidateBatch> {
+        const frame = await this.videoFrame(request);
+        const live = this.videoCandidates.state(request.itemId);
+        const loaded = await readCandidateMeta(frame.root, request.itemId, '.mp4');
+        const candidates: VideoCandidate[] = loaded.filter(({ meta }) => typeof meta.route === 'string')
+            .sort((left, right) => String(left.meta.job?.started_at ?? '').localeCompare(String(right.meta.job?.started_at ?? ''))
+                || left.meta.route.localeCompare(right.meta.route) || left.relativePath.localeCompare(right.relativePath))
+            .map(({ meta, relativePath }) => ({
+            route: meta.route,
+            ok: meta.status === 'done', status: meta.status,
+            ...(meta.status === 'done' ? { relativePath } : {}),
+            queueStatus: meta.job?.queue_status, elapsedSeconds: meta.result?.elapsed_s,
+            costUsd: meta.cost?.estimate_usd ?? null, durationSeconds: meta.result?.duration_s_actual,
+            width: meta.result?.width, height: meta.result?.height,
+            ...(meta.status === 'failed' ? { reason: meta.history?.at(-1)?.reason } : {})
+        }));
+        const saved = await fs.readFile(frame.sidecarPath, 'utf8').then(JSON.parse).catch(() => ({}));
+        const results = live?.candidates ?? (saved.job?.results ?? []).map((row: any) =>
+            candidates.find(candidate => candidate.relativePath === row.path) ?? { route: row.route, ok: row.ok, reason: row.reason });
+        const missing = results.filter((row: VideoCandidate) => !row.ok && !row.relativePath
+            && !candidates.some(candidate => candidate.route === row.route && candidate.status === 'failed'))
+            .sort((left: VideoCandidate, right: VideoCandidate) => left.route.localeCompare(right.route));
+        return { routes: live?.routes ?? saved.job?.routes ?? [],
+            completed: live?.completed ?? saved.job?.completed ?? results.length,
+            candidates: [...candidates, ...missing],
+            results, running: live?.running ?? false };
+    }
+
+    async cancelGenerateVideoBatch(request: GenerationProcessRequest): Promise<GenerationProcessResult[]> {
+        this.videoCandidates.cancel(request.itemId);
+        const stopped = await this.generationCli.cancelBatch(request.itemId);
+        const root = await fs.realpath(this.fsPath(request.projectRootUri));
+        const pending = (await readCandidateMeta(root, request.itemId, '.mp4')).filter(row => row.meta.status === 'generating');
+        if (pending.length) {
+            const importEsm = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+            const metas = await importEsm(pathToFileURL(await this.findGenerationAsset('packages/generate/src/cli/meta-video.mjs')).toString());
+            for (const row of pending) metas.writeFailed({ metaPath: join(root, `${row.relativePath}.meta.json`), reason: '中止しました。' });
+        }
+        return stopped;
+    }
+
+    async readPreferredRoutes(kind: 'video', projectRootUri: string): Promise<PreferredVideoRoutes> {
+        const root = this.fsPath(projectRootUri);
+        const selected = await readPreferredModelIds(root, kind, process.env);
+        const catalog = await this.readGenerationCatalog();
+        const available = new Set(catalog.models.map(row => row.id));
+        const project = selected.projectDefault && available.has(selected.projectDefault) ? selected.projectDefault : undefined;
+        const app = selected.appDefault && available.has(selected.appDefault) ? selected.appDefault : undefined;
+        return { defaultModelId: project ?? app ?? (await this.readGenerationDefaults({ projectRootUri })).video,
+            favorites: selected.favorites.filter(id => available.has(id)), source: project ? 'project' : app ? 'app' : 'generation' };
     }
 
     async projectReferenceMediaUris(request: { projectRootUri: string; declaredPaths?: string[] }): Promise<Record<string, string>> {

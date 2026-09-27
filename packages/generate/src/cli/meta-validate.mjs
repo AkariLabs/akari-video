@@ -1,4 +1,4 @@
-const ROOT_KEYS = ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "result", "history", "next", "placeholder", "candidate_of"];
+const ROOT_KEYS = ["version", "kind", "status", "model", "inputs", "output", "cost", "job", "provenance", "result", "history", "next", "placeholder", "candidate_of", "route"];
 const STATUS_VALUES = ["planned", "generating", "done", "failed"];
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const AS_OF_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -30,6 +30,7 @@ export function validateGenerationMeta(meta) {
   if (hasOwn(meta, "next")) validateNext(meta.next, "/next", fail);
   if (hasOwn(meta, "placeholder")) validatePlaceholder(meta.placeholder, "/placeholder", fail);
   if (hasOwn(meta, "candidate_of")) validateNonEmptyString(meta.candidate_of, "/candidate_of", fail);
+  if (hasOwn(meta, "route")) validateNonEmptyString(meta.route, "/route", fail);
 
   if (meta.status === "generating" && meta.kind === "video" && isObject(meta.job) && !hasOwn(meta.job, "request_id")) {
     fail("/job に必須キー request_id がありません");
@@ -142,12 +143,13 @@ function validateCost(value, path, fail) {
 
 function validateJob(value, path, fail) {
   if (!validateObject(value, path, fail)) return;
-  rejectUnknown(value, ["provider", "request_id", "status_url", "response_url", "started_at", "stale_after_s", "routes", "completed", "candidates", "failed", "results"], path, fail);
+  rejectUnknown(value, ["provider", "request_id", "status_url", "response_url", "started_at", "stale_after_s", "routes", "completed", "candidates", "failed", "results", "queue_status"], path, fail);
   requireKeys(value, ["provider", "started_at", "stale_after_s"], path, fail);
   for (const key of ["provider", "request_id", "status_url", "response_url"]) {
     if (hasOwn(value, key)) validateNonEmptyString(value[key], `${path}/${key}`, fail);
   }
   if (hasOwn(value, "started_at")) validateDateTime(value.started_at, `${path}/started_at`, fail);
+  if (hasOwn(value, "queue_status")) validateEnum(value.queue_status, ["IN_QUEUE", "IN_PROGRESS", "COMPLETED"], `${path}/queue_status`, fail);
   if (hasOwn(value, "stale_after_s")) validateNumber(value.stale_after_s, `${path}/stale_after_s`, fail, { minimum: 0 });
   if (hasOwn(value, "routes") && (!Array.isArray(value.routes) || value.routes.some(route => typeof route !== "string"))) fail(`${path}/routes は文字列の array である必要があります`);
   for (const key of ["completed", "candidates"]) if (hasOwn(value, key)) validateInteger(value[key], `${path}/${key}`, fail, 0);

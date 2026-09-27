@@ -1,0 +1,63 @@
+{
+  "phase": "BEFORE",
+  "historicalLock": {
+    "ref": "b60cfa7db",
+    "sourceSha256": "ff5ffd135bd656988df827acd9507ed8404ba12eb558b31ae49d636b279d67ea",
+    "itemId": "clip-a",
+    "firstModel": "fal:h3-i2v",
+    "secondModel": "fal:kling-v3-standard-i2v",
+    "secondStart": {
+      "ok": false,
+      "reason": "この item は生成中です。"
+    }
+  },
+  "normalVideo": {
+    "stubReceives": 1,
+    "editSha256Before": "f45d29091b4e35d8a82631cabbb75f0c7b393cde13ccafe53a29e5b9fdc0f438",
+    "editSha256After": "8b449308300b7d867208c64a1f3e42f6af6803085160071d532c71f43a5c0992",
+    "beforeItem": {
+      "id": "clip-a",
+      "at": 0,
+      "duration": 180,
+      "source": {
+        "kind": "media",
+        "src": "still",
+        "in": 0,
+        "out": 6,
+        "framing": {
+          "fit": "cover"
+        },
+        "transition_out": {
+          "type": "fade",
+          "duration": 6
+        },
+        "fx": []
+      }
+    },
+    "afterItem": {
+      "id": "clip-a",
+      "at": 0,
+      "duration": 180,
+      "source": {
+        "kind": "media",
+        "src": "gen-clip-a-video",
+        "in": 0,
+        "out": 0.2,
+        "framing": {
+          "fit": "cover"
+        },
+        "transition_out": {
+          "type": "fade",
+          "duration": 6
+        },
+        "fx": [],
+        "freeze": {
+          "at_sec": 0.2,
+          "duration_sec": 5.8
+        },
+        "mute": true
+      }
+    },
+    "outputPath": "assets/generated/clip-a.mp4"
+  }
+}

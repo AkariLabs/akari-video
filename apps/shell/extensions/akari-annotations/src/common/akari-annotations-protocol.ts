@@ -171,6 +171,16 @@ export interface StartGenerateStillRequest { projectRootUri: string; itemId: str
 export interface GenerateStillResult { ok: boolean; reason?: string; relativePath?: string; width?: number; height?: number; elapsedSeconds?: number; cancelled?: boolean; croppedFrom?: string; }
 export interface StillCandidate extends GenerateStillResult { route: ImageRouteState['id']; costUsd?: number; thumbnail?: string; }
 export interface StillCandidateBatch { routes: ImageRouteState['id'][]; completed: number; candidates: StillCandidate[]; results?: StillCandidate[]; running: boolean; }
+export interface VideoCandidate {
+    route: string; ok: boolean; reason?: string; relativePath?: string; status?: 'generating' | 'done' | 'failed';
+    queueStatus?: 'IN_QUEUE' | 'IN_PROGRESS' | 'COMPLETED'; elapsedSeconds?: number;
+    costUsd?: number | null; durationSeconds?: number; width?: number; height?: number;
+}
+export interface VideoCandidateBatch { routes: string[]; completed: number; candidates: VideoCandidate[]; results: VideoCandidate[]; running: boolean; }
+export interface VideoBatchRequest extends GenerationProcessRequest { models: string[]; approved?: boolean; }
+export interface VideoBatchEstimate { models: Array<{ modelId: string; estimateUsd: number | null; asOf?: string | null; needs_explicit_confirm: boolean }>;
+    totalUsd: number; needs_explicit_confirm: boolean; }
+export interface PreferredVideoRoutes { defaultModelId: string; favorites: string[]; source: 'project' | 'app' | 'generation'; }
 
 export interface GetClipFilmstripChunkRequest {
     projectRootUri: string;
@@ -921,6 +931,11 @@ export interface AkariAnnotationsService {
     startGenerateVideo(request: StartGenerateVideoRequest): Promise<GenerationProcessResult>;
     resumeGenerateVideo(request: GenerationProcessRequest): Promise<GenerationProcessResult>;
     cancelGenerateVideo(request: GenerationProcessRequest): Promise<GenerationProcessResult>;
+    startGenerateVideoBatch(request: VideoBatchRequest): Promise<VideoCandidateBatch>;
+    estimateVideoBatch(request: Omit<VideoBatchRequest, 'approved'>): Promise<VideoBatchEstimate>;
+    readVideoCandidates(request: GenerationProcessRequest): Promise<VideoCandidateBatch>;
+    cancelGenerateVideoBatch(request: GenerationProcessRequest): Promise<GenerationProcessResult[]>;
+    readPreferredRoutes(kind: 'video', projectRootUri: string): Promise<PreferredVideoRoutes>;
     probeImageRoutes(routes?: ImageRouteState['id'][]): Promise<ImageRouteState[]>;
     startGenerateStill(request: StartGenerateStillRequest): Promise<GenerateStillResult>;
     cancelGenerateStill(request: GenerationProcessRequest): Promise<void>;
