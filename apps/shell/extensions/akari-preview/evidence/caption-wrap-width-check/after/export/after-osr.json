@@ -1,0 +1,188 @@
+{
+  "label": "after",
+  "variants": {
+    "base": {
+      "exit": 0,
+      "seconds": 40,
+      "engine": "osr",
+      "osrLauncherTier": 2,
+      "fallbackWarning": false,
+      "frames": {
+        "sp-low": {
+          "png": "after-osr-base-sp-low.png",
+          "ink": {
+            "left": 863,
+            "right": 1056,
+            "top": 969,
+            "bottom": 994,
+            "width": 194,
+            "height": 26,
+            "pixels": 2292,
+            "bands": 1
+          }
+        },
+        "sp-high": {
+          "png": "after-osr-base-sp-high.png",
+          "ink": {
+            "left": 279,
+            "right": 1638,
+            "top": 799,
+            "bottom": 983,
+            "width": 1360,
+            "height": 185,
+            "pixels": 63220,
+            "bands": 2
+          }
+        },
+        "pt-low": {
+          "png": "after-osr-base-pt-low.png",
+          "ink": {
+            "left": 850,
+            "right": 1070,
+            "top": 333,
+            "bottom": 358,
+            "width": 221,
+            "height": 26,
+            "pixels": 2419,
+            "bands": 1
+          }
+        },
+        "pt-high": {
+          "png": "after-osr-base-pt-high.png",
+          "ink": {
+            "left": 514,
+            "right": 1150,
+            "top": 296,
+            "bottom": 480,
+            "width": 637,
+            "height": 185,
+            "pixels": 29564,
+            "bands": 2
+          }
+        }
+      }
+    },
+    "wrap25": {
+      "exit": 0,
+      "seconds": 44,
+      "engine": "osr",
+      "osrLauncherTier": 2,
+      "fallbackWarning": false,
+      "frames": {
+        "sp-low": {
+          "png": "after-osr-wrap25-sp-low.png",
+          "ink": {
+            "left": 863,
+            "right": 1056,
+            "top": 969,
+            "bottom": 994,
+            "width": 194,
+            "height": 26,
+            "pixels": 2292,
+            "bands": 1
+          }
+        },
+        "sp-high": {
+          "png": "after-osr-wrap25-sp-high.png",
+          "ink": {
+            "left": 782,
+            "right": 1137,
+            "top": 185,
+            "bottom": 983,
+            "width": 356,
+            "height": 799,
+            "pixels": 63169,
+            "bands": 8
+          }
+        },
+        "pt-low": {
+          "png": "after-osr-wrap25-pt-low.png",
+          "ink": {
+            "left": 850,
+            "right": 1070,
+            "top": 333,
+            "bottom": 358,
+            "width": 221,
+            "height": 26,
+            "pixels": 2421,
+            "bands": 1
+          }
+        },
+        "pt-high": {
+          "png": "after-osr-wrap25-pt-high.png",
+          "ink": {
+            "left": 544,
+            "right": 895,
+            "top": 296,
+            "bottom": 684,
+            "width": 352,
+            "height": 389,
+            "pixels": 29457,
+            "bands": 4
+          }
+        }
+      }
+    },
+    "ls03": {
+      "exit": 0,
+      "seconds": 43,
+      "engine": "osr",
+      "osrLauncherTier": 2,
+      "fallbackWarning": false,
+      "frames": {
+        "sp-low": {
+          "png": "after-osr-ls03-sp-low.png",
+          "ink": {
+            "left": 833,
+            "right": 1077,
+            "top": 969,
+            "bottom": 994,
+            "width": 245,
+            "height": 26,
+            "pixels": 2284,
+            "bands": 1
+          }
+        },
+        "sp-high": {
+          "png": "after-osr-ls03-sp-high.png",
+          "ink": {
+            "left": 78,
+            "right": 1827,
+            "top": 799,
+            "bottom": 983,
+            "width": 1750,
+            "height": 185,
+            "pixels": 63171,
+            "bands": 2
+          }
+        },
+        "pt-low": {
+          "png": "after-osr-ls03-pt-low.png",
+          "ink": {
+            "left": 816,
+            "right": 1095,
+            "top": 333,
+            "bottom": 358,
+            "width": 280,
+            "height": 26,
+            "pixels": 2390,
+            "bands": 1
+          }
+        },
+        "pt-high": {
+          "png": "after-osr-ls03-pt-high.png",
+          "ink": {
+            "left": 514,
+            "right": 1323,
+            "top": 296,
+            "bottom": 480,
+            "width": 810,
+            "height": 185,
+            "pixels": 29385,
+            "bands": 2
+          }
+        }
+      }
+    }
+  }
+}

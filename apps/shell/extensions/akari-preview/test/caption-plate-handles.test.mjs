@@ -168,7 +168,7 @@ test('selected captions create controls in chrome and deselection removes them',
   });
   view.tick(1);
   view.run("selectedCaptionId = 'c1'; applyCaptionSelectionAttrs();");
-  assert.equal(view.run('captionSelectBox.children.flatMap(box => box.children).length'), 6);
+  assert.equal(view.run('captionSelectBox.children.flatMap(box => box.children).length'), 8);
   assert.equal(view.plate.querySelectorAll('.akari-caption-handle-box, .akari-caption-handle').length, 0);
   view.run('selectedCaptionId = null; selectedCaptionIds = new Set(); applyCaptionSelectionAttrs();');
   assert.equal(view.run('captionSelectBox.children.length'), 0);

@@ -36,10 +36,11 @@ const PORTRAIT_MAX_CHARACTERS = 10;
 const PORTRAIT_FONT_SIZE_RATIO = 0.06;
 const DEFAULT_FONT_SIZE_PX = 38;
 
-function captionPlateMarginVars(style) {
+function captionPlateMarginVars(style, includeZone = false) {
   if (Number.isFinite(style?.position?.x)) return { '--caption-plate-margin': '0' };
-  if (style?.text_anchor?.[1] === 'l') return { '--caption-plate-margin': '0 auto' };
-  if (style?.text_anchor?.[1] === 'r') return { '--caption-plate-margin': 'auto 0' };
+  const horizontal = style?.text_anchor?.[1] ?? (includeZone ? style?.zone?.split('-').at(-1) : undefined);
+  if (horizontal === 'l' || horizontal === 'left') return { '--caption-plate-margin': '0 auto' };
+  if (horizontal === 'r' || horizontal === 'right') return { '--caption-plate-margin': 'auto 0' };
   return {};
 }
 
@@ -340,7 +341,8 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
         start: range.start,
         duration: range.duration,
         transform: captionTransform(),
-        vars: { ...textStyleVars, ...(sizeToInk ? captionPlateMarginVars(textStyle) : {}), ...captionTransformVars(textStyle) },
+        vars: { ...textStyleVars, ...(sizeToInk || textStyle?.wrap_width_pct
+          ? captionPlateMarginVars(textStyle, Boolean(textStyle?.wrap_width_pct)) : {}), ...captionTransformVars(textStyle) },
         generatedFrom: caption.id,
       });
     }
@@ -360,8 +362,9 @@ export function generateResolvedCaptionOverlays(displayResult) {
     start: cue.start,
     duration: cue.end - cue.start,
     transform: captionTransform(),
-    vars: { ...(cue.style_vars ?? {}), ...(cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
-      ? captionPlateMarginVars(cue.text_style) : {}), ...captionTransformVars(cue.text_style) },
+    vars: { ...(cue.style_vars ?? {}), ...(cue.style_vars?.['--caption-wrap-width']
+      || cue.runs?.some((run) => Number.isFinite(run?.style?.scale) && run.style.scale !== 1)
+      ? captionPlateMarginVars(cue.text_style, Boolean(cue.style_vars?.['--caption-wrap-width'])) : {}), ...captionTransformVars(cue.text_style) },
     generatedFrom: cue.source_cue_id,
     sourceCueId: cue.source_cue_id,
     displayCue: cue,
@@ -400,8 +403,9 @@ export function renderResolvedSingleLineCaption(text, lines, cue) {
     ? `    .akari-caption--single-line .akari-caption__plate { left: 4%; right: 4%; width: auto; box-sizing: border-box; }
     .akari-caption--single-line .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; margin: 0; background: var(--plate-bg, var(--plate-ext-bg, transparent)); border-radius: var(--plate-radius, var(--plate-ext-radius, 0)); }
 ` : '';
-  const wrapCss = sizeToInk && cue?.style_vars?.['--caption-wrap-width']
+  const wrapCss = cue?.style_vars?.['--caption-wrap-width']
     ? `    .akari-caption--single-line .akari-caption__plate { width: var(--caption-wrap-width); }
+    .akari-caption--single-line .akari-caption__plate { margin-inline: var(--caption-plate-margin, auto); }
     .akari-caption--single-line .akari-caption__line { box-sizing: border-box; width: 100%; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }
 ` : '';
   const contextCss = captionContextCss(cue?.text_style);
@@ -902,9 +906,10 @@ export function renderCaptionFragment(text, options = {}) {
     .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }`
     : "";
 
-  const wrapCss = options.sizeToInk && options.wrapWidth
+  const wrapCss = options.wrapWidth
     ? `
     .akari-caption__plate { width: var(--caption-wrap-width); }
+    .akari-caption__plate { margin-inline: var(--caption-plate-margin, auto); }
     .akari-caption__line, .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }`
     : "";
   const sizedPlateCss = options.sizeToInk
@@ -1105,9 +1110,10 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     : "";
 
   const emphasisCss = hasEmphasis ? renderEmphasisCss() : "";
-  const wrapCss = options.sizeToInk && options.wrapWidth
+  const wrapCss = options.wrapWidth
     ? `
     .akari-caption__plate { width: var(--caption-wrap-width); }
+    .akari-caption__plate { margin-inline: var(--caption-plate-margin, auto); }
     .akari-caption__line, .akari-caption__block { box-sizing: border-box; width: 100%; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; }`
     : "";
   const sizedPlateCss = options.sizeToInk

@@ -1,0 +1,241 @@
+[
+  {
+    "key": "sp-low",
+    "boxH": 19.6,
+    "lines0": 1,
+    "edgeHandles": "e:vis:self:11x20:bar=5pxx14px w:vis:self:11x20:bar=5pxx14px",
+    "cornersCovered": "0",
+    "drag": {
+      "written": true,
+      "wrap": 7.43,
+      "plateWidth": "1920px → 142.648px",
+      "lines": "1 → 2",
+      "liveWrapLeft": null,
+      "pointer": "pointerdown:1:e pointerup:1:e lostpointercapture:1:e",
+      "bodyAfter": "",
+      "releaseLost": null
+    },
+    "undo": {
+      "changed": true,
+      "restored": true,
+      "lines": 2
+    },
+    "wrapField": {
+      "written": true,
+      "wrap": 40,
+      "plateWidth": "142.648px → 768px",
+      "lines": "2 → 1",
+      "inkWidth": "49.7 → 87",
+      "lineCenterX": "0.5 → 0.5"
+    },
+    "lsNumber": {
+      "written": true,
+      "em": 0.3,
+      "letterSpacing": "normal → 8.4px",
+      "inkWidth": "87 → 113.1"
+    },
+    "lsSlider": {
+      "written": true,
+      "em": 0.2,
+      "letterSpacing": "8.4px → 5.6px"
+    },
+    "spacingPopup": {
+      "written": true,
+      "em": 0.05,
+      "letterSpacing": "5.6px → 1.4px",
+      "inkWidth": "104.4 → 91.3"
+    },
+    "ok": {
+      "edgeVisible": true,
+      "cornersFree": true,
+      "dragWrites": true,
+      "dragChangesWidth": true,
+      "undoOnce": true,
+      "wrapFieldChangesWidth": true,
+      "lsNumberWrites": true,
+      "lsNumberApplies": true,
+      "lsSliderApplies": true,
+      "spacingPopupApplies": true
+    }
+  },
+  {
+    "key": "sp-high",
+    "boxH": 102.8,
+    "lines0": 2,
+    "edgeHandles": "e:vis:self:11x20:bar=5pxx14px w:vis:self:11x20:bar=5pxx14px",
+    "cornersCovered": "0",
+    "drag": {
+      "written": true,
+      "wrap": 48.31,
+      "plateWidth": "1920px → 927.547px",
+      "lines": "2 → 4",
+      "liveWrapLeft": null,
+      "pointer": "pointerdown:1:e",
+      "bodyAfter": "",
+      "releaseLost": {
+        "retryWritten": true,
+        "host": "pointerup:IFRAME.webview@777,499 mouseup:IFRAME.webview@777,499"
+      }
+    },
+    "undo": {
+      "changed": true,
+      "restored": true,
+      "lines": 2
+    },
+    "wrapField": {
+      "written": true,
+      "wrap": 40,
+      "plateWidth": "1920px → 768px",
+      "lines": "2 → 5",
+      "inkWidth": "606.4 → 287.5",
+      "lineCenterX": "0.5 → 0.5"
+    },
+    "lsNumber": {
+      "written": true,
+      "em": 0.3,
+      "letterSpacing": "normal → 21.6px",
+      "inkWidth": "287.5 → 290.7"
+    },
+    "lsSlider": {
+      "written": true,
+      "em": 0.2,
+      "letterSpacing": "21.6px → 14.4px"
+    },
+    "spacingPopup": {
+      "written": true,
+      "em": 0.05,
+      "letterSpacing": "14.4px → 3.6px",
+      "inkWidth": "306.7 → 301.9"
+    },
+    "ok": {
+      "edgeVisible": true,
+      "cornersFree": true,
+      "dragWrites": true,
+      "dragChangesWidth": true,
+      "undoOnce": true,
+      "wrapFieldChangesWidth": true,
+      "lsNumberWrites": true,
+      "lsNumberApplies": true,
+      "lsSliderApplies": true,
+      "spacingPopupApplies": true
+    }
+  },
+  {
+    "key": "pt-low",
+    "boxH": 19.6,
+    "lines0": 1,
+    "edgeHandles": "e:vis:self:11x20:bar=5pxx14px w:vis:self:11x20:bar=5pxx14px",
+    "cornersCovered": "0",
+    "drag": {
+      "written": true,
+      "wrap": 8.38,
+      "plateWidth": "1766.4px → 160.891px",
+      "lines": "1 → 2",
+      "liveWrapLeft": null,
+      "pointer": "",
+      "bodyAfter": "",
+      "releaseLost": null
+    },
+    "undo": {
+      "changed": true,
+      "restored": true,
+      "lines": 1
+    },
+    "wrapField": {
+      "written": true,
+      "wrap": 40,
+      "plateWidth": "1766.4px → 768px",
+      "lines": "1 → 1",
+      "inkWidth": "99.4 → 99.4",
+      "lineCenterX": "0.5 → 0.5"
+    },
+    "lsNumber": {
+      "written": true,
+      "em": 0.3,
+      "letterSpacing": "normal → 8.4px",
+      "inkWidth": "99.4 → 129.2"
+    },
+    "lsSlider": {
+      "written": true,
+      "em": 0.2,
+      "letterSpacing": "8.4px → 5.6px"
+    },
+    "spacingPopup": {
+      "written": true,
+      "em": 0.05,
+      "letterSpacing": "5.6px → 1.4px",
+      "inkWidth": "119.3 → 104.4"
+    },
+    "ok": {
+      "edgeVisible": true,
+      "cornersFree": true,
+      "dragWrites": true,
+      "dragChangesWidth": true,
+      "undoOnce": true,
+      "wrapFieldChangesWidth": true,
+      "lsNumberWrites": true,
+      "lsNumberApplies": true,
+      "lsSliderApplies": true,
+      "spacingPopupApplies": true
+    }
+  },
+  {
+    "key": "pt-high",
+    "boxH": 102.8,
+    "lines0": 2,
+    "edgeHandles": "e:vis:self:11x20:bar=5pxx14px w:vis:self:11x20:bar=5pxx14px",
+    "cornersCovered": "0",
+    "drag": {
+      "written": true,
+      "wrap": 23.98,
+      "plateWidth": "708.469px → 460.414px",
+      "lines": "2 → 4",
+      "liveWrapLeft": null,
+      "pointer": "",
+      "bodyAfter": "",
+      "releaseLost": null
+    },
+    "undo": {
+      "changed": true,
+      "restored": true,
+      "lines": 2
+    },
+    "wrapField": {
+      "written": true,
+      "wrap": 40,
+      "plateWidth": "708.469px → 768px",
+      "lines": "2 → 2",
+      "inkWidth": "287.5 → 287.5",
+      "lineCenterX": "0.435 → 0.45"
+    },
+    "lsNumber": {
+      "written": true,
+      "em": 0.3,
+      "letterSpacing": "normal → 21.6px",
+      "inkWidth": "287.5 → 290.7"
+    },
+    "lsSlider": {
+      "written": true,
+      "em": 0.2,
+      "letterSpacing": "21.6px → 14.4px"
+    },
+    "spacingPopup": {
+      "written": true,
+      "em": 0.05,
+      "letterSpacing": "14.4px → 3.6px",
+      "inkWidth": "306.7 → 301.9"
+    },
+    "ok": {
+      "edgeVisible": true,
+      "cornersFree": true,
+      "dragWrites": true,
+      "dragChangesWidth": true,
+      "undoOnce": true,
+      "wrapFieldChangesWidth": true,
+      "lsNumberWrites": true,
+      "lsNumberApplies": true,
+      "lsSliderApplies": true,
+      "spacingPopupApplies": true
+    }
+  }
+]
