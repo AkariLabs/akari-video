@@ -3421,6 +3421,12 @@ export class AkariInspectorWidget extends BaseWidget {
 .akari-inspector-ai-narration-engine:has(input:disabled) { opacity: .65; cursor: default; }
 .akari-inspector-ai-narration-engine-text { display: grid; gap: 3px; font-size: 11px; }
 .akari-inspector-ai-narration-engine-cost, .akari-inspector-ai-narration-engine-availability, .akari-inspector-ai-narration-estimate, .akari-inspector-ai-narration-progress, .akari-inspector-ai-narration-placement { color: var(--akari-muted); font-size: 11px; margin: 0; }
+.akari-inspector-ai-narration-candidate { display: grid; grid-template-columns: 44px minmax(0, 1fr) max-content; align-items: center; gap: 6px; min-width: 0; padding: 7px; border: 1px solid var(--akari-line); border-radius: 6px; background: var(--akari-elevated); }
+.akari-inspector-ai-narration-candidate-controls { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.akari-inspector-ai-narration-candidate-controls .akari-inspector-ai-maker { margin: 0 !important; flex: none; }
+.akari-inspector-ai-narration-candidate-label { display: grid; gap: 3px; min-width: 0; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.akari-inspector-widget button.akari-inspector-ai-narration-play { flex: none; width: 23px; height: 23px; padding: 0; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 4px; cursor: pointer; }
+.akari-inspector-widget button.akari-inspector-ai-narration-adopt, .akari-inspector-widget button.akari-inspector-ai-narration-retry { justify-self: end; white-space: nowrap; padding: 5px 7px; color: var(--akari-ink); background: var(--akari-card); border: 1px solid var(--akari-line); border-radius: 4px; font-size: 10px; cursor: pointer; }
 .akari-inspector-ai-narration-error { color: var(--akari-danger, #e36b6b); font-size: 11px; margin: 0; overflow-wrap: anywhere; }
 .akari-inspector-ai-narration-placement-choice { display: grid; gap: 5px; margin: 0; padding: 8px; border: 1px solid var(--akari-line); border-radius: 5px; font-size: 12px; }
 .akari-inspector-ai-narration-placement-choice[hidden] { display: none; }

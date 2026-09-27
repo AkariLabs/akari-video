@@ -11,7 +11,7 @@ import { AkariAnnotationsServiceImpl } from '../lib/node/akari-annotations-servi
 import { NarrationCliManager } from '../lib/node/narration-cli.js';
 import { aiNarrationSourcePath, placeAiNarration, planAiNarrationPlacement } from '../lib/common/ai-narration-placement.js';
 import { chooseAiNarrationVoice, initialAiNarrationState, narrationBatchConfirm,
-  narrationRowEstimate, orderedNarrationEngines } from '../lib/browser/inspector/ai-narration-panel.js';
+  narrationCandidateLabel, narrationRowEstimate, orderedNarrationEngines } from '../lib/browser/inspector/ai-narration-panel.js';
 
 const engines = [
   { id: 'voicevox', label: 'VOICEVOX', place: 'local', availability: { state: 'available' }, price: { value: 0, unit: 'usd_per_1000_chars' } },
@@ -145,6 +145,24 @@ test('行ごとの見積もりは無料・従量・見積不可を区別する',
   assert.equal(narrationRowEstimate(engines[2], 'あ'.repeat(1000)), '見積 $0.040');
   assert.equal(narrationRowEstimate(engines[2], 'あ'.repeat(2000)), '見積 $0.080');
   assert.equal(narrationRowEstimate({ ...engines[2], price: undefined }, 'あ'), '見積不可');
+});
+
+test('候補行は声の表示名と尺・作成の札を使い、名前が無いときだけ id を出す', () => {
+  const candidate = { route: 'voicevox', voice: '2', ok: true, durationSeconds: 0.55, elapsedSeconds: 19.6, costUsd: 0 };
+  assert.equal(narrationCandidateLabel(candidate, engines, { voicevox: [
+    { id: '2', label: 'ずんだもん（ノーマル）' }
+  ] }), 'VOICEVOX · ずんだもん（ノーマル） · 尺 0.6 秒 · 作成 20 秒 · $0.000');
+  assert.match(narrationCandidateLabel(candidate, engines), /VOICEVOX · 2 · 尺 0\.6 秒 · 作成 20 秒/u);
+});
+
+test('失敗候補は分かる声の表示名だけを添え、欠けた尺・作成・料金を出さない', () => {
+  const failed = { route: 'gemini-tts', voice: 'Leda', ok: false, reason: 'stub model failure' };
+  assert.equal(narrationCandidateLabel(failed, engines, { 'gemini-tts': [{ id: 'Leda', label: 'Leda（明るい声）' }] }),
+    'Gemini · Leda（明るい声）');
+  const unknown = narrationCandidateLabel(failed, engines);
+  assert.equal(unknown, 'Gemini');
+  assert.doesNotMatch(unknown, /声|\?|\$0\.000|尺|作成/u);
+  assert.equal(narrationCandidateLabel({ ...failed, ok: true }, engines, {}), 'Gemini · Leda');
 });
 
 test('cancelNarrationBatch は対象まとめの子だけ kill する', async t => {

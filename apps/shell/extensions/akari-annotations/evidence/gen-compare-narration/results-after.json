@@ -94,16 +94,16 @@
       "pass": true,
       "measured": [
         {
-          "engine": "voicevox",
-          "text": "▶VOICEVOX · 1 · 0.55 秒 · 20.4 秒 · $0.000この案を使う"
-        },
-        {
           "engine": "fal-qwen3",
-          "text": "▶自声 · self · 1.02 秒 · 21.1 秒 · $0.006この案を使う"
+          "text": "Q\n▶\n自声 · 自声プロファイル · 尺 1.0 秒 · 作成 40 秒 · $0.006\nこの案を使う"
         },
         {
           "engine": "gemini-tts",
-          "text": "▶Gemini 2.5 Flash TTS · Leda · 0.78 秒 · 21.1 秒 · $0.003この案を使う"
+          "text": "▶\nGemini 2.5 Flash TTS · Leda · 尺 0.8 秒 · 作成 40 秒 · $0.003\nこの案を使う"
+        },
+        {
+          "engine": "voicevox",
+          "text": "▶\nVOICEVOX · 四国めたん · 尺 0.6 秒 · 作成 40 秒 · $0.000\nこの案を使う"
         }
       ]
     },
@@ -114,17 +114,17 @@
         {
           "engine": "voicevox",
           "voice": "1",
-          "at": 1790493543912
-        },
-        {
-          "engine": "gemini-tts",
-          "voice": "Leda",
-          "at": 1790493544104
+          "at": 1790496470771
         },
         {
           "engine": "fal-qwen3",
           "voice": "self",
-          "at": 1790493544114
+          "at": 1790496470831
+        },
+        {
+          "engine": "gemini-tts",
+          "voice": "Leda",
+          "at": 1790496470837
         }
       ]
     },
@@ -137,7 +137,7 @@
       "name": "three candidates visible after completion",
       "pass": true,
       "measured": {
-        "timeline": "候補 3 — 候補 3 | 音声候補 3",
+        "timeline": "frame-audio-b.wav\n3 案作成中 · 1/3 — 3 案作成中 · 1/3 | 音声3 案作成中 · 1/3frame-audio-b.wav",
         "inspectorHeader": "frame-audio-b.wav00:04.0 – 00:06.0 · 音声",
         "placement": "",
         "progress": false,
@@ -145,6 +145,30 @@
         "buttonDisabled": false,
         "candidates": 3
       }
+    },
+    {
+      "name": "candidate rows have voice labels, time labels, logos and separate adopt buttons",
+      "pass": true,
+      "measured": [
+        {
+          "text": "自声 · 自声プロファイル · 尺 1.0 秒 · 作成 40 秒 · $0.006",
+          "logo": true,
+          "button": "この案を使う",
+          "rightAligned": true
+        },
+        {
+          "text": "Gemini 2.5 Flash TTS · Leda · 尺 0.8 秒 · 作成 40 秒 · $0.003",
+          "logo": true,
+          "button": "この案を使う",
+          "rightAligned": true
+        },
+        {
+          "text": "VOICEVOX · 四国めたん · 尺 0.6 秒 · 作成 40 秒 · $0.000",
+          "logo": true,
+          "button": "この案を使う",
+          "rightAligned": true
+        }
+      ]
     },
     {
       "name": "panel playback active",
@@ -164,7 +188,7 @@
       "name": "adopt visible in timeline",
       "pass": true,
       "measured": {
-        "timeline": "frame-b n-0001.mp3\n静止画 — 静止画 | 音声frame-b n-0001.mp3静止画",
+        "timeline": "frame-b n-0001.mp3 | 音声frame-b n-0001.mp3",
         "inspectorHeader": "n-0001.mp300:04.0 – 00:04.8 · 音声",
         "placement": "A1 に置きました",
         "progress": false,
@@ -199,12 +223,37 @@
     {
       "name": "failure keeps other candidates",
       "pass": true,
-      "measured": [
-        "▶VOICEVOX · 1 · 0.55 秒 · 20.4 秒 · $0.000この案を使う",
-        "▶自声 · self · 1.02 秒 · 21.1 秒 · $0.006この案を使う",
-        "▶Gemini 2.5 Flash TTS · Leda · 0.78 秒 · 21.1 秒 · $0.003この案を使う",
-        "Gemini 2.5 Flash TTS · 声 · ? 秒 · ? 秒 · $0.000失敗 · stub model failure同じ入力でもう一度"
-      ]
+      "measured": {
+        "failedRows": [
+          "Gemini 2.5 Flash TTS\n失敗 · stub model failure\n同じ入力でもう一度"
+        ],
+        "previousAudioCount": 3,
+        "newAudioFiles": [
+          "fal-qwen3-1790496513462292.mp3",
+          "voicevox-1790496513462343.wav"
+        ],
+        "ui": {
+          "timeline": "frame-audio-b.wav\n候補 5 — 候補 5 | 音声frame-audio-b.wav候補 5",
+          "inspectorHeader": "frame-audio-b.wav00:04.0 – 00:06.0 · 音声",
+          "placement": "",
+          "progress": false,
+          "button": "3 案を作る",
+          "buttonDisabled": false,
+          "candidates": 6
+        }
+      }
+    },
+    {
+      "name": "failure row visible in screenshot",
+      "pass": true,
+      "measured": {
+        "text": "Gemini 2.5 Flash TTS\n失敗 · stub model failure\n同じ入力でもう一度",
+        "top": 513.546875,
+        "bottom": 563.34375,
+        "panelTop": 39,
+        "panelBottom": 642,
+        "visible": true
+      }
     },
     {
       "name": "single candidate automatically adopted",
@@ -217,7 +266,7 @@
       "name": "single auto visible in timeline",
       "pass": true,
       "measured": {
-        "timeline": "frame-b n-0002.wav\n静止画 — 静止画 | 音声frame-b n-0002.wav静止画",
+        "timeline": "frame-b n-0002.wav | 音声frame-b n-0002.wav",
         "inspectorHeader": "n-0002.wav00:04.0 – 00:04.6 · 音声",
         "placement": "A1 に置きました",
         "progress": false,
@@ -254,96 +303,96 @@
     },
     {
       "name": "04-three-running.png",
-      "bytes": 60716
+      "bytes": 72971
     },
     {
       "name": "04-three-running-timeline.png",
-      "bytes": 49442
+      "bytes": 49700
     },
     {
       "name": "05-three-candidates.png",
-      "bytes": 86527
+      "bytes": 94886
     },
     {
       "name": "06-playing.png",
-      "bytes": 86419
+      "bytes": 94794
     },
     {
       "name": "07-adopted.png",
-      "bytes": 89727
+      "bytes": 93946
     },
     {
       "name": "07-adopted-timeline.png",
-      "bytes": 38952
+      "bytes": 38506
     },
     {
       "name": "07-adopted-header.png",
-      "bytes": 94593
+      "bytes": 53369
     },
     {
       "name": "08-undo-candidates.png",
-      "bytes": 86324
+      "bytes": 54179
     },
     {
       "name": "08-undo-candidates-timeline.png",
-      "bytes": 41799
+      "bytes": 41860
     },
     {
       "name": "09b-approval-confirm.png",
-      "bytes": 34366
+      "bytes": 34344
     },
     {
       "name": "09-one-failed.png",
-      "bytes": 99128
+      "bytes": 123391
     },
     {
       "name": "10-single-auto.png",
-      "bytes": 102929
+      "bytes": 101344
     },
     {
       "name": "10-single-auto-timeline.png",
-      "bytes": 38681
+      "bytes": 38236
     }
   ],
   "observations": {
     "three": [
       {
-        "engine": "voicevox",
-        "text": "▶VOICEVOX · 1 · 0.55 秒 · 20.4 秒 · $0.000この案を使う"
-      },
-      {
         "engine": "fal-qwen3",
-        "text": "▶自声 · self · 1.02 秒 · 21.1 秒 · $0.006この案を使う"
+        "text": "Q\n▶\n自声 · 自声プロファイル · 尺 1.0 秒 · 作成 40 秒 · $0.006\nこの案を使う"
       },
       {
         "engine": "gemini-tts",
-        "text": "▶Gemini 2.5 Flash TTS · Leda · 0.78 秒 · 21.1 秒 · $0.003この案を使う"
+        "text": "▶\nGemini 2.5 Flash TTS · Leda · 尺 0.8 秒 · 作成 40 秒 · $0.003\nこの案を使う"
+      },
+      {
+        "engine": "voicevox",
+        "text": "▶\nVOICEVOX · 四国めたん · 尺 0.6 秒 · 作成 40 秒 · $0.000\nこの案を使う"
       }
     ],
     "received": [
       {
         "engine": "voicevox",
         "voice": "1",
-        "at": 1790493543912
-      },
-      {
-        "engine": "gemini-tts",
-        "voice": "Leda",
-        "at": 1790493544104
+        "at": 1790496470771
       },
       {
         "engine": "fal-qwen3",
         "voice": "self",
-        "at": 1790493544114
+        "at": 1790496470831
+      },
+      {
+        "engine": "gemini-tts",
+        "voice": "Leda",
+        "at": 1790496470837
       }
     ],
     "falStub": {
       "count": 2,
       "engines": [
-        "gemini-tts",
-        "fal-qwen3"
+        "fal-qwen3",
+        "gemini-tts"
       ],
-      "arrivalWindowMs": 12
+      "arrivalWindowMs": 11
     },
     "editBefore": "e50aa45fdd99a5b85be447920c59b0bdc17802a53387498979e7230e1c94ecbf",
     "playback": {
@@ -354,42 +403,42 @@
       {
         "engine": "voicevox",
         "voice": "1",
-        "at": 1790493543912
-      },
-      {
-        "engine": "gemini-tts",
-        "voice": "Leda",
-        "at": 1790493544104
+        "at": 1790496470771
       },
       {
         "engine": "fal-qwen3",
         "voice": "self",
-        "at": 1790493544114
-      },
-      {
-        "engine": "voicevox",
-        "voice": "1",
-        "at": 1790493571538
+        "at": 1790496470831
       },
       {
         "engine": "gemini-tts",
         "voice": "Leda",
-        "at": 1790493571807
-      },
-      {
-        "engine": "fal-qwen3",
-        "voice": "self",
-        "at": 1790493571933
+        "at": 1790496470837
       },
       {
         "engine": "voicevox",
         "voice": "1",
-        "at": 1790493577180
+        "at": 1790496513569
+      },
+      {
+        "engine": "gemini-tts",
+        "voice": "Leda",
+        "at": 1790496513620
+      },
+      {
+        "engine": "fal-qwen3",
+        "voice": "self",
+        "at": 1790496513620
+      },
+      {
+        "engine": "voicevox",
+        "voice": "1",
+        "at": 1790496517687
       }
     ]
   },
   "summary": {
-    "pass": 18,
+    "pass": 20,
     "fail": 0
   }
 }

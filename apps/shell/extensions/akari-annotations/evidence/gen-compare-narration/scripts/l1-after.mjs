@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,13 +33,18 @@ async function focusInInspector(c,selector,name){
   }
   throw new Error(`cannot focus ${name}`);
 }
+async function failureRowRect(c, scroll=false){
+  return evalOn(c,`(async()=>{const e=[...document.querySelectorAll('[data-akari-narration-candidate]')].find(row=>row.textContent.includes('stub model failure')),p=document.querySelector('[data-akari-ui="panel:inspector"]');if(!e||!p)return null;if(${scroll}){e.scrollIntoView({block:'center',behavior:'instant'});let s=e.parentElement;while(s&&s.scrollHeight<=s.clientHeight+1)s=s.parentElement;if(s){const r=e.getBoundingClientRect(),v=s.getBoundingClientRect();s.scrollTop+=r.top-v.top-(s.clientHeight-r.height)/2}await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))}const r=e.getBoundingClientRect(),v=p.getBoundingClientRect();return{text:e.innerText,top:r.top,bottom:r.bottom,panelTop:v.top,panelBottom:v.bottom,visible:r.top>=v.top+65&&r.bottom<=v.bottom-20}})()`);
+}
+async function focusFailedRow(c){const until=Date.now()+12000;while(Date.now()<until){const state=await failureRowRect(c,true).catch(()=>null);if(state?.visible)return state;await sleep(150)}throw new Error('failed row did not enter inspector viewport')}
 async function shot(c,name){
   await dismiss(c);
   if(name==='02b-row-estimates.png')await evalOn(c,`document.querySelector('[data-akari-narration-engine=\"fal-qwen3\"]')?.scrollIntoView({block:'center'});true`).catch(()=>null);
   if(name.startsWith('04-'))await evalOn(c,`document.querySelector('.akari-inspector-ai-narration-progress')?.scrollIntoView({block:'center'});true`).catch(()=>null);
   if(name==='05-three-candidates.png')await focusInInspector(c,'[data-akari-narration-candidate]','three candidates');
+  if(name==='09-one-failed.png')await focusFailedRow(c);
   if(/^(07|10)-/u.test(name))await focusInInspector(c,'.akari-inspector-ai-narration-placement','placement');
-  if(/^(06|08|09)-/u.test(name))await evalOn(c,`(()=>{const e=[...document.querySelectorAll('[data-akari-narration-candidate]')];(name=>name==='09-one-failed.png'?e.at(-1):e[0])(${JSON.stringify(name)})?.scrollIntoView({block:'center'});return true})()`).catch(()=>null);
+  if(/^(06|08)-/u.test(name))await evalOn(c,`document.querySelector('[data-akari-narration-candidate]')?.scrollIntoView({block:'center'});true`).catch(()=>null);
   await capture(c,name,'[data-akari-ui="panel:inspector"]');
   if (/^(04|07|08|10)-/u.test(name)) await capture(c,name.replace('.png','-timeline.png'),'[data-akari-ui="panel:timeline"]');
   if (name==='07-adopted.png') { await evalOn(c,`document.querySelector('[data-akari-ui=\"inspector-selection-header\"]')?.scrollIntoView({block:'start'});true`).catch(()=>null); await capture(c,'07-adopted-header.png','[data-akari-ui="panel:inspector"]'); }
@@ -48,6 +53,7 @@ const command=id=>`(async()=>{const c=window.theia.container,d=c._bindingDiction
 const frameUi=`(()=>{const timeline=document.querySelector('[data-akari-ui="panel:timeline"] [data-akari-item-id="frame-b"]');const inspector=document.querySelector('[data-akari-ui="panel:inspector"]');const header=inspector?.querySelector('[data-akari-ui="inspector-selection-header"]');const placement=inspector?.querySelector('.akari-inspector-ai-narration-placement');const button=inspector?.querySelector('.akari-inspector-ai-narration-button');return{timeline:[timeline?.title,timeline?.textContent,timeline?.getAttribute('aria-label')].filter(Boolean).join(' | '),inspectorHeader:header?.textContent?.trim()??'',placement:placement?.textContent?.trim()??'',progress:Boolean(inspector?.querySelector('.akari-inspector-ai-narration-progress')),button:button?.textContent?.trim()??'',buttonDisabled:button?.disabled??null,candidates:inspector?.querySelectorAll('[data-akari-narration-candidate]').length??0}})()`;
 async function waitFrameUi(c, condition, name, ms=90000){return wait(c,`(()=>{const ui=${frameUi};return ${condition}?ui:null})()`,name,ms)}
 const edit=()=>readFile(path.join(project,'edit.json'),'utf8');
+const candidateAudioFiles=async()=>new Set((await readdir(path.join(project,'assets/generated/candidates/frame-b')).catch(()=>[])).filter(name=>/\.(?:wav|mp3)$/u.test(name)));
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const received=async()=>{const x=await readFile(calls,'utf8');return x.trim().split('\n').filter(Boolean).map(JSON.parse).filter(row=>row.received).map(row=>({engine:row.received,voice:row.voice,at:row.at}));};
 async function openPanel(c,id){
@@ -69,7 +75,7 @@ let electron,c,falServer;const falRequests=[];let approvalCaptureCount=0;
 try{
  const fixture=spawn(process.execPath,[path.join(root,'scripts/gen-fixture.mjs'),project],{cwd:repo,stdio:['ignore','pipe','pipe']});let out='',err='';fixture.stdout.on('data',x=>out+=x);fixture.stderr.on('data',x=>err+=x);if(await new Promise(r=>fixture.once('close',r)))throw new Error(err);
  for(const n of ['home','akari-home','theia-config','user-data'])await mkdir(path.join(temp,n));
- await writeFile(control,JSON.stringify({delayMs:20000}));await writeFile(calls,'');
+ await writeFile(control,JSON.stringify({delayMs:40000}));await writeFile(calls,'');
  falServer=createServer((req,res)=>{let body='';req.on('data',x=>body+=x);req.on('end',()=>{try{const entry=JSON.parse(body);falRequests.push({engine:entry.engine,at:Date.now()});res.writeHead(200,{'content-type':'application/json'});res.end('{}')}catch{res.writeHead(400);res.end()}})});
  await new Promise(resolve=>falServer.listen(0,'127.0.0.1',resolve));
  const falUrl=`http://127.0.0.1:${falServer.address().port}/`;
@@ -114,7 +120,7 @@ try{
  const accepted=await dialog(c,true);
  check('one aggregate approval',accepted.text.includes('合計')&&accepted.text.includes('Gemini')&&accepted.text.includes('自声'),accepted);
  await wait(c,`Boolean(document.querySelector('.akari-inspector-ai-narration-route-progress'))`,'running');
- await wait(c,`[...document.querySelectorAll('[data-akari-item-id=\"frame-b\"]')].some(e=>e.textContent.includes('案作成中'))`,'timeline running chip',17000);
+ await wait(c,`[...document.querySelectorAll('[data-akari-item-id=\"frame-b\"]')].some(e=>e.textContent.includes('案作成中'))`,'timeline running chip',35000);
  const during=await evalOn(c,`({rows:[...document.querySelectorAll('.akari-inspector-ai-narration-route-progress')].map(e=>e.textContent),progress:document.querySelector('.akari-inspector-ai-narration-progress')?.textContent,chip:[...document.querySelectorAll('[data-akari-item-id="frame-b"]')].map(e=>e.textContent).join('|')})`);
  check('three rows and timeline chip',during.rows.length>=2&&during.progress?.includes('3 案作成中')&&during.chip.includes('3 案作成中'),during);
  await shot(c,'04-three-running.png');
@@ -127,6 +133,12 @@ try{
  check('candidates leave edit unchanged',hash(await edit())===hash(before),hash(await edit()));
  const settledCandidates=await waitFrameUi(c,`!ui.progress&&ui.button==='3 案を作る'&&ui.buttonDisabled===false&&ui.candidates===3`,'three candidates settled');
  check('three candidates visible after completion',true,settledCandidates);
+ const candidateRows=await evalOn(c,`[...document.querySelectorAll('[data-akari-narration-candidate]')].map(e=>{const label=e.querySelector('.akari-inspector-ai-narration-candidate-label'),adopt=e.querySelector('.akari-inspector-ai-narration-adopt'),logo=e.querySelector('[data-akari-inspector-ai-maker]');return{text:label?.textContent,logo:!!logo,button:adopt?.textContent,rightAligned:!!adopt&&adopt.getBoundingClientRect().left>=label.getBoundingClientRect().right}})`);
+ check('candidate rows have voice labels, time labels, logos and separate adopt buttons',candidateRows.length===3
+   &&candidateRows.every(row=>row.logo&&row.rightAligned&&row.button==='この案を使う'
+     &&row.text.includes('尺 ')&&row.text.includes('作成 '))
+   &&candidateRows.some(row=>row.text.includes('四国めたん'))
+   &&candidateRows.some(row=>row.text.includes('自声プロファイル')),candidateRows);
  await shot(c,'05-three-candidates.png');
  await click(c,'[data-akari-narration-candidate="voicevox"] .akari-inspector-ai-narration-play');
  const playback=await wait(c,`(()=>{const b=document.querySelector('[data-akari-narration-candidate="voicevox"] .akari-inspector-ai-narration-play');return b?.textContent==='■'?{button:b.textContent}:null})()`,'play state');
@@ -139,7 +151,7 @@ try{
  }
  if(!adopted)throw new Error('adopt edit timeout');
  check('adopt changes edit',adopted.includes('out/narration/n-0001.mp3'),{hash:hash(adopted)});results.observations.editAdopted=hash(adopted);
- const adoptedUi=await waitFrameUi(c,`ui.timeline.includes('n-0001.mp3')&&ui.placement.includes('置きました')`,'adopt visible in timeline');
+ const adoptedUi=await waitFrameUi(c,`ui.timeline.includes('n-0001.mp3')&&!ui.timeline.includes('静止画')&&ui.placement.includes('置きました')`,'adopt visible in timeline');
  check('adopt visible in timeline',true,adoptedUi);
  await shot(c,'07-adopted.png');
  await click(c,'.akari-annotations-widget button[aria-label="元に戻す"]');
@@ -150,13 +162,20 @@ try{
  const undoneUi=await waitFrameUi(c,`!ui.timeline.includes('n-0001.mp3')&&(ui.timeline.includes('frame-audio-b.wav')||ui.timeline.includes('候補'))&&ui.candidates>=3`,'undo visible in timeline');
  check('undo visible in timeline',true,undoneUi);
  await shot(c,'08-undo-candidates.png');
+ const beforeFailureFiles=await candidateAudioFiles();
  await writeFile(control,JSON.stringify({failEngine:'gemini-tts'}));
  await click(c,'.akari-inspector-ai-narration-button');await dialog(c,true);
  await wait(c,`[...document.querySelectorAll('[data-akari-narration-candidate]')].some(e=>e.textContent.includes('stub model failure'))`,'failed engine',120000);
+ const failedBatchUi=await waitFrameUi(c,`!ui.progress&&ui.button==='3 案を作る'&&ui.buttonDisabled===false&&ui.candidates>=5`,'failed batch settled');
  const failed=await evalOn(c,`[...document.querySelectorAll('[data-akari-narration-candidate]')].map(e=>e.innerText)`);
- check('failure keeps other candidates',failed.some(x=>x.includes('stub model failure'))&&failed.filter(x=>!x.includes('stub model failure')).length>=2,failed);
+ const newAudioFiles=[...await candidateAudioFiles()].filter(name=>!beforeFailureFiles.has(name));
+ check('failure keeps other candidates',failed.some(x=>x.includes('stub model failure'))
+   &&newAudioFiles.length>=2&&newAudioFiles.some(name=>name.startsWith('voicevox-'))
+   &&newAudioFiles.some(name=>name.startsWith('fal-qwen3-')),
+ {failedRows:failed.filter(x=>x.includes('stub model failure')),previousAudioCount:beforeFailureFiles.size,newAudioFiles,ui:failedBatchUi});
  await shot(c,'09-one-failed.png');
- await wait(c,`!document.querySelector('.akari-inspector-ai-narration-progress')&&!document.querySelector('.akari-inspector-ai-narration-button')?.disabled`,'batch settled');
+ const failureScreenshotRow=await failureRowRect(c);
+ check('failure row visible in screenshot',failureScreenshotRow?.visible===true,failureScreenshotRow);
  await writeFile(control,JSON.stringify({}));
  await click(c,'[data-akari-narration-engine="gemini-tts"] input[type="checkbox"]');
  await click(c,'[data-akari-narration-engine="fal-qwen3"] input[type="checkbox"]');

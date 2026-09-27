@@ -43,6 +43,29 @@ export function narrationRowEstimate(engine: NarrationEngine, reading: string): 
     return quote.usd === null ? '見積不可' : `見積 $${quote.usd.toFixed(3)}`;
 }
 
+export function narrationCandidateLabel(candidate: NarrationCandidate, engines: readonly NarrationEngine[],
+    voicesByEngine: Record<string, NarrationVoice[]> = {}): string {
+    const engineName = engines.find(engine => engine.id === candidate.route)?.label ?? candidate.route;
+    const knownVoice = voicesByEngine[candidate.route]?.find(voice => voice.id === candidate.voice)?.label;
+    if (!candidate.ok) return [engineName, knownVoice].filter(Boolean).join(' · ');
+    const parts = [engineName, knownVoice ?? candidate.voice].filter(Boolean);
+    if (typeof candidate.durationSeconds === 'number' && Number.isFinite(candidate.durationSeconds)) {
+        parts.push(`尺 ${candidate.durationSeconds.toFixed(1)} 秒`);
+    }
+    if (typeof candidate.elapsedSeconds === 'number' && Number.isFinite(candidate.elapsedSeconds)) {
+        parts.push(`作成 ${Math.round(candidate.elapsedSeconds)} 秒`);
+    }
+    if (typeof candidate.costUsd === 'number' && Number.isFinite(candidate.costUsd)) {
+        parts.push(`$${candidate.costUsd.toFixed(3)}`);
+    }
+    return parts.join(' · ');
+}
+
+function narrationMakerId(engineId: string): string {
+    return engineId === 'voicevox' ? 'voicevox' : engineId === 'irodori' ? 'irodori'
+        : engineId === 'fal-qwen3' ? 'qwen' : 'google';
+}
+
 export function aiNarrationChoiceVisible(state: Pick<AiNarrationState, 'script' | 'reading'>,
     placement?: { tracks: readonly NarrationTrack[]; itemId: string; fps: number }): boolean {
     if (!placement || !state.script.trim()) return false;
@@ -85,8 +108,7 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         radio.disabled = state.running || engine.availability.state !== 'available' && !(engine.id === 'voicevox' && engine.availability.state === 'needs');
         radio.addEventListener('change', () => actions.chooseEngine(engine.id));
         const text = make('span', 'engine-text');
-        text.append(stillMakerBadge(engine.id === 'voicevox' ? 'voicevox' : engine.id === 'irodori' ? 'irodori'
-            : engine.id === 'fal-qwen3' ? 'qwen' : 'google'),
+        text.append(stillMakerBadge(narrationMakerId(engine.id)),
             make('strong', 'engine-name', `${state.favorites?.includes(engine.id) ? '★ ' : ''}${engine.id === 'fal-qwen3' ? '自声' : engine.label}`),
             make('span', 'engine-cost', engine.place === 'local' ? 'この Mac · 無料'
                 : engine.place === 'network' ? `別の PC · ${engine.availability.detail?.url ?? '接続先を確認'}`
@@ -173,17 +195,21 @@ export function appendAiNarrationPanel(parent: HTMLElement, state: AiNarrationSt
         panel.append(make('h4', 'heading', `候補 ${state.candidates.filter(row => row.ok).length}`));
         for (const candidate of state.candidates) {
             const row = make('div', 'candidate'); row.setAttribute('data-akari-narration-candidate', candidate.route);
+            const controls = make('span', 'candidate-controls');
+            controls.append(stillMakerBadge(narrationMakerId(candidate.route), true));
             if (candidate.ok && candidate.relativePath) {
                 const play = make('button', 'play', state.playingPath === candidate.relativePath ? '■' : '▶');
                 play.type = 'button'; play.addEventListener('click', () => actions.play?.(candidate));
-                row.append(play);
+                controls.append(play);
             }
-            row.append(make('span', 'candidate-label', `${engines.find(engine => engine.id === candidate.route)?.label ?? candidate.route} · ${candidate.voice || '声'} · ${candidate.durationSeconds?.toFixed(2) ?? '?'} 秒 · ${candidate.elapsedSeconds?.toFixed(1) ?? '?'} 秒 · $${(candidate.costUsd ?? 0).toFixed(3)}`));
+            const label = make('span', 'candidate-label', narrationCandidateLabel(candidate, engines,
+                state.voicesByEngine));
+            row.append(controls, label);
             if (candidate.ok) {
                 const adopt = make('button', 'adopt', 'この案を使う'); adopt.type = 'button';
                 adopt.addEventListener('click', () => actions.adopt?.(candidate)); row.append(adopt);
             } else {
-                row.append(make('span', 'error', `失敗 · ${candidate.reason ?? '生成できませんでした。'}`));
+                label.append(make('span', 'error', `失敗 · ${candidate.reason ?? '生成できませんでした。'}`));
                 const retry = make('button', 'retry', '同じ入力でもう一度'); retry.type = 'button';
                 retry.addEventListener('click', () => actions.retry?.(candidate)); row.append(retry);
             }

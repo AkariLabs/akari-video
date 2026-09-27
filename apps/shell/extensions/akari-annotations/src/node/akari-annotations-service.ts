@@ -720,11 +720,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         for (;;) {
             if (++number > 9999) throw new Error('ナレーション ID の上限に達しました。');
             const path = `out/narration/n-${String(number).padStart(4, '0')}${extension}`;
-            let copiedAudio = false;
             try {
                 await fs.copyFile(candidate.absolutePath, join(root, path), 1);
-                copiedAudio = true;
-                await fs.copyFile(join(root, `${candidate.relativePath}.meta.json`), join(root, `${path}.meta.json`), 1);
                 const frame = await this.narrationFrame(root, request.itemId);
                 const staging = `${frame.sidecarPath}.adopt-${randomUUID()}`;
                 await fs.writeFile(staging, `${JSON.stringify({ ...frame.meta, status: 'done',
@@ -732,10 +729,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 await fs.rename(staging, frame.sidecarPath);
                 return { path, durationSeconds: candidate.meta.result.duration_s_actual };
             } catch (error) {
-                if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-                    if (copiedAudio) await fs.rm(join(root, path), { force: true });
-                    continue;
-                }
+                if ((error as NodeJS.ErrnoException).code === 'EEXIST') continue;
                 throw error;
             }
         }
