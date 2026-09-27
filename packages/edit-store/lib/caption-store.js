@@ -122,6 +122,11 @@ function mergeCaptionTextStyles(defaultStyle, captionStyle) {
     else {
         delete merged.animation;
     }
+    const karaoke = mergeNestedStyle(defaultStyle?.karaoke, captionStyle?.karaoke);
+    if (karaoke && Object.keys(karaoke).length > 0)
+        merged.karaoke = karaoke;
+    else
+        delete merged.karaoke;
     const layout = mergeNestedStyle(defaultStyle?.layout, captionStyle?.layout);
     if (layout && Object.keys(layout).length > 0) {
         merged.layout = layout;
@@ -399,6 +404,17 @@ function updateCaptionTextStyleInSource(source, captionId, updates) {
             fit: updates.background?.fit
         }, `字幕 ${captionId} の text_style.background`);
         textStyle = updateAnimationStyleObject(textStyle, updates.animation, `字幕 ${captionId} の text_style.animation`);
+        if (updates.karaoke === null) {
+            if (locateTopLevelProperty(textStyle, 'karaoke'))
+                textStyle = removeObjectProperty(textStyle, 'karaoke');
+        }
+        else if (updates.karaoke) {
+            textStyle = updateNestedStyleObject(textStyle, 'karaoke', {
+                done_color: updates.karaoke.doneColor,
+                fill: updates.karaoke.fill,
+                start_index: updates.karaoke.startIndex
+            }, `字幕 ${captionId} の text_style.karaoke`);
+        }
         nextElement = Object.keys(JSON.parse(textStyle)).length === 0
             ? removeObjectProperty(nextElement, 'text_style')
             : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
@@ -999,7 +1015,7 @@ const TEXT_STYLE_KEYS = new Set([
     'color', 'size_px', 'reference_height_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline', 'strikethrough', 'list', 'opacity',
     'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
     'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor', 'position', 'scale', 'rotate', 'shadow', 'glow',
-    'animation', 'stroke', 'background', 'zone', 'layout',
+    'animation', 'stroke', 'background', 'zone', 'layout', 'karaoke',
     'stroke_inner', 'fill_gradient', 'extrude'
 ]);
 const TEXT_TRANSFORM_VALUES = new Set(['upper', 'uppercase', 'lower', 'lowercase', 'title', 'capitalize', 'none']);
@@ -1021,6 +1037,17 @@ function normalizeTextStyle(value, onUnknownKeys) {
     const style = {};
     if (isHexColor(value.color)) {
         style.color = value.color;
+    }
+    if (isRecord(value.karaoke)) {
+        const karaoke = {};
+        if (isHexColor(value.karaoke.done_color))
+            karaoke.doneColor = value.karaoke.done_color;
+        if (value.karaoke.fill === 'char' || value.karaoke.fill === 'word' || value.karaoke.fill === 'smooth')
+            karaoke.fill = value.karaoke.fill;
+        if (Number.isInteger(value.karaoke.start_index) && value.karaoke.start_index >= 0)
+            karaoke.startIndex = value.karaoke.start_index;
+        if (Object.keys(karaoke).length)
+            style.karaoke = karaoke;
     }
     if (isFinitePositive(value.size_px)) {
         style.sizePx = value.size_px;
@@ -1302,6 +1329,7 @@ function normalizeCaptionLayout(value) {
 }
 function textStyleToJson(style) {
     return {
+        ...(style.karaoke ? { karaoke: karaokeToJson(style.karaoke) } : {}),
         ...(style.color !== undefined ? { color: style.color } : {}),
         ...(style.sizePx !== undefined ? { size_px: style.sizePx } : {}),
         ...(style.referenceHeightPx !== undefined ? { reference_height_px: style.referenceHeightPx } : {}),
@@ -1401,6 +1429,13 @@ function animationSlotToJson(slot) {
         ...(slot.amp !== undefined ? { amp: slot.amp } : {})
     };
 }
+function karaokeToJson(karaoke) {
+    return {
+        ...(karaoke.doneColor !== undefined ? { done_color: karaoke.doneColor } : {}),
+        ...(karaoke.fill !== undefined ? { fill: karaoke.fill } : {}),
+        ...(karaoke.startIndex !== undefined ? { start_index: karaoke.startIndex } : {})
+    };
+}
 function mergeNestedStyle(base, override) {
     if (!base && !override) {
         return undefined;
@@ -1411,7 +1446,7 @@ function isHexColor(value) {
     return typeof value === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/iu.test(value);
 }
 function validateTextStylePatch(updates) {
-    const hasUpdate = updates.color !== undefined || updates.sizePx !== undefined || updates.wrapWidthPct !== undefined
+    const hasUpdate = updates.karaoke !== undefined || updates.color !== undefined || updates.sizePx !== undefined || updates.wrapWidthPct !== undefined
         || updates.zone !== undefined
         || updates.fontWeight !== undefined || updates.weight !== undefined
         || updates.lineHeight !== undefined || updates.letterSpacingEm !== undefined
@@ -1424,6 +1459,16 @@ function validateTextStylePatch(updates) {
         || updates.animation !== undefined;
     if (!hasUpdate) {
         throw new Error('変更する字幕スタイルのフィールドを指定してください。');
+    }
+    if (updates.karaoke) {
+        if (Object.keys(updates.karaoke).some(key => !['doneColor', 'fill', 'startIndex'].includes(key)))
+            throw new Error('カラオケの設定に未知の項目があります。');
+        if (updates.karaoke.doneColor !== undefined && !isHexColor(updates.karaoke.doneColor))
+            throw new Error('カラオケの色が不正です。');
+        if (updates.karaoke.fill !== undefined && !['char', 'word', 'smooth'].includes(updates.karaoke.fill))
+            throw new Error('カラオケの塗り方が不正です。');
+        if (updates.karaoke.startIndex !== undefined && (!Number.isInteger(updates.karaoke.startIndex) || updates.karaoke.startIndex < 0))
+            throw new Error('カラオケの開始位置が不正です。');
     }
     for (const color of [updates.color, updates.stroke?.color, updates.background?.color]) {
         if (color !== undefined && color !== null && !isHexColor(color)) {
@@ -1569,6 +1614,7 @@ function validateTextStylePatch(updates) {
 }
 function textStylePatchToJson(updates) {
     return {
+        ...(updates.karaoke ? { karaoke: karaokeToJson(updates.karaoke) } : {}),
         ...(updates.color !== undefined && updates.color !== null ? { color: updates.color } : {}),
         ...(updates.sizePx !== undefined && updates.sizePx !== null ? { size_px: updates.sizePx } : {}),
         ...(updates.wrapWidthPct !== undefined && updates.wrapWidthPct !== null

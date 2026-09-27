@@ -307,6 +307,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
               displayTokens: rangeTokens,
               textStyleActive: textStyle !== null,
               contextStyle: textStyle,
+              displayText,
               vertical: textStyle?.vertical === true,
               backgroundMode: textStyle?.background?.mode,
               backgroundFit: textStyle?.background?.fit,
@@ -1051,15 +1052,25 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
     : useMappedLines
       ? groupDisplayTokensIntoLines(renderTokens, maximum, Boolean(charText))
       : groupWordsIntoLines(words, maximum);
+  const karaokeDisplay = options.displayText ?? words.map(word => word.text).join('');
+  let karaokeCursor = 0;
+  let karaokeIndex = 0;
   const renderLine = (line) => line
-    .map((word) => renderCaptionToken(
+    .map((word) => {
+      const match = karaokeDisplay.indexOf(word.text, karaokeCursor);
+      const index = match >= 0 ? captionGraphemes(karaokeDisplay.slice(0, match)).length : karaokeIndex;
+      if (match >= 0) karaokeCursor = match + word.text.length;
+      karaokeIndex = index + captionGraphemes(word.text).length;
+      return renderCaptionToken(
       word,
       rangeStart,
       effectiveStyle,
       emphasisWords,
       emphasisTimeScale,
       charText,
-    ))
+      options.contextStyle?.karaoke,
+      index,
+    ); })
     .join("");
   const markup = effectiveStyle === REVEAL_STYLE
     ? renderRevealGroups(lines, rangeStart, rangeEnd, emphasisTimeScale, renderLine)
@@ -1185,7 +1196,11 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
       from { color: var(--caption-color, #fff); }
       to { color: var(--caption-highlight-color, #ffd94a); }
     }
-    @keyframes akari-caption-pop {
+${options.contextStyle?.karaoke ? `    @keyframes akari-caption-karaoke-wipe {
+      from { clip-path: inset(0 100% 0 0); }
+      to { clip-path: inset(0 0 0 0); }
+    }
+` : ''}    @keyframes akari-caption-pop {
       0% { transform: translateY(0) scale(1); }
       50% { transform: translateY(-0.08em) scale(1.12); }
       100% { transform: translateY(0) scale(1); }
@@ -1193,7 +1208,14 @@ ${writingModeCss}    }${blockPlateCss}${extendedPlateCss}${sizedPlateCss}${wrapC
     .akari-caption__tok--karaoke {
       animation: akari-caption-karaoke-lit var(--akari-tok-dur, 0.2s) var(--akari-tok-delay, 0s) linear both paused;
     }
-    .akari-caption__tok--pop {
+${options.contextStyle?.karaoke ? `    .akari-caption__tok--karaoke-done { color: var(--caption-highlight-color, #ffd94a); }
+    .akari-caption__tok--karaoke-smooth { position: relative; animation: none; }
+    .akari-caption__tok--karaoke-smooth::after {
+      content: attr(data-karaoke-text); position: absolute; inset: 0; white-space: pre;
+      color: var(--caption-highlight-color, #ffd94a);
+      animation: akari-caption-karaoke-wipe var(--akari-tok-dur, 0.2s) var(--akari-tok-delay, 0s) linear both paused;
+    }
+` : ''}    .akari-caption__tok--pop {
       animation: akari-caption-pop 0.2s var(--akari-tok-delay, 0s) ease-out both paused;
     }${revealWordCss}${revealCss}${emphasisCss}${hasPresetEmphasis ? RESOLVED_CAPTION_WORD_PRESET_CSS : ''}
   </style>
@@ -1505,7 +1527,7 @@ function renderRevealWordCss() {
     }`;
 }
 
-function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1, charText = null) {
+function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasisTimeScale = 1, charText = null, karaoke = null, karaokeIndex = 0) {
   const text = charText ?? escapeHtml;
   if (word.untimed) {
     return `<span class="akari-caption__tok akari-caption__tok--unlit">${text(word.text)}</span>`;
@@ -1517,6 +1539,24 @@ function renderCaptionToken(word, rangeStart, style, emphasisWords = [], emphasi
   const emphasis = findMatchingEmphasis(word, emphasisWords);
   // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
   if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, emphasisTimeScale, charText);
+
+  if (style === KARAOKE_STYLE && karaoke && typeof karaoke === 'object') {
+    const chars = captionGraphemes(word.text);
+    const before = Math.max(0, Math.min(chars.length, (karaoke.start_index ?? 0) - karaokeIndex));
+    const done = before ? `<span class="akari-caption__tok akari-caption__tok--karaoke-done">${text(chars.slice(0, before).join(''))}</span>` : '';
+    const remaining = chars.slice(before);
+    if (!remaining.length) return done;
+    const duration = Math.max(0.01, word.end - word.start);
+    const delay = Math.max(0, word.start - rangeStart);
+    if (karaoke.fill === 'char') return done + remaining.map((char, i) =>
+      `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${formatSeconds(delay + duration * (before + i) / chars.length)}s;--akari-tok-dur:0s">${text(char)}</span>`).join('');
+    if (karaoke.fill === 'word') return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${formatSeconds(delay)}s;--akari-tok-dur:0s">${text(remaining.join(''))}</span>`;
+    if (karaoke.fill === 'smooth') {
+      const rest = remaining.join('');
+      return done + `<span class="akari-caption__tok akari-caption__tok--karaoke-smooth" data-karaoke-text="${escapeHtml(rest)}" style="--akari-tok-delay:${formatSeconds(delay + duration * before / chars.length)}s;--akari-tok-dur:${formatSeconds(duration * remaining.length / chars.length)}s">${text(rest)}</span>`;
+    }
+    if (before) return done + `<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:${formatSeconds(delay)}s;--akari-tok-dur:${formatSeconds(duration)}s">${text(remaining.join(''))}</span>`;
+  }
 
   const delay = formatSeconds(Math.max(0, word.start - rangeStart));
   const className = style === KARAOKE_STYLE

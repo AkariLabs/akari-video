@@ -5626,6 +5626,11 @@ var AkariEditKernel = (() => {
     const animationLoop = normalizeCaptionAnimationSlot(value.animation?.loop);
     const animationOut = normalizeCaptionAnimationSlot(value.animation?.out);
     return {
+      ...isRecord4(value.karaoke) ? { karaoke: {
+        ...typeof value.karaoke.done_color === "string" ? { done_color: value.karaoke.done_color } : {},
+        ...value.karaoke.fill === "char" || value.karaoke.fill === "word" || value.karaoke.fill === "smooth" ? { fill: value.karaoke.fill } : {},
+        ...Number.isInteger(value.karaoke.start_index) && value.karaoke.start_index >= 0 ? { start_index: value.karaoke.start_index } : {}
+      } } : {},
       ...typeof value.color === "string" ? { color: value.color } : {},
       ...finiteNumber(value.size_px) ? { size_px: value.size_px } : {},
       ...finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {},
@@ -5708,7 +5713,7 @@ var AkariEditKernel = (() => {
     const left = normalizeCaptionLineTextStyle(base);
     const right = normalizeCaptionLineTextStyle(override);
     const merged = { ...left, ...right };
-    for (const key of ["stroke", "stroke_inner", "fill_gradient", "extrude", "background", "shadow", "glow", "position", "animation"]) {
+    for (const key of ["stroke", "stroke_inner", "fill_gradient", "extrude", "background", "shadow", "glow", "position", "animation", "karaoke"]) {
       if (isRecord4(left[key]) || isRecord4(right[key])) {
         merged[key] = { ...isRecord4(left[key]) ? left[key] : {}, ...isRecord4(right[key]) ? right[key] : {} };
         if (Object.keys(merged[key]).length === 0) delete merged[key];
@@ -5810,6 +5815,7 @@ var AkariEditKernel = (() => {
       vars["--caption-plate-fit"] = "frame";
     }
     if (typeof style.color === "string") vars["--caption-color"] = style.color;
+    if (isRecord4(style.karaoke) && typeof style.karaoke.done_color === "string") vars["--caption-highlight-color"] = style.karaoke.done_color;
     if (finiteNumber(style.size_px)) vars["--caption-font-size"] = `${px(style.size_px)}px`;
     if (isRecord4(style.stroke) && (typeof style.stroke.color === "string" || finiteNumber(style.stroke.width_px))) {
       const width = finiteNumber(style.stroke.width_px) ? px(style.stroke.width_px) : 1.5;

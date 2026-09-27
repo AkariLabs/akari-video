@@ -49,6 +49,11 @@ export interface CaptionLayout {
     maxLines: 1;
 }
 export interface CaptionTextStyle {
+    karaoke?: {
+        doneColor?: string;
+        fill?: 'char' | 'word' | 'smooth';
+        startIndex?: number;
+    };
     color?: string;
     sizePx?: number;
     /** zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer ≥ 1。layout と排他。 */
@@ -110,6 +115,7 @@ export interface CaptionTextStyle {
     layout?: CaptionLayout;
 }
 export interface CaptionTextStylePatch {
+    karaoke?: CaptionTextStyle['karaoke'] | null;
     color?: string | null;
     sizePx?: number | null;
     wrapWidthPct?: number | null;

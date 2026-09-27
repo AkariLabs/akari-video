@@ -7,6 +7,7 @@
   "resolved_single_line_fragment_close": "</p></div></div>",
   "resolved_caption_style_variable_names": [
     "--caption-color",
+    "--caption-highlight-color",
     "--caption-font-size",
     "--caption-font-family",
     "--caption-font-style",

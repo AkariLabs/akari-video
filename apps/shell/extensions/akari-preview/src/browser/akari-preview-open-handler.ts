@@ -18631,7 +18631,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '" style="color: var(--akari-emphasis-' + emphasisColorName(emphasis.emotion) + ')">'
                     + renderText(word.text) + '</span>';
             };
-            const renderCaptionToken = (word, rangeStart, style, renderChars = null) => {
+            const renderCaptionToken = (word, rangeStart, style, renderChars = null, karaoke = null, karaokeIndex = 0) => {
                 const renderText = renderChars || escapeCaptionHtml;
                 if (style === 'reveal-word') {
                     const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
@@ -18642,6 +18642,33 @@ body { display: grid; place-items: center; padding: 32px; }
                 const emphasis = findMatchingEmphasis(word);
                 // 語レベル演出は caption の karaoke/pop より該当 token だけ優先する。
                 if (emphasis) return renderEmphasisCaptionToken(word, rangeStart, emphasis, renderChars);
+                if (style === 'karaoke' && karaoke && typeof karaoke === 'object') {
+                    const chars = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word.text)].map(part => part.segment);
+                    const before = Math.max(0, Math.min(chars.length, (karaoke.start_index || 0) - karaokeIndex));
+                    const done = before ? '<span class="akari-caption__tok akari-caption__tok--karaoke-done">'
+                        + renderText(chars.slice(0, before).join('')) + '</span>' : '';
+                    const rest = chars.slice(before);
+                    if (!rest.length) return done;
+                    const delay = Math.max(0, word.start - rangeStart);
+                    const duration = Math.max(0.01, word.end - word.start);
+                    if (karaoke.fill === 'char') return done + rest.map((char, index) =>
+                        '<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:'
+                        + formatCaptionSeconds(delay + duration * (before + index) / chars.length)
+                        + 's;--akari-tok-dur:0s">' + renderText(char) + '</span>').join('');
+                    if (karaoke.fill === 'word') return done + '<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:'
+                        + formatCaptionSeconds(delay) + 's;--akari-tok-dur:0s">' + renderText(rest.join('')) + '</span>';
+                    if (karaoke.fill === 'smooth') {
+                        const remaining = rest.join('');
+                        return done + '<span class="akari-caption__tok akari-caption__tok--karaoke-smooth" data-karaoke-text="'
+                            + escapeCaptionHtml(remaining) + '" style="--akari-tok-delay:'
+                            + formatCaptionSeconds(delay + duration * before / chars.length) + 's;--akari-tok-dur:'
+                            + formatCaptionSeconds(duration * rest.length / chars.length) + 's">'
+                            + renderText(remaining) + '</span>';
+                    }
+                    if (before) return done + '<span class="akari-caption__tok akari-caption__tok--karaoke" style="--akari-tok-delay:'
+                        + formatCaptionSeconds(delay) + 's;--akari-tok-dur:' + formatCaptionSeconds(duration)
+                        + 's">' + renderText(rest.join('')) + '</span>';
+                }
                 const delay = formatCaptionSeconds(Math.max(0, word.start - rangeStart));
                 const className = style === 'karaoke'
                     ? 'akari-caption__tok akari-caption__tok--karaoke'
@@ -18771,8 +18798,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     || (!style && !caption.textStyle?.vertical && captionPortrait
                         && splitCaptionLines(caption.text || '', captionLineBudget).length > 1);
                 const rootStyle = reveal ? 'reveal' : (style || (hasEmphasis ? 'emphasis' : 'karaoke'));
-                const renderLine = line =>
-                    line.map(word => renderCaptionToken(word, caption.start, reveal ? null : style, renderChars)).join('');
+                let karaokeIndex = 0;
+                let karaokeCursor = 0;
+                const karaokeDisplay = caption.text || caption.words.map(word => word.text).join('');
+                const renderLine = line => line.map(word => {
+                    const match = karaokeDisplay.indexOf(word.text, karaokeCursor);
+                    const index = match >= 0
+                        ? [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(karaokeDisplay.slice(0, match))].length
+                        : karaokeIndex;
+                    if (match >= 0) karaokeCursor = match + word.text.length;
+                    karaokeIndex = index + [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(word.text)].length;
+                    return renderCaptionToken(word, caption.start, reveal ? null : style, renderChars,
+                        caption.textStyle?.karaoke, index);
+                }).join('');
                 const markup = reveal
                     ? renderRevealGroupsMarkup(
                         groupWordsIntoDisplayLines(caption.words, caption.textStyle?.vertical ? Number.MAX_SAFE_INTEGER : captionLineBudget),
@@ -18828,8 +18866,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '.akari-caption__tok{display:inline-block;vertical-align:baseline;line-height:1;paint-order:stroke fill;will-change:transform,color;}'
                     + (caption.textStyle?.fill_gradient ? '.akari-caption__line{background-image:none;-webkit-text-fill-color:currentColor;filter:none;}.akari-caption__tok{background-image:var(--caption-fill-gradient,none);-webkit-background-clip:text;-webkit-text-fill-color:transparent;-webkit-text-stroke:0 transparent;text-shadow:none;filter:var(--caption-fill-filter,none);}' : '')
                     + '@keyframes akari-caption-karaoke-lit{from{color:var(--caption-color,#fff);}to{color:var(--caption-highlight-color,#ffd94a);}}'
+                    + (caption.textStyle?.karaoke
+                        ? '@keyframes akari-caption-karaoke-wipe{from{clip-path:inset(0 100% 0 0);}to{clip-path:inset(0 0 0 0);}}'
+                        : '')
                     + '@keyframes akari-caption-pop{0%{transform:translateY(0) scale(1);}50%{transform:translateY(-0.08em) scale(1.12);}100%{transform:translateY(0) scale(1);}}'
                     + '.akari-caption__tok--karaoke{animation:akari-caption-karaoke-lit var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
+                    + (caption.textStyle?.karaoke
+                        ? '.akari-caption__tok--karaoke-done{color:var(--caption-highlight-color,#ffd94a);}'
+                            + '.akari-caption__tok--karaoke-smooth{position:relative;animation:none;}'
+                            + '.akari-caption__tok--karaoke-smooth::after{content:attr(data-karaoke-text);position:absolute;inset:0;white-space:pre;color:var(--caption-highlight-color,#ffd94a);animation:akari-caption-karaoke-wipe var(--akari-tok-dur,0.2s) var(--akari-tok-delay,0s) linear both paused;}'
+                        : '')
                     + '.akari-caption__tok--pop{animation:akari-caption-pop 0.2s var(--akari-tok-delay,0s) ease-out both paused;}'
                     + revealWordCss
                     + revealCss

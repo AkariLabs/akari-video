@@ -213,6 +213,13 @@ export function evaluateGpuEligibility({
       entries.push(entry("caption", id, "unsupported", `caption-rich-look-${richLooks[0]}-unsupported`, richLooks));
       continue;
     }
+    const karaoke = inheritedTextStyle?.karaoke || cue?.text_style?.karaoke
+      ? { ...(inheritedTextStyle?.karaoke ?? {}), ...(cue?.text_style?.karaoke ?? {}) } : null;
+    if (style === 'karaoke' && karaoke
+      && (karaoke.fill !== undefined || (karaoke.start_index ?? 0) > 0)) {
+      entries.push(entry('caption', id, 'unsupported', 'caption-karaoke-fill-osr', ['text_style.karaoke']));
+      continue;
+    }
     const animation = textStyle?.animation ?? null;
     const motionSupport = isCaptionMotionSupported(animation);
     if (!motionSupport.supported) {

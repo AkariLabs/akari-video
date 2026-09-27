@@ -48,7 +48,7 @@ const CAPTION_STYLE_KEYS = new Set([
     'font_family', 'weight', 'italic', 'underline', 'strikethrough', 'list', 'opacity', 'letter_spacing_em', 'align',
     'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'wrap_width_pct', 'max_characters', 'text_anchor',
     'position', 'scale', 'rotate', 'shadow', 'glow', 'animation', 'reference_height_px',
-    'stroke_inner', 'fill_gradient', 'extrude'
+    'stroke_inner', 'fill_gradient', 'extrude', 'karaoke'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
 const CAPTION_BACKGROUND_KEYS = new Set([
@@ -579,6 +579,17 @@ function validateCaptionTextStyle(value, label = 'text_style') {
     rejectStyleUnknown(value, CAPTION_STYLE_KEYS, label);
     if (Object.prototype.hasOwnProperty.call(value, 'color'))
         validateHexColor(value.color, `${label}.color`);
+    if (Object.prototype.hasOwnProperty.call(value, 'karaoke')) {
+        if (!isRecord(value.karaoke))
+            fail('INVALID_TEXT_STYLE', `${label}.karaoke must be an object`);
+        rejectStyleUnknown(value.karaoke, new Set(['done_color', 'fill', 'start_index']), `${label}.karaoke`);
+        if (Object.prototype.hasOwnProperty.call(value.karaoke, 'done_color'))
+            validateHexColor(value.karaoke.done_color, `${label}.karaoke.done_color`);
+        if (Object.prototype.hasOwnProperty.call(value.karaoke, 'fill') && !['char', 'word', 'smooth'].includes(value.karaoke.fill))
+            fail('INVALID_TEXT_STYLE', `${label}.karaoke.fill must be char, word or smooth`);
+        if (Object.prototype.hasOwnProperty.call(value.karaoke, 'start_index') && (!Number.isInteger(value.karaoke.start_index) || value.karaoke.start_index < 0))
+            fail('INVALID_TEXT_STYLE', `${label}.karaoke.start_index must be a non-negative integer`);
+    }
     if (Object.prototype.hasOwnProperty.call(value, 'size_px') && !finitePositive(value.size_px)) {
         fail('INVALID_TEXT_STYLE', `${label}.size_px must be a positive finite number`);
     }
@@ -1422,7 +1433,7 @@ function mergeCaptionDisplayStyles(base, override) {
     const left = isRecord(base) ? base : {};
     const right = isRecord(override) ? override : {};
     const merged = { ...left, ...right };
-    for (const key of ['stroke', 'stroke_inner', 'fill_gradient', 'extrude', 'background', 'layout']) {
+    for (const key of ['stroke', 'stroke_inner', 'fill_gradient', 'extrude', 'background', 'layout', 'karaoke']) {
         if (isRecord(left[key]) || isRecord(right[key]))
             merged[key] = { ...(isRecord(left[key]) ? left[key] : {}), ...(isRecord(right[key]) ? right[key] : {}) };
     }
@@ -1452,6 +1463,13 @@ function normalizeCaptionLineTextStyle(value) {
     const animationLoop = normalizeCaptionAnimationSlot(value.animation?.loop);
     const animationOut = normalizeCaptionAnimationSlot(value.animation?.out);
     return {
+        ...(isRecord(value.karaoke) ? { karaoke: {
+                ...(typeof value.karaoke.done_color === 'string' ? { done_color: value.karaoke.done_color } : {}),
+                ...(value.karaoke.fill === 'char' || value.karaoke.fill === 'word' || value.karaoke.fill === 'smooth'
+                    ? { fill: value.karaoke.fill } : {}),
+                ...(Number.isInteger(value.karaoke.start_index) && value.karaoke.start_index >= 0
+                    ? { start_index: value.karaoke.start_index } : {})
+            } } : {}),
         ...(typeof value.color === 'string' ? { color: value.color } : {}),
         ...(finiteNumber(value.size_px) ? { size_px: value.size_px } : {}),
         ...(finiteNumber(value.scale) && value.scale >= 0.4 && value.scale <= 3 ? { scale: value.scale } : {}),
@@ -1544,7 +1562,7 @@ function mergeCaptionLineTextStyles(base, override) {
     const left = normalizeCaptionLineTextStyle(base);
     const right = normalizeCaptionLineTextStyle(override);
     const merged = { ...left, ...right };
-    for (const key of ['stroke', 'stroke_inner', 'fill_gradient', 'extrude', 'background', 'shadow', 'glow', 'position', 'animation']) {
+    for (const key of ['stroke', 'stroke_inner', 'fill_gradient', 'extrude', 'background', 'shadow', 'glow', 'position', 'animation', 'karaoke']) {
         if (isRecord(left[key]) || isRecord(right[key])) {
             merged[key] = { ...(isRecord(left[key]) ? left[key] : {}), ...(isRecord(right[key]) ? right[key] : {}) };
             if (Object.keys(merged[key]).length === 0)
@@ -1694,6 +1712,8 @@ function resolveCaptionLineStyleVarsAtScale(style, scale) {
     }
     if (typeof style.color === 'string')
         vars['--caption-color'] = style.color;
+    if (isRecord(style.karaoke) && typeof style.karaoke.done_color === 'string')
+        vars['--caption-highlight-color'] = style.karaoke.done_color;
     if (finiteNumber(style.size_px))
         vars['--caption-font-size'] = `${px(style.size_px)}px`;
     if (isRecord(style.stroke) && (typeof style.stroke.color === 'string' || finiteNumber(style.stroke.width_px))) {

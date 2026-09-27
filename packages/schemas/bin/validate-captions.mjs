@@ -363,13 +363,25 @@ function validateTextStyle(value, label) {
     "font_family", "weight", "italic", "underline", "strikethrough", "list", "opacity", "letter_spacing_em", "align",
     "vertical_align", "vertical", "text_transform", "max_width_pct", "wrap_width_pct", "max_characters", "text_anchor",
     "position", "scale", "rotate", "shadow", "glow", "animation", "reference_height_px",
-    "stroke_inner", "fill_gradient", "extrude",
+    "karaoke", "stroke_inner", "fill_gradient", "extrude",
   ]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
   }
   validateTextStyleV0(value, label);
   if (hasOwn(value, "color")) validateHexColor(value.color, `${label}.color`);
+  if (hasOwn(value, "karaoke")) {
+    const karaoke = value.karaoke;
+    if (!isPlainObject(karaoke)) fail(`${label}.karaoke は object である必要があります`);
+    else {
+      for (const key of Object.keys(karaoke)) {
+        if (!["done_color", "fill", "start_index"].includes(key)) fail(`${label}.karaoke に未知のキーがあります: ${key}`);
+      }
+      if (hasOwn(karaoke, "done_color")) validateHexColor(karaoke.done_color, `${label}.karaoke.done_color`);
+      if (hasOwn(karaoke, "fill") && !["char", "word", "smooth"].includes(karaoke.fill)) fail(`${label}.karaoke.fill は char/word/smooth のいずれかです`);
+      if (hasOwn(karaoke, "start_index") && (!Number.isInteger(karaoke.start_index) || karaoke.start_index < 0)) fail(`${label}.karaoke.start_index は 0 以上の整数です`);
+    }
+  }
   if (hasOwn(value, "size_px") && (!isFiniteNumber(value.size_px) || value.size_px <= 0)) {
     fail(`${label}.size_px は 0 より大きい有限数である必要があります`);
   }

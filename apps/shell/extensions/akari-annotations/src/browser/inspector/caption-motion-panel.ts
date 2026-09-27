@@ -5,11 +5,12 @@ import { CAPTION_MOTION_COMBOS, captionMotionComboWrites, captionMotionCards,
 import { CAPTION_TEXT_ANIMATIONS } from './caption-motion-catalog';
 import { createMotionWriteRequest, type InspectorMotionSlot } from './motion-fields';
 import { CAPTION_WORD_STYLES, CAPTION_EMPHASIS_STYLES,
-    type CaptionMotionCue } from './caption-motion-document';
+    type CaptionMotionCue, type CaptionKaraokeSettings } from './caption-motion-document';
 
 export interface CaptionMotionServices {
     loadCue(): Promise<CaptionMotionCue>;
     setWordStyle(style: string | null): Promise<InspectorWriteResult>;
+    setKaraoke(settings: CaptionKaraokeSettings, selectStyle?: boolean): Promise<InspectorWriteResult>;
     setEmphasis(wordIndex: number, style: typeof CAPTION_EMPHASIS_STYLES[number]['id']): Promise<InspectorWriteResult>;
     readOwner?(): Promise<{ id: string; motion?: Record<string, unknown>; durationFrames: number }>;
 }
@@ -42,8 +43,10 @@ export const CAPTION_MOTION_PANEL_CSS = `
 .akari-inspector-widget .akari-caption-motion-words button{border:1px solid var(--theia-input-border,var(--akari-line));border-radius:999px;background:var(--theia-input-background,var(--akari-elevated));color:var(--theia-input-foreground,var(--akari-ink));padding:3px 9px;cursor:pointer}
 .akari-inspector-widget .akari-caption-motion-words button[aria-pressed="true"]{border-color:var(--theia-focusBorder,var(--akari-accent));background:var(--theia-button-background,var(--akari-accent));color:var(--theia-button-foreground,#fff)}
 .akari-inspector-widget .akari-caption-motion-words button:focus-visible{outline:2px solid var(--theia-focusBorder,var(--akari-accent));outline-offset:2px}
+.akari-inspector-widget .akari-caption-motion-words button.akari-caption-motion-swatch{box-sizing:border-box;width:22px;height:22px;min-width:22px;flex:0 0 22px;padding:0;border-radius:5px}
+.akari-inspector-widget .akari-caption-motion-words button.akari-caption-motion-swatch[aria-pressed="true"]{outline:2px solid var(--akari-accent);outline-offset:2px}
 .akari-caption-motion-note{font-size:11px;color:var(--akari-muted)}
-@keyframes akari-motion-karaoke{0%,20%,70%,100%{color:#ffd94a}20.1%{color:#1f2937}}
+@keyframes akari-motion-karaoke{0%,20%,70%,100%{color:var(--akari-motion-karaoke-color,#ffd94a)}20.1%{color:#1f2937}}
 @keyframes akari-motion-caret{0%,49%{border-color:currentColor}50%,100%{border-color:transparent}}
 @keyframes akari-motion-type{0%,20%,70%,100%{max-width:3em}20.1%{max-width:0}}
 `;
@@ -78,6 +81,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
     const state = views.get(snapshot.id) ?? { slot: 'in' as InspectorMotionSlot, all: false };
     views.set(snapshot.id, state);
     const animation = snapshot.effectiveTextStyle?.animation;
+    let karaokeColor = '#ffd94a';
     const active = animation?.[state.slot]?.id;
     let ownerMotion: Awaited<ReturnType<NonNullable<CaptionMotionServices['readOwner']>>> | undefined;
     if (typeof IntersectionObserver !== 'undefined') {
@@ -162,6 +166,7 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 sample.style.borderRight = '2px solid currentColor';
                 sample.style.animation = 'akari-motion-type 1.4s steps(3,end) infinite, akari-motion-caret .6s step-end infinite';
             } else if (item.animation === 'karaoke') {
+                sample.style.setProperty('--akari-motion-karaoke-color', karaokeColor);
                 sample.style.animation = 'akari-motion-karaoke 1.4s steps(3,end) infinite';
             } else {
                 const direction = item.slot === 'out' ? 'reverse' : item.slot === 'loop' ? 'alternate' : 'normal';
@@ -255,6 +260,8 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
         if (!root.isConnected) return;
         let selected = 0;
         let wordStyle = cue.style;
+        let karaoke = cue.text_style?.karaoke;
+        karaokeColor = karaoke?.done_color ?? '#ffd94a';
         const repaintWords = (): void => {
             wordSection.querySelectorAll<HTMLElement>('[data-motion-id]').forEach(card => observer?.unobserve(card));
             wordSection.replaceChildren();
@@ -263,9 +270,14 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 kind: 'word-style' as const,
                 animation: item.id === 'karaoke' ? 'karaoke' : item.id === 'pop' ? 'pop' : 'fade-up',
                 selected: wordStyle === item.id,
-                onClick: () => { void services.setWordStyle(item.id).then(result => {
+                onClick: () => { const newlySelected = item.id === 'karaoke' && wordStyle !== 'karaoke';
+                    void (newlySelected
+                    ? services.setKaraoke({ done_color: '#fb923c', fill: 'char' }, true)
+                    : services.setWordStyle(item.id)).then(result => {
                     if (!result.ok) { notice.textContent = result.message ?? '語の表示を書き込めませんでした。'; return; }
                     wordStyle = item.id;
+                    if (newlySelected) karaoke = { ...karaoke, done_color: '#fb923c', fill: 'char' };
+                    karaokeColor = karaoke?.done_color ?? '#ffd94a';
                     repaintWords();
                     play(item.id, 'word-style');
                 }); }
@@ -282,6 +294,38 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
             wordSection.appendChild(clear);
             if (wordStyle === 'karaoke') {
                 heading('カラオケの設定', wordSection);
+                const save = (patch: CaptionKaraokeSettings): void => {
+                    void services.setKaraoke(patch).then(result => {
+                        if (!result.ok) { notice.textContent = result.message ?? 'カラオケの設定を書き込めませんでした。'; return; }
+                        karaoke = { ...karaoke, ...patch };
+                        karaokeColor = karaoke.done_color ?? '#ffd94a';
+                        repaintWords();
+                        play('karaoke', 'word-style');
+                    });
+                };
+                const doneLabel = document.createElement('label');
+                doneLabel.textContent = '歌い終わった文字の色';
+                const colors = document.createElement('div');
+                colors.className = 'akari-caption-motion-words';
+                for (const color of ['#fb923c', '#ffd94a', '#f87171', '#4ade80', '#60a5fa']) {
+                    const swatch = document.createElement('button');
+                    swatch.type = 'button';
+                    swatch.className = 'akari-caption-motion-swatch';
+                    swatch.title = color;
+                    swatch.setAttribute('aria-label', color);
+                    swatch.setAttribute('aria-pressed', String(color === karaokeColor));
+                    swatch.style.background = color;
+                    swatch.addEventListener('click', () => save({ done_color: color }));
+                    colors.appendChild(swatch);
+                }
+                const custom = document.createElement('input');
+                custom.type = 'color';
+                custom.setAttribute('aria-label', '任意の色');
+                custom.value = /^#[0-9a-f]{6}$/iu.test(karaokeColor) ? karaokeColor : '#ffd94a';
+                custom.addEventListener('change', () => save({ done_color: custom.value }));
+                colors.appendChild(custom);
+                doneLabel.appendChild(colors);
+                wordSection.appendChild(doneLabel);
                 const label = document.createElement('label');
                 label.textContent = 'まだの文字の色';
                 const input = document.createElement('input');
@@ -296,10 +340,42 @@ export function createCaptionMotionPanel(snapshot: TimelineCaptionSelection,
                 });
                 label.appendChild(input);
                 wordSection.appendChild(label);
-                const note = document.createElement('div');
-                note.className = 'akari-caption-motion-note';
-                note.textContent = '歌い終わった文字は現在、固定の黄色（#ffd94a）です。';
-                wordSection.appendChild(note);
+                heading('塗りの進み方', wordSection);
+                const fills = document.createElement('div');
+                fills.className = 'akari-caption-motion-words';
+                for (const [fill, title] of [['char', '1 文字ずつ'], ['word', '1 語ずつ'], ['smooth', 'なめらか']] as const) {
+                    const button = document.createElement('button');
+                    button.type = 'button'; button.textContent = title;
+                    button.setAttribute('aria-pressed', String(karaoke?.fill === fill));
+                    button.addEventListener('click', () => save({ fill }));
+                    fills.appendChild(button);
+                }
+                wordSection.appendChild(fills);
+                if (!karaoke?.fill) {
+                    const current = document.createElement('div');
+                    current.className = 'akari-caption-motion-note';
+                    current.textContent = '現在: 語ごとに色がじわっと変わります。';
+                    wordSection.appendChild(current);
+                }
+                heading('開始位置', wordSection);
+                const GraphemeSegmenter = (Intl as unknown as {
+                    Segmenter: new (locale: undefined, options: { granularity: 'grapheme' }) => {
+                        segment(value: string): Iterable<{ segment: string }>;
+                    };
+                }).Segmenter;
+                const characters = Array.from(new GraphemeSegmenter(undefined, { granularity: 'grapheme' })
+                    .segment(cue.text || cue.words.map(word => word.text).join('')), part => part.segment);
+                const startChips = document.createElement('div');
+                startChips.className = 'akari-caption-motion-words';
+                characters.forEach((character, index) => {
+                    const chip = document.createElement('button');
+                    chip.type = 'button'; chip.textContent = character;
+                    chip.setAttribute('aria-label', `開始位置 ${index + 1}: ${character}`);
+                    chip.setAttribute('aria-pressed', String(index === (karaoke?.start_index ?? 0)));
+                    chip.addEventListener('click', () => save({ start_index: index }));
+                    startChips.appendChild(chip);
+                });
+                wordSection.appendChild(startChips);
             }
         };
         repaintWords();

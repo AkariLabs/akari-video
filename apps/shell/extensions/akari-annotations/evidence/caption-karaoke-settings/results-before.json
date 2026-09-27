@@ -1,0 +1,365 @@
+{
+  "phase": "before",
+  "fixture": "plain",
+  "head": "7ad651c9b",
+  "scenarios": [
+    {
+      "key": "k1a",
+      "t": 0.4
+    },
+    {
+      "key": "k1b",
+      "t": 1.25
+    },
+    {
+      "key": "k2",
+      "t": 4.25
+    },
+    {
+      "key": "k3",
+      "t": 7.25
+    },
+    {
+      "key": "k4",
+      "t": 10.25
+    },
+    {
+      "key": "k5",
+      "t": 13.25
+    }
+  ],
+  "dom": {
+    "k1a": [
+      {
+        "plate": "caption-plate-c-0001-output-1",
+        "vars": [
+          [
+            "--caption-highlight-color",
+            ""
+          ],
+          [
+            "--caption-text-color",
+            ""
+          ],
+          [
+            "--caption-karaoke-done-color",
+            ""
+          ]
+        ],
+        "tokens": [
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "カラオケ",
+            "color": "rgb(255, 237, 168)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0s; --akari-tok-dur: 0.833s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "の色を確",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0.833s",
+            "dur": "0.834s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0.833s; --akari-tok-dur: 0.834s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "かめる",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "1.667s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 1.667s; --akari-tok-dur: 0.833s"
+          }
+        ]
+      }
+    ],
+    "k1b": [
+      {
+        "plate": "caption-plate-c-0001-output-1",
+        "vars": [
+          [
+            "--caption-highlight-color",
+            ""
+          ],
+          [
+            "--caption-text-color",
+            ""
+          ],
+          [
+            "--caption-karaoke-done-color",
+            ""
+          ]
+        ],
+        "tokens": [
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "カラオケ",
+            "color": "rgb(255, 217, 74)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0s; --akari-tok-dur: 0.833s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "の色を確",
+            "color": "rgb(255, 235, 161)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0.833s",
+            "dur": "0.834s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0.833s; --akari-tok-dur: 0.834s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "かめる",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "1.667s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 1.667s; --akari-tok-dur: 0.833s"
+          }
+        ]
+      }
+    ],
+    "k2": [],
+    "k3": [
+      {
+        "plate": "caption-plate-c-0003-output-1",
+        "vars": [
+          [
+            "--caption-highlight-color",
+            ""
+          ],
+          [
+            "--caption-text-color",
+            ""
+          ],
+          [
+            "--caption-karaoke-done-color",
+            ""
+          ]
+        ],
+        "tokens": [
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "Hi 世",
+            "color": "rgb(255, 217, 74)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0s; --akari-tok-dur: 0.833s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "界🎤テス",
+            "color": "rgb(255, 235, 161)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0.833s",
+            "dur": "0.834s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0.833s; --akari-tok-dur: 0.834s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "ト",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "1.667s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 1.667s; --akari-tok-dur: 0.833s"
+          }
+        ]
+      }
+    ],
+    "k4": [
+      {
+        "plate": "caption-plate-c-0004-output-1",
+        "vars": [
+          [
+            "--caption-highlight-color",
+            ""
+          ],
+          [
+            "--caption-text-color",
+            ""
+          ],
+          [
+            "--caption-karaoke-done-color",
+            ""
+          ]
+        ],
+        "tokens": [
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "今日は朝",
+            "color": "rgb(255, 217, 74)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0s; --akari-tok-dur: 0.833s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "のルーテ",
+            "color": "rgb(255, 235, 161)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "0.833s",
+            "dur": "0.834s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0.833s; --akari-tok-dur: 0.834s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--karaoke",
+            "text": "ィン",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-karaoke-lit",
+            "delay": "1.667s",
+            "dur": "0.833s",
+            "timing": "linear",
+            "play": "paused",
+            "style": "--akari-tok-delay: 1.667s; --akari-tok-dur: 0.833s"
+          }
+        ]
+      }
+    ],
+    "k5": [
+      {
+        "plate": "caption-plate-c-0005-output-1",
+        "vars": [
+          [
+            "--caption-highlight-color",
+            ""
+          ],
+          [
+            "--caption-text-color",
+            ""
+          ],
+          [
+            "--caption-karaoke-done-color",
+            ""
+          ]
+        ],
+        "tokens": [
+          {
+            "cls": "akari-caption__tok akari-caption__tok--pop",
+            "text": "対照のポ",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-pop",
+            "delay": "0s",
+            "dur": "0.2s",
+            "timing": "ease-out",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--pop",
+            "text": "ップ表示",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-pop",
+            "delay": "0.833s",
+            "dur": "0.2s",
+            "timing": "ease-out",
+            "play": "paused",
+            "style": "--akari-tok-delay: 0.833s"
+          },
+          {
+            "cls": "akari-caption__tok akari-caption__tok--pop",
+            "text": "です",
+            "color": "rgb(255, 255, 255)",
+            "bgImage": "none",
+            "clip": "border-box",
+            "bgPos": "0% 0%",
+            "anim": "akari-caption-pop",
+            "delay": "1.667s",
+            "dur": "0.2s",
+            "timing": "ease-out",
+            "play": "paused",
+            "style": "--akari-tok-delay: 1.667s"
+          }
+        ]
+      }
+    ]
+  },
+  "psnr": {
+    "k1a": 32.163427,
+    "k1b": 32.761397,
+    "k2": 32.83849,
+    "k3": 33.770556,
+    "k4": 34.312783,
+    "k5": 33.074848
+  },
+  "renderSeconds": 26,
+  "renderExit": 0,
+  "engine": "osr",
+  "launcherTiers": {
+    "provenance.osr.provenance.launcher_tier": 2
+  },
+  "osrLogFallback": false,
+  "status": "recorded"
+}
